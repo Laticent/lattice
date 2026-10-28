@@ -209,10 +209,12 @@ for (const d of datasets) {
 /**
  * CLI-tier decks, chosen for what they make the EXPORT PATH do — not for size.
  *
- * The render performs one `page.goto` up front, one more per auto-split pass, and one
- * more if the rails/relationship re-render changes the document. So the navigation count
- * is a property of whether a deck splits, and these three span 1, 3 and 4 navigations.
- * A tier that only measured a non-splitting deck would see a third of the effect.
+ * The render performs one `page.goto` up front and one more when the structural split changes
+ * the document. So the navigation count is a property of whether a deck splits: 1 or 2. Until
+ * Fluid P0 the split and its run adornments each re-navigated, which these rows recorded as 3
+ * and 4 navigations; one preprocessor now does both in one string pass
+ * (engineering/decisions/2026-10-27-fluid-layout-library.md §12). The two splitting rows differ
+ * in how much they split, not in how often they navigate.
  *
  * All three are deliberately MERMAID-FREE. `mmdc` is ~1.9s + ~1.1s per fence even after
  * #1677's batching, which on a diagram deck is most of the render — it would swamp the
@@ -221,11 +223,10 @@ for (const d of datasets) {
 const cliDatasets = [
   // No split: initial navigation only.
   { name: 'cli · portrait-roadmap (1 nav)', deck: 'examples/portrait-roadmap.md' },
-  // Splits once: initial + auto-split + rails.
-  { name: 'cli · auto-split (3 nav)', deck: 'examples/auto-split.md' },
-  // Splits twice: initial + 2 auto-split passes + rails — the deepest navigation loop
-  // in the shipped corpus.
-  { name: 'cli · cover-paginate (4 nav)', deck: 'examples/cover-paginate.md' },
+  // Splits: initial + one re-navigation after the split.
+  { name: 'cli · auto-split (2 nav)', deck: 'examples/auto-split.md' },
+  // Splits more slides, through the cover-paginate recipe: still initial + one.
+  { name: 'cli · cover-paginate (2 nav)', deck: 'examples/cover-paginate.md' },
   // THE LOOK-SCRATCH ROW, and the only dataset anywhere in this file that reaches it.
   //
   // An image set that extracts standalone SVGs under a `--svg-background` differing from
@@ -624,6 +625,56 @@ async function collageTier() {
   for (const r of summary) {
     const verdict = r.p95 <= COLLAGE_BUDGET_MS ? 'within' : r.ms <= COLLAGE_BUDGET_MS ? 'median within, p95 over' : 'OVER';
     console.log(`${r.dataset.padEnd(36)}${String(r.arrangements).padStart(7)}${String(r.scored).padStart(8)}${r.ms.toFixed(2).padStart(11)}${r.p95.toFixed(2).padStart(9)}  ${verdict}`);
+  }
+  return { summary };
+}
+
+// ── SPLIT TIER (Fluid: the structural split, through Fluido's plan) ──────────
+//
+// `structuralSplit` is the one preprocessor every surface calls, and Fluido's `planSlide` makes its
+// decision (engineering/decisions/2026-10-27-fluid-layout-library.md §8 P1). The decision costs
+// ~23 ns; the split's real cost is building the pages, about 0.2 ms each. This tier times the whole
+// preprocessor on the baseline gallery at the three sizes that split, and GATES ON WORK, like the
+// collage tier: the slides split and the pages emitted are deterministic integers, so a moved count
+// is a behavior change to review (the per-page record is `npm run split:golden:check`). `ms` is the
+// cost record the later Fluid phases are measured against, printed and blessed, not gated.
+const SPLIT_SIZES = ['square', 'portrait', 'mobile'];
+async function splitTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const fluidoPath = join(ROOT, 'docs/src/lib/fluido/dist/index.cjs');
+  if (!existsSync(fluidoPath)) {
+    console.log('\n=== SPLIT \u00b7 not comparable (no @laticent/fluido in this tree) ===');
+    return { summary: [] };
+  }
+  const ss = req(join(ROOT, 'lib/core/structural-split.js'));
+  const { loadAll } = req(join(ROOT, 'lib/components/index.js'));
+  const { createEngine } = req(join(ROOT, 'lib/engine/index.js'));
+  const capacity = ss.splitCapacityFrom(loadAll(join(ROOT, 'lib/components')));
+  const engine = createEngine();
+  const src = readFileSync(join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8').replace(/\r\n?/g, '\n');
+  const summary = [];
+  for (const size of SPLIT_SIZES) {
+    const md = src.replace(/^(---\n[\s\S]*?)\n---\n/, (_m, fm) => `${fm.replace(/^size:.*$/m, '')}\nsize: ${size}\n---\n`);
+    const out = engine.render(md, 'indaco', { preview: true });
+    const opts = { deckSource: md, width: out.width, height: out.height, capacity };
+    let r;
+    for (let i = 0; i < 5; i++) r = ss.structuralSplit(out.html, opts); // warm
+    const ms = [];
+    for (let i = 0; i < 30; i++) {
+      const t0 = process.hrtime.bigint();
+      r = ss.structuralSplit(out.html, opts);
+      ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    ms.sort((a, b) => a - b);
+    const slides = ss.splitTopLevelSections(out.html).length;
+    const pages = ss.splitTopLevelSections(r.html).length;
+    summary.push({ dataset: `split \u00b7 gallery @${size}`, slides, split: r.changed, pages, ms: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)] });
+  }
+  console.log('\n=== SPLIT \u00b7 structuralSplit over the baseline gallery ===');
+  console.log(`${'dataset'.padEnd(30)}${'slides'.padStart(8)}${'split'.padStart(7)}${'pages'.padStart(7)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}${'ms/page'.padStart(9)}`);
+  for (const r of summary) {
+    console.log(`${r.dataset.padEnd(30)}${String(r.slides).padStart(8)}${String(r.split).padStart(7)}${String(r.pages).padStart(7)}${r.ms.toFixed(2).padStart(11)}${r.p95.toFixed(2).padStart(9)}${(r.ms / r.pages).toFixed(3).padStart(9)}`);
   }
   return { summary };
 }
@@ -1353,7 +1404,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1449,6 +1500,10 @@ function blessBaseline(summary, render, opts = {}) {
   const collageOut = tierRows(collageSummary?.length ? collageSummary : null, 'collageDatasets', (s) => ({
     photos: s.photos, arrangements: s.arrangements, scored: s.scored, ms: round2(s.ms), p95: round2(s.p95),
   }));
+  // THE SPLIT TIER BLESSES ITS WORK COUNTS; `ms` is the cost record, as in the collage tier.
+  const splitOut = tierRows(splitSummary?.length ? splitSummary : null, 'splitDatasets', (s) => ({
+    slides: s.slides, split: s.split, pages: s.pages, ms: round2(s.ms), p95: round2(s.p95),
+  }));
   // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
   // two ns columns ride along so the diff shows the size of a change in real units.
   const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
@@ -1518,6 +1573,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(flowchartOut ? { flowchartDatasets: flowchartOut } : {}),
     // The collage packer per photo set: arrangements kept and roots scored. Blessed on every bless.
     ...(collageOut ? { collageDatasets: collageOut } : {}),
+    // The structural split over the gallery: slides split and pages emitted. Blessed on every bless.
+    ...(splitOut ? { splitDatasets: splitOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
     // Blessed on every bless.
     ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
@@ -1531,6 +1588,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (editSummary?.length) wrote.push(`${editSummary.length} edit`);
   if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
   if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
+  if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
@@ -1607,6 +1665,7 @@ function checkBaseline(summary, render, opts = {}) {
   const editSummary = opts.editSummary ?? null;
   const flowchartSummary = opts.flowchartSummary ?? null;
   const collageSummary = opts.collageSummary ?? null;
+  const splitSummary = opts.splitSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
@@ -1916,6 +1975,29 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE SPLIT TIER. Gates on WORK: a moved slide or page count is a behavior change, so it is drift
+  // to re-bless with the PR saying why (the per-page record is `npm run split:golden:check`).
+  if (splitSummary?.length) {
+    console.log('\n=== SPLIT CHECK \u00b7 slides split and pages emitted vs committed baseline ===');
+    for (const s2 of splitSummary) {
+      const b = base.splitDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(30)}  NEW (re-bless)`);
+        continue;
+      }
+      const moved = b.slides !== s2.slides || b.split !== s2.split || b.pages !== s2.pages;
+      if (moved) drift = true;
+      console.log(`${s2.dataset.padEnd(30)}  pages ${b.pages} \u2192 ${s2.pages}, split ${b.split} \u2192 ${s2.split}  ${moved ? 'MOVED (re-bless, and say why)' : 'ok'}`);
+    }
+    for (const name of Object.keys(base.splitDatasets ?? {})) {
+      if (!splitSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(30)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   if (inlineSkipped === 'failed') {
     // Drift, not a timing verdict: the rows recorded nothing this run, on any machine.
     drift = true;
@@ -2156,6 +2238,8 @@ async function main() {
   const flow = await flowchartTier();
   // In-process (~3s), and blessed on its work counts: the collage packer's HARD RULE #19 record.
   const collage = await collageTier();
+  // In-process (~3s), and blessed on its work counts: the structural split's cost record (Fluid).
+  const split = await splitTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
   const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
@@ -2165,7 +2249,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2189,7 +2273,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2281,7 +2365,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

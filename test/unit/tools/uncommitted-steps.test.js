@@ -88,6 +88,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-veduta-lib.js',
   // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
   'build-mosaico-lib.js',
+  // Its whole write set is docs/src/lib/fluido/dist/, covered by docs/.gitignore's `dist/`.
+  'build-fluido-lib.js',
   'build-lente-lib.js',
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.

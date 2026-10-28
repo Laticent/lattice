@@ -232,7 +232,7 @@ declines it because *"N is 2 by contract, the `.verdict` is a sibling of
 grid leaves half the slide empty at landscape."* Two of three reasons dissolve
 under the ruled run: the verdict becomes the run's closing page rather than
 repeating (`closingPage`, `split-envelope.js:1170`), and landscape never splits
-(`lattice-emulator.js:2026`). What survives is `N is 2` — a short run, not a
+(the `splitApplies` gate in the CLI, then named `lattice-emulator.js`, now `lattice.js`). What survives is `N is 2` — a short run, not a
 broken one.
 
 **`code` needs a line-splitter, and one fact will break a naive one.** Highlight

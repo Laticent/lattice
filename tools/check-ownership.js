@@ -7429,6 +7429,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'the default palette — a silently wrong divergence table rather than an error.',
   },
   {
+    file: 'tools/split-pages-golden.js',
+    why: 'rewrites each gallery\'s front matter to set `size:` before rendering. A CRLF or BOM '
+       + 'gallery would keep its authored size, so the golden would record the wrong family and '
+       + 'pass while the split under test never ran at that size.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
@@ -9367,6 +9373,116 @@ function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
       `dependency-free so it runs the same on the CLI, in the browser and in a worker: every ` +
       `import must resolve inside docs/src/lib/mosaico/ ` +
       `(engineering/decisions/2026-10-16-mosaico-layout-library.md §5).`,
+  });
+}
+
+// ── One paginator (Fluid) ────────────────────────────────────────────────────────────────────
+// A module that STAMPS a split page's role or run (a template, a concatenation or a literal
+// `data-split-role="cover"`, `setAttribute` / markdown-it `attrSet`, a `dataset` write) is composing
+// paginated pages. Fluid's plan deletes today's paginating paths phase by phase
+// (engineering/decisions/2026-10-27-fluid-layout-library.md §8, "What each phase deletes"); this
+// census keeps a new role/run stamper from appearing meanwhile. Every writer is listed with its count
+// and why; an unlisted writer, a moved count and a stale entry all fail. WHAT IT DOES NOT SEE: a path
+// that paginates without stamping role or run. The pane split (`installPaneSplit`, `arrangePanes`)
+// and the Studio's `splitSlideInHalf` are such paths, so §8's deletion table tracks them by name, not
+// this census. Readers (`/\sdata-split-role="body"/`, `[data-split-role=…]`, `hasAttribute`) are not
+// writes. Scanned: lib/, docs/src/ (including .astro) and lattice.js, minus tests and generated files.
+const SANCTIONED_PAGINATORS = [
+  {
+    file: 'lib/core/split-envelope.js',
+    count: 2,
+    why: 'the envelope composes COVER, BODY and CLOSING pages and stamps each one\'s role '
+       + '(`withRole`). The Fluid connector takes this over at P1 and the entry moves with it.',
+  },
+  {
+    file: 'lib/core/auto-split.js',
+    count: 1,
+    why: 'stamps `data-split-run` on every page of a run so the rail, the carousel signal and '
+       + 'the re-numbering can find the run. Deleted with the Node string path at Fluid P6.',
+  },
+];
+
+const PAGINATOR_WRITE_RES = [
+  // a template stamp: `data-split-role="${role}"`
+  /data-split-(?:role|run)=\\?["']?\$\{/g,
+  // a concatenated stamp: 'data-split-role="' + role
+  /data-split-(?:role|run)=\\?["']?['"`]\s*\+/g,
+  // a literal stamp: <section data-split-role="cover". A regex reader spells it `\sdata-split-role=`
+  // and a selector `[data-split-role=`, so a `\s` or `[` right before the name is a read.
+  /(?<!\\s|\[)data-split-(?:role|run)=\\?"(?:cover|body|closing)\b/g,
+  // DOM and markdown-it writes
+  /(?:setAttribute|attrSet)\s*\(\s*['"`]data-split-(?:role|run)['"`]/g,
+  /dataset(?:\.split(?:Role|Run)|\[\s*['"`]split(?:Role|Run)['"`]\s*\])\s*=(?!=)/g,
+  /Object\.assign\s*\([^)]*\bdataset\b[^)]*\bsplit(?:Role|Run)\b/g,
+];
+
+function checkPaginationOwners(errors, sanctions = SANCTIONED_PAGINATORS, root = ROOT) {
+  const files = [];
+  listSourceFiles(path.join(root, 'lib'), files);
+  listSourceFiles(path.join(root, 'docs', 'src'), files);
+  // listSourceFiles skips `.astro`; a page component can write markup too.
+  listFilesByExt(path.join(root, 'docs', 'src'), ['.astro'], files);
+  const cli = path.join(root, 'lattice.js');
+  if (fs.existsSync(cli)) files.push(cli);
+  const found = new Map();
+  for (const file of files) {
+    const rel = relPosix(root, file);
+    if (/\.generated\.[cm]?[jt]s$|\.test\.[cm]?[jt]sx?$|\.d\.ts$/.test(rel)) continue;
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    let n = 0;
+    for (const re of PAGINATOR_WRITE_RES) n += [...code.matchAll(re)].length;
+    if (n) found.set(rel, n);
+  }
+  const seen = new Set();
+  for (const entry of sanctions) {
+    if (seen.has(entry.file)) {
+      errors.push(`SANCTIONED_PAGINATORS lists ${entry.file} twice — one entry silently shadows the other. Merge them.`);
+    }
+    seen.add(entry.file);
+    if (!entry.why || !String(entry.why).trim()) {
+      errors.push(`SANCTIONED_PAGINATORS entry ${entry.file} has no \`why\` — a sanctioned paginator states its reason (HARD RULE #1).`);
+    }
+  }
+  const declared = new Map(sanctions.map((s) => [s.file, s]));
+  for (const [rel, count] of found) {
+    const entry = declared.get(rel);
+    if (!entry) {
+      errors.push(
+        `${rel} stamps a split page's role or run (${count} write(s)), so it composes paginated pages — a ` +
+        `new paginator. Fluid is the one paginator (engineering/decisions/2026-10-27-fluid-layout-library.md ` +
+        `§8): build the pages through the Fluid connector, or, if this is genuinely a sanctioned path, add ` +
+        `it to SANCTIONED_PAGINATORS in tools/check-ownership.js with its count and why.`,
+      );
+    } else if (entry.count !== count) {
+      errors.push(
+        `${rel} stamps a split page's role or run ${count} time(s), but SANCTIONED_PAGINATORS records ` +
+        `${entry.count}. Update the count in the same change, and say why in the PR.`,
+      );
+    }
+  }
+  for (const entry of sanctions) {
+    if (!found.has(entry.file)) {
+      errors.push(
+        `SANCTIONED_PAGINATORS lists ${entry.file}, which no longer stamps a split page — a stale entry. ` +
+        `Delete it; the Fluid phase that removed the path removes its sanction (§8).`,
+      );
+    }
+  }
+}
+
+// ── Fluido (docs/src/lib/fluido) — the fit-policy core ──────────────────────
+// Fluido decides how content fits its box: facts about a rendered slide in, a decision out. The
+// same code decides for the CLI, the browser previews and, from Fluid P2, a DOM adapter, so it has
+// NO dependencies, not even `node:` (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).
+const FLUIDO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'fluido');
+function checkFluidoBoundary(errors, dir = FLUIDO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Fluido folder. Fluido's core is pure and ` +
+      `dependency-free so every surface gets the same decision: every import must resolve inside ` +
+      `docs/src/lib/fluido/ (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).`,
   });
 }
 
@@ -14137,6 +14253,8 @@ function run() {
   checkVedutaBoundary(errors);
   checkFiloBoundary(errors);
   checkMosaicoBoundary(errors);
+  checkFluidoBoundary(errors);
+  checkPaginationOwners(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLttBoundary(errors);
@@ -14207,6 +14325,9 @@ module.exports = {
   checkVedutaBoundary,
   checkFiloBoundary,
   checkMosaicoBoundary,
+  checkFluidoBoundary,
+  checkPaginationOwners,
+  SANCTIONED_PAGINATORS,
   checkReadingRole,
   checkHandRolledPills,
   handRolledPillFindings,

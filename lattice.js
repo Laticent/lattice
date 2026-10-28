@@ -193,8 +193,8 @@ OPTIONS
                           CONTENT unless the author overrode it with a say: line.
                           Timing is Cadenza's estimate (no audio, no key); honors
                           --strip-say
-      --no-split          Do NOT paginate an overflowing slide — render it whole
-                          and let it ring. INSTRUMENTATION only: a measurement rig
+      --no-split          Do NOT auto-split a slide with many members — render it
+                          whole and let it ring. INSTRUMENTATION only: a measurement rig
                           needs page N to stay slide N. A deck that means to show
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
@@ -3827,47 +3827,35 @@ async function renderBody(browser, g, closeBrowser) {
   // does not fit even at one element per page rings, which is the honest terminal: there is no
   // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { splitDoc } = require('./lib/core/auto-split');
-    const r = splitDoc(cleanDocHtml, SPLIT_CAP);
-    if (r.changed) {
-      cleanDocHtml = r.html;
+    // ONE preprocessor (HARD RULE #1): `structuralSplit` is what every browser surface calls —
+    // stamp, size gate, `splitDoc`, then the RUN-LEVEL adornments (`railRun`): the deck's own
+    // chrome stripped from emitted pages, the carousel signal every body page carries
+    // ("→ next: …" / "↻ back to …" / "governs ↓ …" / "Option N of M"), the k-of-N rail and the
+    // re-berth. The CLI used to compose `splitDoc` and `railRun` inline and re-navigate after
+    // each; the two passes read no render, so one string pass and one navigation give the same
+    // bytes (checked on the exported HTML of seven decks; Fluid P0,
+    // 2026-10-27-fluid-layout-library.md §12).
+    // The deck chrome comes from the front matter (`md`), not from a section's
+    // `data-header`/`data-footer`, which a per-slide `_footer:` also fills (railRun's header).
+    const ss = require('./lib/core/structural-split');
+    const r = ss.structuralSplit(cleanDocHtml, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP });
+    // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
+    // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
+    // slide, so keep that here rather than change a degraded install's output.
+    const splitHtml = r.applies ? r.html : ss.railRun(r.html, md, SPLIT_CAP);
+    if (splitHtml !== cleanDocHtml) {
+      cleanDocHtml = splitHtml;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (autosplit)');
+      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (split)');
       await g(() => page.evaluate(async () => {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
         for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
-      }), 'load fonts (autosplit)');
-      await settleDeferredMedia(' (autosplit)');
-      await awaitPluginFigures(' (autosplit)');
-      if (!QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
+      }), 'load fonts (split)');
+      await settleDeferredMedia(' (split)');
+      await awaitPluginFigures(' (split)');
     }
-    // The two RUN-LEVEL adornments — the k-of-N progress rail, and the carousel signal every
-    // body page carries ("→ next: …" / "↻ back to …" / "governs ↓ …" / "Option N of M", and on
-    // the last body page a pointer at the closing page). Both need the run's final membership,
-    // which after a single structural pass is simply "now" — but they stay a separate pass
-    // because they are facts ABOUT a run rather than about any one page.
-    // …and RE-BERTH, in the same re-render (see below).
-    // …and STRIP THE DECK'S CHROME from the emitted pages first, so the rail is docked into
-    // whatever band is left rather than into one that is about to lose three of its four marks.
-    // The deck's OWN header/footer strings, read from the front matter — not from a section's
-    // `data-header`/`data-footer`, which Marp also fills from a per-slide `_footer:` override and
-    // so cannot tell the deck's repeated band from this slide's own caption. Reading the section
-    // deleted the author's caption from every page of a run (measured on portrait-journey and
-    // portrait-roadmap, both of which declare a per-slide footer and no deck-level one).
-    const railed = require('./lib/core/structural-split').railRun(cleanDocHtml, md, SPLIT_CAP);
-    if (railed !== cleanDocHtml) {
-      cleanDocHtml = railed;
-      fs.writeFileSync(outHtml, cleanDocHtml);
-      // `load` for the same measured reason as the initial navigation above.
-      await g(() => page.goto(pathToFileURL(path.resolve(outHtml)).href, { waitUntil: 'load', timeout: 60000 }), 'navigate (rails)');
-      await g(() => page.evaluate(async () => {
-        try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
-        for (const draw of Object.values(document.__latticeGraphFlush || {})) { try { draw(); } catch (_e) { /* that chart's harness tiles stay up */ } }
-      }), 'load fonts (rails)');
-      await settleDeferredMedia(' (rails)');
-      await awaitPluginFigures(' (rails)');
-    }
+    if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
   }
   // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
   // the page count; this verdict feeds the author warnings and the overflow marker, which is

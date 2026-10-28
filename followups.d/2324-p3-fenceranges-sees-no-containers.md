@@ -20,7 +20,7 @@ why now   — the 2324-p1 fix bounds a closer at the opener's column plus three,
             `>` prefix, so its body is not masked. Math inside it over-locks (safe); a
             `_class` comment inside it would hoist.
 where     — docs/src/components/studio/slide-directives.ts `fenceRanges`. The engine's
-            own splitters (lib/core/split-slides.js, lib/authoring/slide-split.js) share
+            own splitter (lib/authoring/slide-split.js) shares
             the container-blind shape, so a shared, container-aware scanner is the
             honest fix (HARD RULE #1), not a Compose-only patch.
 done when — both inputs above mask exactly what markdown-it's fence tokens cover, pinned

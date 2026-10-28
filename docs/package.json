@@ -20,6 +20,7 @@
     "check:veduta": "tsc -p tsconfig.veduta.json",
     "check:lente": "tsc -p tsconfig.lente.json",
     "check:mosaico": "tsc -p tsconfig.mosaico.json",
+    "check:fluido": "tsc -p tsconfig.fluido.json",
     "check:segno": "tsc -p tsconfig.segno.json",
     "test": "vitest run",
     "test:watch": "vitest",

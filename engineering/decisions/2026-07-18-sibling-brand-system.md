@@ -265,3 +265,44 @@ and vermilion, Segno's charcoal and red, Fuoco's teal and ember):
 | ring | `#2e1740` | `#1d1226` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#241a2b` | `#ece4f3` | Fraunces "Veduta" |
+
+## Fluido — the vessel (mark 2026-10-27; package lands with Fluid P1)
+
+Fluido (`@laticent/fluido`, the core of Fluid,
+[`2026-10-27-fluid-layout-library.md`](2026-10-27-fluid-layout-library.md)) decides how a slide's
+content fits the box it is shown in: it reflows, or it breaks onto the next page. *Fluido* is
+Italian for **fluid**, and a liquid is the one thing that takes the shape of any vessel. The mark
+is one liquid in three vessels:
+
+- **the vessels**: a wide, a square and a tall rounded box, nested on one center. The tall one is
+  drawn at full weight; the wide and square ones are faint, the shapes the same content could be
+  shown in;
+- **the waterline**: one jade wave runs across all three at the same height, the same content in
+  every box, with a pale tint below it inside the tall vessel;
+- **the ringed hub** floats above the waterline, the family tie.
+
+The concept was picked from three by the owner. A "seam" (a page that fills, then spills past a
+seam onto the next) and a "spill" (wavy content lines running from one page into another) both
+drew two offset, overlapping frames, which read as Calco's mark, and both went muddy at 16 px.
+The vessel's boxes differ in shape like Mosaico's, but Mosaico packs boxes side by side and these
+are nested on one center with liquid in them.
+
+Assets: `docs/public/fluido-mark.svg`, `fluido-mark-min.svg` (favicon: the tall vessel, the
+waterline and the hub only), `fluido-lockup.svg`. The mark's clip path is namespaced
+(`fluido-vessel`), so two inlined copies on one page cannot paint each other's.
+
+**Palette**, honey and jade, chosen by MEASUREMENT rather than by eye. A first pick, plum, sat only
+8.8 (CIEDE2000) from Veduta's violet. Against every sibling's primary and live accent, ochre's
+nearest is Mosaico at 16.7, the farthest of twelve candidate hues, and jade's nearest is 19.1,
+the best of nine accents; the pair is at least 44.7 from every sibling's pair (the summed
+distance of both colors). Blue-green "water" hues were ruled out: each landed within 10 of Fuoco,
+Calco or Tavola.
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| vessels (`pri`) | `#7a5a12` | `#e3b860` | the boxes (honey) |
+| waterline and tint (`warm`, `tint`) | `#13a17a` | `#5fe0b8` | the content (jade) |
+| hub | `#7a5a12` | `#e3b860` | the focal point |
+| ring | `#33250a` | `#2a1f08` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#2a2110` | `#f3ead6` | Fraunces "Fluido" |

@@ -97,6 +97,7 @@ const {
   checkVedutaBoundary,
   checkFiloBoundary,
   checkMosaicoBoundary,
+  checkFluidoBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
@@ -2181,6 +2182,37 @@ describe('check-ownership', () => {
         assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
       }
       assert.deepEqual(run({ 'pack.test.ts': "import { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Fluido: the fit-policy core is pure too, so every surface gets the same decision (Fluid P1).
+  describe('Fluido import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fluido-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkFluidoBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkFluidoBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('relative imports pass; anything outside the folder is caught', () => {
+      assert.deepEqual(run({ 'index.ts': "export { planSlide } from './plan.js';\nimport type { Move } from './types.js';" }), []);
+      for (const src of [
+        "import fs from 'node:fs';",
+        "import { pack } from '../mosaico/index.js';",
+        "const _ = require('lodash');",
+        "import { splitDoc } from '../../../../lib/core/auto-split.js';",
+      ]) {
+        assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
+      }
     });
   });
 

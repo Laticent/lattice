@@ -1,0 +1,370 @@
+---
+// Fluido — a standalone showcase driven by the REAL core (docs/src/lib/fluido, the `@laticent/fluido`
+// workspace). Pick a box and some content; the page reads the facts, asks the core what the slide
+// becomes, and draws the pages it names. The family comes from Lattice's one classifier
+// (lib/adaptive/families.js), not a copy of its boundaries. Every node is built with createElement
+// and textContent: nothing here assigns an HTML string. Reached at /libraries/fluido/; its Learn page
+// is /libraries/fluido/learn/ (src/content/catalog/libraries/fluido.md).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Fluido — content that fits any box</title>
+		<link rel="icon" href="/fluido-mark-min.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f6f3ec; --stage: #eeeae0; --ink: #2a2110; --muted: #6b604a; --line: #ddd5c4;
+				--accent: #7a5a12; --accent-ink: #fff; --alarm: #c4412b; --jade: #13a17a; --jade-soft: #d5efe6; --panel: #fdfcf9; --soft: #efe6d2;
+				--shadow: 0 1px 2px rgba(42,33,16,.06), 0 8px 24px rgba(42,33,16,.07);
+				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", Menlo, monospace;
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-theme="light"]) {
+					--paper: #121012; --stage: #19160f; --ink: #f3ead6; --muted: #b3a688; --line: #2f2a1e;
+					--accent: #e3b860; --accent-ink: #1d1606; --alarm: #ff8a73; --jade: #5fe0b8; --jade-soft: #123528; --panel: #17140e; --soft: #2b2414;
+					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					color-scheme: dark;
+				}
+			}
+			:root[data-theme="dark"] {
+				--paper: #121012; --stage: #19160f; --ink: #f3ead6; --muted: #b3a688; --line: #2f2a1e;
+				--accent: #e3b860; --accent-ink: #1d1606; --alarm: #ff8a73; --jade: #5fe0b8; --jade-soft: #123528; --panel: #17140e; --soft: #2b2414;
+				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				color-scheme: dark;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1080px; margin: 0 auto; }
+			.brand { display: flex; align-items: center; gap: 13px; margin-top: 14px; }
+			.brand img { width: 46px; height: 46px; }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			h2 { font-family: var(--serif); font-size: clamp(20px, 3vw, 24px); font-weight: 600; margin: 0; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 36ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 74ch; margin: 10px 0 0; }
+			code { font-family: var(--mono); font-size: .92em; }
+			.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 18px; margin-top: 22px; }
+			.ctl { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+			.ctl .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+			.ctl input[type=range] { accent-color: var(--accent); width: 100%; }
+			.ctl select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 14px; }
+			.chip { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+			.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.chip:focus-visible, .try button:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
+			.check { display: inline-flex; gap: 8px; align-items: center; color: var(--ink); font-size: 14px; }
+			.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+			.board { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; background: var(--stage);
+				border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: clamp(12px, 2.4vw, 20px); }
+			.boxcol { display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; min-height: 260px; }
+			.vessel { position: relative; width: 100%; max-height: 300px; border: 4px solid var(--accent); border-radius: 14px; background: var(--panel); overflow: hidden; }
+			.vessel .fam { position: absolute; top: 6px; left: 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+			.vessel .wave { position: absolute; left: 0; right: 0; bottom: 0; background: var(--jade-soft); border-top: 3px solid var(--jade); transition: height .25s ease; }
+			.vessel .say { position: absolute; inset: auto 8px 8px; font-size: 12px; color: var(--ink); text-align: center; }
+			.boxcol .dims { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.out { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+			.verdict { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--jade); border-radius: 12px; padding: 12px 14px; }
+			.verdict b { font-family: var(--serif); font-size: 19px; font-weight: 600; display: block; }
+			.verdict p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+			.verdict pre { margin: 8px 0 0; font-family: var(--mono); font-size: 12px; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+			.strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; }
+			.page { flex: 0 0 auto; width: 78px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel); padding: 6px; display: flex;
+				flex-direction: column; gap: 4px; scroll-snap-align: start; position: relative; }
+			.page .k { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+			.page .t { font-size: 11px; font-weight: 600; line-height: 1.2; }
+			.page .bar { height: 5px; border-radius: 3px; background: var(--soft); }
+			.page .bar.on { background: var(--accent); }
+			.page.cover { border-color: var(--accent); }
+			.page.closing { border-color: var(--jade); }
+			.page.whole { border-color: var(--accent); width: 120px; }
+			.page.ring { outline: 3px solid var(--alarm); outline-offset: -3px; }
+			.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+			.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+			.stat b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); }
+			.stat span { font-size: 12px; color: var(--muted); }
+			.block { margin-top: 34px; }
+			.lede { color: var(--muted); font-size: 15px; max-width: 74ch; margin: 6px 0 0; }
+			.try { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 12px; }
+			.try button { text-align: left; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+				font: inherit; cursor: pointer; }
+			.try button:hover { border-color: var(--accent); }
+			.try b { display: block; font-size: 15px; }
+			.try span { color: var(--muted); font-size: 13px; }
+			.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin-top: 14px; }
+			@media (max-width: 720px) { .board { grid-template-columns: 1fr; } .boxcol { min-height: 0; } .vessel { max-width: 260px; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="fluido" />
+			<div class="brand">
+				<img src="/fluido-mark.svg" alt="" />
+				<h1>Fluido</h1>
+			</div>
+			<p class="promise">Content takes the shape of any box, and breaks only where it may.</p>
+			<p class="sub">
+				Pick a box and some content. This page reads the facts, asks the real <code>@laticent/fluido</code> core what
+				the slide becomes, and draws the pages it names. The core never sees the content, only its seam, so the same
+				facts give the same pages everywhere.
+			</p>
+
+			<div class="controls">
+				<div class="ctl">
+					<span id="shape-l">The box</span>
+					<div class="row" role="group" aria-labelledby="shape-l" id="presets"></div>
+					<input id="aspect" type="range" min="0.4" max="2" step="0.01" value="0.80" aria-label="Aspect ratio, width over height" />
+				</div>
+				<div class="ctl">
+					<label for="kind">The content</label>
+					<select id="kind">
+						<option value="list">A list of points</option>
+						<option value="table">A table of rows</option>
+						<option value="reader">A component with a recipe that reads its shape</option>
+						<option value="veto">A component with a recipe that vetoes a cut</option>
+						<option value="code">One long code block</option>
+					</select>
+				</div>
+				<div class="ctl">
+					<label for="n"><span id="n-l">Members</span>: <b id="nv"></b></label>
+					<input id="n" type="range" min="1" max="70" step="1" value="6" />
+					<label class="check"><input id="optout" type="checkbox" /> The author opts out (<code>fit: report</code>)</label>
+				</div>
+			</div>
+
+			<div class="board">
+				<div class="boxcol">
+					<div class="vessel" id="vessel" aria-hidden="true">
+						<span class="fam" id="fam"></span>
+						<div class="wave" id="wave"></div>
+						<span class="say" id="say"></span>
+					</div>
+					<span class="dims" id="dims"></span>
+				</div>
+				<div class="out">
+					<div class="verdict" id="verdict">
+						<div aria-live="polite"><b id="v-title"></b><p id="v-why"></p></div>
+						<pre id="v-move" aria-label="The move, as Fluido returns it"></pre>
+					</div>
+					<div class="strip" id="strip" role="list" aria-label="The pages Fluido names"></div>
+					<div class="stats">
+						<div class="stat"><b id="s-family">—</b><span>family of this box</span></div>
+						<div class="stat"><b id="s-pages">—</b><span>pages</span></div>
+						<div class="stat"><b id="s-ns">—</b><span>ns per decision (median, in your browser)</span></div>
+					</div>
+				</div>
+			</div>
+
+			<section class="block" aria-labelledby="try-h">
+				<h2 id="try-h">Four things to try</h2>
+				<p class="lede">Each one sets the box and the content, so you can watch one rule decide.</p>
+				<div class="try" id="try"></div>
+			</section>
+
+			<section class="block" aria-labelledby="why-h">
+				<h2 id="why-h">Why it never measures</h2>
+				<p class="lede">
+					Cutting a slide wherever the box runs out makes the page count a property of the fonts and the browser: the
+					same deck becomes a different deck on another machine, and a linter cannot say what it will become. Fluido cuts
+					only on a seam the content declares, so the count follows from what the author wrote. Files cut an over-long
+					single element by a budget, which is just as reproducible. A measured rescue, for live screens only, is a later
+					phase.
+				</p>
+			</section>
+
+			<section class="block" aria-labelledby="first-h">
+				<h2 id="first-h">First user: Lattice</h2>
+				<p class="lede">
+					Every surface that splits a slide asks Fluido: the command-line export, the Playground and the Studio. The move
+					changed no output: 402 decks at three sizes split byte for byte as before, and a golden of 7,347 pages keeps it
+					that way.
+				</p>
+			</section>
+			<p class="note">
+				The page cap is 64, checked on the run the host actually built, however it was built. Past it a slide stays whole
+				and is marked, so a runaway or forged seam can never cost a reader thousands of pages. Drag the members to 70 to
+				see it. This demo's slide has a heading and a note, so its runs open on a cover and close on a closing page.
+			</p>
+		</div>
+
+		<script>
+			import { fitsCap, paginates, planSlide, rescueRuns, MAX_PAGES } from '@/lib/fluido';
+			import families from '../../../../../lib/adaptive/families.js';
+
+			const { familyFor } = families;
+			const $ = (id) => document.getElementById(id);
+			const el = (tag, cls, text) => {
+				const n = document.createElement(tag);
+				if (cls) n.className = cls;
+				if (text !== undefined) n.textContent = text;
+				return n;
+			};
+
+			const PRESETS = [
+				{ label: '16:9', aspect: 16 / 9 },
+				{ label: '4:3', aspect: 4 / 3 },
+				{ label: 'Square', aspect: 1 },
+				{ label: '4:5', aspect: 0.8 },
+				{ label: 'Story', aspect: 9 / 16 },
+				{ label: 'Phone', aspect: 1080 / 2340 },
+			];
+			// What each content kind tells the core. The page plays the connector: it knows the seam, the core decides.
+			const KINDS = {
+				list: { seam: 'item', unit: 'Members', recipe: null, noun: 'point' },
+				table: { seam: 'row', unit: 'Rows', recipe: null, noun: 'row' },
+				reader: { seam: 'item', unit: 'Members', recipe: { strategy: 'cover-rows', shapeReader: true }, noun: 'row', declines: true },
+				veto: { seam: 'item', unit: 'Members', recipe: { strategy: 'redline-blocks', shapeReader: false }, noun: 'passage', declines: true },
+				code: { seam: null, unit: 'Lines', recipe: null, noun: 'line', budget: 12 },
+			};
+			const WHY = {
+				'opt-out': 'The author opted the slide out, so it stays one page and is only flagged.',
+				'not-enrolled': 'Nothing on the slide declares a seam.',
+				'recipe-veto': 'The component’s recipe refused the cut, and its refusal is a veto: some content must never be separated.',
+				'no-seam': 'The content has no seam to break on.',
+				'one-member': 'There is one member. No smaller cut exists, so it stays one page and is marked if it overflows.',
+				'over-cap': `The run built has more than ${MAX_PAGES} pages, so the slide stays whole and is marked instead.`,
+			};
+
+			// Open on a 4:5 portrait, where a list visibly breaks, rather than on 16:9, where nothing happens.
+			let aspect = 0.8;
+
+			for (const p of PRESETS) {
+				const b = el('button', 'chip', p.label);
+				b.type = 'button';
+				b.addEventListener('click', () => { aspect = p.aspect; $('aspect').value = String(p.aspect.toFixed(2)); draw(); });
+				p.button = b;
+				$('presets').appendChild(b);
+			}
+
+			function decide(kindKey, n, optOut) {
+				const kind = KINDS[kindKey];
+				const family = familyFor(aspect);
+				if (!paginates(family)) return { family, move: { gate: `paginates("${family}")`, answer: false }, pages: [{ role: 'whole' }] };
+				if (kindKey === 'code') {
+					if (optOut) return { family, move: { kind: 'whole', reason: 'opt-out' }, pages: [{ role: 'whole' }] };
+					const runs = rescueRuns(n, kind.budget);
+					if (!runs) return { family, move: { kind: 'whole', reason: 'within-budget' }, pages: [{ role: 'whole' }] };
+					// The host checks the run it built against the cap; here the run is the runs.
+					if (!fitsCap(runs.length)) return { family, move: { kind: 'whole', reason: 'over-cap' }, pages: [{ role: 'whole', ring: true }] };
+					return { family, move: { kind: 'rescue', runs }, pages: runs.map((r) => ({ role: 'body', text: `lines ${r.from + 1}–${r.to}` })) };
+				}
+				const facts = { optOut: optOut ? 'report' : null, enrolled: true, recipe: kind.recipe };
+				const read = () => ({ seam: kind.seam, members: n });
+				let move = planSlide(facts, read);
+				// The demo's recipes always decline, so the page shows what the core does next.
+				if (move.kind === 'recipe') move = { ...planSlide({ ...facts, recipeDeclined: true }, read), after: `${kind.recipe.strategy} declined` };
+				if (move.kind !== 'paginate') return { family, move, pages: [{ role: 'whole', ring: move.reason === 'one-member' }] };
+				// The demo's slide has a heading and a note, so a first cut opens on a cover and closes on a
+				// closing page. A real host knows; it builds the run, then checks what it built against the cap.
+				const pages = move.envelope ? [{ role: 'cover' }] : [];
+				for (let i = 0; i < n; i++) pages.push({ role: 'body', text: `${kind.noun} ${i + 1}`, k: i });
+				if (move.envelope) pages.push({ role: 'closing' });
+				if (!fitsCap(pages.length)) return { family, move: { kind: 'whole', reason: 'over-cap', built: pages.length }, pages: [{ role: 'whole', ring: true }] };
+				return { family, move, pages };
+			}
+
+			// Times the core's decision alone (planSlide, or rescueRuns for code), not this page's drawing.
+			function timeIt(kindKey, n, optOut) {
+				const kind = KINDS[kindKey];
+				const facts = { optOut: optOut ? 'report' : null, enrolled: true, recipe: kind.recipe, recipeDeclined: !!kind.declines };
+				const read = () => ({ seam: kind.seam, members: n });
+				const once = kindKey === 'code' ? () => rescueRuns(n, kind.budget) : () => planSlide(facts, read);
+				const t = [];
+				for (let r = 0; r < 7; r++) {
+					const reps = 5000;
+					const t0 = performance.now();
+					for (let i = 0; i < reps; i++) once();
+					t.push(((performance.now() - t0) * 1e6) / reps);
+				}
+				t.sort((a, b) => a - b);
+				return t[3];
+			}
+
+			function sayFor(r, n) {
+				const m = r.move;
+				if (m.gate) return ['Stays one page', 'A wide box never breaks. Overflow there is a layout problem, so the slide reflows and is marked if it still clips.'];
+				if (m.kind === 'paginate') return [`Breaks into ${r.pages.length} pages`, `A cover, one ${KINDS[$('kind').value].noun} per page${m.envelope ? ', and a closing page' : ''}.${m.after ? ` The recipe (${m.after.split(' ')[0]}) declined first and reads its shape, so the derived seam decided.` : ''}`];
+				if (m.kind === 'rescue') return [`Cut into ${m.runs.length} runs`, `One code block over its budget of ${KINDS.code.budget} lines is cut at line boundaries. Files use this budget, so they come out the same on every machine.`];
+				if (m.reason === 'within-budget') return ['Stays one page', `${n} lines fit the budget of ${KINDS.code.budget}.`];
+				return ['Stays one page', WHY[m.reason] ?? ''];
+			}
+
+			function draw() {
+				const kindKey = $('kind').value;
+				const kind = KINDS[kindKey];
+				const n = parseInt($('n').value, 10);
+				const optOut = $('optout').checked;
+				$('n-l').textContent = kind.unit;
+				$('nv').textContent = String(n);
+				for (const p of PRESETS) p.button.setAttribute('aria-pressed', String(Math.abs(p.aspect - aspect) < 0.005));
+
+				const r = decide(kindKey, n, optOut);
+				const v = $('vessel');
+				v.style.aspectRatio = `${aspect}`;
+				v.style.width = aspect >= 1 ? '100%' : `${Math.max(34, aspect * 100)}%`;
+				$('fam').textContent = r.family;
+				$('dims').textContent = `${aspect.toFixed(2)} : 1`;
+				$('wave').style.height = r.pages.length > 1 ? '35%' : '62%';
+				$('say').textContent = r.pages.length > 1 ? 'the rest flows to the next page' : 'it all fits one page';
+
+				const [title, why] = sayFor(r, n);
+				$('v-title').textContent = title;
+				$('v-why').textContent = why;
+				const shown = { ...r.move };
+				if (shown.runs && shown.runs.length > 4) shown.runs = [...shown.runs.slice(0, 3), `… ${shown.runs.length - 3} more`];
+				$('v-move').textContent = shown.gate ? `${shown.gate} \u2192 false` : JSON.stringify(shown);
+
+				const strip = $('strip');
+				strip.replaceChildren();
+				const pageAspect = Math.min(1.9, Math.max(0.42, aspect));
+				for (const [i, p] of r.pages.entries()) {
+					const card = el('div', `page ${p.role}${p.ring ? ' ring' : ''}`);
+					card.setAttribute('role', 'listitem');
+					card.style.aspectRatio = `${pageAspect}`;
+					card.appendChild(el('span', 'k', p.role === 'whole' ? 'one page' : p.role === 'body' ? `${i + 1} of ${r.pages.length}` : p.role));
+					card.appendChild(el('span', 't', p.role === 'cover' ? 'The heading' : p.role === 'closing' ? 'The note and the insight' : p.role === 'whole' ? (p.ring ? 'marked: does not fit' : 'everything') : p.text));
+					if (p.role === 'body' && p.k !== undefined) {
+						for (let b = 0; b < Math.min(n, 6); b++) card.appendChild(el('span', `bar${b === p.k % 6 ? ' on' : ''}`));
+					}
+					strip.appendChild(card);
+				}
+				$('s-family').textContent = r.family;
+				$('s-pages').textContent = String(r.pages.length);
+				$('s-ns').textContent = timeIt(kindKey, n, optOut).toFixed(0);
+			}
+
+			const TRY = [
+				{ t: 'One list, three boxes', s: 'Six points on 16:9 stay one page. Then press 4:5, then Phone: the same list breaks on the same seam.', set: { aspect: 16 / 9, kind: 'list', n: 6 } },
+				{ t: 'A long code block on a phone', s: '34 lines, 12 to a page: three runs, cut on line boundaries.', set: { aspect: 1080 / 2340, kind: 'code', n: 34 } },
+				{ t: 'A recipe that vetoes', s: 'Some content must stay together. The recipe declines, its refusal is a veto, and the slide stays whole.', set: { aspect: 0.8, kind: 'veto', n: 3 } },
+				{ t: 'Try to make it explode', s: 'Seventy rows, with a heading and a note, build 72 pages. Past the cap of 64 the slide stays whole and is marked.', set: { aspect: 9 / 16, kind: 'table', n: 70 } },
+			];
+			for (const x of TRY) {
+				const b = el('button');
+				b.type = 'button';
+				b.appendChild(el('b', '', x.t));
+				b.appendChild(el('span', '', x.s));
+				b.addEventListener('click', () => {
+					aspect = x.set.aspect;
+					$('aspect').value = String(aspect.toFixed(2));
+					$('kind').value = x.set.kind;
+					$('n').value = String(x.set.n);
+					$('optout').checked = false;
+					draw();
+					$('verdict').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				});
+				$('try').appendChild(b);
+			}
+
+			$('aspect').addEventListener('input', () => { aspect = parseFloat($('aspect').value); draw(); });
+			for (const id of ['kind', 'n', 'optout']) $(id).addEventListener('input', draw);
+			draw();
+		</script>
+	</body>
+</html>
