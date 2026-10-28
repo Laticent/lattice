@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SLIDES, seedScript, TAPS, TARGETS, verdict } from './focus-sync-deck.mjs';
+import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -147,6 +147,10 @@ async function runFocusSyncProbe(id) {
 		result.width = ready.width;
 		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
 		await call('lsWatch()');
+		const second = await call('lsTarget()');
+		if (!second) throw new Error('no slide after the first can be both tapped (its line on screen) and centered by the preview on this device');
+		const TARGETS = [1, second];
+		console.log(`${LABEL}: tapping slide 1 and slide ${second} alternately`);
 		const rows = [];
 		const methods = new Set();
 		/** One tap on the line of `slide`: an element click first, then a touch tap by coordinates if the caret did not land. */

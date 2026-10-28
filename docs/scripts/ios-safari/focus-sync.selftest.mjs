@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { webkit } from '@playwright/test';
-import { SLIDES, seedScript, TAPS, TARGETS, verdict } from './focus-sync-deck.mjs';
+import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PROBE = fs.readFileSync(path.join(here, 'focus-sync-probe.js'), 'utf8');
@@ -19,12 +19,17 @@ const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const BURN = Number(process.env.BURN_MS ?? 60);
 
 const browser = await webkit.launch();
-const context = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+const [vw, vh] = (process.env.VIEWPORT || '1180x820').split('x').map(Number);
+const context = await browser.newContext({ viewport: { width: vw, height: vh } });
 const page = await context.newPage();
 await page.addInitScript(seedScript);
 await page.goto(`${BASE}/playground/?view=edit`, { waitUntil: 'domcontentloaded' });
 await page.addScriptTag({ content: PROBE });
-await page.evaluate(([n, burn]) => lsPrepare(n, burn), [SLIDES, BURN]);
+await page.evaluate(([n, burn]) => lsPrepare(n, burn), [SLIDES, 0]);
+await page.evaluate(([b, r]) => lsBurn(b, r), [BURN, Number(process.env.BURN_REST ?? BURN / 2)]);
+const second = await page.evaluate(() => lsTarget());
+if (!second) throw new Error('no centerable slide with its line on screen');
+const TARGETS = [1, second];
 const rows = [];
 for (let i = 0; i < TAPS; i++) {
 	const slide = TARGETS[i % TARGETS.length];
@@ -33,6 +38,6 @@ for (let i = 0; i < TAPS; i++) {
 	rows.push(await page.evaluate(([s, b]) => lsAfter(s, b), [slide, before]));
 }
 const v = verdict(rows);
-console.log(`burn ${BURN} ms: ${v.ok ? 'PASS' : 'FAIL'} — ${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`);
+console.log(`${vw}x${vh} burn ${BURN} ms, second slide ${second}: ${v.ok ? 'PASS' : 'FAIL'} — ${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`);
 await browser.close();
 process.exit(v.ok ? 0 : 1);

@@ -1,9 +1,8 @@
 /** The deck and the loop the focus-sync probe uses, shared by run.mjs (Mobile Safari) and focus-sync.selftest.mjs (Playwright WebKit). */
 export const SOURCE_KEY = 'lattice-docs-pg-source';
 export const SLIDES = 8;
-/** Taps per device. Slides 1 and 2 alternate (only their lines fit on screen): a tap on the slide already in focus centers nothing, so the tap on slide 1 resets it. */
+/** Taps per device. Slide 1 and a second slide alternate: a tap on the slide already in focus centers nothing, so the tap on slide 1 resets it. The probe picks the second slide (`lsTarget`) from what the page can show and center. */
 export const TAPS = 40;
-export const TARGETS = [1, 2];
 
 export const deck = (() => {
 	const out = ['---', 'theme: cuoio', '---', ''];

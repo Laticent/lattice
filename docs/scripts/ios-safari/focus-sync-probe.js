@@ -39,15 +39,19 @@ function lsOffCenter(n) {
 	return Math.abs((r.top + r.bottom) / 2 - win.innerHeight / 2);
 }
 
-/** Busy the main thread: `ms` of work in every 100 ms, so a frame (and the scroll event it delivers) can come well past
+/** Busy the main thread: `ms` of work in every `ms + rest`, so a frame (and the scroll event it delivers) can come well past
  *  the sync's 120 ms echo window. Both frames share this thread. Replaces any burner already running. */
-function lsBurn(ms) {
+function lsBurn(ms, rest = ms / 2) {
 	clearInterval(window.__lsBurner);
 	if (ms <= 0) return;
+	// Work for `ms`, rest for `ms / 2`: a frame, and the scroll event it delivers, waits up to `ms` (past the sync's
+	// 120 ms echo window), yet a touch can still start AND finish in the gaps. A burner that never rests stalls iOS's
+	// taps (touchstart arrives, touchend never does). Measured on Playwright WebKit against the code before 2937-p2:
+	// resting `ms` caught 1 to 5 of 40 taps, resting `ms / 2` caught 37 of 40.
 	window.__lsBurner = setInterval(() => {
 		const t = performance.now();
 		while (performance.now() - t < ms) {}
-	}, 100);
+	}, ms + rest);
 }
 
 /** Record every event a tap produces (and whether the browser or a script made it: a `*` marks an untrusted one). */
@@ -185,6 +189,25 @@ async function lsCaret(slide, ms) {
 function lsCenter(slide) {
 	const r = lsFind(slide).getBoundingClientRect();
 	return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) };
+}
+
+/** The first slide after the first that a tap can be made on (its line is on screen) and that the preview CAN center
+ *  (centering it needs a scroll between 16 px and the page's end). A tall preview pane cannot center slide 2: it would need
+ *  a negative scroll. 0 when there is none. */
+// biome-ignore lint/correctness/noUnusedVariables: see above
+function lsTarget() {
+	const sc = lsScroller().getBoundingClientRect();
+	const win = lsPreview().contentWindow;
+	const room = lsPreview().contentDocument.documentElement.scrollHeight - win.innerHeight;
+	const lines = [...document.querySelectorAll('.cm-line')];
+	for (let n = 2; n <= lsSections().length; n++) {
+		const line = lines.find((l) => l.textContent === `- point ${n}.3`)?.getBoundingClientRect();
+		if (!line || line.top < sc.top + 10 || line.bottom > sc.bottom - 10) continue;
+		const r = lsSections()[n - 1].getBoundingClientRect();
+		const need = win.scrollY + r.top + r.height / 2 - win.innerHeight / 2;
+		if (need >= 16 && need <= room - 16) return n;
+	}
+	return 0;
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: see above
