@@ -114,7 +114,7 @@ export interface StepInfo {
 	readonly id: number;
 	readonly label: string;
 	readonly origin: string;
-	/** Characters the step's patch holds (what the byte cap counts). */
+	/** The step's patch size as the byte cap counts it: its characters plus 16 per change. */
 	readonly size: number;
 	/** False for a step on the redo branch (undone, not yet redone or dropped). */
 	readonly done: boolean;

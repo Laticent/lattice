@@ -129,9 +129,9 @@ In the Studio, Lattice's editor in the browser, every way a deck changes goes th
 | Step | Chromium | Firefox | WebKit |
 | --- | --- | --- | --- |
 | A keystroke, an undo, a redo, a settings write | 1.1 ms | 1.0 ms | 3.0 ms |
-| An undo applied to Compose (only the slides it touched) | 3–9 ms | 4–8 ms | 6–11 ms |
+| An undo applied to Compose (only the slides it touched) | 3–9 ms | 3–9 ms | 6–11 ms |
 
-One frame of the screen is about 16 ms. A three-slide rewrite of that deck is a patch about 33 times smaller than a copy of it. The Lattice engine and its command-line tool don't use Filo.
+Each engine ran alone in Playwright, with `performance.measure` around the history work; the decision note's "Slice 3 as built" and "Slice 4 as built" hold the method. One frame of the screen is about 16 ms. A three-slide rewrite of that deck is a patch about 33 times smaller than a copy of it. The Lattice engine and its command-line tool don't use Filo.
 
 ## What it doesn't do
 
