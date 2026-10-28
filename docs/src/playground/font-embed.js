@@ -13,8 +13,7 @@
 // Caveat only because a bookend slide happened to be active when export ran.
 //
 // THE FIX — vendor the faces and embed them deterministically.
-// Every engine text face (the families base.tokens.css declares, minus the ~25 MB
-// Noto Color Emoji) is vendored as a latin-subset .woff2 under ./fonts and bundled
+// Every engine text face (the families base.tokens.css declares) is vendored as a latin-subset .woff2 under ./fonts and bundled
 // by Vite. At export time we:
 //   1. build ONE `@font-face` stylesheet with each face inlined as a data URI
 //      (`fontEmbedCSS`), and hand it to every html-to-image call so each cloned
@@ -27,6 +26,8 @@
 // in. Refresh the vendored files by re-running the latin-subset fetch documented
 // in this PR if the engine's font set changes.
 
+import fontPolicyCore from '../../../lib/core/font-policy.js';
+import emojiCore from '../../../lib/fonts/emoji-faces.js';
 // Vite bundles each .woff2 and resolves the import to its served URL.
 import faceRuleCore from '../../../lib/fonts/face-rule.js';
 import textFacesCore from '../../../lib/fonts/text-faces.js';
@@ -119,7 +120,7 @@ async function faceBase64(url) {
 	return bytesToBase64(bytes);
 }
 
-export function buildFontEmbedCss() {
+function buildTextFontCss() {
 	if (!cssPromise) {
 		cssPromise = Promise.all(EMBED_FACES.map((f) => faceBase64(FACE_URL.get(`${f.family} ${f.weight} ${f.style}`))))
 			.then((b64s) => EMBED_FACES.map((f, i) => faceRuleCore.faceRuleCss(f, 'swap', b64s[i])).join(''))
@@ -129,6 +130,41 @@ export function buildFontEmbedCss() {
 			});
 	}
 	return cssPromise;
+}
+
+// Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI
+// reads from assets/fonts/. Vite bundles them as URLs; an export inlines only the slices its text needs.
+const EMOJI_URL = import.meta.glob('../../../assets/fonts/noto-color-emoji-*.woff2', { eager: true, query: '?url', import: 'default' });
+const emojiRules = new Map();
+
+async function emojiSliceRule({ file, range }) {
+	if (!emojiRules.has(file)) {
+		const url = EMOJI_URL[`../../../assets/fonts/${file}.woff2`];
+		emojiRules.set(
+			file,
+			faceBase64(url).then(
+				(b64) =>
+					`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
+					`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`,
+			),
+		);
+	}
+	return emojiRules.get(file);
+}
+
+/**
+ * The CLI's font block, plus (when `text` is given) the Noto Color Emoji slices that text needs, under the
+ * `fonts:` policy (lib/core/font-policy.js): `system` leaves that class out, `full` ships every emoji slice.
+ * @param {string} [text]  everything the export will show
+ * @param {string|{text?: string, emoji?: string}} [fonts]  the deck's `fonts:` words
+ */
+export async function buildFontEmbedCss(text = '', fonts) {
+	const policy = fontPolicyCore.resolveFontPolicy(fonts);
+	const base = policy.text === 'system' ? '' : await buildTextFontCss();
+	if (policy.emoji === 'system') return base;
+	const need = new Set(policy.emoji === 'full' ? emojiCore.EMOJI_SLICES.map((s) => s.file) : emojiCore.slicesFor(text));
+	const rules = await Promise.all(emojiCore.EMOJI_SLICES.filter((s) => need.has(s.file)).map(emojiSliceRule));
+	return base + rules.join('');
 }
 
 // Inject the embedded faces into `doc` (idempotent) and wait until every face is

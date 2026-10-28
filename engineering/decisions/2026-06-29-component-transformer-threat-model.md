@@ -241,6 +241,22 @@ The §5.1 content/CSS holes are **preconditions** (above, #616), not "adjacent".
   so any future filesystem-backed import (the Tauri desktop wrapper, a CLI) inherits a
   path-traversal vector — validate entry names (reject `..`, absolute, drive letters)
   before resolving. Tracked: **#617**.
+  **Pinned 2026-10-26 (#617).** The filesystem import that exists today, `lattice packages
+  add`, refuses a whole archive if ANY entry's raw name holds a `..` segment, a leading
+  `/`, a drive letter, a backslash or a NUL (a `./` prefix is allowed: it traverses nothing,
+  and some packers write it) (`unsafeEntryName`,
+  `lib/packages/home.js`). It reads the raw name from JSZip's `unsafeOriginalName`, because
+  JSZip resolves `..` out of the name it keys by (`../../x` arrives as `x`) but leaves an
+  absolute name absolute. `install()` and `uninstall()` also refuse a `type` outside the
+  known kinds and a `name` or file name that is not one plain path segment, whatever the
+  caller checked first. `test/unit/cli/packages-cli.test.js` feeds zips with those names
+  patched into the raw bytes and asserts the import is refused and writes nothing outside
+  the store. Before this, nothing escaped (the CLI re-keyed files by base name and the
+  manifest name rule ran upstream), but the hostile archives installed, and `install()`
+  trusted its callers.
+  **Requirement on the desktop importer:** it must call `unsafeEntryName` on every raw
+  entry name and write only through `install()`/`uninstall()` in `lib/packages/home.js`.
+  It must not add path logic of its own.
 - **DoS budget.** The render pipeline has a `render-guard` timeout; ensure the
   declarative DSL evaluator inherits a hard budget so a pathological declared
   expression can't hang export/preview (T4).

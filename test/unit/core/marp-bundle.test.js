@@ -697,3 +697,10 @@ describe('marp-bundle trailer guard', () => {
     assert.match(withRuntimeScripts(preGuard), /<!-- Lattice: ends the story here -->/);
   });
 });
+
+test('an exported Marp bundle carries no emoji font: marp-core draws emoji as twemoji images', () => {
+  const { withoutEmojiFont, fontAssetsFor } = require('../../../lib/core/marp-bundle.js');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '..', 'dist', 'lattice-min.css'), 'utf8');
+  assert.ok(fontAssetsFor(css).some((a) => /noto-color-emoji/.test(a.from)), 'the sheet itself declares the emoji slices');
+  assert.deepEqual(fontAssetsFor(withoutEmojiFont(css)).filter((a) => /noto-color-emoji/.test(a.from)), []);
+});

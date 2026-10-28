@@ -41,11 +41,11 @@ test(`@crosswidth Logo controls write one logo-finish line at ${label} (${width}
 
 	// Back to defaults: the key goes, so a default deck stays one line shorter.
 	await page.getByRole('combobox', { name: 'Choose logo position' }).click();
-	await page.getByRole('option', { name: /Top right \(default\)/ }).click();
+	await page.getByRole('option', { name: 'Auto — Top right', exact: true }).click();
 	await page.getByRole('combobox', { name: 'Choose logo color' }).click();
-	await page.getByRole('option', { name: /Auto \(default\)/ }).click();
+	await page.getByRole('option', { name: 'Auto — Watermark' }).click();
 	await page.getByRole('combobox', { name: 'Choose logo size' }).click();
-	await page.getByRole('option', { name: /Medium \(default\)/ }).click();
+	await page.getByRole('option', { name: 'Auto — Medium' }).click();
 	await expect.poll(() => source()).not.toContain('logo-finish');
 
 	await page.screenshot({ path: testInfo.outputPath(`logo-controls-${label}.png`) });

@@ -456,6 +456,37 @@ export function persistedByPrefix(page: Page, prefix: string): Promise<string | 
 }
 
 /**
+ * Every deck's saved checkpoints, read from IndexedDB (`checkpoint-store.ts` moved them out
+ * of localStorage). Returns `{ deckId: count }`; a database that does not exist yet reads
+ * as `{}`. Writes are asynchronous, so read this via `expect.poll`.
+ */
+export function persistedCheckpoints(page: Page): Promise<Record<string, number>> {
+	return page.evaluate(
+		() =>
+			new Promise<Record<string, number>>((resolve) => {
+				const req = indexedDB.open('lattice-studio-versions');
+				req.onerror = () => resolve({});
+				req.onsuccess = () => {
+					const db = req.result;
+					if (!db.objectStoreNames.contains('checkpoints')) {
+						db.close();
+						resolve({});
+						return;
+					}
+					const all = db.transaction('checkpoints').objectStore('checkpoints').getAll();
+					all.onsuccess = () => {
+						db.close();
+						const counts: Record<string, number> = {};
+						for (const r of all.result as { deckId: string }[]) counts[r.deckId] = (counts[r.deckId] ?? 0) + 1;
+						resolve(counts);
+					};
+					all.onerror = () => resolve({});
+				};
+			}),
+	);
+}
+
+/**
  * The app toast text — Sonner's bottom-center pill region (`ui/sonner.tsx`).
  *
  * Targets the TOASTER (the single `<ol data-sonner-toaster>`), not an individual
@@ -940,23 +971,34 @@ export async function openLenses(page: Page): Promise<void> {
 }
 
 /**
- * The active deck's version-history checkpoint labels (newest first), from the
- * persisted `lattice-studio-snap-<deckId>` store. Poll this — checkpoints are
- * written synchronously with the edit, but the edit itself may still be settling.
- * Like `persistedSource`, this reads the FIRST matching deck key — sound while a
- * test edits only the active deck; a deck-switching test would need the deck id.
+ * The active deck's version-history checkpoint labels (newest first), read from IndexedDB
+ * (`checkpoint-store.ts`). Poll this: checkpoint writes are asynchronous. Like
+ * `persistedSource`, it assumes one deck holds checkpoints, which is sound while a test edits
+ * only the active deck; a deck-switching test would need the deck id.
  */
 export function checkpointLabels(page: Page): Promise<string[]> {
-	return page.evaluate(() => {
-		const key = Object.keys(window.localStorage).find((k) => k.startsWith('lattice-studio-snap-'));
-		if (!key) return [];
-		try {
-			const snaps = JSON.parse(window.localStorage.getItem(key) ?? '[]') as { label?: string }[];
-			return snaps.map((s) => s.label ?? '');
-		} catch {
-			return [];
-		}
-	});
+	return page.evaluate(
+		() =>
+			new Promise<string[]>((resolve) => {
+				const req = indexedDB.open('lattice-studio-versions');
+				req.onerror = () => resolve([]);
+				req.onsuccess = () => {
+					const db = req.result;
+					if (!db.objectStoreNames.contains('checkpoints')) {
+						db.close();
+						resolve([]);
+						return;
+					}
+					const all = db.transaction('checkpoints').objectStore('checkpoints').getAll();
+					all.onsuccess = () => {
+						db.close();
+						const recs = (all.result as { ts: number; label?: string }[]).sort((a, b) => b.ts - a.ts);
+						resolve(recs.map((r) => r.label ?? ''));
+					};
+					all.onerror = () => resolve([]);
+				};
+			}),
+	);
 }
 
 export const test = base;

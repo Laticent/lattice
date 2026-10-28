@@ -123,15 +123,18 @@ for (const file of readdirSync(distThemesDir)) {
 // relative ref 404'd wherever the CSS text ended up embedded (single-slide-
 // render.ts inlines it into a srcdoc iframe with no base URL of its own, so it
 // resolved against the PARENT page instead — e.g. /studio/fonts/… — Studio,
-// Workbench, and Playground alike; #876). Stage the SAME 17 text faces
+// Workbench, and Playground alike; #876). Stage the SAME text faces and emoji slices
 // (excluding KaTeX's, staged separately below) under themes/fonts/, co-located
 // with themes/lattice.css exactly like the KaTeX pattern already does — and
 // theme-fetch.ts now rewrites the relative ref to an absolute URL before the
 // CSS text is handed to the engine, so it survives being inlined ANYWHERE, not
 // just a same-directory fetch.
 const { TEXT_FACES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fonts', 'text-faces.js'));
+// The emoji font's 11 slices are declared in the same sheet with the same relative `url(fonts/…)` (lib/fonts/emoji-faces.js),
+// so they are staged beside the text faces or the preview 404s on them and draws the platform's emoji instead.
+const { EMOJI_SLICES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fonts', 'emoji-faces.js'));
 const distFontsDir = join(repoRoot, 'dist', 'fonts');
-for (const { file } of TEXT_FACES) {
+for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES]) {
   assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
 }
 // On-demand highlight.js grammars — one file per language, plus the manifest of aliases

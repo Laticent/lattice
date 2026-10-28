@@ -366,16 +366,24 @@ test('@smoke "Use new name" rewrites the decks that write an old name, leaves co
 	await expect(page.getByText(/Updated 1 deck to asset:new-name/)).toBeVisible();
 
 	// The way back: the deck's Version history holds the text from before.
-	const stored = await page.evaluate(() => {
-		const out: string[] = [];
-		for (let i = 0; i < localStorage.length; i++) {
-			const k = localStorage.key(i) as string;
-			if (/snap|checkpoint/i.test(k)) out.push(localStorage.getItem(k) ?? '');
-		}
-		return out.join('\n');
-	});
-	expect(stored).toContain('Before using asset:new-name');
-	expect(stored).toContain('![A probe](asset:old-name)');
+	// Version history lives in IndexedDB (checkpoint-store.ts), written asynchronously.
+	const stored = () =>
+		page.evaluate(
+			() =>
+				new Promise<string>((resolve) => {
+					const req = indexedDB.open('lattice-studio-versions');
+					req.onerror = () => resolve('');
+					req.onsuccess = () => {
+						const db = req.result;
+						if (!db.objectStoreNames.contains('checkpoints')) return resolve('');
+						const all = db.transaction('checkpoints').objectStore('checkpoints').getAll();
+						all.onsuccess = () => resolve((all.result as { label: string; source: string }[]).map((r) => `${r.label}\n${r.source}`).join('\n'));
+						all.onerror = () => resolve('');
+					};
+				}),
+		);
+	await expect.poll(stored).toContain('Before using asset:new-name');
+	expect(await stored()).toContain('![A probe](asset:old-name)');
 });
 
 test('@smoke "Use new name" also rewrites a deck that is not open, and says how many it changed', async ({ page }) => {
@@ -635,11 +643,12 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	await expect(first).toBeHidden();
 
 	// From here the browser refuses to store a Version history entry, as it does when its storage is full.
+	// Version history lives in IndexedDB (checkpoint-store.ts), so the refusal is a failing `put` on its store.
 	await page.evaluate(() => {
-		const real = Storage.prototype.setItem;
-		Storage.prototype.setItem = function (k: string, v: string) {
-			if (k.startsWith('lattice-studio-snap')) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-			return real.call(this, k, v);
+		const real = IDBObjectStore.prototype.put;
+		IDBObjectStore.prototype.put = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+			if (this.name === 'checkpoints') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+			return real.apply(this, args);
 		};
 	});
 	await page.locator('[data-media-card="roomy"]').getByRole('button', { name: 'Details for roomy' }).click();

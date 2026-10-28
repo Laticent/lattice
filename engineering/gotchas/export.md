@@ -18,6 +18,30 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   poster's pixels; the first capture draft passed only an existence check.
 - **Removable when:** html-to-image stops copying vendor-prefixed shorthand aliases.
 
+## A Studio PowerPoint export from WebKit has no pictures and says "PowerPoint ready."
+
+- **Symptom:** In WebKit (the engine behind Safari), the Studio's PowerPoint export, and every other capture in
+  `deck-export.js` (the image set, the chart PNG, the PDF fallback lanes, the editable Office lane), produces slide
+  pictures with the text and none of the photos, and no warning. Chromium and Firefox keep the photos. A 300x300
+  picture survives; a 640x360 one does not.
+- **Cause:** html-to-image draws the slide as an SVG `<foreignObject>` loaded into an `<img>`, with every picture
+  inside as a base64 `data:` URL, and calls `drawImage` once. WebKit decodes any nested picture over about 100,000
+  pixels only after the FIRST draw of the SVG, so that one draw is blank where the pictures go. No event and no
+  `img.decode()` says when the decode is done, and waiting before the first draw changes nothing. WebKit does keep
+  the decode: the same `data:` URL drawn at its natural size in one SVG draws at once in the next. A scaled-down draw
+  does not fill that cache.
+- **Fix:** every capture in `deck-export.js` draws through `settledCanvas`
+  (`docs/src/components/studio/export/settled-canvas.js`). On an engine a one-time probe shows decodes late, it warms
+  each large picture alone (its own SVG, drawn at natural size into a 1x1 canvas) until a pixel comes back opaque,
+  draws the slide, then re-checks each picture and redraws if the cache dropped one; bounded at 5 s a slide, and a
+  picture that never arrives raises the "could not load every image" toast. Other engines take html-to-image's
+  `toCanvas` unchanged. Do not "simplify" this into comparing picture boxes on the drawn slide: a logo inside a
+  photo's box passed that test with the photo still missing, and a `data:` SVG logo stalled every slide 5 s.
+- **Triggered by:** `docs/e2e/library-images-export.spec.ts` on `webkit-tablet` (photo share 0 before the fix).
+  Playwright's WebKit is not Safari; real Safari on macOS and iOS is unverified.
+- **Removable when:** WebKit decodes an SVG image's nested pictures before its `load` event, or the export stops
+  drawing slides through an SVG image.
+
 ## Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
 
 - **Symptom:** A `::before` with `mask: url("data:image/svg+xml,…") center / contain no-repeat` renders correctly in the browser AND in the owned engine's headless-Chromium PDF render, but the resulting PDF, when opened in Apple PDFKit (macOS Preview, iOS), Skia (Chrome's built-in PDF viewer), or PDFium (Edge / VS Code), sometimes drops the mask entirely — the `::before` rectangle appears as a solid tinted block the size of its bounding box, filled with the paint color, with no shape clipping. Failure is viewer-specific and shape-specific: identical CSS, one mask drops on one viewer and renders fine on another, or the same mask drops only on certain `::before` sizes.
@@ -64,10 +88,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   (`box-shadow: 0 0 0 1.6px <darker>`) or a zero-blur *offset* shadow
   (`box-shadow: Xcqi Ycqi 0 <color>`), both of which are solid vector fills. Keep the
   color **opaque** — mix toward `--bg`, not `transparent` — to avoid alpha
-  compositing as well. Two shipped recipes are deliberately blur-free for this
-  reason: the state disc (`lib/base/base.tokens.css` plus its three checkbox
-  consumers) and `--focus-lift` (`lib/base/base.focus.css`), which is an opaque hard
-  offset rather than a soft elevation shadow.
+  compositing as well. The state disc (`lib/base/base.tokens.css` plus its three checkbox
+  consumers) is deliberately blur-free for this reason, and so was blur's focus lift
+  (`--focus-lift`, removed on 2026-10-27), an opaque hard offset rather than a soft
+  elevation shadow.
 - **Caught:** twice — the checkbox redesign (discs showed a gray square in the iOS PDF
   viewer while every local raster looked clean) and the focus lift (a hard gray box
   behind the focused card on iPhone, correct in the poppler sandbox raster).
@@ -601,6 +625,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   caption stays put, so the photo's pill lands on it. Exact font sizes do not fix it: the
   clone then WRAPS the caption, because a content-sized box is serialized a hair narrower than
   its content, which is why html-to-image shrinks in the first place.
+- **Status (2026-10-25):** the Studio's picture is now taken by the shared slide camera (`lib/core/slide-camera.mjs`), which
+  does not copy styles or floor font sizes, so this drift no longer occurs; the chip fix below stays as a camera-independent guard.
 - **Fix:** `read-slide.mjs` › `chipOf`: a box placed by the text flow (inline-level, or a flex
   / grid item beside its parent's own text) whose content is only text the PDF draws gets its
   fill and border drawn as vectors at its live box, and `hideDrawn` takes both out of the
@@ -717,3 +743,14 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
   `tools/bench-pdf-export.mjs`): the PDF and the picture `.pptx` draw the corner tags 1–4,
   `STEP 01`–`04` and an `agenda progress-2` list as 01, →, 03, 04, and the editable `.odp`
   carries the same shapes as Chromium's. WebKit does not need a separate code path.
+
+## A Studio slide picture comes out shifted, framed or on a gray backdrop
+
+- **Symptom:** a PNG, PowerPoint or PDF photo from the Studio shows the slide inset a few pixels with a soft shadow, or on a
+  light gray field, and the CLI's picture of the same slide does not.
+- **Cause:** the slide camera (`lib/core/slide-camera.mjs`) clones the slide's ancestors so it inherits the deck's tokens, and
+  the Studio's capture frame wraps slides in preview chrome (the slide frame: margin, shadow, backdrop). A native screenshot
+  of the slide never carried that chrome.
+- **Fix:** every ancestor wrapper carries `__lc-wrap`, and `ISOLATE` strips its box (margin, padding, background, shadow,
+  transform, size) with `!important` while leaving what inherits. A new kind of host chrome that survives that list is the
+  place to look; add the property to `ISOLATE`.

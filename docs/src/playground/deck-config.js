@@ -1,45 +1,28 @@
 import frontMatterKey from '../../../lib/core/front-matter-key.js';
 import { paginateOn } from '../../../lib/core/meta-keys.mjs';
-import { SIZE_OPTIONS } from './deck-sizes.js';
 
 // What `key` resolves to under the deck's `preset:` when the deck does not write it — the
 // engine's own table (lib/core/front-matter-key.js), so a preset's backdrop or card lift reads
 // as the deck's current value here, and picking the engine default under a preset that
 // changes it WRITES the override instead of deleting the key (which would hand control back
 // to the preset). engineering/decisions/2026-09-26-deck-presets-and-settings-tiers.md.
-const presetBaseline = (preset, key) => frontMatterKey.presetEffective(String(preset || '').split(/[ \t]#/)[0].trim().toLowerCase(), key);
+export const lookBaseline = (preset, key) => frontMatterKey.presetEffective(String(preset || '').split(/[ \t]#/)[0].trim().toLowerCase(), key);
 
-// Deck setup — the universal front-matter config panel.
+// Deck setup — the front-matter layer behind the Playground's Deck settings sheet.
 //
 // A first-class home for a deck's Marp front matter, so the author never
 // hand-writes YAML and the Markdown body stays content-only ("the deck stays
-// clean"). The controls read/write a MANAGED `---` block at the very top of a
-// deck source through an injected getSource/setSource pair — so the panel is
-// decoupled from where the source lives. ONE surface backs it today — the
-// Playground's Deck settings sheet (DeckSetupSheet.tsx), SOURCE-backed: the block
-// lives inline at the top of the editor's markdown, so it persists and exports with
-// the deck for free.
+// clean"). The sheet's rows (DeckConfigPanel.tsx, drawn with the Studio's
+// CatalogSelect) read and write a MANAGED `---` block at the very top of a deck
+// source through an injected getSource/setSource pair, so this layer has no
+// opinion about where a deck lives. The block lives inline at the top of the
+// editor's markdown, so it persists and exports with the deck for free.
 //
-// It was written for three. The Drawing Board was the other SOURCE-backed one, and the
-// Workbench (Theme / Layout Studio) was STATE-backed — the studio handed the panel a
-// VIRTUAL source (`block + fixed specimen/skeleton`) and setSource stripped the block
-// back off, so a fixed preview deck stayed configurable with no raw YAML. Both routes
-// were deleted in the 2026-07-03 studio succession. The injected getSource/setSource
-// pair is what made that work and is worth keeping: it is why this module needs no
-// opinion about where a deck lives.
-//
-// `fields` (optional) is an allow-list of which managed keys to render — the
-// surface's PROFILE. Omitted (`null`) = every field, which is what the sole caller
-// passes. An explicit array renders only the keys it names, so a host can drop deck
-// chrome (header/footer/lang/…) from a panel that has no business showing it — the
-// shape the deleted Workbench used. The parse/serialize layer is field-agnostic; only
-// the rendered rows are filtered. NOTHING IN PRODUCTION PASSES AN ARRAY TODAY, so the
-// filtering branch is exercised only by test/unit/playground/deck-config.test.js —
-// treat that test as the contract if you touch `show()`.
-//
-// The parse/serialize helpers are PURE (no DOM, no storage) and unit-tested in
-// test/unit/playground/deck-config.test.js. createConfigPanel() is the only DOM
-// consumer and is never called at import, so the module loads in Node.
+// Everything here is PURE (no DOM, no storage) and unit-tested in
+// test/unit/playground/deck-config.test.js, so the module loads in Node. The
+// rows themselves are tested in DeckConfigPanel.test.tsx. (Until 2026-10-27 this
+// module also drew the rows as vanilla DOM, `createConfigPanel`, with native
+// <select>s; the panel moved to React so its pickers match the Studio's.)
 //
 // Front-matter grammar matches Marp / lib/engine/directives.js: a leading
 // `---\n…\n---` flat key:value block. We re-emit a minimal block — only
@@ -49,8 +32,8 @@ const presetBaseline = (preset, key) => frontMatterKey.presetEffective(String(pr
 // The managed fields and their "default" (omitted) value. A field at its default
 // is dropped from the block, so a pristine deck carries no front matter at all.
 const FIELD_DEFAULTS = {
-  // `theme` is the deck's palette — the one value the top-bar picker, this
-  // drawer's select, and the editor all reflect (full three-way sync). It's
+  // `theme` is the deck's palette — the one value the top-bar picker, the
+  // sheet's Theme row, and the editor all reflect (full three-way sync). It's
   // written explicitly into the deck (transparent, portable) rather than forced
   // on at render time. Validity is enforced where it's PROPAGATED (the
   // controller only syncs a registered palette), not here — writeFrontMatter
@@ -124,91 +107,32 @@ const FIELD_DEFAULTS = {
 };
 const MANAGED = Object.keys(FIELD_DEFAULTS);
 
-// The preset-family registers this panel manages, and their option labels. Values are the
-// engine's own (lib/core/resolve-{headline,rule,eyebrow,corners}.js); a value added there
-// and not here simply has no row until it is named.
-const LOOK_OPTIONS = {
-  headline: [['auto', 'Per layout'], ['left', 'Left'], ['center', 'Centered'], ['right', 'Right']],
-  rule: [['auto', 'Per layout'], ['full', 'Full hairline'], ['short', 'Short'], ['accent', 'Short, in the accent'], ['none', 'None']],
-  eyebrow: [['plain', 'Plain label'], ['dot', 'Dot'], ['bar', 'Bar'], ['arrow', 'Arrow'], ['underline', 'Underline']],
-  corners: [['square', 'Square'], ['rounded', 'Rounded']],
-};
-// Spelled out rather than `Object.keys(LOOK_OPTIONS)`: the Studio's editor imports
-// readFrontMatter from this module, and a literal lets the bundler leave the option labels
-// (read only by the panel) out of the Studio's eager bundle.
+// The preset-family registers this module manages. Values are the engine's own
+// (lib/core/resolve-{headline,rule,eyebrow,corners}.js); the Playground's panel takes their
+// options and labels from the Studio's catalogs (DeckConfigPanel.tsx).
 const LOOK_KEYS = ['headline', 'rule', 'eyebrow', 'corners'];
-const VENUE_OPTIONS = [
-  ['laptop', 'Laptop — your own screen'],
-  ['huddle', 'Huddle — 4–6 around a TV'],
-  ['conference', 'Conference — 10–30 people'],
-  ['hall', 'Hall — 50 and up'],
-];
 
-// Human labels for the finish-register (backdrop) options (the names themselves
-// come from the resolve-finish handoff, so an added finish still appears —
-// titleCased — without touching this map).
-const FINISH_LABELS = {
-  none: 'None — no backdrop',
-};
-
-// Human labels for the mode-register (rendering-mode) options.
-const MODE_LABELS = {
-  boardroom: 'Boardroom — clean baseline',
-  sketch: 'Sketch — hand-drawn',
-  'sketch-clean': 'Sketch · clean body',
-};
-
-// The color-mode options + labels (a fixed 5-value register + the theme-default baseline).
-const COLOR_MODE_OPTIONS = [
-  ['', 'Theme default'],
-  ['light', 'Light'],
-  ['dark', 'Dark'],
-  ['system', 'System — follow the OS'],
-  ['inherited', 'Match site / host'],
-  ['print', 'Print — ink on white'],
-];
-
+// The preset picker's rows: each preset's name, label and the finish it sets, so the row's
+// chip can show that backdrop. From the engine's own table, in its order.
+export const PRESET_OPTIONS = frontMatterKey.PRESET_NAMES.map((name) => ({
+  name,
+  label: frontMatterKey.PRESETS[name].label,
+  finish: frontMatterKey.presetEffective(name, 'finish') || 'none',
+}));
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
 const EMIT_ORDER = ['marp', 'theme', 'preset', 'mode', 'color-mode', 'finish', 'headline', 'rule', 'eyebrow', 'corners', 'split', 'glossary', 'lift', 'size', 'venue', 'paginate', 'header', 'footer', 'class', 'validate', 'lang'];
-
-// Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
-//   author  — every field, `theme` included. `null` means "no allow-list", which is
-//             how the panel spells the full set. The Playground's Deck settings sheet
-//             (DeckSetupSheet.tsx) is the only caller; it was the Drawing Board's
-//             profile until that route was removed (2026-07-03 studio succession).
-//
-// TWO PROFILES WERE REMOVED HERE ON 2026-09-15, both callerless.
-//   noTheme — the full set minus `theme`. It was the Playground's profile on the
-//             reasoning that "the top-bar palette picker is the theme control", which
-//             held only while that picker was rendered: it is hidden below the `lg`
-//             breakpoint (PaletteControls' `compact`), so on a phone the surface had NO
-//             theme control at all. The sheet moved to `author` when the theme row came
-//             back, and the comment here then claimed noTheme was "kept because it costs
-//             nothing and names the shape". It was not free — it cost a test asserting a
-//             profile nothing constructed, and it is what the stale PlaygroundApp mock
-//             was modeled on. The regression it was nominally guarding is still guarded,
-//             by two tests in different files, and it is worth knowing which does what:
-//             deck-config.test.js pins `CONFIG_PROFILES.author === null` — that is the
-//             one that fails if THIS module's profile ever drops theme. DeckSetupSheet's
-//             suite MOCKS this module, so its `theme`-specific assertion cannot see a
-//             change here at all; what it catches is a sheet-side regression, the host
-//             inlining its own list or reading a key that no longer exists.
-//   preview — the render registers only (finish/size/paginate, no deck chrome and
-//             no theme). Its host was the Workbench, deleted in the same 2026-07-03
-//             studio succession.
-// The `fields` MECHANISM is unaffected and still covered: the suite exercises it with
-// an explicit array (`['finish']`) and with `null` (the full author set).
-export const CONFIG_PROFILES = Object.freeze({
-  author: null,
-});
 
 const TRUEY = /^(true|yes|on|1)$/i;
 const FALSEY = /^(false|no|off|0)$/i;
 
 function stripQuotes(v) {
   const t = (v || '').trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) return t.slice(1, -1);
+  // A double-quoted value undoes exactly the two escapes `quoteIfNeeded` writes (`\\` and `\"`), so
+  // writing and reading back is a round trip and repeated panel edits cannot pile escapes up (the
+  // checker on #1958's second cut: three unrelated writes left 15 backslashes in one header).
+  if (t.length > 1 && t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/\\([\\"])/g, '$1');
+  if (t.length > 1 && t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1);
   return t;
 }
 
@@ -250,7 +174,7 @@ function splitFrontMatter(source) {
   return { entries, body: src.slice(m[0].length), present: true };
 }
 
-// The form-facing view of a deck's current front matter — pre-fills the drawer's
+// The form-facing view of a deck's current front matter — pre-fills the sheet's
 // controls ("some of which are filled in"). paginate is surfaced as a boolean;
 // everything else as a trimmed string with sensible defaults.
 export function readFrontMatter(source) {
@@ -264,12 +188,12 @@ export function readFrontMatter(source) {
     mode: map.mode || '',
     'color-mode': map['color-mode'] || '',
     // A preset's backdrop reads as the current value; `none` stays the empty baseline.
-    finish: map.finish || (presetBaseline(map.preset, 'finish') === 'none' ? '' : presetBaseline(map.preset, 'finish')),
+    finish: map.finish || (lookBaseline(map.preset, 'finish') === 'none' ? '' : lookBaseline(map.preset, 'finish')),
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
     // `glossary` is binary — on when the deck opts in with `glossary: auto`.
     glossary: (map.glossary || '').trim().toLowerCase() === 'auto',
     // `lift` is binary — on when the deck opts in with `lift: on`.
-    lift: map.lift ? TRUEY.test(map.lift) : presetBaseline(map.preset, 'lift') === 'on',
+    lift: map.lift ? TRUEY.test(map.lift) : lookBaseline(map.preset, 'lift') === 'on',
     size: map.size || 'hd',
     paginate: paginateOn(map.paginate),
     header: map.header || '',
@@ -281,10 +205,10 @@ export function readFrontMatter(source) {
     lang: map.lang || '',
     preset: frontMatterKey.isKnownPreset(map.preset || '') ? String(map.preset).trim().toLowerCase() : '',
     // What each look register resolves to: the deck's own value, else its preset's.
-    headline: (map.headline || presetBaseline(map.preset, 'headline')).trim().toLowerCase(),
-    rule: (map.rule || presetBaseline(map.preset, 'rule')).trim().toLowerCase(),
-    eyebrow: (map.eyebrow || presetBaseline(map.preset, 'eyebrow')).trim().toLowerCase(),
-    corners: (map.corners || presetBaseline(map.preset, 'corners')).trim().toLowerCase(),
+    headline: (map.headline || lookBaseline(map.preset, 'headline')).trim().toLowerCase(),
+    rule: (map.rule || lookBaseline(map.preset, 'rule')).trim().toLowerCase(),
+    eyebrow: (map.eyebrow || lookBaseline(map.preset, 'eyebrow')).trim().toLowerCase(),
+    corners: (map.corners || lookBaseline(map.preset, 'corners')).trim().toLowerCase(),
     venue: (map.venue || 'laptop').trim().toLowerCase(),
     // Whether the deck carries any NON-THEME managed front matter — drives the
     // trigger's "configured" cue. `theme` is excluded: with full sync nearly
@@ -330,20 +254,20 @@ function normalize(key, value, preset) {
   if (key === 'glossary') return value === true || (value != null && String(value).trim().toLowerCase() === 'auto') ? 'auto' : null;
   // `lift` writes the canonical `on` when enabled; off omits the key.
   // Under a preset that turns lift on, off is the override that gets written.
-  if (key === 'lift') { const want = value === true || TRUEY.test(value || '') ? 'on' : 'off'; return want === presetBaseline(preset, 'lift') ? null : want; }
+  if (key === 'lift') { const want = value === true || TRUEY.test(value || '') ? 'on' : 'off'; return want === lookBaseline(preset, 'lift') ? null : want; }
   // `validate` is default ON, so on omits the key; only an opt-OUT is written, as
   // the canonical `off`. The switch passes a boolean (checked = validation on).
   if (key === 'validate') return value === false || FALSEY.test(String(value).trim()) ? 'off' : null;
   const v = (value == null ? '' : String(value)).trim();
   // none = backdrop baseline → omit (same no-class render as no key at all).
   // Under a preset with a backdrop, `none` is the override that gets written.
-  if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === presetBaseline(preset, 'finish') ? null : f; }
+  if (key === 'finish') { const f = v.toLowerCase(); return f === '' || f === lookBaseline(preset, 'finish') ? null : f; }
   // boardroom = style (mode) baseline → omit.
   if (key === 'mode') { const s = v.toLowerCase(); return s === '' || s === 'boardroom' ? null : s; }
   if (key === 'split') { return v.toLowerCase() === 'rule' ? 'rule' : null; }
   // A look register at the value the deck's preset already gives it is omitted; any other
   // value is the override, written — the same rule `finish` and `lift` follow above.
-  if (LOOK_KEYS.includes(key)) { const s = v.toLowerCase(); return s === '' || s === presetBaseline(preset, key) ? null : s; }
+  if (LOOK_KEYS.includes(key)) { const s = v.toLowerCase(); return s === '' || s === lookBaseline(preset, key) ? null : s; }
   if (key === 'preset') { const s = v.toLowerCase(); return s === '' || s === 'classic' ? null : s; }
   if (key === 'venue') { const s = v.toLowerCase(); return s === '' || s === 'laptop' ? null : s; }
   if (v === '' || v === FIELD_DEFAULTS[key]) return null;
@@ -355,8 +279,21 @@ function normalize(key, value, preset) {
 // sizes and keywords never trip this, so they stay bare like the example decks.
 function quoteIfNeeded(value) {
   const v = String(value);
-  if (/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '') return `"${v.replace(/"/g, '\\"')}"`;
-  return v;
+  if (!(/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '')) return v;
+  // The engine reads a quoted span RAW (`frontMatterScalar` unfolds no escape), so the value goes
+  // in unescaped wherever a quote can hold it unchanged (#1958):
+  //   - no `\` and no `"`: double quotes, as before;
+  //   - a `\` or `"` and no `'`: single quotes, which neither the engine nor YAML reads escapes in;
+  //   - a `'` too, but no `"` and no trailing `\`: double quotes, raw, which the engine reads back
+  //     whole (a `\` only skips the character after it while it looks for the closing quote).
+  // What is left (a `'` together with a `"` or a trailing `\`) has no form both readers take
+  // unchanged, so it is escaped the YAML way, `\` and `"` both: the closing quote stays a quote,
+  // and the engine shows the escapes raw. The old code escaped only `"`, so a trailing `\` still
+  // swallowed the closing quote and ran the string into the next key.
+  if (!/[\\"]/.test(v)) return `"${v}"`;
+  if (!v.includes("'")) return `'${v}'`;
+  if (!v.includes('"') && !v.endsWith('\\') && !v.includes('\\\\')) return `"${v}"`;
+  return `"${v.replace(/[\\"]/g, '\\$&')}"`;
 }
 
 // Set (or clear) ONE managed field and return the rewritten source. Re-reads the
@@ -415,308 +352,4 @@ export function writeFrontMatter(source, key, value) {
     if (!EMIT_ORDER.includes(pk)) lines.push(...emitPreserved(pk, pv)); // trailing unknowns
   }
   return `---\n${lines.join('\n')}\n---\n\n${body.replace(/^\n+/, '')}`;
-}
-
-// ── the drawer panel ──────────────────────────────────────────────────────────
-// Builds the contextual controls, pre-filled from the deck's current front
-// matter, and writes each change straight back into the editor source (which
-// re-renders + autosaves via the controller's onEdit). DOM-only; called when the
-// drawer opens.
-/**
- * @param {{
- *   host?: HTMLElement | null,
- *   trigger?: HTMLElement | null,
- *   getSource?: () => string,
- *   setSource?: (next: string) => void,
- *   palettes?: string[],
- *   finishes?: string[],
- *   modes?: string[],
- *   paletteNaming?: { label(name): string, group?: { label: string, has(name): boolean } },
- *   getDefaultTheme?: () => string,
- *   fields?: string[] | null,
- *   note?: string,
- * }} [opts]
- */
-export function createConfigPanel({ host, trigger, getSource, setSource, palettes = [], finishes = [], modes = [], getDefaultTheme = () => '', paletteNaming = null, fields = null, note } = {}) {
-  if (!host || typeof getSource !== 'function' || typeof setSource !== 'function') {
-    return { render() {}, syncTrigger() {}, writeFrontMatter };
-  }
-
-  // The surface's field PROFILE: an allow-list of which managed keys to render.
-  // null = every field (the full author set). `show(key)` gates each row.
-  const allow = Array.isArray(fields) ? new Set(fields) : null;
-  const show = (key) => !allow || allow.has(key);
-
-  const el = (tag, cls, text) => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text != null) e.textContent = text;
-    return e;
-  };
-  const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
-
-  // How a palette NAME is written, and which ones sit under a group heading. The host
-  // injects both (`paletteNaming`) rather than this module deriving them, for the same
-  // reason `palettes` / `finishes` / `modes` are injected: the docs site's own picker
-  // already owns that derivation, and a second private copy here would be the tenth
-  // place in the repo deciding theme scope by its own rule. It stays OPTIONAL because
-  // this module is also run straight under `node --test`, where the site's TypeScript
-  // catalog is not resolvable — no injection means the flat, title-cased list.
-  const nameOf = (n) => (paletteNaming?.label ? paletteNaming.label(n) : titleCase(n));
-  const inGroup = (n) => !!(paletteNaming?.group?.has?.(n));
-
-  // Reflect whether the deck carries managed front matter on the trigger — a
-  // quiet accent cue (matching the model chip's active state) that the deck has
-  // been configured. Cheap; safe to call on every edit.
-  function syncTrigger() {
-    if (!trigger) return;
-    try { trigger.classList.toggle('is-set', readFrontMatter(getSource()).configured); } catch { /* no-op */ }
-  }
-
-  // Apply a single field, then refresh the trigger cue. We do NOT re-render the
-  // panel so text inputs keep focus + caret while typing.
-  function apply(key, value) {
-    try { setSource(writeFrontMatter(getSource(), key, value)); } catch { /* editor gone */ }
-    syncTrigger();
-  }
-
-  // A label + hint pair (the left side of every row).
-  function text(label, hint) {
-    const t = el('div', 'db-pref-text');
-    t.append(el('span', 'db-pref-label', label));
-    if (hint) t.append(el('span', 'db-pref-hint', hint));
-    return t;
-  }
-
-  // An inline select row (theme, size, color mode) — label/hint left, <select> right.
-  // `rerender` re-paints the panel after a change (the theme row uses it so the
-  // "unknown theme" note + the select settle on the new valid value).
-  // `options` entries are either a plain `[value, label]` pair or a GROUP —
-  // `{ label, options: [[value, label], …] }` — which renders as an <optgroup>. The
-  // theme row is the one caller that groups today (the curated color-vision palettes,
-  // matching how the site header's picker lists them).
-  function selectRow(key, label, hint, options, current, rerender = false) {
-    const row = el('div', 'db-pref-row');
-    const sel = el('select', 'db-pref-select');
-    sel.setAttribute('aria-label', label);
-    const addOption = (parent, [value, optLabel]) => {
-      const o = document.createElement('option');
-      o.value = value;
-      o.textContent = optLabel;
-      if (value === current) o.selected = true;
-      parent.append(o);
-    };
-    for (const entry of options) {
-      if (Array.isArray(entry)) { addOption(sel, entry); continue; }
-      const group = document.createElement('optgroup');
-      group.label = entry.label;
-      for (const pair of entry.options) addOption(group, pair);
-      sel.append(group);
-    }
-    sel.addEventListener('change', () => { apply(key, sel.value); if (rerender) render(); });
-    row.append(text(label, hint), sel);
-    return row;
-  }
-
-  // A switch row (paginate) — reuses the settings switch styling.
-  function switchRow(key, label, hint, on) {
-    const row = el('label', 'db-or-switch');
-    const sw = el('span', 'db-switch');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'db-switch-input';
-    cb.checked = !!on;
-    cb.setAttribute('aria-label', label);
-    cb.addEventListener('change', () => apply(key, cb.checked));
-    sw.append(cb, el('span', 'db-switch-knob'));
-    row.append(text(label, hint), sw);
-    return row;
-  }
-
-  // A stacked text field (header, footer, class, lang) — label/hint above a
-  // full-width input, since these run long. Writes debounced as you type so the
-  // live preview tracks the edit without thrashing the editor on every keystroke.
-  function textField(key, label, hint, value, placeholder) {
-    const box = el('div', 'db-config-field');
-    box.append(text(label, hint));
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'db-config-input';
-    inp.value = value || '';
-    if (placeholder) inp.placeholder = placeholder;
-    inp.setAttribute('aria-label', label);
-    let t = null;
-    inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => apply(key, inp.value), 250); });
-    inp.addEventListener('change', () => { clearTimeout(t); apply(key, inp.value); });
-    box.append(inp);
-    return box;
-  }
-
-  function render() {
-    const fm = readFrontMatter(getSource());
-    host.innerHTML = '';
-
-    host.append(el('p', 'db-settings-note', note ||
-      'These live in the deck’s front matter — managed for you, so the Markdown stays clean. ' +
-      'They apply to the whole deck and travel with an exported .md.'));
-
-    // A group heading only when the profile shows at least one of its rows.
-    const group = (title, keys) => { if (keys.some((k) => show(k))) host.append(el('h3', 'db-settings-head db-settings-subhead', title)); };
-    group('Look', ['theme', 'color-mode', 'preset', 'finish', ...LOOK_KEYS, 'lift', 'mode']);
-    // Theme — the deck's palette, written into the deck's own front matter. This is
-    // the INDEPENDENT axis, not a mirror of the site chrome: `resolveDeckTheme`
-    // (docs/src/lib/deck-theme.ts) makes a deck's `theme:` authoritative and falls
-    // back to the site palette only when the deck names none. So the row has a real
-    // AUTOMATIC stop — the empty value, which `normalize('theme', '')` turns into
-    // null and `writeFrontMatter` then CLEARS, leaving a deck that follows the site
-    // again. Without that stop every option wrote a pin and there was no way back.
-    // Light/dark stays the separate top-bar toggle, so the options are base palettes.
-    if (show('theme') && palettes.length) {
-      const raw = fm.theme;
-      const valid = !!raw && palettes.includes(raw);
-      // What an un-pinned deck actually renders with, named so the Automatic row
-      // says where it lands instead of making the reader guess.
-      const site = getDefaultTheme() || palettes[0] || '';
-      const auto = site ? `Automatic — follow the site (${nameOf(site)})` : 'Automatic — follow the site';
-      const brand = palettes.filter((n) => !inGroup(n));
-      const cvd = palettes.filter(inGroup);
-      const options = [['', auto], ...brand.map((n) => [n, nameOf(n)])];
-      if (cvd.length) options.push({ label: paletteNaming.group.label, options: cvd.map((n) => [n, nameOf(n)]) });
-      host.append(selectRow('theme', 'Theme',
-        'Palette for this deck. Automatic follows the site; any other choice pins it and travels with the exported .md',
-        options, valid ? raw : '', true));
-      if (raw && !valid) {
-        // Don't propagate a nonexistent theme — say so, and keep rendering the
-        // fallback rather than blanking the deck. `resolveDeckTheme` drops an
-        // unknown name to the site palette, which is what this sentence promises.
-        host.append(el('p', 'db-settings-note db-config-warn',
-          `“${raw}” isn’t a known theme — the deck follows the site palette${site ? ` (${nameOf(site)})` : ''} until you pick a valid one.`));
-      }
-    }
-
-    // Color mode — the deck-wide COLOR-MODE key. Theme default is the baseline (picking
-    // it clears the key); light/dark PIN a side, System follows the viewer's OS, and
-    // "Match site / host" adopts the host container's mode. Honored by every render surface.
-    if (show('color-mode')) {
-      const cur = COLOR_MODE_OPTIONS.some(([v]) => v === fm['color-mode']) ? fm['color-mode'] : '';
-      host.append(selectRow('color-mode', 'Color mode',
-        'The mode the deck opens in everywhere — pin light/dark, follow the OS, or match the host',
-        COLOR_MODE_OPTIONS, cur));
-    }
-
-    // Preset — one word that sets the look registers below it (and the finish and card lift).
-    // It re-renders the panel, because every row under it now reads the new preset's values.
-    if (show('preset')) {
-      host.append(selectRow('preset', 'Preset',
-        'A named look — sets the backdrop, alignment, heading rule, eyebrow, lift and corners. Any row below overrides it',
-        frontMatterKey.PRESET_NAMES.map((n) => [n, frontMatterKey.PRESETS[n].label + (n === 'classic' ? ' — the default' : '')]),
-        fm.preset || 'classic', true));
-    }
-    // Finish — the deck-wide BACKDROP register (none / atrium … gallery), the
-    // palette-blind layer stack painted behind content; composes with the mode. None
-    // is the baseline, so picking it clears the key (a deck with no backdrop).
-    if (show('finish') && finishes.length) {
-      const current = fm.finish && finishes.includes(fm.finish) ? fm.finish : 'none';
-      host.append(selectRow('finish', 'Finish',
-        'A palette-blind backdrop behind content — applies to the whole deck',
-        finishes.map((f) => [f, FINISH_LABELS[f] || titleCase(f)]), current));
-    }
-
-    // Backdrop is a BAKED layer of the finish now (strength / clearance), tuned in the
-    // Fabricate designer and overridden per-deck through the `finish-override:` map — no
-    // longer a Deck-setup control (the retired top-level `backdrop:` block).
-
-    // The look registers a preset sets. Each row shows what the deck resolves to — its own
-    // value, else its preset's — and writes only an override.
-    // A value the deck carries that the list does not name (a typo, a newer value) is shown
-    // as itself rather than as whichever option happens to be first.
-    const withValue = (opts, v) => (v && !opts.some(([o]) => o === v) ? [...opts, [v, `${v} — not recognized`]] : opts);
-    if (show('headline')) host.append(selectRow('headline', 'Headline alignment', 'Where the eyebrow, heading and subtitle sit on every slide', withValue(LOOK_OPTIONS.headline, fm.headline), fm.headline));
-    if (show('rule')) host.append(selectRow('rule', 'Heading rule', 'The line under each slide’s heading', withValue(LOOK_OPTIONS.rule, fm.rule), fm.rule));
-    if (show('eyebrow')) host.append(selectRow('eyebrow', 'Eyebrow', 'The mark before the small label above a heading', withValue(LOOK_OPTIONS.eyebrow, fm.eyebrow), fm.eyebrow));
-    if (show('corners')) host.append(selectRow('corners', 'Slide corners', 'Square, or rounded at the theme’s radius', withValue(LOOK_OPTIONS.corners, fm.corners), fm.corners));
-    // Card lift — the opt-in "Struck" elevation. Lifts card surfaces off the slide with a
-    // zero-blur shadow that reads in both light and dark and survives the PDF export
-    // (resolve-lift.js). Shows in the live preview. Per-slide `_class: lifted` / `flat`
-    // override the deck default in the source.
-    if (show('lift')) {
-      host.append(switchRow('lift', 'Card lift',
-        'Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export', fm.lift));
-    }
-
-    // Mode — the deck-wide rendering MODE (boardroom / sketch / sketch-clean),
-    // orthogonal to the palette AND the backdrop. Boardroom is the baseline, so
-    // picking it clears the key (a clean deck carries no mode:).
-    if (show('mode') && modes.length) {
-      const current = fm.mode && modes.includes(fm.mode) ? fm.mode : 'boardroom';
-      host.append(selectRow('mode', 'Mode',
-        'The rendering hand — clean or sketch — applies to the whole deck',
-        modes.map((s) => [s, MODE_LABELS[s] || titleCase(s)]), current));
-    }
-
-    group('Format', ['size', 'venue', 'split']);
-    if (show('size')) {
-      host.append(selectRow('size', 'Slide size', 'Landscape, or a portrait / square format for social & mobile', SIZE_OPTIONS, fm.size));
-    }
-
-    // Venue — the room the deck is shown in; the engine sizes type for its back row.
-    if (show('venue')) host.append(selectRow('venue', 'Venue', 'Where the deck is seen — larger rooms get larger type', withValue(VENUE_OPTIONS, fm.venue), fm.venue));
-    // Slide splitting — how the body divides into slides. 'headings' (the
-    // default) starts a slide at each ## (the first # is the lead) so the deck
-    // needs no separators; 'rule' opts back to needing a `---` between slides.
-    if (show('split')) {
-      host.append(selectRow('split', 'Slide splitting',
-        'Start a new slide on each ## heading (default) or only on ---',
-        [['headings', 'On ## headings'], ['rule', 'On --- dividers']], fm.split));
-    }
-
-    // Auto-split — opt the deck into the Fit Ladder's SPLIT move: an over-capacity
-    // slide is divided across extra pages. A portrait/square-family behavior, so the
-    // hint names the gate (lint warns on a landscape deck). It's a build-time pass
-    // (lattice.js) — UNLIKE the Form composition (a live CSS class the
-    // engine stamps on every slide), it shows only on EXPORT, never in this live
-    // preview. The hint says so, so the toggle doesn't
-    // read as broken when the preview doesn't visibly change.
-
-    group('On every slide', ['paginate', 'header', 'footer']);
-    if (show('paginate')) host.append(switchRow('paginate', 'Page numbers', 'Show pagination on every slide', fm.paginate));
-    if (show('header')) host.append(textField('header', 'Header', 'Running header text on every slide', fm.header, 'e.g. Lattice · Q3 Board Review'));
-    if (show('footer')) host.append(textField('footer', 'Footer', 'Running footer text on every slide', fm.footer, 'e.g. Confidential'));
-
-    group('Editing', ['validate', 'glossary']);
-    // Inline validation — the editor's live deck-grammar check (the same findings
-    // the Architect lists), drawn as underlines + hover fixes. On by default; a
-    // deck can opt out (e.g. one built on bespoke local classes). The choice rides
-    // in the front matter, so it travels with the deck.
-    if (show('validate')) {
-      host.append(switchRow('validate', 'Inline validation',
-        'Underline layout/component grammar issues as you type, with a hover fix', fm.validate));
-    }
-
-    // Auto-glossary — generate a reference-appendix slide from the acronym registry's
-    // definitions (#920). Unlike auto-split, this DOES show in the live preview (the
-    // shared transform runs at the render chokepoint), so no "export only" caveat. The
-    // hint names the prerequisite (an `acronyms:` registry with definitions) so the
-    // toggle doesn't read as broken when a deck without one shows no new slide.
-    if (show('glossary')) {
-      host.append(switchRow('glossary', 'Auto-glossary',
-        'Append a glossary slide built from your acronyms: definitions — needs at least one term with a definition', fm.glossary));
-    }
-
-    // Advanced — the lower-traffic deck-authoring keys. Only shown when the
-    // profile includes at least one of them, so a `fields` array that names neither
-    // draws no Advanced section at all.
-    if (show('class') || show('lang')) {
-      host.append(el('h3', 'db-settings-head db-settings-subhead', 'Advanced'));
-      // Deliberately NOT `dark` as the example: the color axis belongs to `color-mode:`
-      // above, which supersedes it here, and a component name is refused outright — so the
-      // example names a modifier, which is what this register is actually for.
-      if (show('class')) host.append(textField('class', 'Default slide class', 'A modifier applied to every slide (e.g. no-note). Color lives in Color mode; a component name is ignored here.', fm.class, 'e.g. no-note'));
-      if (show('lang')) host.append(textField('lang', 'Language', 'The deck’s document language tag', fm.lang, 'e.g. en'));
-    }
-
-    syncTrigger();
-  }
-
-  return { render, syncTrigger, writeFrontMatter };
 }

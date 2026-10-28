@@ -1,0 +1,1 @@
+- The Playground's Walk bar now ships the newcomer's first caption in the server-rendered HTML instead of filling it in after hydration and the plan fetch, so the page has text to paint at first paint. A returning visitor or a deep link never sees it: it stays hidden until their own plan lands.

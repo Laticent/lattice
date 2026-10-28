@@ -140,7 +140,7 @@ function sidecarPaths(deckFile) {
  * (Same idiom as tools/check-svg-scaling.js, which measures the same sidecar.)
  */
 function renderSidecar(deckFile, { pdf, html }) {
-  execFileSync(process.execPath, [EMULATOR, deckFile, pdf, 'indaco', '-q'], {
+  execFileSync(process.execPath, [EMULATOR, deckFile, pdf, 'indaco', '-q', '--size', 'deck'], {
     cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,
   });
   if (!fs.existsSync(html)) throw new Error(`emulator produced no HTML sidecar for ${deckFile}`);

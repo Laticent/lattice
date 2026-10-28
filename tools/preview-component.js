@@ -59,7 +59,7 @@ function renderComponent({ name, css, skeleton }, { out, theme = 'indaco', palet
   fs.writeFileSync(deckPath, buildDeck(skeleton, { theme }));
   fs.writeFileSync(cssPath, combineCss(latticeCss, css));
 
-  const args = [EMULATOR, deckPath, cssPath, base];
+  const args = [EMULATOR, deckPath, cssPath, base, '--size', 'deck'];
   if (palette) args.push(palette);
   execFileSync('node', args, { cwd: ROOT, stdio: 'pipe' });
 

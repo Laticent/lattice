@@ -1,0 +1,1 @@
+- **Studio:** Import deck… now lets you pick a `.lattice` file on iPhone and iPad. iOS grayed it out because it has no file type for `.lattice`, so the picker there no longer filters by type. On desktop, the picker also accepts a `.lattice` saved as `.zip`.

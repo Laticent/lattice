@@ -38,15 +38,18 @@ to the same face set, and **regression-guards the zero-network property**: any
 CSS or the shipped bundle fails the build. `dist/fonts/` freshness is enforced
 separately by `css:build --check`.
 
-## Color emoji — system font by default, opt-in full-offline tier
+## Color emoji — self-hosted, in slices
 
-Noto Color Emoji is **not** bundled by default: at ~25 MB it is impractical to
-ship to everyone, so color emoji falls back to the installed **system** emoji
-font (every font stack lists Apple/Segoe/Noto). Air-gapped environments that
-can't rely on a system emoji font run **`npm run fonts:emoji`** once while online
-to vendor the font into `dist/fonts/noto-color-emoji.ttf` (excluded from the
-tarball); linking the committed `dist/lattice-emoji.css` after `lattice.css` then
-resolves it locally.
+Noto Color Emoji (v47) is self-hosted like every other face. The single font is ~25 MB, so we
+ship the 11 woff2 slices Google Fonts cuts it into (`noto-color-emoji-0` to `-10`, about 2 MB
+together, each with its own `unicode-range`; the manifest is `lib/fonts/emoji-faces.js`).
+`dist/lattice.css` declares all 11, and a browser fetches only the slices a page's emoji use.
+An export does the same by hand: `slicesFor(text)` names the slices a deck needs and only
+those are inlined, so a deck with no emoji carries none, and the HTML player cuts what is left to the deck's own emoji (about 2 KB each). To refresh, re-download the slices from the Google Fonts
+CSS API with a current Chrome user agent and regenerate the rows in `lib/fonts/emoji-faces.js`.
+The player then cuts each slice to the deck's own emoji (`fonts: exact-emoji`, the default), about 2 KB per emoji, with the
+color build of the subsetter in `lib/fonts/hb/`.
+The SIL OFL 1.1 that covers the other faces covers this one; `OFL.txt` carries the notice and the build copies it to `dist/fonts/`.
 
 See `engineering/decisions/2026-06-26-local-font-library.md` for the full design,
 and `2026-06-12-export-font-embedding.md` for the export-embedding precursor.

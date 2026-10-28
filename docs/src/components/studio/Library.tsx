@@ -35,7 +35,7 @@ import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, ref
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { listShippedScenes, type ShippedScene, shippedDrawing } from './shipped-scenes';
-import { loadCheckpoints, loadDeckList, loadSource, saveCheckpoint, saveSource } from './studio-store';
+import { loadDeckList, loadSource, saveCheckpointDurably, saveSource } from './studio-store';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 
 // The detail dialog (and the shadcn parts only it uses) loads the first time a photo is opened, not with the Library: most visits never open one.
@@ -697,10 +697,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				if (src == null) continue;
 				const next = renameAssetRefsOutsideCode(src, alias, a.name);
 				if (next === src) continue;
-				// The way back is saved FIRST, and read back: the store swallows a full-storage error, and a deck must not be
-				// rewritten on a promise of an undo that was never written.
-				saveCheckpoint(dk.id, src, label, stamp);
-				if (loadCheckpoints(dk.id)[0]?.source !== src) {
+				// The way back is saved FIRST, and the rewrite waits until it is durable: a deck must not be rewritten on a
+				// promise of an undo that was never written (a full quota fails the write after the call returns).
+				if (!(await saveCheckpointDurably(dk.id, src, label, stamp))) {
 					outOfRoom = true;
 					break;
 				}

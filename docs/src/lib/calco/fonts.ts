@@ -7,7 +7,7 @@
  * has to be pinned to one weight first. That needs a shaping engine (HarfBuzz), which the
  * host already has; `prepareFonts` takes it as a `pin` function and stays dependency-free.
  */
-import type { Deck, EmbeddedFont, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, TextRun, TextStyle } from './types.js';
 
 /** Vertical metrics as fractions of the em: what a writer needs to place a baseline. */
 export interface FontMetrics {
@@ -92,6 +92,8 @@ export interface FaceUse {
 	 * an arrow is worse than a heading that loses an `fi` ligature.
 	 */
 	ligatures: boolean;
+	/** Every character the deck draws in this face, each once, in the order first met. `exact` keeps just these. */
+	chars: string;
 }
 
 /** Every face the deck's text uses, deduplicated by family + weight + italic. */
@@ -104,8 +106,10 @@ export function facesUsed(deck: Deck): FaceUse[] {
 					const s = run.style;
 					const key = faceKey(s.family, s.weight, s.italic);
 					const use = seen.get(key);
-					if (use) use.ligatures = use.ligatures && s.ligatures;
-					else seen.set(key, { family: s.family, weight: s.weight, italic: s.italic, ligatures: s.ligatures });
+					if (use) {
+						use.ligatures = use.ligatures && s.ligatures;
+						use.chars = addChars(use.chars, drawnText(run));
+					} else seen.set(key, { family: s.family, weight: s.weight, italic: s.italic, ligatures: s.ligatures, chars: addChars('', drawnText(run)) });
 				}
 			}
 		}
@@ -113,36 +117,122 @@ export function facesUsed(deck: Deck): FaceUse[] {
 	return [...seen.values()];
 }
 
-/** Host hooks for `prepareFonts`. */
+/**
+ * Every character a run can put on the page. `run.text` is the SOURCE text, and the writers draw it through `text-transform` (and
+ * an office suite builds small caps from capitals), so the capitals and lower-case forms of a transformed run count too.
+ */
+function drawnText(run: TextRun): string {
+	const { transform, smallCaps } = run.style;
+	if ((!transform || transform === 'none') && !smallCaps) return run.text;
+	return `${run.text}${run.text.toUpperCase()}${run.text.toLowerCase()}`;
+}
+
+/** `chars` with the characters of `text` it lacks added, each once. */
+function addChars(chars: string, text: string): string {
+	const seen = new Set(Array.from(chars));
+	let out = chars;
+	for (const ch of Array.from(text)) {
+		if (seen.has(ch)) continue;
+		seen.add(ch);
+		out += ch;
+	}
+	return out;
+}
+
+/** Host hooks for `prepareFonts`. Calco lists the faces a deck draws with; the host decides what to put in the file for each. */
 export interface FontHost {
 	/**
-	 * The font file for a face (WOFF2, TTF or OTF), or null when the host has none (a
-	 * system font). The host picks the nearest weight it ships.
+	 * The finished font for a face: a static sfnt (pinned to `face.weight`, ligature features dropped when `face.ligatures` is false), cut to
+	 * `face.chars` or whole, as the host's own policy says. Return `'system'` to embed nothing on purpose (the reader's office suite draws that text
+	 * in its own font), or `null` when the host has no file for the face (a system font such as Arial), which is reported.
 	 */
-	load(face: { family: string; weight: number; italic: boolean }): Promise<Uint8Array | null> | Uint8Array | null;
-	/**
-	 * Return a static sfnt pinned to `weight`, keeping EVERY character (the reader of an
-	 * editable file types new words), with ligature features dropped when `ligatures` is false.
-	 */
-	pin(bytes: Uint8Array, options: { weight: number; ligatures: boolean }): Promise<Uint8Array> | Uint8Array;
+	font(face: FaceUse): Promise<Uint8Array | 'system' | null> | Uint8Array | 'system' | null;
 }
 
 /**
- * Load and pin every face the deck uses. A face the host cannot load is skipped: its runs
- * still name the family, and the reader's office suite substitutes. So is a face whose
- * license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a
- * file someone else will open.
+ * Ask the host for every face the deck uses. A face the host has no file for is skipped: its runs still name the family, and the reader's office
+ * suite substitutes. So is a face whose license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a file someone else will open.
+ *
+ * Neither is silent: `onSkip` hears each face left out and why, so a host can tell the author that the reader's office suite will substitute its own
+ * font for that text.
+ *   · `unavailable`: the host has no file for this family, so there is nothing to embed.
+ *   · `license`: the font's embedding flag forbids it.
+ *   · `failed`: the host threw while preparing the face. One face the host cannot prepare is reported and left out; it does not take the whole export
+ *     down.
+ * A face the host answered `'system'` for is left out without a word: that was the author's choice.
  */
-export async function prepareFonts(deck: Deck, host: FontHost): Promise<EmbeddedFont[]> {
+export type FontSkipReason = 'unavailable' | 'license' | 'failed';
+
+export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason, error?: unknown) => void): Promise<EmbeddedFont[]> {
+	// A host written for the old `load`/`pin` shape would otherwise fail once per face, be reported as 'failed' and embed nothing: say so up front.
+	if (typeof host?.font !== 'function') throw new TypeError('prepareFonts: the host needs font(face), which returns the finished font, \'system\' or null (the older load/pin hooks are gone; see FontHost)');
 	const out: EmbeddedFont[] = [];
 	for (const face of facesUsed(deck)) {
-		const raw = await host.load(face);
-		if (!raw) continue;
-		const bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures });
-		if (!embeddingAllowed(bytes)) continue;
+		let bytes: Uint8Array | 'system' | null;
+		try {
+			bytes = await host.font(face);
+		} catch (error) {
+			onSkip?.(face, 'failed', error);
+			continue;
+		}
+		if (bytes === 'system') continue;
+		if (!bytes) {
+			onSkip?.(face, 'unavailable');
+			continue;
+		}
+		if (!embeddingAllowed(bytes)) {
+			onSkip?.(face, 'license');
+			continue;
+		}
 		out.push({ family: face.family, weight: face.weight, italic: face.italic, bytes });
 	}
 	return out;
+}
+
+/**
+ * An emoji as a reader sees it: a flag (two regional indicators), a keycap, or one pictograph (with its presentation selector,
+ * skin-tone modifier, tag characters and any joiner chain: a family, a profession, the flag of England). A pictograph a font draws as
+ * text by default (a plain `\u2764`, `\u261d`) is an emoji only when something asks for it: `\uFE0F` or a skin-tone modifier follows. One
+ * that asks for text (`\uFE0E`) is not, and a lone regional indicator is not.
+ */
+const EMOJI_SEQUENCE =
+	/\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|(?:(?!\p{Regional_Indicator})\p{Emoji_Presentation}(?!\uFE0E)|\p{Extended_Pictographic}(?=[\uFE0F\u{1F3FB}-\u{1F3FF}]))\uFE0F?\p{Emoji_Modifier}?[\u{E0020}-\u{E007F}]*(?:\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})\uFE0F?\p{Emoji_Modifier}?)*/gu;
+
+/** The emoji sequences in `text`, with where each starts. */
+export function emojiSpans(text: string): { start: number; end: number; sequence: string }[] {
+	const out: { start: number; end: number; sequence: string }[] = [];
+	for (const m of text.matchAll(EMOJI_SEQUENCE)) out.push({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, sequence: m[0] });
+	return out;
+}
+
+/**
+ * Split every text run at its emoji, in place: the emoji run keeps the style except for its family (the face that draws
+ * that sequence) and a regular upright weight. Returns the families it named. A sequence `emojiFamily` has no face for
+ * stays in its text run. Idempotent: an emoji run splits into itself.
+ */
+export function splitEmojiRuns(deck: Deck, emojiFamily: (sequence: string) => string | null): Set<string> {
+	const families = new Set<string>();
+	for (const slide of deck.slides) {
+		for (const frame of slide.frames) {
+			frame.lines = frame.lines.map((line) => {
+				const next: TextRun[] = [];
+				for (const run of line) {
+					let at = 0;
+					for (const { start, end, sequence } of emojiSpans(run.text)) {
+						const family = emojiFamily(sequence);
+						if (!family) continue;
+						if (start > at) next.push({ text: run.text.slice(at, start), style: run.style });
+						next.push({ text: sequence, style: { ...run.style, family, weight: 400, italic: false, emoji: true } });
+						families.add(family);
+						at = end;
+					}
+					if (at < run.text.length || !run.text) next.push(at ? { text: run.text.slice(at), style: run.style } : run);
+				}
+				return next;
+			});
+		}
+	}
+	return families;
 }
 
 /**

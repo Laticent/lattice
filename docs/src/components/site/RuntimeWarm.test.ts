@@ -46,16 +46,13 @@ describe('RuntimeWarm.astro', () => {
 	});
 });
 
-// Surfaces that live-render a preview ON LOAD — the hero (index), the app pages
-// (studio/playground), and every component page (its specimen renders eagerly).
-// Each must warm the runtime so the first render doesn't cold-fetch it. The three
+// Surfaces that live-render a preview ON LOAD — the app pages (studio/playground)
+// and every component page (its specimen renders eagerly). Each warms the runtime so
+// the first render doesn't cold-fetch it. The home hero is the measured exception below. The three
 // pages that build their OWN runtimeUrl also carry the shared-cache invariant; the
 // component LAYOUT delegates the URL to Specimen.astro (asserted separately below).
 describe('live-preview surfaces warm the runtime', () => {
-	const cases = [
-		{ file: 'pages/index.astro', ownsUrl: true },
-		{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false },
-	];
+	const cases = [{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false }];
 	for (const { file, ownsUrl } of cases) {
 		it(`${file} imports and renders <RuntimeWarm />`, () => {
 			const s = read(file);
@@ -66,6 +63,15 @@ describe('live-preview surfaces warm the runtime', () => {
 			if (ownsUrl) expect(s).toContain(RUNTIME_FILE);
 		});
 	}
+
+	// The home page carries no warm: its hero renders only after the engine downloads, so the
+	// prefetch can only share the link with that download. Faster without it on a local server,
+	// neutral on the real CDN (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md §7).
+	it('pages/index.astro does NOT warm the runtime (no measured benefit for the hero)', () => {
+		const s = read('pages/index.astro');
+		expect(s).not.toMatch(/<RuntimeWarm\s*\/>/);
+		expect(s).not.toContain("import RuntimeWarm from");
+	});
 
 	// The Studio warms from its island's first module, not from the HTML: a prefetch in the HTML shared the
 	// throttled link with the island's own code (engineering/decisions/2026-10-23-studio-boot-order.md). The page

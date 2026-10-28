@@ -41,6 +41,7 @@
 // interleave their awaits and embed pages out of order.
 
 import { PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib';
+import { encodeJpegCanvas } from '../../../../../lib/core/jpeg-encode.mjs';
 import { stickyNotePlacements } from '../../../playground/pdf-sticky-notes.js';
 import { deflate, imageDict, PX_TO_PT, packPredictorRows, pageContentOps } from './pdf-image-stream.js';
 import { createFontSet, registerTextFont, textFontName, textLayerOps } from './pdf-text-layer.js';
@@ -61,10 +62,9 @@ let scratch = null;
 /** Encode one drawn scratch canvas into the bytes a PDF image XObject carries. */
 async function encode(canvas, ctx) {
 	if (jpeg) {
-		// The canvas's own JPEG encoder produces a DCT stream a PDF can carry verbatim,
-		// so nothing decodes or re-encodes it on the way in.
-		const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
-		return new Uint8Array(await blob.arrayBuffer());
+		// The shared JPEG writer (lib/core/jpeg-encode.mjs), not the canvas's own: the same bytes in every browser. Its
+		// baseline DCT stream is one a PDF carries verbatim, so nothing decodes or re-encodes it on the way in.
+		return encodeJpegCanvas(canvas, { quality: 95 });
 	}
 	const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
 	return deflate(packPredictorRows(data, width, height));

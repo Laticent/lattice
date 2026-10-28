@@ -1,10 +1,11 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+import { appendCheckpoint, type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, mapCheckpoints, readCheckpoints, replaceCheckpoints, SNAP_CAP, SNAP_PREFIX } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
 import { splitSlides } from './lint';
-import { clearComments } from './slide-comments';
+import { COMMENTS_KEY_PREFIX, clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 
 // Studio persistence — localStorage-backed, Studio-scoped (lattice-studio-*).
@@ -374,8 +375,24 @@ export function loadDeckList(): StudioDeck[] {
 		const derived = titleFromSource(source, e.title);
 		// The restore tag is appended for DISPLAY only — two copies of the same deck would
 		// otherwise sit in the switcher under one identical name.
-		return { id: e.id, title: e.restored ? `${derived} (restored)` : derived, meta: metaFor(source), slides: splitSlides(stripFrontMatter(source)) };
+		return { id: e.id, title: e.restored ? `${derived} (restored)` : derived, meta: metaFor(source), slides: slidesFor(source) };
 	});
+}
+
+// One boot calls loadDeckList five times (the list, loadBootDeck twice, the checkpoints, and
+// loadBootSlide), and each call used to split every deck again: 41 ms for 16 gallery-size decks
+// on a desktop, about four times that on a phone (#1930). Remembered by text like `metaFor`,
+// so an edited deck simply misses. A copy goes out each time: deck-ops splice the array.
+const SLIDES_MAX = 64;
+const slidesMemo = new Map<string, readonly string[]>();
+function slidesFor(source: string): string[] {
+	let slides = slidesMemo.get(source);
+	if (slides === undefined) {
+		slides = splitSlides(stripFrontMatter(source));
+		if (slidesMemo.size >= SLIDES_MAX) slidesMemo.delete(slidesMemo.keys().next().value as string);
+		slidesMemo.set(source, slides);
+	}
+	return [...slides];
 }
 
 /** Every index row's stable creation/rename LABEL (not the derived title) — the handle
@@ -515,7 +532,7 @@ export function setDeckLabel(id: string, title: string): void {
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
-	remove(SNAP_PREFIX + id);
+	void dropCheckpoints(id);
 	remove(CHAT_PREFIX + id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
@@ -538,15 +555,15 @@ export function deckContentStats(): { count: number; bytes: number } {
 		for (let i = 0; i < localStorage.length; i++) {
 			const k = localStorage.key(i);
 			if (!k) continue;
-			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
-			// by hand, scanning SRC_PREFIX directly.
-			if (k === INDEX_LS || k === ACTIVE_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+			if (k === INDEX_LS || k === ACTIVE_LS || isDeckContentKey(k)) {
 				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
 			}
 		}
 	} catch {
 		/* storage unavailable */
 	}
+	// Checkpoints moved to IndexedDB, so the localStorage scan above no longer sees them.
+	bytes += checkpointBytes();
 	return { count, bytes };
 }
 
@@ -570,7 +587,6 @@ export function clearAllDecks(): void {
 	// can't do that, since it doesn't know which ids it's touching).
 	for (const { id } of loadIndex()) {
 		dropSource(id);
-		remove(SNAP_PREFIX + id);
 		remove(CHAT_PREFIX + id);
 		remove(CHAT_DRAFT_PREFIX + id);
 		clearComments(id);
@@ -588,12 +604,17 @@ export function clearAllDecks(): void {
 		const orphaned: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
 			const k = localStorage.key(i);
-			if (k && (k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-'))) orphaned.push(k);
+			if (k && isDeckContentKey(k)) orphaned.push(k);
 		}
 		for (const k of orphaned) remove(k);
 	} catch {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
+	// Checkpoints live in IndexedDB now, so clearing them is asynchronous: callers that
+	// reload afterwards await `checkpointsSettled()` first, and read the outcome from
+	// `lastCheckpointClear()`. Like the source writes guarded by DECKS_CLEARED_EVENT, a
+	// checkpoint saved in the moment before that reload is not refused here.
+	void clearCheckpoints();
 	remove(INDEX_LS);
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
@@ -610,14 +631,14 @@ export function clearAllDecks(): void {
 export const DECKS_CLEARED_EVENT = 'lattice:decks-cleared';
 
 // ── Version history (checkpoints) ──────────────────────────────────────────
-export const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[] (exported for the storage-overlay drift test)
-const SNAP_CAP = 25; // keep the most recent N per deck
-
-export type Checkpoint = { id: string; ts: number; label: string; source: string };
+// Stored in IndexedDB behind a synchronous cache, with failed writes reported rather
+// than swallowed (checkpoint-store.ts). The legacy localStorage prefix is re-exported
+// for the storage-overlay drift test and the Clear-all sweep.
+export { type Checkpoint, SNAP_PREFIX };
 
 /** Checkpoints for a deck, newest first. */
 export function loadCheckpoints(deckId: string): Checkpoint[] {
-	return read<Checkpoint[]>(SNAP_PREFIX + deckId) ?? [];
+	return readCheckpoints(deckId);
 }
 /**
  * Save a checkpoint of `source` (skipping a no-op if it matches the latest), cap
@@ -628,23 +649,26 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return list; // nothing changed since the last one
 	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
-	const next = [cp, ...list].slice(0, SNAP_CAP);
-	write(SNAP_PREFIX + deckId, next);
-	return next;
+	void appendCheckpoint(deckId, cp);
+	return [cp, ...list].slice(0, SNAP_CAP);
+}
+
+/**
+ * `saveCheckpoint`, but settles once the checkpoint is durable: true when it is stored (or
+ * nothing needed saving), false when the write failed. For a caller that is about to change
+ * something on the promise of this undo, and must not if the undo was never written.
+ */
+export function saveCheckpointDurably(deckId: string, source: string, label: string, ts: number): Promise<boolean> {
+	const list = loadCheckpoints(deckId);
+	if (list[0]?.source === source) return Promise.resolve(true);
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	return appendCheckpoint(deckId, cp);
 }
 
 /** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
  *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
-export function mapCheckpointSources(deckId: string, fn: (source: string) => string): void {
-	const list = loadCheckpoints(deckId);
-	let changed = false;
-	const next = list.map((c) => {
-		const source = fn(c.source);
-		if (source === c.source) return c;
-		changed = true;
-		return { ...c, source };
-	});
-	if (changed) write(SNAP_PREFIX + deckId, next);
+export function mapCheckpointSources(deckId: string, fn: (source: string) => string): Promise<boolean> {
+	return mapCheckpoints(deckId, fn);
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
@@ -794,6 +818,16 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 // chat's full state survives the panel going away (the activity-bar model closes
 // it entirely; nothing should be lost on the way out).
 export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → string (exported for the storage-overlay drift test)
+
+/**
+ * Every per-deck CONTENT key prefix, in one list: `deckContentStats` counts these, `clearAllDecks`
+ * sweeps them, and the storage overlay's drift test checks each routes to its own category. The
+ * test also reads this file and slide-comments.ts for any `lattice-studio-…-` prefix literal, so a
+ * new content prefix fails CI until it is listed here (#1930; the two sweeps used to spell the
+ * set out inline, and a prefix with no export of its own could drift past the overlay).
+ */
+export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
+const isDeckContentKey = (k: string) => DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
 }
@@ -1163,7 +1197,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			const { webOrigins: _untrusted, ...incoming } = entry;
 			index.push(incoming);
 			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1180,7 +1214,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// still whatever each side already had, so nothing is rewritten under the user.
 		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.skipped++;
 			continue;
@@ -1191,7 +1225,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// restores IN PLACE. This is the whole-point case: a fresh browser after
 			// storage loss, where every built-in id is present but untouched.
 			saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1209,7 +1243,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
 		saveSource(newId, incomingSrc);
-		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
 		summary.written.push(newId);

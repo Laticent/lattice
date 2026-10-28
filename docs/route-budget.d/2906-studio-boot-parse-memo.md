@@ -1,0 +1,3 @@
+studio: +96
+The Studio's eager `studio-store` chunk now carries `slidesFor`, a memo of each deck's split keyed by its text, so one boot splits each deck once instead of five times (#1930), and `DECK_CONTENT_PREFIXES`, the one list the two deck-content sweeps read instead of spelling the set out inline. CI measured +76 B gz (studio-store +76, StudioIsland -2, slide-comments +2); +96 leaves room for gzip spread, as earlier small declarations did.
+Given back first: nothing to give; the two inline prefix lists the new one replaced were already counted, and the home page's removed prefetch is HTML, not JS.

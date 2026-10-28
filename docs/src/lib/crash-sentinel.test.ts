@@ -920,6 +920,22 @@ describe('a wipe survives a tab that slept through it', () => {
 		expect(rec.crumbs).toEqual([]);
 	});
 
+	// #1634 — `visibilitychange` is the wake-up a background tab sees most, and it
+	// was the one handler that persisted without re-reading the mark first.
+	it('seals on a visibility change, so a tab coming to the front writes nothing back', () => {
+		startCrashSentinel();
+		setCrashContext({ Deck: 'Confidential Q3' });
+		breadcrumb('action', 'something private');
+		expect(sessionCount()).toBe(1);
+
+		anotherTabWipes();
+		document.dispatchEvent(new Event('visibilitychange'));
+
+		expect(sessionCount()).toBe(0);
+		expect(JSON.stringify({ ...localStorage })).not.toContain('Confidential Q3');
+		expect((liveSession() as SessionRecord).context).toEqual({});
+	});
+
 	it('seals on a page-cache restore too — the other way a tab falls asleep', () => {
 		startCrashSentinel();
 		breadcrumb('action', 'something private');

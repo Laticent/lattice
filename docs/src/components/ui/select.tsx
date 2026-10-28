@@ -1,13 +1,24 @@
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
-import type * as React from "react"
+import * as React from "react"
 
+import { TapAway, useOpenState } from "@/components/ui/tap-away"
 import { cn } from "@/lib/utils"
 
 function Select({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  // A select is always modal, so it always draws the tap-away layer while open (tap-away.tsx).
+  const [isOpen, setOpen] = useOpenState(open, defaultOpen, onOpenChange)
+  return (
+    <>
+      <SelectPrimitive.Root data-slot="select" open={isOpen} onOpenChange={setOpen} {...props} />
+      {isOpen && <TapAway onTap={() => setOpen(false)} />}
+    </>
+  )
 }
 
 function SelectGroup({
@@ -48,6 +59,39 @@ function SelectTrigger({
   )
 }
 
+/** Radix's own screen margin for an item-aligned list (CONTENT_MARGIN in @radix-ui/react-select). */
+const SCREEN_MARGIN = 10
+
+/**
+ * Keep an item-aligned list inside the screen.
+ *
+ * WHY. In item-aligned mode Radix places the list so the chosen row sits over the trigger, and
+ * clamps that placement against the TRIGGER's width, not the list's. A list whose longest row is
+ * wider than the trigger (`Auto — Component's own` in a 176px phone trigger) therefore ran past
+ * the right edge of a 393px screen. Measured in WebKit at phone width: six Settings pickers ended
+ * at 394–395px. This slides the list's positioned wrapper left by the overflow, never past the
+ * left margin, and caps the width at the screen, after every placement Radix writes. It takes
+ * the node rather than a ref because Radix mounts the list a render after the Content element.
+ */
+function useInScreen(content: HTMLDivElement | null, itemAligned: boolean) {
+  React.useLayoutEffect(() => {
+    const wrapper = content?.parentElement
+    if (!itemAligned || !content || !wrapper) return
+    const clamp = () => {
+      const max = window.innerWidth - 2 * SCREEN_MARGIN
+      content.style.maxWidth = `${max}px`
+      const r = wrapper.getBoundingClientRect()
+      const over = r.right - (window.innerWidth - SCREEN_MARGIN)
+      if (over > 0.5) wrapper.style.left = `${Math.max(SCREEN_MARGIN, r.left - over)}px`
+    }
+    clamp()
+    // Radix writes `left` again when the selected row mounts or the window resizes; follow it.
+    const watch = new MutationObserver(clamp)
+    watch.observe(wrapper, { attributes: true, attributeFilter: ["style"] })
+    return () => watch.disconnect()
+  }, [content, itemAligned])
+}
+
 function SelectContent({
   className,
   children,
@@ -55,9 +99,12 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const [node, setNode] = React.useState<HTMLDivElement | null>(null)
+  useInScreen(node, position === "item-aligned")
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
+        ref={setNode}
         data-slot="select-content"
         className={cn(
           "relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",

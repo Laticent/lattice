@@ -32,17 +32,23 @@ export const AUTO_LABEL = 'Auto';
  * workspace language, the deck's value for a per-slide axis. Pass the DISPLAY label, not
  * the register value.
  *
+ * Every Settings picker in both scopes gets this head from ONE builder, `withAutoHead`
+ * (CatalogSelect.tsx): the Auto head first, wearing `AutoIcon`, and the value it resolves
+ * to removed from the rows below, because choosing it would write nothing new. A picker
+ * never rolls its own head ("(default)", "Default — tab", a bare "Auto"); the walk tests
+ * in studio.controls.test.tsx and SlideContext.test.tsx open every picker and fail on one.
+ *
  * Four catalogs (spectrum-card, motion-speed, rule, headline) carry a value whose own
  * label is "Auto", which would render "Auto — Auto". Those entries supply an `autoLabel`
- * naming what their auto lands on, and the caller passes that instead — so the second
- * half is always informative and never an echo.
+ * naming what their auto lands on: the head reads `Auto — <autoLabel>`, and the value as
+ * an ordinary row reads `<autoLabel>` alone, so the word Auto appears once per list.
  *
  * Keep an `autoLabel` to ONE short word where you can. The control owns a fixed half of
  * its row and truncates, and the docked Inspector goes down to 260px — a resolved value
  * that reads "Auto — masthead d…" has spent the width and told the reader nothing.
  *
  * CAPITALIZE it. It is read as a VALUE, sitting in a list beside "Rainbow", "Quiet" and
- * "Theme default", so a lower-case tail reads as a stray sentence fragment rather than
+ * "Theme's own", so a lower-case tail reads as a stray sentence fragment rather than
  * the thing the control is set to.
  */
 export function autoHeadLabel(resolved?: string | null): string {

@@ -2,12 +2,25 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import type * as React from "react"
 
+import { TapAway, useOpenState } from "@/components/ui/tap-away"
 import { cn } from "@/lib/utils"
 
 function DropdownMenu({
+  open,
+  defaultOpen,
+  onOpenChange,
+  modal = true,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+  // Only a MODAL menu locks the page, so only it needs the tap-away layer (tap-away.tsx); a
+  // non-modal menu leaves the page live and Radix closes it on any outside tap already.
+  const [isOpen, setOpen] = useOpenState(open, defaultOpen, onOpenChange)
+  return (
+    <>
+      <DropdownMenuPrimitive.Root data-slot="dropdown-menu" open={isOpen} onOpenChange={setOpen} modal={modal} {...props} />
+      {modal && isOpen && <TapAway onTap={() => setOpen(false)} />}
+    </>
+  )
 }
 
 function DropdownMenuPortal({

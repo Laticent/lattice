@@ -13,7 +13,7 @@
 //
 // The bundle (css-tree, `subset-font`, the woff2 codec) is heavy, so this module loads on
 // demand, only when the author exports a webpage, never on the initial Studio load.
-import { prunePlayerHtml, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
+import { prunePlayerHtml, setColorWasm, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
 
 export type PruneResult = {
 	html: string;
@@ -69,13 +69,14 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 }
 
 let wasmReady: Promise<void> | null = null;
+let colorWasmReady: Promise<void> | null = null;
 
 /**
  * The `subsetFonts` capability for `assemblePlayer`: the CLI's own subsetter, fed HarfBuzz's
  * wasm from the site's bundle. Any trouble loading it ships the fonts whole, as the CLI does
  * when `subset-font` is not installed.
  */
-export async function subsetFontsInBrowser(html: string): Promise<{ html: string; applied: boolean; saved: number }> {
+export async function subsetFontsInBrowser(html: string, fonts?: { text: string; emoji: string }): Promise<{ html: string; applied: boolean; saved: number }> {
 	try {
 		wasmReady ||= (async () => {
 			const { default: url } = await import('harfbuzzjs/hb-subset.wasm?url');
@@ -88,5 +89,21 @@ export async function subsetFontsInBrowser(html: string): Promise<{ html: string
 		wasmReady = null;
 		return { html, applied: false, saved: 0 };
 	}
-	return subsetEmbeddedFonts(html);
+	// The color build (lib/fonts/hb/README.md) cuts the emoji font; fetch it only when the page carries that font and the
+	// policy cuts it, and the browser caches the one fetch.
+	if (fonts?.emoji === 'exact' && /Noto Color Emoji/.test(html)) {
+		try {
+			colorWasmReady ||= (async () => {
+				const { default: url } = await import('../../../../lib/fonts/hb/hb-subset-color.wasm?url');
+				const res = await fetch(url);
+				if (!res.ok) throw new Error(`hb-subset-color.wasm: HTTP ${res.status}`);
+				setColorWasm(new Uint8Array(await res.arrayBuffer()));
+			})();
+			await colorWasmReady;
+		} catch {
+			// Without it the emoji slices ship whole (the cut is skipped per face), never blank.
+			colorWasmReady = null;
+		}
+	}
+	return subsetEmbeddedFonts(html, fonts);
 }

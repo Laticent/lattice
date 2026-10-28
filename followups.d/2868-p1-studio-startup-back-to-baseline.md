@@ -25,7 +25,25 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             do not get there (E7). What is left is the script work itself: React ~800 ms, the runtime's chart builders (0.2 s ceiling,
             changes export bytes), ~1.9 s unattributed. Target (3), a CI time budget, is the owner's call; the harness spread (stdev
             ~30-60 ms) supports a same-job comparison.
-decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
+            2026-10-26, session F (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md): dropping the home
+            page's runtime prefetch moved home 56-61 -> 66-76 on a LOCAL server but was NEUTRAL on the real CDN (73-80 vs
+            75-78, note §7): local Lighthouse runs overstate download cost, so measure candidates on a CDN preview. Studio (48-60) and Playground (42-47) unchanged: their paint waits on 750-900 KB of module-preloaded
+            JS and TBT is React, the island and the runtime (per-script table in the note §2). None is at 90; the boot-order
+            redesign (next 3) is still the route, and TBT is now home's largest remaining weight.
+            Deployed (the PR's Cloudflare preview): home 71-76, Studio 66-71, Playground 37-44. The Playground's LCP element is
+            the Explore walk caption (`p.pg-walk-caption`), which paints after hydration, so its simulated LCP is 10.1-10.3 s
+            (94% render delay): the cheapest Playground lever found, not yet tried (note §6).
+            2026-10-26, PR #2913: the Playground walk caption is now in the server HTML. On the CDN preview, 5 runs interleaved
+            against #2907's preview: LCP median 8.3 s -> 4.2 s, score median 42 -> 55 (note §8). The under-4 s bar is NOT met (2 of 5).
+            Next item 3 now has a design (note §9): lever A (no lint while the editor is hidden) measured -190 ms simulated TBT;
+            the owner's call is whether to take A and spike D (time-sliced hydration).
+            2026-10-27, PR #2921: lever A built, CDN median TBT 1,686 -> 1,532 ms, score 45 on both (note §11). Lever D
+            measured as a no-go: Suspense boundaries gave no gain locally. The real hydration cost is two single calls, the
+            picker's search index (now built on first search, about -180 ms blocking at 4x) and the editor mount (2921-p1) (§12).
+decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
+            at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
+            for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.
+            Earlier: the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note
             and one question round first (CLAUDE.md, design before code).

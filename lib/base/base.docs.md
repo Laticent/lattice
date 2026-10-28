@@ -1137,10 +1137,10 @@ register it belongs to. Each is documented in
 | `mode:` | `sketch-clean-body` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `finish-none` · `finish-savile` · `finish-strata` |
 | `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
-| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-mono` · `spectrum-off` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
-| `rule:` | `rule-accent` · `rule-full` · `rule-none` · `rule-short` |
-| `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-underline` |
-| `headline:` | `head-center` · `head-left` · `head-right` |
+| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `spectrum-off` · `spectrum-on` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
+| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `rule-none` · `rule-short` |
+| `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-plain` · `eyebrow-underline` |
+| `headline:` | `head-auto` · `head-center` · `head-left` · `head-right` |
 | `lift:` | `lifted` |
 | `corners:` | `corners-rounded` · `corners-square` |
 
@@ -1150,7 +1150,10 @@ folder instead. Both were wrong for the same reason: HARD RULE #6 says to open
 rule. Moving the registers out cost 38 of these tokens their only hit here, which
 a checker pass caught — the list above is derived from the class names in
 `lib/base/*.css` rather than hand-picked, so it is complete by construction as of
-2026-08-30.
+2026-08-30 — except for the six RESTORE tokens (`spectrum-on`, `spectrum-edge-top`,
+`spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain`, `head-auto`), which return one slide
+to a register's default and so have no CSS to be derived from. They are added by hand; what
+they do is under "Back to the default on one slide" in `base.registers.docs.md`.
 
 ### `scale-l` / `scale-xl` / `scale-2xl`
 
@@ -1402,13 +1405,19 @@ Override per slide with `_focusStyle`:
 <!-- _focusStyle: blur -->        <!-- recede the rest (defocus — the camera-focus look) -->
 <!-- _focusStyle: ring -->        <!-- outline the target, no dimming -->
 <!-- _focusStyle: list-fill -->   <!-- accent-soft fill on the target -->
-<!-- _focusStyle: pop -->         <!-- lift the target forward; rest stays legible -->
+<!-- _focusStyle: highlight -->   <!-- accent tint + edge on the target; nothing recedes -->
 ```
 
+`highlight` is the no-dimming look for every axis. A card, table row, column, cell or code line
+takes an accent tint and an edge (the `preferred` look of `verdict-grid`, without the spark), a
+chart mark takes an edge, a chart series gets a heavier line, and every other target stays untouched. It sets no weight or
+size, so nothing rewraps between `_focusSteps`. Worked decks: `examples/focus-styles.md` (the
+five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
+
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
-sharp). On a list/grid it also gives the target a subtle lift (a slight scale +
-a hard accent edge — hard-edged so it survives Apple PDFKit). Tune the radius
-per deck via `--focus-blur` (default `0.15cqi`) and the lift via `--focus-pop`.
+sharp). It only defocuses the rest: the target keeps its size and position, so
+nothing shifts between `_focusSteps` and nothing clips at the stage edge. Tune the
+radius per deck via `--focus-blur` (default `0.15cqi`).
 
 **Walk the slide — `_focusSteps`.** One authored slide expands into N
 rendered slides, each focusing the next target — the static-format

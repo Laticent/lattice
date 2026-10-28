@@ -163,6 +163,15 @@ Residual from the trio (lower priority):
   A canonical exported prefix LIST on studio-store (also usable by `deckContentStats` /
   `clearAllDecks`, which enumerate the same set inline) would close it — but that refactors a
   shared file, so it's out of this diagnostic's scope.
+- **Status 2026-10-26 (#1930).** Cache the boot parse: done, `loadDeckList` remembers each
+  deck's split by text, so one boot splits each deck once instead of five times (16 gallery-size
+  decks, a cold boot 40.7 → 30.4 ms in jsdom; `studio-store.boot-parse.test.ts` pins the count).
+  The scans: already off the boot path, `hasPriorStudioUse` is gone, `derivePosture` reads no
+  storage, and `deckContentStats` runs only when the Privacy & Data tab opens. SW `put()`: one
+  `cache.keys()` per put instead of two for a versioned asset (Chromium, a 700-entry cache:
+  6.9 ms a listing, 18.2 → 11.5 ms a put). Prefix drift: `DECK_CONTENT_PREFIXES` in studio-store
+  is the one list both sweeps read, and `storage-metrics.test.ts` fails on a `lattice-studio-…-`
+  literal in the deck stores that the list lacks.
 - **`deckContentStats` mislabels code-units as "bytes" (×1).** The overlay reports the
   byte-honest ×2; the in-app stat under-reports by half. Fix the label/×2 in studio-store
   (off-path here).
