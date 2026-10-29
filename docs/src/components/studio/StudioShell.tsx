@@ -517,7 +517,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return ready;
 		});
 		return {
-			open: (h, text) => loading.then((p) => p.open(h, text)),
+			// The revision now, before the module loads: a change made while it loads is the author's.
+			open: (h, text) => {
+				const revision = h.state().revision;
+				return loading.then((p) => p.open(h, text, revision));
+			},
 			flush: () => ready?.flush(),
 			drop: (id) => {
 				if (ready) ready.drop(id);

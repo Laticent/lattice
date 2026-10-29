@@ -724,14 +724,17 @@ it differs from the plan above, and why:
   case the stored stack first replays to its own text and the step bridges from there to the
   source, so the case chooses the label and whether the undo stops, never which text a patch
   meets.
-- **An edit made before storage answers is kept.** The stored history arrives a moment after the
-  Studio paints (an IndexedDB read, then the worker's replay). An author who types in that moment
-  keeps each of its steps, with its own label, on top of the stored past; the first cut refused
-  the stored past and the next write overwrote it (the checker reproduced it). The second cut
-  folded them into one step, so two strip ops made in that moment came back with one ⌘Z: main's
-  `studio.controls.test.tsx` strip test caught it on CI, where storage answers late (reproduced
-  here with a 400 ms delay on the read). Only steps that do not replay from the opened text to
-  the text on screen (an early undo) still fold into one step, "Edits before the history loaded".
+- **A deck changed before storage answers keeps its undo in memory.** The stored history arrives a
+  moment after the Studio paints (an IndexedDB read, then the worker's replay). The first cut
+  refused the stored past when the author had already changed the deck, and the next write
+  overwrote it (the checker reproduced it). The second cut merged the stored past under the early
+  steps; that raced the author's own undo, and main's `studio.controls.test.tsx` strip test (two
+  slide ops, two ⌘Z) failed on loaded CI runners at a rate no local delay sweep or interleaving
+  test reproduced. As built, the Studio records the history's revision when it asks to open the
+  deck, and if the revision moved before storage answered and something is stored, that session
+  does not merge and does not write: its undo stays in memory, and the stored past is left intact
+  for the next load (`createFiloPersistence` reports `touched`). A deck with nothing stored is
+  owned as usual. `adoptStored` keeps its early-step handling for a caller that wants it.
 - **A failed write is retried** by the next idle write or the `pagehide` flush, a generation read that failed is read again at the next write (a store that ran Clear all refuses its own writes outright, so the retry cannot let its flush through), a worker request that gets no answer falls back after 15 s, and a deck deleted
   in one tab leaves a tombstone, so a tab that still shows it (and holds its lock) cannot write it
   back. A tab holds the lock of every deck it opened for the session, and a tab that started

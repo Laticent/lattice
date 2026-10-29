@@ -113,13 +113,14 @@ export interface PersistOptions {
 	 *  debounce, so Filo is rarely ahead of the stored source. */
 	readonly delayMs?: number;
 	/** Hear the case each open applied (tests, diagnostics). */
-	readonly onOpen?: (doc: string, applied: ReloadCase | 'fresh' | 'memory-only' | 'refused') => void;
+	readonly onOpen?: (doc: string, applied: ReloadCase | 'fresh' | 'memory-only' | 'touched' | 'refused') => void;
 }
 
 export interface FiloPersistence {
 	/** A history the Studio just loaded with `source`: claim it, put its stored past under it, and
-	 *  store it from now on. Resolves when that is done. */
-	open(h: History, source: string): Promise<void>;
+	 *  store it from now on. Resolves when that is done. `revision` is the history's revision when the
+	 *  Studio asked (default: now); a history that changed since then is not merged with a stored past. */
+	open(h: History, source: string, revision?: number): Promise<void>;
 	/** Store every owned history now (the page is hiding). */
 	flush(): void;
 	/** A deck deleted: its stored history goes too. */
@@ -188,7 +189,7 @@ export function createFiloPersistence(opts: PersistOptions): FiloPersistence {
 	};
 
 	return {
-		async open(h, source) {
+		async open(h, source, revision = h.state().revision) {
 			if (watched.has(h.doc)) return;
 			const w: Watched = { h, owned: false, timer: null, written: -1, queued: -1, unsub: null };
 			watched.set(h.doc, w);
@@ -208,6 +209,16 @@ export function createFiloPersistence(opts: PersistOptions): FiloPersistence {
 			// Dropped (the deck deleted) while storage answered: give the lock back and stop.
 			if (watched.get(h.doc) !== w) {
 				store.release(h.doc);
+				return;
+			}
+			// The author changed the deck before storage answered. Merging the stored past under steps
+			// recorded since raced the author's own undo (two strip ops made in that moment came back
+			// wrong on a loaded CI runner), so this session keeps its undo in memory and leaves the
+			// stored past untouched for the next load. A deck with nothing stored has nothing to lose.
+			if (stored && h.state().revision !== revision) {
+				// Still watched, never owned: a later open of this deck is not a second chance to merge.
+				store.release(h.doc);
+				opts.onOpen?.(h.doc, 'touched');
 				return;
 			}
 			let applied: ReloadCase | 'fresh' | 'refused' = 'fresh';
