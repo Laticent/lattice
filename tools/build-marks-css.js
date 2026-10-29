@@ -783,10 +783,8 @@ function build() {
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
       // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${tstep(1)}`, `stroke: ${ONE_INK}`]));
-      // A delta is a direction, not a status, so green and red were a second and third hue: up is a lighter step of the one hue, down a darker
-      // one (the signed value label still names it).
-      w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${tstep(3)}`, `stroke: ${ONE_INK}`]));
-      w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${tstep(0)}`, `stroke: ${ONE_INK}`]));
+      // A delta's up and down bars keep their status hue (pass, fail) at tone's one status level: the STATUS block paints them
+      // and tone adds nothing here, so a waterfall's direction is read by hue and by the signed label, as a roadmap disc is.
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
@@ -889,7 +887,7 @@ function build() {
     // The matrix's four bands rise in strength with severity (risk-matrix.styles.css), so order survives
     // grayscale print. Pigment IS that shipped ramp, so it adds nothing. Etch takes the same order at about
     // a third of the strength and draws each cell's edge in the band's ink at 2px (the line is the identity,
-    // and it turns the cell hairline into a visible grid). Tone is one hue: severity is the shade, with a 1px edge.
+    // and it turns the cell hairline into a visible grid). Tone keeps the status hue too, at its own strengths, with a canvas seam for an edge.
     if (name !== 'pigment') {
       const BANDS = [
         ['low', 'pass', { etch: [10, 18], tone: [12, 18] }],
@@ -901,18 +899,17 @@ function build() {
       for (const [band, st, lv] of BANDS) {
         const [l, d] = lv[name];
         // The key's disc wears its band's fill (one hue under tone), so the legend matches the cells instead of a solid status badge.
-        const kl = name === 'tone' ? mix(ONE, `${l}%`) : mix(`var(--state-${st}-hue)`, `${l}%`);
-        const kd = name === 'tone' ? mix(ONE, `${d}%`) : mix(`var(--state-${st}-hue)`, `${d}%`);
+        const kl = mix(`var(--state-${st}-hue)`, `${l}%`);
+        const kd = mix(`var(--state-${st}-hue)`, `${d}%`);
         w(rule(name, `.risk-key-marker[data-band="${band}"]`, [
           `fill: ${ld(kl, kd)}`,
-          ...(band === 'critical' ? [`stroke: ${name === 'tone' ? ONE_INK : 'var(--state-fail-ink)'}`] : []),
+          ...(band === 'critical' ? ['stroke: var(--state-fail-ink)'] : []),
         ]));
         // The number picks black or white from its own disc (a wash is not the solid the shipped ink was solved for).
         w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
         w(rule(name, `.risk-cell[data-band="${band}"]`, [
-          // Etch keeps the status hue (the band IS a severity). Tone is one hue, so severity is the SHADE: a second hue family
-          // on non-status marks broke the rule every other tone chart keeps.
-          `fill: ${name === 'tone' ? ld(mix(ONE, `${l}%`), mix(ONE, `${d}%`)) : ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          // The band IS a severity, so every finish keeps the status hue and only the strength differs.
+          `fill: ${ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
           `stroke: ${name === 'etch' ? `var(--state-${st}-ink)` : 'var(--bg)'}`,
           `stroke-width: ${name === 'etch' ? edge(f.edge) : '1.2'}`,
           ...(name === 'etch' ? ['vector-effect: non-scaling-stroke'] : []),

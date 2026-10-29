@@ -1,0 +1,1 @@
+- Under `tone`, a waterfall's up and down bars and a risk matrix's four bands keep their status hue (pass, warn, fail) instead of one blue; this reverses #2887's one-hue rule for direction and severity, which the blind scorers marked down. Band strengths are unchanged.

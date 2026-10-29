@@ -307,9 +307,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
   `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
   and the gantt key's swatches wear their status mark.
-- **Tone's severity and direction are shades of the one hue, not status colors.** A risk matrix's four bands rise in strength (12 to 76%
-  of the hue) and a waterfall's up step is a lighter shade than its down step; green and red there were a second and third hue on marks that
-  are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
+- **Tone keeps the status hue on a severity or a direction.** A risk matrix's four bands (low pass, medium warn, high and
+  critical fail) and a waterfall's up (pass) and down (fail) bars keep their status hue under tone, at tone's own strengths
+  (12 to 76% of the hue for a band, the one status level for a bar). An earlier cut sent both to a shade of the one hue
+  (#2887), and the blind scorers marked it down (tone waterfall 6.75, risk matrix 7.5): a bar that rises and a bar that
+  falls read as the same blue, and a severity ramp in one hue has no "red". Tone's one hue is for categories, and a status
+  is not one. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
   signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
 - **Tone's ladder keeps its color at the pale end and its floor on a dark slide.** On a light slide the ladder mixes toward
   the tone hue itself lifted to near-white with 30% of its color (`oklab(from …)`, behind the relative-color guard; an
