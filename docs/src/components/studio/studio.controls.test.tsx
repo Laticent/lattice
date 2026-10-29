@@ -474,14 +474,9 @@ describe('Studio — every top-bar control responds', () => {
 		expect(railCount()).toBe(start + 1);
 		await stripAction(user, /^Move right/);
 		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
-		// DIAGNOSTIC (PR #2959, temporary): what each ⌘Z said, so a red CI run names the step it hit.
-		const said = () => [...document.querySelectorAll('span[role="status"][aria-live="polite"]')].map((e) => (e.textContent ?? '').replace(/\u200b/g, '')).join(' | ');
-		const after: string[] = [`start ${start}, after ops ${railCount()}`];
 		await user.keyboard('{Control>}z{/Control}');
-		after.push(`1st: ${railCount()} [${said()}]`);
 		await user.keyboard('{Control>}z{/Control}');
-		after.push(`2nd: ${railCount()} [${said()}]`);
-		expect(railCount(), after.join(' ; ')).toBe(start);
+		expect(railCount()).toBe(start);
 	});
 
 	it('the door splits into Before | After: Before puts the new slide ahead of the current one, and the door says so', async () => {
