@@ -238,6 +238,65 @@ Recommended next step: add the offset entry (it also serves S3 islands), write t
 a grammar whose `url-name` branch covers the escaped spellings, and gate it on the R2 evidence in the
 table above. Measured cost is unknown; the note's "follows the pipeline's P5" estimate stands.
 
+### R2 built, not wired (2026-10-29)
+
+The CSS reader exists, is held to the old tokenizer on every test below, and is **not yet what
+`cssRefSpans` runs**. The reason is one number, and it is the owner's.
+
+- **What is built.** `lib/core/css-ref-grammar.js` is a Segno grammar; `tools/build-segno-grammar.js`
+  generates `lib/core/css-ref.generated.js`; `lib/core/css-ref-reader.js` (`makeCssRefSpans`) walks its tape
+  and keeps the block stack (`@font-face`, `[…]`, mismatched closers) as reader state, as the design said.
+  The old tokenizer is frozen in `tools/segno-legacy/css-ref-spans.js` as the oracle.
+- **The blocker.** Wiring it in makes `remote-ref.js` require the generated parser. Measured, that adds
+  2,690 gzip bytes to the module in a browser bundle (9,677 to 12,367; the parser alone is 2,616). A docs
+  build with the wiring (this branch at 18:00 UTC) failed `check:route-budget`: **studio eagerJsGz 548.5 KB
+  against a ceiling of 546.3 KB**; playground, home, components and getting-started stayed under theirs.
+  The ledger says "raising a ceiling is the owner's decision, made rarely and in its own PR", so the
+  wiring is held. Without it, nothing the Studio ships changes.
+- **The wiring** is small: in `remote-ref.js`, delete the hand-written `cssRefSpans` and its `isNameCode`
+  helpers, and write
+  `const cssRefSpans = require('./css-ref-reader.js').makeCssRefSpans(require('./css-ref.generated.js'), { cssEscape, cssString });`
+  (`tools/check-css-ref-spans.mjs` builds exactly that copy and tests it). The docs-site dev shim inlines the
+  two siblings (checked). Options for the owner: **(a)** raise the studio ceiling by about 2.3 KB and
+  wire it; **(b)** wire it and find 2.3 KB elsewhere in the Studio's eager JS first; **(c)** wire it only
+  with R4, when the consumers' own scans are deleted and the bytes come back. Recommendation: (c) or (b);
+  R2 alone changes no behavior and costs 2.7 KB on every Studio load.
+- **How the unquoted `url(` is handled.** The note's two options were a factored grammar or an offset
+  entry. The grammar does both, each for the half it fits. `urlName` spells every form of `u`, `r`,
+  `l` (`u`, `\u`, `\75 `, `\000075`, either case, the whitespace a hex escape eats) inside one
+  bounded attempt of 32 characters; the node it keeps (`url`) is a STOP kind. The parse ends there, and
+  `urlBody` is parsed from the end of the stop with `parse(input, rule, from)`. That is two parses per
+  `url(` plus one, each reading its own stretch, so the cost stays linear.
+- **Segno gained `stops` and the `from` entry**, in both runtimes (`stops.test.ts`, 14 cases) and
+  `mutate:segno` (52 of 52 mutants killed in the grammar and codegen run, 12 of them new). A stop does not unwind: the first version threw to end the parse and cost 1,579 ms on
+  150,000 `url(a)` (900 KB), against 40 ms for the old tokenizer; cutting the input window at the stop
+  instead (`n = i`, so every loop and optional after it sees the end) measured 40 ms in the same loop.
+  The independent review found the cut was incomplete for a multi-character literal and for `until`
+  (the runtimes disagreed on `end`); both now respect the cut, with tests. A grammar that names no stops
+  generates byte-identical parsers: `build-segno-grammar --check` passes on all five.
+- **Differential.** `test/unit/core/css-ref-spans-differential.test.js` compares the reader with the frozen
+  tokenizer, field for field: 50 picked spellings, every CSS file and `<style>` body under `lib`,
+  `themes`, `examples` and the baseline decks, and 60,000 seeded token soups. The failing arm runs the
+  real generated parser with its `url(` window cut from 32 characters to 5 and requires a difference.
+  The independent red team ran about 90 million further comparisons (every zero-padded, cased,
+  whitespace-terminated spelling of `url`; exhaustive small alphabets; a mutation at every position of
+  hostile seeds): no difference and no throw.
+- **Corpus.** `npm run check:css-ref-spans`: 430 decks, 191 CSS files, 198 CSS texts, 4 blocked
+  addresses; `blockWebCss` and `webRefsInCss` return the same bytes as at 242de4a, with no origin
+  allowed and with one allowed; spans equal. The corpus holds few `url(` addresses, so the fuzz is the
+  stronger arm.
+- **Fuzz.** `npm run fuzz:web-refs -- --seed 11 --count 4000 --scanner-file <the wired copy>`: see the PR
+  body for the run on the final grammar. On the first grammar: Chromium 131, WebKit 26.0 and Firefox
+  142.0.1, 4,000 inputs each, 0 requests after the rewrite (630 to 650 of 4,000 fetch as written).
+  The same fuzz on a scanner whose `url(` window is cut to 5 characters leaks on the escaped spellings.
+- **Cost on hostile input.** The first version kept a tape node for every `;`, so 5 MB of `;` held 235 MB
+  of ArrayBuffer for good. `;` needs no node (`@font-face` is only armed when the next significant
+  character is `{`), and `cssRefSpans` now parses an empty string on exit, which releases a large tape.
+  Speed on the repo's 3.1 MB of CSS is within about 15% of the old tokenizer; dense `{` and `url(` input
+  is 2 to 3 times slower and 16 bytes of tape per kept token. A reader cannot throw on input except by
+  failing to allocate that tape.
+- **Not done:** R3 (the HTML island) and R4 (each consumer deletes its scanner) stay open, as D8 says.
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.

@@ -63,7 +63,13 @@ function scanner() {
   if (scannerFile) return local(path.resolve(scannerFile));
   if (!ref) return local('../lib/core/remote-ref.js');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
-  for (const f of ['remote-ref.js', 'media-sources.js']) fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT }));
+  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js']) {
+    try {
+      fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
+    } catch {
+      // a ref before the CSS parser has no such file
+    }
+  }
   return local(path.join(dir, 'remote-ref.js'));
 }
 const R = scanner();

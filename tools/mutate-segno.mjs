@@ -55,7 +55,7 @@ const MUTS = [
   ['grammar', 'if (min && i === st.i) return fail(st, want);', 'if (false) return fail(st, want);', 'many1 of a character set accepts nothing'],
   ['grammar', 'if (min && !x(st)) return false;', 'if (false) return false;', 'many1 of a sequence accepts nothing'],
   ['grammar', 'if (st.depth >= maxDepth) return fail(', 'if (st.depth >= maxDepth * 100) return fail(', 'the nesting cap is gone'],
-  ['grammar', "if (ok && st.i < input.length) fail(st, 'end of input');", '', 'trailing input is accepted'],
+  ['grammar', "if (ok && st.i < st.n) fail(st, 'end of input');", '', 'trailing input is accepted'],
   ['grammar', 'if (ok) st.stack[st.stack.length - 1].push({ kind, from, to: st.i, kids });', 'if (ok) st.stack[st.stack.length - 1].push({ kind, from, to: from, kids });', 'a tree node ends where it starts'],
   ['grammar', "seen.add(e);\n        switch (e.t) {\n          case 'ref': if (!named.has", "switch (e.t) {\n          case 'ref': if (!named.has", 'the rule-reference walk visits a reused piece once per path (2^depth)'],
   ['grammar', 'if (group.length > 1 || (refsOf.get(group[0]) as string[]).includes(group[0])) for', 'if (false) for', 'no rule counts as recursive (nothing spends the cap)'],
@@ -93,6 +93,20 @@ const MUTS = [
   ['facts', 'if (run && run.kind === k && run.to === i) run.to = i + 1;', 'if (false) run.to = i + 1;', 'anomalies are never merged into runs'],
   ['facts', 'if (spans.length < max) spans.push(run);\n    else truncated = true;', 'spans.push(run);', 'the anomaly list has no cap'],
   ['facts', 'if (error.code === \'stack\' || error.code === \'nodes\') return', 'if (error.code === \'stack\') return', 'a node-cap stop is not reported as a limit'],
+
+  // ── R2 (2026-10-27 note): `stops` and the resume offset. One mutant per path the phase added.
+  ['grammar', 'st.halted = true;\n            st.n = st.i;', '', 'a stop kind never ends the parse'],
+  ['grammar', 'if (st.halted) st.n = st.i;\n        return true;', 'return true;', 'an attempt that keeps a stop node lets the parse read on past it'],
+  ['grammar', 'i: from, stack: [[]]', 'i: 0, stack: [[]]', 'the closure parser ignores the start offset'],
+  ['grammar', 'node: { kind: rule, from, to: st.i, kids: st.stack[0] }, end: st.i } :', 'node: { kind: rule, from, to: input.length, kids: st.stack[0] }, end: input.length } :', 'a stopped parse reports the end of the input as where it stopped'],
+  ['grammar', "!kinds.has(k)).map((k) => `stops names", "false).map((k) => `stops names", 'a stop kind that is not in the grammar is accepted'],
+  ['codegen', R`${'$'}{stopKinds.has(e.kind) ? ${'`'}${'$'}{ind}  halted = true;\n${'$'}{ind}  n = i;\n${'`'} : ''}`, '', 'a generated stop kind never ends the parse'],
+  ['codegen', R`{\n      if (halted) n = i;\n      return true;\n    }`, R`{\n      return true;\n    }`, 'a generated attempt that keeps a stop node lets the parse read on past it'],
+  ['codegen', R`'\n  OK.tree.end = n;'`, R`'\n  OK.tree.end = 0;'`, 'a generated stopped parse reports no end'],
+  ['grammar', 'at >= 0 && at + end.length <= st.n', 'at >= 0', 'until finds a terminator past a stop'],
+  ['codegen', R`hasAttempt || halting ? `, R`hasAttempt ? `, 'a generated literal after a stop reads past the cut'],
+  ['codegen', R`halting ? ${'`'} && ${'$'}{c} + ${'$'}{e.s.length} <= n${'`'} : ''`, "''", 'a generated until finds a terminator past a stop'],
+  ['codegen', '  i = from;\n', '  i = 0;\n', 'the generated parser ignores the start offset'],
 
   ['grammar', 'const lo = Math.max(0, Math.ceil(cs[i]));', 'const lo = Math.ceil(cs[i]);', 'a hand-built set may hold the end-of-input code'],
 

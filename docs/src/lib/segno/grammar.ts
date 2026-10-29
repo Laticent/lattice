@@ -229,6 +229,22 @@ export interface GrammarSpec {
    * stranger controls; a grammar that sets nothing generates the same parser as before.
    */
   readonly maxNodes?: number;
+  /**
+   * Node kinds that END the parse where they close (default: none). The parse stops there and
+   * succeeds, leaving the rest of the input unread: the result carries `end`, the offset to resume
+   * from, and `parse(input, rule, from)` starts there. An island whose body the grammar cannot
+   * know (CSS's unquoted `url(`, whose `)` ends a token in which quotes lose their meaning) names
+   * the kind that opens it, and the caller reads the body and resumes after it. The parse does not
+   * unwind: the input is cut at the stop, so every loop and optional after it sees the end of
+   * input and the rest of the grammar must accept that (a required literal, set or `until` after
+   * the stop fails the parse). A node that contains the stop closes at it. An attempt that holds a
+   * stop node tests its `next` character against the real input, and keeps the cut when it keeps
+   * the node. A stop node must consume at least one character, or `end` equals where the parse
+   * began and a caller that resumes at `end` never advances. `facts()` and `coverage()` describe a
+   * parse of the whole input; they do not read `from` or `end`. A grammar that sets none generates
+   * the same parser as before.
+   */
+  readonly stops?: readonly string[];
 }
 
 /**
@@ -332,7 +348,11 @@ export function restrict(spec: GrammarSpec, drop: { rules?: readonly string[]; n
   };
   reached.add(spec.start);
   walk(rules[spec.start]);
-  return { ...spec, rules: Object.fromEntries(Object.entries(rules).filter(([n]) => reached.has(n))) };
+  const kept = Object.fromEntries(Object.entries(rules).filter(([n]) => reached.has(n)));
+  // A stop kind whose node was pruned away no longer names anything.
+  if (spec.stops === undefined) return { ...spec, rules: kept };
+  const left = stopsOf({ ...spec, stops: undefined, rules: kept }, true);
+  return { ...spec, rules: kept, stops: spec.stops.filter((k) => left.has(k)) };
 }
 
 // ── the parse tree ──────────────────────────────────────────────────────────
@@ -359,7 +379,8 @@ export interface ParseError {
   readonly code?: 'stack' | 'nodes';
 }
 
-export type ParseResult = { ok: true; node: Node } | { ok: false; error: ParseError };
+/** `end` is set only for a grammar with `stops`: where the parse ended, which is `input.length` unless a stop kind ended it. */
+export type ParseResult = { ok: true; node: Node; end?: number } | { ok: false; error: ParseError };
 
 // ── the compiler's own errors ───────────────────────────────────────────────
 
@@ -1076,6 +1097,8 @@ interface State {
   depth: number;
   /** Nodes entered and not rewound by an attempt: the generated parser's `top / 4`. */
   nodes: number;
+  /** A node of a `stops` kind has closed: `n` was cut to the stop, and an attempt that keeps it leaves it cut. */
+  halted: boolean;
 }
 
 /**
@@ -1129,6 +1152,33 @@ export function nodesOf(spec: GrammarSpec): number {
 
 /** Thrown inside a parse that reaches its node cap and caught by `parse()`; never escapes. */
 const NODE_CAP = { segnoNodeCap: true };
+/**
+ * The node kinds a spec's `stops` names, checked: each must be a string naming a node kind the
+ * grammar has. Throws GrammarError otherwise. An empty set when the spec sets none.
+ */
+export function stopsOf(spec: GrammarSpec, kindsOnly = false): ReadonlySet<string> {
+  const stops = spec.stops;
+  if (stops === undefined && !kindsOnly) return new Set();
+  if (!kindsOnly && !Array.isArray(stops)) throw new GrammarError(['stops must be an array of node kinds']);
+  const kinds = new Set<string>();
+  const seen = new Set<Expr>();
+  const stack: Expr[] = Object.values(spec.rules);
+  while (stack.length) {
+    const e = stack.pop() as Expr;
+    if (seen.has(e)) continue;
+    seen.add(e);
+    switch (e.t) {
+      case 'seq': case 'alt': stack.push(...e.xs); break;
+      case 'many': case 'opt': case 'attempt': stack.push(e.x); break;
+      case 'node': kinds.add(e.kind); stack.push(e.x); break;
+      default: break;
+    }
+  }
+  if (kindsOnly) return kinds;
+  const problems = (stops as readonly unknown[]).filter((k) => typeof k !== 'string' || !kinds.has(k)).map((k) => `stops names "${String(k)}", which is not a node kind in the grammar`);
+  if (problems.length) throw new GrammarError(problems);
+  return new Set(stops as readonly string[]);
+}
 
 /** The nesting cap a spec asks for, checked against the ceiling. */
 export function depthOf(spec: GrammarSpec): number {
@@ -1147,7 +1197,7 @@ export interface Grammar {
   /** The role of each node kind that has one (`node(kind, x, { role })`). */
   readonly roles: Readonly<Record<string, string>>;
   /** Parse a whole input against the start rule (or another rule). Never throws on input. */
-  parse(input: string, rule?: string): ParseResult;
+  parse(input: string, rule?: string, from?: number): ParseResult;
 }
 
 /**
@@ -1177,6 +1227,7 @@ export function compile(spec: GrammarSpec): Grammar {
   const an = analyze(spec);
   const maxDepth = depthOf(spec);
   const maxNodes = nodesOf(spec);
+  const stops = stopsOf(spec);
 
   const matchers = new Map<Expr, Matcher>();
   const ruleMatchers = new Map<string, Matcher>();
@@ -1310,10 +1361,11 @@ export function compile(spec: GrammarSpec): Grammar {
         const orEnd = e.orEnd;
         const want = JSON.stringify(end);
         m = (st) => {
+          // A terminator past `n` (a stop cut the input short) is no terminator.
           const at = st.s.indexOf(end, st.i);
-          if (at >= 0) { st.i = at + end.length; return true; }
-          if (orEnd) { st.i = st.s.length; return true; }
-          st.i = st.s.length;
+          if (at >= 0 && at + end.length <= st.n) { st.i = at + end.length; return true; }
+          if (orEnd) { st.i = st.n; return true; }
+          st.i = st.n;
           return fail(st, want);
         };
         break;
@@ -1333,6 +1385,7 @@ export function compile(spec: GrammarSpec): Grammar {
       case 'node': {
         const x = build(e.x);
         const kind = e.kind;
+        const halts = stops.has(kind);
         m = (st) => {
           const from = st.i;
           if (st.nodes >= maxNodes) throw NODE_CAP;
@@ -1341,6 +1394,12 @@ export function compile(spec: GrammarSpec): Grammar {
           const ok = x(st);
           const kids = st.stack.pop() as Node[];
           if (ok) st.stack[st.stack.length - 1].push({ kind, from, to: st.i, kids });
+          // A stop kind closed: cut the input here, so everything after sees its end and the parse
+          // finishes without unwinding. An attempt that keeps this node leaves the cut in place.
+          if (ok && halts) {
+            st.halted = true;
+            st.n = st.i;
+          }
           return ok;
         };
         break;
@@ -1370,7 +1429,11 @@ export function compile(spec: GrammarSpec): Grammar {
       st.n = Math.min(n0, i0 + max);
       const ok = x(st);
       st.n = n0;
-      if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) return true;
+      if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) {
+        if (st.halted) st.n = st.i;
+        return true;
+      }
+      st.halted = false;
       st.i = i0;
       kids.length = k0;
       st.nodes = c0;
@@ -1398,9 +1461,13 @@ export function compile(spec: GrammarSpec): Grammar {
       const c0 = st.nodes;
       const err0 = st.err;
       const w = Math.min(st.n, i0 + e.max);
+      const n1 = st.n;
+      const h1 = st.halted;
       const ok = x(st);
       const inner = st.err;
       const j = st.i;
+      st.n = n1;
+      st.halted = h1;
       st.i = i0;
       kids.length = k0;
       st.nodes = c0;
@@ -1440,10 +1507,12 @@ export function compile(spec: GrammarSpec): Grammar {
   return {
     spec,
     roles,
-    parse(input: string, rule = spec.start): ParseResult {
+    parse(input: string, rule = spec.start, from = 0): ParseResult {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
-      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0, nodes: 0 };
+      if (from !== 0 && !stops.size) throw new Error('segno: from is for a grammar with stops; this one reads a whole input');
+      if (!Number.isInteger(from) || from < 0 || from > input.length) throw new Error(`segno: from must be a whole number from 0 to ${input.length}, not ${from}`);
+      const st: State = { s: input, n: input.length, i: from, stack: [[]], err: null, depth: 0, nodes: 0, halted: false };
       let ok: boolean;
       try {
         ok = m(st);
@@ -1456,9 +1525,9 @@ export function compile(spec: GrammarSpec): Grammar {
         if (!isStackOverflow(x)) throw x;
         return { ok: false, error: { at: st.i, expected: STACK_EXHAUSTED, found: st.i < input.length ? input[st.i] : null, code: 'stack' } };
       }
-      if (ok && st.i < input.length) fail(st, 'end of input');
+      if (ok && st.i < st.n) fail(st, 'end of input');
       if (!ok || st.err) return { ok: false, error: st.err as ParseError };
-      return { ok: true, node: { kind: rule, from: 0, to: input.length, kids: st.stack[0] } };
+      return stops.size ? { ok: true, node: { kind: rule, from, to: st.i, kids: st.stack[0] }, end: st.i } : { ok: true, node: { kind: rule, from: 0, to: input.length, kids: st.stack[0] } };
     },
   };
 }
@@ -1474,6 +1543,7 @@ export function lint(spec: GrammarSpec): string[] {
     analyze(spec);
     depthOf(spec);
     nodesOf(spec);
+    stopsOf(spec);
     return [];
   } catch (e) {
     if (e instanceof GrammarError) return [...e.problems];
