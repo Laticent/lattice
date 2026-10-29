@@ -138,6 +138,8 @@ test('a card named with snake_case code narrates with its underscores and binds 
 		'- Doing',
 		'  - Dedupe on `source_id`',
 		'  - Plain _stress_ and __strong__ words',
+		'  - Ship ___now___',
+		'  - _Wire the `hook_x` fast_',
 		'',
 	].join('\n');
 	const script = narrateChartScript(md);
@@ -145,6 +147,8 @@ test('a card named with snake_case code narrates with its underscores and binds 
 	assert.match(script.text, /source_id/);
 	assert.doesNotMatch(script.text, /csvv1|sourceid/);
 	assert.match(script.text, /Plain stress and strong words/, 'emphasis markers still go');
+	assert.match(script.text, /Ship now\./, 'triple-underscore emphasis goes');
+	assert.match(script.text, /Wire the hook_x fast\./, 'emphasis wrapping a code span goes, the code keeps its underscore');
 	const root = dom(engine.render(fm + md, 'indaco', { preview: true }).html).querySelector('section');
 	const { units } = SCENES.kanban;
 	const refs = script.refs.filter((r) => r.unit && /csv_v1|source_id/.test(r.label || ''));
