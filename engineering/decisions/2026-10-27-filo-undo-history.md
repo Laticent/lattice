@@ -306,8 +306,9 @@ WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) on
 undo list holds something, so after a reload it has nothing to send, and the stored history is
 reachable only through the shell (measured in Mobile Safari 26.5 by `ios-safari-undo`; added
 2026-10-29 at the owner's call). macOS Safari 26.6 sends one Edit-menu Undo as two `historyUndo`
-events, so the shell refuses both but runs only the first: a second within 100 ms is the same
-request, since no person asks twice that fast (measured by `ios-safari-undo`). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
+events in the same task, so the shell refuses both but runs only the first. Only the same task: a held
+⌘Z, or Undo then Redo, arrives as separate tasks and each one runs (measured by `ios-safari-undo`; a
+100 ms window was tried first and dropped a fast Redo in Compose). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
 not (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md). The Tauri app sends its Edit menu's two items to the
 same calls.
 
