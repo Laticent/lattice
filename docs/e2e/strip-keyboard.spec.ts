@@ -95,7 +95,7 @@ test('"?" lists every strip shortcut, and the palette reaches the same list', as
 	await page.keyboard.press('?');
 	const dialog = page.locator('[data-shortcuts-dialog]');
 	await expect(dialog).toBeVisible();
-	for (const does of ['New slide after', 'New slide before', 'Duplicate', 'Move earlier or later', 'Delete', 'Open the slide menu']) await expect(dialog.getByRole('cell', { name: does, exact: true })).toBeVisible();
+	for (const does of ['New slide after', 'New slide before', 'Duplicate', 'Move left or right', 'Delete', 'Open the slide menu']) await expect(dialog.getByRole('cell', { name: does, exact: true })).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(dialog).toBeHidden();
 	await page.keyboard.press('ControlOrMeta+k');

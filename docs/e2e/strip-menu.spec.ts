@@ -24,7 +24,7 @@ test('a right-click opens the slide’s menu, makes it current, and its action t
 	await railButtons(page).nth(2).click({ button: 'right' });
 	await expect(menu(page)).toBeVisible();
 	await expect(counter(page)).toHaveText('Slide 3 / 4');
-	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide before/, /Duplicate/, /Move earlier/, /Move later/, /Delete/]);
+	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide before/, /Duplicate/, /Move left/, /Move right/, /Delete/]);
 	await item(page, 'duplicate').click();
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Charlie Charlie Delta');
 	await expect(stripNote(page)).toContainText('Slide duplicated');
@@ -86,7 +86,7 @@ test('the palette has every action of the menu', async ({ page, isMobile }) => {
 	await railButtons(page).nth(1).click();
 	await page.keyboard.press('ControlOrMeta+k');
 	const field = page.getByPlaceholder('Search or run a command…');
-	for (const label of ['New slide before this one…', 'Duplicate slide', 'Move slide earlier', 'Move slide later', 'Delete slide']) {
+	for (const label of ['New slide before this one…', 'Duplicate slide', 'Move slide left', 'Move slide right', 'Delete slide']) {
 		await field.fill(label);
 		await expect(page.getByRole('option', { name: label })).toBeVisible();
 	}
