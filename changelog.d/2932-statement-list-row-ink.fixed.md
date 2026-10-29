@@ -1,0 +1,1 @@
+- A list row on an `image statement` slide now takes the card ink, the same as the paragraph, so it reads on the scrim. Before, it kept the theme's text color, which in a light deck put dark rows on the dark scrim. The Studio's photo-contrast check now measures a statement's list rows too.

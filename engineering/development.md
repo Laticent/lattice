@@ -512,10 +512,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
 - **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
   serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
-  The page-side checks are `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
-  that must fire, and then, on a fresh page, `photo-probe.js`: the photo verdict's Coach finding and editor warning agree word
-  for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide
-  (engineering/decisions/2026-10-26-photo-contrast-coach.md). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
+  The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
+  that must fire. `ios-safari-photo` runs the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
+  Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
+  that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
+  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
+  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs`, so a probe edit runs one suite, not all four. Where the Coach is a sheet over the editor, the probe closes
+  it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
+  Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
@@ -532,8 +536,19 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `touchend` never does), so it works 150 ms and rests 75 ms (`FOCUS_SYNC_BURN_MS`, default 150). `node
   docs/scripts/ios-safari/focus-sync.selftest.mjs` runs the same loop on Playwright WebKit (`VIEWPORT=1032x1376` for the iPad
   Pro shape): on the code before `2937-p2` 37 of 40 taps move the editor, on the fix 0 of 40; without the burner both pass, and
-  resting as long as it works catches only 1 to 5 of 40. The suite is as flaky as the other iOS suites: safaridriver sometimes
-  cannot reach a fresh simulator (`run.mjs` retries the session three times).
+  resting as long as it works catches only 1 to 5 of 40.
+  **Start failures.** safaridriver sometimes cannot reach a fresh simulator ("The host application never became ready", "timed
+  out while connecting to a Safari instance", "Booting Simulator.app"), and can die after such a timeout. Every iOS failure in
+  `main`'s first three nightlies (2026-10-26 to 10-28) was one of these, on either device, before any probe code ran. `run.mjs`
+  tries the session `SESSION_ATTEMPTS` times, 20 s apart, then exits **3** (no session, so no probe ran); it exits 3 at once
+  when nothing answers on :4444. On exit 3, a boot failure, or a safaridriver that will not answer `/status`, `run.sh` gives the
+  device one second start: a reboot, a fresh Safari and a fresh safaridriver. The first start makes 2 session attempts and the
+  second 3. The second start runs only if another cycle of this device, plus every device still to come at the same cost,
+  ends by `SUITE_DEADLINE` (1560 s of the script: the job's 30 minutes less about 3 before the Suite step and a minute's
+  margin), so a restart never gets the job cancelled and its later devices lost. The Studio suite (a docs build, then an
+  iPhone that took 12 minutes on one runner) usually has no room for the iPad's; jpeg and focus-sync do. A device refused
+  its second start still gets the third session attempt `main` always made, in place. A probe failure (exit 1) is never
+  retried.
 
 ## Integration test cache
 

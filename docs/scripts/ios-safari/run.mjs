@@ -1,6 +1,6 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
- * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js in the real
+ * Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), or jpeg-probe.js, the shared JPEG encoder against
  * Safari's own (PROBE=jpeg), or focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
@@ -8,8 +8,10 @@
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
  *
  * Env: WEBDRIVER_URL (safaridriver, default http://localhost:4444), STUDIO_URL (the served docs build, default
- * http://localhost:4321), ARTIFACT_DIR (where the screenshot and result JSON go). Exits 1 when the probe fails or
- * the session is not really iOS (a silent fallback to macOS Safari must never read as a pass).
+ * http://localhost:4321), ARTIFACT_DIR (where the screenshot and result JSON go), SESSION_ATTEMPTS (default 3). Exits 1 when the probe fails or
+ * the session is not really iOS (a silent fallback to macOS Safari must never read as a pass). Exits 3 when no session
+ * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
+ * so run.sh restarts safaridriver, reboots the device and tries once more.
  */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
@@ -49,11 +51,17 @@ async function wd(method, url, body) {
 	return json.value;
 }
 
+/** Exit code for "no session could be created": no probe code ran, and run.sh may restart the stack and try again. */
+const NO_SESSION = 3;
+
 /**
  * safaridriver sometimes cannot reach a freshly booted simulator ("The host application never became ready", "timed out
- * while connecting to a Safari instance"): seen on the studio suite's iPhone and the focus-sync suite's iPad on hosted
- * runners, both before any probe code ran. Retry the session a bounded number of times; any other error is real.
+ * while connecting to a Safari instance", "Booting Simulator.app if not already running"): main's nightly lost 3 of its
+ * first 3 days of iOS runs to it, each before any probe code ran, on either device. Retry the session SESSION_ATTEMPTS
+ * times (default 3; run.sh passes 2 when it can still restart the device). When safaridriver itself is gone (a refused connection: it can die after a timed-out session), retrying here is
+ * useless, so exit NO_SESSION at once and let run.sh restart it. Any other error is real.
  */
+const ATTEMPTS = Number(process.env.SESSION_ATTEMPTS || 3);
 async function createSession() {
 	for (let attempt = 1; ; attempt++) {
 		try {
@@ -63,8 +71,14 @@ async function createSession() {
 				},
 			});
 		} catch (e) {
-			if (attempt >= 3 || !/session not created/.test(String(e.message))) throw e;
-			console.log(`${LABEL}: session not created (attempt ${attempt} of 3): ${String(e.message).slice(0, 200)}; trying again in 20 s`);
+			const message = String(e.message);
+			const gone = /fetch failed/.test(message) || e.cause?.code === 'ECONNREFUSED';
+			if (gone || (attempt >= ATTEMPTS && /session not created/.test(message))) {
+				console.log(`${LABEL}: no session (${gone ? 'safaridriver is not answering' : `attempt ${attempt} of ${ATTEMPTS}`}): ${message.slice(0, 300)}`);
+				process.exit(NO_SESSION);
+			}
+			if (!/session not created/.test(message)) throw e;
+			console.log(`${LABEL}: session not created (attempt ${attempt} of ${ATTEMPTS}): ${message.slice(0, 200)}; trying again in 20 s`);
 			await new Promise((r) => setTimeout(r, 20000));
 		}
 	}
@@ -78,7 +92,7 @@ try {
 	if (platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -108,19 +122,15 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite: the preview payload probe (studio-probe.js), then the photo verdict probe (photo-probe.js), each on a
- * fresh page. One result: every step, each named for its probe, and a pass only when both pass.
+ * The Studio suite (PROBE=studio): the preview payload probe, studio-probe.js. The photo suite (PROBE=photo): the photo verdict
+ * probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change does not pay for the photo
+ * check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes on a slow runner.
  */
 async function runStudioProbe(id) {
-	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
-	const photo = await studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
-	return {
-		ok: !!preview.ok && !!photo.ok,
-		error: [preview.error && `preview: ${preview.error}`, photo.error && `photo: ${photo.error}`].filter(Boolean).join('; ') || undefined,
-		ua: photo.ua ?? preview.ua,
-		width: photo.width ?? preview.width,
-		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
-	};
+	return studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
+}
+async function runPhotoProbe(id) {
+	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
 }
 
 /**

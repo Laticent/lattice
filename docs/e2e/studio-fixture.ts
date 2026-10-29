@@ -418,7 +418,7 @@ export async function backEntryRegistered(page: Page): Promise<void> {
 
 /** Bottom-rail slide buttons — exactly one per slide (a fuzz invariant). */
 export function railButtons(page: Page): Locator {
-	return page.locator('nav[aria-label="Slide navigator"] button');
+	return page.locator('nav[aria-label="Slide navigator"] button[data-unit]');
 }
 
 /** Read a persisted studio value from localStorage. */
@@ -500,6 +500,14 @@ export function toastText(page: Page): Locator {
 /** What the New slide door says after an add, in the door itself (2026-10-27-slide-structure-strip.md §5). */
 export function addedNote(page: Page): Locator {
 	return page.locator('[data-new-slide][data-confirming]').filter({ visible: true }).first();
+}
+
+/** Run one of the slide menu's actions on the current slide (lib/strip-actions), through the ⋯ beside it in whichever
+ *  strip is on screen: the pills or the slide map. `id` is the item's `data-strip-action`. */
+export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete'): Promise<void> {
+	// A tap on the slide that is already current opens the menu too, so it may be open already; the ⋯ would close it.
+	if (!(await page.locator('[data-strip-menu-content]').isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
+	await page.locator(`[data-strip-menu-content] [data-strip-action="${id}"]`).click();
 }
 
 /** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */

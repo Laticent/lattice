@@ -177,7 +177,7 @@ const ROOM_CARDS: RoomCard[] = [
 		room: 'The pitch',
 		who: 'Sales and marketing teams',
 		outcome: 'Every rep sends a deck that looks like the brand.',
-		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
+		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint with text you can edit.',
 		deck: { label: 'a full sales deck', path: 'corporate/sales-deck' },
 	},
 	{
@@ -472,7 +472,13 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 	// "renderer", "the real render", "self-contained webpage") — two of which the
 	// Studio's own UI never shows a user, which made the rows both jargon-heavy
 	// and off-label.
-	{ label: 'Edit', body: 'An editor that underlines mistakes as you type, beside a live preview of the finished slide.' },
+	// Compose and live editing ride in this row rather than a fourth one (owner pick,
+	// PR 2964 D2): both are proven on the real Studio (compose-panes, live-session-check),
+	// and a fourth row costs phones a screen.
+	{
+		label: 'Edit',
+		body: 'Write in Markdown, or in Compose, a plain writing page with no Markdown at all, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
+	},
 	{
 		label: 'Review',
 		// The load-bearing row — what makes "web slide app" impossible to say about
