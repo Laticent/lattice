@@ -307,12 +307,12 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		const it = items[i];
 		return it ? `${index.units[it.unit]?.id ?? it.unit}:${it.section}` : i;
 	}, [items, index]);
-	// The ⋯ sits over the tile's top-right corner, clear of the number and caption along the bottom. On touch it draws at 28px over a 48px hit area (its ::after), so the 44px touch
-	// floor holds without a button that covers a third of a 72px tile.
+	// The ⋯ is the caption pill's right-hand segment, as it is on the current pill (SlideRail.tsx), so it reuses the pill's
+	// INSET shape. On touch it is 44px wide and its ::after lifts the hit area to 44px tall over the 22px caption.
 	const adorn = React.useCallback(
 		(i: number) => {
 			const it = items[i];
-			return actions && it ? <SlideMenuButton actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute top-1 right-1 z-20 size-6 bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] [@media(pointer:coarse)]:size-7 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5 [@media(pointer:coarse)]:after:content-['']" /> : null;
+			return actions && it ? <SlideMenuButton inset actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute bottom-px right-px z-20 h-5 rounded-r-[5px] [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-3 [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:content-['']" /> : null;
 		},
 		[items, actions],
 	);

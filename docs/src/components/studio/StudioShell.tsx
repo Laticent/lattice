@@ -6826,7 +6826,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
 			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
 			{mapEver && (
-				<div className={cn('h-[88px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
+				<div className={cn('h-[116px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
 						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />
