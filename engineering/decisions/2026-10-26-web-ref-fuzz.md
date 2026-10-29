@@ -193,15 +193,17 @@ with entity codes, Mermaid's `#58;`, a dropped tab, capitals or `//host`. Each i
 the real engine. The blocks the runtime draws (the registry's `DRAWN_FENCE_CODE`) are drawn with the
 vendored Mermaid 11.14 at the runtime's config, and every link a diagram draws is clicked in a frame
 of its own. The control draws everything; the scanned arm draws only what `blockWebImages` lets
-through, the rule the Studio applies before it draws. Seed 7, 200 inputs per engine, at `74149fe`:
+through, the rule the Studio applies before it draws. Seed 7, 200 inputs per engine, with the
+generator as of `b861c71` (which escapes a backslash in `themeCSS`; before it, the `u\rl` spelling
+reached Mermaid as a carriage return, a CodeQL finding on #2973):
 
 | Engine | Drawn as written | Reach the server as written | Held back | Leaks |
 |---|---|---|---|---|
-| Chromium 131 | 91 | 35 | 149 | 0 |
+| Chromium 131 | 91 | 44 | 149 | 0 |
 | WebKit 26.0 | 91 | 26 | 149 | 0 |
 | Firefox 142 | 91 | 26 | 149 | 0 |
 
-By class in Chromium: `click` 5 of 53 reach as written, `themeCSS` 9 of 47, `img:` 4 of 45, label
+By class in Chromium: `click` 5 of 53 reach as written, `themeCSS` 18 of 47, `img:` 4 of 45, label
 `<img>` 17 of 55. `themeCSS` reached the server in Chromium only (0 of 47 in WebKit and Firefox),
 which the 2026-10-27 table did not see because it measured Firefox with a plain spelling. One
 control request per run lands on `/` and names no input: Mermaid decodes `#47;` to `/` inside a CSS
@@ -209,7 +211,7 @@ control request per run lands on `/` and names no input: Mermaid decodes `#47;` 
 failure, because only the control makes it.
 
 **The arm can fail.** `--scanner-file test/fixtures/naive-diagram-scanner.js` holds a diagram back
-only when its text names the address the plain way (`http://127.0.0.1…`). Seed 7, 120 inputs: 12
+only when its text names the address the plain way (`http://127.0.0.1…`). Seed 7, 120 inputs: 17
 leaks in Chromium, 9 in WebKit and 9 in Firefox, every one an odd spelling (`&sol;`, `#46;`,
 `Http&#58//`, capitals, `//host`). The older scanner (`--ref 1bec8e4`) holds all of them, so it is not
 a failing arm for this class.
