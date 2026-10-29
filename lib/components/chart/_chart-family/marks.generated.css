@@ -568,8 +568,8 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.hub-spoke-node, 
   vector-effect: non-scaling-stroke !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section:is(.marks-etch, .marks-tone) :where(:is(.roadmap :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item):is(.state-shipped, .state-wip, .state-missed, .state-skipped), .roadmap.heat :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item).state-planned)),
-figure:is(.marks-etch, .marks-tone) :where(:is(.roadmap :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item):is(.state-shipped, .state-wip, .state-missed, .state-skipped), .roadmap.heat :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item).state-planned)) {
+section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item):is(.state-shipped, .state-wip, .state-missed, .state-skipped)),
+figure:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item):is(.state-shipped, .state-wip, .state-missed, .state-skipped)) {
   --state-fill: light-dark(color-mix(in oklab, var(--state-color) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--state-color) var(--finish-status-text-d), var(--finish-status-base))) !important;
   --state-glyph-mark: var(--finish-ink) !important;
 }

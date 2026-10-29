@@ -125,11 +125,11 @@ describe('marks.generated.css', () => {
   // (#2908's P2 follow-up: they stayed solid under etch and tone). The discs are pseudo-elements, so the finish sets the
   // member's disc channel on the cell and key item; pigment's level is the solid, so it emits nothing.
   test('a roadmap status disc takes the one status level under etch and tone', () => {
-    const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(:is(.roadmap :is(td.cell-state');
+    const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state');
     assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
     const head = css.slice(at, css.indexOf('{', at));
     for (const st of ['shipped', 'wip', 'missed', 'skipped']) assert.match(head, new RegExp(`\\.state-${st}\\b`));
-    assert.match(head, /\.roadmap\.heat :is\([^)]*\)\.state-planned/, 'heat\'s green planned disc moves too');
+    assert.doesNotMatch(head, /state-planned/, 'a hollow planned ring has no body to move, under heat too');
     assert.doesNotMatch(head, /state-unknown/, 'a hollow ring has no body to move');
     assert.match(head, /\.roadmap-legend-item/, 'the key follows its discs');
     const body = css.slice(at, css.indexOf('}', at));

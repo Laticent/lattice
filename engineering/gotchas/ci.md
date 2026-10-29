@@ -717,7 +717,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   took 45 ms instead of 3, because the page was busy capturing, and the reload followed 0.34 to 0.42 s later), the
   reload's `pagehide` capture was skipped. The stored snapshot kept the pre-drag pane width, and the replay in
   `playground.astro`, which paints only into the box a snapshot was measured in, returned without a word.
-- **Fix:** the dedupe now skips only a capture of the SAME box (followups.d/2908-p1). `@smoke a reload right after
+- **Fix:** the dedupe now skips only a capture of the SAME box (PR #2960). `@smoke a reload right after
   a capture still replays the slide at the new pane width` holds it still: it freezes `Date.now()` with
   `page.clock.setFixedTime`, so the reload always lands inside the old window. It fails 5 of 5 on the pre-fix build
   with the CI message and passes 10 of 10 with the fix.

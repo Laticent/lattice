@@ -261,7 +261,7 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	assertOneGeometry(log, TRACKED);
 });
 
-// THE FLAKE ABOVE, HELD STILL (followups.d/2908-p1). The case above failed on CI with "the pre-paint replay never ran"
+// THE FLAKE ABOVE, HELD STILL (engineering/gotchas/ci.md). The case above failed on CI with "the pre-paint replay never ran"
 // (runs 40431166278 … 40727236903). Run 40727236903's trace names the cause: the app's first snapshot capture landed
 // about 0.4s before the reload, so the reload's `pagehide` capture was refused as "a capture ran under 500 ms ago".
 // The stored snapshot kept the PRE-DRAG pane width, and the replay, which paints only into the box a snapshot was

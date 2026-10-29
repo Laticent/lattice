@@ -1120,7 +1120,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// measured in, so a pane resized since the last capture (a dragged divider) needs a
 			// new one. Keyed on time alone, a reload within 500 ms of the first capture kept the
 			// pre-drag snapshot and the next load painted nothing (the studio-smoke flake,
-			// followups.d/2908-p1: run 40727236903's trace).
+			// run 40727236903's trace; engineering/gotchas/ci.md).
 			const now = Date.now();
 			const wrapBox = fr.parentElement;
 			const boxKey = wrapBox ? `${wrapBox.clientWidth}x${wrapBox.clientHeight}` : '';

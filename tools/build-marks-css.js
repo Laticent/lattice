@@ -569,13 +569,14 @@ function build() {
   // ::before / ::after, which no `:where()` can name, so the finish sets the member's own disc channels on the cell and
   // the pseudo-elements inherit them: `--state-fill` (roadmap.styles.css paints it in place of the solid) and the
   // glyph's ink, which on a pale disc is the finish ink, as a gantt key's status mark is. Every FILLED disc moves:
-  // shipped, in flight, missed, a planned cell `heat` paints green, and out of scope, whose solid muted disc was the
-  // loudest mark on an etch slide once the rest went pale. The hollow rings (planned, uncertain) have no body to move.
+  // shipped, in flight, missed, and out of scope, whose solid muted disc was the loudest mark on an etch slide once the
+  // rest went pale. The hollow rings (planned, uncertain) have no body to move, `heat` included: its planned cell takes
+  // the pass hue but stays a hollow ring, so a fill set on it would never paint.
   // Pigment's status level is the solid itself, so pigment emits nothing here.
   // It waits behind the guard with the gantt key it matches, so an older engine keeps the shipped discs.
   {
     const rm = ':is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item)';
-    const stated = `:is(.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped), .roadmap.heat ${rm}.state-planned)`;
+    const stated = `.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped)`;
     w(supports(rule(MOVERS, stated, [
       `--state-fill: ${tld('var(--state-color)', T.statusText, T.statusTextD, T.statusBase)}`,
       `--state-glyph-mark: ${tv(T.ink)}`,
