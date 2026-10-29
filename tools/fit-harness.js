@@ -32,11 +32,12 @@
  *   node tools/fit-harness.js --only inventory       # source decks whose path contains this
  *   node tools/fit-harness.js --jobs 4 --out .scratch/fit-harness
  *
- * Writes <out>/results.json (every slide × arm × box × venue) and <out>/report.md, and prints
+ * Writes <out>/results.jsonl (one row a line: every slide × arm × box × venue) and <out>/report.md, and prints
  * the report. Advisory: exit 0 unless the harness itself fails. Needs CHROME_PATH.
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const { StringDecoder } = require('node:string_decoder');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
@@ -64,7 +65,7 @@ const RESCORE = argv.includes('--rescore');
 // decks already scored in <out>/rows, so a run the sandbox killed picks up where it stopped. Delete
 // any half-written render first. Without --resume the scored rows start over.
 const RESUME = argv.includes('--resume');
-// --rearm: read <out>/results.json, drop its computed arms and compute them again, then write a
+// --rearm: read <out>/results.jsonl, drop its computed arms and compute them again, then write a
 // new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
 // run's own --packs: the packed rows kept are the ones it names.
 const REARM = argv.includes('--rearm');
@@ -303,7 +304,7 @@ async function main() {
   await browser.close();
   addComputedArms(rows);
   const tScore = Date.now();
-  fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
+  writeRows(path.join(OUT, 'results.jsonl'), rows);
   const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(`\n${report}`);
@@ -475,12 +476,44 @@ function summarize(rows, run) {
   return `${lines.join('\n')}\n`;
 }
 
+/** One JSON row a line: a full run's rows outgrow the longest string V8 can build (one
+ *  JSON.stringify of them threw RangeError once the elastic arms were added). */
+function writeRows(file, rows) {
+  const fd = fs.openSync(file, 'w');
+  try {
+    for (const r of rows) fs.writeSync(fd, `${JSON.stringify(r)}\n`);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function readRows(file) {
+  const rows = [];
+  let rest = '';
+  const fd = fs.openSync(file, 'r');
+  const buf = Buffer.alloc(1 << 24);
+  // A chunk can end inside a multi-byte character; the decoder holds it for the next chunk.
+  const dec = new StringDecoder('utf8');
+  try {
+    for (let n; (n = fs.readSync(fd, buf, 0, buf.length, null)) > 0; ) {
+      const lines = (rest + dec.write(buf.subarray(0, n))).split('\n');
+      rest = lines.pop();
+      for (const l of lines) if (l) rows.push(JSON.parse(l));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  rest += dec.end();
+  if (rest) rows.push(JSON.parse(rest));
+  return rows;
+}
+
 async function rearm() {
-  const file = path.join(OUT, 'results.json');
+  const file = path.join(OUT, 'results.jsonl');
   const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`)]);
-  const rows = JSON.parse(fs.readFileSync(file, 'utf8')).filter((r) => RENDERED.has(r.arm));
+  const rows = readRows(file).filter((r) => RENDERED.has(r.arm));
   addComputedArms(rows);
-  fs.writeFileSync(file, JSON.stringify(rows));
+  writeRows(file, rows);
   const report = summarize(rows, { renders: 0, problems: ['rearmed from an earlier run: its render count, timings and problems are in that run\'s report'], renderS: 0, scoreS: 0, sources: new Set(rows.map((r) => r.src)).size });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(report);
