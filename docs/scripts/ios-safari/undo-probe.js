@@ -126,9 +126,12 @@ async function latticeUndoProbe() {
 		if (el instanceof HTMLTextAreaElement) el.select();
 		else document.execCommand('selectAll');
 		document.execCommand('insertText', false, UNDO_DECK);
-		await k.until(() => k.deckText() === UNDO_DECK, 30000, 'the deck in the editor').catch((e) => {
+		// The paste must land; macOS Safari's selectAll can leave the editor's empty first line in place, so compare
+		// trimmed and take what the editor holds as the text every later undo must return to.
+		await k.until(() => k.deckText().trim() === UNDO_DECK.trim(), 30000, 'the deck in the editor').catch((e) => {
 			throw new Error(`${e.message} (the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
 		});
+		const pasted = k.deckText();
 		k.step('put the deck in the editor', true);
 		// A new step: past the 500 ms typing window, so the word does not join the paste.
 		await k.sleep(800);
@@ -139,7 +142,7 @@ async function latticeUndoProbe() {
 
 		const undoType = await k.command('undo');
 		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || 'no beforeinput');
-		await k.until(() => k.deckText() === UNDO_DECK, 10000, 'the word undone by the WebKit undo command');
+		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command');
 		k.step('the WebKit undo command undid the word', true);
 		await k.until(() => k.said().startsWith('Undid'), 5000, 'the "Undid" announcement');
 		k.step('the Studio said what it undid', true, k.said().trim());
@@ -154,7 +157,7 @@ async function latticeUndoProbe() {
 		const undoBtn = k.button('Undo');
 		if (undoBtn) {
 			undoBtn.click();
-			await k.until(() => k.deckText() === UNDO_DECK, 10000, "the word undone by the Studio's Undo button");
+			await k.until(() => k.deckText() === pasted, 10000, "the word undone by the Studio's Undo button");
 			k.step("tapping the Studio's Undo button undid the word", true);
 			(await k.until(() => k.button('Redo'), 10000, "the Studio's Redo button")).click();
 			await k.until(() => k.deckText() === typed, 10000, 'the word back after the Redo button');
