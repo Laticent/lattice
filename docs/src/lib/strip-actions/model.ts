@@ -4,7 +4,7 @@
 // Positions are RENDERED slides in the full deck: the strip's affordances exist only on the full view, where a
 // strip's place is the deck's place.
 
-export type StripActionId = 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete';
+export type StripActionId = 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete';
 
 export interface StripMenuItem {
 	id: StripActionId;
@@ -28,7 +28,7 @@ export interface StripMenuState {
 }
 
 /** The keys each action answers to while the strip holds keyboard focus (§5's table), as the menu prints them. */
-export function keysFor(id: StripActionId | 'new-after', mac: boolean): string {
+export function keysFor(id: StripActionId, mac: boolean): string {
 	// macOS menus print glyphs (⇧⌘←); Windows and Linux menus spell the keys out (Ctrl+Shift+Left).
 	switch (id) {
 		case 'new-after':
@@ -46,13 +46,14 @@ export function keysFor(id: StripActionId | 'new-after', mac: boolean): string {
 	}
 }
 
-/** The menu for slide `s.at`: New slide before, Duplicate, Move left, Move right, Delete, in that order. A disabled
+/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move left, Move right, Delete, in that order. A disabled
  *  item says why rather than vanishing, so the menu has the same shape on every slide. */
 export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	const one = s.count <= 1;
 	const first = s.at <= 0;
 	const last = s.at >= s.count - 1;
 	return [
+		{ id: 'new-after', label: 'New slide after', keys: keysFor('new-after', mac) },
 		{ id: 'new-before', label: 'New slide before', keys: keysFor('new-before', mac) },
 		{ id: 'duplicate', label: 'Duplicate', keys: keysFor('duplicate', mac) },
 		{ id: 'move-earlier', label: 'Move left', keys: keysFor('move-earlier', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
@@ -61,7 +62,7 @@ export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	];
 }
 
-export type StripShortcut = StripActionId | 'new-after';
+export type StripShortcut = StripActionId;
 
 /** The action a key press means while a strip slide holds keyboard focus (§5's table), or null. ⌥← is not used: a lost
  *  focus would make Alt+← the browser's Back on Windows. Backspace and Delete both delete, with no modifier. */

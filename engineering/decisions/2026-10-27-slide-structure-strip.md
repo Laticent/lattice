@@ -110,7 +110,8 @@ behavior.
   horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical. And it
   gave each item its icon, the icon row's own, with Delete below a rule.)*
   right-click, Shift+F10 / the context-menu key, or tapping the current slide again. It holds New slide before,
-  Duplicate, Move left, Move right and Delete, each showing its shortcut. Disabled items stay visible with a reason.
+  Duplicate, Move left, Move right and Delete, each showing its shortcut. *(New slide after leads the menu, above New
+  slide before: the owner's call, 2026-10-29, "usually people add slide after".)* Disabled items stay visible with a reason.
   - **Opening it makes that slide current** (Fuoco `go` with `grab:false, expand:false`), so the action's target is never
     ambiguous; strip centering is suppressed while it is open; it closes only on a scroll the user starts (wheel, touch,
     drag), never on a programmatic one.

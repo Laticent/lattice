@@ -41,9 +41,9 @@ export interface StripActions {
 	shortcut: (id: StripShortcut, at: StripSlide) => boolean;
 	/** Whether the shortcuts are the Mac's (⌘) or everyone else's (Ctrl). */
 	mac: boolean;
-	/** Each menu item's icon. The shell passes the icon row's own, which its palette rows already load: the strip
-	 *  module importing them itself split them into a chunk of their own and grew the Studio's startup bundle. */
-	icons: Readonly<Record<StripActionId, React.ComponentType<{ className?: string }>>>;
+	/** Menu icons the shell's palette rows already load (Duplicate, the moves, Delete): the strip module importing them
+	 *  itself split them into a chunk of their own and grew the Studio's startup bundle. The menu adds its own two. */
+	icons: Readonly<Record<Exclude<StripActionId, 'new-after' | 'new-before'>, React.ComponentType<{ className?: string }>>>;
 	/** Drag's drop: move slide `from` so it lands at deck position `to`, as one step of the undo history. */
 	move: (from: StripSlide, to: number) => void;
 }

@@ -5133,7 +5133,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return true;
 		}
 		setStripMenu(null);
-		if (id === 'new-before') opAddSlide('before', at);
+		if (id === 'new-after' || id === 'new-before') opAddSlide(id === 'new-after' ? 'after' : 'before', at);
 		else if (id === 'duplicate') opDuplicate(at);
 		else if (id === 'move-earlier') opMove(-1, at);
 		else if (id === 'move-later') opMove(1, at);
@@ -8229,8 +8229,9 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
-// The slide menu's icons: the icon row's own, which the palette rows below use too (lib/strip-actions `icons`).
-const STRIP_ICONS = { 'new-before': Plus, duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
+// The slide menu's icons that the palette rows below load anyway (lib/strip-actions `icons`); the menu brings its own two
+// for the New slide items, which nothing eager uses.
+const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
 const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);

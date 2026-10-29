@@ -4,8 +4,8 @@ import { keysFor, menuItems } from './model';
 describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 	const ids = (s: Parameters<typeof menuItems>[0]) => menuItems(s, true).map((i) => i.id);
 
-	it('offers the same five actions in the same order on every slide', () => {
-		const order = ['new-before', 'duplicate', 'move-earlier', 'move-later', 'delete'];
+	it('offers the same six actions in the same order on every slide', () => {
+		const order = ['new-after', 'new-before', 'duplicate', 'move-earlier', 'move-later', 'delete'];
 		for (const at of [0, 3, 6]) expect(ids({ count: 7, at })).toEqual(order);
 		expect(ids({ count: 1, at: 0 })).toEqual(order);
 	});

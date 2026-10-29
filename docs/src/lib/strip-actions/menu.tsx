@@ -1,7 +1,7 @@
 // THE SLIDE MENU itself: the ⋯ and the Radix menu it anchors (2026-10-27-slide-structure-strip.md §5). Loaded on
 // demand by `SlideMenuButton` in index.tsx, which is what the strips render.
 
-import { MoreHorizontal } from 'lucide-react';
+import { BetweenVerticalEnd, BetweenVerticalStart, MoreHorizontal } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ const menuButtonClass = (inset: boolean | undefined, className?: string) => cn(i
 export function SlideMenuButton({ actions, at, className, inset }: { actions: StripActions; at: StripSlide; className?: string; inset?: boolean }) {
 	const open = sameSlide(actions.menu?.at, at);
 	const items = actions.menuState ? menuItems(actions.menuState, actions.mac) : [];
+	const icons = { ...actions.icons, 'new-after': BetweenVerticalEnd, 'new-before': BetweenVerticalStart };
 	// Enter or Space on the ⋯ opens the menu from the keyboard, so closing it hands focus back to the strip.
 	const via = React.useRef<StripVia>('pointer');
 	const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -64,7 +65,7 @@ export function SlideMenuButton({ actions, at, className, inset }: { actions: St
 				}}
 			>
 				{items.map((it) => {
-					const Icon = actions.icons[it.id];
+					const Icon = icons[it.id];
 					return (
 					<React.Fragment key={it.id}>
 					{/* Delete sits apart, below a rule, as destructive items do in the Studio's other menus. */}
