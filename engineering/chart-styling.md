@@ -300,6 +300,22 @@ measurement, and most undo a defect a render or the adversarial review found:
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
+- **A tone pie takes its own dark ladder, and a tone matrix's reachable cell wears the ink.** Wedges touch, so each needs a
+  lightness gap to the next. The dark ladder (`TONE_D`) mixes the hue toward the canvas and tops out at the hue's own
+  lightness, which left adjacent wedges 0.032 to 0.047 OKLab apart on indaco: the 18% wedge read as the 22% one. A pie on a
+  dark slide mixes the hue's INK (the lighter member of the same hue) toward the canvas (`TONE_PIE_D`), and the gaps measure
+  0.060 to 0.074 (the key swatches follow, so the legend still matches). A light slide keeps `TONE`, whose gaps are already
+  0.069 to 0.083. This is the one place tone's ladder differs by chart, because no other tone chart has marks that touch. A
+  matrix's outlined (reachable) cell takes the one ink as its edge, not the one hue: the two are the same color on a light
+  slide, and on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty
+  (not applicable) cell's muted edge is 1.81:1.
+- **Etch's waterfall columns match the bars beside them, and an etch map starts higher on a dark slide.** Plan and Actual are
+  no-category marks in the first hue, so they take the status level (14/19%) and etch's 2.6x edge, as the up and down bars
+  do. They wore the category body (30/40%) and the member's 1x hairline, so a column read as a second chart beside its
+  bars. A text-free ramp (a map region) on a dark slide starts at 24% of the hue and climbs 0.8 per mix point (it was 6%
+  and 0.5): measured on indaco, the weakest region sat 0.051 OKLab from the land and now sits 0.124, the strongest 0.142
+  and now 0.266, and the spread from the lowest region to the highest grows from 0.091 to 0.143. A light slide is
+  unchanged (0.088 to 0.245 from the land).
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
   Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone, its light-slide wash capped at 8% (`KANBAN_CODE_CAP`) because past it a card's inline code falls under 4.5:1 (12% read 4.19:1 on carbone); pigment takes a wider solid bar and no tint) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
@@ -307,9 +323,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
   `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
   and the gantt key's swatches wear their status mark.
-- **Tone's severity and direction are shades of the one hue, not status colors.** A risk matrix's four bands rise in strength (12 to 76%
-  of the hue) and a waterfall's up step is a lighter shade than its down step; green and red there were a second and third hue on marks that
-  are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
+- **Tone keeps the status hue on a severity or a direction.** A risk matrix's four bands (low pass, medium warn, high and
+  critical fail) and a waterfall's up (pass) and down (fail) bars keep their status hue under tone, at tone's own strengths
+  (12 to 76% of the hue for a band, the one status level for a bar). An earlier cut sent both to a shade of the one hue
+  (#2887), and the blind scorers marked it down (tone waterfall 6.75, risk matrix 7.5): a bar that rises and a bar that
+  falls read as the same blue, and a severity ramp in one hue has no "red". Tone's one hue is for categories, and a status
+  is not one. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
   signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
 - **Tone's ladder keeps its color at the pale end and its floor on a dark slide.** On a light slide the ladder mixes toward
   the tone hue itself lifted to near-white with 30% of its color (`oklab(from …)`, behind the relative-color guard; an

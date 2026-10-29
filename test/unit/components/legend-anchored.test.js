@@ -404,12 +404,12 @@ test('narration does not speak a legend line markdown merged into a paragraph (t
 
 test('narration reads a row= / col= callout, markdown in a row name included', () => {
   const slide = `<!-- _class: heatmap -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, row=Jan_2026, col=M1}}\``;
-  assert.match(String(narrateDataSeries(slide)), /Callout at Jan2026, M1: Dip\./);
+  assert.match(String(narrateDataSeries(slide)), /Callout at Jan_2026, M1: Dip\./);
 });
 
 test('narration matches for= the way the chart does, markdown in a row name included', () => {
   const slide = `<!-- _class: heatmap -->\n\n## R\n\n|  | M0 | M1 |\n| --- | --: | --: |\n| Jan_2026 | 1 | 2 |\n\n\`@legend{{Dip, for="Jan_2026 · M1"}}\``;
-  assert.match(String(narrateDataSeries(slide)), /Callout at Jan2026, M1: Dip\./);
+  assert.match(String(narrateDataSeries(slide)), /Callout at Jan_2026, M1: Dip\./);
 });
 
 describe('the split: @callout and callout: off (2026-10-20-callout-placement.md § 2)', () => {

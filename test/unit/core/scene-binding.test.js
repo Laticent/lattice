@@ -124,6 +124,38 @@ test('every bound sentence in every deck names a drawn part, and leaves its peer
 	assert.ok(bound > 1000, `only ${bound} bound sentences found: the corpus scan is not reading the decks`);
 });
 
+test('a card named with snake_case code narrates with its underscores and binds to its drawn card', () => {
+	// Narration used to strip every `_`, so "Retire `csv_v1` export" read "Retire csvv1 export" and named no card (#2960).
+	const fm = '---\nmarp: true\n---\n';
+	const md = [
+		'<!-- _class: kanban -->',
+		'',
+		'## Cards carry code.',
+		'',
+		'- Backlog',
+		'  - Retire `csv_v1` export',
+		'  - Wire the `ingest` hook',
+		'- Doing',
+		'  - Dedupe on `source_id`',
+		'  - Plain _stress_ and __strong__ words',
+		'  - Ship ___now___',
+		'  - _Wire the `hook_x` fast_',
+		'',
+	].join('\n');
+	const script = narrateChartScript(md);
+	assert.match(script.text, /csv_v1/, 'the narration keeps the underscore of an inline code name');
+	assert.match(script.text, /source_id/);
+	assert.doesNotMatch(script.text, /csvv1|sourceid/);
+	assert.match(script.text, /Plain stress and strong words/, 'emphasis markers still go');
+	assert.match(script.text, /Ship now\./, 'triple-underscore emphasis goes');
+	assert.match(script.text, /Wire the hook_x fast\./, 'emphasis wrapping a code span goes, the code keeps its underscore');
+	const root = dom(engine.render(fm + md, 'indaco', { preview: true }).html).querySelector('section');
+	const { units } = SCENES.kanban;
+	const refs = script.refs.filter((r) => r.unit && /csv_v1|source_id/.test(r.label || ''));
+	assert.ok(refs.length >= 2, `expected a binding for each snake_case card, got ${refs.length}`);
+	for (const ref of refs) assert.ok(resolveUnit(root, units, ref), `"${ref.label}" resolves to a drawn card`);
+});
+
 /**
  * THE STRUCTURE GATE (engineering/decisions/2026-09-27-guide-storyboards.md §5, §7). Archetypes are
  * assigned from what a component RENDERS, so the assignment is checked against the render: on

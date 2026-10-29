@@ -71,6 +71,11 @@ const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // crepuscolo), and a base of another hue dragged every pale step toward it (the checker, #2908). The dark ladder mixes
 // toward the canvas.
 const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3))';
+// a pie's wedges on a DARK slide: wedges touch, so each needs a lightness gap to the next, and TONE_D's steps (a mix of the
+// hue toward the canvas, which tops out at the hue's own lightness) left adjacent wedges 0.032 to 0.047 OKLab apart on
+// indaco (wedge 3 beside wedge 4 read as one blue). The pie mixes the hue's INK (the lighter member of the same hue) toward
+// the canvas instead, a wider range of the one hue.
+const TONE_PIE_D = [100, 83, 66, 50, 36, 28, 22, 18];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
@@ -93,8 +98,9 @@ const F = {
   pigment: { body: [100, 100], backdrop: [100, 100], ramp: [0, 1.136], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1, border: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
-  // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
+  // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable. On a dark slide a text-free ramp
+  // (a map) starts at 24% and climbs faster, as tone's starts at 40%: from 6% a region sat within a hair of the land and the scale vanished.
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -781,12 +787,18 @@ function build() {
       // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
       // are; the filled cells keep the one ladder (a row's depth is its category).
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
+      // A PIE under tone: the dark ladder is TONE_PIE_D (above), for the wedges and the key swatches that repeat them.
+      for (const n of SLOTS) {
+        w(supports(rule(name, `.piechart-svg :is([data-hue="${n}"], [data-key-hue="${n}"])`, [`--finish-mark-body-d: color-mix(in oklab, ${ONE_INK} ${TONE_PIE_D[n - 1]}%, ${tv(T.baseD)})`], false)));
+      }
+      // An OUTLINED cell (reachable) wears the one ink as its edge, not the one hue. On a light slide the two are the same color;
+      // on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty (not
+      // applicable) cell's muted edge is 1.81:1, so the ink states "reachable" more firmly beside its neighbors.
+      w(rule(name, '.matrix-grid-figure td .cell.cell-outlined', [`border-color: ${ONE_INK}`]));
       // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${tstep(1)}`, `stroke: ${ONE_INK}`]));
-      // A delta is a direction, not a status, so green and red were a second and third hue: up is a lighter step of the one hue, down a darker
-      // one (the signed value label still names it).
-      w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${tstep(3)}`, `stroke: ${ONE_INK}`]));
-      w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${tstep(0)}`, `stroke: ${ONE_INK}`]));
+      // A delta's up and down bars keep their status hue (pass, fail) at tone's one status level: the STATUS block paints them
+      // and tone adds nothing here, so a waterfall's direction is read by hue and by the signed label, as a roadmap disc is.
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
@@ -882,14 +894,16 @@ function build() {
     }
     if (name === 'etch') {
       // Etch's Plan / Actual anchors: the same pale wash and edge every other etch body wears, in the first hue.
-      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${pair(ONE, f.body)}`, `stroke: ${inkOf(1)}`]));
+      // The columns take the wash and the edge of the status bars beside them (the status level, the etch edge), not the category body
+      // and the member's 1x hairline: a hairline column beside 2.6x delta bars read as a second chart.
+      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${pair(ONE, f.backdrop)}`, `stroke: ${inkOf(1)}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
     }
 
     // ── RISK BANDS — a severity ramp whose hue is the meaning ───────────────
     // The matrix's four bands rise in strength with severity (risk-matrix.styles.css), so order survives
     // grayscale print. Pigment IS that shipped ramp, so it adds nothing. Etch takes the same order at about
     // a third of the strength and draws each cell's edge in the band's ink at 2px (the line is the identity,
-    // and it turns the cell hairline into a visible grid). Tone is one hue: severity is the shade, with a 1px edge.
+    // and it turns the cell hairline into a visible grid). Tone keeps the status hue too, at its own strengths, with a canvas seam for an edge.
     if (name !== 'pigment') {
       const BANDS = [
         ['low', 'pass', { etch: [10, 18], tone: [12, 18] }],
@@ -901,18 +915,17 @@ function build() {
       for (const [band, st, lv] of BANDS) {
         const [l, d] = lv[name];
         // The key's disc wears its band's fill (one hue under tone), so the legend matches the cells instead of a solid status badge.
-        const kl = name === 'tone' ? mix(ONE, `${l}%`) : mix(`var(--state-${st}-hue)`, `${l}%`);
-        const kd = name === 'tone' ? mix(ONE, `${d}%`) : mix(`var(--state-${st}-hue)`, `${d}%`);
+        const kl = mix(`var(--state-${st}-hue)`, `${l}%`);
+        const kd = mix(`var(--state-${st}-hue)`, `${d}%`);
         w(rule(name, `.risk-key-marker[data-band="${band}"]`, [
           `fill: ${ld(kl, kd)}`,
-          ...(band === 'critical' ? [`stroke: ${name === 'tone' ? ONE_INK : 'var(--state-fail-ink)'}`] : []),
+          ...(band === 'critical' ? ['stroke: var(--state-fail-ink)'] : []),
         ]));
         // The number picks black or white from its own disc (a wash is not the solid the shipped ink was solved for).
         w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
         w(rule(name, `.risk-cell[data-band="${band}"]`, [
-          // Etch keeps the status hue (the band IS a severity). Tone is one hue, so severity is the SHADE: a second hue family
-          // on non-status marks broke the rule every other tone chart keeps.
-          `fill: ${name === 'tone' ? ld(mix(ONE, `${l}%`), mix(ONE, `${d}%`)) : ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          // The band IS a severity, so every finish keeps the status hue and only the strength differs.
+          `fill: ${ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
           `stroke: ${name === 'etch' ? `var(--state-${st}-ink)` : 'var(--bg)'}`,
           `stroke-width: ${name === 'etch' ? edge(f.edge) : '1.2'}`,
           ...(name === 'etch' ? ['vector-effect: non-scaling-stroke'] : []),
