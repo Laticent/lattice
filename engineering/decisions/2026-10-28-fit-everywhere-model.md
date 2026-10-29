@@ -321,8 +321,14 @@ three counts fall by one. Two runner runs checked it. The first (run 40839485067
 found no count above the first baseline and measured the cost that moved the nightly to
 `--edits none`: 74 minutes against a 75-minute ceiling. The second (run 40856957057, `--edits
 none`) took 38 minutes and disagreed with the sandbox bless by one slide in two cells of the mixed
-baseline gallery (portrait@hall 90 to 91, story@hall 45 to 44): some of its slides clip by 0 to 1
-px, so a pixel of font rasterization moves them between machines. The committed baseline takes the
+baseline gallery (portrait@hall 90 to 91, story@hall 45 to 44). The probe already ignores a cut
+of up to 12 layout px (`FRAME_TOLERANCE`, `lib/core/overflow-probe.js`), and a few of that
+gallery's split pages sit just past it: text runs 16 to 22 px under the page's "next" pill or into
+its footer. A small difference in font metrics between machines wraps a line differently and moves
+such a page across the line. These are real cuts, visible on both machines (a word hidden under the
+pill, a sentence sliced at the frame); only the count by one moves. Raising the tolerance would
+hide them, so it stays. (An earlier draft of this paragraph said the pages clip by 0 to 1 px. That
+read the harness's `px: 1`, which is a flag for "the content-clip probe fired", as a depth.) The committed baseline takes the
 runner's counts, and every nightly now writes the baseline it measured into its artifact, so a
 re-bless copies a runner's file rather than blessing on a laptop. The same machine agrees with
 itself: two full `--edits none` sweeps in one sandbox, 30 and 37 minutes under different load,

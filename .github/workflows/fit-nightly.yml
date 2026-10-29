@@ -33,10 +33,10 @@ name: Fit nightly (per-component split ratchet)
 # copies sit between the authored slides, so dropping them moves a few counts by one (and lets
 # the diagram gallery render at all). Bless with the same flags this step runs.
 #
-# BLESS FROM A RUNNER, NOT A LAPTOP. Some slides clip by 0-1 px, so one pixel of font
-# rasterization moves a count between machines: the first runner run disagreed with a sandbox
-# bless by one slide in two cells (run 40856957057). So every run also writes the baseline it
-# measured into its artifact (`baseline.json`), and a re-bless copies that file over
+# BLESS FROM A RUNNER, NOT A LAPTOP. A few split pages cut text just past the probe's 12 px
+# tolerance, so a small font-metric difference moves a count between machines: the first runner
+# run disagreed with a sandbox bless by one slide in two cells (run 40856957057). So every run
+# also writes the baseline it measured into its artifact (`baseline.json`), and a re-bless copies that file over
 # `test/fit/baseline.json` rather than blessing locally. Measured with `--edits none` on
 # ubuntu-latest: 1,596 s to render, 661 s to score, 38 minutes for the job.
 #
