@@ -565,7 +565,7 @@ jobs:
   # network address for it: its own log reads "UDP socket error: Internal error", then "failed to
   # find default addresses" and "Couldn't gather ICE candidates", on every connection, while
   # Chromium and WebKit connect on the same runner (seven probes, 2026-10-29,
-  # followups.d/2959-p2). This job runs that one spec in Firefox inside Playwright's image, which
+  # followups.d/2959-p3-firefox-live-e2e-on-the-bare-runner.md). This job runs that one spec in Firefox inside Playwright's image, which
   # carries its own network namespace and Playwright's own Firefox build. The `e2e` job skips the
   # spec in Firefox on CI (the spec reads FILO_FIREFOX_WEBRTC), so the check moves here rather than
   # being lost. Owner's pick, 2026-10-29 (PR #2959, decision D1 B).

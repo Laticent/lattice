@@ -1115,7 +1115,7 @@ sandbox specs, `code-packages.spec.ts` and `web-images.spec.ts`, also run in tha
 `filo-live.spec.ts` runs in Firefox only in the `firefox-webrtc` job, inside Playwright's
 container image (`mcr.microsoft.com/playwright:v<pin>-noble`): on the bare GitHub runner Firefox
 finds no network address for WebRTC, and the spec skips Firefox on CI unless
-`FILO_FIREFOX_WEBRTC` is set (followups.d/2959-p2). Bump the image tag with the Playwright pin. That
+`FILO_FIREFOX_WEBRTC` is set (followups.d/2959-p3-firefox-live-e2e-on-the-bare-runner.md). Bump the image tag with the Playwright pin. That
 asymmetry is a footgun: a change to shared Studio chrome can pass every
 PR-gating tier (unit/build/lint) while silently breaking specs that only the
 nightly runs (the #780 drift; `2026-07-06-e2e-chrome-selector-contract.md`). So

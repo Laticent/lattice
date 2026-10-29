@@ -853,7 +853,7 @@ qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is
   does not prove it gone. It comments and leaves the thread open.
 - **Absolute but network-dependent** — `studio-e2e`'s `firefox-webrtc` job runs the live-session
   spec in Firefox inside Playwright's container, with no retries. The cause it exists for is the
-  runner's network (followups.d/2959-p2), which can pass one night and fail the next, so it
+  runner's network (followups.d/2959-p3-firefox-live-e2e-on-the-bare-runner.md), which can pass one night and fail the next, so it
   comments and leaves the thread open.
 - **Absolute but deck-dependent** — `studio-e2e`'s `player-parity` job compares the Studio's and the
   CLI's player files for three decks. Three matching decks do not prove a new runtime stamp is

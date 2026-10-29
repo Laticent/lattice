@@ -169,11 +169,11 @@ async function runUndoProbe(id) {
 		const pass = now === first.before;
 		steps.push({ name: 'after reload · a real ⌘Z key undid the edit made before the reload', pass, detail: pass ? '' : JSON.stringify(String(now).slice(-40)) });
 		// A Mac's undo after a reload is the ⌘Z key. Safari's Edit → Undo not reaching the history then
-		// is a known gap (followups.d/2959-p3): reported on its step, not failing the run.
+		// is a known gap (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md): reported on its step, not failing the run.
 		for (const s of steps) {
 			if (!s.pass && /WebKit offers its undo command/.test(s.name)) {
 				s.pass = true;
-				s.name = `${s.name} — KNOWN GAP on macOS, followups.d/2959-p3`;
+				s.name = `${s.name} — KNOWN GAP on macOS, followups.d/2959-p3-mac-edit-menu-undo-after-reload.md`;
 			}
 		}
 		ok = pass && steps.every((s) => s.pass);

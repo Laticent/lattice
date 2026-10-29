@@ -16,7 +16,9 @@ source: https://github.com/Laticent/lattice/pull/2959
        why now   — the ios-safari-undo suite (macOS Safari 26.6.2, 2026-10-29) found that after a
                    reload WebKit's undo command is enabled but raises no historyUndo, so the menu
                    item does nothing to the deck. A real ⌘Z works (the Studio's keydown), and on an
-                   iPad the shell's Undo and Redo buttons now cover it (PR 2959).
+                   iPad the shell's Undo and Redo buttons now cover it (PR 2959). Before a reload
+                   the menu works: PR 2959 fixed it undoing twice (Safari sends one Edit → Undo as
+                   two historyUndo events).
        where     — docs/src/components/studio/StudioShell.tsx (the history input); undo-probe.js
        done when — Edit → Undo after a reload undoes the edit before it, or the decision note says
                    why the menu is left to WebKit.
