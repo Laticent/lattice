@@ -1,0 +1,1 @@
+- **A status pill in a pane holds its box when a finish drops its border.** The pane's pill sizing set `padding: 0`, so under `etch` and `tone` the pill would have shrunk 2px; it now gives back the border like the pill outside a pane.

@@ -125,6 +125,8 @@ export type SlidePickerProps = {
 	recent?: string[];
 	/** Insert the chosen slide (its skeleton) — StudioShell routes it to addSlideAfter. */
 	onInsert: (item: PickerItem) => void;
+	/** Where the pick lands, in words ("before “Market size”"), when the door fixed it as it opened. */
+	placement?: string;
 	/** PANE MODE: the gallery chooses what one pane of a `columns` / `rows` slide holds, for
 	 *  Compose (ComposeView.tsx `PaneRequest`). `items` is already the components that fit the pane;
 	 *  each tile says what picking it does to the pane's content BEFORE the author picks — the
@@ -150,7 +152,7 @@ const FIT_TEXT: Record<TileFit, string> = { current: 'In this pane now', keeps: 
  */
 export const SlidePicker = React.memo(SlidePickerImpl, (prev, next) => !prev.open && !next.open);
 
-function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert, pane }: SlidePickerProps) {
+function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, paletteOverride, extraTheme, modeOverride, recent = [], onInsert, pane, placement }: SlidePickerProps) {
 	const bp = useBreakpoint();
 	const compact = bp === 'mobile';
 	const [query, setQuery] = React.useState('');
@@ -425,14 +427,14 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 						{detail.bucket && detail.bucket !== 'local' && <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">{detail.bucket}</span>}
 					</>
 				) : (
-					<span className="text-[12.5px] text-muted-foreground">{pane ? `Pick what the ${pane.where.toLowerCase()} holds. Its title stays; the slide's Key Insight stays.` : 'Pick a slide to add it after the current one — or search by name.'}</span>
+					<span className="text-[12.5px] text-muted-foreground">{pane ? `Pick what the ${pane.where.toLowerCase()} holds. Its title stays; the slide's Key Insight stays.` : `Pick a slide to add it ${placement ?? 'after the current one'}, or search by name.`}</span>
 				)}
 			</div>
 		</>
 	);
 
-	const title = pane ? `${pane.where}: what it holds` : 'Add a slide';
-	const description = pane ? `Choose the component the ${pane.where.toLowerCase()} renders. Each one says whether it keeps the pane's text.` : 'Search the slide gallery and add one as a new slide.';
+	const title = pane ? `${pane.where}: what it holds` : 'New slide';
+	const description = pane ? `Choose the component the ${pane.where.toLowerCase()} renders. Each one says whether it keeps the pane's text.` : `Search the slide gallery and add one as a new slide${placement ? `, ${placement}` : ''}.`;
 
 	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
 	// puts it. Icon-only: the two glyphs are the convention, and the header is tight.
@@ -473,7 +475,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	// carry the `sm:` modifier: DIALOG_BOX's `sm:max-w-lg` only yields to a same-modifier override
 	// under tailwind-merge (#1657).
 	//
-	// `title` — "Add a slide" — on BOTH layouts, from the one `title` const (#1654): a launcher must
+	// `title` — "New slide", the door's own name — on BOTH layouts, from the one `title` const (#1654): a launcher must
 	// agree with what it opens.
 	return (
 		<PanelSheet
@@ -486,7 +488,11 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 		>
 			{[
 				compact ? (
-					<PanelHeader key="sheet-header" icon={pane ? <Columns2 /> : <Plus />} title={title} srDescription={description} />
+					<React.Fragment key="sheet-header">
+						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} srDescription={description} />
+						{/* The phone hides the footer that says where the pick lands, so it says it here (§5). */}
+						{placement && !pane && <p className="truncate px-4 pt-2 text-[12.5px] text-muted-foreground">Adds it {placement}</p>}
+					</React.Fragment>
 				) : (
 					<React.Fragment key="dialog-header">
 						{/* `pr-24` clears BOTH the view toggle and the corner close button. */}

@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 12384,
+	"bytes": 40032,
 	"lines": [
 		{
 			"key": "07e1f6ca00f4",
@@ -90,6 +90,112 @@
 					}
 				],
 				"durationMs": 2010
+			}
+		},
+		{
+			"key": "737d2c1cf38c",
+			"text": "Then click After. Before would put it ahead of this slide.",
+			"file": "737d2c1cf38c.mp3",
+			"bytes": 27648,
+			"speechMs": 4559,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Then click After.",
+						"words": [
+							{
+								"display": "Then",
+								"spoken": "Then",
+								"startMs": 0,
+								"endMs": 242,
+								"charOffset": 0
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 242,
+								"endMs": 484,
+								"charOffset": 5
+							},
+							{
+								"display": "After.",
+								"spoken": "After.",
+								"startMs": 484,
+								"endMs": 1003,
+								"charOffset": 11
+							}
+						],
+						"startMs": 0,
+						"endMs": 1457,
+						"charOffset": 0
+					},
+					{
+						"display": "Before would put it ahead of this slide.",
+						"words": [
+							{
+								"display": "Before",
+								"spoken": "Before",
+								"startMs": 1651,
+								"endMs": 2135,
+								"charOffset": 18
+							},
+							{
+								"display": "would",
+								"spoken": "would",
+								"startMs": 2135,
+								"endMs": 2377,
+								"charOffset": 25
+							},
+							{
+								"display": "put",
+								"spoken": "put",
+								"startMs": 2377,
+								"endMs": 2619,
+								"charOffset": 31
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 2619,
+								"endMs": 2860,
+								"charOffset": 35
+							},
+							{
+								"display": "ahead",
+								"spoken": "ahead",
+								"startMs": 2860,
+								"endMs": 3344,
+								"charOffset": 38
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 3344,
+								"endMs": 3586,
+								"charOffset": 44
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 3586,
+								"endMs": 3828,
+								"charOffset": 47
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 3828,
+								"endMs": 4105,
+								"charOffset": 52
+							}
+						],
+						"startMs": 1651,
+						"endMs": 4559,
+						"charOffset": 18
+					}
+				],
+				"durationMs": 4559
 			}
 		}
 	]

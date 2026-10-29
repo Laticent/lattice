@@ -130,7 +130,8 @@ brand green bar and a "done" bar can look alike. Two things separate them:
 
 - **the MARK.** Every status that names a state carries its drawn shape (`lib/core/status-marks.js`): a check for
   done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
-  masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
+  masks the `--mark-*-bold` token; live, pilot and decision carry a dot, because every finish draws an unstated mark in
+  the first hue and the theme's info blue (their color) can match it. The shape also reaches a reader who sees no
   color.
 - **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-signal-mark`
   amber, `--fail-signal-mark` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
@@ -207,7 +208,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart (a journey persona takes every other step) | one ink for every mark, 1× (2.5× on a text-bearing mark) |
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
@@ -265,21 +266,98 @@ gradient, and `REACH` lists every mark no finish reaches with its reason.
 `kernel.marks`; its header is the long form. Each choice below was settled by
 measurement, and most undo a defect a render or the adversarial review found:
 
+- **A finish is a block of values, the way `dark` is.** Each finish sets about 90 `--finish-*` values on its
+  section (`section.marks-etch, figure.marks-etch { … }`): the base it mixes toward, the text ink, the edge
+  weights, a body level and a text-bearing level per category slot (light and dark), a status level, a ramp band,
+  a layered alpha, and `--finish-border` (0 where an ink edge is an inset ring, so a pill, a bar or a key tile
+  drops its border). **One set of mark rules reads them and names no finish.** A mark's slot picks its own
+  values once (`--finish-mark-body`, `--finish-mark-text`, `--finish-mark-edge`, set on every `[data-hue="N"]`),
+  and the rules after it say which KIND of mark paints with them, so there is no rule per slot. Only a
+  treatment one finish owns is written under its name (tone's containers, pigment's neutral regions, etch's
+  heavier line), in the generator's `ONLY` blocks. **A member stylesheet never names a finish**
+  (`marks-css.test.js` fails on one): what differs between finishes is a value the member reads
+  (`var(--finish-border, 1)`), or a rule in the generator. Adding a finish is a new block of values; adding
+  a mark is a manifest row, not three rules. Measured on the generated file: 194 KB raw and 9.8 KB gzipped
+  before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
+  unchanged under pigment and etch (1.17M property reads, five themes, light and dark) and under tone changed
+  only in the edge, below.
+- **A tone word cloud steps color by weight, in the tone hue.** A word's color is arbitrary by default (the categorical
+  inks in rank order) and its size already carries the weight, so tone repeats the weight in color: the loudest word
+  wears the one tone ink (`--chart-cat-1-ink`) and each tier (4, 3, 2) mixes 25% more of the theme's muted ink, down to
+  `--text-muted` for tier 1, read from the `data-tier` each word carries. Both ends are inks the palette guarantees
+  readable, so the steps in between are too (measured on every theme in `engineering/decisions/` terms: see the PR).
+  `spectrum`'s own stops were tried and dropped: their deepest step is near-black on a light slide, which no other
+  tone chart has. On dark, where the default words sat at about 3.7:1, every word now clears 4.5:1.
+- **A tone matrix grid is one hue.** The member colors a row's label and its empty cells' outlines from the row's own
+  hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
+  column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
+  quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
+- **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
+  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment takes a wider solid bar and no tint, because a tint under a card's inline code measured 4.19:1 on carbone) were the
+  chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
+  property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
+  grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
+  `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
+  and the gantt key's swatches wear their status mark.
+- **Tone's severity and direction are shades of the one hue, not status colors.** A risk matrix's four bands rise in strength (12 to 76%
+  of the hue) and a waterfall's up step is a lighter shade than its down step; green and red there were a second and third hue on marks that
+  are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
+  signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
+- **Tone's ladder keeps its color at the pale end and its floor on a dark slide.** On a light slide the ladder mixes toward
+  the tone hue itself lifted to near-white with 30% of its color (`oklab(from …)`, behind the relative-color guard; an
+  engine without relative color keeps the plain canvas) instead of white. A theme token cannot serve: `--cat-1-fill` is
+  the palette's slot-1 fill, a different hue from the tone hue on most themes, and an early base built on it dragged
+  atelier's, laguna's and crepuscolo's pale steps to olive, pink and yellow. Mixed toward white, a pale tint of a deep blue
+  kept a fifth of its chroma and read grey, which made a journey stage bar, a flowchart node and a matrix
+  cell look muddy. On a dark slide the ladder is 92, 78, 66, 56, 47, 40, 34, 29% (`TONE_D`): the light ladder's last
+  steps sat within a hair of the navy canvas, so a map's low regions, a tower's small cells and a hub-spoke satellite
+  vanished. A text-free ramp (a map) takes a 40% dark floor for the same reason, and a quadrant's dark zones stay at
+  30…15% so its dots stand off them. A status keeps its own hue, mixed toward the plain canvas rather than the tinted
+  base, at ONE level for every status mark (see the next paragraph). A journey persona is a small disc, so personas
+  take every other ladder step; four adjacent steps on a disc that size read as one blue. Found by an audit of all 28
+  tone charts in both modes on #2908.
+  A progress bar is a STATUS chart, like a gantt, a state chart and a roadmap, so under tone it keeps its status fill: a
+  status chart follows the status rule in every finish. **Every status mark in a finish takes one level**, text on it or
+  not: etch and tone used to give a text-free status mark (a progress bar) a stronger level than a text-bearing one (a
+  gantt bar), which made progress the loudest chart in its own class. A mark may be stronger than its siblings only for
+  an evidenced reason with no alternative, and "it has no text" is not one: the paler level exists for the text, and a
+  bar without text loses nothing at it.
+- **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
+  with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
+  are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was
+  needed: the generator selects the stroke classes directly. Pigment and etch keep a category hue per series.
+- **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
+  ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
+  tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status
+  (`engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md`). Until 2026-10-26 a
+  text-bearing mark took a second, paler ladder (30…9%) so one fixed text ink could stay readable, which made
+  category 2 a different shade on a tower (closest pair of bodies 0.017 OKLab) than on a pie (0.072), and the
+  outline had to carry the category. A text-bearing tone mark now picks black or white from its own body
+  (`inkOn`, at least 4.58:1 on any body), so its text level IS its body level. A status mark keeps its status
+  ink for its edge.
 - **Specificity (0,1,1), on purpose.** Every rule is
-  `section.marks-X :where(<mark>)` with `!important`. That beats every
+  `section.marks-X :where(<mark>)` (X one finish, or an `:is()` of several, which takes a class's
+  specificity) with `!important`. That beats every
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
-  finish never strips the pattern channel from a colorblind reader.
+  finish never strips the pattern channel from a colorblind reader. The `--finish-*` values themselves are plain
+  declarations: nothing in a block paints, and a deck may re-point one.
 - **Etch and tone mix toward the canvas; pigment mixes toward
   `--chart-cat-base`.** That base is black in dark mode, which is right for
   pigment's shipped body tier. A whisper mixed toward black lands darker than the
   slide and reads as a hole.
 - **A ramp scales from its own member's empty end** (`--heatmap-base`,
-  `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
-  at 70% on light and every finish near 50% on dark, where light text stopped
-  clearing carbone's lime top step (3.39:1). Etch's ramp is wider than its
-  whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
-  flat navy, and a ramp's identity is value.
+  `--map-base`). Tone's ramp is one band, 10% plus 0.82 of the step, whether or not it prints its value.
+  It used to take a shorter band when it printed (70% on light, near 50% on dark) because a fixed ink had
+  to clear the top step; each value now picks its own ink, which clears 4.58:1 on any body, so the band
+  no longer protects the text. Measured on the heatmap gallery (5 themes), the contrast of the top step
+  against the empty cell under tone went from 3.10 to 4.19 at its worst on light and from 1.67 to 2.64 on
+  dark (pigment 4.78 and 6.32). Etch's ramp is 6% plus 0.5 of
+  the step (6→56%). It was 0.82 (6→88%, about 2.5:1 top step against an empty cell), but at 0.82 two blind reviewers read the etch
+  heatmap and map as solid pigment-style fills (scores 5-6 of 10, the lowest in the set): a ramp's wash and its heavy ink outline
+  are what make it etch. 0.5 keeps the cell text above 4.5:1 (each value picks its own ink) and trades magnitude contrast for the
+  finish's look; the measured top-step span is in the PR. Etch's outline is 2.6 hairlines, up from 2, because SVG marks at
+  presentation size read as hairlines beside the HTML marks' heavy edge.
 - **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's
   ink against the shipped fill, and a finish that changes the fill leaves no fixed ink that
   holds (the strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
@@ -300,7 +378,8 @@ measurement, and most undo a defect a render or the adversarial review found:
   text-bearing mark at exactly that tier (`--chart-cat-N-fill`, and the `--state-*-fill` recipe for a
   status: 24% over the canvas on light, 50% toward black on dark), so in light mode it is a tint and
   in dark mode a deep fill, and a mark with NO text (a bar, a wedge, a dot) is where pigment is solid.
-  Etch and tone paint quieter text tiers and keep the same ink. A solid text-bearing body was tried
+  Etch paints a quieter text tier and keeps the same ink; tone paints its one ladder and picks the ink per mark
+  (above). A solid text-bearing body was tried
   and dropped: no ink clears a mid-tone well (black or white picked per body had a median of 5.6:1
   and read as mud), the text changed color from chart to chart, and `--text-heading` on a solid body
   fell under 4.5:1 on 104 of 320 gantt bars across the palettes (worst 1.37:1, concrete). A key
@@ -363,9 +442,9 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, and `examples/marks.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
 
-**What a finish does not reach, on purpose.** `line`, `ep-curve`, `slope` and `word-cloud`
-paint with strokes and type (`paint: "none"`): a stroke is all edge and no body. Tone's one
-hue is for bodies, and an edge and a name keep their category ink, so tone leaves these whole,
+**What a finish does not reach, on purpose.** `line`, `ep-curve` and `slope`
+paint with strokes (`paint: "none"`): a stroke is all edge and no body. Tone's one
+hue is for bodies, and a name keeps its category ink, so tone leaves these whole,
 their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
 series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), because under
 etch the line is the identity, and gives its dots, areas and bands etch's whisper body and ink

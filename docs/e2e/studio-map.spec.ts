@@ -236,7 +236,7 @@ test('the map sits in the slide strip at every width, under the slide, never in 
 		// The slide actions sit in the SAME row as the map (the strip), at every width.
 		const actionsBesideMap = await page.evaluate(() => {
 			const map = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
-			return [...document.querySelectorAll('button[aria-label="Add slide"]')].some((b) => {
+			return [...document.querySelectorAll('button[aria-label="Duplicate slide"]')].some((b) => {
 				const r = b.getBoundingClientRect();
 				return !!map && r.width > 0 && r.top < map.bottom && r.bottom > map.top;
 			});

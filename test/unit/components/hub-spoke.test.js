@@ -618,12 +618,11 @@ describe('hub-spoke under a chart finish', () => {
   test('a status disc keys on data-s and every finish paints it from --hs-state-*', () => {
     const html = T.buildHubSpoke(model('Hub', [['A', ['blocked']], ['B'], ['C']])).html;
     assert.match(html.match(/<path class="hub-spoke-node"[^>]*data-label="A"[^>]*>/)[0], /data-s="blocked"[^>]*data-paint="fill"/);
-    for (const f of ['pigment', 'etch', 'tone']) {
-      const rule = finishCss.match(new RegExp(`section\\.marks-${f} :where\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-s\\]\\)[^{]*\\{([^}]*)\\}`));
-      assert.ok(rule, `${f}: no status rule for hub-spoke`);
-      assert.match(rule[1], /var\(--hs-state-hue\)/);
-      assert.match(rule[1], /stroke: var\(--hs-state-ink\)/);
-    }
+    // One rule serves every finish: the finish sets only the level it reads (--finish-status).
+    const rule = finishCss.match(/section:is\(\.marks-pigment, \.marks-etch, \.marks-tone\) :where\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-s\]\)[^{]*\{([^}]*)\}/);
+    assert.ok(rule, 'no status rule for hub-spoke');
+    assert.match(rule[1], /var\(--hs-state-hue\)/);
+    assert.match(rule[1], /stroke: var\(--hs-state-ink\)/);
   });
   test('under tone, a group\'s band, arrowhead and name join the one hue through --hs-group-*', () => {
     const rule = finishCss.match(/section\.marks-tone :where\(:is\(\.hub-spoke-neck, \.hub-spoke-twig, \.hub-spoke-arrow, \.hub-spoke-name\)\[data-hue\]\)[^{]*\{([^}]*)\}/);
@@ -640,11 +639,23 @@ describe('hub-spoke under a chart finish', () => {
       assert.doesNotMatch(body, /--mark-(hue|ink)/);
     }
   });
-  test('with groups on the slide, pigment and tone put the hub back on the full heading ink', () => {
-    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const m = css.match(/:is\(section, figure\):is\(\.marks-pigment, \.marks-tone\) \.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub \{([^}]*)\}/);
-    assert.ok(m, 'the grouped-hub lift is missing or no longer scoped to grouped charts under pigment and tone');
-    assert.match(m[1], /fill: var\(--text-heading\)/);
+  test('with groups on the slide, tone puts the hub back on the full heading ink', () => {
+    // On dark, tone's top step reaches the dimmed hub's own lightness (OKLab 0.08 on mustard-dark, under the 0.15 floor). The rule
+    // lives in the generator with the other tone-only treatments, not in the member: no member stylesheet names a finish.
+    const m = finishCss.match(/section\.marks-tone :where\(\.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub\)[^{]*\{([^}]*)\}/);
+    assert.ok(m, 'the grouped-hub lift is missing or no longer scoped to grouped charts under tone');
+    assert.match(m[1], /fill: var\(--text-heading\) !important/);
+    // Pigment's and etch's hub is the first hue on a plain chart, and the NEUTRAL solid (or whisper) on a chart that draws groups:
+    // the first hue is group 1's, so a first-hue hub or satellite read as a member of group 1. Neither needs tone's heading-ink lift.
+    for (const f of ['pigment', 'etch']) {
+      const grouped = new RegExp(`section\\.marks-${f}:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\) :where\\(\\.hub-spoke-hub\\)`);
+      assert.match(finishCss, grouped, `${f} keeps a neutral hub on a grouped chart`);
+      const plain = new RegExp(`section\\.marks-${f}:not\\(:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\)\\) :where\\(\\.hub-spoke-hub\\)`);
+      assert.match(finishCss, plain, `${f} draws the first-hue hub only on a plain chart`);
+    }
+    assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\(\.hub-spoke-svg:has/);
+    const member = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8');
+    assert.doesNotMatch(member, /\.marks-(pigment|etch|tone)/, 'the member does not name a finish');
   });
 });
 
@@ -771,54 +782,46 @@ describe('hub-spoke — the rows it owns, and nothing past them', () => {
 });
 
 describe('hub-spoke — icon ink under a chart finish', () => {
+  const sheet = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/marks.generated.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/@supports[^{]*\{/g, '');
+  const rulesOf = [...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  const ALL = 'section:is(.marks-pigment, .marks-etch, .marks-tone) :where(';
+  const MOVERS = 'section:is(.marks-etch, .marks-tone) :where(';
+  const PIGMENT = 'section.marks-pigment :where(';
+  const SLOTS = ':is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])';
+  const bodyOf = (head, mark) => {
+    const r = rulesOf.find((x) => x.sel.startsWith(`${head}${mark}),`));
+    assert.ok(r, `a rule for ${mark} under ${head}`);
+    return r.body;
+  };
+  const decl = (body, prop) => {
+    const m = new RegExp(`${prop}: ([^;]*?) !important;`).exec(body);
+    assert.ok(m, `no ${prop} in ${body.slice(0, 80)}`);
+    return m[1];
+  };
+
   test('each finish gives the icon the ink its disc body clears, for every slot and for a status', () => {
-    // A finish repaints the disc; a fixed ink measured 1.62:1 on an etch status disc. The
-    // generator derives the icon's ink from the same body it gives the disc (inkOn).
-    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/marks.generated.css'), 'utf8');
-    for (const finish of ['pigment', 'etch', 'tone']) {
-      for (let n = 1; n <= 8; n++) {
-        // Pigment's disc is the slot's solid, so its icon takes the solid ink curated for it (chart-solids.test.js);
-        // etch and tone paint a body the family has no ink for, and compute it from the body they paint.
-        const re = finish === 'pigment'
-          ? new RegExp(`marks-pigment :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: var\\(--chart-on-mark\\)`)
-          : new RegExp(`marks-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.1791 - y\\)`);
-        assert.match(css, re, `${finish} slot ${n}`);
-      }
-      assert.match(css, new RegExp(`marks-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: ${finish === 'pigment' ? 'var\\(--chart-on-mark\\)' : '[^;]*var\\(--hs-state-hue\\)'}`), `${finish} status`);
-    }
+    // A finish repaints the disc; a fixed ink measured 1.62:1 on an etch status disc. Under etch and tone the generator
+    // derives the icon's ink from the same body it gives the disc (inkOn). Pigment's disc is the slot's solid, so its
+    // icon takes the solid ink curated for it (chart-solids.test.js), which is the finish's ink. One rule serves every
+    // slot: the slot's body is already a value on the icon (`--finish-mark-body`), so the rule names no slot.
+    assert.equal(decl(bodyOf(PIGMENT, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, every slot');
+    assert.match(decl(bodyOf(MOVERS, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), /^light-dark\(color\(from var\(--finish-mark-body-l\) xyz-d65 [\s\S]*?\), color\(from var\(--finish-mark-body-d\) xyz-d65 /, 'etch and tone, every slot: each arm reads its own level');
+    assert.equal(decl(bodyOf(PIGMENT, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, a status');
+    assert.match(decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), /var\(--hs-state-hue\)/, 'etch and tone, a status');
   });
 
   test('the icon picks its ink from the very body the finish gives its disc', () => {
-    // Read both rules out of the generated sheet: the disc's `fill` and the icon's ink. Each arm of
-    // the disc's body must appear as the `color(from <arm> xyz-d65 …)` the ink is computed from, so an edit
-    // to a finish's disc level that forgets the icon fails here.
-    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/marks.generated.css'), 'utf8');
-    const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const decl = (sel, prop) => {
-      const m = css.match(new RegExp(`${esc(sel)}[^{]*\\{[^}]*?${prop}: ([^;]*?) !important;`));
-      assert.ok(m, `no ${prop} under ${sel}`);
-      return m[1];
-    };
-    const arms = (v) => {
-      if (!v.startsWith('light-dark(')) return [v];
-      let depth = 0;
-      const inner = v.slice('light-dark('.length, -1);
-      for (let i = 0; i < inner.length; i++) {
-        if (inner[i] === '(') depth++;
-        else if (inner[i] === ')') depth--;
-        else if (inner[i] === ',' && depth === 0) return [inner.slice(0, i).trim(), inner.slice(i + 1).trim()];
-      }
-      return [v];
-    };
-    for (const finish of ['pigment', 'etch', 'tone']) {
-      const pairs = [[1, 8].map((n) => [`marks-${finish} :where(:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="fill"]`, `marks-${finish} :where(.hub-spoke-icon[data-hue="${n}"])`])].flat();
-      pairs.push([`marks-${finish} :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s])`, `marks-${finish} :where(.hub-spoke-icon[data-s])`]);
-      for (const [disc, icon] of pairs) {
-        const body = decl(disc, 'fill');
-        const ink = decl(icon, '--hs-icon-ink');
-        if (finish === 'pigment') { assert.equal(ink, 'var(--chart-on-mark)', icon); continue; }
-        for (const arm of arms(body)) assert.ok(ink.includes(`color(from ${arm} xyz-d65`), `${icon}: ${ink} does not derive from ${arm}`);
-      }
-    }
+    // The disc's `fill` and the icon's ink are read out of the generated sheet. A slot's disc body is `--finish-mark-body`
+    // and the icon's ink is computed from that same value, so an edit to a finish's disc level reaches both.
+    const slotDisc = rulesOf.find((x) => x.sel.startsWith(ALL) && x.sel.includes('[data-encodes="hue"][data-paint="fill"]') && x.body.includes('light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))'));
+    assert.equal(decl(slotDisc.body, 'fill'), 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))');
+    // A status disc and its icon share the status body the finish sets, at its plain level, both arms (light and dark).
+    // A status mixes toward its own base (`--finish-status-base`, the plain canvas), never the finish's tinted category base.
+    const statusDisc = decl(bodyOf(ALL, ':is(.hub-spoke-node, .hub-spoke-leaf)[data-s]'), 'fill');
+    const statusInk = decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink');
+    const [l, d] = [/^light-dark\((color-mix\(.*?var\(--finish-status\), var\(--finish-status-base\)\)), (color-mix\(.*?var\(--finish-status-d\), var\(--finish-status-base\)\))\)$/.exec(statusDisc)].flatMap((m) => (m ? [m[1], m[2]] : []));
+    assert.ok(l && d, `the status disc body is a light-dark of two mixes: ${statusDisc}`);
+    assert.ok(statusInk.includes(`color(from ${l} xyz-d65`) && statusInk.includes(`color(from ${d} xyz-d65`), `${statusInk} does not derive from ${statusDisc}`);
   });
 });

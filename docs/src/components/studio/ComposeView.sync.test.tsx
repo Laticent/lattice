@@ -430,3 +430,24 @@ describe('applyHistory — a Filo undo lands now, focused or not', () => {
 		expect(view.state.doc.child(1).textContent).not.toContain('AI');
 	});
 });
+
+// Compose's own delete rebuilds the deck without the strip's ops, so it carries the front-matter `say:`
+// narration itself (2026-10-27-slide-structure-strip.md §8): the narration keyed to a later slide follows it.
+describe('Compose delete keeps the say: narration on its slide', () => {
+	it('deleting slide 1 renumbers the entries after it, and later edits keep the new numbers', async () => {
+		const deck = `---\nsay:\n  1: Narrate one\n  2: Narrate two\n  3: Narrate three\n---\n\n${DECK}`;
+		const out: string[] = [];
+		render(<ComposeView source={deck} onChange={(s) => out.push(s)} />);
+		const view = theView();
+		const first = view.dom.querySelectorAll('.cs-slide')[0];
+		(first.querySelector('[aria-label="Delete slide"]') as HTMLElement).click();
+		(first.querySelector('[aria-label="Confirm delete slide"]') as HTMLElement).click();
+		const after = out.at(-1) ?? '';
+		expect(after).toContain('  1: Narrate two\n');
+		expect(after).toContain('  2: Narrate three\n');
+		expect(after).not.toContain('Narrate one');
+		// The front matter is the doc's own now, so the next keystroke does not bring the old numbers back.
+		view.dispatch(view.state.tr.insertText('!', view.state.doc.content.size - 2));
+		expect(out.at(-1)).toContain('  1: Narrate two\n');
+	});
+});

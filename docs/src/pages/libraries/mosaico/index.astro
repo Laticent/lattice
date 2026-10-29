@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Mosaico — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/mosaico,
 // the `@laticent/mosaico` workspace). It shows the library, not Lattice's layouts: two panels, one
 // per strategy — `tree` packs up to six boxes of any shape into a container you pick, and `rows`
@@ -16,38 +17,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Mosaico — every box keeps its shape</title>
 		<link rel="icon" href="/mosaico-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="mosaico" />
 		<style is:global>
-			:root {
-				--paper: #f5f5ef; --stage: #ecede3; --ink: #1d2112; --muted: #5d6350; --line: #dcdfcf;
-				--accent: #4f5f00; --accent-ink: #fff; --glow: #034e64; --glow-bg: #d4eef5;
-				--panel: #fbfbf7; --tile: #e2e8c9; --tile-ink: #384300;
-				--mark-warm: #0994b9; --ring: #1f2600;
-				--shadow: 0 1px 2px rgba(29,33,18,.06), 0 8px 24px rgba(29,33,18,.06);
-				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root {
-					--paper: #11130d; --stage: #191c13; --ink: #e7ebdf; --muted: #9da28e; --line: #2c3022;
-					--accent: #a9bf4a; --accent-ink: #151a04; --glow: #8ddefd; --glow-bg: #0d2a33;
-					--panel: #161910; --tile: #2e3618; --tile-ink: #e2ecc0;
-					--mark-warm: #8ddefd; --ring: #0f1300;
-					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				}
-			}
-			:root[data-theme="light"] {
-				--paper: #f5f5ef; --stage: #ecede3; --ink: #1d2112; --muted: #5d6350; --line: #dcdfcf;
-				--accent: #4f5f00; --accent-ink: #fff; --glow: #034e64; --glow-bg: #d4eef5;
-				--panel: #fbfbf7; --tile: #e2e8c9; --tile-ink: #384300;
-				--mark-warm: #0994b9; --ring: #1f2600;
-			}
-			:root[data-theme="dark"] {
-				--paper: #11130d; --stage: #191c13; --ink: #e7ebdf; --muted: #9da28e; --line: #2c3022;
-				--accent: #a9bf4a; --accent-ink: #151a04; --glow: #8ddefd; --glow-bg: #0d2a33;
-				--panel: #161910; --tile: #2e3618; --tile-ink: #e2ecc0;
-				--mark-warm: #8ddefd; --ring: #0f1300;
-			}
 			/* The header mark, drawn inline so it follows the theme toggle (docs/public/mosaico-mark.svg is the same geometry). */
 			.logo .t-pri { stroke: var(--accent); }
 			.logo .t-warm { stroke: var(--mark-warm); }

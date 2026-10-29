@@ -196,6 +196,21 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(finished?.css).toContain('marks-tone');
 	});
 
+	// The shared mark rules serve every finish, so their head is `section:is(.marks-a, .marks-b, .marks-c)`; the mark test
+	// must read that head as it reads `section.marks-X`, or every shared rule would ride into every snapshot.
+	it('drops a shared mark rule (an `:is()` of finishes) when the page holds no mark it reaches', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.title{color:blue} section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
+		const section = doc.querySelector('.lattice > section') as HTMLElement;
+		section.classList.add('marks-tone');
+		const bare = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(bare?.css).not.toContain('marks-tone');
+		section.insertAdjacentHTML('beforeend', '<svg><rect class="bar-mark" data-hue="1"></rect></svg>');
+		const finished = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(finished?.css).toContain('marks-tone');
+	});
+
 	it('keeps an arm that names several finishes when any one of them is on the page', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

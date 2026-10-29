@@ -133,3 +133,22 @@ see `engineering/chart-styling.md` §3. The two items below are still open.*
 - **The register audit.** Three of the eight destinations in the design's reach
   table are implemented (mark body, mark edge, and now the mark's name). The
   mark's VALUE and its own chrome are not.
+
+## Update 2026-10-26 (chart-finish token swaps, PR on branch claude/chart-status-continuation-c46lvj)
+
+This note is the record of the design as first written. Four statements in it no longer match the code, and the
+audit that found them is `followups.d/2887-p2-tone-etch-open-decisions.md`.
+
+- **"A STATUS mark's body joins the one hue; the status stays on the edge" is not what ships.** A status body keeps
+  its own status hue under tone, at tone's quiet level, and its edge is the status ink
+  (`engineering/chart-styling.md` §3, `STATUS_MARKS` in `tools/build-marks-css.js`).
+- **"its top step is 92%, louder than `pigment`'s 82%" is stale.** Pigment is the flat solid now (100%).
+- **Tone's edge is one ink on every mark, and the categories are told apart by the one ladder.** This note said the
+  edge is "the only place the categorical hue survives". That held while a text-bearing mark took a second, paler
+  ladder whose steps sat 0.017 OKLab apart on a tower. With ONE ladder (text ink picked per mark) the bodies carry the
+  category by depth, so the outline is one ink and a tone chart is one color plus status. (A brief intermediate state
+  in the same PR gave each edge its category ink; the owner's goal, "consistent, clear and clean across charts within
+  a finish", chose the one-ink edge once the ladder made it safe.)
+- **The ramp is no longer doubled, for ramps or for marks.** See `chart-styling.md` §3: a heatmap's text band is the same
+  as its plain band, and a text-bearing mark takes the same eight steps as every other body, with its text ink picked
+  from its own body.

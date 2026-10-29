@@ -1,4 +1,4 @@
-import type { Extension } from '@codemirror/state';
+import type { Extension, Transaction } from '@codemirror/state';
 
 // The always-loaded part of the Studio's live session: the types the shell speaks, and the few
 // storage reads the shell needs before deciding whether to load the session code at all. Keep it
@@ -61,6 +61,10 @@ export type LiveHost = {
 	notify: (message: string) => void;
 	notifyAction: (message: string, opts: { label: string; onClick: () => void }) => void;
 	rerender: () => void;
+	/** Whether a Studio write is a structural slide op (2026-10-27-slide-structure-strip.md §7). It goes on this
+	 *  browser's Live undo stack as a step of its own, never merged with typing just before or after it, so one ⌘Z, or
+	 *  the strip's Undo, takes back exactly the op. */
+	structural?: (next: string) => boolean;
 	/** Follow: open the panel and view of the person followed. The shell decides what fits its width
 	 *  (a phone follows the slide only). Optional: a shell without panels follows slides alone. */
 	followDoing?: (d: { panel: 'coach' | 'lenses' | 'library' | 'live' | null; view: 'compose' | 'fabricate' | 'article' }) => void;
@@ -80,7 +84,7 @@ export type LiveHost = {
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
 /** `undo` / `redo` step this browser's own changes in the session (the binding's Y.UndoManager), for
  *  the Studio root's ⌘Z when focus is outside the editor (Filo note §6.2). */
-export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null; records: LiveRecords; undo: () => boolean; redo: () => boolean };
+export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer: (tr: Transaction) => boolean; look: LiveLook | null; records: LiveRecords; undo: () => boolean; redo: () => boolean };
 
 const read = (s: Storage, k: string): string | null => {
 	try {

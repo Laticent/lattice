@@ -62,6 +62,13 @@ const BACKSTOP_MS = 10_000;
 /** The line a lesson says when the user waited and it does the step itself. */
 export const TAKEOVER_LINE: string = SHARED_LINES.takeover;
 
+/** New slide splits in place into Before | After (2026-10-27-slide-structure-strip.md §5). When the learner opened the
+ *  split, take them through After; when the lesson did the step itself, the gallery is already open and this is a no-op. */
+export async function chooseAfter(ctx: LessonCtx): Promise<void> {
+	if (!(await settle(ctx, () => visible(SEL.addAfter)() != null, 600))) return;
+	await yourTurn(ctx, { say: SHARED_LINES.after, target: SEL.addAfter, perform: (a) => a.press(SEL.addAfter) });
+}
+
 /** Can a person see and press this element? A box is not enough: the pre-paint skeleton keeps an
  *  exact copy of the header (same label, same box) inside an `inert`, `aria-hidden` layer the
  *  browser does not paint. Measured on the real Studio: a lesson aimed at that copy, so the user's
@@ -208,7 +215,8 @@ export const SEL = {
 	preview: '#studio-pane-preview',
 	deckSwitcher: '[data-demo="deck-switcher"]',
 	newDeck: '[data-demo="new-deck"]',
-	addSlide: '[aria-label="Add slide"]',
+	addSlide: '[aria-label="New slide"]',
+	addAfter: '[aria-label="New slide after"]',
 	pickerBlank: '[data-demo="picker-blank"]',
 	theme: '[data-demo="theme"]',
 	present: ['[data-demo="present"]', '[aria-label="Present"]'],

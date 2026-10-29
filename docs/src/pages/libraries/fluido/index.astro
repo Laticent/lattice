@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Fluido — a standalone showcase driven by the REAL core (docs/src/lib/fluido, the `@laticent/fluido`
 // workspace). Pick a box and some content; the page reads the facts, asks the core what the slide
 // becomes, and draws the pages it names. The family comes from Lattice's one classifier
@@ -16,30 +17,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Fluido — content that fits any box</title>
 		<link rel="icon" href="/fluido-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="fluido" />
 		<style is:global>
-			:root {
-				--paper: #f6f3ec; --stage: #eeeae0; --ink: #2a2110; --muted: #6b604a; --line: #ddd5c4;
-				--accent: #7a5a12; --accent-ink: #fff; --alarm: #c4412b; --jade: #13a17a; --jade-soft: #d5efe6; --panel: #fdfcf9; --soft: #efe6d2;
-				--shadow: 0 1px 2px rgba(42,33,16,.06), 0 8px 24px rgba(42,33,16,.07);
-				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", Menlo, monospace;
-				color-scheme: light;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root:not([data-theme="light"]) {
-					--paper: #121012; --stage: #19160f; --ink: #f3ead6; --muted: #b3a688; --line: #2f2a1e;
-					--accent: #e3b860; --accent-ink: #1d1606; --alarm: #ff8a73; --jade: #5fe0b8; --jade-soft: #123528; --panel: #17140e; --soft: #2b2414;
-					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-					color-scheme: dark;
-				}
-			}
-			:root[data-theme="dark"] {
-				--paper: #121012; --stage: #19160f; --ink: #f3ead6; --muted: #b3a688; --line: #2f2a1e;
-				--accent: #e3b860; --accent-ink: #1d1606; --alarm: #ff8a73; --jade: #5fe0b8; --jade-soft: #123528; --panel: #17140e; --soft: #2b2414;
-				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				color-scheme: dark;
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
 				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

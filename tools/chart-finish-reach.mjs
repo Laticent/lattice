@@ -97,7 +97,7 @@ const SANCTIONED_NEUTRAL = [
  * That is the convergence work recorded in followups.d/chart-finish-reach-whole-charts.md; naming
  * them here is what keeps it from being forgotten, and the check fails the day one is reached.
  */
-const WHOLE_CHARTS = ['kanban', 'slope', 'map', 'journey'];
+const WHOLE_CHARTS = ['kanban', 'map', 'journey'];
 
 function parseArgs(argv) {
   const out = { themes: [], all: false, modes: ['light', 'dark', 'print'], spanFloor: 0.9, textFloor: 4.5, check: false, freeze: false, json: null };

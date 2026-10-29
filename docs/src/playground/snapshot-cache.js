@@ -139,9 +139,11 @@ const finishArmAbsent = (doc, sel) => {
 // rules of the deck's finish rode into every snapshot, which on a bar slide roughly doubled it
 // (53K to 100K units against a 246K cap, 174 finish rules kept against 2) and left heavy chart slides
 // unable to store. The arm is exactly
-// `section.marks-X :where(<marks>)`, and the marks are an ordinary selector, so ask the page
+// `section.marks-X :where(<marks>)` (X one finish or an `:is()` of several), and the marks are an ordinary selector, so ask the page
 // whether any exists. Any other shape, or a selector the engine refuses, stays conservatively kept.
-const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)\\.(?:${MARKS_TOKENS.join('|')}) :where\\(`);
+// The head is one finish (`section.marks-etch`) or a set of them (`section:is(.marks-etch, .marks-tone)`): the shared
+// mark rules serve every finish and read its --finish-* values, so most heads name all three.
+const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)(?:\\.(?:${MARKS_TOKENS.join('|')})|:is\\((?:\\.(?:${MARKS_TOKENS.join('|')})(?:, )?)+\\)) :where\\(`);
 const finishMarksAbsent = (doc, sel) => {
 	const lead = FINISH_MARK_ARM.exec(sel);
 	if (!lead) return false;

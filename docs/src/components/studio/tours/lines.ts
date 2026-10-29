@@ -24,7 +24,7 @@ export const TOUR_LINES = {
 	write: 'This is where you write. Plain text, nothing else. A line of three dashes starts a new slide, and a line that starts with a hash is a heading.',
 	preview: 'And here is the result. Every slide draws itself as you type. No export, no waiting.',
 	rail: 'Every slide in your deck lives in this strip. Click one to jump straight to it.',
-	add: 'Add brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.',
+	add: 'New slide brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.',
 	compose: 'Prefer not to see the markup? Compose is a visual editor for the same deck. Switch between the two whenever you like.',
 	fixAll: 'Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them. Undo takes them back.',
 	reshape: 'Reshape shows the slide you wrote in a different layout. Same words, a new arrangement.',

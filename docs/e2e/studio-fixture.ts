@@ -151,24 +151,16 @@ export const CHROME = {
 	 *  it opens is titled "Earlier versions". See docs/src/components/studio/AssetVersions.tsx. */
 	assetVersions: 'Earlier versions of',
 	/**
-	 * The add-slide gallery — ONE door, and as of #1654 one name on every launcher that
-	 * opens it: the preview rail's `+`, the editor header's button, the mobile drawer row
-	 * (Edit pane, behind `moreControls`), the command palette's "Add a slide…", and the
-	 * Compose divider's "Add slide below". They used to read five different things
-	 * ("Add slide" / "Insert component" / "Insert a component…" / "Insert slide below"),
-	 * which is what the issue reported.
-	 *
-	 * Consequence for specs, and it is worse than "two controls share a name". Playwright's
-	 * `getByRole` name option is a SUBSTRING match unless you pass `exact: true`, so
-	 * `'Add slide'` also matches every Compose divider's **"Add slide below"** — one per
-	 * slide. On the 7-slide seed deck in Compose, a bare
-	 * `getByRole('button', { name: CHROME.addSlide })` resolves to NINE elements, and the
-	 * count grows with the deck. Match it `exact: true` (as `openAddSlide` and
-	 * `openAddSlideFromRail` below both do) or scope it, but never bare.
+	 * The add-slide gallery's door, "New slide" (2026-10-27-slide-structure-strip.md §5): ONE visible door
+	 * at a time, under one name. Desktop and tablet draw it at the end of the slide strip, and in the editor
+	 * header only while the preview is collapsed; a phone draws a round door in both panes, so two controls
+	 * carry the name there and only the current pane's is visible. The command palette's entry reads
+	 * "New slide…", and the Compose divider keeps its own "Add slide below". Match it `exact: true`
+	 * (as `openAddSlide` does): a bare name would also match the palette's entry while the palette is open.
 	 */
-	addSlide: 'Add slide',
-	/** The dialog/sheet the five launchers open — `SlidePicker`'s own title. */
-	addSlideDialog: 'Add a slide',
+	addSlide: 'New slide',
+	/** The dialog/sheet every launcher opens — `SlidePicker`'s own title. */
+	addSlideDialog: 'New slide',
 	/**
 	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
 	 * slot in both headers (directly above Settings in the right-hand run), so it holds
@@ -503,6 +495,16 @@ export function persistedCheckpoints(page: Page): Promise<Record<string, number>
  */
 export function toastText(page: Page): Locator {
 	return page.locator('[data-sonner-toaster]');
+}
+
+/** What the New slide door says after an add, in the door itself (2026-10-27-slide-structure-strip.md §5). */
+export function addedNote(page: Page): Locator {
+	return page.locator('[data-new-slide][data-confirming]').filter({ visible: true }).first();
+}
+
+/** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */
+export function stripNote(page: Page): Locator {
+	return page.locator('[data-strip-note]').filter({ visible: true }).first();
 }
 
 /** The app toast pill — the canonical name for the centralized toast accessor.
@@ -929,38 +931,25 @@ function addSlideReady(page: Page): Promise<void> {
 }
 
 /**
- * Open the add-slide gallery (`SlidePicker`) and wait for it to be usable.
- *
- * There is no header launcher on a phone: the row lives in the StudioDrawer behind "Menu",
- * and only on the Edit pane — so a desktop-shaped open simply times out at 390px. Pass
- * `compact` (`testInfo.project.name === 'mobile'`) to take the drawer route.
- *
- * `exact: true` keeps this off the Compose divider's "Add slide below" (see `CHROME
- * .addSlide`); `.first()` then picks between the rail `+` and the editor-header button,
- * which share the name because they are one door (#1654). Either opens the same gallery,
- * so which one it lands on is not load-bearing — `openAddSlideFromRail` is there for a spec
- * that means the rail specifically.
+ * Open the add-slide gallery (`SlidePicker`) through the visible "New slide" door, and wait for it
+ * to be usable. On a phone the round door is in both panes, so no pane switch is needed; `compact`
+ * is accepted so call sites read the same at every width, and changes nothing.
  */
-export async function openAddSlide(page: Page, compact = false): Promise<void> {
-	if (compact) {
-		await page.getByRole('button', { name: 'Markdown source' }).click();
-		await page.waitForTimeout(600);
-		await page.getByRole('button', { name: CHROME.moreControls }).click();
-	}
-	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).first().click();
+export async function openAddSlide(page: Page, _compact = false, side: 'before' | 'after' = 'after'): Promise<void> {
+	await page.getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
+	await chooseSide(page, side);
 	await addSlideReady(page);
 }
 
-/**
- * Open the gallery from the PREVIEW RAIL specifically — the launcher the issue reporter
- * used, and the one `openAddSlide`'s `.first()` does not reach on desktop (the editor
- * header precedes it in the DOM). Scoped through the rail's own `Duplicate slide` sibling
- * rather than by index: the rail is the one slide-op group that has one, so the scope
- * survives a chrome reshuffle that an `.nth()` would not.
- */
-export async function openAddSlideFromRail(page: Page): Promise<void> {
-	const rail = page.getByRole('button', { name: 'Duplicate slide', exact: true }).locator('..');
-	await rail.getByRole('button', { name: CHROME.addSlide, exact: true }).click();
+/** New slide splits in place into Before | After (2026-10-27-slide-structure-strip.md §5); the gallery opens on the choice. */
+async function chooseSide(page: Page, side: 'before' | 'after'): Promise<void> {
+	await page.getByRole('button', { name: `New slide ${side}`, exact: true }).filter({ visible: true }).first().click();
+}
+
+/** Open the gallery from the PREVIEW pane's door specifically: the strip's, or a phone's round door there. */
+export async function openAddSlideFromStrip(page: Page, side: 'before' | 'after' = 'after'): Promise<void> {
+	await page.locator('#studio-pane-preview').getByRole('button', { name: CHROME.addSlide, exact: true }).filter({ visible: true }).first().click();
+	await chooseSide(page, side);
 	await addSlideReady(page);
 }
 

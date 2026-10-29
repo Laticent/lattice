@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Filo — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/filo, the
 // `@laticent/filo` workspace). One document, four writers that never call each other: an editor,
 // a settings panel, a list of sections with an AI rewrite, and a lint fix. Each commits to one
@@ -18,32 +19,10 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Filo — one undo history for every way a document changes</title>
 		<link rel="icon" href="/filo-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="filo" />
 		<!-- Global (unscoped): the thread, the sections and the beats are built in JS at runtime, so
 		     Astro's element-scoped hashes would never match them. -->
 		<style is:global>
-			:root {
-				--paper: #f6f3ec; --stage: #f1ebe9; --ink: #2a1418; --muted: #6e5a5f; --line: #e2d6d6;
-				--accent: #91123f; --accent-ink: #fff; --live: #2b9217; --live-ink: #226b12; --live-bg: #e1f2dc;
-				--panel: #fdfbfa; --soft: #f6e6ea; --ring: #3a0619; --shadow: 0 1px 2px rgba(42,20,24,.06), 0 8px 24px rgba(42,20,24,.07);
-				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-				color-scheme: light;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root:not([data-theme="light"]) {
-					--paper: #121012; --stage: #1a1517; --ink: #f3e5e8; --muted: #b29aa1; --line: #33272b;
-					--accent: #fb6188; --accent-ink: #2a0610; --live: #83e773; --live-ink: #83e773; --live-bg: #14301a;
-					--panel: #171214; --soft: #3a1a24; --ring: #2a0d15; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-					color-scheme: dark;
-				}
-			}
-			:root[data-theme="dark"] {
-				--paper: #121012; --stage: #1a1517; --ink: #f3e5e8; --muted: #b29aa1; --line: #33272b;
-				--accent: #fb6188; --accent-ink: #2a0610; --live: #83e773; --live-ink: #83e773; --live-bg: #14301a;
-				--panel: #171214; --soft: #3a1a24; --ring: #2a0d15; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				color-scheme: dark;
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

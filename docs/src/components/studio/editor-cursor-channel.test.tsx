@@ -1,3 +1,4 @@
+import { Annotation, type Transaction } from '@codemirror/state';
 import { render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -171,5 +172,46 @@ describe('the editor reveals what other panes ask for', () => {
 		rerender(<Editor value={other} onChange={() => {}} focusHub={hub} />);
 		drain();
 		expect(hub.get().unitIndex).toBe(2);
+	});
+});
+
+// Which doc changes report the caret (2026-10-27-slide-structure-strip.md §10). A Live peer's edit only maps this
+// editor's caret, and the hub maps the focus itself, so reporting the mapped caret would pull a viewer onto a slide the
+// peer just added. Every other change still reports: the editor and the hub map a whole-text replace differently.
+describe('the caret report after a change the author did not type', () => {
+	it('a whole-text replace (Fix all) keeps the hub on the slide the editor caret is in', () => {
+		const { hub, drain } = testHub();
+		hub.update(DECK);
+		const { container } = render(<Editor value={DECK} onChange={() => {}} focusHub={hub} />);
+		drain();
+		const view = viewOf(container.querySelector('.cm-content'));
+		view.dispatch({ selection: { anchor: DECK.indexOf('beta') } });
+		expect(hub.get().unitIndex).toBe(1);
+		const fixed = DECK.replace('gamma', 'gamma fixed');
+		// Fix all's own dispatch: the whole text, no user event, no selection.
+		view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fixed } });
+		const head = view.state.selection.main.head;
+		expect(hub.get().head).toBe(head);
+		expect(hub.get().unitIndex).toBe(fixed.slice(0, head + 1).split('\n---\n').length - 1);
+	});
+
+	it('a Live peer adding a slide at the caret does not report it, so the hub and the caret keep the reader’s slide', async () => {
+		const peer = Annotation.define<true>();
+		const collab = { extension: [], key: 'room:view', readOnly: false, seed: () => DECK, isPeer: (tr: Transaction) => tr.annotation(peer) === true };
+		const { hub, drain } = testHub();
+		hub.update(DECK);
+		const { container } = render(<Editor value={DECK} onChange={() => {}} focusHub={hub} collab={collab} />);
+		drain();
+		const view = viewOf(container.querySelector('.cm-content'));
+		const top = DECK.indexOf('# Three');
+		view.dispatch({ selection: { anchor: top } });
+		expect(hub.get().unitIndex).toBe(2);
+		const insert = '# Peer\n\n---\n\n';
+		view.dispatch({ changes: { from: top, insert }, annotations: peer.of(true) });
+		expect(hub.get().unitIndex).toBe(3);
+		// The editor's own caret follows, so the reader's next keystroke lands in Three, not in the peer's slide.
+		await Promise.resolve();
+		expect(view.state.selection.main.head).toBe(hub.get().head);
+		expect(view.state.doc.sliceString(view.state.selection.main.head).startsWith('# Three')).toBe(true);
 	});
 });

@@ -401,3 +401,59 @@ unchanged code: both cases end on slide 1 (expected 9 and 3). After: the frames 
 (Chromium), `gecko` and `webkit-tablet`. The phone layout has no collapse (tabs own visibility), so `webkit-phone` does
 not apply. Real Safari and touch are UNVERIFIED. Not done: a collapse by dragging the divider has no e2e; the
 `sectionAt` check on the kept scroll is the guard for it.
+
+## A late scroll event is still the move's echo (2026-10-28, followup `2937-p2`)
+
+**Symptom.** The spec "a click on a line in the editor centers its slide in the preview and leaves the editor alone"
+failed on `webkit-tablet`: the editor's `scrollTop` moved 136 px after the click. It is a load flake, not a WebKit
+quirk: on this 4-core sandbox it passed 20 of 20 with one worker and failed **9 of 24** with six workers.
+
+**Cause.** `isEcho` measured the 120 ms window from the moment the sync WROTE the preview's scroll. A scroll event is
+delivered on a later frame. A busy page delivers that frame late, and the event reached `drivenByPreview` after the
+window had closed, so the sync read its own move as the reader scrolling the preview and moved the editor to follow.
+Timestamps from the 24-run probe (write → event): every failing run was 139–362 ms; every passing run was ≤ 119 ms.
+Nothing else separated them.
+
+**Fix.** `landEcho` (`playground-sync.ts`) restarts the window when the FIRST scroll event after a move arrives, on
+`previewScrolled` and `editorScrolled`. Only that first event counts, so a later scroll by the reader is never taken
+for the echo, and the events that follow it (CodeMirror re-anchoring) fall inside the new window. An event more than
+`ECHO_LATE_MS` (600) late counts only if it arrives at the position the move set (`ECHO_LATE_AT_POSITION_MS`, 3 s),
+because a reader's scroll lands elsewhere. That second arm exists because one run in 48 had the event 607 ms late.
+
+**Evidence** (`webkit-tablet`, `build:e2e`, same sandbox):
+
+| Run | Before | After the first cut (600 ms cap) | After |
+|---|---|---|---|
+| 6 workers, `--retries=0` | 9 of 24 failed | 1 of 24, 1 of 48 failed (event 607 ms late) | 48 of 48 passed |
+| 1 worker | 20 of 20 passed | — | 20 of 20 passed |
+
+The whole spec file passes on `desktop`, `webkit-tablet` and `gecko`: 33 of 33. The unit rig now delivers the scroll
+event of the sync's own move on the next frame, as a browser does; before, it never delivered one, which is why no
+unit test could see this. The new unit test "the preview's late echo does not move the editor" fails on the old code.
+
+**Independent check (2026-10-28).** A checker agent read the diff and found no blocking bug; it confirmed that only the
+new late-echo test fails on the old code. It named one trade-off, now stated here: the first scroll event after a move
+lands the echo whoever caused it. If the move's own event is late (or never comes) and the reader scrolls that pane
+within 600 ms, the reader's event lands the echo and the other pane skips about 120 ms of their scroll; a continuous
+wheel recovers, a single-event scroll (a PageDown) is not followed until the next one. Two changes follow from it.
+A write the pane clamped to its current position fires no event, so `written()` records it as already landed and it
+can swallow nothing; the unit rig likewise delivers no event for such a write. The late-event case stays: it is the
+price of the fix, and 600 ms is the longest delay measured to date outside the position arm. Not reproduced in a
+browser. The e2e results after this change: 48 of 48 at six workers, 33 of 33 across the whole spec.
+
+**On real iPad Safari (macOS CI, 2026-10-28).** The `ios-safari-focus-sync` platform suite (`docs/scripts/ios-safari/`) taps editor
+lines through safaridriver in Mobile Safari 26.5 on an iPad Pro 13-inch simulator (1032 px, two panes) while the page works 150 ms
+and rests 75 ms. Same probe, same device, two builds:
+
+| Sync code | Quiet page (4 taps) | Under the burner (40 taps) |
+|---|---|---|
+| Before 2937-p2 (`origin/main`) | 0 moved the editor | **29 moved it, worst 224 px** |
+| With the fix | 0 moved it, 0 uncentered | **0 moved it, 0 uncentered** |
+
+So the bug is not a Linux-WebKit artifact: iPad Safari delivers the preview's scroll event late under load and the old window read
+it as the reader's. Four traps in the harness, each found on the runner and each fixed in the probe, are worth keeping:
+a pane taller than the slide's offset cannot center slide 2 (that needs a negative scroll), so the probe picks a slide it can
+center; a burner that never rests stalls iOS taps (`touchstart` without `touchend`); safaridriver sometimes cannot reach a fresh
+simulator (the runner retries the session three times, and the other iOS suites fail the same way on `main`'s nightly); and the
+first `Element Click` is enough, with no touch-action fallback needed (it is still tried if the click fails to place the caret).
+Not covered: a physical iPad or iPhone, and the iPhone layout (one pane at a time, so the bug cannot occur there).

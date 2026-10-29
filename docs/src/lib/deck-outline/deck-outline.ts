@@ -189,6 +189,53 @@ function finish(source: string, bodyStart: number, mode: 'rule' | 'headings', un
 	return { rev: nextRevision(), kinds: DECK_KINDS, source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
 }
 
+/**
+ * Give each fresh unit an id, in three passes. `fresh` is the new units' text; `old` the units they may continue;
+ * `byOffset[i]` the old unit that fresh unit `i` sits where (after mapping through the edit), if any.
+ *
+ *   1. SAME PLACE, SAME TEXT: the offset candidate, when its text is unchanged. This settles every slide the edit did
+ *      not touch before text gets a say, so of two identical slides, typing in one cannot hand the untouched copy
+ *      the edited one's id.
+ *   2. SAME TEXT: a structural edit (a slide added, moved, duplicated or deleted) shifts slides past fixed offsets,
+ *      so a unit whose trimmed text is an old unit's, unchanged, is that unit (2026-10-27-slide-structure-strip.md
+ *      §10; by offset alone, deleting B handed B's id to C, and a Live viewer on C landed on the wrong slide). Old
+ *      units match in order, each once; blank units are skipped, since every blank slide reads the same.
+ *   3. SAME PLACE: what text cannot place, a slide being typed in, keeps the id of the unit at its offset.
+ *
+ * What none of them places is a new unit (`undefined`).
+ */
+function assignIds(fresh: readonly string[], old: readonly { id: UnitId; text: string }[], byOffset: readonly (UnitId | undefined)[]): (UnitId | undefined)[] {
+	const textOf = new Map(old.map((o) => [o.id, o.text.trim()]));
+	const ids: (UnitId | undefined)[] = new Array(fresh.length);
+	const used = new Set<UnitId>();
+	const give = (i: number, id: UnitId) => {
+		ids[i] = id;
+		used.add(id);
+	};
+	for (let i = 0; i < fresh.length; i++) {
+		const c = byOffset[i];
+		if (c !== undefined && !used.has(c) && textOf.get(c) === fresh[i].trim()) give(i, c);
+	}
+	const pool = new Map<string, UnitId[]>();
+	for (const o of old) {
+		const t = o.text.trim();
+		if (!t || used.has(o.id)) continue;
+		const list = pool.get(t);
+		if (list) list.push(o.id);
+		else pool.set(t, [o.id]);
+	}
+	for (let i = 0; i < fresh.length; i++) {
+		const t = fresh[i].trim();
+		const id = ids[i] === undefined && t ? pool.get(t)?.shift() : undefined;
+		if (id !== undefined) give(i, id);
+	}
+	for (let i = 0; i < fresh.length; i++) {
+		const c = byOffset[i];
+		if (ids[i] === undefined && c !== undefined && !used.has(c)) give(i, c);
+	}
+	return ids;
+}
+
 /** Build an index of `source` from nothing. `prev`, when given, lends its ids to units that
  *  start at the same offset (the fallback path of `updateDeckIndex` uses it). */
 export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFrom: number) => number | undefined): DeckIndex {
@@ -201,13 +248,16 @@ export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFro
 		const f = carry(c.from);
 		if (f !== undefined && !byFrom.has(f)) byFrom.set(f, c.id);
 	}
-	const used = new Set<UnitId>();
-	const units: Unit[] = rawChunks(text, bodyStart, seps).map((r) => {
-		let id = byFrom.get(r.from);
-		if (id === undefined || used.has(id)) id = nextUnitId();
-		used.add(id);
-		return { id, from: r.from, start: r.start, end: r.end, parts: sectionsOf(text.slice(r.from, r.end), r.start - r.from, mode) };
-	});
+	const raws = rawChunks(text, bodyStart, seps);
+	// See `assignIds`: a rebuild after a structural edit keeps each slide's id.
+	const ids = prev
+		? assignIds(
+				raws.map((r) => text.slice(r.from, r.end)),
+				prev.units.map((c) => ({ id: c.id, text: prev.source.slice(c.from, c.end) })),
+				raws.map((r) => byFrom.get(r.from)),
+			)
+		: [];
+	const units: Unit[] = raws.map((r, i) => ({ id: ids[i] ?? nextUnitId(), from: r.from, start: r.start, end: r.end, parts: sectionsOf(text.slice(r.from, r.end), r.start - r.from, mode) }));
 	return finish(text, bodyStart, mode, units, seps);
 }
 
@@ -336,12 +386,13 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 	}
 	const regionEndNewBody = closing ? closing.index + delta : text.length;
 	const fresh = rawChunks(text, prev.bodyStart, found, 0, found.length, regionStart, regionEndNewBody);
-	// Ids inside the region: match from the front while the starts agree, then from the back
-	// while the distance to the region end agrees; the rest are new units.
-	const ids: (UnitId | undefined)[] = new Array(fresh.length);
+	// Ids inside the region (`assignIds`). The offset candidates: match from the front while the starts agree, then from
+	// the back while the distance to the region end agrees; and when the count is unchanged, a chunk edited in place
+	// is the chunk at its index (its start may have moved, an edit at its very top, but it is still the same slide).
+	const cand: (UnitId | undefined)[] = new Array(fresh.length);
 	let f = 0;
 	while (f < fresh.length && f < inside.length && fresh[f].from === inside[f].from) {
-		ids[f] = inside[f].id;
+		cand[f] = inside[f].id;
 		f++;
 	}
 	let k = 0;
@@ -350,12 +401,15 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 		inside.length - 1 - k >= f &&
 		regionEndNewBody - fresh[fresh.length - 1 - k].from === regionEndOld - inside[inside.length - 1 - k].from
 	) {
-		ids[fresh.length - 1 - k] = inside[inside.length - 1 - k].id;
+		cand[fresh.length - 1 - k] = inside[inside.length - 1 - k].id;
 		k++;
 	}
-	// A single chunk edited in place: its start may have moved (an edit at its very top), but
-	// it is still the same slide.
-	if (fresh.length === inside.length && ids.some((x) => x === undefined)) for (let i = 0; i < fresh.length; i++) ids[i] ??= inside[i].id;
+	if (fresh.length === inside.length) for (let i = 0; i < fresh.length; i++) cand[i] ??= inside[i].id;
+	const ids = assignIds(
+		fresh.map((r) => text.slice(r.from, r.end)),
+		inside.map((c) => ({ id: c.id, text: prev.source.slice(c.from, c.end) })),
+		cand,
+	);
 	const mid: Unit[] = fresh.map((r, i) => ({
 		id: ids[i] ?? nextUnitId(),
 		from: r.from,

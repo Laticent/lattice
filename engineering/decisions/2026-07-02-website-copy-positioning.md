@@ -52,6 +52,11 @@ non-terminal majority something to do besides leave.
 
 ## 2. Who this is for (personas, in priority order for pre-GA)
 
+> **Superseded (2026-10-28):** this ranking rested on an install barrier that the browser
+> Studio removed. The home page now addresses its audience by the ROOM a deck is for, and
+> executives are named as the presenter's goal rather than as visitors. See
+> `2026-10-28-home-positioning-audit.md` §3 and §6.
+
 - **P1 — The plain-text native.** Engineers, quants, technical PMs already in
   Marp / Slidev / Beamer / Quarto or fleeing them. Can use Lattice *today*.
   They convert on: determinism, git-diffable decks, no design work, MIT.

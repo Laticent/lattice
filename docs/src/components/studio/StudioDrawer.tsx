@@ -31,14 +31,13 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search, UsersRound } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Search, UsersRound } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset, useSheetTapHold } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { cn } from '@/lib/utils';
 import { FeedbackIcon, LensIcon } from './icons';
-import type { ComponentEntry } from './SlidePicker';
 import { ScrollFade } from './scroll-fade';
 import { activePaletteLabel, type SavedTheme, themeSelectGroups } from './ThemePicker';
 import type { TourMeta } from './tours';
@@ -176,10 +175,8 @@ export function StudioDrawer({
 	hostLabel,
 	onNavigate,
 	effPane,
-	insertComponents,
 	issues,
 	fixableIssues,
-	onInsert,
 	onFixAll,
 	onVersionHistory,
 	onLenses,
@@ -211,7 +208,6 @@ export function StudioDrawer({
 	 *  and the next unrelated sheet close springs this drawer open. */
 	onNavigate: (openTarget: () => void, opts?: { returns?: boolean }) => void;
 	effPane: 'edit' | 'preview';
-	insertComponents: ComponentEntry[];
 	issues: number;
 	/** How many of those issues carry a MACHINE fix — what "Fix all issues" can actually
 	 *  repair, and so what this row BOTH counts and gates on.
@@ -222,7 +218,6 @@ export function StudioDrawer({
 	 *  relocated from the toolbar into the drawer. The unresolved-issue total is still
 	 *  surfaced, on the Edit bar's badge, which reads `issues`. */
 	fixableIssues: number;
-	onInsert: () => void;
 	onFixAll: () => void;
 	onVersionHistory: () => void;
 	onLenses: () => void;
@@ -377,7 +372,6 @@ export function StudioDrawer({
 								<Block>
 									{/* The only row that acts in place, so the only leaf with no chevron. */}
 									<Row icon={<ListChecks className="size-[18px]" />} label="Fix all issues" count={fixableIssues} done={!issues && !fixableIssues} disabled={!fixableIssues} travels={false} onClick={act(onFixAll)} />
-									{insertComponents.length > 0 && <Row icon={<Plus className="size-[18px]" />} label="Add slide" onClick={go(onInsert)} />}
 								</Block>
 							)}
 							<Block>

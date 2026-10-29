@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { librariesNav } from '@/lib/nav.mjs';
 import { slideFrameStyle } from '@/lib/slide-frame';
 
 // Static marketing sections — rendered to HTML server-side (NO client:
@@ -47,9 +48,10 @@ export function SectionHead({
 }
 
 // ── "How it works" strip ────────────────────────────────────────────────────
-// A slim three-step band under the hero. The hero preview already shows the
-// transform live; this strip's payload is the two facts missing from the
-// fold — you name a layout, and one command emits every delivery format.
+// A slim three-step band under the audience rooms. It sits AFTER the "why" (the
+// say-more section and the rooms), so the visitor meets the mechanism once they
+// know what it is for; its payload is the two facts the fold no longer carries —
+// you name a layout, and one command emits every delivery format.
 const HOW_STEPS: { verb: string; body: React.ReactNode }[] = [
 	{ verb: 'Write', body: 'a slide is a few lines of Markdown.' },
 	{
@@ -87,65 +89,156 @@ export function HowItWorks() {
 	);
 }
 
-// ── "Speaks your field" cards ───────────────────────────────────────────────
-// Each card carries a live-preview HOST (`data-live-card`) that the
-// FieldCardsLive island fills with a real slide, plus a real "Edit this deck"
-// link (its data-open-deck handoff seeds the playground via landing-handoff.ts).
-// Order leads with the broadest personas; math anchors late so the page
-// doesn't read "for academics" at first scroll.
-type FieldCard = { live: string; title: string; body: React.ReactNode };
-
-const FIELD_CARDS: FieldCard[] = [
+// ── "Say more with less" ────────────────────────────────────────────────────
+// The communication thesis, in words, directly under the hero that SHOWS it: the
+// memo-to-waterfall before/after moved up into the hero in the third scoring
+// round, so this band states the idea and its three beats and does not repeat the
+// demonstration. See engineering/decisions/2026-10-28-home-positioning-audit.md §5, §15.
+const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	{
-		live: 'gantt',
-		title: 'Project leads',
-		body: 'Gantt charts, kanban boards, roadmaps, journeys, and step ladders — native SVG rendered straight from a list, not pasted in from Visio.',
+		lead: 'One idea per slide.',
+		body: 'Each idea gets a layout built for it, and Lattice warns you when a slide runs long.',
 	},
 	{
-		live: 'radar',
-		title: 'Analysts & consultants',
-		body: 'Radar, quadrant, KPI, stats, pie, and verdict grids — the evidence layouts that turn numbers into an argument. They carry the quarterly review, the board pack, the client readout.',
+		lead: 'Show it instead of saying it.',
+		body: 'A plain list becomes a funnel, a Gantt chart, a map, or a verdict grid. No drawing tool.',
 	},
 	{
-		live: 'diagram',
-		title: 'Engineers & architects',
-		body: 'Every one of the 25 Mermaid diagram types renders auto-themed to the deck, state charts included — and two fenced blocks become a side-by-side, syntax-highlighted code diff.',
-	},
-	{
-		live: 'obligation-matrix',
-		title: 'Lawyers & compliance',
-		body: 'An actual legal vocabulary: build a statute stack, an authority chain, an obligation matrix, a citation card, or a regulatory update from a plain list.',
-	},
-	{
-		live: 'math',
-		title: 'Mathematicians, quants & ML',
-		body: 'Real KaTeX everywhere it matters: Definition / Theorem / Proof cards, derivation chains that justify every step, and an equation set beside its plot.',
-	},
-	{
-		live: 'cards-grid',
-		title: 'And the basics, for everyone',
-		body: '', // filled below with the live layout count
+		lead: 'Spend the hour on the argument.',
+		body: 'The design is finished before you start, so the time goes into what you are saying.',
 	},
 ];
 
-export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: string; layoutCount: number }) {
-	const cards = FIELD_CARDS.map((c) =>
-		c.live === 'cards-grid'
+export function SayMoreSection() {
+	return (
+		<div className="lx-ui grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-8 lg:grid-cols-[1fr_1.05fr]">
+			<div className="min-w-0">
+				<div className="mb-3">
+					<Eyebrow>Say more with less</Eyebrow>
+				</div>
+				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+					People decide in seconds. Give them a slide, not a paragraph.
+				</h2>
+				<p className="m-0 text-[17px] leading-[1.6] text-foreground">
+					A deck has one job: to move what you know into the heads of the people who decide. A paragraph makes them hunt
+					for the point; a slide built for one idea puts it in front of them.
+				</p>
+			</div>
+			<dl className="m-0 flex min-w-0 flex-col gap-4 lg:pt-10">
+				{SAY_MORE_BEATS.map((b) => (
+					<div key={b.lead}>
+						<dt className="text-[17px] font-semibold text-[var(--text-heading)]">{b.lead}</dt>
+						<dd className="m-0 text-[15.5px] leading-[1.55] text-foreground">{b.body}</dd>
+					</div>
+				))}
+			</dl>
+		</div>
+	);
+}
+
+// ── "Every room" cards ──────────────────────────────────────────────────────
+// The audience, organized by the ROOM a deck is for rather than the author's job
+// title: a sales lead and a CFO make different decks for different rooms, and
+// both should find theirs. Each card names who presents there, real layouts that
+// exist today, and one fact the site already proves (offline, WCAG AA, one brand
+// file, free) — no new claims. The former "speaks your field" professions live on
+// as "The review" and as examples inside the other rooms.
+// Each card carries a live-preview HOST (`data-live-card`) that the LiveCards
+// island fills with a real slide, plus an "Edit this" link (its data-open-deck
+// handoff seeds the playground via landing-handoff.ts). The slide sources live in
+// room-decks.ts. See engineering/decisions/2026-10-28-home-positioning-audit.md §6.
+// `deck` is a full worked deck from exemplars/ for that room: a whole deck, not one
+// slide, committed with its PDF (the nightly bless renders it). The site does not
+// serve those PDFs, so the link opens GitHub's PDF preview of `main`.
+// `outcome` is what the room's audience gets, in their words, before any layout is
+// named: the third scoring round found the cards described layouts, not results.
+type RoomCard = {
+	live: string;
+	room: string;
+	who: string;
+	outcome: string;
+	body: React.ReactNode;
+	deck: { label: string; path: string };
+};
+
+const EXEMPLAR_PDF = (path: string) => `https://github.com/Laticent/lattice/blob/main/exemplars/${path}.pdf`;
+
+const ROOM_CARDS: RoomCard[] = [
+	{
+		live: 'boardroom',
+		room: 'The boardroom',
+		who: 'Executives, finance, founders',
+		outcome: 'The board reads the decision, not the decoration.',
+		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches.',
+		deck: { label: 'a full board update', path: 'corporate/board-update' },
+	},
+	{
+		live: 'pitch',
+		room: 'The pitch',
+		who: 'Sales and marketing teams',
+		outcome: 'Every rep sends a deck that looks like the brand.',
+		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
+		deck: { label: 'a full sales deck', path: 'corporate/sales-deck' },
+	},
+	{
+		live: 'briefing',
+		room: 'The briefing',
+		who: 'Government and the public sector',
+		outcome: 'Members see the recommendation and its evidence in one view.',
+		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. It runs offline on your own machine, and every layout meets WCAG AA contrast.',
+		deck: { label: 'a full policy briefing', path: 'government-public/policy-briefing' },
+	},
+	{
+		live: 'lecture',
+		room: 'The lecture hall',
+		who: 'Faculty, researchers, students',
+		outcome: 'Students follow the argument one step at a time.',
+		body: 'Real math notation, plots, diagrams, and a glossary. Free and open source. Each lecture is a text file you can keep, share, and reuse next term.',
+		deck: { label: 'a full lecture', path: 'academic/lecture' },
+	},
+	{
+		live: 'mission',
+		room: 'The mission',
+		who: 'Nonprofits and foundations',
+		outcome: 'Donors see what their gift did.',
+		body: 'Impact numbers like these, plus layouts for a map of the countries or states you serve and the people who do the work. It’s free, so the donor report looks professional without a design budget.',
+		deck: { label: 'a full annual impact report', path: 'nonprofit/impact-annual-report' },
+	},
+	{
+		live: 'review',
+		room: 'The review',
+		who: 'Engineers, lawyers, analysts, project leads',
+		outcome: 'The team sees the plan, the risk, and the code on one page.',
+		body: '', // filled below with the live layout count
+		deck: { label: 'a full project status review', path: 'general-team/project-status' },
+	},
+];
+
+export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: string; layoutCount: number }) {
+	const cards = ROOM_CARDS.map((c) =>
+		c.live === 'review'
 			? {
 					...c,
 					body: (
 						<>
-							A bullet list turns into a card grid. Tables become comparison matrices. {layoutCount} layouts, one
-							Markdown syntax.
+							Gantt charts, every Mermaid diagram type, code diffs, statute stacks, and radar charts, in the notation
+							each field expects. {layoutCount} layouts in all, one Markdown syntax.
 						</>
 					),
 				}
 			: c,
 	);
 	return (
-		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+		// Below `sm` the six cards are a horizontal swipe row (scroll-snap), each 84%
+		// wide so the next one peeks in. Stacked, they were about six phone screens of
+		// scroll before the next section; both scoring reviews flagged the length. The
+		// row bleeds to the screen edge by cancelling `.wrap`'s 24px gutter, and its own
+		// overflow keeps the page itself from ever scrolling sideways.
+		// No tabIndex on the row: every card holds a focusable "Edit" link, and tabbing
+		// to it scrolls that card into view, so the keyboard reaches all six.
+		<div className="grid grid-cols-1 gap-[18px] max-sm:-mx-[24px] max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:overflow-x-auto max-sm:scroll-px-[24px] max-sm:px-[24px] max-sm:pb-3 sm:grid-cols-2 lg:grid-cols-3">
 			{cards.map((c) => (
-				<Card key={c.live} className="gap-0 overflow-hidden py-6">
+				<Card key={c.live} className="gap-0 overflow-hidden py-6 max-sm:w-[84%] max-sm:flex-none max-sm:snap-start">
 					<CardContent className="flex flex-col">
 						{/* Live-preview host — filled by FieldCardsLive (data-live-card). A slide
 						    frame (docs/src/lib/slide-frame.ts): it never shapes the slide. */}
@@ -155,26 +248,107 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 							style={slideFrameStyle('tile')}
 							data-live-card={c.live}
 						/>
-						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
-							{c.title}
-						</h3>
+						<h3 className="room-title">{c.room}</h3>
+						<p className="room-who">{c.who}</p>
+						<p className="room-outcome">{c.outcome}</p>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
-						<a
-							className="mt-3.5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
-							href={playgroundHref}
-							data-open-deck={c.live}
-						>
-							{/* Names the Playground where it is genuinely the right tool: each
-							    card holds ONE component's sample, and "paste a slide, watch it
-							    render" is a slide verb, not a deck verb. This is the other half
-							    of moving the Playground out of the hero — it doesn't lose a job,
-							    it gets the right one. */}
-							Edit this in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
-						</a>
+						<div className="room-links">
+							{/* Names the Playground where it is genuinely the right tool: each card
+							    holds ONE slide, and "paste a slide, watch it render" is a slide verb. */}
+							<a className="room-link" href={playgroundHref} data-open-deck={c.live}>
+								Edit this in the playground <ArrowRight aria-hidden="true" className="ico-arrow" />
+							</a>
+							<a className="room-link" href={EXEMPLAR_PDF(c.deck.path)} target="_blank" rel="noopener">
+								See {c.deck.label} (PDF) <ArrowRight aria-hidden="true" className="ico-arrow" />
+							</a>
+						</div>
 					</CardContent>
 				</Card>
 			))}
 		</div>
+	);
+}
+
+// ── Drift picture ───────────────────────────────────────────────────────────
+// The blank-canvas problem SHOWN, not described: four slides four people made on
+// blank canvases (each picks its own font, size, alignment and shade of the brand
+// color), beside the same four slides from one Lattice palette. Both scoring
+// reviewers in the third round found the contrast with blank-canvas tools told in
+// prose only. An illustration, drawn in CSS from the page's own tokens so it
+// follows the palette and light/dark like everything else; no hex (HARD RULE #3's
+// spirit on a docs surface), no typed glyphs (#29).
+type MiniSlide = { title: string; font: string; size: string; align: string; bar: string; weight: string };
+
+const DRIFTED: MiniSlide[] = [
+	{ title: 'Q3 revenue', font: 'var(--font-display)', size: '15px', align: 'left', bar: 'var(--accent)', weight: '700' },
+	{
+		title: 'PIPELINE UPDATE',
+		font: 'var(--font-body)',
+		size: '11px',
+		align: 'center',
+		bar: 'color-mix(in srgb, var(--accent) 55%, var(--text-heading))',
+		weight: '600',
+	},
+	{
+		title: 'Hiring Plan',
+		font: 'ui-serif, Georgia, serif',
+		size: '17px',
+		align: 'left',
+		bar: 'color-mix(in srgb, var(--accent) 45%, var(--bg-alt))',
+		weight: '400',
+	},
+	{
+		title: 'risks & next steps',
+		font: 'ui-monospace, monospace',
+		size: '12px',
+		align: 'right',
+		bar: 'color-mix(in srgb, var(--accent) 70%, var(--bg))',
+		weight: '500',
+	},
+];
+const ALIGNED: MiniSlide[] = ['Q3 revenue', 'Pipeline update', 'Hiring plan', 'Risks and next steps'].map((title) => ({
+	title,
+	font: 'var(--font-display)',
+	size: '14px',
+	align: 'left',
+	bar: 'var(--accent)',
+	weight: '700',
+}));
+
+function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string }) {
+	return (
+		<div className="min-w-0">
+			<p className="m-0 mb-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+				{label}
+			</p>
+			<ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
+				{slides.map((m) => (
+					<li key={m.title} className="drift-mini">
+						<span aria-hidden="true" className="drift-bar" style={{ background: m.bar }} />
+						<span
+							className="drift-title"
+							style={{ fontFamily: m.font, fontSize: m.size, fontWeight: m.weight, textAlign: m.align as 'left' }}
+						>
+							{m.title}
+						</span>
+						<span aria-hidden="true" className="drift-line" />
+						<span aria-hidden="true" className="drift-line" />
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
+export function DriftDemo() {
+	return (
+		<figure className="lx-ui m-0 flex flex-col gap-6 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]">
+			<MiniSlideRow slides={DRIFTED} label="Four people, four blank canvases" />
+			<MiniSlideRow slides={ALIGNED} label="The same four slides, one Lattice palette" />
+			<figcaption className="m-0 text-[13px] text-muted-foreground">
+				An illustration: the same deck, made twice.
+			</figcaption>
+		</figure>
 	);
 }
 
@@ -183,33 +357,14 @@ type WhyCard = { id: string; title: React.ReactNode; body: React.ReactNode };
 
 const WHY_CARDS: WhyCard[] = [
 	{
-		id: 'one-file',
-		title: 'Brand colors live in one file.',
-		body: (
-			<>
-				Change a palette once; every deck picks it up on the next build. Layouts never name a color — they read{' '}
-				<code className="font-mono text-[0.88em] text-primary">var(--token)</code>.
-			</>
-		),
-	},
-	{
 		id: 'git-diff',
-		title: (
-			<>
-				A <code className="font-mono text-[0.88em] text-primary">git diff</code> shows what changed.
-			</>
-		),
-		body: 'A deck is text. Revisions read like code review — line by line — instead of hunting for the box that moved three pixels.',
+		title: 'Every change is visible.',
+		body: 'A deck is a text file, so a revision shows exactly which words changed, line by line, instead of leaving you to hunt for the box that moved three pixels.',
 	},
 	{
 		id: 'mermaid',
-		title: 'Mermaid diagrams render in the palette.',
-		body: 'Flowcharts and sequence diagrams pick up the deck’s tokens automatically, so a diagram never needs styling of its own.',
-	},
-	{
-		id: 'contrast',
-		title: 'Contrast is WCAG AA across every layout.',
-		body: 'Accessibility is built into the token contract, not bolted on. Light and dark both clear the bar.',
+		title: 'Diagrams match the deck.',
+		body: 'Flowcharts and sequence diagrams take the deck’s colors and type automatically, so a diagram never needs styling of its own.',
 	},
 	{
 		id: 'vocabulary',
@@ -224,13 +379,16 @@ const WHY_CARDS: WhyCard[] = [
 	{
 		id: 'no-service',
 		title: 'No service, no account, no telemetry.',
-		body: 'The engine is a build step. It runs where your code runs and sends nothing anywhere.',
+		body: 'The engine runs on your own machine, or in your own build, and sends nothing anywhere.',
 	},
 ];
 
 export function WhyCards() {
 	return (
-		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+		// Four cards, two by two, closing the "Your brand, on every deck" section. The
+		// brand-colors card became that section's carousel and the contrast card lives
+		// in the briefing room card: the scoring reviews counted the repeats (audit §14).
+		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
 			{WHY_CARDS.map((c) => (
 				<Card
 					key={c.id}
@@ -251,6 +409,9 @@ export function WhyCards() {
 // ── Proof strip ─────────────────────────────────────────────────────────────
 // One receipt from /comparison, promoted to the landing. The headline is a
 // protected line (copy-positioning doc §10) — promote verbatim, never rewrite.
+// The study is linked INLINE (the same source and date comparison.astro cites):
+// a page that attacks AI tools for unsourced numbers cannot print one bare, and
+// both scoring reviews on 2026-10-28 read it as uncited from here.
 // The attribution carries the caveat; the full sourced treatment (with its
 // "read it as directional" footnote) lives one click away on /comparison.
 export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
@@ -260,9 +421,16 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 				The artsy deck wins the demo. The deterministic deck wins the boardroom.
 			</h2>
 			<p className="m-0 mb-5 text-[16.5px] leading-[1.6] text-foreground">
-				When one team fact-checked six AI deck generators, the best got 20% of its claims right. Models predict
-				plausible text instead of looking facts up. Lattice never invents a number or reshuffles a layout — it renders
-				what you wrote, the same way every time.
+				When{' '}
+				<a
+					className="font-semibold text-primary hover:underline"
+					href="https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc"
+					rel="noopener"
+				>
+					one team fact-checked six AI deck generators
+				</a>{' '}
+				in February 2026, the best got 20% of its claims right. Models predict plausible text instead of looking facts
+				up. Lattice never invents a number or reshuffles a layout.
 			</p>
 			<a
 				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
@@ -450,34 +618,122 @@ export function StudioTrust() {
 // Every string is the original, verbatim, at its original altitude. It sits
 // immediately AFTER the Studio section so the page still holds one AI
 // conversation rather than two in two registers.
-export function ByomSection({ featuresHref }: { featuresHref: string }) {
+export function ByomSection({
+	featuresHref,
+	url,
+	layoutCount,
+}: { featuresHref: string; url: (p: string) => string; layoutCount: number }) {
 	return (
-		<div className="max-w-[62ch]">
-			<div className="mb-3">
-				<Eyebrow>Bring your own model</Eyebrow>
+		<div className="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-10 lg:grid-cols-[1.15fr_1fr]">
+			<div className="min-w-0 max-w-[62ch]">
+				<div className="mb-3">
+					<Eyebrow>Bring your own model</Eyebrow>
+				</div>
+				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+					Point your copilot at Lattice.
+				</h2>
+				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+					Lattice itself never guesses, but a model can still draft the words. Lattice ships a machine-readable layout
+					catalog and a published authoring spec, so Claude, Cursor, or any agent can draft a valid deck, and the
+					engine renders only what is in the file — the design was finished long before the model arrived.
+				</p>
+				{/* The one new sentence. "The split holds", not "the same rule holds" —
+				    the paragraph above describes a split (the model drafts, the engine
+				    renders), it never states a rule. */}
+				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+					The split holds in the Studio too: chat and fixes are optional, and they run on your own account. Connect
+					OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
+					nothing else changes.
+				</p>
+				<a
+					className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
+					href={featuresHref}
+				>
+					How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
+				</a>
 			</div>
-			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-				Point your copilot at Lattice.
-			</h2>
-			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-				Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
-				agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
-				before the model arrived.
+			<BuildersPanel url={url} layoutCount={layoutCount} />
+		</div>
+	);
+}
+
+// ── For builders ────────────────────────────────────────────────────────────
+// The technical visitor's band, beside "Point your copilot at Lattice" — the other
+// half of the same audience. When the Libraries and Specs sections left the home
+// scroll, a single sentence under Next steps replaced them, and both scoring
+// reviews (2026-10-28) marked the developer visitor down for it: a technical
+// buyer, often the gatekeeper for government and corporate adoption, lost the
+// reasons to trust the engine. Three proof points, each with its link, and the
+// AGPL line in plain words, because a procurement reader stops at the license
+// name. The library count comes from nav.mjs, so it updates itself.
+function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layoutCount: number }) {
+	const points: { lead: string; body: React.ReactNode }[] = [
+		{
+			lead: 'Open formats.',
+			body: (
+				<>
+					The deck format, the linter's findings, and narration timing are{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
+						published specs
+					</a>{' '}
+					(CC-BY-4.0) that another tool can implement.
+				</>
+			),
+		},
+		{
+			lead: 'Parts you can reuse.',
+			body: (
+				<>
+					The engine is{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
+						{librariesNav(url).length} framework-free libraries
+					</a>
+					, each usable without Lattice.
+				</>
+			),
+		},
+		{
+			lead: 'Coming from Marp or Slidev?',
+			body: (
+				<>
+					You keep writing Markdown, and gain {layoutCount} named layouts, a linter that knows them, and an engine that
+					renders the same way on every machine.{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('comparison/#vs-marp')}>
+						The honest comparison
+					</a>
+					.
+				</>
+			),
+		},
+		{
+			lead: 'Runs in your build.',
+			body: (
+				<>
+					One command renders the PDF, PowerPoint, PNG, or HTML on your laptop or in CI.{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('getting-started/')}>
+						Get started
+					</a>
+					.
+				</>
+			),
+		},
+	];
+	return (
+		<div className="min-w-0 rounded-xl border border-border bg-card p-[clamp(20px,2.5vw,32px)] text-card-foreground shadow-sm">
+			<div className="mb-3">
+				<Eyebrow>For builders</Eyebrow>
+			</div>
+			<dl className="m-0 flex flex-col gap-3.5">
+				{points.map((p) => (
+					<div key={p.lead}>
+						<dt className="inline text-[15px] font-semibold text-[var(--text-heading)]">{p.lead}</dt>{' '}
+						<dd className="m-0 inline text-[15px] leading-[1.55] text-foreground">{p.body}</dd>
+					</div>
+				))}
+			</dl>
+			<p className="m-0 mt-5 border-t border-border pt-4 text-[13.5px] leading-[1.55] text-muted-foreground">
+				Open source under AGPL-3.0, with an exception that leaves every deck you make free of any license.
 			</p>
-			{/* The one new sentence. "The split holds", not "the same rule holds" —
-			    the paragraph above describes a split (the model drafts, the engine
-			    renders), it never states a rule. */}
-			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-				The split holds in the Studio too: chat and fixes are optional, and they run on your own account. Connect
-				OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
-				nothing else changes.
-			</p>
-			<a
-				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
-				href={featuresHref}
-			>
-				How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
-			</a>
 		</div>
 	);
 }
@@ -538,16 +794,41 @@ type NextStep = { href: string; title: string; body: React.ReactNode; cta: strin
  * The four next-step cards. This lives here rather than in `index.astro`
  * because card 4's body carries an inline link, and JSX cannot appear in Astro
  * frontmatter — which is also the more consistent home, since every other block
- * of landing copy (HOW_STEPS, FIELD_CARDS, WHY_CARDS) is already in this file.
+ * of landing copy (HOW_STEPS, ROOM_CARDS, WHY_CARDS) is already in this file.
+ *
+ * Card 1 is the developer door. The libraries and specs used to hold two full
+ * sections of the home scroll; they are real assets for developers and they
+ * spent a general visitor's attention, so they live in the "For builders" panel
+ * beside the AI section, the header's Libraries menu, and the footer
+ * (2026-10-28-home-positioning-audit.md §7, §13).
  * The base-aware `url` helper is passed in so the module stays free of
  * `import.meta.env`.
  */
 export function nextStepsFor(url: (p: string) => string): NextStep[] {
 	return [
 		{
+			href: url('studio/'),
+			// First: the business visitor's door, titled for what they get, not for a
+			// constraint (the second scoring round asked to lead with it). It keeps the
+			// two-door split: the Studio for a whole deck, the playground for a quick
+			// paste-and-render.
+			title: 'Make your first deck in your browser',
+			body: (
+				<>
+					The Studio runs the whole deck in your browser — nothing to install. For a quick paste-and-render there's{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('playground/')}>
+						the playground
+					</a>
+					.
+				</>
+			),
+			cta: 'Open the Studio',
+			form: true,
+		},
+		{
 			href: url('getting-started/'),
-			title: 'Get started',
-			body: 'Install the toolchain and render your first deck in a few minutes.',
+			title: 'For developers',
+			body: 'Install the command line, render your first deck in a few minutes, and build decks in CI.',
 			cta: 'Getting started',
 		},
 		{
@@ -561,24 +842,6 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 			title: 'Browse the layouts',
 			body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
 			cta: 'Layout reference',
-		},
-		{
-			href: url('studio/'),
-			// Keeps its P3-persona hook ("can't install anything?") and gains the
-			// two-door split: the Studio for a whole deck, the playground for a quick
-			// paste-and-render.
-			title: "Can't install anything?",
-			body: (
-				<>
-					The Studio runs the whole deck in your browser — nothing to install. For a quick paste-and-render there's{' '}
-					<a className="font-semibold text-primary hover:underline" href={url('playground/')}>
-						the playground
-					</a>
-					.
-				</>
-			),
-			cta: 'Open the Studio',
-			form: true,
 		},
 	];
 }
@@ -621,33 +884,5 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 				),
 			)}
 		</div>
-	);
-}
-
-// ── Libraries ────────────────────────────────────────────────────────────────
-// One card per workspace library, from the same `librariesNav` list the header's
-// Libraries menu renders, so the home page and the nav cannot disagree about which
-// libraries exist. A library with a demo page links to it; one without links to its
-// README on GitHub and says so in the CTA.
-export type LibraryCard = { label: string; href: string; pkg: string; desc: string; external?: boolean; cta?: string };
-
-export function LibraryCards({ libraries }: { libraries: LibraryCard[] }) {
-	// Plain classes from landing.css, not Tailwind utilities: the cards repeat every class string,
-	// and the utilities cost the home page's HTML about 6 KB against its route budget.
-	return (
-		<ul className="lib-cards">
-			{libraries.map((l) => (
-				<li key={l.href}>
-					<a href={l.href} className="lib-card">
-						<h3>{l.label}</h3>
-						<code>{l.pkg}</code>
-						<p>{l.desc}</p>
-						<span className="lib-card-cta">
-							{l.cta ?? (l.external ? 'Read the README' : 'Open the demo')} <span className="ico ico-arrow-right" aria-hidden="true" />
-						</span>
-					</a>
-				</li>
-			))}
-		</ul>
 	);
 }

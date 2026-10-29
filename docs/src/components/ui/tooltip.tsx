@@ -91,6 +91,9 @@ function Tip({
   sideOffset?: number
   delayDuration?: number
   className?: string
+  /** Hold the hint open regardless of hover or focus: for a control whose state needs saying where every
+   *  pointer sees it, a touch included (the slide strip's armed delete names what the next tap takes). */
+  forceOpen?: boolean
 }) {
   if (label == null || label === "") return <>{props.children}</>
   return <KeyboardFocusTip label={label} {...props} />
@@ -104,6 +107,7 @@ function KeyboardFocusTip({
   sideOffset,
   delayDuration,
   className,
+  forceOpen,
 }: React.ComponentProps<typeof Tip>) {
   // ON FOCUS, ONLY A KEYBOARD FOCUS. Radix opens a tooltip on any focus that no pointer press just
   // preceded, and that includes focus a surface hands BACK on close: a kept-mounted sheet
@@ -134,7 +138,7 @@ function KeyboardFocusTip({
     setOpen(next)
   }, [])
   return (
-    <Tooltip delayDuration={delayDuration} open={open} onOpenChange={onOpenChange}>
+    <Tooltip delayDuration={delayDuration} open={open || !!forceOpen} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild onFocusCapture={onFocusCapture}>
         {children}
       </TooltipTrigger>

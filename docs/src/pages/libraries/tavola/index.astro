@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Tavola — a standalone, framework-free showcase driven by the REAL library
 // (docs/src/lib/tavola, the `@laticent/tavola` workspace). Two whole sessions run in this one
 // tab: a host and a guest, each with its own Yjs document, joined by Tavola's in-memory network
@@ -17,36 +18,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Tavola — edit together, browser to browser</title>
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<LibraryTheme lib="tavola" />
 		<style is:global>
-			:root {
-				--paper: #f6f4ef; --stage: #ecebe6; --ink: #1c2430; --muted: #5f6b78; --line: #d9dde2;
-				--accent: #1f5f8b; --accent-ink: #fff; --panel: #fdfcfa; --warn: #a2560f; --warn-bg: #fbeedd;
-				--ok: #2f6b3b; --ok-bg: #e5f1e6; --no: #a3332a; --no-bg: #f8e3e0;
-				--seat-1: #1f5f8b; --seat-2: #b4572e; --seat-3: #3c7a4a; --seat-4: #7a4f99;
-				--shadow: 0 1px 2px rgba(28,36,48,.06), 0 8px 24px rgba(28,36,48,.06);
-				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-				color-scheme: light;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root:not([data-theme="light"]) {
-					--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
-					--accent: #7db8e2; --accent-ink: #0a1c2a; --panel: #15181c; --warn: #f0b36a; --warn-bg: #2d2214;
-					--ok: #8fd19c; --ok-bg: #16261a; --no: #f2958b; --no-bg: #2c1714;
-					--seat-1: #7db8e2; --seat-2: #f0a07a; --seat-3: #8fd19c; --seat-4: #c9a3e6;
-					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-					color-scheme: dark;
-				}
-			}
-			:root[data-theme="dark"] {
-				--paper: #111316; --stage: #171a1e; --ink: #e4e9ef; --muted: #98a3b0; --line: #2a3038;
-				--accent: #7db8e2; --accent-ink: #0a1c2a; --panel: #15181c; --warn: #f0b36a; --warn-bg: #2d2214;
-				--ok: #8fd19c; --ok-bg: #16261a; --no: #f2958b; --no-bg: #2c1714;
-				--seat-1: #7db8e2; --seat-2: #f0a07a; --seat-3: #8fd19c; --seat-4: #c9a3e6;
-				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				color-scheme: dark;
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

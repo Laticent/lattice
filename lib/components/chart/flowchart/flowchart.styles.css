@@ -439,14 +439,12 @@ section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"] {
  * as a gray lozenge that decoded nothing. */
 /* A stated tile swatch takes its edge from the chart finish (an inset ring, the signal on an exception), so its own
  * hairline goes transparent: Calco lifts a border plus an inset ring only as a picture, as on the status pill. Under
- * `etch` and `tone` it has no border at all, so the wash cannot show through as a halo outside the ink edge; the
+ * `etch` and `tone` it has no border at all (`--finish-border` is 0), so the wash cannot show through as a halo outside the ink edge; the
  * padding keeps its size. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture.
  * A deferred swatch keeps its dashed border (no finish paints it). */
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
   border-color: transparent;
-}
-section:is(.flowchart, .state-chart):is(.marks-etch, .marks-tone) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
-  --_swatch-bw: 0px;
+  --_swatch-bw: calc(var(--chart-hairline) * var(--finish-border, 1));
 }
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="group"] {
   background: light-dark(color-mix(in oklab, var(--fc-group-hue) 14%, transparent), color-mix(in oklab, var(--fc-group-hue) 28%, transparent));

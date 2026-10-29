@@ -1,0 +1,9 @@
+---
+// A library demo page's theme tokens (paper, ink, accent, ...), generated from the one palette
+// file the library's brand SVGs also come from. See docs/src/lib/library-palette.mjs.
+import { pageThemeCss } from '../lib/library-palette.mjs';
+
+const { lib } = Astro.props;
+---
+
+<style is:inline set:html={pageThemeCss(lib)}></style>

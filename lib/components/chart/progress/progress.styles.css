@@ -98,20 +98,18 @@
   background: var(--fill-hue);
   /* The hairline counts inside the datum (border-box, above), so at 0 its two sides alone drew a 2px sliver of
    * "progress". It thins to nothing as the length does: zero draws no bar. */
-  border: min(var(--chart-hairline), calc(var(--progress-len) * 1px)) solid transparent;
+  /* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge, so the bar has no border there: a
+   * transparent one let the wash show through as a halo outside that edge. `--finish-border` is 0 under them and
+   * 1 under pigment. The bar is border-box, so its length (the datum) does not move. Not a `background-clip`: Calco
+   * lifts a clipped fill under an inset ring only as a picture (the same rule as the status pill,
+   * chart-family.styles.css). */
+  border: calc(min(var(--chart-hairline), calc(var(--progress-len) * 1px)) * var(--finish-border, 1)) solid transparent;
   border-radius: var(--chart-mark-radius);
   transition: none;
   /* The bar holds nothing: it is pure length from zero. Its status mark is drawn once, by the row's status pill, and
    * its number, the fill's sibling in the track, rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
    * crowds a short bar's first stretch. */
   overflow: visible;
-}
-/* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge, so the bar has no border there: a
- * transparent one let the wash show through as a halo outside that edge. The bar is border-box, so its length (the
- * datum) does not move. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture
- * (the same rule as the status pill, chart-family.styles.css). */
-:is(section.progress, figure.progress):is(.marks-etch, .marks-tone) .progress-fill {
-  border-width: 0;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */

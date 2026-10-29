@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 614736,
+	"bytes": 616320,
 	"lines": [
 		{
 			"key": "5c17444a73e0",
@@ -822,62 +822,69 @@
 			}
 		},
 		{
-			"key": "39f7ea46d25b",
-			"text": "Add brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.",
-			"file": "39f7ea46d25b.mp3",
-			"bytes": 56160,
-			"speechMs": 9297,
+			"key": "178293872dff",
+			"text": "New slide brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.",
+			"file": "178293872dff.mp3",
+			"bytes": 57744,
+			"speechMs": 9572,
 			"leadMs": 46,
 			"track": {
 				"cues": [
 					{
-						"display": "Add brings you a ready-made slide.",
+						"display": "New slide brings you a ready-made slide.",
 						"words": [
 							{
-								"display": "Add",
-								"spoken": "Add",
+								"display": "New",
+								"spoken": "New",
 								"startMs": 0,
-								"endMs": 206,
+								"endMs": 208,
 								"charOffset": 0
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 208,
+								"endMs": 416,
+								"charOffset": 4
 							},
 							{
 								"display": "brings",
 								"spoken": "brings",
-								"startMs": 206,
-								"endMs": 413,
-								"charOffset": 4
+								"startMs": 416,
+								"endMs": 624,
+								"charOffset": 10
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 413,
-								"endMs": 619,
-								"charOffset": 11
+								"startMs": 624,
+								"endMs": 831,
+								"charOffset": 17
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 619,
-								"endMs": 826,
-								"charOffset": 15
+								"startMs": 831,
+								"endMs": 1039,
+								"charOffset": 21
 							},
 							{
 								"display": "ready-made",
 								"spoken": "ready-made",
-								"startMs": 826,
-								"endMs": 1445,
-								"charOffset": 17
+								"startMs": 1039,
+								"endMs": 1663,
+								"charOffset": 23
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 1445,
-								"endMs": 1681,
-								"charOffset": 28
+								"startMs": 1663,
+								"endMs": 1901,
+								"charOffset": 34
 							}
 						],
 						"startMs": 0,
-						"endMs": 2069,
+						"endMs": 2292,
 						"charOffset": 0
 					},
 					{
@@ -886,63 +893,63 @@
 							{
 								"display": "A",
 								"spoken": "A",
-								"startMs": 2235,
-								"endMs": 2441,
-								"charOffset": 35
+								"startMs": 2459,
+								"endMs": 2667,
+								"charOffset": 41
 							},
 							{
 								"display": "chart,",
 								"spoken": "chart,",
-								"startMs": 2441,
-								"endMs": 2678,
-								"charOffset": 37
+								"startMs": 2667,
+								"endMs": 2905,
+								"charOffset": 43
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 2879,
-								"endMs": 3086,
-								"charOffset": 44
+								"startMs": 3108,
+								"endMs": 3316,
+								"charOffset": 50
 							},
 							{
 								"display": "big",
 								"spoken": "big",
-								"startMs": 3086,
-								"endMs": 3292,
-								"charOffset": 46
+								"startMs": 3316,
+								"endMs": 3524,
+								"charOffset": 52
 							},
 							{
 								"display": "number,",
 								"spoken": "number,",
-								"startMs": 3292,
-								"endMs": 3735,
-								"charOffset": 50
+								"startMs": 3524,
+								"endMs": 3970,
+								"charOffset": 56
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3936,
-								"endMs": 4143,
-								"charOffset": 58
+								"startMs": 4173,
+								"endMs": 4380,
+								"charOffset": 64
 							},
 							{
 								"display": "side-by-side",
 								"spoken": "side-by-side",
-								"startMs": 4143,
-								"endMs": 4762,
-								"charOffset": 60
+								"startMs": 4380,
+								"endMs": 5004,
+								"charOffset": 66
 							},
 							{
 								"display": "comparison.",
 								"spoken": "comparison.",
-								"startMs": 4762,
-								"endMs": 5617,
-								"charOffset": 73
+								"startMs": 5004,
+								"endMs": 5866,
+								"charOffset": 79
 							}
 						],
-						"startMs": 2235,
-						"endMs": 6005,
-						"charOffset": 35
+						"startMs": 2459,
+						"endMs": 6256,
+						"charOffset": 41
 					},
 					{
 						"display": "Pick one, and the sample text is yours to replace.",
@@ -950,80 +957,80 @@
 							{
 								"display": "Pick",
 								"spoken": "Pick",
-								"startMs": 6171,
-								"endMs": 6378,
-								"charOffset": 85
+								"startMs": 6424,
+								"endMs": 6631,
+								"charOffset": 91
 							},
 							{
 								"display": "one,",
 								"spoken": "one,",
-								"startMs": 6378,
-								"endMs": 6614,
-								"charOffset": 90
+								"startMs": 6631,
+								"endMs": 6870,
+								"charOffset": 96
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 6815,
-								"endMs": 7022,
-								"charOffset": 95
+								"startMs": 7073,
+								"endMs": 7280,
+								"charOffset": 101
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 7022,
-								"endMs": 7228,
-								"charOffset": 99
+								"startMs": 7280,
+								"endMs": 7488,
+								"charOffset": 105
 							},
 							{
 								"display": "sample",
 								"spoken": "sample",
-								"startMs": 7228,
-								"endMs": 7641,
-								"charOffset": 103
+								"startMs": 7488,
+								"endMs": 7904,
+								"charOffset": 109
 							},
 							{
 								"display": "text",
 								"spoken": "text",
-								"startMs": 7641,
-								"endMs": 7847,
-								"charOffset": 110
+								"startMs": 7904,
+								"endMs": 8112,
+								"charOffset": 116
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 7847,
-								"endMs": 8054,
-								"charOffset": 115
+								"startMs": 8112,
+								"endMs": 8320,
+								"charOffset": 121
 							},
 							{
 								"display": "yours",
 								"spoken": "yours",
-								"startMs": 8054,
-								"endMs": 8260,
-								"charOffset": 118
+								"startMs": 8320,
+								"endMs": 8528,
+								"charOffset": 124
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 8260,
-								"endMs": 8466,
-								"charOffset": 124
+								"startMs": 8528,
+								"endMs": 8735,
+								"charOffset": 130
 							},
 							{
 								"display": "replace.",
 								"spoken": "replace.",
-								"startMs": 8466,
-								"endMs": 8909,
-								"charOffset": 127
+								"startMs": 8735,
+								"endMs": 9182,
+								"charOffset": 133
 							}
 						],
-						"startMs": 6171,
-						"endMs": 9297,
-						"charOffset": 85
+						"startMs": 6424,
+						"endMs": 9572,
+						"charOffset": 91
 					}
 				],
-				"durationMs": 9297
+				"durationMs": 9572
 			}
 		},
 		{

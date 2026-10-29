@@ -56,7 +56,9 @@ const flat = useFocus(hub, (f) => f.flat);
 ## The model
 
 A document is text cut into **units**, and each unit into one or more **parts**. Units carry
-stable ids that survive edits; parts are addressed by their position inside a unit. A **flat**
+ids that survive edits: an edit inside a unit keeps its id, and an outliner may carry ids by text
+through a structural edit too (Lattice's does, so a slide moved, added before or deleted around
+keeps its own, and of two identical slides the one you type in keeps its own). Parts are addressed by their position inside a unit. A **flat**
 number counts parts across the whole document, which is what a reader counts.
 
 | Domain | Unit | Part |

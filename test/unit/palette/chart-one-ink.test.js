@@ -72,10 +72,12 @@ describe('one ink: rings and marks are wired', () => {
       const rule = new RegExp(`\\{ --status-mark: var\\(--mark-${mark}-bold\\); \\}`);
       assert.match(FAMILY, rule, `--mark-${mark}-bold has a rule`);
       const line = FAMILY.split('\n').find((l) => rule.test(l));
-      for (const s of statuses.filter((w) => ['on-track', 'done', 'pass', 'at-risk', 'warn', 'blocked', 'fail', 'deferred'].includes(w))) {
-        assert.ok(line.includes(`[data-s="${s}"]`), `${s} wears --mark-${mark}-bold`);
-      }
+      for (const s of statuses) assert.ok(line.includes(`[data-s="${s}"]`), `${s} wears --mark-${mark}-bold`);
     }
+    // The token is not enough: an HTML pill paints it only through the `::before` mask rule, so that rule must name every status
+    // the kernel gives a mark (live, pilot and decision were missing once, and the dot never drew).
+    const maskRules = (FAMILY.match(/[^{}]*::before\s*\{[^}]*mask:[^}]*\}/g) || []).join('\n');
+    for (const status of Object.keys(STATUS_MARK)) assert.ok(maskRules.includes(`[data-s="${status}"]`), `${status} has a ::before mask rule`);
   });
 });
 

@@ -614,6 +614,8 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 	// 34 steps, not a round number: measured against the pre-fix build, this seed first
 	// reaches a class-losing paste at step 31, and a walk that stops before its own defect
 	// is a walk that certifies nothing.
+	let lastCount = 0;
+	let lastClassed = 0;
 	for (let step = 0; step < 34; step++) {
 		const op = pick(names);
 		await ops[op]();
@@ -636,8 +638,16 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			.poll(async () => (await slideClasses(page)).length, { message: `after "${op}": compose vs source` })
 			.toBe(composeCount);
 
-		// 3: no slide lost its component assignment.
-		expect(await slideClasses(page), `after "${op}": a slide lost its _class`).not.toContain('∅');
+		// 3: no slide lost its component assignment. Counted, not a blanket "no slide without a `_class`": a strip
+		// op on a slide that headings split off a block (2026-10-27-slide-structure-strip.md §6) writes that slide as
+		// a block of its own, which has no `_class` because it never had one (the engine renders it as the default,
+		// as before the op). So the slides that HAVE a class may only become fewer when slides go: a paste that wipes
+		// a class leaves the count of slides alone and the count of classed ones one short.
+		const classes = await slideClasses(page);
+		const classed = classes.filter((c) => c !== '∅').length;
+		if (classes.length >= lastCount) expect(classed, `after "${op}": a slide lost its _class (${JSON.stringify(classes)})`).toBeGreaterThanOrEqual(lastClassed);
+		lastCount = classes.length;
+		lastClassed = classed;
 
 		// 4: the disclosure state a screen reader hears matches the one a sighted user sees.
 		const folded = await collapsedIndices(page);

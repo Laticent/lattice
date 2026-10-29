@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, gotoStudio, openAddSlide, setEditorContent, shareExport, test, toastText } from './studio-fixture';
+import { addedNote, expect, gotoStudio, openAddSlide, setEditorContent, shareExport, test } from './studio-fixture';
 
 // THE STUDIO'S EXPORT TO MARP CARRIES `sample:` PICTURES, on the real Studio (HARD RULE #23).
 //
@@ -26,7 +26,7 @@ test('a Studio Marp export carries the deck’s sample pictures and names them i
 	await openAddSlide(page);
 	await page.getByPlaceholder(/Search \d+ slides/).fill('team-profile');
 	await page.getByRole('button', { name: /^Insert team-profile/i }).first().click();
-	await expect(toastText(page)).toContainText('Inserted');
+	await expect(addedNote(page)).toContainText('Added after');
 
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const [file] = await Promise.all([page.waitForEvent('download'), shareExport(page, 'marp')]);

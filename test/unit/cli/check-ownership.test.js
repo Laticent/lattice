@@ -3891,6 +3891,23 @@ describe('check-ownership: checkDanglingTokenReads (#1688)', () => {
     assert.deepEqual(errors, []);
   });
 
+  test('counts a token declared in library-palettes.json, the one sanctioned JSON declaration file', () => {
+    const errors = errorsFor({
+      'lib/library-palettes.json': '{"libs":{"x":{"page":{"light":{"--jsonpal":"#fff"}}}}}',
+      'X.tsx': 'export const a = <p className="text-[var(--jsonpal)]" />;',
+    });
+    assert.deepEqual(errors, []);
+  });
+
+  test('does NOT count a token declared in any other JSON file', () => {
+    const errors = errorsFor({
+      'data/tokens.json': '{"--otherjson":"#fff"}',
+      'X.tsx': 'export const a = <p className="text-[var(--otherjson)]" />;',
+    });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /--otherjson/);
+  });
+
   test('CATCHES the #1688 defect — an undefined token behind a hex fallback', () => {
     // The shape that shipped: it renders, on every palette and mode, and never themes.
     const errors = errorsFor({ 'X.tsx': 'export const a = <p className="text-[var(--chart-2,#9c3f00)]" />;' });

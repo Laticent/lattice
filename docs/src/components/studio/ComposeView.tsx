@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom';
 import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
-import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
@@ -33,6 +33,7 @@ import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
+import { carrySay } from './deck-ops';
 import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
@@ -740,6 +741,8 @@ class SlideView {
 		private getBlocks?: () => SlideBlocks | undefined,
 		// The Insert menu's slot (see `insertSlot`): the island is mounted by ComposeView.
 		private mountInsert?: (slot: HTMLElement | null, owner: SlideView) => void,
+		// What a delete of slide `i` takes, in words ("“Pricing” (3 slides)"), read lazily like the rest.
+		private describeDelete?: (index: number) => string,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -993,6 +996,17 @@ class SlideView {
 		const caretSlide = $from.depth >= 1 ? $from.node(1) : null;
 		const offsetInSlide = caretSlide ? $from.pos - $from.before(1) : 0;
 		const tr = state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true);
+		// The front-matter `say:` narration moves with its slides, as the strip's ops move it (deck-ops `carrySay`). The
+		// nodes are the SAME instances, so a node's identity says where each old slide went; the front matter is a doc
+		// attribute, so the new one goes in on this transaction and every later emit keeps it.
+		const fm = (state.doc.attrs.frontMatter as string) || '';
+		if (/^say:[ \t]*$/m.test(fm)) {
+			const moved: number[] = [];
+			state.doc.forEach((n) => void moved.push(nodes.indexOf(n)));
+			const after = docToDeck(tr.doc);
+			const carried = carrySay(docToDeck(state.doc), after, moved);
+			if (carried !== after) tr.setDocAttribute('frontMatter', carried.slice(0, carried.length - (after.length - fm.length)));
+		}
 		if (caretSlide) {
 			let start = -1;
 			tr.doc.forEach((n, off) => {
@@ -1031,7 +1045,11 @@ class SlideView {
 		this.dangerGroup.replaceChildren();
 		const ask = document.createElement('span');
 		ask.className = 'cs-sc-ask';
-		ask.textContent = 'Delete?';
+		// Say what goes, not just "Delete?": a block whose headings split it takes every slide it renders
+		// (2026-10-27-slide-structure-strip.md §12 item 2).
+		const i = this.index();
+		ask.textContent = `Delete ${(i >= 0 && this.describeDelete?.(i)) || 'this slide'}?`;
+		ask.title = ask.textContent; // the bar truncates a long title; the whole question stays one hover away
 		this.dangerGroup.append(ask, this.btn('Confirm delete slide', 'check', () => this.remove(), 'cs-sc-cap cs-sc-confirm'), this.btn('Keep slide', 'x', () => this.resetDelete(), 'cs-sc-cap'));
 		clearTimeout(this.confirmTimer);
 		this.confirmTimer = window.setTimeout(() => this.resetDelete(), 4000);
@@ -2052,7 +2070,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2476,6 +2494,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const slideHeadingsRef = React.useRef(slideHeadings);
 	slideHeadingsRef.current = slideHeadings;
 	const slideBlocksRef = React.useRef(slideBlocks);
+	const describeDeleteRef = React.useRef(describeDelete);
+	describeDeleteRef.current = describeDelete;
 	slideBlocksRef.current = slideBlocks;
 	// The per-class FENCE map — a `_class` name → the fence language its own grammar
 	// skeleton writes (`diagram` → mermaid, `code` → js). Same build-static route and
@@ -2727,7 +2747,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert, (i) => describeDeleteRef.current?.(i) ?? 'this slide'),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 					image: imageNodeView,
 					inline_math: mathInlineNodeView,
@@ -3048,7 +3068,7 @@ function ComposeStyles() {
 			/* delete → in-place confirm: "Delete?" + check/x, on a bg chip masking the line behind it */
 			.cs-sb-danger{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
 			.cs-sb-danger.cs-confirming{background:var(--bg,#fff);border-radius:999px;padding-left:9px}
-			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);align-self:center}
+			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);align-self:center;max-width:min(48ch,60vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 			/* content pill — content register, ONLY on the active slide; a soft accent bloom (only the active
 			   slide's pill is ever shown, so it never becomes a column of glows) */
 			/* The pill RESERVES its space on every slide (visibility, not display) so focusing a slide

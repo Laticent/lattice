@@ -62,21 +62,20 @@ function setup() {
 }
 
 /**
- * Open the add-slide gallery. Since #1654 the preview rail's `+` and the editor
- * header's button are one door under one name ("Add slide"), so this resolves to
- * more than one control and a `findByRole` would throw — deliberately `findAll`,
- * clicking either. The count itself is pinned once, in `studio.controls.test.tsx`.
+ * Open the add-slide gallery through its one door, "New slide" (the strip's, with the preview
+ * open). `findAll` keeps this robust to a layout that draws the door elsewhere; the count is
+ * pinned once, in `studio.controls.test.tsx`.
  */
 async function openAddSlide(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-	const launchers = await screen.findAllByRole('button', { name: 'Add slide' });
+	const launchers = await screen.findAllByRole('button', { name: 'New slide' });
 	await user.click(launchers[0]);
+	// The door splits into Before | After (2026-10-27-slide-structure-strip.md §5).
+	await user.click(await screen.findByRole('button', { name: 'New slide after' }));
 }
 
 describe('Studio — insert + render a saved local component', () => {
 	it('lists the saved local component in the add-slide gallery under Your components', async () => {
 		const user = setup();
-		// The editor-header launcher only appears once there is something to insert; a
-		// saved local component is enough (no built-in catalog in this test).
 		await openAddSlide(user);
 		const dialog = await screen.findByRole('dialog');
 		const d = within(dialog);
@@ -94,9 +93,9 @@ describe('Studio — insert + render a saved local component', () => {
 		await openAddSlide(user);
 		await user.click(await screen.findByText('mybox'));
 
-		// A success toast confirms the insert, and the preview now carries the
-		// component's CSS (the deck uses `.mybox`, so usedLocalCss → extraCss).
-		expect(await screen.findByText(/Inserted/)).toBeInTheDocument();
+		// The New slide door confirms the insert in place (2026-10-27-slide-structure-strip.md §5), and the preview now
+		// carries the component's CSS (the deck uses `.mybox`, so usedLocalCss → extraCss).
+		expect((await screen.findAllByText(/^Added after/)).length).toBeGreaterThan(0);
 		// The Studio's own preview. The closed gallery stays mounted and keeps its tiles' previews
 		// (ui/persistent-surface.tsx), so a page-wide lookup now finds those too.
 		const preview = (await screen.findAllByTestId('deck-preview')).find((el) => !el.closest('[data-slot="persistent-surface"]'));

@@ -12,7 +12,8 @@ import { buttonLabeled, q, SEL, type TourBuild, type TourStep, toWalkthrough } f
 
 /** The slide strip, or the slide map that replaces it beside a slide. */
 const rail = (): HTMLElement | null => document.querySelector<HTMLElement>(SEL.rail) ?? document.querySelector<HTMLElement>('[data-map-rail]');
-const addSlide = (): HTMLElement | null => document.querySelector<HTMLElement>(`${SEL.editor} [aria-label="Add slide"]`) ?? document.querySelector<HTMLElement>('[aria-label="Add slide"]');
+/** The one "New slide" door on screen (the strip's, or the editor's while the preview is collapsed). */
+const addSlide = (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('[aria-label="New slide"]')].find((el) => el.getClientRects().length > 0) ?? null;
 const composeToggle = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Compose — rich editor"]');
 const fixAll = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Fix all issues"]');
 /** The nth slide button in the strip (1-based), so the tour can show that a click jumps there. */

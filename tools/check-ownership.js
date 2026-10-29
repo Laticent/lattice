@@ -6559,22 +6559,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'live-frame count, and that is the quantity the test measures - waiting for it to reach a '
        + 'value would manufacture the result. Deliberately short, and outside the measured window.',
   },
-  // Was `docs/e2e/gallery-preview-budget.spec.ts` @ 600ms until #1654 lifted that spec's
-  // local `openGallery` into the shared `openAddSlide` fixture helper (the launcher rename
-  // made an open-coded `getByRole` ambiguous, so every caller had to route through one
-  // opener). Same wait, same mobile drawer route, new file — MOVED, NOT JUDGED. The gate
-  // caught the move as an unsanctioned wait plus a stale entry, which is exactly its job.
-  {
-    file: 'docs/e2e/studio-fixture.ts', ms: 600, count: 1,
-    why: 'JUDGED KEEP (#1526). The mobile drawer\'s mount, between opening the Markdown-source '
-       + 'panel and pressing the control inside it. Playwright\'s actionability check is NOT the '
-       + 'condition here: it waits for visible + stable + enabled, all of which a React island '
-       + 'satisfies BEFORE hydration attaches its handler, so a click can land on a real button '
-       + 'and do nothing. Replacing this needs a hydration signal the shell does not currently '
-       + 'expose; until it does, the wait is the honest instrument. Blast radius is every '
-       + '@crosswidth spec that opens the gallery on a phone, which is why it is not worth '
-       + 'guessing at.',
-  },
   {
     file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 1,
     why: 'JUDGED KEEP (#1526). A PLATEAU read, which is an absence assertion wearing a number: the '
@@ -7433,6 +7417,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
     why: 'rewrites each gallery\'s front matter to set `size:` before rendering. A CRLF or BOM '
        + 'gallery would keep its authored size, so the golden would record the wrong family and '
        + 'pass while the split under test never ran at that size.',
+  },
+  {
+    file: 'tools/fit-harness.js',
+    why: 'splits each source deck into slides on `---` lines and rewrites its front matter to set '
+       + '`size:` and `venue:`. A CRLF or lone-CR gallery would mis-split into the wrong slides, '
+       + 'and a BOM would hide the front matter, so the harness would score the wrong box.',
   },
   {
     file: 'tools/lint-deck.js',
@@ -13909,6 +13899,10 @@ function declaredCustomProps(src, into) {
 }
 
 const DANGLING_SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.astro', '.css'];
+// A token DECLARED in data counts, but only in this file: the library demo pages' theme tokens are
+// written once in it and emitted as CSS by LibraryTheme.astro. Any other JSON under docs/src with a
+// `"--x":` key is not a declaration until someone says so here.
+const DANGLING_JSON_DECLARATIONS = ['docs/src/lib/library-palettes.json'];
 const DANGLING_THIRD_PARTY = [/^--sl-/, /^--radix-/, /^--tw-/];
 
 function checkDanglingTokenReads(errors, dirs = {}) {
@@ -13921,6 +13915,13 @@ function checkDanglingTokenReads(errors, dirs = {}) {
 
   const defined = new Set();
   for (const f of [...docsFiles, ...engineCss]) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+  for (const rel of DANGLING_JSON_DECLARATIONS) {
+    const f = path.join(dirs.docsSrc ? path.resolve(dirs.docsSrc, '..', '..') : ROOT, rel);
+    if (fs.existsSync(f)) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+    else if (!dirs.docsSrc) {
+      errors.push(`checkDanglingTokenReads: declaration source ${rel} is missing; the tokens it declared now read as undeclared. Update DANGLING_JSON_DECLARATIONS if it moved.`);
+    }
+  }
 
   const authored = docsFiles.filter((f) => {
     const rel = relPosix(ROOT, f);

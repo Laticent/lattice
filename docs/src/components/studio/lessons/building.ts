@@ -6,7 +6,7 @@
 // search box rather than asking the user to, because a keystroke the lesson did not ask for reads as
 // "the user took over" and ends it. Kit and rules: ./lesson-kit.ts; every line lives in ./lines.ts.
 
-import { card, type LessonBuild, SEL, settle, tabNamed, tell, visible, yourTurn } from './lesson-kit';
+import { card, chooseAfter, type LessonBuild, SEL, settle, tabNamed, tell, visible, yourTurn } from './lesson-kit';
 import { LESSON_LINES } from './lines';
 
 type InsertLines = Record<'what' | 'click' | 'missing' | 'search' | 'pick' | 'edit', string>;
@@ -18,6 +18,7 @@ function insertLesson(L: InsertLines, query: string, component: string): LessonB
 		await tell(ctx, { say: L.what });
 		const who = await yourTurn(ctx, { say: L.click, target: SEL.addSlide, perform: (a) => a.run('insert'), missing: L.missing });
 		if (who === 'nobody') return;
+		await chooseAfter(ctx);
 		if (!(await settle(ctx, () => visible(SEL.pickerSearch)() != null))) return;
 		await tell(ctx, { say: L.search, point: SEL.pickerSearch, act: (a) => a.type(SEL.pickerSearch, query) });
 		if (!(await settle(ctx, () => visible(...pick)() != null))) return;

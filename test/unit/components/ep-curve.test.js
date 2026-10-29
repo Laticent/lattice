@@ -163,8 +163,10 @@ describe('ep-curve — the checker repros', () => {
     // Tone recolors every open hue rule's mark to one ramp; a dot that took it would sit off-color on a
     // curve whose stroke no finish reaches (build-marks-css.js § STROKE_MEMBERS).
     const css = require('node:fs').readFileSync(require.resolve('../../../lib/components/chart/_chart-family/marks.generated.css'), 'utf8');
-    const toneHue = css.split('\n').filter((l) => l.startsWith('section.marks-tone :where(:is([data-hue=') && l.includes('[data-paint="fill"]'));
+    // The shared body rule serves every finish and skips the stroke members by name; the companion that puts them back
+    // under pigment and etch has a head that does not name tone.
+    const toneHue = css.split('\n').filter((l) => /^section:is\([^)]*\.marks-tone[^)]*\) :where\(:is\(\[data-hue=/.test(l) && l.includes('[data-paint="fill"]'));
     assert.ok(toneHue.length > 0);
-    for (const l of toneHue) assert.match(l, /\.ep-dot[,)]/);
+    for (const l of toneHue) assert.match(l, /:not\([^\n]*\.ep-dot[,)]/);
   });
 });

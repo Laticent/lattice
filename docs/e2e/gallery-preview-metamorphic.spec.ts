@@ -581,25 +581,13 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 	});
 });
 
-/** Reopen the picker from whatever state the Studio was left in after a close. On a phone the
- *  launcher lives behind the drawer and the drawer is reached from the source pane, so the
- *  fixture's first-open path does not compose with itself. */
-async function reopen(page: Page, compact: boolean) {
-	const add = page.getByRole('button', { name: 'Add slide', exact: true }).first();
-	if (await add.isVisible().catch(() => false)) {
-		await add.click();
-	} else if (compact) {
-		// Each step waits for the control the PREVIOUS one reveals, so the chain is driven by the
-		// UI's own signals rather than by three guessed intervals: source pane → drawer → launcher.
-		const src = page.getByRole('button', { name: 'Markdown source' });
-		if (await src.isVisible().catch(() => false)) await src.click();
-		const menu = page.getByRole('button', { name: 'Menu' });
-		await menu.waitFor({ state: 'visible' });
-		await menu.click();
-		const launcher = page.getByRole('button', { name: 'Add slide', exact: true }).first();
-		await launcher.waitFor({ state: 'visible' });
-		await launcher.click();
-	}
+/** Reopen the picker from whatever state the Studio was left in after a close, through whichever
+ *  "New slide" door is visible (a phone's round door sits in both panes). `compact` changes nothing
+ *  now; it is kept so the call sites read the same at every width. */
+async function reopen(page: Page, _compact: boolean) {
+	await page.getByRole('button', { name: 'New slide', exact: true }).filter({ visible: true }).first().click();
+	// The door splits into Before | After (2026-10-27-slide-structure-strip.md §5); After opens the gallery.
+	await page.getByRole('button', { name: 'New slide after', exact: true }).filter({ visible: true }).first().click();
 	// The gallery is back when its scroller exists; its previews are the caller's business.
 	await page.locator(SCROLLER).first().waitFor({ state: 'visible' });
 }
@@ -652,7 +640,7 @@ test('@webkit-phone MR-1 + MR-3 hold on the engine a phone actually runs', async
 	// Reachable by ROLE, not only by sight: on the phone the reopen goes through the drawer, a Radix
 	// modal whose `hideOthers` marked the kept gallery aria-hidden (ui/persistent-surface.tsx). A
 	// gallery a screen reader cannot find passed every check above.
-	await expect(page.getByRole('dialog', { name: 'Add a slide' }), 'WebKit: the reopened gallery is hidden from assistive tech').toBeVisible();
+	await expect(page.getByRole('dialog', { name: 'New slide', exact: true }), 'WebKit: the reopened gallery is hidden from assistive tech').toBeVisible();
 	const madeOnReopen = (await documentsMade(page)) - madeAtClose;
 	expect(madeOnReopen, `WebKit: reopening the gallery created ${madeOnReopen} preview documents`).toBeLessThanOrEqual(1);
 });

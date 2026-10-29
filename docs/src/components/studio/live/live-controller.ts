@@ -1,6 +1,6 @@
 import type { Extension } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
+import { yCollab, ySyncAnnotation, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
@@ -444,7 +444,8 @@ type Runtime = {
 	link: string;
 	startedAt: number;
 	ext: Extension;
-	/** This browser's undo in the session: the binding's, so the Studio root's ⌘Z can reach it too. */
+	/** This browser's undo in the session: the binding's, so the Studio root's ⌘Z can reach it too, and `stopCapturing`
+	 *  splits a strip action into a step of its own. */
 	um: Y.UndoManager;
 	key: HostKey | null;
 	/** Awareness client id → the peer whose state we accepted for it (the roster bound them). */
@@ -1769,10 +1770,19 @@ export class LiveController {
 					else {
 						const edit = rebase(base, next, cur);
 						if (edit) {
+							// A slide op is one undo step of its own (see `LiveHost.structural`): the undo manager stops merging
+							// on both sides of it, as each op is one step of Filo's history outside Live.
+							const isolate = this.host.structural?.(next) ?? false;
+							if (isolate) r.um.stopCapturing();
+							// A Studio write makes every shared text seen before it stale as an echo. Kept, one would swallow a
+							// later write that brings the same text back: a write restoring the deck as it was before a delete was
+							// taken for the delete's own echo, and never reached the shared text.
+							this.fromY.clear();
 							r.doc.transact(() => {
 								if (edit.to > edit.from) r.ytext.delete(edit.from, edit.to - edit.from);
 								if (edit.insert) r.ytext.insert(edit.from, edit.insert);
 							});
+							if (isolate) r.um.stopCapturing();
 						} else {
 							this.host.setSource(cur);
 							this.host.notify('Someone edited that part at the same moment, so your change was not applied. Try it again.');
@@ -1946,7 +1956,7 @@ export class LiveController {
 		const r = this.rt;
 		const s = r?.session.getState();
 		if (!r || !this.bound || !s?.me) return null;
-		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look, records: this.received, undo: () => !!r.um.undo(), redo: () => !!r.um.redo() };
+		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), isPeer: (tr) => tr.annotation(ySyncAnnotation) !== undefined, look: this.look, records: this.received, undo: () => !!r.um.undo(), redo: () => !!r.um.redo() };
 	}
 
 	/** The chat in the host's order. A line's author is the member its `say` ARRIVED from at the

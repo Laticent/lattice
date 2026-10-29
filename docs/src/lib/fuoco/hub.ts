@@ -462,6 +462,7 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 			// a deleted one falls to the unit that now holds its old position.
 			if (focus.unit !== null) {
 				let u = unitIndexOf(ol, focus.unit);
+				const survived = u >= 0;
 				let part = focus.part;
 				if (u < 0) {
 					u = Math.max(0, Math.min(focus.unitIndex, ol.units.length - 1));
@@ -470,8 +471,20 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 				if (u >= 0 && ol.units.length) {
 					part = Math.min(part, ol.units[u].parts.length - 1);
 					const span = prev && (o.span ?? diffSpan(prev.source, text));
-					const head = focus.head === null || !span ? focus.head : Math.min(mapOffset(focus.head, span), text.length);
-					const anchor = focus.anchor === null || !span ? focus.anchor : Math.min(mapOffset(focus.anchor, span), text.length);
+					let head = focus.head === null || !span ? focus.head : Math.min(mapOffset(focus.head, span), text.length);
+					let anchor = focus.anchor === null || !span ? focus.anchor : Math.min(mapOffset(focus.anchor, span), text.length);
+					// A caret at the TOP of the focused unit, in its leading blank lines or at its first character, is where a
+					// view puts it to show that unit, not a place the reader typed. When another view, or a Live peer, adds a
+					// unit just before it, `mapOffset` keeps that caret on the near side of the insertion, inside the NEW
+					// unit, which would pull the focus there though the unit's id says where the reader is. So while the
+					// unit SURVIVED (a unit merged away leaves the caret where the merge put it), a caret that was at its top goes to
+					// its new top.
+					const was = prev ? prev.units[focus.unitIndex] : undefined;
+					if (head !== null && survived && was && was.id === focus.unit && focus.head !== null && focus.head >= was.from && focus.head <= was.start && partAt(ol, head)?.unit !== u) {
+						const top = ol.units[u].start;
+						if (anchor === head) anchor = top;
+						head = top;
+					}
 					const byCaret = head !== null ? partAt(ol, head) : null;
 					const uu = byCaret ? byCaret.unit : u;
 					const pp = byCaret ? byCaret.part : part;
