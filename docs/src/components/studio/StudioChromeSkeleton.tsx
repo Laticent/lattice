@@ -51,7 +51,7 @@ import { LENSES } from './lens-picker';
 // measures these two rows against the app's own, and studio.astro's cinema rule hides the chrome by
 // them. Renaming one without updating both reds that spec — which is the point.
 const NOOP = () => {};
-// Shown only where `useTouchFirst` (use-breakpoint.ts) is true, so the pre-paint row matches the app's.
+// Shown only where `useTouchFirst` (use-touch-first.ts) is true, so the pre-paint row matches the app's.
 const TOUCH_FIRST = 'hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex';
 
 /** The phone's eight-cell deck-actions bar — the app's own cells, in the app's own order. */

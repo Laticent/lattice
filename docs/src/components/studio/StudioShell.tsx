@@ -52,7 +52,7 @@ import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import type { StripActions, StripVia } from '@/lib/strip-actions';
 import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
-import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone, useTouchFirst } from '@/lib/use-breakpoint';
+import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { hashString } from '@/playground/deck-preview';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
@@ -168,6 +168,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
+import { useTouchFirst } from './use-touch-first';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';

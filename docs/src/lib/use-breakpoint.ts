@@ -79,29 +79,20 @@ export function readLandscapePhone(): boolean {
 	return window.matchMedia(LANDSCAPE_PHONE_QUERY).matches;
 }
 
-/** Whether `query` matches, kept current. False where there is no `matchMedia` (SSR, jsdom). */
-function useMedia(query: string): boolean {
-	const read = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches;
-	const [is, setIs] = React.useState<boolean>(read);
+export function useLandscapePhone(): boolean {
+	const [is, setIs] = React.useState<boolean>(readLandscapePhone);
 
 	React.useEffect(() => {
 		if (typeof window === 'undefined' || !window.matchMedia) return;
-		const mq = window.matchMedia(query);
+		const mq = window.matchMedia(LANDSCAPE_PHONE_QUERY);
 		const update = () => setIs(mq.matches);
 		update();
 		mq.addEventListener('change', update);
 		return () => mq.removeEventListener('change', update);
-	}, [query]);
+	}, []);
 
 	return is;
 }
-
-export const useLandscapePhone = (): boolean => useMedia(LANDSCAPE_PHONE_QUERY);
-
-/** A touch-first screen (no hover, a coarse pointer): an iPad or a phone with no mouse or trackpad.
- *  The CSS twin of this query is the skeleton's `TOUCH_FIRST` class (StudioChromeSkeleton). */
-export const TOUCH_FIRST_QUERY = '(hover: none) and (pointer: coarse)';
-export const useTouchFirst = (): boolean => useMedia(TOUCH_FIRST_QUERY);
 
 // The scope rail shows icon + caption at 72px, but at the NARROW end of desktop
 // (1100–1160px) that column can't share the row with an open Architect + Inspector
