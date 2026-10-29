@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-29 — ceiling raised by hand, measured on the built tree at 695856b
+
+Owner OK 2026-10-29 (asked in the PR 2959 session: "D2 A", then "Studio only, +0.3 KB" over the tool's full reset, which would have moved this ceiling 54.6 KB and four other routes with it). `main` measured 559,362 bytes against the 559,412 ceiling: 49 bytes left after #2965. PR 2959 (Filo slice 5, undo survives a reload) needs 258 bytes of eager glue after giving back 172: one `import()` of the lazy persistence module with a `then()` per open and drop (StudioIsland +144), the sidecar hash helpers saved beside each source (studio-store +84), and the history's revision counter (dist +15). Everything else in it loads lazily. The ceiling moves 307 bytes, so that PR lands with 99 bytes to spare; the soft target is untouched.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 559719 |
+
 ### 2026-10-28 — ceiling raised by hand, measured on the built tree at be19565
 
 Owner OK 2026-10-28 (asked in the PR 2927 session). Filo (#2940) brought the Studio's eager JS to within 2KB of its ceiling, and PR 2927 (one New slide door, strip ops on the rendered slide, undo on Filo) adds 3,711 bytes over main, measured with `measure-route-base.sh`: 1.6KB past the ceiling. The owner chose a 4KB raise over loading the slide ops lazily, so only the ceiling moved, from 555316 to 559412 (+4096), and the soft target stayed.
