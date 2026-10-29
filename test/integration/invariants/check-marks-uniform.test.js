@@ -51,6 +51,9 @@ function deck() {
     const cells = ANSWERS.map((_, i) => `[${'x-!? /'[i]}]`).join(' | ');
     slides.push(`<!-- _class: verdict-grid ${style} -->\n\n## ${style || 'default'} grid\n\n- One\n${items}\n  - Body.\n- Two\n  - [x] Pass\n  - Body.`);
     slides.push(`<!-- _class: pricing ${style} -->\n\n## ${style || 'default'} pricing\n\n- Plan \`$1\`\n${items}\n  - Note.`);
+    // The base recipe's two other hosts: checklist rows (an `li::before` disc) and any table with `state-cells`.
+    slides.push(`<!-- _class: checklist ${style} -->\n\n## ${style || 'default'} checklist\n\n${ANSWERS.map(([, word], i) => `- [${'x-!? /'[i]}] ${word}`).join('\n')}`);
+    slides.push(`<!-- _class: table state-cells ${style} -->\n\n## ${style || 'default'} cells\n\n| R | A | B | C | D | E | F |\n| --- | --- | --- | --- | --- | --- | --- |\n| X | ${cells} |`);
     for (const v of ['', ' pills']) {
       slides.push(`<!-- _class: obligation-matrix${v} ${style} -->\n\n## ${style || 'default'} matrix${v}\n\n| R | A | B | C | D | E | F |\n| --- | :-: | :-: | :-: | :-: | :-: | :-: |\n| X | ${cells} |`);
     }
@@ -90,6 +93,13 @@ function measure() {
       const tr = d.matches('td > .state') || !n ? null : textRect(n);
       rows.push({ slide, ctx: d.matches('td > .state') ? 'cell' : 'row', ans: answer(d), d: r.height + 2 * o,
         dy: tr ? (r.top + r.height / 2) - (tr.top + tr.height / 2) : null, gap: tr ? tr.left - (r.right + o) : null });
+    }
+    // A checklist row draws its disc as the row's `::before`: its size is the pseudo's box plus its outer rim.
+    for (const li of sec.querySelectorAll('li.state')) {
+      const ps = getComputedStyle(li, '::before');
+      const ring = Math.max(0, ...ps.boxShadow.split(/,(?![^(]*\))/).filter((x) => x.trim() && x.trim() !== 'none' && !/inset/.test(x))
+        .map((x) => { const n = x.replace(/rgba?\([^)]*\)|color\([^)]*\)/g, '').match(/-?[\d.]+px/g) || []; return px(n[3]); }));
+      rows.push({ slide, ctx: 'list', ans: answer(li), d: px(ps.height) + 2 * ring });
     }
     for (const d of sec.querySelectorAll('p > .lat-state')) {
       const r = d.getBoundingClientRect();
@@ -166,9 +176,9 @@ describe('every check is the same size, height and gap as its siblings', { skip:
   test('the measurement reached every slide and context (or the assertion below proves nothing)', { timeout: TIMEOUT }, async () => {
     const rows = await rowsWith(null);
     const checks = rows.filter((r) => r.ans !== 'icon');
-    // Per style: a pill and a bare disc per answer and size, then a verdict-grid pill, a pricing row, a matrix cell and
-    // a matrix pill per answer (the grid's second option adds one pill).
-    assert.equal(checks.length, STYLES.length * (SIZES.length * ANSWERS.length * 2 + ANSWERS.length * 4 + 1));
+    // Per style: a pill and a bare disc per answer and size, then a verdict-grid pill, a pricing row, a checklist row,
+    // a state-cells cell, a matrix cell and a matrix pill per answer (the grid's second option adds one pill).
+    assert.equal(checks.length, STYLES.length * (SIZES.length * ANSWERS.length * 2 + ANSWERS.length * 6 + 1));
     assert.equal(rows.filter((r) => r.ans === 'icon').length, STYLES.length * SIZES.length);
   });
 
