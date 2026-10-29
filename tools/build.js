@@ -96,6 +96,9 @@ const STEPS = [
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
   { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
+  // Squadra, the lint-and-fix library (2026-10-26-squadra-lint-library.md). FOREGROUND and early, like
+  // Fluido: it is built before every bundle, so a bundle that inlines it finds its dist on a cold tree.
+  { label: 'Squadra library dist (ESM + CJS + .d.ts)', script: 'build-squadra-lib.js', uncommitted: true },
   // The shipped finish rules, written into base.finish.css from their recipes
   // (portable-packages §3.6). BEFORE lattice.css bundles that file, or a recipe edit would
   // reach the bundle one build late. The full package index runs later, after the catalogs

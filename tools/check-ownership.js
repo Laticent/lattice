@@ -9488,6 +9488,24 @@ function checkFluidoBoundary(errors, dir = FLUIDO_DIR) {
   });
 }
 
+// ── Squadra (docs/src/lib/squadra) — the lint-and-fix library ───────────────
+// Squadra's core reads text a host hands it and returns findings and new text; it never reads a
+// file and never touches the DOM, so the same rules and the same fix driver run in Node, the
+// Studio and a worker (engineering/decisions/2026-10-26-squadra-lint-library/design.md §2.1). It
+// has NO dependencies, not even `node:`: languages that need a parser arrive as plugins.
+const SQUADRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'squadra');
+function checkSquadraBoundary(errors, dir = SQUADRA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Squadra folder. Squadra's core reads text and ` +
+      `returns findings, the same in Node and the browser, so every import must resolve inside ` +
+      `docs/src/lib/squadra/; a parser arrives as a language plugin ` +
+      `(engineering/decisions/2026-10-26-squadra-lint-library/design.md §2.1).`,
+  });
+}
+
 // ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
 // Calco's reader ships into a headless page as `fn.toString()` source, so a value import
 // would be a free variable inside the shipped function. Like Trama it has NO dependencies,
@@ -14362,6 +14380,7 @@ function run() {
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
   checkFluidoBoundary(errors);
+  checkSquadraBoundary(errors);
   checkPaginationOwners(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -14436,6 +14455,7 @@ module.exports = {
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
   checkFluidoBoundary,
+  checkSquadraBoundary,
   checkPaginationOwners,
   SANCTIONED_PAGINATORS,
   checkReadingRole,
