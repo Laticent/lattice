@@ -11,6 +11,10 @@ source: https://github.com/Laticent/lattice/actions/runs/40646134972
 
 # The golden-bless nightly is cancelled at its 180-minute cap because drifted goldens pile up
 
+status    — narrowed 2026-10-29 (owner's pick D2-A on #2973): re-blessing now stops starting new
+            items after an hour (`BLESS_BUDGET_MS`, tools/lib/golden-bless-verdict.mjs), reports
+            how many wait as a deferred line, and prints progress per item. What is left is the
+            owner's half: merge or close #2751, then a scheduled run that finishes.
 why now   — Green through 2026-10-25 at 2h28m; cancelled on 10-26, 10-27 and 10-28. The check
             phase finishes; the re-bless phase then re-renders every drifted deck in its own
             `regression-gate --bless --only` process with no cap (`tools/golden-bless.mjs:215-222`),

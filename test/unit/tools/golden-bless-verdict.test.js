@@ -227,3 +227,34 @@ describe('verdict — goldens rendered for the first time (step 3)', () => {
     assert.equal(v.autoMerge, false);
   });
 });
+
+describe('runWithinBudget: a night stops starting re-blesses once its budget is spent', () => {
+  test('runs everything inside the budget, in order', async () => {
+    await load();
+    const ran = [];
+    let t = 0;
+    const r = m.runWithinBudget(['a', 'b', 'c'], (x) => { ran.push(x); t += 10; }, { budgetMs: 100, now: () => t });
+    assert.deepEqual(ran, ['a', 'b', 'c']);
+    assert.deepEqual(r, { done: ['a', 'b', 'c'], left: [] });
+  });
+
+  test('finishes the item it started, then leaves the rest for the next night', async () => {
+    await load();
+    let t = 0;
+    const r = m.runWithinBudget(['a', 'b', 'c', 'd'], () => { t += 40; }, { budgetMs: 100, now: () => t });
+    // a at 0, b at 40, c at 80 (still under 100), then 120 >= 100: d waits
+    assert.deepEqual(r, { done: ['a', 'b', 'c'], left: ['d'] });
+  });
+
+  test('always starts the first item, even with a spent budget, so a night is never empty', async () => {
+    await load();
+    let t = 0;
+    const r = m.runWithinBudget(['a', 'b'], () => { t += 1000; }, { budgetMs: 0, now: () => t });
+    assert.deepEqual(r, { done: ['a'], left: ['b'] });
+  });
+
+  test('the budget is an hour of a 180-minute job', async () => {
+    await load();
+    assert.equal(m.BLESS_BUDGET_MS, 60 * 60 * 1000);
+  });
+});
