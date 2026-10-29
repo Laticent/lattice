@@ -462,9 +462,8 @@ export function StudioPreviewFooterSkeleton() {
 				{/* The slides themselves are the user's deck — structure only, never a name. The
 				    numbered chip IS fixed chrome (slide N is always slide N), so it is drawn; the
 				    label beside it is the deck's content, so it stays a neutral bar. */}
-				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[11px]"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span>
-				{/* The current slide's menu button (lib/strip-actions), fixed chrome beside the current pill. */}
-				<span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-card text-muted-foreground shadow-sm [@media(pointer:coarse)]:size-11"><MoreHorizontal className="size-4" /></span>
+				{/* The current pill, with its menu ⋯ as the pill's right-hand segment (lib/strip-actions), fixed chrome. */}
+				<span className="flex shrink-0 items-stretch rounded-lg border border-[var(--accent)] text-[11px]"><span className="flex items-center gap-1.5 px-2.5 py-1.5"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span><span className="grid w-7 shrink-0 place-items-center border-l border-[color-mix(in_srgb,var(--accent)_35%,transparent)] text-[var(--accent)] [@media(pointer:coarse)]:w-11"><MoreHorizontal className="size-4" /></span></span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">2</span><ContentBar className="w-20" /></span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">3</span><ContentBar className="w-16" /></span>
 			</div>

@@ -5041,7 +5041,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened).
 	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(source, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
 	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
-	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(source, at, dir), { label: dir < 0 ? 'Move slide earlier' : 'Move slide later', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(source, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5163,7 +5163,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// it on every keystroke (SlideRail.tsx's header says what that cost).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stripStateKey` stands for `stripMenuState`; the callbacks read the latest closures through the ref.
 	const stripActions = React.useMemo<StripActions | undefined>(
-		() => (stripEditable ? { menu: stripMenu, menuState: stripMenuState, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), move: (at, to) => stripLatest.current.move(at, to) } : undefined),
+		() => (stripEditable ? { menu: stripMenu, menuState: stripMenuState, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), icons: STRIP_ICONS, move: (at, to) => stripLatest.current.move(at, to) } : undefined),
 		[stripEditable, stripMenu, stripStateKey],
 	);
 	// An empty deck's strip shows one "+ Add your first slide" tile, which opens the gallery.
@@ -7238,8 +7238,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			? ([
 					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, run: () => opAddSlide('before') },
 					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, run: () => opDuplicate() },
-					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide earlier', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
-					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide later', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide left', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
+					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide right', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
 					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
 				] satisfies StudioCommand[])
 			: []),
@@ -8229,6 +8229,8 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
+// The slide menu's icons: the icon row's own, which the palette rows below use too (lib/strip-actions `icons`).
+const STRIP_ICONS = { 'new-before': Plus, duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
 const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);

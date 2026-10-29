@@ -443,7 +443,7 @@ describe('Studio — every top-bar control responds', () => {
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
-		await stripAction(user, /^Move earlier/);
+		await stripAction(user, /^Move left/);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start));
@@ -472,7 +472,7 @@ describe('Studio — every top-bar control responds', () => {
 		const start = railCount();
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
-		await stripAction(user, /^Move later/);
+		await stripAction(user, /^Move right/);
 		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
 		await user.keyboard('{Control>}z{/Control}');
 		await user.keyboard('{Control>}z{/Control}');

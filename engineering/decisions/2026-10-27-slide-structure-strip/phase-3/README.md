@@ -16,3 +16,10 @@ docs dev server.
 
 The scripts that took them live in the session's scratchpad, not here; each spec in `docs/e2e/strip-*.spec.ts` and
 `docs/e2e/slide-ops.spec.ts` drives the same surface and asserts the behavior.
+
+## After the owner's review, 2026-10-29
+
+| File | What it shows |
+|---|---|
+| `v2-pill-390.png`, `v2-pill-820.png`, `v2-pill-1440.png` | The ⋯ as the current pill's right-hand segment, one shape with the pill (390 in dark mode, as the owner's iPhone) |
+| `v2-menu-390.png`, `v2-menu-820.png`, `v2-menu-1440.png` | The menu with an icon per item, Move left and Move right, and Delete below a rule |

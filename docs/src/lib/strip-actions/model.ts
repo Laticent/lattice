@@ -46,7 +46,7 @@ export function keysFor(id: StripActionId | 'new-after', mac: boolean): string {
 	}
 }
 
-/** The menu for slide `s.at`: New slide before, Duplicate, Move earlier, Move later, Delete, in that order. A disabled
+/** The menu for slide `s.at`: New slide before, Duplicate, Move left, Move right, Delete, in that order. A disabled
  *  item says why rather than vanishing, so the menu has the same shape on every slide. */
 export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	const one = s.count <= 1;
@@ -55,8 +55,8 @@ export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	return [
 		{ id: 'new-before', label: 'New slide before', keys: keysFor('new-before', mac) },
 		{ id: 'duplicate', label: 'Duplicate', keys: keysFor('duplicate', mac) },
-		{ id: 'move-earlier', label: 'Move earlier', keys: keysFor('move-earlier', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
-		{ id: 'move-later', label: 'Move later', keys: keysFor('move-later', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
+		{ id: 'move-earlier', label: 'Move left', keys: keysFor('move-earlier', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
+		{ id: 'move-later', label: 'Move right', keys: keysFor('move-later', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
 		{ id: 'delete', label: s.armed ? `Confirm delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
 	];
 }
@@ -85,7 +85,7 @@ export function stripShortcutRows(mac: boolean): { keys: string[]; does: string 
 		{ keys: [keysFor('new-after', mac)], does: 'New slide after' },
 		{ keys: [keysFor('new-before', mac)], does: 'New slide before' },
 		{ keys: [keysFor('duplicate', mac)], does: 'Duplicate' },
-		{ keys: [keysFor('move-earlier', mac), keysFor('move-later', mac)], does: 'Move earlier or later' },
+		{ keys: [keysFor('move-earlier', mac), keysFor('move-later', mac)], does: 'Move left or right' },
 		{ keys: mac ? ['⌫', 'Delete'] : ['Delete', 'Backspace'], does: 'Delete' },
 		{ keys: [mac ? '⌘Z' : 'Ctrl+Z'], does: 'Undo' },
 		{ keys: ['Shift+F10'], does: 'Open the slide menu' },

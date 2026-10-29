@@ -20,6 +20,7 @@
 import * as React from 'react';
 import type { StripActionId, StripMenuState, StripShortcut } from './model';
 
+
 /** A rendered slide in the full deck: part `part` of block `unit` (the shape of deck-ops' `SlideAt`). */
 export type StripSlide = { readonly unit: number; readonly part: number };
 export type StripVia = 'pointer' | 'key';
@@ -40,6 +41,9 @@ export interface StripActions {
 	shortcut: (id: StripShortcut, at: StripSlide) => boolean;
 	/** Whether the shortcuts are the Mac's (⌘) or everyone else's (Ctrl). */
 	mac: boolean;
+	/** Each menu item's icon. The shell passes the icon row's own, which its palette rows already load: the strip
+	 *  module importing them itself split them into a chunk of their own and grew the Studio's startup bundle. */
+	icons: Readonly<Record<StripActionId, React.ComponentType<{ className?: string }>>>;
 	/** Drag's drop: move slide `from` so it lands at deck position `to`, as one step of the undo history. */
 	move: (from: StripSlide, to: number) => void;
 }
@@ -65,11 +69,11 @@ const LazyMenuButton = React.lazy(() => import('./menu').then((m) => ({ default:
 
 /** The ⋯ beside the current slide, and the menu it anchors. Rendered by a strip next to its current slide only. Until
  *  the menu's code arrives, an empty box holds its place so the strip does not shift. */
-export function SlideMenuButton(props: { actions: StripActions; at: StripSlide; className?: string }) {
+export function SlideMenuButton(props: { actions: StripActions; at: StripSlide; className?: string; inset?: boolean }) {
 	return (
 		<React.Suspense
 			fallback={
-				<span aria-hidden data-strip-menu="" className={`block size-7 shrink-0 [@media(pointer:coarse)]:size-11 ${props.className ?? ''}`} />
+				<span aria-hidden data-strip-menu="" className={`${props.inset ? 'w-7 [@media(pointer:coarse)]:w-11' : 'size-7 [@media(pointer:coarse)]:size-11'} block shrink-0 ${props.className ?? ''}`} />
 			}
 		>
 			<LazyMenuButton {...props} />

@@ -103,9 +103,14 @@ behavior.
 - **The gallery opens first; the slide is added on pick.** The target (slide id and side) is fixed when the gallery
   opens, so a focus move while it is open cannot change where the slide lands. The title names it by slide title:
   "New slide after 'Market size'", falling back to the number. The last-used layout comes first.
-- **A slide menu** on every strip slide, from a `⋯` button beside the current slide (44px on touch, never inside a pill),
+- **A slide menu** on every strip slide, from a `⋯` that is the current pill's right-hand segment (44px wide on touch; on
+  a map tile it sits over the corner). *(Owner's call, 2026-10-29, on the first build's separate `⋯` beside the pill: "they
+  are not the same size and they are disjoint." The pill is now the list item around two sibling buttons, so the `⋯` is
+  inside the pill without being a button inside a button. The same review named the moves Move left and Move right, as a
+  horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical. And it
+  gave each item its icon, the icon row's own, with Delete below a rule.)*
   right-click, Shift+F10 / the context-menu key, or tapping the current slide again. It holds New slide before,
-  Duplicate, Move earlier, Move later and Delete, each showing its shortcut. Disabled items stay visible with a reason.
+  Duplicate, Move left, Move right and Delete, each showing its shortcut. Disabled items stay visible with a reason.
   - **Opening it makes that slide current** (Fuoco `go` with `grab:false, expand:false`), so the action's target is never
     ambiguous; strip centering is suppressed while it is open; it closes only on a scroll the user starts (wheel, touch,
     drag), never on a programmatic one.
@@ -323,7 +328,7 @@ outliner that carries the ids, and fails on the earlier code.)
 | Add gallery title | "New slide", the door's own name, so the two never disagree (#1654); item 15 adds the position |
 | Slide pills and slide map | Menu, drag, gap `+`, block brackets; full view only |
 | Compose slide bar | Keeps "+ below", relabeled "New slide after"; a `⋯` menu with the same actions; its delete goes through the one history |
-| Command palette | New slide before, Duplicate, Move earlier/later, Delete |
+| Command palette | New slide before, Duplicate, Move left/right, Delete |
 | Present overview grid | Unchanged |
 
 **What else depends on the names.** The accessible name changes from "Add slide" to "New slide" on purpose, and every
@@ -379,7 +384,7 @@ Each is a file in `followups.d/2927-p<n>-…`.
    scroll on the strip, or its slide stopping being current; never on focus moving, because a pick's editor focus can
    land after the menu opens. The pill strip centers the current pill and its ⋯ as one and holds still while the menu
    is open. An empty deck's strip shows one "+ Add your first slide" tile that opens the gallery. The palette lists New
-   slide before, Duplicate, Move earlier and later and Delete, each only while it would act; a palette Delete in a
+   slide before, Duplicate, Move left and right and Delete, each only while it would act; a palette Delete in a
    shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
    `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard. The module's eager half is only `index.tsx` (the types, the hook and lazy wrappers): the
    menu (`menu.tsx`), every strip listener and the shortcuts (`gestures.ts`), drag (`drag.ts`) and the "?" list load on

@@ -156,7 +156,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 
 	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
 	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
-	// while it walks. A modified arrow is not a step: ⇧⌘← is Move earlier (lib/strip-actions).
+	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (lib/strip-actions).
 	const keyNav = React.useRef(false);
 	const onKeyDown = (e: React.KeyboardEvent) => {
 		if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || !pills.length) return;
@@ -189,7 +189,9 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 				const on = p.flat === flat;
 				const people = p.section === 0 ? liveBySlide.get(p.unit) : undefined;
 				return (
-					<li key={`${index.units[p.unit].id}:${p.section}`} className="flex shrink-0 items-center gap-1.5">
+					// THE LI IS THE PILL: its border and fill frame the slide button and, on the current slide, the menu's ⋯ as
+					// the pill's right-hand segment (the owner's call, 2026-10-29). Two sibling buttons, never one inside another.
+					<li key={`${index.units[p.unit].id}:${p.section}`} className={cn('flex shrink-0 items-stretch rounded-lg border transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}>
 					<button
 						type="button"
 						data-unit={i}
@@ -197,7 +199,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 						aria-current={on}
 						aria-label={p.aria}
 						tabIndex={p.flat === tabStop ? 0 : -1}
-						className={cn('flex shrink-0 select-none items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+						className="flex shrink-0 select-none items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-left [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]"
 					>
 						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.n}</span>
 						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{p.label}</span>
@@ -210,9 +212,8 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 							</span>
 						)}
 					</button>
-					{/* The menu's ⋯ sits BESIDE the current pill, never inside it (a button in a button is not a button), and
-					    outside the roving set: Tab reaches it after the pill, the arrows never land on it. */}
-					{on && actions && <SlideMenuButton actions={actions} at={{ unit: p.unit, part: p.section }} />}
+					{/* The ⋯ is outside the roving set: Tab reaches it after the slide button, the arrows never land on it. */}
+					{on && actions && <SlideMenuButton inset actions={actions} at={{ unit: p.unit, part: p.section }} />}
 					</li>
 				);
 			})}
