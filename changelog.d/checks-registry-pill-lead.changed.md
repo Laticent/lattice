@@ -9,3 +9,4 @@
 - The ten chart statuses join the check registry as its second set, so a status and a check that share a drawing are held to it by test. No chart renders differently.
 - The website's plugin pages gain Checks, and six catalog facts that a comma had silently cut short now read in full (for example "Loaded: Always. Part of every deck, so it has no off switch").
 - `lint:deck` warns (`check-label-code`) when a `verdict-grid` or `pricing` criterion that starts with a check holds inline code: the label beside the check is plain text, so `` [x] `@check{fail}` text `` would show "@check{fail} text".
+- A check inside a pill (a verdict-grid criterion, an obligation-matrix `pills` cell, a labelled `@check{…}`) is drawn at 0.85 of its inline size and centered in the capsule, so it carries the same weight as an icon in a pill. Checks outside a pill keep their size.
