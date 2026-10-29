@@ -8841,6 +8841,11 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
     }
+    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). Held here, not by
+    // convention: a new iOS suite added without the flag would quietly put a 30-minute macOS job back on pull requests.
+    if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request !== false) {
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) must set \`"on_pull_request": false\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+    }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
     }

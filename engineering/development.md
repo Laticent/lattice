@@ -411,8 +411,8 @@ integration tests, not unit tests.
   Node 22 and 24 in the merge queue (`fail-fast: false`; the node 24 leg left the PR on
   2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`), browser-free. `npm run build`, then
   `npm run build:check:all`, then `npm test` on 22 (an engine subset on 24). The committed-artifact
-  freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
-  a run (457s + 260s, measured on PR #2554).
+  freshness gate (`build:check`) lives in `lint`. Costs ~7.5 runner-minutes
+  a PR run (node 22, 457s, measured on PR #2554); the queue adds node 24 (260s).
 - **`integration`** — code changes only, `needs: changes` (it runs beside
   `unit`, not after it), single Node (22), **sharded across four runners**:
   check runs `integration (node 22, shard K/4)`, `fail-fast: false`.
@@ -491,9 +491,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
 `tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
 
 - **When it runs:** nightly, every suite; a manual dispatch (`gh workflow run platform-suites.yml -f suites=export-confine`, or
-  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed).
-- **Add one:** an entry in the registry with `name`, `os`, `paths`, `run` and a `why` that names the OS-dependent behavior Linux cannot
-  show, then `npm run build:check` (`checkPlatformSuites` rejects a malformed entry or a `run` naming a deleted file).
+  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed),
+  **except a suite marked `"on_pull_request": false`, which never runs on a pull request.** The iOS Simulator suites carry it
+  (2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`): 30-minute macOS jobs, often red on the simulator, gating nothing. Their
+  `paths` still say when a change reaches them, and `npm run evidence` prints the dispatch to run before the merge.
+- **Add one:** an entry in the registry with `name`, `os`, `paths`, `run`, a `why` that names the OS-dependent behavior Linux cannot
+  show, and `on_pull_request: false` if it should run only nightly and on dispatch; then `npm run build:check` (`checkPlatformSuites`
+  rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite, one whose `run` calls
+  `docs/scripts/ios-safari/run.sh`, without `on_pull_request: false`).
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs

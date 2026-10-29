@@ -56,7 +56,7 @@ author reads it. In the queue nobody does, and it still ran there, because the q
 `workflow.md` already said it never ran in the queue; that is now true. **It does not move to the nightly**, which
 the first cut proposed: `studio-e2e-nightly` failed all 10 of its scheduled runs to 2026-10-28, so a selector drift
 caught only there would land in a rolling red issue nobody can tell apart from the rest. Until that nightly is
-green, the PR run is the Studio's only working e2e signal.
+green (followup `2971-p1`), the PR run is the Studio's only working e2e signal.
 
 **The iOS Simulator suites → nightly and dispatch.** In the 100 platform-suites PR runs from 2026-10-28T10:50Z to
 2026-10-29T02:25Z they ran 49 jobs for about 820 macOS minutes, 27 of the jobs not green (failed or cancelled), and
@@ -99,7 +99,7 @@ different suites, so a move would leave render regressions unguarded until the q
 route past its free bytes to say why, in one line (`docs/route-budget.d/README.md`). That is the step working: the
 sentence is the point, and its failure prints the exact line to add. Making it a warning would remove the friction
 that is its whole purpose. The cost is real (a missed declaration costs one 11-minute docs build), so the cheap
-improvement is catching it before CI. That is not done here.
+improvement is catching it before CI: followup `2971-p2`.
 
 **`lint`, `golden-diff`, `player-webkit` stay.** `lint` is cheap, never flaked and catches stale artifacts that would
 otherwise eject PRs from the queue. `golden-diff` exists for its before/after comment, which only means something on

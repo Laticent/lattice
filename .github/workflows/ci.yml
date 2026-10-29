@@ -312,9 +312,10 @@ jobs:
   # 2026-09-30..10-06) first ran these tests in the merge queue, where a failure
   # ejects the PR and re-tests its whole group. Pre-push used to cover that gap
   # until PR #2554 dropped `npm test` from it (390s per push). Running here
-  # costs ~12 runner-minutes per run on those PRs (whole jobs incl. install and
-  # build, measured on PR #2554: node 22 457s + node 24 260s), and a prose-only
-  # PR now waits ~7.5 min for `ci` instead of ~1 min.
+  # costs ~7.5 runner-minutes per run on those PRs (the node 22 job incl. install
+  # and build, 457s measured on PR #2554; the node 24 leg, 260s, runs only in the
+  # merge queue since 2026-10-29), and a prose-only PR waits ~7.5 min for `ci`
+  # instead of ~1 min.
   unit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
