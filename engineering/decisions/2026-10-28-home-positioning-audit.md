@@ -404,3 +404,20 @@ What the reviewers now ask for is mostly outside page changes:
 - A humanities lecture sample.
 - Folding the How-it-works strip into the Studio block.
 
+
+## 16. Continuation (2026-10-29): the PowerPoint claim, and the proof still missing
+
+**The PowerPoint claim now matches what ships.** The red-team round on PR 2956 found that
+`comparison.astro` called our PowerPoint export "not text-editable" while the pitch room
+promised any deck exports to PowerPoint. The plain `.pptx` is one picture per slide, but
+`--editable` (and the Studio's Editable text switch) writes real text boxes through
+Calco. The comparison page's limitation card now describes both exports, the
+stale row in `pipeline.md`'s symptom table points at `--editable`, and the pitch card says
+"with text you can edit". Evidence: `examples/funnel.md` exported with `--editable` gave
+21 text boxes over 6 slides, and LibreOffice opened it with the titles as live text. Real
+PowerPoint was not checked (UNVERIFIED), so §10's caution still holds for a sales team's
+edit-after-export workflow at full fidelity.
+
+**Real-user proof is still absent.** A search of the issue tracker found only repo members,
+so there is no external quote, pilot or outcome to cite, and none is invented. What the owner
+needs to supply, and where it goes, is in `followups.d/2956-p2-home-page-next-round.md`.

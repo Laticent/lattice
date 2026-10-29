@@ -212,9 +212,9 @@ reference: run the script with no args, or read its header comment.
 ## 4. PPTX / ODP / PNG specifics
 
 Both rasterize through the same screenshot path the PDF's `--raster` flag
-uses — one full-bleed image per slide, selectable text is lost (PPTX has
-always been image slides; `--raster` opts a PDF into the same trade for
-maximum viewer compatibility).
+uses — one full-bleed image per slide, selectable text is lost (the plain
+PPTX is image slides; `--editable` below writes real text boxes instead, and
+`--raster` opts a PDF into the picture trade for maximum viewer compatibility).
 
 **A slide picture is a PNG or a JPEG.** A `.pptx` or `.odp` slide is one picture, and PNG is the
 wrong format for a photograph or a soft gradient wash: 1 to 6 MB per 2560 × 1440 slide and about 1.2 s
@@ -824,7 +824,7 @@ numbers are in the decision note's §9.
 | `error: unknown size: <name>` | The `size:` directive isn't a registered `@size` — the error lists the valid names. Fix the typo; the deck no longer renders silently at the wrong geometry (#502). |
 | "no browser" / Puppeteer launch failure | No Chromium resolved. The renderer tries `PUPPETEER_EXECUTABLE_PATH` (explicit, unconditional), then `CHROME_PATH` (when it names a file this process may execute), then puppeteer's cache — `$HOME/.cache/puppeteer` **and every `/home/<user>/.cache/puppeteer`, newest build first, regardless of `HOME`** — then `which`. Overriding `HOME` therefore does not hide the cache. The cloud sandbox's SessionStart hook exports `CHROME_PATH` automatically — if you see this, re-export it (see `engineering/development.md` § "Cloud sandbox"). Setting `PUPPETEER_EXECUTABLE_PATH` pins the browser *unconditionally*: a stale value there fails the render rather than falling back, which is deliberate. |
 | PDF renders but images/Mermaid are missing | Almost always a stale `dist/` — `npm run build` regenerates every artifact; HARD RULE #2 bars hand-editing `dist/` directly. |
-| PPTX text isn't selectable/editable | By design — PPTX export is image-per-slide (`lib/export/pptx-export.js`), matching Marp's own default PPTX and needing no external `soffice`/LibreOffice. An editable-text variant isn't implemented; don't work around it in Markdown. |
+| PPTX text isn't selectable/editable | By design for the plain `.pptx`: one picture per slide (`lib/export/pptx-export.js`), so it matches the PDF and needs no `soffice`/LibreOffice. For real text boxes, export with `--editable` (the Studio's Editable text switch runs the same capture); Calco writes each paragraph as a text box and keeps charts, diagrams and equations in the picture. See **`.odp` and `--editable` go through Calco** above. Don't work around it in Markdown. |
 
 For anything not covered here, check `engineering/gotchas.md` first (the
 living symptom index) before assuming it's a new bug.

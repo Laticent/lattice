@@ -177,7 +177,7 @@ const ROOM_CARDS: RoomCard[] = [
 		room: 'The pitch',
 		who: 'Sales and marketing teams',
 		outcome: 'Every rep sends a deck that looks like the brand.',
-		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
+		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint with text you can edit.',
 		deck: { label: 'a full sales deck', path: 'corporate/sales-deck' },
 	},
 	{
