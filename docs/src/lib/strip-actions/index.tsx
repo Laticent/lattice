@@ -96,9 +96,12 @@ export function useStripMenuGestures(ref: React.RefObject<HTMLElement | null>, o
 		if (!el || !on) return;
 		let detach = () => {};
 		let gone = false;
-		void import('./gestures').then((m) => {
-			if (!gone) detach = m.attachStripGestures(el, opts);
-		});
+		// A chunk that fails to load (a stale tab after a deploy) leaves the strip a plain navigator, not an error.
+		import('./gestures')
+			.then((m) => {
+				if (!gone) detach = m.attachStripGestures(el, opts);
+			})
+			.catch(() => {});
 		return () => {
 			gone = true;
 			detach();

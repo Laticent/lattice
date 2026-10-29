@@ -504,7 +504,7 @@ export function addedNote(page: Page): Locator {
 
 /** Run one of the slide menu's actions on the current slide (lib/strip-actions), through the ⋯ beside it in whichever
  *  strip is on screen: the pills or the slide map. `id` is the item's `data-strip-action`. */
-export async function stripAction(page: Page, id: 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete'): Promise<void> {
+export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete'): Promise<void> {
 	// A tap on the slide that is already current opens the menu too, so it may be open already; the ⋯ would close it.
 	if (!(await page.locator('[data-strip-menu-content]').isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
 	await page.locator(`[data-strip-menu-content] [data-strip-action="${id}"]`).click();

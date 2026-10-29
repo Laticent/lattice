@@ -81,12 +81,12 @@ test('the slide map carries the same menu', async ({ page, isMobile }) => {
 	await expect(stripNote(page)).toContainText('Slide deleted');
 });
 
-test('the palette has every action of the menu', async ({ page, isMobile }) => {
+test('the palette has every action of the menu (New slide after is its “New slide…” row)', async ({ page, isMobile }) => {
 	test.skip(isMobile, 'the palette arm runs on the desktop project');
 	await railButtons(page).nth(1).click();
 	await page.keyboard.press('ControlOrMeta+k');
 	const field = page.getByPlaceholder('Search or run a command…');
-	for (const label of ['New slide before this one…', 'Duplicate slide', 'Move slide left', 'Move slide right', 'Delete slide']) {
+	for (const label of ['New slide…', 'New slide before this one…', 'Duplicate slide', 'Move slide left', 'Move slide right', 'Delete slide']) {
 		await field.fill(label);
 		await expect(page.getByRole('option', { name: label })).toBeVisible();
 	}
@@ -99,4 +99,22 @@ test('no menu at the Read stop', async ({ page, isMobile }) => {
 	await expect(page.getByRole('button', { name: 'Slide actions' }).filter({ visible: true })).toHaveCount(1);
 	await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
 	await expect(page.getByRole('button', { name: 'Slide actions' }).filter({ visible: true })).toHaveCount(0);
+});
+
+// THE MENU OWNS ITS ARROWS. React bubbles key events through the menu's portal into the pill list, whose arrows step
+// the deck; the checker found ArrowDown inside the open menu closed it and moved to the next slide.
+test('the arrows move inside the open menu, not along the strip; New slide after adds after', async ({ page, isMobile }) => {
+	test.skip(isMobile, 'a keyboard arm; the desktop project covers it');
+	await railButtons(page).nth(1).focus();
+	await page.keyboard.press('Shift+F10');
+	await expect(menu(page)).toBeVisible();
+	await expect(item(page, 'new-after')).toBeFocused();
+	await page.keyboard.press('ArrowDown');
+	await expect(menu(page)).toBeVisible();
+	await expect(item(page, 'new-before')).toBeFocused();
+	await expect(counter(page)).toHaveText('Slide 2 / 4');
+	await page.keyboard.press('ArrowUp');
+	await page.keyboard.press('Enter');
+	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
+	await expect.poll(() => source(page)).toMatch(/^# Bravo[\s\S]*^## New slide[\s\S]*^# Charlie/m);
 });

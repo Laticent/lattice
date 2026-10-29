@@ -159,6 +159,9 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (lib/strip-actions).
 	const keyNav = React.useRef(false);
 	const onKeyDown = (e: React.KeyboardEvent) => {
+		// Only a key on a slide button steps. React bubbles events through portals, so the open slide menu's own arrow
+		// keys (and ArrowDown on the ⋯, which opens it) reach this list too; they belong to the menu.
+		if (!(e.target as Element).closest?.('[data-unit]')) return;
 		if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || !pills.length) return;
 		const at = Math.max(0, pills.findIndex((p) => p.flat === flat));
 		const to = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? at + 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? pills.length - 1 : null;

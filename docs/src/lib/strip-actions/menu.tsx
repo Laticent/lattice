@@ -27,6 +27,13 @@ export function SlideMenuButton({ actions, at, className, inset }: { actions: St
 	// How the open menu was opened, kept past its closing (the shell has cleared `menu` by the time Radix asks where focus goes).
 	const openedVia = React.useRef<StripVia>('pointer');
 	if (open && actions.menu) openedVia.current = actions.menu.via;
+	// Opened from the keyboard (Shift+F10, the context-menu key, Enter on the ⋯), focus lands on the first item, so the
+	// arrows walk the items at once; Radix would focus the menu itself when the menu opens from outside its trigger.
+	React.useEffect(() => {
+		if (!open || openedVia.current !== 'key') return;
+		const id = requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-strip-menu-content] [role="menuitem"]:not([data-disabled])')?.focus());
+		return () => cancelAnimationFrame(id);
+	}, [open]);
 	return (
 		<DropdownMenu modal={false} open={open} onOpenChange={(o) => (o ? actions.openMenu(at, via.current) : actions.closeMenu())}>
 			<DropdownMenuTrigger asChild>

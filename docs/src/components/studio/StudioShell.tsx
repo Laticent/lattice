@@ -5137,7 +5137,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		else if (id === 'duplicate') opDuplicate(at);
 		else if (id === 'move-earlier') opMove(-1, at);
 		else if (id === 'move-later') opMove(1, at);
-		else if (renderedSlides > 1) { setDeleteArmed(false); opDelete(at); }
+		else if (id === 'delete' && renderedSlides > 1) { setDeleteArmed(false); opDelete(at); }
 		return false;
 	};
 	// A strip shortcut, on the slide holding keyboard focus (§5's table). True when focus should stay in the strip.
@@ -5150,6 +5150,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			opMove(id === 'move-earlier' ? -1 : 1, at);
 			return true;
 		}
+		if (id !== 'delete') return false;
 		if (renderedSlides <= 1) { say('A deck needs at least one slide.'); return true; }
 		requestDelete(at);
 		return !othersLive;
@@ -7365,6 +7366,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* What the last undo or redo did ("Undid: Theme → Cuoio"), for assistive tech (Filo note §3.4). */}
 			<Announce message={undoSay} />
 			{/* Loaded on first open: it is not on the startup path, and the Studio's eager bundle is budgeted. */}
+			{/* Mounted only while open (so it closes without Radix's fade): every eager byte counts against the budget. */}
 			{shortcutsOpen && (
 				<React.Suspense fallback={null}>
 					<ShortcutsDialog open onOpenChange={setShortcutsOpen} mac={isMacLike()} />
