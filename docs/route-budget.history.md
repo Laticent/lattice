@@ -6,9 +6,9 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-10-29 — ceiling raised by hand, measured on the built tree at 695856b
+### 2026-10-29 — ceiling raised by hand, measured against main by CI on PR 2959
 
-Owner OK 2026-10-29 (asked in the PR 2959 session: "D2 A", then "Studio only, +0.3 KB" over the tool's full reset, which would have moved this ceiling 54.6 KB and four other routes with it). `main` measured 559,362 bytes against the 559,412 ceiling: 49 bytes left after #2965. PR 2959 (Filo slice 5, undo survives a reload) needs 258 bytes of eager glue after giving back 172: one `import()` of the lazy persistence module with a `then()` per open and drop (StudioIsland +144), the sidecar hash helpers saved beside each source (studio-store +84), and the history's revision counter (dist +15). Everything else in it loads lazily. The ceiling moves 307 bytes, so that PR lands with 99 bytes to spare; the soft target is untouched.
+Owner OK 2026-10-29 (asked in the PR 2959 session: "D2 A", then "Studio only, +0.3 KB" over the tool's full reset, which would have moved this ceiling 54.6 KB and four other routes with it). `main` passes its 559,412 ceiling with nothing to spare (CI: "0.0KB left"; a local build of main on 2026-10-29 read 559,414). PR 2959 (Filo slice 5, undo survives a reload) adds 268 bytes of eager JS, as CI's per-PR check measured it on 75cc813: StudioIsland +182 (one `import()` of the lazy persistence module with a `then()` per open and drop, the sidecar hash written beside each saved source, and the touch-first Undo and Redo, drawn by CSS), studio-store +58 (the sidecar's key and writer), dist +15 (the history's revision counter) and StorageOverlay +13. Everything else in it loads lazily. The ceiling moves 307 bytes, so that PR lands at most at 559,680 bytes, at least 39 under the new ceiling; the soft target is untouched.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
