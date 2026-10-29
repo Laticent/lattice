@@ -3,10 +3,10 @@ status: proposed
 summary: >
   A measured audit of what each Studio activity costs the main thread and memory, beyond startup (which
   2026-10-22/23 already cover). At 4x CPU, export is the worst: a 40-slide PDF keeps the main thread busy
-  69 s with a 4.0 s longest task and peaks the renderer at 1.5 GB. Every keystroke is a long task (163-206 ms
+  69 s with a 4.0 s longest task, and the renderer peaks at 1.6 GB (two runs at 1x). Every keystroke is a long task (163-206 ms
   of main thread), and most of it is React re-rendering the toolbar chrome, not the engine. So an engine
-  worker would save about 4 ms per key, and a narrower re-render about 50 ms. First opens of panels freeze
-  340-790 ms. The slide map's frame pool adds 289 MB on a gallery deck. No leak was found across repeated
+  worker would save about 4 ms per key, and a narrower re-render about 60 ms. First opens of panels freeze
+  340-790 ms. The slide map's frame pool adds 289-305 MB on a gallery deck. No leak was found across repeated
   open/close cycles. The service worker deletes the on-device model caches on every update. Ranks fixes by
   measured or bounded impact and names the ones that are the owner's call.
 ---
@@ -16,7 +16,7 @@ summary: >
 **The answer.** Startup is no longer the Studio's worst moment. These are, in order:
 
 1. **Export.** On the 4x profile, a 40-slide PDF export keeps the main thread busy for 69 s, with a 4.0 s
-   longest task. PowerPoint takes 60 s. The page is frozen for most of it. The renderer peaks at 1.5 GB, which is
+   longest task. PowerPoint takes 60 s. The page is frozen for most of it. The renderer peaks at 1.6 GB, which is
    in the range where a phone browser kills the tab. The cost is the per-slide capture on the page, not the
    PDF or PPTX worker.
 2. **Typing.** At 4x, every keystroke is a long task: 163 ms of main thread per key on the welcome deck and
@@ -24,7 +24,7 @@ summary: >
    toolbar (Radix, icons, tooltips). The engine and markdown-it together are about 4 ms per key.
 3. **First open of a panel.** The Inspector, reading view, slide map, Present and command palette each freeze
    for 340-790 ms the first time.
-4. **Memory.** Opening the slide map on a 40-slide gallery deck adds 289 MB, and the pool keeps it after the
+4. **Memory.** Opening the slide map on a 40-slide gallery deck adds 289-305 MB, and the pool keeps it after the
    map closes, by design.
 
 Two things look like wins and are not. Moving the engine to a worker would save about 4 ms of 163-206 ms per key
@@ -84,7 +84,8 @@ quiet: the 2026-10-19 frame-loop fix holds.
 ### Export: the capture runs on the page, slide by slide
 
 The CPU profile of the 1x PDF export puts 2.1 s in `deck-export`, 0.95 s in the Compose chunk, 0.64 s in the runtime
-and 7.3 s in native work (style, layout, image decode, raster). The largest named costs are:
+and 7.3 s of native time the profiler could not attribute (its `(program)` bucket, which holds style, layout,
+image decode and raster among other things). The largest named costs are:
 
 - copying computed styles (`getPropertyValue`, 401 ms; `sweepWebRefsForCapture`, `deck-export.js:1211-1250`,
   reads computed style for every element and its two pseudo-elements);
@@ -99,8 +100,8 @@ base64-encodes it with `readAsDataURL`, and decodes it into an `Image`. The comm
 megabytes. So the same stylesheet is serialized, encoded, parsed and thrown away 40 times. The PDF and PPTX
 workers only assemble the file at the end.
 
-The memory follows: the renderer goes from 643 MB before the export to **1,574 MB during it**, and settles at 902 MB
-15 s later.
+The memory follows: the renderer goes from 643-660 MB before the export to **1,574-1,643 MB during it**, and settles
+at 902-905 MB 15 s later.
 
 ### Typing: React re-renders the chrome
 
@@ -118,7 +119,8 @@ The CPU profile of 40 keystrokes at 4x attributes the named JavaScript like this
 | The engine (`engine.js`) and `markdown-it` | 0.15 s | 4 ms |
 | Lint | 0.05 s | 1 ms |
 
-Native work (style, layout, paint) is another 4.1 s, about 100 ms a key.
+Another 4.1 s, about 100 ms a key, is native time the profiler could not attribute (its `(program)`
+bucket; style, layout and paint fall there, but the profile does not split it).
 
 Icons, tooltips and dropdowns re-rendering on a keystroke means the toolbar is inside the subtree that re-renders.
 The source text is state at the top of `StudioShell.tsx`, so every keystroke re-renders the shell. Item 6 of
@@ -130,11 +132,13 @@ keystroke (about 50 ms over 40 keys). The shell derives a voice choice in its re
 
 ### The preview runtime forces one layout per section
 
-`lattice-runtime.js` spends 238 ms of self time over the 40 keys in one function: `patchSectionGeometry`
-(`lib/runtime/index.js:2406-2455`). For each `<section>` it reads `offsetWidth`, writes `--_wide-gutter` and
-`--_sec-1cqi`, then reads `offsetHeight`. The write between two reads forces a fresh layout for every section.
-A `MutationObserver` on the whole body (`:2399`, subtree, characterData and attributes) re-runs it after every
-patch, over every section in the document.
+`lattice-runtime.js` spends 238 ms of self time over the 40 keys in one minified function. Its body matches
+`patchSectionGeometry` (`lib/runtime/index.js:2406-2455`); the build has no source map, so the match is by
+reading, not by mapping. For each `<section>` it reads `offsetWidth`, runs the orientation and family stamps
+(which read size and may write attributes), writes `--_wide-gutter` and `--_sec-1cqi` when they changed, then
+reads `offsetHeight`. Whenever one section's write lands, the next read forces a fresh layout. A `MutationObserver`
+on the whole body (`:2399`, subtree, characterData and attributes) re-runs it after every patch, over every section
+in the document. The profile does not split the 238 ms into forced layouts and the loop's own work.
 
 ### First opens of panels
 
@@ -147,14 +151,13 @@ before that pays the full cost in one task. The slide map also boots up to ten p
 
 Renderer PSS from a clean start, 1x:
 
-| Stage | Renderer PSS |
+| Stage | Renderer PSS (two runs) |
 |---|---|
-| Booted, 8 s settled | 248 MB |
-| After the slide map, Inspector, Present and reading view, all closed again (welcome deck) | 391 MB |
-| 40-slide gallery deck loaded | 354 MB |
-| Slide map open on that deck | 643 MB |
-| **During the PDF export** | **1,574 MB** |
-| 15 s after the export | 902 MB |
+| Booted, 8 s settled | 248-249 MB |
+| 40-slide gallery deck loaded | 354-355 MB |
+| Slide map open on that deck | 643-660 MB |
+| **During the PDF export** | **1,574-1,643 MB** |
+| 15 s after the export | 902-905 MB |
 
 JS heap is a small part of this. After GC it is 29 MB at boot and about 47 MB after the slide map. The rest is
 documents, style, layout and decoded images.
@@ -166,8 +169,8 @@ heap after GC, the document count and the listener count flat (heap 34.7 to 36.5
 **What stays resident, by design or by omission.** Each item was read in the code; only the pool was measured:
 
 - **Preview pools** (`preview-pool.tsx:280-289`). Six surfaces each own a pool of up to 28 frames, and a pool
-  never releases one (the file says this avoids a WebKit leak). Measured: the slide map's pool keeps 9 frames and
-  16 documents after the map closes. A shared pool with one global cap, releasing idle frames on Chromium, would
+  never releases one (the file says this avoids a WebKit leak). Measured in two runs: the slide map's pool keeps 8-9
+  frames and 15-16 documents after the map closes. A shared pool with one global cap, releasing idle frames on Chromium, would
   bound this.
 - **Export data.** `deck-export.js:1383-1413` caps its data-URI memo at 24 M characters and clears it at the
   *start* of the next export (`:1058`), so up to that much stays live between exports. The Print drawer keeps
@@ -222,7 +225,7 @@ Read in `docs/public/sw.js`, not measured:
 Each item says what it would buy and whether the number is **measured**, **bounded** (a limit measured another
 way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the owner.
 
-1. **Make export stop freezing the page and stop peaking at 1.5 GB.**
+1. **Make export stop freezing the page and stop peaking at 1.6 GB.**
    - (a) Yield between slides, so input and paint get a turn. *Bounded:* the longest task falls from 4.0 s to
      one slide's capture; the total is unchanged.
    - (b) Do the per-export work once: parse the stylesheet's font faces once per export, so only the check
@@ -230,8 +233,8 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
      instead of from every slide's serialized copy. *Measured ceiling:* 0.46 s of regex at 1x, about 1.8 s at 4x.
    - (c) Prune the stylesheet each slide's SVG carries to the rules that slide can match, so each `foreignObject`
      image is not megabytes. *Estimated:* most of the base64, decode and GC cost (1.8 s at 1x).
-   - (d) Release rasters, data URIs and the capture frame when the export finishes. *Measured:* 902 MB
-     resident 15 s after export, against 643 MB before.
+   - (d) Release rasters, data URIs and the capture frame when the export finishes. *Measured:* 902-905 MB
+     resident 15 s after export, against 643-660 MB before.
 
    **Owner's call:** this is the export pipeline. CLAUDE.md requires the owner to sign off on dark and light
    renders if the exported bytes change. (a) and (d) should not change them.
@@ -240,10 +243,10 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
    and tooltips are about 60 ms of 163-206 ms per key at 4x. This is item 6 of the 2026-10-22 audit, now with a
    number. It is a large refactor of `StudioShell.tsx` and needs a design note first.
 3. **Fix the runtime's per-section layout thrash.** Read every section's width and height first, then write
-   the variables; skip sections that did not change. *Measured:* 238 ms of self time over 40 keys at 4x, plus
-   the forced layouts it causes. **Owner's call:** `lattice-runtime-min.js` ships inside exports, so the export
+   the variables; skip sections that did not change. *Measured:* 238 ms of self time over 40 keys at 4x,
+   forced layouts included. **Owner's call:** `lattice-runtime-min.js` ships inside exports, so the export
    sign-off applies.
-4. **One shared preview pool with a global cap that releases idle frames on Chromium.** *Measured:* +289 MB for
+4. **One shared preview pool with a global cap that releases idle frames on Chromium.** *Measured:* +289-305 MB for
    the slide map on a gallery deck, still resident after close. Also consider drawing the map's tiles in one
    document instead of one frame per tile.
 5. **Make first opens of panels yield.** Render the panel shell first, then its contents in a transition
@@ -269,10 +272,11 @@ warm start (the warm load is CPU-bound).
 ## What was not measured
 
 - A real phone, Safari or Firefox. The 4x profile is emulated Chromium, so every 4x number is UNVERIFIED on a
-  real device (HARD RULE #23). The 1.5 GB export peak is the number most likely to differ, and to matter, on iOS.
+  real device (HARD RULE #23). The 1.6 GB export peak is the number most likely to differ, and to matter, on iOS.
 - The phone layout (390 px) for anything but startup.
 - One run per profile for the activity table. The startup rows in the 2026-10-23 bake-off show a spread of about
   0.1 s; the activity rows were not repeated.
 - The chat agent, Compose, Fabricate, image import, live collaboration and the on-device models.
-- The memory rows other than the slide-map pool and the export were read in code, not measured.
+- The memory items in §3's list other than the slide-map pool were read in code, not measured.
+- The renderer PSS stages and the leak probe ran twice; the CPU profiles and the trace once.
 - Navigation preload, cache-first HTML and the cache-trim cost were not prototyped.
