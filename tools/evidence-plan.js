@@ -112,10 +112,9 @@ function evidencePlan(changed, registry = JSON.parse(fs.readFileSync(path.join(R
 		const hits = changed.filter(s.match);
 		if (hits.length) steps.push({ surface: s.surface, kind: s.kind, command: s.command, why: s.why, files: hits });
 	}
-	// Every suite the change reaches, including those marked `on_pull_request: false`: the PR run skips them, so the
-	// dispatch below is the only way they run before the merge.
-	const reach = { suites: registry.suites.map((s) => ({ ...s, on_pull_request: true })) };
-	const suites = [...new Set(platformPlan(reach, { event: 'pull_request', changed }).include.map((i) => i.suite))];
+	// Every suite the change reaches, including those off pull requests (the iOS Simulator suites): the PR run skips
+	// them, so the dispatch below is the only way they run before the merge.
+	const suites = [...new Set(platformPlan(registry, { event: 'pull_request', changed, everySuite: true }).include.map((i) => i.suite))];
 	if (suites.length) {
 		steps.push({
 			surface: `real macOS / Windows / iOS Simulator: ${suites.join(', ')}`,

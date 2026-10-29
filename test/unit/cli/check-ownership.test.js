@@ -1519,10 +1519,10 @@ describe('check-ownership', () => {
       assert.ok(probe({ suites: [{ ...good, on_pull_request: 'false' }] }).some((e) => /on_pull_request/.test(e)), 'a string is refused');
     });
 
-    test('an iOS Simulator suite must stay off pull requests', () => {
+    test('an iOS Simulator suite cannot claim a place on pull requests', () => {
       const ios = { ...good, run: 'PROBE=x bash docs/scripts/ios-safari/run.sh' };
-      assert.ok(probe({ suites: [ios] }).some((e) => /iOS Simulator suite/.test(e)), 'missing flag is refused');
       assert.ok(probe({ suites: [{ ...ios, on_pull_request: true }] }).some((e) => /iOS Simulator suite/.test(e)), 'true is refused');
+      assert.deepEqual(probe({ suites: [ios] }), [], 'no flag is fine: the planner keeps it off by its command');
       assert.deepEqual(probe({ suites: [{ ...ios, on_pull_request: false }] }), []);
     });
 

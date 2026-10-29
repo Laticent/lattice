@@ -60,9 +60,11 @@ green (followup `2971-p1`), the PR run is the Studio's only working e2e signal.
 
 **The iOS Simulator suites → nightly and dispatch.** In the 100 platform-suites PR runs from 2026-10-28T10:50Z to
 2026-10-29T02:25Z they ran 49 jobs for about 820 macOS minutes, 27 of the jobs not green (failed or cancelled), and
-they gate nothing. `"on_pull_request": false` in `.github/platform-suites.json` keeps
-them out of every PR run, plumbing edits included. Their `paths` still say when a change reaches them, so
-`npm run evidence` plans a dispatch for exactly those suites.
+they gate nothing. The planner keeps them out of every PR run, plumbing edits included, by their command (a `run`
+that calls `docs/scripts/ios-safari/run.sh`), and `"on_pull_request": false` says so in `.github/platform-suites.json`.
+Deriving it from the command, rather than requiring the flag, came from the card grader: #2961 added a fourth iOS suite
+without the flag, and a rule that needs every new suite to remember it is a rule a new suite will break. Their `paths`
+still say when a change reaches them, so `npm run evidence` plans a dispatch for exactly those suites.
 
 **`unit (node 22)` stays, and its flake is fixed.** Nothing else runs the unit suite before the queue (pre-push dropped
 `npm test`), so moving it would turn every unit failure into a queue ejection. 7 of its 29 failures were "Timed out

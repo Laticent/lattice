@@ -497,8 +497,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `paths` still say when a change reaches them, and `npm run evidence` prints the dispatch to run before the merge.
 - **Add one:** an entry in the registry with `name`, `os`, `paths`, `run`, a `why` that names the OS-dependent behavior Linux cannot
   show, and `on_pull_request: false` if it should run only nightly and on dispatch; then `npm run build:check` (`checkPlatformSuites`
-  rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite, one whose `run` calls
-  `docs/scripts/ios-safari/run.sh`, without `on_pull_request: false`).
+  rejects a malformed entry, a `run` naming a deleted file, and an iOS Simulator suite that says `on_pull_request: true`).
+  An iOS Simulator suite, one whose `run` calls `docs/scripts/ios-safari/run.sh`, is off pull requests by its command,
+  with or without the flag, so a new one cannot land on PRs by forgetting it.
 - **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
   `engineering/decisions/2026-10-18-platform-suites.md`.
 - **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
