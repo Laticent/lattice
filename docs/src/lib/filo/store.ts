@@ -135,9 +135,21 @@ export function compactSnapshot(snap: Snapshot): Snapshot {
 export function createFiloStore(backend: Backend, opts: FiloStoreOptions = {}): FiloStore {
 	const budget = opts.budget ?? DEFAULT_BUDGET;
 	const now = opts.now ?? (() => Date.now());
-	// The generation this store was opened at, read once. A clear raises the stored number and NOT
-	// this one: from then on every write from this page is refused until it reloads.
-	const gen = backend.generation().catch(() => -1);
+	// The generation this store was opened at. A clear raises the stored number and NOT this one:
+	// from then on every write from this page is refused until it reloads. A read that failed (an
+	// IndexedDB hiccup) is tried again at the next write rather than refusing every write for the
+	// session; a store that ran the clear itself refuses its own writes outright, so a retry after
+	// its own clear can never let its `pagehide` flush through.
+	let gen = backend.generation().catch(() => -1);
+	let cleared = false;
+	const generation = async () => {
+		let g = await gen;
+		if (g < 0 && !cleared) {
+			gen = backend.generation().catch(() => -1);
+			g = await gen;
+		}
+		return g;
+	};
 	// The time each document was claimed: a delete after it (in another tab) refuses this writer.
 	const claimed = new Map<string, number>();
 	const releases = new Map<string, () => void>();
@@ -180,7 +192,8 @@ export function createFiloStore(backend: Backend, opts: FiloStoreOptions = {}): 
 			const since = claimed.get(snap.doc);
 			if (since === undefined) return Promise.resolve(false);
 			return enqueue(async () => {
-				const g = await gen;
+				if (cleared) return false;
+				const g = await generation();
 				if (g < 0) return false;
 				const marks = snap.marks.filter((m) => !m.auto).length;
 				const row: StoredIndex = { doc: snap.doc, bytes: snapshotBytes(snap), writtenAt: now(), marks, core: coreBytes(snap) };
@@ -199,12 +212,13 @@ export function createFiloStore(backend: Backend, opts: FiloStoreOptions = {}): 
 		},
 		remove: (doc) => enqueue(() => backend.remove(doc, now()).catch(() => {})),
 		clear: () =>
-			enqueue(() =>
-				backend.clear().then(
+			enqueue(() => {
+				cleared = true;
+				return backend.clear().then(
 					() => true,
 					() => false,
-				),
-			),
+				);
+			}),
 		settled: () => queue.then(() => {}),
 	};
 }

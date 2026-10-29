@@ -728,7 +728,7 @@ it differs from the plan above, and why:
   Studio paints (an IndexedDB read, then the worker's replay). An author who types in that moment
   keeps the edit as one step, "Edits before the history loaded", on top of the stored past; the
   first cut refused the stored past and the next write overwrote it (the checker reproduced it).
-- **A failed write is retried** by the next idle write or the `pagehide` flush, and a deck deleted
+- **A failed write is retried** by the next idle write or the `pagehide` flush, a generation read that failed is read again at the next write (a store that ran Clear all refuses its own writes outright, so the retry cannot let its flush through), a worker request that gets no answer falls back after 15 s, and a deck deleted
   in one tab leaves a tombstone, so a tab that still shows it (and holds its lock) cannot write it
   back. A tab holds the lock of every deck it opened for the session, and a tab that started
   memory-only stays so.

@@ -240,6 +240,8 @@ export function filoStore(): FiloStore {
 	return shared;
 }
 
+/** How long a worker request may take before the caller falls back (no narrowing; replay in place). */
+const ASK_TIMEOUT_MS = 15_000;
 let worker: Worker | null | undefined;
 let nextId = 1;
 const waiting = new Map<number, (reply: { snap?: Snapshot | null; ok?: boolean } | null) => void>();
@@ -268,7 +270,16 @@ function ask(kind: 'narrow' | 'verify', snap: Snapshot): Promise<{ snap?: Snapsh
 	if (!w) return Promise.resolve(null);
 	const id = nextId++;
 	return new Promise((resolve) => {
-		waiting.set(id, resolve);
+		// A worker that never answers (a chunk that failed to load without an error event) must not
+		// hold a deck's history open forever: past the timeout the caller takes its no-worker path.
+		const timer = setTimeout(() => {
+			waiting.delete(id);
+			resolve(null);
+		}, ASK_TIMEOUT_MS);
+		waiting.set(id, (reply) => {
+			clearTimeout(timer);
+			resolve(reply);
+		});
 		w.postMessage({ id, kind, snap });
 	});
 }

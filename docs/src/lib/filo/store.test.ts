@@ -63,6 +63,16 @@ for (const [name, make] of backends) {
 			expect(await later.write(snapOf('a', 'three\n')), 'a claim after the delete writes').toBe(true);
 		});
 
+		it('a generation read that failed once is retried, not held against every later write', async () => {
+			const backend = make();
+			const real = backend.generation.bind(backend);
+			let fails = 1;
+			backend.generation = () => (fails-- > 0 ? Promise.reject(new Error('busy')) : real());
+			const store = createFiloStore(backend);
+			await store.claim('a');
+			expect(await store.write(snapOf('a', 'one\n'))).toBe(true);
+		});
+
 		it('clear reports whether it reached storage', async () => {
 			const backend = make();
 			expect(await createFiloStore(backend).clear()).toBe(true);
