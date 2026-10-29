@@ -26,9 +26,9 @@ source: https://github.com/Laticent/lattice/pull/2964
        not 2964  — the same three fail identically with main's versions of the three docs
                    files that PR changes; nothing in it touches the Studio or docs/public/sw.js.
        why now   — the specs are nightly-only, and studio-e2e-nightly has not reported:
-                   10-28 timed out at 45 min, 10-27 failed, 10-26 cancelled. So the comparison
-                   page's "works offline" is true for the Studio shell but not, today, for
-                   Present, the reading view or a first-time diagram.
+                   10-28 timed out at 45 min, 10-27 failed, 10-26 cancelled. PR 2964 scoped the
+                   comparison page to "keep writing offline once you've used it" because of
+                   this; once these pass, the page can promise Present and reading offline.
        suspect   — #2906 (97b3034) "drop the home runtime prefetch" touched the warm-up
                    path; bisect from there.
        done when — the three specs pass on a real build with --retries=0, and the nightly
