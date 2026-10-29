@@ -181,7 +181,11 @@ async function latticeUndoProbe() {
 
 		const undoType = await k.command('undo');
 		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || 'no beforeinput');
-		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command');
+		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command').catch((e) => {
+			// Say where the undo went: one step too many (the paste gone too) or none, and what the Studio announced.
+			const now = k.deckText();
+			throw new Error(`${e.message} (editor ${now.length} chars, pasted ${pasted.length}, typed ${typed.length}; ends ${JSON.stringify(now.slice(-30))}; said ${JSON.stringify(k.said())})`);
+		});
 		k.step('the WebKit undo command undid the word', true);
 		await k.until(() => k.said().startsWith('Undid'), 5000, 'the "Undid" announcement');
 		k.step('the Studio said what it undid', true, k.said().trim());
