@@ -22,7 +22,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
-const { applyAllFixes } = require('../lib/authoring/lint-core');
+const { fixAllDetailed } = require('../lib/authoring/lint-core');
 // review-core carries the advisory presentation suggestions (brevity / density /
 // verbose chrome). Wiring it here means a CLI / agent author SEES density budgets
 // too — not just the browser Drawing Board panel (2026-06-30 red-team fix). It is
@@ -132,8 +132,8 @@ async function main(argv) {
   const strict = flags.has('--strict');
   const asJson = flags.has('--json');
   // --fix: apply every machine-appliable finding in place, then lint what is left. The
-  // SAME engine as the Studio's "Fix all" (lint-core `applyAllFixes`), so the two
-  // surfaces cannot disagree about what a fix does. It is how a deck written before a
+  // SAME engine as the Studio's "Fix all" (lint-core `applyAllFixes`, which runs Squadra's fix
+  // driver), so the two surfaces cannot disagree about what a fix does. It is how a deck written before a
   // grammar change migrates in one command — e.g. rule 16 rewriting an old verdict-grid
   // `[ ]` ("not met") to `[!]`.
   const fix = flags.has('--fix');
@@ -205,10 +205,12 @@ async function main(argv) {
     const raw = fs.readFileSync(file, 'utf8');
     let source = raw.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
     if (fix) {
-      // Name what is about to change, by rule and slide, BEFORE rewriting — `--fix` applies
-      // every machine fix, not only rule 16's, and the author should see each one.
-      const planned = lintText(source, { vocab }).filter((f) => f.autofixable);
-      const fixed = applyAllFixes(source, vocab);
+      // Name what changed, by rule and slide — `--fix` applies every machine fix, not only rule
+      // 16's, and the author should see each one — and every fix the driver refused, with why
+      // (a fix inside a code fence, one that would change the slide count, one that did not
+      // resolve its finding), so a refusal never reads as "nothing to fix".
+      const { text: fixed, applied, skipped } = fixAllDetailed(source, vocab);
+      for (const s of skipped) process.stderr.write(`lint:deck --fix — ${relFromRoot(file)} · slide ${s.slide} · ${s.rule} — not applied: ${s.reason}${s.detail ? ` (${s.detail})` : ''}\n`);
       if (fixed !== source) {
         // Write back in the file's own encoding: its BOM and EACH LINE'S OWN ending, so a
         // fix is a diff on the lines it changed and nowhere else — CRLF, lone CR and a
@@ -228,7 +230,7 @@ async function main(argv) {
         }
         fs.writeFileSync(file, bom + text);
         process.stderr.write(`lint:deck --fix — rewrote ${relFromRoot(file)}\n`);
-        for (const f of planned) process.stderr.write(`  · slide ${f.slide} · ${f.rule}\n`);
+        for (const a of applied) process.stderr.write(`  · slide ${a.slide} · ${a.rule}\n`);
         source = fixed;
       }
     }

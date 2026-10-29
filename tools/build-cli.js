@@ -48,7 +48,7 @@ const check  = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
 // `packages: 'external'`, except the workspace libraries in INLINE_PACKAGES.
-const INLINE_PACKAGES = ['@laticent/trama', '@laticent/calco', '@laticent/segno', '@laticent/ltt', '@laticent/cadenza', '@laticent/mosaico', '@laticent/fluido'];
+const INLINE_PACKAGES = ['@laticent/trama', '@laticent/calco', '@laticent/segno', '@laticent/ltt', '@laticent/cadenza', '@laticent/mosaico', '@laticent/fluido', '@laticent/squadra'];
 
 function inlineWorkspaceLibs() {
   return {

@@ -1475,6 +1475,37 @@ Rule-by-rule migration means some rules run in Squadra and the rest in lint-core
 Rule ids keep working: the adapter writes the `legacy` id into `rule`, so `'capacity-scale'` comparisons keep matching
 while `deck/capacity-scale` is the Squadra id.
 
+**As built in M1a (2026-10-29).** `lib/authoring/squadra/bridge.js` and `lattice-line.js`; lint-core's
+`applyAllFixes` is now `fixAllDetailed(source, vocab).text`, so the Studio's "Fix all", the Playground and
+`lint:deck --fix` all reach the driver through one function. The driver loads on demand: the browser hosts
+`await loadFixDriver()` before "Fix all", whose `import()` is its own chunk, so the lint core that loads at startup
+does not carry it (`lintCoreGz`, parent note §10.4).
+
+- **The producer** reports every lint-core finding, fixable or not, so the resolution check sees a fix's finding
+  come back. A finding's span is the line `applyFix` would edit, found by lint-core's own `fixLineIndex` (the walk
+  `applyFix` now calls). That walk skips lines inside code fences: a fix used to land on an identical fenced copy
+  above the live line for every rule matched on line text (eleven rules, measured by the fix diff's fourth corpus),
+  and a finding only a fence matches has no fix at all. The card, ledger, split and number-slot rules also read
+  their slide with fences blanked and record the line's `chunkLine`.
+- **`lattice-line` runs `applyFix` itself** and lowers its result to the one smallest edit, anchored at the start of
+  the line the fix names (a head matched past it would slide a deletion onto the next line when the two share a
+  prefix). So every unmigrated rule keeps its exact rewrite, PR #2947's `dropEmptiedFrontMatter` included, and the
+  edit stays local, so non-overlapping fixes still batch. A fix on a front-matter line declares `changes:
+  ['front-matter']`, because emptying the block on purpose drops it.
+- **The language** is not `lattice-deck`: it knows only what the driver checks. Its units are the slides counted as
+  lint-core numbers them (`splitTopLevel`), its header is the front matter, and its inert ranges are the code fences,
+  read by `fencedLines` (lib/core/shape-glyphs.js), the reader behind lint-core's `stripFencedCode`, so a line a rule
+  reads as live is never one the driver refuses as fenced.
+- **The pass cap stays at 500.** lint-core reports several rules once per slide per lint, so a slide with sixty
+  card items takes sixty passes.
+- **Each fix keeps its finding's `data`** (`AppliedFix.data`, `SkippedFix.data`), so `lint:deck --fix` names the
+  slide lint-core numbered on the text of that fix's own pass.
+- **The legacy-shape adapter is not needed yet.** "Fix all" returns text, so no consumer reads a Squadra finding
+  before M1b; the adapter lands with the first migrated rule.
+- **`lint:deck --fix` prints every refusal** with its rule, slide and reason, so a refused fix never reads as
+  "nothing to fix". The Studio's "Fix all" still shows only the result; surfacing `skipped` there is a Studio change
+  of its own.
+
 ### 15.5 Milestones as they touch Lattice
 
 | Milestone | Lattice work | Depends on |

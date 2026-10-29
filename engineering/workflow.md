@@ -842,7 +842,8 @@ qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is
 - **Baseline-scored** — the check compares the tree against a COMMITTED baseline that a bless
   script rewrites: `test/oracle/family-*.json` and `player-contrast.json` and the golden PDFs
   (`integration-nightly`), the per-deck clip counts the overflow tool itself calls a ratchet
-  (`overflow-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
+  (`overflow-nightly`), the per-component clip, unreadable and lost counts in `test/fit/baseline.json`
+  (`fit-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
   (`studio-e2e`). Blessing turns the check green without fixing anything, and **the run cannot
   tell the two apart** — so a green night means "the tree matches the baseline", not "the finding
   is fixed". These comment and leave the thread open.

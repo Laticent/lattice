@@ -35,6 +35,7 @@ const PACKAGES = {
 	fuoco: ['.', './react'],
 	mosaico: ['.'],
 	fluido: ['.'],
+	squadra: ['.', './driver'],
 	segno: ['.', './values', './read'],
 	trama: ['.', './radial'],
 	calco: ['.'],

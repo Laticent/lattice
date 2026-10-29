@@ -683,6 +683,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 				(async () => {
 					const core = lintCoreMod || (await loadLintCore());
 					if (!core) return;
+					// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
+					await core.loadFixDriver();
+					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
 					const cur = v.state.doc.toString();
 					const out = core.applyAllFixes(cur, vocabSets);
 					if (out != null && out !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });

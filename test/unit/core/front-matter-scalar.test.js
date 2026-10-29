@@ -212,7 +212,9 @@ describe('block-scalar header — linear on a long run of spaces', () => {
     best(1000);
     const small = best(10000);
     const large = best(40000);
-    assert.ok(large < small * 10, `header scan must not square: ${small.toFixed(2)}ms at 10K, ${large.toFixed(2)}ms at 40K`);
+    // A sub-millisecond read is timer noise, not the algorithm: the quadratic scan took ~1,900 ms at
+    // 40K, so the 5 ms floor still catches it ~380x over (it ejected #2953 at 0.05 vs 0.52 ms).
+    assert.ok(large < 5 || large < small * 10, `header scan must not square: ${small.toFixed(2)}ms at 10K, ${large.toFixed(2)}ms at 40K`);
     assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
   });
 

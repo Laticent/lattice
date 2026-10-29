@@ -679,6 +679,118 @@ async function splitTier() {
   return { summary };
 }
 
+// ── SQUADRA TIER (the lint-and-fix library: driver, hostile input, compile cost) ─────────
+//
+// Squadra M1a's HARD RULE #19 record (engineering/decisions/2026-10-26-squadra-lint-library/
+// design.md §11.6). Four scenarios, each on a small line language defined here so the tier
+// measures the library and nothing Lattice adds:
+//   · fix · 50 findings     — the fix driver on one source with 50 fixable findings: passes and
+//                             fixes applied are the work (one pass, 50 fixes, where the old
+//                             one-fix-per-pass loop took 50 re-lints);
+//   · lint · 1 MB one token — hostile input: a 1 MB file of one repeated line, every line visited;
+//                             the findings cap (1000) must stop the flood;
+//   · select · depth 1000   — a 1000-level tree under a selector mixing child and descendant;
+//   · compile · per rule    — the strict compile, which runs every rule on its own examples
+//                             (design §8.2): 50 rules, reported per rule.
+// It GATES ON WORK, like the split tier: passes, applied, findings and ops are deterministic, so a
+// moved count is a behavior change to re-bless with the PR saying why. `ms` is the cost record.
+//
+// A BASE WORKTREE MAY HAVE NO SQUADRA: the tier reports itself not comparable rather than failing.
+async function squadraTier() {
+  const distPath = join(ROOT, 'docs/src/lib/squadra/dist/index.mjs');
+  if (!existsSync(distPath)) {
+    console.log('\n=== SQUADRA · not comparable (no @laticent/squadra in this tree) ===');
+    return { summary: [] };
+  }
+  const sq = await import(distPath);
+  // Lines, grouped into units by `===`; the unit count is the shape.
+  const lines = {
+    id: 'lines', version: '1', kinds: ['doc', 'unit', 'line'],
+    parse(source) {
+      const units = [];
+      let unit = [];
+      let unitFrom = 0;
+      let pos = 0;
+      for (const l of source.text.split('\n')) {
+        const end = pos + l.length;
+        if (l === '===') { units.push({ kind: 'unit', from: unitFrom, to: pos, kids: unit }); unit = []; unitFrom = end + 1; }
+        else if (l) unit.push({ kind: 'line', from: pos, to: end, kids: [] });
+        pos = end + 1;
+      }
+      units.push({ kind: 'unit', from: unitFrom, to: source.text.length, kids: unit });
+      return { tree: { kind: 'doc', from: 0, to: source.text.length, kids: units }, errors: [] };
+    },
+    shape: (tree) => ({ units: tree.kids.length, header: null, inert: [] }),
+  };
+  const rule = (id) => ({
+    id: `bench/${id}`, language: 'lines', severity: 'warning', summary: 'A TODO.', examples: 'todo.md', fixable: true, budget: { ops: 10_000_000 },
+    visit: {
+      line(node, ctx) {
+        const t = ctx.text(node);
+        const i = t.indexOf('TODO');
+        if (i < 0) return;
+        const span = { from: node.from + i, to: node.from + i + 4 };
+        ctx.report({ span, message: 'TODO', fixes: [sq.editsFix('done', { op: 'replace', span, text: 'DONE' })] });
+      },
+    },
+  });
+  const examples = { 'todo.md': '```t bad\nx ⟦TODO⟧\n```\n```t fixed\nx DONE\n```\n```t good\nx DONE\n```\n' };
+  const time = (fn, runs) => {
+    for (let i = 0; i < 2; i++) fn();
+    const ms = [];
+    let out;
+    for (let i = 0; i < runs; i++) {
+      const t0 = process.hrtime.bigint();
+      out = fn();
+      ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    ms.sort((a, b) => a - b);
+    return { out, ms: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)] };
+  };
+  const rs = sq.compileRuleset({ name: 'bench', version: '1', languages: [lines], rules: [rule('todo')], examples });
+  const summary = [];
+
+  const deck = Array.from({ length: 50 }, (_, i) => `slide ${i}\nTODO item ${i}\nplain line\n`).join('===\n');
+  const f = time(() => sq.fix(rs, { path: 'deck', text: deck, language: 'lines' }), 20);
+  summary.push({ dataset: 'squadra · fix · 50 findings', passes: f.out.passes, applied: f.out.applied.length, findings: f.out.remaining.length, ops: 0, ms: f.ms, p95: f.p95 });
+
+  const mb = 'TODO\n'.repeat(Math.floor((1 << 20) / 5));
+  const l = time(() => sq.lint(rs, [{ path: 'big', text: mb, language: 'lines' }]), 5);
+  summary.push({ dataset: 'squadra · lint · 1 MB one token', passes: 0, applied: 0, findings: l.out.findings.length, ops: l.out.stats.perRule['bench/todo'].ops, ms: l.ms, p95: l.p95 });
+
+  // Depth from the text: one nesting level per leading `d`, kinds alternating, so a real rule with
+  // real examples can run on a 1000-level tree through lint().
+  const deep = {
+    id: 'deep', version: '1', kinds: ['doc', 'unit', 'line'],
+    parse(source) {
+      const depth = /^d*/.exec(source.text)[0].length;
+      let n = { kind: 'line', from: 0, to: source.text.length, kids: [] };
+      for (let i = 0; i < depth; i++) n = { kind: i % 2 ? 'unit' : 'line', from: 0, to: source.text.length, kids: [n] };
+      return { tree: { kind: 'doc', from: 0, to: source.text.length, kids: [n] }, errors: [] };
+    },
+    shape: () => ({ units: 1, header: null, inert: [] }),
+  };
+  const deepRule = {
+    id: 'bench/deep', language: 'deep', severity: 'info', summary: 'A mixed selector on a deep tree.', examples: 'deep.md', budget: { ops: 1e9 },
+    check(root, ctx) {
+      const hits = ctx.select(root, 'unit line > unit, > line unit line');
+      if (ctx.raw(root).includes('!')) ctx.report({ span: { from: 0, to: 0 }, message: `${hits.length} hits` });
+    },
+  };
+  const deepRs = sq.compileRuleset({ name: 'bench', version: '1', languages: [deep], rules: [deepRule], examples: { 'deep.md': '```d bad\ndddd!\n```\n```d good\ndddd\n```\n' } });
+  const d = time(() => sq.lint(deepRs, [{ path: 'deep', text: `${'d'.repeat(1000)}!`, language: 'deep' }]), 5);
+  summary.push({ dataset: 'squadra · select · depth 1000', passes: 0, applied: 0, findings: d.out.findings.length, ops: d.out.stats.perRule['bench/deep'].ops, ms: d.ms, p95: d.p95 });
+
+  const many = Array.from({ length: 50 }, (_, i) => rule(`todo-${i}`));
+  const c = time(() => sq.compileRuleset({ name: 'bench', version: '1', languages: [lines], rules: many, examples }), 5);
+  summary.push({ dataset: 'squadra · compile · per rule', passes: 0, applied: 0, findings: c.out.rules.length, ops: 0, ms: c.ms / many.length, p95: c.p95 / many.length });
+
+  console.log('\n=== SQUADRA · fix driver, hostile input, strict compile ===');
+  console.log(`${'dataset'.padEnd(34)}${'passes'.padStart(8)}${'applied'.padStart(9)}${'findings'.padStart(10)}${'ops'.padStart(10)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}`);
+  for (const r of summary) console.log(`${r.dataset.padEnd(34)}${String(r.passes).padStart(8)}${String(r.applied).padStart(9)}${String(r.findings).padStart(10)}${String(r.ops).padStart(10)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
+  return { summary };
+}
+
 // ── INLINE-SPAN TIER (the inline-code dispatcher, per span) ──────────────────
 //
 // Every inline-code span an author writes passes through lib/core/inline-code-directives.js,
@@ -1404,7 +1516,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1504,6 +1616,10 @@ function blessBaseline(summary, render, opts = {}) {
   const splitOut = tierRows(splitSummary?.length ? splitSummary : null, 'splitDatasets', (s) => ({
     slides: s.slides, split: s.split, pages: s.pages, ms: round2(s.ms), p95: round2(s.p95),
   }));
+  // THE SQUADRA TIER BLESSES ITS WORK COUNTS; `ms` is the cost record, as in the split tier.
+  const squadraOut = tierRows(squadraSummary?.length ? squadraSummary : null, 'squadraDatasets', (s) => ({
+    passes: s.passes, applied: s.applied, findings: s.findings, ops: s.ops, ms: Math.round(s.ms * 1000) / 1000, p95: Math.round(s.p95 * 1000) / 1000,
+  }));
   // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
   // two ns columns ride along so the diff shows the size of a change in real units.
   const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
@@ -1575,6 +1691,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(collageOut ? { collageDatasets: collageOut } : {}),
     // The structural split over the gallery: slides split and pages emitted. Blessed on every bless.
     ...(splitOut ? { splitDatasets: splitOut } : {}),
+    // Squadra: the fix driver's passes and fixes, hostile-input ops, compile cost. Blessed on every bless.
+    ...(squadraOut ? { squadraDatasets: squadraOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
     // Blessed on every bless.
     ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
@@ -1589,6 +1707,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
   if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
   if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
+  if (squadraSummary?.length) wrote.push(`${squadraSummary.length} squadra`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
@@ -1666,6 +1785,7 @@ function checkBaseline(summary, render, opts = {}) {
   const flowchartSummary = opts.flowchartSummary ?? null;
   const collageSummary = opts.collageSummary ?? null;
   const splitSummary = opts.splitSummary ?? null;
+  const squadraSummary = opts.squadraSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
@@ -1998,6 +2118,31 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE SQUADRA TIER. Gates on WORK: passes, fixes applied, findings and ops are deterministic, so a
+  // moved count is a behavior change to re-bless with the PR saying why; more ops is a regression.
+  if (squadraSummary?.length) {
+    console.log('\n=== SQUADRA CHECK \u00b7 driver passes, fixes and ops vs committed baseline ===');
+    for (const s2 of squadraSummary) {
+      const b = base.squadraDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(34)}  NEW (re-bless)`);
+        continue;
+      }
+      const worse = s2.ops > b.ops || s2.passes > b.passes;
+      const moved = b.passes !== s2.passes || b.applied !== s2.applied || b.findings !== s2.findings || b.ops !== s2.ops;
+      if (worse) regressedDatasets.push(s2.dataset);
+      else if (moved) drift = true;
+      console.log(`${s2.dataset.padEnd(34)}  passes ${b.passes} \u2192 ${s2.passes}, applied ${b.applied} \u2192 ${s2.applied}, ops ${b.ops} \u2192 ${s2.ops}  ${worse ? 'REGRESSION (more work)' : moved ? 'MOVED (re-bless, and say why)' : 'ok'}`);
+    }
+    for (const name of Object.keys(base.squadraDatasets ?? {})) {
+      if (!squadraSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(34)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   if (inlineSkipped === 'failed') {
     // Drift, not a timing verdict: the rows recorded nothing this run, on any machine.
     drift = true;
@@ -2240,6 +2385,8 @@ async function main() {
   const collage = await collageTier();
   // In-process (~3s), and blessed on its work counts: the structural split's cost record (Fluid).
   const split = await splitTier();
+  // In-process (~3s), and blessed on its work counts: Squadra's HARD RULE #19 record.
+  const squadra = await squadraTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
   const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
@@ -2249,7 +2396,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2273,7 +2420,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2341,7 +2488,7 @@ async function main() {
         // between two passes on the same tree. Reporting the cheap deterministic one
         // as "a browser tier" misattributes both the cost and the reason.
         // The flowchart tier gates on deterministic counts too, so it reads like the edit tier.
-        const countTier = (n) => n.startsWith('edit \u00b7 ') || n.startsWith('flowchart \u00b7 ') || n.startsWith('collage pack \u00b7 ');
+        const countTier = (n) => n.startsWith('edit \u00b7 ') || n.startsWith('flowchart \u00b7 ') || n.startsWith('collage pack \u00b7 ') || n.startsWith('squadra \u00b7 ');
         const editRegressed = browserTierRegressed.filter(countTier);
         const trueBrowserRegressed = browserTierRegressed.filter((n) => !countTier(n));
         if (trueBrowserRegressed.length) parts.push(`${trueBrowserRegressed.join(', ')} — one pass, the browser tiers are not re-measured`);
@@ -2365,7 +2512,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',
