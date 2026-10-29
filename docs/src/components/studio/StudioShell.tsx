@@ -4601,14 +4601,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// editor's DOM behind its model.
 		// macOS Safari sends one Edit-menu Undo as TWO historyUndo events (ios-safari-undo, Safari 26.6):
 		// a second within 100 ms is still refused but not run, or one Undo would take back two steps.
-		let lastAsk = Number.NEGATIVE_INFINITY;
+		let askAfter = 0;
 		const onBeforeInput = (e: InputEvent) => {
 			if (e.isComposing) return;
 			const verb = historyInput(e.inputType);
 			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
 			e.preventDefault();
-			if (e.timeStamp - lastAsk < 100) return;
-			lastAsk = e.timeStamp;
+			if (e.timeStamp < askAfter) return;
+			askAfter = e.timeStamp + 100;
 			runHistoryRef.current(verb);
 		};
 		window.addEventListener('keydown', onKey);
