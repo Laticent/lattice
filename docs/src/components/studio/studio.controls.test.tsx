@@ -342,7 +342,14 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
-	it('the slide toolbar adds (via the gallery), duplicates, and deletes slides', async () => {
+	// The strip's slide menu (lib/strip-actions), from the ⋯ beside the current slide: the icon row it replaced is gone
+	// (2026-10-27-slide-structure-strip.md §12 item 11).
+	const stripAction = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
+		await user.click(within(document.querySelector('nav[aria-label="Slide navigator"]') as HTMLElement).getByRole('button', { name: 'Slide actions' }));
+		await user.click(await screen.findByRole('menuitem', { name }));
+	};
+
+	it('the strip adds (via the gallery), duplicates, and deletes slides', async () => {
 		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
@@ -360,11 +367,11 @@ describe('Studio — every top-bar control responds', () => {
 		await user.click(within(addDialog).getByRole('button', { name: /Insert Blank/i }));
 		expect(railCount()).toBe(start + 1);
 		// Duplicate → grows again.
-		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 2);
 		// Delete takes one tap: the one undo history can put it back (2026-10-27-slide-structure-strip.md §7). It asks
 		// first only in a Live session with others, which this one is not.
-		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		await stripAction(user, /^Delete/);
 		expect(railCount()).toBe(start + 1);
 	});
 
@@ -375,7 +382,7 @@ describe('Studio — every top-bar control responds', () => {
 		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 		const start = railCount();
 		const before: string = view().state.doc.toString();
-		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		await stripAction(user, /^Delete/);
 		expect(railCount()).toBe(start - 1);
 		expect(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' })).toBeTruthy();
 		// Type at the very end of the deck, in a slide the delete did not touch.
@@ -383,7 +390,7 @@ describe('Studio — every top-bar control responds', () => {
 		v.dispatch({ changes: { from: v.state.doc.length, insert: ' typed' }, userEvent: 'input.type' });
 		// The note's Undo would now take back the typing, not the delete it names, so it is gone.
 		await waitFor(() => expect(document.querySelector('[data-strip-note] button')).toBeNull());
-		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
 		await user.keyboard('{Control>}z{/Control}');
 		expect(railCount()).toBe(start - 1);
 		await user.keyboard('{Control>}z{/Control}');
@@ -404,9 +411,9 @@ describe('Studio — every top-bar control responds', () => {
 		const v = view();
 		const at = v.state.doc.toString().indexOf('\n---', v.state.selection.main.head);
 		v.dispatch({ changes: { from: at, insert: ' TYPED' }, userEvent: 'input.type' });
-		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		await stripAction(user, /^Delete/);
 		expect(view().state.doc.toString()).not.toContain('TYPED');
-		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
 		await user.keyboard('{Control>}z{/Control}');
 		expect(view().state.doc.toString()).toBe(original.slice(0, at) + ' TYPED' + original.slice(at));
 		v.focus();
@@ -417,11 +424,11 @@ describe('Studio — every top-bar control responds', () => {
 	it('two quick identical ops are two steps: the note’s Undo takes back only the second', async () => {
 		// The checker's case against the Filo rebase: inside Filo's typing window, two Duplicates with one label and one
 		// origin joined into one step, and one Undo took back both.
-		await setup();
+		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
-		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
-		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		await stripAction(user, /^Duplicate/);
+		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 2);
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start + 1));
@@ -430,13 +437,13 @@ describe('Studio — every top-bar control responds', () => {
 	it('an op that changes nothing shows no note, so its Undo cannot take back the step before it', async () => {
 		// Duplicate, then move the copy past its identical original: the deck reads the same. The checker found the
 		// note still said "Slide moved." with an Undo that took back the Duplicate.
-		await setup();
+		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
-		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
-		fireEvent.click(screen.getByRole('button', { name: 'Move slide earlier' }));
+		await stripAction(user, /^Move earlier/);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start));
@@ -448,7 +455,7 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
 		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
-		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		await stripAction(user, /^Delete/);
 		const left: string = view().state.doc.toString();
 		const v = view();
 		const end = v.state.doc.length;
@@ -463,10 +470,10 @@ describe('Studio — every top-bar control responds', () => {
 		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
-		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
-		await user.click(screen.getByRole('button', { name: 'Move slide later' }));
-		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		await stripAction(user, /^Move later/);
+		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
 		await user.keyboard('{Control>}z{/Control}');
 		await user.keyboard('{Control>}z{/Control}');
 		expect(railCount()).toBe(start);

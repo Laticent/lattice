@@ -315,7 +315,7 @@ outliner that carries the ids, and fails on the earlier code.)
 
 | Surface | Change |
 |---|---|
-| Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it |
+| Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it (done, item 11) |
 | Preview | + New slide floats over its bottom-right corner, above the strip, at every width |
 | Editor header `+ Add` | Becomes a labeled "New slide", shown while the preview is collapsed |
 | Phone drawer "Add slide" | Removed: the phone's edit pane has its own round door |
@@ -416,7 +416,14 @@ Each is a file in `followups.d/2927-p<n>-…`.
     `e2e/strip-drag.spec.ts`: mouse on desktop, CDP touch on the 820 and 390 touch projects, and pointer events of type
     touch on WebKit at an iPhone box. Not verified: a real phone's touch pipeline and iOS Safari's long-press
     handling.)*
-11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo.
+11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo. *(Built: the four-button group that
+    led the strip (`slideOps`, `RailOp`) is gone from `StudioShell.tsx`, and the pre-paint skeleton
+    (`StudioChromeSkeleton.tsx`) draws the strip as the app now does: the pills from the row's edge, the current one with
+    its ⋯. Every spec and unit test that drove the row now drives the menu through `stripAction` (`e2e/studio-fixture.ts`)
+    or a right-click: `slide-ops.spec.ts` (which also gains a drag arm), `compose-stress.spec.ts`, `studio-map.spec.ts`
+    and `studio.controls.test.tsx`. `status-pill.spec.ts` and `compose-note-motion.spec.ts`, which the follow-up named,
+    no longer touched the row. On the map, the ⋯ draws at 28px on touch over a 48px hit area, so it does not cover a
+    third of a 72px tile.)*
 12. ~~The "Move before" notice on its own lifetime~~ Retired 2026-10-28: the door asks Before | After in place (§5).
 
 **Phase 4 · Position and polish**

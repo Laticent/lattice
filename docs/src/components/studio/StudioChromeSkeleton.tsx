@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2, Undo2,
+	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -354,7 +354,7 @@ export function StudioEditorPaneSkeleton() {
  * WHAT THIS FILE MAY DRAW, AND WHAT IT MAY NOT.
  *
  * Draw the REAL control wherever its identity is fixed — the topbar run, the eight-cell bar,
- * the navigator's slide ops. Those are chrome: they are the same for every visitor and every
+ * the navigator's slide menu button. Those are chrome: they are the same for every visitor and every
  * deck, so drawing them is a promise the app always keeps.
  *
  * Do NOT draw per-deck CONTENT — slide names, the slide count, the active palette. The shell
@@ -450,8 +450,8 @@ export function StudioPreviewBarSkeleton() {
 export function StudioPreviewFooterSkeleton() {
 	return (
 		<>
-			{/* The app's navigator row: `px-3 py-2`, the four ops in a bordered `p-0.5` group of
-			    `size-7` buttons, then the slide pills. The floating "New slide" door
+			{/* The app's navigator row: `px-3 py-2`, then the slide pills, the current one followed by its
+			    menu button. The floating "New slide" door
 			    is not drawn: it arrives with the app, over the preview, and changes no band. Both rows below carry the app's own text
 			    classes for the reason in StudioPreviewBarSkeleton's note — the strut is what
 			    tracks a raised browser minimum font size, and a skeleton without text has none. */}
@@ -459,19 +459,12 @@ export function StudioPreviewFooterSkeleton() {
 			    carrying one on this row too made the band 1px taller than the app's. Invisible
 			    while the band was pinned to a constant; a 1px disagreement the moment it is not. */}
 			<div className="ssr-rail flex flex-1 items-center gap-1.5 overflow-hidden bg-background px-3 py-2">
-				{/* Slide ops are fixed chrome — the app's own icons, at the app's own button size. */}
-				<span className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Copy className="size-3.5" /></span>
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Trash2 className="size-3.5" /></span>
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowLeftToLine className="size-3.5" /></span>
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowRightToLine className="size-3.5" /></span>
-				</span>
-				{/* The divider between the slide actions and the picker, as the app draws it. */}
-				<span aria-hidden="true" className="h-6 w-px shrink-0 bg-[var(--muted-mark)]" />
 				{/* The slides themselves are the user's deck — structure only, never a name. The
 				    numbered chip IS fixed chrome (slide N is always slide N), so it is drawn; the
 				    label beside it is the deck's content, so it stays a neutral bar. */}
-				<span className="ml-1 flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[11px]"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span>
+				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[11px]"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span>
+				{/* The current slide's menu button (lib/strip-actions), fixed chrome beside the current pill. */}
+				<span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-card text-muted-foreground shadow-sm [@media(pointer:coarse)]:size-11"><MoreHorizontal className="size-4" /></span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">2</span><ContentBar className="w-20" /></span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">3</span><ContentBar className="w-16" /></span>
 			</div>

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
-import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } from './studio-fixture';
+import { expect, gotoStudio, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
 
 /**
  * COMPOSE — the stress tier.
@@ -342,7 +342,7 @@ test('@smoke a folded slide stays folded — and follows its slide — across a 
 	// with index 3, the folded one. The fold must FOLLOW its slide to index 4, which is
 	// the whole point: this is matching on slide identity, not on a remembered index.
 	await page.getByRole('button', { name: 'Slide 5 — split-compare' }).click();
-	await page.getByRole('button', { name: 'Move slide earlier', exact: true }).click();
+	await stripAction(page, 'move-earlier');
 
 	await expect.poll(() => collapsedIndices(page)).toEqual([4]);
 	// AND THE PREVIEW DID NOT SNAP. The restore dispatches a transaction on a fresh
@@ -377,7 +377,7 @@ test('a folded slide stays folded across a rail duplicate', async ({ page }) => 
 	await collapseCap(page, 5).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([5]);
 
-	await page.getByRole('button', { name: 'Duplicate slide', exact: true }).click();
+	await stripAction(page, 'duplicate');
 	// Slide 5 is duplicated in place, so the copies are at 5 and 6. Exactly ONE stays
 	// folded — the restore is greedy and one-for-one — and the count is what pins that:
 	// a restore that folded both, or neither, fails here.
@@ -578,9 +578,18 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			// correct about the app, not the walk avoiding a bug — a disabled control that the
 			// walk insisted on clicking would report a 15s timeout as if it were a defect.
 			// The draw happens before the enabled check, for the determinism reason above.
-			const name = pick(['Duplicate slide', 'Move slide earlier', 'Move slide later', 'Previous slide', 'Next slide']);
-			const btn = page.getByRole('button', { name, exact: true }).first();
-			if (await btn.isEnabled()) await btn.click();
+			// The strip's actions live in its slide menu (lib/strip-actions); a disabled item stays in the menu, so the walk
+			// reads its state there and closes the menu instead of picking it.
+			const name = pick(['duplicate', 'move-earlier', 'move-later', 'Previous slide', 'Next slide']);
+			if (name === 'Previous slide' || name === 'Next slide') {
+				const btn = page.getByRole('button', { name, exact: true }).first();
+				if (await btn.isEnabled()) await btn.click();
+				return;
+			}
+			await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
+			const item = page.locator(`[data-strip-menu-content] [data-strip-action="${name}"]`);
+			if ((await item.getAttribute('data-disabled')) === null) await item.click();
+			else await page.keyboard.press('Escape');
 		},
 		async railPick() {
 			const n = await railButtons(page).count();

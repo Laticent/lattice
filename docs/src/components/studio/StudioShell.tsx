@@ -5070,8 +5070,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	};
 	// The slide menu's open slide and how it opened (THE SLIDE MENU, below).
 	const [stripMenu, setStripMenu] = React.useState<{ at: SlideAt; via: StripVia } | null>(null);
-	// Delete is destructive → confirm in place: first tap ARMS the button (it turns
-	// into a confirm), a second tap within 3s deletes; it disarms itself otherwise.
+	// In a shared Live session Delete confirms in place: the menu's first pick ARMS its Delete (it turns into a
+	// confirm that names the slide), a second pick within 3s deletes; it disarms itself otherwise.
 	const [deleteArmed, setDeleteArmed] = React.useState(false);
 	// While the menu is open the arm holds for as long as it stays open, so a screen-reader user who takes longer than 3s
 	// to reach the confirm is not made to arm it again (WCAG 2.2.1).
@@ -5087,11 +5087,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// One tap deletes, because ⌘Z can always put it back (§7). It asks first only while other people are
 	// in a Live session with you: their view changes too, and an Undo after they have typed may no longer apply.
 	const othersLive = live.view.people.some((p) => !p.me);
-	const onDeleteClick = () => {
-		if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; }
-		if (deleteArmed || !othersLive) { setDeleteArmed(false); opDelete(); }
-		else setDeleteArmed(true);
-	};
+
 
 	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; lib/strip-actions) ──
 	// On the full view only, where a strip's place is the deck's place: never under a reader lens (a filtered, possibly
@@ -6602,44 +6598,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// full-bleed read) AND on an iPhone in landscape (the "cinema" morph — see the body
 	// branch below), where the slide fills the frame and swipe is the only verb.
 	const previewChromeless = effectiveStop === 'read' || landscapePhone;
-	const slideOpsShown = composeLens === 'full' && effectiveStop !== 'read';
-	// The slide actions: ONE group that lays itself out for the height the strip gives it. It reads the
-	// tallest thing BESIDE it (the pills, or the map), not its own row, so it can grow and shrink back
-	// without propping the strip open: one row of four beside the pills, two rows beside the taller map.
-	// The ORDER is the same in both (the owner's call, 2026-10-21): duplicate, delete, then the two moves, so
-	// a wrap always leaves the move pair alone on the second row. Add left this group for the strip's own
-	// "New slide" door (2026-10-27-slide-structure-strip.md §5). The width is set from the row count
-	// (`ceil(4 / rows)` buttons), which keeps it honest; a CSS-only
-	// `auto-fill` grid sizes its width as one row.
-	const slideOpsRef = React.useRef<HTMLDivElement>(null);
-	const [slideOpsRows, setSlideOpsRows] = React.useState(1);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `slideOpsShown` is the trigger (the group mounts and unmounts with it); the body reads the ref.
-	React.useEffect(() => {
-		const ops = slideOpsRef.current;
-		const strip = ops?.parentElement;
-		if (!ops || !strip || typeof ResizeObserver === 'undefined') return;
-		const read = () => {
-			let room = 0;
-			for (const el of strip.children) if (el !== ops) room = Math.max(room, (el as HTMLElement).offsetHeight);
-			// A row is 28px with a 2px gap; the group's own border and padding take 6px.
-			setSlideOpsRows(Math.max(1, Math.min(4, Math.floor((room - 6 + 2) / 30))));
-		};
-		read();
-		const ro = new ResizeObserver(read);
-		ro.observe(strip);
-		return () => ro.disconnect();
-	}, [slideOpsShown]);
-	const slideOps = (
-		// A wrapping flex row, exactly `cols` buttons wide (28px each, 2px gaps, plus the 2px padding and
-		// 1px border each side), so a short last row CENTERS under the full one: the two moves sit in the
-		// middle, not hard left as a grid would put them. The strip centers the group vertically.
-		<div ref={slideOpsRef} className="flex shrink-0 flex-wrap content-center items-center justify-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" style={{ width: Math.ceil(4 / slideOpsRows) * 30 - 2 + 6 }}>
-			<RailOp label="Duplicate slide" onClick={() => opDuplicate()}><Copy className="size-3.5" /></RailOp>
-			<RailOp label={deleteArmed ? `Confirm delete ${deleteTargetName(hereTitle(hereAt), 1)}` : 'Delete slide'} onClick={onDeleteClick} disabled={renderedSlides <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
-			<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={atFirstSlide}><ArrowLeftToLine className="size-3.5" /></RailOp>
-			<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={atLastSlide}><ArrowRightToLine className="size-3.5" /></RailOp>
-		</div>
-	);
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
@@ -6862,12 +6820,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<FileText className="size-3.5" /><span className="hidden @[30rem]:inline">Read as an article</span>
 						</button>
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
-					</>
-				)}
-				{slideOpsShown && (
-					<>
-						{slideOps}
-						<span aria-hidden="true" className="h-6 w-px shrink-0 bg-[var(--muted-mark)]" />
 					</>
 				)}
 			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />}
@@ -8274,13 +8226,6 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 	);
 }
 const NO_STRIP_ITEMS: readonly StripMenuItem[] = [];
-// An ARMED op holds its hint open, so the confirm says what the next tap takes where every pointer sees it, a
-// touch included, and above the button rather than over it as a bottom notice would be (2026-10-27-slide-structure-strip.md §12 item 2).
-function RailOp({ label, onClick, disabled, danger, armed, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; armed?: boolean; children: React.ReactNode }) {
-	return (
-		<Tip label={label} forceOpen={armed}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail-fill,#b3261e)] text-white hover:bg-[var(--fail-fill,#b3261e)] hover:text-white')}>{children}</button></Tip>
-	);
-}
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
 	if (!hit) return null;
