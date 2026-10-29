@@ -3,10 +3,10 @@ status: proposed
 summary: >
   A measured audit of what each Studio activity costs the main thread and memory, beyond startup (which
   2026-10-22/23 already cover). At 4x CPU, export is the worst: a 40-slide PDF keeps the main thread busy
-  69 s with a 4.0 s longest task, and the renderer peaks at 1.6 GB (two runs at 1x). Every keystroke is a long task (163-206 ms
+  69 s with a 4.0 s longest task, and the renderer peaks at 1.6 GB (sampled during the export, two runs at 1x). Every keystroke is a long task (163-206 ms
   of main thread), and most of it is React re-rendering the toolbar chrome, not the engine. So an engine
   worker would save about 4 ms per key, and a narrower re-render about 60 ms. First opens of panels freeze
-  340-790 ms. The slide map's frame pool adds 289-305 MB on a gallery deck. No leak was found across repeated
+  340-790 ms. The slide map's frame pool adds 280-315 MB on a gallery deck. No leak was found across repeated
   open/close cycles. The service worker deletes the on-device model caches on every update. Ranks fixes by
   measured or bounded impact and names the ones that are the owner's call.
 ---
@@ -24,7 +24,7 @@ summary: >
    toolbar (Radix, icons, tooltips). The engine and markdown-it together are about 4 ms per key.
 3. **First open of a panel.** The Inspector, reading view, slide map, Present and command palette each freeze
    for 340-790 ms the first time.
-4. **Memory.** Opening the slide map on a 40-slide gallery deck adds 289-305 MB, and the pool keeps it after the
+4. **Memory.** Opening the slide map on a 40-slide gallery deck adds 280-315 MB, and the pool keeps it after the
    map closes, by design.
 
 Two things look like wins and are not. Moving the engine to a worker would save about 4 ms of 163-206 ms per key
@@ -100,8 +100,8 @@ base64-encodes it with `readAsDataURL`, and decodes it into an `Image`. The comm
 megabytes. So the same stylesheet is serialized, encoded, parsed and thrown away 40 times. The PDF and PPTX
 workers only assemble the file at the end.
 
-The memory follows: the renderer goes from 643-660 MB before the export to **1,574-1,643 MB during it**, and settles
-at 902-905 MB 15 s later.
+The memory follows: the renderer goes from 640-678 MB before the export to a **1,631-1,663 MB peak during it**
+(sampled every 250 ms), and settles at 897-905 MB about 18 s after the download.
 
 ### Typing: React re-renders the chrome
 
@@ -151,20 +151,21 @@ before that pays the full cost in one task. The slide map also boots up to ten p
 
 Renderer PSS from a clean start, 1x:
 
-| Stage | Renderer PSS (two runs) |
+| Stage | Renderer PSS (four runs; the peak, two) |
 |---|---|
-| Booted, 8 s settled | 248-249 MB |
-| 40-slide gallery deck loaded | 354-355 MB |
-| Slide map open on that deck | 643-660 MB |
-| **During the PDF export** | **1,574-1,643 MB** |
-| 15 s after the export | 902-905 MB |
+| Booted, 8 s settled | 246-251 MB |
+| 40-slide gallery deck loaded | 354-363 MB |
+| Slide map open on that deck | 640-678 MB |
+| **Peak during the PDF export, sampled every 250 ms** | **1,631-1,663 MB** |
+| 3 s after the download | 1,346-1,643 MB |
+| About 18 s after the download | 897-905 MB |
 
 JS heap is a small part of this. After GC it is 29 MB at boot and about 47 MB after the slide map. The rest is
 documents, style, layout and decoded images.
 
 **No leak was found.** Five open/close cycles each of Present, the slide map and the reading view leave the
-heap after GC, the document count and the listener count flat (heap 34.7 to 36.5 MB over five Present cycles,
-46.6 to 47.0 MB over five slide-map cycles).
+heap after GC, the document count and the listener count flat (two runs: heap 34.7-34.8 to 36.5 MB over five Present
+cycles, 46.6-46.7 to 47.0-47.1 MB over five slide-map cycles).
 
 **What stays resident, by design or by omission.** Each item was read in the code; only the pool was measured:
 
@@ -233,8 +234,8 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
      instead of from every slide's serialized copy. *Measured ceiling:* 0.46 s of regex at 1x, about 1.8 s at 4x.
    - (c) Prune the stylesheet each slide's SVG carries to the rules that slide can match, so each `foreignObject`
      image is not megabytes. *Estimated:* most of the base64, decode and GC cost (1.8 s at 1x).
-   - (d) Release rasters, data URIs and the capture frame when the export finishes. *Measured:* 902-905 MB
-     resident 15 s after export, against 643-660 MB before.
+   - (d) Release rasters, data URIs and the capture frame when the export finishes. *Measured:* 897-905 MB
+     resident about 18 s after export, against 640-678 MB before.
 
    **Owner's call:** this is the export pipeline. CLAUDE.md requires the owner to sign off on dark and light
    renders if the exported bytes change. (a) and (d) should not change them.
@@ -246,7 +247,7 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
    the variables; skip sections that did not change. *Measured:* 238 ms of self time over 40 keys at 4x,
    forced layouts included. **Owner's call:** `lattice-runtime-min.js` ships inside exports, so the export
    sign-off applies.
-4. **One shared preview pool with a global cap that releases idle frames on Chromium.** *Measured:* +289-305 MB for
+4. **One shared preview pool with a global cap that releases idle frames on Chromium.** *Measured:* +280-315 MB for
    the slide map on a gallery deck, still resident after close. Also consider drawing the map's tiles in one
    document instead of one frame per tile.
 5. **Make first opens of panels yield.** Render the panel shell first, then its contents in a transition
@@ -278,5 +279,5 @@ warm start (the warm load is CPU-bound).
   0.1 s; the activity rows were not repeated.
 - The chat agent, Compose, Fabricate, image import, live collaboration and the on-device models.
 - The memory items in §3's list other than the slide-map pool were read in code, not measured.
-- The renderer PSS stages and the leak probe ran twice; the CPU profiles and the trace once.
+- The renderer PSS stages ran four times (the export peak twice), the leak probe twice, the CPU profiles and the trace once.
 - Navigation preload, cache-first HTML and the cache-trim cost were not prototyped.
