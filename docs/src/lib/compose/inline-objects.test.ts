@@ -775,6 +775,22 @@ describe('sparks are objects too (phase 2)', () => {
 		return at;
 	}
 
+	it('a check in its full form is drawn as the slide draws it and edited through its own slot', () => {
+		// The checks plugin's `@check{…}` (engineering/decisions/2026-10-18-checks.md §18): an in-tree kind, so Compose
+		// draws the real disc or pill (a zip plugin's kind shows only its source) and edits the answer and the label.
+		const owner = kindOf('@check{yes, label=Residency}', kernels);
+		expect(owner?.kind.id).toBe('check');
+		const doc = document;
+		const drawn = owner?.kind.draw(doc, '@check{yes, label=Residency}', kernels);
+		expect(drawn?.outerHTML).toContain('class="lat-pill-lead"');
+		expect(drawn?.textContent).toBe('Residency');
+		expect(owner?.kind.draw(doc, '@check{fail}', kernels)?.className).toBe('state fail state-empty lat-state');
+		expect(owner?.kind.edit('@check{yes, label=Residency}', { answer: 'fail' }, kernels)).toBe('@check{fail, label=Residency}');
+		expect(owner?.kind.edit('@check{pass}', { label: 'Audit, EU' }, kernels)).toBe('@check{pass, label="Audit, EU"}');
+		expect(kindOf('@check{maybe}', kernels)).toBeNull();
+		expect(kindOf('{pass}', kernels)?.kind.id).toBe('pill');
+	});
+
 	it('asks the kernel which kind owns a source: a spark is not a pill and a pill is not a spark', () => {
 		expect(kindOf('~{12 14 17}', kernels)?.kind.id).toBe('spark');
 		expect(kindOf('{DONE, c1}', kernels)?.kind.id).toBe('pill');

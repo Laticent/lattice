@@ -8,7 +8,7 @@ useWhen: A number on your slide has a history or a target, and a full chart woul
 syntax: '`~{12 14 17 21}`'
 facts:
   - { k: You write, v: '`~{numbers, words}` in inline code' }
-  - { k: Draws with, v: Lattice's own drawing, from your numbers }
+  - { k: Draws with, v: "Lattice's own drawing, from your numbers" }
   - { k: Surfaces, v: Every one — drawn at render time }
   - { k: Loaded, v: By default; nothing to download }
 reference:

@@ -1700,7 +1700,7 @@ section.heat > ul > li.state.pass,
 section.heat > ol > li.state.pass,
 section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
-section.heat .badge.pass,
+section.heat .lat-state.pass,
 section.heat td .state.pass,
 section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 
@@ -1710,7 +1710,7 @@ section.heat > ul > li.state.warn,
 section.heat > ol > li.state.warn,
 section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
-section.heat .badge.warn,
+section.heat .lat-state.warn,
 section.heat td .state.warn,
 section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 
@@ -1719,7 +1719,7 @@ section.heat > ul > li.state.fail,
 section.heat > ol > li.state.fail,
 section.heat > .cell-stage > ul > li.state.fail,
 section.heat > .cell-stage > ol > li.state.fail,
-section.heat .badge.fail,
+section.heat .lat-state.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
 section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
@@ -1729,7 +1729,7 @@ section.heat > ul > li.state.skip,
 section.heat > ol > li.state.skip,
 section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
-section.heat .badge.skip,
+section.heat .lat-state.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 
@@ -1741,52 +1741,14 @@ section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --st
  * the universal `state {sem} {shape}` classes: checklist, verdict-grid,
  * obligation-matrix. (Roadmap keeps its own dot vocabulary — see the
  * --state-slash note in base.tokens.css.) The disc geometry/painting lives
- * in each consumer's CSS and reads the scalar knobs from base.tokens.css;
- * this block owns the two universal pieces: the shape→mark mapping and the
- * five author-facing style variants.
+ * in each consumer's CSS and reads the scalar knobs from base.tokens.css.
+ * The shape→mark mapping and the hollow answers are the checks plugin's
+ * (lib/plugins/checks/checks.styles.css); this block owns the five
+ * author-facing style variants, which are slide modifiers.
  *
  * Mark tokens, the scalar-knob defaults, and the "knobs are scalar-only"
  * rationale are documented in base.tokens.css.
  * ──────────────────────────────────────────────────────────────────── */
-
-/* Shape class → mark mask. The shape classes are exclusive to the three
- * checkbox consumers, so a `section`-scoped class selector is unambiguous. */
-section .state-full    { --state-mark: var(--mark-check); }
-section .state-half    { --state-mark: var(--mark-dash);  }
-section .state-empty   { --state-mark: var(--mark-x);     }
-section .state-slashed { --state-mark: var(--mark-slash); }
-section .state-unknown { --state-mark: var(--mark-question); }
-/* The two UNSETTLED answers are hollow rings: `[ ]` open (`state todo
- * state-todo` — not started, not assessed) and `[?]` unknown (`state unknown
- * state-unknown` — looked at, cannot be settled). Findings (`[x]` `[-]` `[!]`)
- * and `[/]` are solid discs. Fill is the settled/unsettled channel; the drawn
- * `?` is what tells the two hollow rings apart.
- *
- * It renders as a TRUE hollow ring — no fill, a full-color --state-color
- * ring, and NO inner mark, so the center is EMPTY ("not started"). A filled
- * disc + a ring-stroke mask would leave the disc color in the center and
- * read as a "selected" bullseye; an empty disc + an edge ring reads as
- * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
- * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
-section .state.todo,
-section .badge.todo,
-section .state.unknown,
-section .badge.unknown {
-  --state-fill-pct: 0%;
-  --state-ring-outer-w: 2.2px;
-  --state-ring-mix: 100%;
-  /* `checks-outline` and `checks-tonal` set an INNER ring on the section, which
-   * these elements would inherit and draw inside the outer one: a double ring
-   * that reads as a target, not as "open". One ring is the unsettled shape. */
-  --state-ring-inner-w: 0px;
-}
-section .state.todo::after,
-section .badge.todo::after { display: none; }
-/* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
- * knockout (canvas-colored) mark would be invisible, so every `checks-*`
- * variant's --state-mark-pct is overridden here. */
-section .state.unknown,
-section .badge.unknown { --state-mark-pct: 100%; }
 
 /* ── `state-cells` — the state markers, in ANY table's cells ───────────────
  * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
@@ -1928,33 +1890,18 @@ section.checks-tonal {             /* soft tint of the solid, inner ring + mark 
 
 /* ──────────────────────────────────────────────────────────────────── */
 
-/* .pills — each non-first cell is a status pill. Universal pill geometry
- * (base.tokens.css --pill-*); cell keeps its own neutral fill/border. */
-section.obligation-matrix.pills td:not(:first-child) > * {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-section.obligation-matrix.pills td:not(:first-child) {
-  background:none;
-  padding:0.46875cqi var(--sp-xs);
-}
-section.obligation-matrix.pills td:not(:first-child) code,
-section.obligation-matrix.pills td:not(:first-child) strong {
-  text-align:center;
-  line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border-radius:var(--pill-radius);
-  background:var(--bg-alt);
-  border:1px solid var(--border);
-  color:var(--text-body);
-  white-space:nowrap;
-}
-section.obligation-matrix.pills tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
+/* .pills — each non-first cell is its answer as a WORD in a pill: the check, then the label
+ * set's word for it, composed by lib/transformers/label-set-key.js through
+ * lib/plugins/checks/shared/compose.js. The pill plugin draws the pill and the check draws its disc; this
+ * block only gives the cell room and drops the zebra, which would fight the pills' own fill.
+ * It used to draw hand-rolled pills from seven `--pill-*` reads, on cell `code` and `strong`
+ * only, so a marker cell stayed a bare disc against the variant's caption. */
+section.obligation-matrix.pills td:not(:first-child) { padding:0.46875cqi var(--sp-xs); }
+/* Under `heat` the cell ground IS the reading (obligation-matrix.styles.css), so the reset
+ * stands down there: it used to win on odd rows only, and a heat grid of pills tinted every
+ * other row's burden. */
+section.obligation-matrix.pills:not(.heat) td:not(:first-child),
+section.obligation-matrix.pills:not(.heat) tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 
 /* .lanes — categorical row stripes. */
 /* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
@@ -4273,62 +4220,6 @@ section > .slide-edge[data-lattice-berth] {
   section { --slide-edge-k: 0 !important; }
 }
 
-/* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
- * The six state markers inside SINGLE-backtick inline code decode to the same disc
- * `checklist` draws, via `lib/core/state-marks.js`. Same six markers an author already
- * writes bare at a bullet's start, so the vocabulary is one thing in two positions
- * rather than two things — which is the whole reason the inline form uses `[…]` and not
- * a new spelling.
- *
- * NOTHING HERE IS A NEW LOOK. The mark mask (`section .state-full` → `--mark-check`),
- * the open-ring `todo` treatment, and every `checks-*` style variant already select
- * universally or from the section, so they reach an inline mark unchanged. What was
- * missing is only the BOX: the disc geometry and the semantic → `--state-color` map
- * lived under `section.state-cells td .state`, which an inline span in a paragraph
- * never matches. `lat-state` is that box, and nothing else.
- *
- * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
- * body prose — and `vertical-align:-0.15em` sets it on the text's optical center rather
- * than its baseline, where a circle reads as sitting high. */
-section .lat-state {
-  position:relative;
-  display:inline-block;
-  width:calc(1em * var(--state-disc-scale));
-  height:calc(1em * var(--state-disc-scale));
-  border-radius:50%;
-  box-sizing:border-box;
-  vertical-align:-0.15em;
-  line-height:1;
-  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
-  box-shadow:
-    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
-  /* Same sanctioned horizontal margin as the pill above, and for the same measured
-   * reason. On the disc padding is worse than useless: the box is a fixed 1em square
-   * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
-   * moving it away from the text.
-   *
-   * AND NO VERTICAL PADDING, deliberately. The disc and the pill are ATOMIC inline
-   * boxes (`inline-block` / `inline-flex`), so unlike a plain inline their block padding
-   * DOES enter the line box: measured, `padding-block:0.5em` took a three-line paragraph
-   * from 75.6px to 82px — one line gains leading its neighbors do not, which is exactly
-   * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
-   * own, through its `line-height`; the mark takes what the line already gives it and
-   * centres on the text with `vertical-align`. */
-  margin-inline:0.22em;
-}
-section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
-section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
-section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
-section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
-section .lat-state.todo,
-section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
-section .lat-state::after {
-  content:'';
-  position:absolute;
-  inset:0;
-  background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
-  -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
-          mask:var(--state-mark) center / 100% 100% no-repeat;
-}
+/* The inline check, `.lat-state`, is drawn by the embedded checks plugin
+ * (lib/plugins/checks/checks.styles.css): running text, a pill's lead and a pricing row all
+ * render the same disc. */

@@ -14,7 +14,9 @@ const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 // The plugins a deck loads BY A ROUTE: less `meta`, which is embedded like `pills` (its own tests are below).
 const names = (admission) => admission.active.filter((g) => g.name !== 'meta').map((g) => g.name);
 /** The embedded plugins a route lists, in admission order (`meta` is filtered out above). */
-const EMBEDDED = ['pills'];
+// The embedded plugins, in admission order: pills (2026-10-17-pills-plugin.md § 4.5), then checks, which requires it
+// (2026-10-18-checks.md §12 decision 3).
+const EMBEDDED = ['pills', 'checks'];
 
 describe('the plugins: import list — reader', () => {
   for (const [label, fm] of [
@@ -109,14 +111,14 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'callout', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks', 'video']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'callout', 'chart-family', 'checks', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks', 'video']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(a.active.map((g) => g.name).sort(), [...DEFAULT_PLUGINS].sort());
   });
 
-  it('with an empty default set, a plugin loads only when listed or required by a class (and the embedded pills always loads)', () => {
-    // `pills` is embedded: admitted before every route, so even an empty default set loads it.
+  it('with an empty default set, a plugin loads only when listed or required by a class (and the embedded checks and pills always load)', () => {
+    // `checks` and `pills` are embedded: admitted before every route, so even an empty default set loads them.
     const noPills = (a) => names(a).filter((n) => !EMBEDDED.includes(n));
     assert.deepEqual(names(admitPlugins('# Hi $x$\n', { defaults: [] })), EMBEDDED);
     assert.deepEqual(noPills(admitPlugins('---\nplugins: [math]\n---\n# Hi\n', { defaults: [] })), ['math']);
@@ -181,7 +183,7 @@ describe('admitPlugins — the three routes', () => {
     assert.deepEqual(admitPlugins(deck).unloaded, [], 'the default set loads everything; the probe has nothing to say');
     const a = admitPlugins(deck, { defaults: [] });
     assert.deepEqual(a.unloaded.sort(), ['math', 'mermaid']);
-    assert.deepEqual(names(a), EMBEDDED, 'only the embedded plugin loads');
+    assert.deepEqual(names(a), EMBEDDED, 'only the embedded plugins load');
     assert.deepEqual(admitPlugins(deck, { disabled: ['math'] }).unloaded, [], "the host's own switch is not reported");
     assert.deepEqual(admitPlugins(deck, { defaults: [], disabled: ['math'] }).unloaded, ['mermaid'], 'listing cannot beat the switch, so it is not advised');
   });
@@ -299,6 +301,7 @@ describe('the embedded set', () => { it('is pinned: adding a second embedded plu
     .filter((e) => JSON.parse(fs.readFileSync(path.join(dir, e.name, `${e.name}.manifest.json`), 'utf8')).embedded === true)
     .map((e) => e.name)
     .sort();
-  assert.deepEqual(embedded, ['meta', 'pills']);
+  // checks joined by the owner's decision (engineering/decisions/2026-10-18-checks.md §12 decision 3).
+  assert.deepEqual(embedded, ['checks', 'meta', 'pills']);
 });
 });

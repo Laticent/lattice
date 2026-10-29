@@ -111,7 +111,7 @@
     },
     {
       "title": "Three or more options",
-      "body": "compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid` with criteria badges."
+      "body": "compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid`, which scores each option against shared criteria."
     },
     {
       "title": "Verbatim text differences",

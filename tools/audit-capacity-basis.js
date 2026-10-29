@@ -40,7 +40,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..');
 const { BUILDERS, findManifest } = require('./lib/calibrate-core.js');
 const { loadAll, manifestBucket } = require('../lib/components');
-const { MARKER_CLASS } = require('../lib/core/state-marks');
+const { MARKER_CLASS } = require('../lib/plugins/checks/shared/registry');
 
 // A state marker is chrome, not a word — every one of the six, not only GFM's two.
 const STATE_MARKER_RE = new RegExp(`\\[${MARKER_CLASS}\\]`, 'g');

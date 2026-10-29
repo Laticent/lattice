@@ -10,6 +10,12 @@
  * The two never collide in the cascade: that rule selects `code`, this one selects
  * `[data-shape]`, which only the decoder emits.
  *
+ * OTHER COMPONENTS ARE BUILT OF THIS PILL: a caller may hand it a `.lat-pill-lead`, and
+ * whole layouts are drawn from pills that do. A change to the capsule's height, padding or
+ * gap here moves every one of them, so render the comparison and legal galleries before
+ * shipping one. (This sheet names no caller on purpose: the pill knows nothing of what it
+ * holds. The callers' selectors into this markup are pinned on their side.)
+ *
  * Shape is GEOMETRY ONLY — every color goes through a token (HARD RULE #3), and no
  * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
  * not a `❯` borrowed from whatever font the machine has. */
@@ -156,6 +162,21 @@
   border-width:3px;
   --lat-pill-inset:2px;
 }
+
+/* THE LEAD — content a caller handed the pill (`lead` in pills.inline.js), drawn before the label.
+ * The pill does not know what it holds, so this rule names no kind of content: it spaces whatever
+ * leads from the label by the same 0.35em the icon takes (icons.styles.css), and it zeroes the lead
+ * child's own inline margin so that one gap, and the pill's padding on the left, are the only
+ * spacing. Without it a drawn check kept its prose margin, 0.22em a side: measured on a 4K
+ * verdict-grid, its disc stood 8.4px from a 38px label, which read as touching, and sat 0.22em
+ * further from the pill's left edge than from the label. `margin-inline:0` is a reset (#20). */
+.lat-pill[data-shape] > .lat-pill-lead { padding-right:0.35em; }
+.lat-pill[data-shape] > .lat-pill-lead > * { margin-inline:0; }
+/* A pill with no label after its content (`data-bare`, set by the builder because CSS cannot see a
+ * text node) gives its last drawn thing no gap and no tracking indent, so the content sits centered:
+ * measured before this rule, a lead-only pill had 16px of room on its left and 20.9px on its right. */
+.lat-pill[data-shape][data-bare] { text-indent:0; }
+.lat-pill[data-shape][data-bare] > :last-child { padding-right:0; }
 
 /* THE ROUND AND POINTED SHAPES ARE AS TALL AS A CAPSULE, NOT TALLER. `--lat-pill-h` is a capsule's
  * outer height (one line of pill type, both paddings, both 1px borders), and the

@@ -1,0 +1,73 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "checks",
+  "api": 1,
+  "title": "Checks",
+  "description": "The six answers a criterion can have, drawn as a disc: yes `[x]`, partly `[-]`, no `[!]`, unknown `[?]`, open `[ ]` and does not apply `[/]`. The brackets are the shortcuts; `@check{pass}` is the full form, and `@check{yes, label=Residency}` puts the check and its label in a pill. The answer is one of the six ids (`pass warn fail unknown todo skip`) or its spoken word (`yes partly no open na`). Checks are part of how Lattice draws a slide, so this plugin is embedded: it loads on every render and has no off switch. Components that score a list (verdict-grid, pricing, obligation-matrix, checklist) read the same six and place a check in a pill, a row or a cell; none draws its own.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M64 22A42 42 0 1 1 63.9 22Z",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M44 66L58 80L86 50",
+        "width": 9
+      }
+    ]
+  },
+  "embedded": true,
+  "requires": [
+    "pills"
+  ],
+  "contributes": {
+    "inline": {
+      "state": {
+        "shortcut": "["
+      },
+      "check": {
+        "named": true
+      }
+    },
+    "styles": true
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  },
+  "tokens": [
+    "--bg",
+    "--fail",
+    "--fail-signal-mark",
+    "--mark-check",
+    "--mark-dash",
+    "--mark-question",
+    "--mark-slash",
+    "--mark-x",
+    "--muted-mark",
+    "--on-mark",
+    "--pass",
+    "--state-color",
+    "--state-disc-scale",
+    "--state-fail-hue",
+    "--state-fill-pct",
+    "--state-glyph-mark",
+    "--state-ink",
+    "--state-mark",
+    "--state-mark-pct",
+    "--state-pass-hue",
+    "--state-ring-inner-w",
+    "--state-ring-mix",
+    "--state-ring-outer-w",
+    "--state-ring-signal-w",
+    "--state-signal",
+    "--state-warn-hue",
+    "--warn",
+    "--warn-signal-mark"
+  ]
+}

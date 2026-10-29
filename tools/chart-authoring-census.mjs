@@ -54,7 +54,7 @@ const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const MarkdownIt = require('markdown-it');
 const { splitSourceToSections } = require('../lib/core/section-source-split.js');
 const { isValuePill } = require('../lib/core/chart-values.js');
-const { MARKER_CLASS } = require('../lib/core/state-marks.js');
+const { MARKER_CLASS } = require('../lib/plugins/checks/shared/registry.js');
 
 /** A whole span that is one state mark (`[x]`), and a cell that leads with one. */
 const MARK_SPAN = new RegExp(`^\\[${MARKER_CLASS}\\]$`);

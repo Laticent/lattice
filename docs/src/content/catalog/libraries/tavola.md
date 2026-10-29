@@ -11,8 +11,8 @@ useWhen: You want a colleague editing with you for ten minutes — without accou
 facts:
   - { k: Package, v: '@laticent/tavola' }
   - { k: Status, v: Coming to npm with Lattice 1.0 }
-  - { k: Runs in, v: The browser (and Node, for tests) }
-  - { k: Dependencies, v: None (Trystero optional, for browser-to-browser; Yjs, y-protocols and lib0 optional, for the Yjs adapter) }
+  - { k: Runs in, v: "The browser (and Node, for tests)" }
+  - { k: Dependencies, v: "None (Trystero optional, for browser-to-browser; Yjs, y-protocols and lib0 optional, for the Yjs adapter)" }
   - { k: License, v: AGPL-3.0 }
 reference:
   - label: The README

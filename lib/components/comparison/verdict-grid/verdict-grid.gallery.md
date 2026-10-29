@@ -137,7 +137,7 @@ Options scored against criteria as a verdict matrix.
 - Exactly two options
   - Two options with shared criteria belong in `compare-prose` or `split-compare`. verdict-grid earns its layout at 3+ options.
 - No rationale line
-  - Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the badges, and the focal last card has nothing to recommend. The rationale is required, not optional.
+  - Every option must end with a marker-less prose line — the verdict for that card. Omit it and the card renders empty below the criteria, and the focal last card has nothing to recommend. The rationale is required, not optional.
 
 ---
 
@@ -146,8 +146,8 @@ Options scored against criteria as a verdict matrix.
 
 ## When NOT to reach for verdict-grid.
 
-- Badge longer than two words
-  - The text after the marker is a badge, not a sentence — two words at most (`Residency`, `Self-serve`). A sentence on a badge line breaks the row scan; prose belongs only on the final rationale line.
+- Criterion longer than two words
+  - The text after the marker is a pill's label, not a sentence — two words at most (`Residency`, `Self-serve`). A sentence on a criterion line breaks the row scan; prose belongs only on the final rationale line.
 - Cards with different criteria
   - When each option needs its own criteria list, the comparison fails — use `cards-stack` so each card has full prose breathing room instead.
 

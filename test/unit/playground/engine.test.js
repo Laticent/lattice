@@ -7,7 +7,7 @@
  * structural output the build path does — so the playground can't silently
  * drift from the PDF:
  *
- *   1. verdict-grid badges (a shared kernel token plugin) appear in the render,
+ *   1. verdict-grid checks, composed into pills (a shared kernel token plugin), appear in the render,
  *      proving the shared plugins (lib/integrations/markdown-it/plugins.js) are wired.
  *   2. slide count matches the number of `---`-separated slides.
  *   3. render() returns { html, css } for the requested theme.
@@ -37,7 +37,7 @@ async function loadEngine() {
 }
 
 describe('playground engine', () => {
-  test('renders verdict-grid badges (token plugins are wired)', async () => {
+  test('renders verdict-grid checks in pills (token plugins are wired)', async () => {
     const pg = await loadEngine();
     const md = [
       '<!-- _class: verdict-grid -->',
@@ -54,13 +54,12 @@ describe('playground engine', () => {
     const { html, css } = pg.render(md, 'cuoio');
     assert.ok(typeof html === 'string' && html.length > 0, 'html produced');
     assert.ok(typeof css === 'string' && css.length > 0, 'css produced');
-    // verdictGridBadges wraps each marker item in a state badge span — `[!]` is the
-    // red cross, and `[ ]` is the open ring here as in every layout.
-    assert.match(html, /class="badge pass state-full"/, 'pass badge present');
-    assert.match(html, /class="badge warn state-half"/, 'warn badge present');
-    assert.match(html, /class="badge fail state-empty"/, 'fail badge present');
-    assert.match(html, /class="badge unknown state-unknown"/, 'unknown badge present');
-    assert.match(html, /class="badge todo state-todo"/, 'open badge present');
+    // verdictGridBadges composes each marker item into a pill holding the check — `[!]` is
+    // the red cross, and `[ ]` is the open ring here as in every layout.
+    for (const [sem, shape] of [['pass', 'state-full'], ['warn', 'state-half'], ['fail', 'state-empty'], ['unknown', 'state-unknown'], ['todo', 'state-todo']]) {
+      assert.match(html, new RegExp(`<span class="lat-pill-lead"><span class="state ${sem} ${shape} lat-state"`), `${sem} check in a pill`);
+    }
+    assert.doesNotMatch(html, /class="badge/, 'no hand-built badge');
   });
 
   test('slide count matches `---` separators', async () => {

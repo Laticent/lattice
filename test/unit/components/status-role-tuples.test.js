@@ -13,6 +13,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const FILES = [
   'lib/base/base.modifiers.css',
+  'lib/plugins/checks/checks.styles.css',
   'lib/components/inventory/checklist/checklist.styles.css',
   'lib/components/comparison/verdict-grid/verdict-grid.styles.css',
   'lib/components/legal/obligation-matrix/obligation-matrix.styles.css',
@@ -41,8 +42,10 @@ test('every status role bundle is one of the four role sets', () => {
       if (!ROLE_SETS.has(set)) strays.push(`${rel}: ${set}`);
     }
   }
-  // 55 when this was written; a floor, so a refactor that stops matching cannot pass by finding none.
-  assert.ok(seen >= 50, `expected the role bundles in ${FILES.length} files, found ${seen}`);
+  // A floor, so a refactor that stops matching cannot pass by finding none. 55 when this was written;
+  // 49 after the checks migration deleted verdict-grid's own `.badge` copy of the disc recipe
+  // (engineering/decisions/2026-10-18-checks.md §17). A copy deleted is the direction this test wants.
+  assert.ok(seen >= 45, `expected the role bundles in ${FILES.length} files, found ${seen}`);
   assert.deepEqual(strays, [], 'a status role bundle outside the four role sets');
 });
 

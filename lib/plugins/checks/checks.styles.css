@@ -1,0 +1,126 @@
+/* ── Checks — the six answers, drawn ─────────────────────────────────────────
+ * The checks plugin's one stylesheet (engineering/decisions/2026-10-18-checks.md). It owns the
+ * DRAWING of a check: which mask each answer is cut with, the two hollow answers, and the inline
+ * disc every check renders as (`.lat-state`, wherever it sits — running text, a pill's lead, a
+ * pricing row). The shapes themselves are the `--mark-*` mask tokens in base.tokens.css, shared
+ * with the chart family's status marks; the colors are the status roles every component reads.
+ *
+ * WHAT STAYS IN BASE, and why: the `checks-*` style variants and `heat` are SLIDE modifiers an
+ * author sets on a section, and `state-cells` is a table modifier; each paints checks among other
+ * things, so each stays with the modifiers. The per-component disc recipes (checklist's rows,
+ * obligation-matrix's cells, roadmap's lanes) stay with their components until each composes the
+ * inline disc.
+ *
+ * Moved here from base.modifiers.css unchanged. The cascade does not move with it: every rule
+ * below is either the only one setting its property on its element, or loses to a more specific
+ * component rule (roadmap's legend, heat's remap, a pricing row) whatever the order. */
+
+/* Shape class → mark mask. The shape classes are exclusive to the three
+ * checkbox consumers, so a `section`-scoped class selector is unambiguous. */
+section .state-full    { --state-mark: var(--mark-check); }
+section .state-half    { --state-mark: var(--mark-dash);  }
+section .state-empty   { --state-mark: var(--mark-x);     }
+section .state-slashed { --state-mark: var(--mark-slash); }
+section .state-unknown { --state-mark: var(--mark-question); }
+/* The two UNSETTLED answers are hollow rings: `[ ]` open (`state todo
+ * state-todo` — not started, not assessed) and `[?]` unknown (`state unknown
+ * state-unknown` — looked at, cannot be settled). Findings (`[x]` `[-]` `[!]`)
+ * and `[/]` are solid discs. Fill is the settled/unsettled channel; the drawn
+ * `?` is what tells the two hollow rings apart.
+ *
+ * It renders as a TRUE hollow ring — no fill, a full-color --state-color
+ * ring, and NO inner mark, so the center is EMPTY ("not started"). A filled
+ * disc + a ring-stroke mask would leave the disc color in the center and
+ * read as a "selected" bullseye; an empty disc + an edge ring reads as
+ * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
+ * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
+section .state.todo,
+section .state.unknown {
+  --state-fill-pct: 0%;
+  --state-ring-outer-w: 2.2px;
+  --state-ring-mix: 100%;
+  /* `checks-outline` and `checks-tonal` set an INNER ring on the section, which
+   * these elements would inherit and draw inside the outer one: a double ring
+   * that reads as a target, not as "open". One ring is the unsettled shape. */
+  --state-ring-inner-w: 0px;
+}
+section .state.todo::after { display: none; }
+/* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
+ * knockout (canvas-colored) mark would be invisible, so every `checks-*`
+ * variant's --state-mark-pct is overridden here. */
+section .state.unknown { --state-mark-pct: 100%; }
+
+/* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
+ * The six state markers inside SINGLE-backtick inline code decode to the same disc
+ * `checklist` draws, via the registry (`lib/plugins/checks/shared/registry.js`). Same six markers an author already
+ * writes bare at a bullet's start, so the vocabulary is one thing in two positions
+ * rather than two things — which is the whole reason the inline form uses `[…]` and not
+ * a new spelling.
+ *
+ * NOTHING HERE IS A NEW LOOK. The mark mask (`section .state-full` → `--mark-check`),
+ * the open-ring `todo` treatment, and every `checks-*` style variant already select
+ * universally or from the section, so they reach an inline mark unchanged. What was
+ * missing is only the BOX: the disc geometry and the semantic → `--state-color` map
+ * lived under `section.state-cells td .state`, which an inline span in a paragraph
+ * never matches. `lat-state` is that box, and nothing else.
+ *
+ * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
+ * body prose — and `vertical-align:-0.15em` sets it on the text's optical center rather
+ * than its baseline, where a circle reads as sitting high. */
+section .lat-state {
+  position:relative;
+  display:inline-block;
+  width:calc(1em * var(--state-disc-scale));
+  height:calc(1em * var(--state-disc-scale));
+  border-radius:50%;
+  box-sizing:border-box;
+  vertical-align:-0.15em;
+  line-height:1;
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
+  /* The same sanctioned horizontal margin as the inline pill (pills.styles.css), and for the same measured
+   * reason. On the disc padding is worse than useless: the box is a fixed 1em square
+   * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
+   * moving it away from the text.
+   *
+   * AND NO VERTICAL PADDING, deliberately. The disc and the pill are ATOMIC inline
+   * boxes (`inline-block` / `inline-flex`), so unlike a plain inline their block padding
+   * DOES enter the line box: measured, `padding-block:0.5em` took a three-line paragraph
+   * from 75.6px to 82px — one line gains leading its neighbors do not, which is exactly
+   * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
+   * own, through its `line-height`; the mark takes what the line already gives it and
+   * centres on the text with `vertical-align`. */
+  margin-inline:0.22em;
+}
+/* A CHECK HELD IN A PILL (shared/compose.js, a labelled `@check{…}`, a verdict-grid criterion, an
+ * obligation-matrix `pills` cell) is drawn at 0.85 of its inline size. The pill's own icon draws at
+ * about two thirds of its type; a full 1em disc nearly filled the capsule (5.5px above and below in a
+ * 26px pill) and read heavier than the pill beside it. 0.85 is the owner's pick from three rendered
+ * sizes (2026-10-29): it matches the icon's weight and keeps the tick legible. It MULTIPLIES the
+ * disc scale, so `checks-bold` still enlarges it.
+ *
+ * The offset re-centres it. A disc centred on the text sits 0.345em above the baseline, so its
+ * `vertical-align` is that less half its height; at a full 1em disc this is the -0.15em above, and
+ * at 0.85 it measured 0.1px off the capsule's centre (the fixed -0.15em left it 1.1px low). */
+section .lat-pill[data-shape] > .lat-pill-lead > .lat-state {
+  width:calc(0.85em * var(--state-disc-scale));
+  height:calc(0.85em * var(--state-disc-scale));
+  vertical-align:calc(0.345em - 0.425em * var(--state-disc-scale));
+}
+section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
+section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section .lat-state.todo,
+section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+section .lat-state::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
+  -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
+          mask:var(--state-mark) center / 100% 100% no-repeat;
+}

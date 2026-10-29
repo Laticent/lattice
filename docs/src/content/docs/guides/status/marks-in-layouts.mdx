@@ -44,9 +44,9 @@ layouts:
 | Layout | Where the marker goes | What it draws |
 |---|---|---|
 | `checklist` | Start of each list item | A disc beside the row |
-| `verdict-grid` | Start of each criterion under an option | A badge beside the criterion |
-| `pricing` | Start of each feature under a tier | A badge beside the feature |
-| `obligation-matrix` | Start of a table cell | A disc in the cell, plus a key |
+| `verdict-grid` | Start of each criterion under an option | A pill holding the check and the criterion |
+| `pricing` | Start of each feature under a tier | The check, then the feature, on one row |
+| `obligation-matrix` | Start of a table cell | A disc in the cell, plus a key; under `pills`, a pill with the check and its word |
 | `roadmap` | Start of a table cell, before the item | A state on the item, plus a key (except the `status` variant) |
 | Any table, with `state-cells` | Start of a table cell | A disc in the cell |
 
@@ -108,9 +108,11 @@ own paragraph, above the grid.
 ```
 
 Each pair is `{marker, word}`. Name only the entries you want to change; the
-rest keep their defaults. On `roadmap` the new word reaches the key, the cells
-and the narration. On `obligation-matrix` it renames the key only: the cells
-have no words, and narration still uses the default words.
+rest keep their defaults. The new word reaches the key and the narration on both
+layouts, and the cells wherever the cells show words: every `roadmap` cell, and
+every `obligation-matrix` cell under the `pills` variant, which writes each
+answer as its word in a pill. A plain `obligation-matrix` cell is a check with no
+word, so only the key and the voice change.
 
 <CraftLab
 	label="Renaming an obligation-matrix key"
@@ -156,7 +158,7 @@ or for the whole deck (`class: checks-bold` in front matter):
 | `checks-outline` | Ring and colored mark, no fill | You want a light, editorial look |
 | `checks-tonal` | Soft tinted fill, ring and colored mark | The background is plain, not tinted |
 
-They reach checklist rows, verdict-grid and pricing badges, table cells and
+They reach checklist rows, verdict-grid pills and pricing rows, table cells and
 inline marks. `roadmap` draws its discs the same way, rim included. At risk and
 blocked wear the signal ring in every style: a ring inside the edge on a solid
 disc, and the ring itself on `checks-outline` and `checks-tonal`. The two hollow

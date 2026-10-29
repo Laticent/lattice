@@ -1321,14 +1321,19 @@ foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
 hollow rings neutral.
 
 **Implementation contract:** the marker grammar AND its meaning live in one
-pair of kernels: `lib/core/leading-marker.js` reads it (`readLeadingMarker`, the
+pair of kernels: `lib/plugins/checks/shared/leading.js` reads it (`readLeadingMarker`, the
 Segno list-text grammar in `lib/core/list-text-grammar.js`) and
-`lib/core/state-marks.js` says what it means (`stateClassesFor`). Every consumer
+`lib/plugins/checks/shared/registry.js` says what it means. Its `CHECKS` table is the one place the six
+answers live: each row holds the answer's id, marker, shape class, mask token, tone token,
+hollow-or-solid, universal word and meaning, and `stateClassesFor`, `MARKERS` and
+`MARKER_LABELS` are read from it. The stylesheet, the layout word maps and the Studio's
+marker picker are pinned to the table by `test/unit/core/state-marks.test.js`, so a
+seventh row fails there until every surface knows it. Every consumer
 reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
 the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
 transform, the table row-label heuristic, and chart narration. The docs-site
 Compose editor still builds its patterns from the kernel's `MARKER_CLASS`. Each strips the marker and adds
-`class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
+`class="state {sem} {shape}"`. verdict-grid and pricing compose the check into a container instead of drawing a chip of their own (`lib/plugins/checks/shared/compose.js`): a pill holding the check and the label on verdict-grid, the check then the label on a pricing row.
 A unit test fails on a private copy of the marker class. Two consumers cannot
 import the kernel and are pinned to it by test instead: the linter
 (`lib/authoring/lint-core.js`, which runs in the browser and stays require-free)

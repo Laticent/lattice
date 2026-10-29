@@ -149,6 +149,14 @@ export interface InlineKernels {
 		/** The canonical icon for a name or alias, or null. */
 		canonical(name: string): string | null;
 	};
+	/** The checks plugin's full form, `@check{…}`. Absent in a kernel set from before the checks plugin. */
+	check?: {
+		read(text: string): { marker: string; id: string; label: string; written: Record<string, unknown> } | null;
+		edit(text: string, changes: PluginKindEdit): string | null;
+		/** The same DOM the slide gets: the disc alone, or the pill holding it. */
+		element(doc: Document, text: string): HTMLElement | null;
+		readonly SPEC: SlotSpec;
+	};
 	pill: {
 		read(text: string): PillFields | null;
 		edit(text: string, edit: PillEdit): string | null;
@@ -260,7 +268,7 @@ export interface PluginKindFields {
 }
 
 /** The names the engine already owns (an in-tree kind and its alias): a zip plugin cannot take one, so a span with this name is never a plugin's. */
-const IN_TREE_KINDS = new Set(['pill', 'spark', 'icon', 'avatar']);
+const IN_TREE_KINDS = new Set(['pill', 'spark', 'icon', 'avatar', 'check']);
 
 const NAMED_SPAN = /^@([a-z][a-z0-9-]*)(\{[^\n\r]*\})$/;
 
@@ -291,7 +299,25 @@ export const pluginKind: ObjectKind<PluginKindFields, PluginKindEdit> = {
 	name: (f) => `Edit ${f.entry.title ?? f.entry.name}`,
 };
 
-/** Every kind Compose can edit. A new kind is one more entry here and one more panel in InlineObjectEditor.tsx. */
+/**
+ * The check's full form, `@check{…}` (the embedded checks plugin). It is drawn as the slide draws it, and edited with the
+ * generic panel, which builds its controls from the check's own slot: the six answers as chips, the label as text. So
+ * its fields take the generic panel's shape, with the kernel's slot as the entry's.
+ */
+export const checkKind: ObjectKind<PluginKindFields, PluginKindEdit> = {
+	id: 'check',
+	read: (src, k) => {
+		const c = k.check?.read(src);
+		return c && k.check ? { entry: { plugin: 'checks', name: 'check', title: 'check', slot: k.check.SPEC }, written: c.written } : null;
+	},
+	draw: (doc, src, k) => k.check?.element(doc, src) ?? null,
+	edit: (src, edit, k) => k.check?.edit(src, edit) ?? null,
+	name: (f) => `Edit check ${String(f.written.answer ?? '')}${f.written.label ? `, ${String(f.written.label)}` : ''}`,
+};
+
+/** Every SIGIL kind Compose can edit. A new one is one more entry here and one more panel in InlineObjectEditor.tsx.
+ *  Two kinds are NOT here, because no sigil opens them: `checkKind` (`@check{…}`) and `pluginKind` (any other `@name{…}`).
+ *  `kindOf` asks them for a named span, so code that loops over this list alone does not see a check. */
 export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind, sparkKind as ObjectKind, avatarKind as ObjectKind, iconKind as ObjectKind];
 
 /** Which kind owns `src`, and the fields it reads. Null when none does (the span stays text). */
@@ -299,6 +325,8 @@ export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind;
 	if (!isObjectSource(src)) return null;
 	// A named span belongs to a plugin's kind or to no one: the in-tree readers parse the sigil forms only.
 	if (src.startsWith('@')) {
+		const check = checkKind.read(src, kernels);
+		if (check) return { kind: checkKind as ObjectKind, fields: check };
 		const fields = pluginKind.read(src, kernels);
 		return fields ? { kind: pluginKind as ObjectKind, fields } : null;
 	}

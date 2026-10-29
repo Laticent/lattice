@@ -49,7 +49,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 ## When NOT to use
 
 - **Code comparison.** Use `compare-code` for two fenced blocks. compare-prose is for sentences, not snippets.
-- **Three or more options.** compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid` with criteria badges.
+- **Three or more options.** compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid`, which scores each option against shared criteria.
 - **Verbatim text differences.** When the diff lives inside the prose itself — legal language, contract clauses — use `redline` so insertions and deletions render inline.
 
 ## Authoring
