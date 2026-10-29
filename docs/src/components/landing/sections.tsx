@@ -477,7 +477,7 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 	// and a fourth row costs phones a screen.
 	{
 		label: 'Edit',
-		body: 'Write in Markdown, or in Compose, a plain writing page with no Markdown at all, beside a live preview of the finished slide. Share a link and up to four people edit with you live, on a voice call.',
+		body: 'Write in Markdown, or in Compose, a plain writing page with no Markdown at all, beside a live preview of the finished slide. Share a link and up to four people edit with you live, with a voice call if you want one.',
 	},
 	{
 		label: 'Review',
