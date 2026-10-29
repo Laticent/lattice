@@ -27,11 +27,18 @@ name: Fit nightly (per-component split ratchet)
 # ubuntu-latest (4 cores) before `--edits none`, with every perturbed copy as well: 2,421 s to
 # render and 2,009 s to score, 74 minutes, which a 75-minute ceiling cut at its last step
 # (run 40839485067, 2026-10-29). The ratchet counts authored slides only, so the edits bought
-# the nightly nothing. With `--edits none`, in a 4-core sandbox: 1,675 s to render, 562 s to score.
+# the nightly nothing.
 #
 # `--edits none` IS PART OF THE BASELINE. A gallery renders as one deck, and its perturbed
 # copies sit between the authored slides, so dropping them moves a few counts by one (and lets
 # the diagram gallery render at all). Bless with the same flags this step runs.
+#
+# BLESS FROM A RUNNER, NOT A LAPTOP. Some slides clip by 0-1 px, so one pixel of font
+# rasterization moves a count between machines: the first runner run disagreed with a sandbox
+# bless by one slide in two cells (run 40856957057). So every run also writes the baseline it
+# measured into its artifact (`baseline.json`), and a re-bless copies that file over
+# `test/fit/baseline.json` rather than blessing locally. Measured with `--edits none` on
+# ubuntu-latest: 1,596 s to render, 661 s to score, 38 minutes for the job.
 #
 # REPORT-ONLY, deliberately, as `2026-06-28-experience-gating-playwright.md` §3 requires of a
 # browser-dependent check: it becomes blocking only after an observed green streak on a real
@@ -45,10 +52,6 @@ on:
     # here: GitHub queues scheduled workflows heavily at the top of the hour.
     - cron: '53 1 * * *'
   workflow_dispatch:
-  # TEMPORARY (#2962): one run on a real runner before merge, since a dispatch needs the file on
-  # main. Removed in the next commit; the issue steps below skip this event.
-  pull_request:
-    paths: ['.github/workflows/fit-nightly.yml']
 
 permissions:
   contents: read
@@ -61,7 +64,7 @@ concurrency:
 jobs:
   fit:
     runs-on: ubuntu-latest
-    # About 30 minutes expected; 75 leaves room for a slower runner. Without a ceiling a hung
+    # 38 minutes measured (COST above); 75 leaves room for a slower runner. Without a ceiling a hung
     # render would inherit GitHub's 360-minute default.
     timeout-minutes: 75
     steps:
@@ -108,7 +111,7 @@ jobs:
           REPORT="$GITHUB_WORKSPACE/fit-nightly-report.txt"
           CODE=0
           if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none \
-               --out "$RUNNER_TEMP/fit" --ratchet test/fit/baseline.json 2>&1 | grep -v 'bus.cc\|object_proxy' | tee "$REPORT"; then CODE=0; else CODE=$?; fi
+               --out "$RUNNER_TEMP/fit" --ratchet test/fit/baseline.json --bless "$RUNNER_TEMP/fit/baseline.json" 2>&1 | grep -v 'bus.cc\|object_proxy' | tee "$REPORT"; then CODE=0; else CODE=$?; fi
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           # NOT SCORED wins over everything: a verdict over galleries that did not render is not
           # a verdict (exit 3, ratchet.js). Clean needs exit 0 AND the clean marker AND no
@@ -145,6 +148,7 @@ jobs:
           path: |
             fit-nightly-report.txt
             ${{ runner.temp }}/fit/report.md
+            ${{ runner.temp }}/fit/baseline.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -153,7 +157,7 @@ jobs:
       # matches human issues). `!= 'false'`, so a sweep that died before writing its output
       # still files.
       - name: Open / append fit issue
-        if: always() && steps.sweep.outputs.failed != 'false' && github.event_name != 'pull_request'
+        if: always() && steps.sweep.outputs.failed != 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -172,8 +176,8 @@ jobs:
               finding)
                 echo "A component's clipped, unreadable or lost-content slides rose above \`test/fit/baseline.json\` on \`main@${{ github.sha }}\`."
                 echo ""
-                echo "Fix the component, or, if the change is deliberate and the slide is right, re-bless with"
-                echo "\`npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none --bless test/fit/baseline.json\`"
+                echo "Fix the component, or, if the change is deliberate and the slide is right, re-bless: copy \`baseline.json\` from this run's artifact"
+                echo "(\`fit-nightly-${{ github.run_id }}\`) over \`test/fit/baseline.json\`. It was measured on this runner, which a laptop bless is not."
                 echo "and justify the new count in the PR."
                 ;;
               broken)

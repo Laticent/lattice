@@ -2977,7 +2977,7 @@
   },
   "test/integration/baseline-decks/gallery.md": {
     "portrait@hall": {
-      "clip": 90,
+      "clip": 91,
       "unreadable": 0,
       "lost": 7
     },
@@ -2997,7 +2997,7 @@
       "lost": 7
     },
     "story@hall": {
-      "clip": 45,
+      "clip": 44,
       "unreadable": 5,
       "lost": 7
     },

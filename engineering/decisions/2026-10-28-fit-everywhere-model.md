@@ -317,9 +317,16 @@ clipped, 108 unreadable (with the overlap check) and 246 lost-content slides, ev
 The first bless came from the full §12 run, with perturbed copies in each gallery deck: 1,146
 clipped and 6 cells **not scored** (the diagram gallery, whose split emitted broken markup with
 the copies in it). Without the copies the diagram gallery renders and adds 18 clipped slides, and
-three counts fall by one. A GitHub runner reproduced the first baseline with no count above it
-(run 40839485067), so the bless is portable; that run also measured the cost that moved the nightly
-to `--edits none`.
+three counts fall by one. Two runner runs checked it. The first (run 40839485067, with edits)
+found no count above the first baseline and measured the cost that moved the nightly to
+`--edits none`: 74 minutes against a 75-minute ceiling. The second (run 40856957057, `--edits
+none`) took 38 minutes and disagreed with the sandbox bless by one slide in two cells of the mixed
+baseline gallery (portrait@hall 90 to 91, story@hall 45 to 44): some of its slides clip by 0 to 1
+px, so a pixel of font rasterization moves them between machines. The committed baseline takes the
+runner's counts, and every nightly now writes the baseline it measured into its artifact, so a
+re-bless copies a runner's file rather than blessing on a laptop. Whether two runs on the same
+runner image always agree is not yet measured; the nightly is report-only, so a one-slide flap
+costs a look, not a blocked merge.
 
 - **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
   harness rejects produces no rows, and comparing only the rows a run produced would read that
