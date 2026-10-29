@@ -574,7 +574,9 @@ function applyRatchet(rows) {
   const expected = sources().flatMap((src) => SIZES.flatMap((size) => VENUES.map((venue) => [path.relative(ROOT, src), `${size}@${venue}`])));
   const now = ratchet.tally(rows.filter((r) => SIZES.includes(r.size) && VENUES.includes(r.venue)), expected);
   if (BLESS) {
-    fs.writeFileSync(BLESS, `${JSON.stringify(now, null, 2)}\n`);
+    // Sorted, so a re-bless diffs only the counts that moved, never the order rows arrived in.
+    const sorted = Object.fromEntries(Object.keys(now).sort().map((src) => [src, Object.fromEntries(Object.keys(now[src]).sort().map((c) => [c, now[src][c]]))]));
+    fs.writeFileSync(BLESS, `${JSON.stringify(sorted, null, 2)}\n`);
     console.log(`fit ratchet: blessed ${Object.keys(now).length} sources into ${BLESS}`);
   }
   if (RATCHET) {

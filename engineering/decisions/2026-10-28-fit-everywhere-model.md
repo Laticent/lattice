@@ -312,7 +312,7 @@ at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each com
 unreadable and lost-content slides, per box and venue, with the committed baseline
 (`tools/lib/fit-harness/ratchet.js`). A count may only go down, and a component the baseline does
 not name starts at zero, so a new component that clips is named on its first night. Blessed from
-the §12 run: 94 sources, 564 cells, 1,146 clipped, 103 unreadable and 246 lost-content slides, and
+the §12 run: 94 sources, 564 cells, 1,146 clipped, 108 unreadable (with the overlap check) and 246 lost-content slides, and
 6 cells recorded as **not scored** (the diagram gallery, whose split emits broken markup).
 
 - **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
@@ -402,6 +402,15 @@ third fixed three defects that check found (a card's short title skewing its bod
 hidden copy of a formula, and a slide whose only cut was its footer skipping the check), and flags
 1 of 70 slides at hd/laptop, where the galleries are designed. A crammed page is cut
 `unreadable`, counted apart from clips.
+
+**Overlap, added after the montage (2026-10-29).** The montage showed redline's split NEW column
+drawn over itself at story/hall. The probe now also fails a page where two different text runs share
+a line box: more than 4px across and over half the shorter line's height, so lines that only touch
+pass. Redline already counted as a clip there (the overflow probe cuts it), so the new check changed
+no redline verdict. Re-scoring the nightly's six cells moved 5 slide-cells from fit to `unreadable`,
+and all 5 are real on sight: statute-stack's citation chip runs under its status pill at square/hall
+(3), and topic slide 3's eyebrow and basis line overprint at square/hall and story/hall (2). The
+baseline was re-blessed for them (unreadable 103 to 108); the table below predates the check.
 
 **The rescue at its intended size.** `section.compact` redefines the spacing scale without the
 box's canvas factor (§9). The harness now sets each spacing token to 0.75 of the slide's own and
