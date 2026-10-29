@@ -324,9 +324,11 @@ none`) took 38 minutes and disagreed with the sandbox bless by one slide in two 
 baseline gallery (portrait@hall 90 to 91, story@hall 45 to 44): some of its slides clip by 0 to 1
 px, so a pixel of font rasterization moves them between machines. The committed baseline takes the
 runner's counts, and every nightly now writes the baseline it measured into its artifact, so a
-re-bless copies a runner's file rather than blessing on a laptop. Whether two runs on the same
-runner image always agree is not yet measured; the nightly is report-only, so a one-slide flap
-costs a look, not a blocked merge.
+re-bless copies a runner's file rather than blessing on a laptop. The same machine agrees with
+itself: two full `--edits none` sweeps in one sandbox, 30 and 37 minutes under different load,
+matched in all 564 cells. So the flaps are between machines, not between runs; two runs on the
+runner image itself are not yet compared, and the nightly is report-only, so a one-slide flap
+there would cost a look, not a blocked merge.
 
 - **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
   harness rejects produces no rows, and comparing only the rows a run produced would read that
