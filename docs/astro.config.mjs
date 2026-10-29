@@ -146,6 +146,7 @@ export default defineConfig({
 		'/fuoco': '/libraries/fuoco/',
 		'/veduta': '/libraries/veduta/',
 		'/filo': '/libraries/filo/',
+		'/squadra': '/libraries/squadra/',
 	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one

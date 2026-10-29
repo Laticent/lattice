@@ -344,6 +344,42 @@ the pair furthest from every sibling picked this green.
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#2a1418` | `#f3e5e8` | Fraunces "Filo" |
 
+## Squadra — the set-square (built 2026-10-29)
+
+Squadra (the lint library, `docs/src/lib/squadra`) joined the family with its catalog entry, pulled
+forward from its M4 because the site requires a Learn page, a demo page and a nav entry for every
+workspace library (`docs/src/lib/nav.test.ts`). *Squadra* is Italian for the drafting **set-square**,
+and *squadrare* is to square something up and to look it over: a tool that checks a line is true
+before you trust it. The mark is a set-square:
+
+- **the square**: a right isosceles triangle, legs 92, corner at (18, 110), round joins at stroke
+  6.5; the right angle is what the tool proves, the way a rule proves itself on its examples;
+- **the scale**: graduations along the inner side of the hypotenuse in the accent (graphite), a
+  major every third, 8.5 apart; a major beside the hub drops to a minor so the scale stays even;
+- **the ringed hub** at the triangle's incenter (44.9, 83.1), 1.05× the standard size, so it sits
+  equally far from all three edges.
+
+The favicon (`-min`) has no scale: legs 100 at stroke 11, the hub at 1.45×, so it reads at 16 px.
+The SVGs were drawn by a short script (kept out of tree, as Suono's was); the committed files are the
+source of truth for geometry, and `library-palettes.json` for color.
+
+**Palette**, copper with a graphite scale. Copper sits in the one hue band the family leaves open
+between Trama's brick and Fluido's honey. A search over hue and lightness for the copper furthest
+from every signature color picked `#a14f09` / `#d29570`: nearest is Fluido's light honey at 0.075 in
+OKLab, over the 0.06 floor. The graphite accent holds 5.2:1 on light paper and 9.8:1 on dark; accents
+are not held to the distance floor, and no other library uses it.
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| square (`pri`) | `#a14f09` | `#d29570` | the set-square (copper) |
+| scale (`warm`) | `#3c6a8c` | `#8ec0e6` | the graduations (graphite) |
+| hub | `#a14f09` | `#d29570` | the focal point |
+| ring | `#3d1c03` | `#2a1608` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#2a1d14` | `#f1e6dc` | Fraunces "Squadra" |
+
+The owner has not picked this mark yet; it is on the PR's decision card with the rendered sheet.
+
 ## Palette diversity (2026-10-28)
 
 **Problem.** The marks shared too much color. Four libraries (Cadenza, Lente, Suono, Vetrina) used

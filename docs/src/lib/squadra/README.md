@@ -226,5 +226,5 @@ input, and why the bench keeps the case.
 M1b brings the reference Markdown language and Lattice's deck language, on the Segno deck
 pipeline. M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
 CSS, the JS/TS adapter, project rules (`collect` and `decide`), the cache and workers. M4 adds the
-declarative selector language and rule manifests, inline suppressions, the SARIF, GitHub and LSP
-reporters, and the learn and demo pages. The reference YAML language moves to M1b, where `lattice-deck`'s front-matter island first needs it.
+declarative selector language and rule manifests, inline suppressions, and the SARIF, GitHub and LSP
+reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`. The reference YAML language moves to M1b, where `lattice-deck`'s front-matter island first needs it.

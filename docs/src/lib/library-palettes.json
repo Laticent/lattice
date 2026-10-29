@@ -1565,6 +1565,131 @@
      "color-scheme": "dark"
     }
    }
+  },
+  "squadra": {
+   "roles": {
+    "primary": [
+     "#a14f09",
+     "#d29570"
+    ],
+    "accent": [
+     "#3c6a8c",
+     "#8ec0e6"
+    ],
+    "ring": [
+     "#3d1c03",
+     "#2a1608"
+    ],
+    "halo": [
+     "#f6f3ec",
+     "#121012"
+    ],
+    "wm": [
+     "#2a1d14",
+     "#f1e6dc"
+    ]
+   },
+   "mark": [
+    [
+     "pri",
+     [
+      [
+       "stroke",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "warm",
+     [
+      [
+       "stroke",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "hub",
+     [
+      [
+       "fill",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "ring",
+     [
+      [
+       "stroke",
+       "@ring"
+      ]
+     ]
+    ],
+    [
+     "halo",
+     [
+      [
+       "fill",
+       "@halo"
+      ]
+     ]
+    ],
+    [
+     "wm",
+     [
+      [
+       "fill",
+       "@wm"
+      ]
+     ]
+    ],
+    [
+     "dot",
+     [
+      [
+       "fill",
+       "@accent"
+      ]
+     ]
+    ]
+   ],
+   "page": {
+    "light": {
+     "--paper": "@halo",
+     "--stage": "#f1ebe4",
+     "--ink": "@wm",
+     "--muted": "#6e5e52",
+     "--line": "#e2d8cc",
+     "--accent": "@primary",
+     "--live": "@accent",
+     "--live-ink": "#335c79",
+     "--live-bg": "#e3edf4",
+     "--panel": "#fdfbf8",
+     "--soft": "#f6e9de",
+     "--ring": "@ring",
+     "--shadow": "0 1px 2px rgba(42,29,20,.06), 0 8px 24px rgba(42,29,20,.07)",
+     "--serif": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, Georgia, \"Times New Roman\", serif",
+     "color-scheme": "light"
+    },
+    "dark": {
+     "--paper": "@halo",
+     "--stage": "#1a1613",
+     "--ink": "@wm",
+     "--muted": "#b3a294",
+     "--line": "#342a22",
+     "--accent": "@primary",
+     "--accent-ink": "#2a1405",
+     "--live": "@accent",
+     "--live-ink": "@accent",
+     "--live-bg": "#152431",
+     "--panel": "#171310",
+     "--soft": "#3a2416",
+     "--ring": "@ring",
+     "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)",
+     "color-scheme": "dark"
+    }
+   }
   }
  }
 }

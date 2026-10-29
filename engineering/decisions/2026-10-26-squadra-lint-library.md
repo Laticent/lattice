@@ -181,7 +181,7 @@ every finding through Squadra's one fix driver (design §15.4). The full table, 
 | M1b | `lattice-deck` and the reference Markdown, on the Segno deck pipeline | The ~23 near-mechanical deck rules | The three-corpus migration diff; lint-core line count and rules on `lattice-line`, both falling; effort per rule |
 | M2 | Waivers adopted, reference JSON | `check-ownership.js` reads `squadra.waivers.json`, starting with the 8 lists that have no staleness check | Lists moved; staleness caught in all of them |
 | M3 | Reference CSS, the JS/TS adapter, project rules, the cache, workers | Ownership checks, after profiling `check-ownership.js` | Wall-clock against the 21.8 s baseline |
-| M4 | The generic surface: the outside-domain fixture, inline suppressions, SARIF/GitHub/LSP output, the selector language (sooner if ~15 rules share a shape); learn and demo pages, README, publish | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
+| M4 | The generic surface: the outside-domain fixture, inline suppressions, SARIF/GitHub/LSP output, the selector language (sooner if ~15 rules share a shape); README, publish (the learn and demo pages landed with M1a on 2026-10-29, because the site requires both for every workspace library) | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
 
 **M1a as built (2026-10-29).** The core is `docs/src/lib/squadra/`; the bridge is `lib/authoring/squadra/`, and
 lint-core's `applyAllFixes` runs through it. The whole-deck fix diff (`npm run squadra:fix-diff`, report in

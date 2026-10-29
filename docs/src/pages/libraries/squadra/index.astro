@@ -1,0 +1,248 @@
+---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
+// Squadra — a standalone showcase driven by the REAL library (docs/src/lib/squadra, the
+// `@laticent/squadra` workspace). Six rules for a tiny "notes" language (docs/src/lib/squadra-demo.ts):
+// three honest, three broken in a way the compiler catches. The page compiles the rules a reader
+// turns on, in lenient mode, so a broken rule is refused and named before it can touch the text;
+// then it lints the editor's text and fixes it through the one fix driver. Reached at
+// /libraries/squadra/; its Learn page is /libraries/squadra/learn/ (src/content/catalog/).
+import DemoBar from '../../../components/catalog/DemoBar.astro';
+import { DEMO_RULES } from '../../../lib/squadra-demo';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Squadra — rules that prove they work</title>
+		<link rel="icon" href="/squadra-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="squadra" />
+		<style is:global>
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
+				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 1040px; margin: 0 auto; }
+			.brand { display: flex; align-items: center; gap: 13px; margin-top: 14px; }
+			.brand img { width: 46px; height: 46px; }
+			h1 { font-family: var(--serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			h2 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 0; }
+			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
+			.sub { color: var(--muted); font-size: 15px; max-width: 72ch; margin: 10px 0 0; }
+			code { font-family: var(--mono); font-size: .92em; }
+			.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-top: 30px; }
+			.head p { color: var(--muted); font-size: 13px; margin: 0; }
+			.rules { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 10px; }
+			.rule { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; align-content: start; background: var(--panel);
+				border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; cursor: pointer; }
+			.rule:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.rule input { accent-color: var(--accent); width: 17px; height: 17px; margin: 3px 0 0; }
+			.rule .name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-weight: 600; font-size: 14px; }
+			.rule .id { font-family: var(--mono); font-size: 11.5px; color: var(--muted); font-weight: 400; }
+			.rule .note { grid-column: 2; font-size: 13px; color: var(--muted); }
+			.rule .verdict { grid-column: 2; font-size: 13px; overflow-wrap: anywhere; }
+			.rule .verdict b { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+			.rule .verdict:empty { display: none; }
+			.pill { font-family: var(--sans); font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+			.rule[data-state="loaded"] .pill { background: var(--live-bg); color: var(--live-ink); border-color: transparent; }
+			.rule[data-state="refused"] { border-color: var(--accent); }
+			.rule[data-state="refused"] .pill { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.rule[data-state="refused"] .verdict { color: var(--ink); }
+			.stagebox { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; background: var(--stage);
+				border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: clamp(12px, 2.4vw, 20px); }
+			.pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+			.label { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+			textarea { width: 100%; min-height: 318px; resize: vertical; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+				border-radius: 12px; padding: 12px 14px; font: 13.5px/1.6 var(--mono); tab-size: 2; }
+			textarea, code { font-variant-ligatures: none; }
+			textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+			.findings { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; max-height: 318px; overflow-y: auto; }
+			.findings button { width: 100%; text-align: left; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; background: var(--panel);
+				color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 11px; font: inherit; cursor: pointer; }
+			.findings button:hover, .findings button:focus-visible { border-color: var(--accent); }
+			.findings .pos { font-family: var(--mono); font-size: 12px; color: var(--muted); grid-row: span 2; padding-top: 1px; min-width: 3.4em; }
+			.findings .msg { font-size: 13.5px; }
+			.findings .rid { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+			.empty { font-size: 13.5px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; }
+			.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+			.actions button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 7px 15px; font: inherit; font-size: 13.5px; cursor: pointer; }
+			.actions button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+			.actions button:disabled { opacity: .45; cursor: default; }
+			.actions button:not(:disabled):hover { border-color: var(--accent); }
+			.log { font-size: 13px; color: var(--muted); min-height: 1.5em; margin: 0; }
+			.stats { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+			.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+			.stat b { display: block; font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); }
+			.stat span { font-size: 12px; color: var(--muted); }
+			.note { color: var(--muted); font-size: 13px; max-width: 78ch; margin-top: 16px; }
+			@media (max-width: 720px) { .stagebox { grid-template-columns: 1fr; } textarea { min-height: 330px; } .findings { max-height: none; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<DemoBar slug="squadra" />
+			<div class="brand">
+				<img src="/squadra-mark.svg" alt="" />
+				<h1>Squadra</h1>
+			</div>
+			<p class="promise">Lint and fix text, with rules that have to prove they work.</p>
+			<p class="sub">
+				Every rule carries its own examples, and the real <code>@laticent/squadra</code> compiler runs them before the
+				rule may load. Turn on a broken rule below: it is refused, and named, before it can touch your text. Then edit
+				the notes and press Fix all.
+			</p>
+
+			<div class="head">
+				<h2>Six rules</h2>
+				<p>Three honest, three broken. Turn any of them on or off.</p>
+			</div>
+			<div class="rules" id="rules">
+				{DEMO_RULES.map((r) => (
+					<label class="rule" data-id={r.id} data-state="off">
+						<input type="checkbox" checked value={r.id} />
+						<span class="name">{r.label} <span class="id">{r.id}</span> <span class="pill">Off</span></span>
+						<span class="note">{r.note}</span>
+						<span class="verdict"></span>
+					</label>
+				))}
+			</div>
+
+			<div class="head">
+				<h2>Lint and fix</h2>
+				<p>A section ends at <code>===</code>; a <code>```</code> fence is an example, so no rule reads it.</p>
+			</div>
+			<div class="stagebox">
+				<div class="pane">
+					<span class="label" id="ed-label">The notes</span>
+					<textarea id="ed" spellcheck="false" aria-labelledby="ed-label"></textarea>
+					<div class="actions">
+						<button class="primary" id="fixall">Fix all</button>
+						<button id="reset">Reset the text</button>
+					</div>
+				</div>
+				<div class="pane">
+					<span class="label" id="f-label">Findings</span>
+					<ul class="findings" id="findings" aria-labelledby="f-label" aria-live="polite"></ul>
+					<p class="log" id="log"></p>
+				</div>
+			</div>
+
+			<div class="stats">
+				<div class="stat"><b id="s-rules">0</b><span>rules loaded, of <span id="s-on"></span> turned on</span></div>
+				<div class="stat"><b id="s-find">0</b><span>findings in the text</span></div>
+				<div class="stat"><b id="s-compile">0</b><span>ms to compile (examples run)</span></div>
+				<div class="stat"><b id="s-lint">0</b><span>ms to lint</span></div>
+			</div>
+			<p class="note">
+				Click a finding to select its span in the text. Fix all runs Squadra's one fix driver: it applies every fix that
+				overlaps no other in one pass, checks that each kept the number of sections and the fenced example, and reverts
+				one whose finding is still there. What a rule's examples cannot prove is that the rule is right on text its
+				author did not write; the Learn page says how a migration covers that.
+			</p>
+		</div>
+
+		<script>
+			import { compileDemo, SAMPLE } from '../../../lib/squadra-demo';
+			import { fix, lint } from '../../../lib/squadra/index';
+
+			const $ = (id) => document.getElementById(id);
+			const ed = $('ed');
+			const cards = [...document.querySelectorAll('.rule')];
+			let rules = compileDemo();
+
+			const lineCol = (text, at) => {
+				const before = text.slice(0, at);
+				const line = before.split('\n').length;
+				return `${line}:${at - before.lastIndexOf('\n')}`;
+			};
+			const source = () => ({ path: 'plan.notes', text: ed.value, language: 'notes' });
+
+			function recompile() {
+				const on = cards.filter((c) => c.querySelector('input').checked).map((c) => c.dataset.id);
+				const t0 = performance.now();
+				rules = compileDemo(on);
+				$('s-compile').textContent = (performance.now() - t0).toFixed(1);
+				for (const c of cards) {
+					const id = c.dataset.id;
+					const problems = rules.refused.filter((p) => p.rule === id);
+					const state = !on.includes(id) ? 'off' : problems.length ? 'refused' : 'loaded';
+					c.dataset.state = state;
+					c.querySelector('.pill').textContent = state === 'off' ? 'Off' : state === 'loaded' ? 'Loaded' : 'Refused';
+					// Every refusal code, then the compiler's own words for the first one.
+					const verdict = c.querySelector('.verdict');
+					verdict.replaceChildren();
+					if (problems.length) {
+						const codes = document.createElement('b');
+						codes.textContent = [...new Set(problems.map((p) => p.code))].join(' · ');
+						verdict.append(codes, document.createElement('br'), `The compiler: ${problems[0].message.replace(/\.$/, '')}.`);
+					}
+				}
+				$('s-rules').textContent = String(on.length - new Set(rules.refused.map((p) => p.rule)).size);
+				$('s-on').textContent = String(on.length);
+				relint();
+			}
+
+			function relint() {
+				const t0 = performance.now();
+				const found = lint(rules, [source()]).findings.filter((f) => !f.rule.startsWith('squadra/'));
+				$('s-lint').textContent = (performance.now() - t0).toFixed(2);
+				$('s-find').textContent = String(found.length);
+				$('fixall').disabled = !found.some((f) => f.fixes?.length);
+				const list = $('findings');
+				list.replaceChildren();
+				if (!found.length) {
+					const li = document.createElement('li');
+					li.className = 'empty';
+					li.textContent = 'Nothing to report.';
+					list.append(li);
+					return;
+				}
+				for (const f of found) {
+					const li = document.createElement('li');
+					const b = document.createElement('button');
+					const pos = document.createElement('span');
+					pos.className = 'pos';
+					pos.textContent = lineCol(ed.value, f.span.from);
+					const msg = document.createElement('span');
+					msg.className = 'msg';
+					msg.textContent = f.message;
+					const rid = document.createElement('span');
+					rid.className = 'rid';
+					rid.textContent = f.rule;
+					b.append(pos, msg, rid);
+					b.addEventListener('click', () => {
+						ed.focus();
+						ed.setSelectionRange(f.span.from, Math.max(f.span.to, f.span.from + 1));
+					});
+					li.append(b);
+					list.append(li);
+				}
+			}
+
+			$('fixall').addEventListener('click', () => {
+				const t0 = performance.now();
+				const r = fix(rules, source());
+				const ms = (performance.now() - t0).toFixed(2);
+				ed.value = r.text;
+				const n = r.applied.length;
+				const skipped = r.skipped.length ? ` Skipped ${r.skipped.length}: ${r.skipped.map((s) => `${s.rule} (${s.reason})`).join(', ')}.` : '';
+				$('log').textContent = `Applied ${n} fix${n === 1 ? '' : 'es'} in ${r.passes} pass${r.passes === 1 ? '' : 'es'}, ${ms} ms.${skipped}`;
+				relint();
+			});
+			$('reset').addEventListener('click', () => {
+				ed.value = SAMPLE;
+				$('log').textContent = '';
+				relint();
+			});
+			let timer = 0;
+			ed.addEventListener('input', () => {
+				clearTimeout(timer);
+				timer = setTimeout(relint, 120);
+			});
+			for (const c of cards) c.querySelector('input').addEventListener('change', recompile);
+			ed.value = SAMPLE;
+			recompile();
+		</script>
+	</body>
+</html>
