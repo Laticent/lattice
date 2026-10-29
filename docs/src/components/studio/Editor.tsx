@@ -377,6 +377,15 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const collabKey = collab?.key ?? null;
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
+	// The text the value-sync last pushed IN. Its own transaction must not echo that same text back
+	// OUT through `onChange`: the echo is stale by the time it lands. React runs this editor's sync
+	// effect lazily, often only when it starts rendering the NEXT update, so a controlled writer
+	// that has already moved on (the phone demo types one `setSource` per keystroke) gets the
+	// previous value queued AFTER its new one, and the new one is lost. Mid-run the next keystroke
+	// re-sends the whole text and hides it; the LAST keystroke stays lost, which is the
+	// `- Sentiment \`5` deck that `demo-mobile.spec.ts` caught on WebKit (followup 2927).
+	// A sync that produced DIFFERENT text (a leading BOM the filter stripped) still goes out.
+	const syncedValueRef = React.useRef<string | null>(null);
 	const hubRef = React.useRef(focusHub);
 	hubRef.current = focusHub;
 	// The index revision the editor's text was last fed as, so a caret report names the text
@@ -880,7 +889,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 								// cannot tell which of two equal-looking edits the author made, and the slide
 								// ids that keep the rail stable depend on it.
 								if (hub) revRef.current = hub.update(text, { span: changedSpan(u.changes), by: isAuthorEdit(u) ? 'markdown' : 'sync' });
-								onChangeRef.current(text, fromSync ? undefined : editorChange(u));
+								// A sync echoing the very text it was handed is not news to the shell — see
+								// `syncedValueRef`.
+								if (!fromSync || text !== syncedValueRef.current) onChangeRef.current(text, fromSync ? undefined : editorChange(u));
 								// A genuine authoring edit carries a userEvent annotation; the
 								// external value-sync dispatch (deck switch, AI apply, restore)
 								// does not — so this fires for typing/paste/delete only.
@@ -1048,6 +1059,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// author is after a shell edit is the shell's call (`go(…, { after })`), not this
 		// mapping's.
 		const localized = toOld - from <= old.length / 2 && insert.length <= value.length / 2;
+		syncedValueRef.current = value;
 		if (localized) {
 			const change = { from, to: toOld, insert };
 			const mappedHead = ChangeSet.of(change, old.length).mapPos(v.state.selection.main.head, 1);

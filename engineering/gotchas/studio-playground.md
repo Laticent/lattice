@@ -1759,3 +1759,18 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — `replaceSlide` now splices only that slide's trimmed range (`slideRanges` in `lint.ts`), so every other byte,
   the final newline included, stays as written. The span is then the 9 characters and the caret stays on slide 1. Any
   shell edit that rebuilds the whole deck (`rejoin`) can still move the caret this way; keep one-slide edits surgical.
+
+## A controlled write to the Markdown editor loses its last change (the phone demo saves one character short)
+
+- **Symptom** — something writes the deck through `setSource` faster than React settles (the phone demo types one
+  `setSource(whole text)` per keystroke), and the deck ends one step behind the last write. The demo's "My First Deck"
+  saved `- Sentiment \`5` with no closing backtick; `docs/e2e/demo-mobile.spec.ts`'s `@webkit-phone` arm failed on it
+  every run, on `main` too, and the per-PR CI runs no WebKit.
+- **Cause** — the editor copies `value` into CodeMirror in a deferred effect, and its update listener sent that sync
+  transaction's text back out through `onChange`. React often runs the effect only when it starts the NEXT update, so
+  write N's echo was queued after write N+1 and set the state back to N. Mid-run the next write hides it; the last one
+  stays lost. WebKit shows it because the spec's per-frame `coordsAtPos` sampler slows frames enough for the effect to
+  land late. Measured 2026-10-29: 46 or more echoes per run replaced a newer `source` with the text one write behind it.
+- **Fix** — `docs/src/components/studio/Editor.tsx` keeps the text its value-sync pushed in (`syncedValueRef`) and does
+  not report a sync transaction whose text is that same value. A sync that changed the text (a stripped leading BOM)
+  still goes out. `editor-value-echo.test.tsx` fails on the old code; the `@webkit-phone` arm passes.

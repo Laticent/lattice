@@ -270,3 +270,6 @@ value-sync race above.
 - **Portaled targets are reachable.** The stage resolves selectors against the whole document
   (`root.ownerDocument`), so Radix menus/sheets/dialogs that portal to `<body>` (the deck
   switcher, the Inspector/settings sheets) are found — no longer scoped to the Studio subtree.
+- **The phone demo's last keystroke (fixed 2026-10-29).** The controlled typing path once lost its final keystroke to a
+  stale echo from the editor's value-sync, so the demo's deck saved one character short on WebKit. Cause and fix:
+  `engineering/gotchas/studio-playground.md`, "A controlled write to the Markdown editor loses its last change".
