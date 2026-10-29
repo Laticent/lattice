@@ -225,7 +225,19 @@ case in the core, the core is not generic yet.
 
 ## 10. Open items
 
-1. **Name check.** Squadra is chosen. Availability on npm and trademark were not checked.
+1. **Name check.** Squadra is chosen. Checked 2026-10-29, before M1a writes the name into `package.json`:
+   - **npm: free.** `npm view @laticent/squadra` and `npm view squadra` both return `E404 … is not in this
+     registry`. `npm search scope:laticent` returns `[]`: nothing is published under the scope yet, the 14 sibling
+     libraries (`@laticent/segno`, `@laticent/cadenza`, …) included. **Unverified:** whether an npm user or org
+     named `laticent` is registered. The registry's org endpoint needs a login, and `npmjs.com/org/laticent` refuses
+     scripted requests (HTTP 403). Whoever first publishes under `@laticent` has to own that scope. That holds for every
+     library in the family, not only this one.
+   - **Trademark: no conflict found in software tooling, not cleared.** A web search turned up no linter or developer
+     tool named Squadra. The SQUADRA marks it found cover fundraising (class 36), online retail of digital art
+     (class 35) and machine tools (SQUADRA VISION PLUS, pending). The one software-adjacent class-42 hit, Squadra
+     Solutions LLC (cybersecurity consulting), registers the letter "S" (Reg. 7658947), not the word. Squadra Digital
+     (Portugal) is a software services firm that holds no mark in these results. The results come from third-party
+     aggregators, not the USPTO's own database, so this is a search, not legal clearance. The name stays.
 2. **Design §21's three defaults:** JSON manifests, CSS-like selectors, fixtures in a separate file only.
 3. **Where the unclassified ~70 rule ids fall.** They are read in M1b, when the first families migrate.
 4. **Whether the Studio's browser bundle takes Squadra directly** or through the existing `authoring-core:build` step.
