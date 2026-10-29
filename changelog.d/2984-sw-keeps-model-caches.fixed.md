@@ -1,0 +1,1 @@
+- **Downloaded on-device models survive a site update.** The service worker's update step deleted every Cache Storage entry it did not own, including the on-device voice (about 80 MB) and the on-device chat model, so each site update made the next use download them again. It now deletes only its own stale caches.
