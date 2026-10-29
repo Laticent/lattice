@@ -1,4 +1,4 @@
-import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, setEditorContent, test } from './studio-fixture';
+import { appendToEditor, CHROME, expect, gotoStudio, openInspector, openSection, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // The editor's real grammar lint (shared lint-core). An unknown component makes
 // Fix-all actionable and surfaces an inline-issue count in the Coach; turning
@@ -72,6 +72,30 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 	await openInspector(page);
 	await openSection(page, CHROME.deckTab.general);
 	await page.getByRole('switch', { name: 'Inline validation' }).click();
+	await expect(fixAll(page)).toBeDisabled();
+});
+
+// "Fix all" runs lint-core's fixes through Squadra's fix driver (decision 2026-10-26-squadra-lint-library
+// M1a): every non-overlapping fix in one pass, never an edit inside a code fence. This deck has a
+// typo'd class, two card lines to nest, and a fenced copy of one of them ABOVE it, which a fix used to
+// land on. Read back from the persisted source, the text the Studio saves.
+const FIX_ALL_DECK = [
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
+	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
+].join('\n');
+
+test('Fix all fixes every live line in one click and leaves a fenced example as written', async ({ page }) => {
+	await setEditorContent(page, FIX_ALL_DECK);
+	await expect(fixAll(page)).toBeEnabled();
+	await fixAll(page).click();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi -->');
+	// The Studio persists the source as a JSON string.
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('```md\n- **Speed.** ship weekly\n```');
+	expect(src).toContain('- Speed\n  - ship weekly');
+	expect(src).toContain('- Reach\n  - two markets');
 	await expect(fixAll(page)).toBeDisabled();
 });
 

@@ -1477,7 +1477,9 @@ while `deck/capacity-scale` is the Squadra id.
 
 **As built in M1a (2026-10-29).** `lib/authoring/squadra/bridge.js` and `lattice-line.js`; lint-core's
 `applyAllFixes` is now `fixAllDetailed(source, vocab).text`, so the Studio's "Fix all", the Playground and
-`lint:deck --fix` all reach the driver through one function.
+`lint:deck --fix` all reach the driver through one function. The driver loads on demand: the browser hosts
+`await loadFixDriver()` before "Fix all", whose `import()` is its own chunk, so the lint core that loads at startup
+does not carry it (`lintCoreGz`, parent note §10.4).
 
 - **The producer** reports every lint-core finding, fixable or not, so the resolution check sees a fix's finding
   come back. A finding's span is the line `applyFix` would edit, found by lint-core's own `fixLineIndex` (the walk

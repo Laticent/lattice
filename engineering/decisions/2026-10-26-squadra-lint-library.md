@@ -248,12 +248,13 @@ case in the core, the core is not generic yet.
 3. **Where the unclassified ~70 rule ids fall.** They are read in M1b, when the first families migrate.
 4. **Whether the Studio's browser bundle takes Squadra directly** or through the existing `authoring-core:build` step.
    Decided in M1a by bundle size against `docs/route-budget.json`. **Decided 2026-10-29: directly, through the
-   `@laticent/squadra/driver` entry.** lint-core requires it, so both `esm/lint.js` and `authoring-core.generated.js`
-   inline it with no new build step. The driver entry carries the fix path alone (7.7 KB min+gzip against 14.3 KB for
-   the whole library), and `lintCoreGz` grows by 9,295 bytes gzipped (98,686 to 107,981, `esm/lint.js` and its
-   static imports beyond the engine, measured on main and on the M1a head). That is under the 125.2 KB ceiling and
-   is declared in `docs/route-budget.d/squadra-fix-driver.md`. Loading the driver only when "Fix all" is pressed would
-   give the bytes back; that is put to the owner on the PR.
+   `@laticent/squadra/driver` entry, loaded on demand.** lint-core requires no part of it statically: the Studio and
+   the Playground `await loadFixDriver()` when "Fix all" is pressed, and the ESM build splits that `import()` into a
+   chunk of its own; Node loads it synchronously. Bundled statically, the driver put `lintCoreGz` at 130.7 KB in CI,
+   past the 122.3 KB ceiling. Loaded on demand, `esm/lint.js` and its static imports grow by 858 bytes gzipped
+   (125,034 to 125,892, measured on main and on the M1a head), declared in
+   `docs/route-budget.d/2966-squadra-fix-driver.md`. The driver entry carries the fix path alone (7.7 KB min+gzip
+   against 14.3 KB for the whole library).
 5. **Performance targets.** Set from the M1a benchmark.
 6. **The `lint:deck --fix` title-slide bug.** Fixed in today's fixer by PR #2947, merged 2026-10-28. Squadra's shape
    check (design §7.4) is the general guard against the same class of bug.
