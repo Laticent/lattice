@@ -328,28 +328,19 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   layouts graduate in a separate post-review commit. See `engineering/workflow.md`.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck**
   `examples/<slug>.md` (6–10 slides); CI renders its PDF and links it on the PR, and the
-  nightly bless commits it to `main`. Contract in
-  `engineering/workflow.md`. **The trigger is the rendered surface, not the word
-  "feature".** A layout, modifier, token, theme or chart change — or a fix to one —
-  owes a deck, because the deck IS how a reviewer sees it. Work that renders no new
-  or changed slide surface does not: tooling, CI/infra, export plumbing, a perf change
-  whose output is byte-identical, docs. `workflow.md`'s existing escape does NOT cover
-  this — it RELOCATES a code-level feature's demo ("live with the feature
-  implementation"), it never excused one — so this line stating the rule flatly left
-  every tooling PR arguing its way out of a HARD RULE in its own body, a tax on the
-  honest ones and an invitation to the rest.
-  **A path test is NOT the trigger, and the measurement is why:** over the 40 commits
-  ending at `4c9075c`, 21 touched `lib/` or `themes/` and 6 shipped a deck, so a
-  mechanical `lib/` ⇒ deck rule would have called 15 of them violations. Judge the
-  surface a human sees, not the directory the diff lands in. (Re-derive with
-  `git log --no-merges -40 --name-only <base>`; the window moves with HEAD, so quote a
-  base or the number will not reproduce — an earlier draft of this line said 19,
-  counted from a moving HEAD, and did not.)
-  **Non-visual work still owes its EVIDENCE in the PR body** — the before/after
-  numbers, the measured table, the arm that proves the thing can fail. A deck is one
-  form of proof, not the only one; shipping neither is what this rule exists to stop.
-  *(discipline — no automated gate; the test is whether a reviewer can see the change
-  without checking out the branch.)*
+  nightly bless commits it to `main`. Contract in `engineering/workflow.md`.
+  **The trigger is the rendered surface, not the word "feature" and not a path.** A layout,
+  modifier, token, theme or chart change — or a fix to one — owes a deck, because the deck
+  IS how a reviewer sees it. Tooling, CI/infra, export plumbing, a byte-identical perf
+  change and docs render no new or changed slide surface and owe none. `workflow.md`'s
+  escape ("live with the feature implementation") RELOCATES a code-level feature's demo;
+  it never excused one. Judge the surface a human sees, not the directory the diff lands
+  in (a mechanical `lib/` ⇒ deck rule would have flagged 15 of the 40 commits ending at
+  `4c9075c`: 21 touched `lib/` or `themes/`, 6 shipped a deck).
+  **Non-visual work still owes its EVIDENCE in the PR body** — the before/after numbers,
+  the measured table, the arm that proves the thing can fail. *(discipline — no automated
+  gate; the test is whether a reviewer can see the change without checking out the
+  branch.)*
 - **#10 — Record every user-visible change in a `changelog.d/` fragment** as it
   lands — one file per PR, `changelog.d/<slug>.<category>.md`, bullets only; lead
   with `**Breaking:**` for anything that breaks a deck/consumer. **Do NOT append
@@ -368,22 +359,20 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   primitives in `docs/src/components/ui/` and the shared chrome
   (`PaletteControls`, `site-chrome.ts`) — don't fork a widget per surface.
 - **#16 — Rebase an open PR only when it CONFLICTS with `main` — never because it is
-  behind, and never from a background watch.** The merge queue tests every PR on top
-  of current `main` plus the PRs ahead of it, and merges only if that is green, so a
-  behind-but-clean PR is already safe to queue. Rebasing it anyway re-runs full CI
-  for nothing: 67 such rebases (33 of green PRs, ~895 minutes of CI wall-clock time) in
-  the eight days to 2026-09-28 (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
+  behind, and never from a background watch.** The merge queue tests every PR on top of
+  current `main` plus the PRs ahead of it and merges only if that is green, so a
+  behind-but-clean PR is already safe to queue; rebasing it re-runs full CI for nothing
+  (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
   **Before the merge ask, run `npm run queue:precheck`** — a check, not a rebase. It
-  fetches `main` and merges in memory **the way GitHub does**, ignoring
-  `.gitattributes` merge drivers — GitHub does not apply the decision index's
-  `merge=union`, so a local rebase that "just works" can still leave the PR `dirty`
-  and its CI silent. It exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports `mergeable_state: dirty`, the queue ejected
-  the PR, or you need a specific commit from `main` (name it in the commit message).
-  **Do not rebase when:** the PR page says "out-of-date", `main` moved, or another PR
-  merged. A polling auto-rebase is still banned — it thrashes the merge train
+  fetches `main` and merges it in memory **the way GitHub does** (ignoring
+  `.gitattributes` merge drivers such as the decision index's `merge=union`, so a local
+  rebase that "just works" can still leave the PR `dirty` and its CI silent) and exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports
+  `mergeable_state: dirty`, the queue ejected the PR, or you need a specific commit from
+  `main` (name it in the commit message). **Do not rebase when:** the PR page says
+  "out-of-date", `main` moved, or another PR merged. A polling auto-rebase is banned
   (`2026-06-14-drift-watch-rebase-thrash.md`). Resolve generated-file conflicts
-  mechanically and `--force-with-lease` silently. The queue's real settings and what
-  it does and does not do: `workflow.md` §Merge queue — the facts.
+  mechanically and `--force-with-lease` silently. Queue settings: `workflow.md` §Merge
+  queue — the facts.
 - **#17 — One feature = one branch → one PR; never a stacked PR chain.** Increment
   in place (many commits, one PR). A slice that builds/tests with only `main` is
   independent → its own branch; one that needs another open PR's branch is not.
@@ -413,42 +402,32 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   follow-up issue.** The critical distinction is **who caused it:**
   - **A regression YOUR change introduces is a window YOU created — fix it before
     merge, full stop.** This holds even when the break lands through a *different*
-    token / component / surface than the one you set out to change (a shared token
-    you re-tuned, an invariant your edit silently violated), even when it's
-    low-visibility (an error state, a rare path, dark mode only), and even when the
-    root cause is a *pre-existing* latent fragility your change merely *tipped into
-    failure*. "It only breaks on an authoring-error surface", "it was already
-    latently non-compliant", "it's off the main path of my feature" are **not**
-    exits — if the surface worked before your change and doesn't after, you broke it
-    and you fix it (or you revert the piece that broke it). Filing an issue and
-    shipping anyway is the prohibited move. If the correct fix is genuinely too
-    large for this PR, the window still doesn't ship: shrink your change so it stops
-    causing the break, or hold the PR — do not merge a self-inflicted regression.
+    token / component / surface than the one you changed, even when it's low-visibility
+    (an error state, a rare path, dark mode only), and even when the root cause is a
+    *pre-existing* fragility your change merely *tipped into failure*. "It only breaks on
+    an authoring-error surface", "it was already latently non-compliant" and "it's off the
+    main path of my feature" are **not** exits. If the surface worked before your change
+    and doesn't after, you broke it: fix it or revert the piece that broke it. If the fix is too large for this PR, shrink your change so it stops
+    causing the break, or hold the PR. Filing an issue and shipping anyway is the
+    prohibited move.
   - **A PRE-EXISTING defect you merely FIND** (you didn't cause it, your change
-    doesn't worsen it) follows the on-path / off-path rule: if it's **on the path**
-    of the current change, fix it in place; if it's **off the path**, log it (a
-    tracked issue / decision-doc note) rather than ignoring it OR pulling it into the
-    diff — that boundary keeps #8 (gallery isolation) and #17 (one feature, one PR)
-    intact. The follow-up path is **exclusively** for these and for new work too large
-    for this PR; it is never a home for something you broke.
+    doesn't worsen it) follows the on-path / off-path rule: **on the path**, fix it in
+    place; **off the path**, log it (a tracked issue / decision-doc note) rather than
+    ignoring it OR pulling it into the diff — that keeps #8 and #17 intact. The follow-up
+    path is **exclusively** for these and for new work too large for this PR; it is never
+    a home for something you broke.
     **Small or moderate work is never a follow-up.** A `followups.d/` item must say
-    `deferred: large|blocked|off-path — <why>`, and none of the three covers a
-    regression this PR caused; anything else, including jank the change made visible,
-    is fixed in the PR. 149 items filed in the 14 days to 2026-10-28 are why (`engineering/decisions/2026-10-28-raise-before-ask.md`;
-    gated by `checkFollowups`).
-    **On the path** means the surface the change touches, teaches or lints, and
-    any defect the owner or a reviewer hits while exercising the PR. When unsure,
-    it is on the path. A follow-up is never the home for a defect in a surface this
-    PR tells authors to use: a lint that steers authors into a broken form ships the
-    form's fix, not a warning and a follow-up. (Born from #2690: the owner's preview
-    test found that an indented `>` under a chart row, the very form the PR's new
-    lint taught, dropped the row; it was first logged as phase-2 work and had to be
-    pulled back in.)
+    `deferred: large|blocked|off-path — <why>`; none of the three covers a regression this
+    PR caused, and jank the change made visible is fixed in the PR (gated by `checkFollowups`;
+    `engineering/decisions/2026-10-28-raise-before-ask.md`).
+    **On the path** means the surface the change touches, teaches or lints, and any
+    defect the owner or a reviewer hits while exercising the PR. When unsure, it is on the
+    path. A follow-up is never the home for a defect in a surface this PR tells authors to
+    use: a lint that steers authors into a broken form ships the form's fix, not a
+    warning and a follow-up.
   *(discipline — no automated gate; the test is whether a reviewer can point at a
-  surface that regressed across your change, or a known defect you walked past and
-  left unrecorded. Born from #1181: a `--cat-on-mark` re-tune silently broke the
-  mermaid error box via the `--diagram-critical` alarm invariant, and it was wrongly
-  filed-and-shipped instead of fixed.)*
+  surface that regressed across your change, or a known defect you walked past and left
+  unrecorded.)*
 - **#19 — A performance change ships with evidence, not a claim.** Any change that
   sets out to make the engine faster/lighter carries: (a) **before/after numbers**
   in the PR's `## Performance` section, captured same-machine via `npm run bench`;
@@ -493,27 +472,22 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 - **#22 — Untrusted content reaches a rendered document ONLY through a sanitizer, and the
   document has TWO channels: markup AND stylesheet.** Markup goes through
   `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`); every `<style>` goes through
-  `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), because a `</style>` carried in
-  theme or author CSS ends the element as HTML RAWTEXT and the rest parses as markup —
-  however well the HTML beside it was sanitized. **Four shapes owe a guard and each is
-  gated separately**, because no one discovery rule finds all four: a preview-frame
-  BUILDER; a whole-document STYLE SINK (the docs site **and** the CLI export pipeline,
-  where the harm is a beacon in every copy the recipient opens, not a stolen key); a CSS
-  RE-WRAP (every serializer normalizes `<\/style` back into a live terminator, so the
-  re-wrap owes the call itself whatever guarded the document upstream); and MARKUP INJECTED
-  INSIDE the frame AFTER the builder sanitized (`lib/runtime`, where re-sanitizing is not
-  available — DOMPurify deletes `<foreignObject>` and `<style>`, i.e. every Mermaid node
-  label and all diagram styling — so the pin is a census of provenance instead).
-  **Know which shape you are in, because each is FOUND differently**: a preview builder by
-  the split runtime-`<script>` injection idiom, a style sink by assembling a whole document
-  (`<!doctype html`), a re-wrap by taking CSS back out of a document and re-serializing it,
-  and the fourth by writing markup from inside the frame. **A new entry on any allowlist —
-  `SANCTIONED_PREVIEW_BUILDERS`, `DOC_STYLE_SINK_ROOTS`, `SANCTIONED_STYLE_SINK_EXEMPT`,
-  `SANCTIONED_RUNTIME_MARKUP_SINKS` — goes in WITH ITS JUSTIFICATION**, never as a silent
-  edit; that justification is what the second filter above relies on when it lets you add a
-  sanction without asking. **Read the threat model before touching any of them:**
-  `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and §9, and
-  `2026-08-18-post-sanitize-injection-queue.md`. *(gated — `checkPreviewHtmlSinks`,
+  `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), because a `</style>` in theme
+  or author CSS ends the element and the rest parses as markup. **Four shapes owe a
+  guard, each gated separately**: a preview-frame BUILDER; a whole-document STYLE SINK
+  (docs site **and** CLI export); a CSS RE-WRAP (re-serializing CSS taken out of a
+  document, which owes the sanitizer call itself whatever guarded the document upstream);
+  and MARKUP INJECTED INSIDE the frame AFTER the builder sanitized (`lib/runtime`, where
+  re-sanitizing would delete `<foreignObject>` and `<style>`, so the pin is a census of
+  provenance instead). **Each is FOUND differently**: a preview builder by the split
+  runtime-`<script>` injection idiom, a style sink by assembling a whole document
+  (`<!doctype html`), a re-wrap by re-serializing CSS, the fourth by writing markup from
+  inside the frame. **A
+  new entry on any allowlist — `SANCTIONED_PREVIEW_BUILDERS`, `DOC_STYLE_SINK_ROOTS`,
+  `SANCTIONED_STYLE_SINK_EXEMPT`, `SANCTIONED_RUNTIME_MARKUP_SINKS` — goes in WITH ITS
+  JUSTIFICATION**, never as a silent edit. **Read the threat model before touching
+  any of them:** `engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md` §5 and
+  §9, and `2026-08-18-post-sanitize-injection-queue.md`. *(gated — `checkPreviewHtmlSinks`,
   `checkDocumentStyleSinks`, `checkCssTreeRewrapSinks` and `checkRuntimeMarkupSinks`, with
   their allowlists, in `tools/check-ownership.js` via `build:check`; every allowlist fails
   on a stale entry. `engineering/gotchas.md`.)*
@@ -620,22 +594,17 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   HIGH; nothing in the tree can tell a real checker run or a real round from a typed one.)*
 
 - **#29 — A typed glyph never reaches a rendered surface; we draw the shape.** A character
-  doing the job of a DRAWING — `✓` `✗` `→` `❯` `●` `⚠` — is not in the deck's type family,
-  so one deck renders three ways across the three surfaces it reaches: a fallback font at a
-  different weight and baseline, a color emoji (which Marp Core rewrites to
-  `<img class="emoji">`, so it stops taking the element's color and blows a palette-blind
-  layout open), or a hollow `.notdef` box. The `--mark-*` / `--shape-*` SVG mask tokens
-  exist so the shape is ours: **color from the element, shape from us** (#3). The curated
-  table, its deliberate exclusions and the per-glyph advice live in ONE kernel,
-  `lib/core/shape-glyphs.js` (#1), shared by the gate and the linter. **Two surfaces, two
-  postures, and the split IS the rule:** OUR CSS is **budget 0** with a measured
-  `SANCTIONED_GLYPH_CHROME` allowlist (two files, both for the a11y/print grayscale shape
-  channel — do not "simplify" those declarations); **DECKS** are an exceed-only ratchet on
-  the ones we ship, and every other deck gets `lint:deck`, which **warns and never blocks**
-  — we coach authors and give them modifiers, we do not refuse their decks. Fenced code is
-  QUOTED material and out of scope, inline code is not, and a `*.docs.md` is prose about a
-  component rather than a slide. "Zero" means zero of the CURATED table, so add the row
-  first. Why, what is still typed in engine JS, and why that is deliberately not gated:
+  doing the job of a DRAWING — `✓` `✗` `→` `❯` `●` `⚠` — renders differently on each
+  surface (fallback font, color emoji that ignores the element's color, or a `.notdef`
+  box). The `--mark-*` / `--shape-*` SVG mask tokens exist so the shape is ours: **color
+  from the element, shape from us** (#3). The curated table and per-glyph advice live in
+  ONE kernel, `lib/core/shape-glyphs.js` (#1), shared by the gate and the linter. **Two
+  surfaces, two postures:** OUR CSS is **budget 0** with a `SANCTIONED_GLYPH_CHROME`
+  allowlist (two a11y/print files — do not "simplify" those declarations); **DECKS** are
+  an exceed-only ratchet on the ones we ship, and every other deck gets `lint:deck`, which
+  **warns and never blocks**. Fenced code is out of scope, inline code is not, and a
+  `*.docs.md` is not a slide. "Zero" means zero of the CURATED table, so add the row
+  first. Why, and what stays typed in engine JS:
   `engineering/decisions/2026-08-25-typed-glyphs.md`. *(gated — `checkTypedGlyphs` +
   `TYPED_GLYPH_BUDGET` + `SANCTIONED_GLYPH_DECKS` + `SANCTIONED_GLYPH_CHROME` in
   `tools/check-ownership.js` via `build:check`; both allowlists fail on a stale entry.)*
