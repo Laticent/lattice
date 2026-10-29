@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, F, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
+const { build, F, KANBAN_CODE_CAP, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
 const { loadAll } = require('../../../lib/components');
 
 const OUT = path.join(__dirname, '../../../lib/components/chart/_chart-family/marks.generated.css');
@@ -119,6 +119,65 @@ describe('marks.generated.css', () => {
     }
     assert.equal(tokens('tone')['--finish-status-base'], 'var(--bg)');
     assert.equal(tokens('etch')['--finish-status-base'], 'var(--bg)');
+  });
+
+  // A ROADMAP is a status chart, so its filled status discs take the finish's one status level, like a gantt bar
+  // (#2908's P2 follow-up: they stayed solid under etch and tone). The discs are pseudo-elements, so the finish sets the
+  // member's disc channel on the cell and key item; pigment's level is the solid, so it emits nothing.
+  test('a roadmap status disc takes the one status level under etch and tone', () => {
+    const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(.roadmap :is(td.cell-state');
+    assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
+    const head = css.slice(at, css.indexOf('{', at));
+    for (const st of ['shipped', 'wip', 'missed', 'skipped']) assert.match(head, new RegExp(`\\.state-${st}\\b`));
+    assert.doesNotMatch(head, /state-planned/, 'a hollow planned ring has no body to move, under heat too');
+    assert.doesNotMatch(head, /state-unknown/, 'a hollow ring has no body to move');
+    assert.match(head, /\.roadmap-legend-item/, 'the key follows its discs');
+    const body = css.slice(at, css.indexOf('}', at));
+    assert.match(body, /--state-fill: light-dark\(color-mix\(in oklab, var\(--state-color\) var\(--finish-status-text\), var\(--finish-status-base\)\)/);
+    assert.match(body, /--state-glyph-mark: var\(--finish-ink\)/);
+    assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
+    const member = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/roadmap/roadmap.styles.css'), 'utf8');
+    assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
+  });
+
+  // A kanban card carries inline code on its own ground: past an 8% first-hue wash on a light slide the code fell under 4.5:1
+  // (etch's 14% read 4.07:1, tone's 12% 4.19:1 on carbone light; engineering/decisions/2026-10-28-finish-invariant.md §4).
+  test('a kanban card takes at most an 8% wash on a light slide, under every finish', () => {
+    assert.equal(KANBAN_CODE_CAP, 8);
+    const card = [...css.matchAll(/section\.marks-(\w+)\.kanban[^{]*\.kanban-card:not\(\[data-s\]\)[^{]*\{([^}]*)\}/g)];
+    assert.ok(card.length >= 2, 'a card rule per washed finish');
+    for (const [, finish, body] of card) {
+      const bg = body.match(/background: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) (\d+)%/);
+      if (finish === 'pigment') { assert.equal(bg, null, 'pigment takes no tint'); continue; }
+      assert.ok(bg, `${finish}: a light-dark card wash`);
+      assert.ok(Number(bg[1]) <= KANBAN_CODE_CAP, `${finish}: light wash ${bg[1]}% is over the ${KANBAN_CODE_CAP}% cap`);
+    }
+  });
+
+  // ETCH ON A SLOPE (the finish-invariant study's §5, the owner's pick). A line is one paint channel, so etch shows its
+  // identity in the line: a status line keeps its color at the 2.6 series weight, and a slopegraph dot takes etch's wash
+  // and ink edge. Tone keeps its one-ink lines; before this, etch drew a slope exactly as tone did.
+  test('etch keeps a slope\'s status ink at its line weight, and washes its dots; tone keeps one ink', () => {
+    const body = (finish, sel) => {
+      const at = css.indexOf(`section.marks-${finish} :where(${sel})`);
+      assert.ok(at >= 0, `${finish}: a rule for ${sel}`);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    // Marked and signal lines: etch's weight only, so the member's own status ink shows. A recolor to the dim status
+    // hue read 1.82-2.02:1 against a dark slide (maker-checker on #2960).
+    const lines = body('etch', '.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])');
+    assert.match(lines, /stroke-width: 2\.6/);
+    assert.doesNotMatch(lines, /stroke: /, 'etch keeps the member\'s status ink on a slope line');
+    assert.doesNotMatch(css, /marks-etch :where\([^)]*slope-line[^{]*\{[^}]*state-(pass|fail)-hue/, 'no etch slope line takes the dim hue');
+    // Every slopegraph dot gets an ink, and the dot paints a wash of it with an edge in it.
+    assert.match(body('etch', '.slope-svg.slope-slopegraph .slope-dot[data-s]'), /--slope-dot-ink: var\(--mark-ink\)/);
+    assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])'), /--slope-dot-ink: var\(--state-pass-ink\)/);
+    assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])'), /--slope-dot-ink: var\(--state-fail-ink\)/);
+    assert.match(css, /marks-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--chart-cat-1-ink\) 62%/);
+    const dot = body('etch', '.slope-svg.slope-slopegraph .slope-dot');
+    assert.match(dot, /fill: color-mix\(in oklab, var\(--slope-dot-ink\) 18%, var\(--bg\)\)/);
+    assert.match(dot, /stroke: var\(--slope-dot-ink\)/);
+    assert.match(body('tone', '.slope-svg .slope-line[data-s]'), /stroke: var\(--chart-cat-1-ink\)/);
   });
 
   // THE TONE LADDER (#2908 audit). Dark slides take their own ladder with a floor, so a low step never sinks into the navy
@@ -510,7 +569,8 @@ describe('marks.generated.css', () => {
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
     assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
-    assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap/, 'etch leaves a roadmap alone');
+    // Etch reaches a roadmap's status discs only (the next test); its phases keep their colors.
+    assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap (thead|td:first-child|\.horizon)/, 'etch leaves a roadmap phase alone');
     // Pigment reaches ONE roadmap surface: the workstream row header goes to the neutral ground (REGIONS), and
     // nothing else of the roadmap moves under it.
     const pigmentRoadmap = [...css.matchAll(/section\.marks-pigment :where\(([^)]*\.roadmap[^)]*)\)[^{]*\{([^}]*)\}/g)];
