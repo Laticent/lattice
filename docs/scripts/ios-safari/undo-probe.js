@@ -36,7 +36,9 @@ function undoProbeKit(result) {
 			await sleep(100);
 		}
 	};
-	const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+	// Not inside an `inert` subtree: the pre-paint skeleton (StudioChromeSkeleton) is inert and draws look-alike buttons
+	// with the same labels that do nothing, so a probe that picks one of them waits forever.
+	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const editor = () => {
 		const e = document.querySelector('[aria-label="Deck source"]');
