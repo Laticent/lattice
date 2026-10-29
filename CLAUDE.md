@@ -332,8 +332,10 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   **The trigger is the rendered surface, not the word "feature" and not a path.** A layout,
   modifier, token, theme or chart change — or a fix to one — owes a deck, because the deck
   IS how a reviewer sees it. Tooling, CI/infra, export plumbing, a byte-identical perf
-  change and docs render no new slide surface and owe none. Judge the surface a human sees,
-  not the directory the diff lands in (a `lib/` ⇒ deck rule would misfire on most commits).
+  change and docs render no new or changed slide surface and owe none. `workflow.md`'s
+  escape ("live with the feature implementation") RELOCATES a code-level feature's demo;
+  it never excused one. Judge the surface a human sees, not the directory the diff lands
+  in (a `lib/` ⇒ deck rule misfired on 15 of the 40 commits ending at `4c9075c`).
   **Non-visual work still owes its EVIDENCE in the PR body** — the before/after numbers,
   the measured table, the arm that proves the thing can fail. *(discipline — no automated
   gate; the test is whether a reviewer can see the change without checking out the
@@ -357,12 +359,13 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   (`PaletteControls`, `site-chrome.ts`) — don't fork a widget per surface.
 - **#16 — Rebase an open PR only when it CONFLICTS with `main` — never because it is
   behind, and never from a background watch.** The merge queue tests every PR on top of
-  current `main` plus the PRs ahead of it, so a behind-but-clean PR is already safe to
-  queue; rebasing it re-runs full CI for nothing
+  current `main` plus the PRs ahead of it and merges only if that is green, so a
+  behind-but-clean PR is already safe to queue; rebasing it re-runs full CI for nothing
   (`engineering/decisions/2026-09-28-rebase-only-on-conflict.md`).
   **Before the merge ask, run `npm run queue:precheck`** — a check, not a rebase. It
-  merges `main` in memory **the way GitHub does** (ignoring `.gitattributes` merge
-  drivers) and exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports
+  fetches `main` and merges it in memory **the way GitHub does** (ignoring
+  `.gitattributes` merge drivers such as the decision index's `merge=union`, so a local
+  rebase that "just works" can still leave the PR `dirty`) and exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports
   `mergeable_state: dirty`, the queue ejected the PR, or you need a specific commit from
   `main` (name it in the commit message). **Do not rebase when:** the PR page says
   "out-of-date", `main` moved, or another PR merged. A polling auto-rebase is banned
@@ -400,22 +403,26 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     merge, full stop.** This holds even when the break lands through a *different*
     token / component / surface than the one you changed, even when it's low-visibility
     (an error state, a rare path, dark mode only), and even when the root cause is a
-    *pre-existing* fragility your change merely *tipped into failure*. If the surface
-    worked before your change and doesn't after, you broke it: fix it or revert the piece
-    that broke it. If the fix is too large for this PR, shrink your change so it stops
+    *pre-existing* fragility your change merely *tipped into failure*. "It only breaks on
+    an authoring-error surface", "it was already latently non-compliant" and "it's off the
+    main path of my feature" are **not** exits. If the surface worked before your change
+    and doesn't after, you broke it: fix it or revert the piece that broke it. If the fix is too large for this PR, shrink your change so it stops
     causing the break, or hold the PR. Filing an issue and shipping anyway is the
     prohibited move.
   - **A PRE-EXISTING defect you merely FIND** (you didn't cause it, your change
     doesn't worsen it) follows the on-path / off-path rule: **on the path**, fix it in
     place; **off the path**, log it (a tracked issue / decision-doc note) rather than
     ignoring it OR pulling it into the diff — that keeps #8 and #17 intact. The follow-up
-    path is **exclusively** for these and for new work too large for this PR.
+    path is **exclusively** for these and for new work too large for this PR; it is never
+    a home for something you broke.
     **Small or moderate work is never a follow-up.** A `followups.d/` item must say
-    `deferred: large|blocked|off-path — <why>` (gated by `checkFollowups`;
+    `deferred: large|blocked|off-path — <why>`; none of the three covers a regression this
+    PR caused, and jank the change made visible is fixed in the PR (gated by `checkFollowups`;
     `engineering/decisions/2026-10-28-raise-before-ask.md`).
     **On the path** means the surface the change touches, teaches or lints, and any
     defect the owner or a reviewer hits while exercising the PR. When unsure, it is on the
-    path. A lint that steers authors into a broken form ships the form's fix, not a
+    path. A follow-up is never the home for a defect in a surface this PR tells authors to
+    use: a lint that steers authors into a broken form ships the form's fix, not a
     warning and a follow-up.
   *(discipline — no automated gate; the test is whether a reviewer can point at a
   surface that regressed across your change, or a known defect you walked past and left
@@ -468,8 +475,13 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   or author CSS ends the element and the rest parses as markup. **Four shapes owe a
   guard, each gated separately**: a preview-frame BUILDER; a whole-document STYLE SINK
   (docs site **and** CLI export); a CSS RE-WRAP (re-serializing CSS taken out of a
-  document); and MARKUP INJECTED INSIDE the frame AFTER the builder sanitized
-  (`lib/runtime`, where re-sanitizing would delete `<foreignObject>` and `<style>`). **A
+  document, which owes the sanitizer call itself whatever guarded the document upstream);
+  and MARKUP INJECTED INSIDE the frame AFTER the builder sanitized (`lib/runtime`, where
+  re-sanitizing would delete `<foreignObject>` and `<style>`, so the pin is a census of
+  provenance instead). **Each is FOUND differently**: a preview builder by the split
+  runtime-`<script>` injection idiom, a style sink by assembling a whole document
+  (`<!doctype html`), a re-wrap by re-serializing CSS, the fourth by writing markup from
+  inside the frame. **A
   new entry on any allowlist — `SANCTIONED_PREVIEW_BUILDERS`, `DOC_STYLE_SINK_ROOTS`,
   `SANCTIONED_STYLE_SINK_EXEMPT`, `SANCTIONED_RUNTIME_MARKUP_SINKS` — goes in WITH ITS
   JUSTIFICATION**, never as a silent edit. **Read the threat model before touching
