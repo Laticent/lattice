@@ -1,5 +1,5 @@
 /**
- * Run studio-probe.js and photo-probe.js on Playwright's WebKit (an iPad-sized and an iPhone-sized page), against a docs build
+ * Run studio-probe.js, photo-probe.js and panes-probe.js on Playwright's WebKit (an iPad-sized and an iPhone-sized page), against a docs build
  * already served at STUDIO_URL (default http://localhost:4321, `npm run build:e2e && npm run preview:e2e`).
  * It proves the probe itself before CI spends a macOS job on it: the iOS suite (run.sh) runs the same file
  * in Mobile Safari, where Playwright cannot go.
@@ -12,10 +12,11 @@ import { fileURLToPath } from 'node:url';
 import { devices, webkit } from '@playwright/test';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// The Studio suite's two page-side probes, as run.mjs runs them in Mobile Safari: each on a fresh page.
+// The Studio suite's page-side probes, as run.mjs runs them in Mobile Safari: each on a fresh page.
 const PROBES = [
 	{ file: 'studio-probe.js', fn: 'latticeStudioProbe' },
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
+	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 ].map((p) => ({ ...p, source: fs.readFileSync(path.join(here, p.file), 'utf8') }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');

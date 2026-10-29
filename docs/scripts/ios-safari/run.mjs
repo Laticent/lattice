@@ -1,6 +1,6 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
- * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then
+ * photo-probe.js, then panes-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
  * Safari's own (PROBE=jpeg), or focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
@@ -108,18 +108,21 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite: the preview payload probe (studio-probe.js), then the photo verdict probe (photo-probe.js), each on a
- * fresh page. One result: every step, each named for its probe, and a pass only when both pass.
+ * The Studio suite: the preview payload probe (studio-probe.js), then the photo verdict probe (photo-probe.js), then the
+ * pane-swap probe (panes-probe.js, #2916), each on a fresh page. One result: every step, each named for its probe, and a
+ * pass only when all three pass.
  */
 async function runStudioProbe(id) {
 	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
 	const photo = await studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
+	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!photo.ok,
-		error: [preview.error && `preview: ${preview.error}`, photo.error && `photo: ${photo.error}`].filter(Boolean).join('; ') || undefined,
-		ua: photo.ua ?? preview.ua,
-		width: photo.width ?? preview.width,
-		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
+		ok: !!preview.ok && !!photo.ok && !!panes.ok,
+		error: [preview.error && `preview: ${preview.error}`, photo.error && `photo: ${photo.error}`, panes.error && `panes: ${panes.error}`].filter(Boolean).join('; ') || undefined,
+		ua: panes.ua ?? photo.ua ?? preview.ua,
+		width: panes.width ?? photo.width ?? preview.width,
+		steps: [...named('preview', preview), ...named('photo', photo), ...named('panes', panes)],
 	};
 }
 
