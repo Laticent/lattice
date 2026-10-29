@@ -465,10 +465,14 @@ made one attempt, because the three-attempt retry landed with #2950 after them. 
 still failed on attempts 2 and 3 (40748220516, 40764835364), and in one safaridriver itself was gone by attempt 2
 (`ECONNREFUSED` on :4444, 40744674119): retrying against the same device and the same driver does not clear either. So
 `run.mjs` now exits 3 for "no session", and `run.sh` answers that, a boot failure or a silent safaridriver with ONE second
-start: reboot the device, relaunch Safari, restart safaridriver. A probe failure is never retried. A failed start costs about
-7 minutes against a 30-minute job, so the first start makes 2 session attempts and the second start is skipped after
-`START_BUDGET` (840 s). Proved locally with stub `xcrun`, `safaridriver` and `node` (recover on the second start, give up
+start: reboot the device, relaunch Safari, restart safaridriver. A probe failure is never retried. A start costs minutes
+against a 30-minute job, and the Studio suite used 27 m 45 s of it with no restart at all (PR run on 73bc09a). So the
+first start makes 2 session attempts, and the second start runs only if one more cycle of this device and every device
+still to come, each at what this device's first start cost, ends by `SUITE_DEADLINE` (1560 s of the script). A fixed
+budget (840 s, the first cut) bounded only when the second start began, and could still have run the Studio job out of
+time and lost its iPhone. Proved locally with stub `xcrun`, `safaridriver` and `node` (recover on the second start, give up
 after two, a probe failure not retried, a dead driver restarted for the next device, no second start past the budget); the
 real-runner evidence is the branch dispatch named in the PR, and whether the nightly holds for 10 runs is the follow-up's.
-Three probe assertions also failed in PR runs that day (a 90 s wait for the Studio editor, a 15 s wait for the Coach button,
-two quiet focus-sync taps uncentered); those are not start failures and are recorded in the follow-up.
+Probe steps that time out after the session has started are not start failures: four seen so far (the iPad's slide-2
+photo measurement, the Studio editor's load, the Coach button, two focus-sync taps) are in followup `2950-p4`. One more,
+the iPad's Coach sheet not closing after a synthetic Escape, was the probe's own: it now presses the sheet's close button.

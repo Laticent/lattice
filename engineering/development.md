@@ -535,8 +535,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   tries the session `SESSION_ATTEMPTS` times, 20 s apart, then exits **3** (no session, so no probe ran); it exits 3 at once
   when nothing answers on :4444. On exit 3, a boot failure, or a safaridriver that will not answer `/status`, `run.sh` gives the
   device one second start: a reboot, a fresh Safari and a fresh safaridriver. The first start makes 2 session attempts and the
-  second 3, and the second start is skipped once `START_BUDGET` (840 s) of the script has gone, so two stuck devices still end
-  inside the job's 30 minutes. A probe failure (exit 1) is never retried.
+  second 3. The second start runs only if another cycle of this device, plus every device still to come at the same cost,
+  ends by `SUITE_DEADLINE` (1560 s of the script: the job's 30 minutes less about 3 before the Suite step and a minute's
+  margin), so a restart never gets the job cancelled and its later devices lost. The Studio suite (a docs build, then an
+  iPhone that took 12 minutes on one runner) usually has no room for the iPad's; jpeg and focus-sync do. A probe failure
+  (exit 1) is never retried.
 
 ## Integration test cache
 

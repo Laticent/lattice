@@ -80,7 +80,10 @@ families='iPad iPhone'
 # The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
 # is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
 [ "$PROBE" = focus-sync ] && families='iPad'
+# Devices still to run, this one included: the second-start budget below has to leave them their time.
+left=$(echo $families | wc -w)
 for family in $families; do
+  device_t0=$SECONDS
   device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
      | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
@@ -104,16 +107,21 @@ for family in $families; do
   # Exit 3 from run.mjs means no session was ever created, so no probe code ran: safaridriver could not reach this
   # simulator, or safaridriver itself died. In main's first three iOS nightlies every failure was this one, and run.mjs's own
   # session attempts do not help when the device or the driver is what is stuck. So a stuck start gets ONE second start: a
-  # reboot, a fresh Safari and a fresh safaridriver. A probe failure (exit 1) is never retried. The second start is skipped
-  # once START_BUDGET seconds of this script have gone: a start that fails costs about 7 minutes, and the job's limit is
-  # 30 (.github/workflows/platform-suites.yml), so two stuck devices must not both get one. The first start makes 2 session
-  # attempts, not 3, for the same reason.
+  # reboot, a fresh Safari and a fresh safaridriver. A probe failure (exit 1) is never retried.
+  # The second start must not cost the job its 30-minute limit (.github/workflows/platform-suites.yml), which would cancel
+  # it and lose the devices still to come. So it runs only if one more cycle of this device, and every device after it,
+  # each at what this device's first start just cost, still ends by SUITE_DEADLINE seconds of this script (default 1560:
+  # the job's 1800, less about 180 before the Suite step and a minute's margin). In the Studio suite (a docs build plus a
+  # 12-minute iPhone on a slow runner) that usually means no second start for the iPad; jpeg and focus-sync have room.
+  # The first start makes 2 session attempts, not 3, to leave the second one its time.
   rc=3
   why=''
   for start in 1 2; do
     if [ "$start" = 2 ]; then
-      if [ "$SECONDS" -ge "${START_BUDGET:-840}" ]; then
-        echo "$family: no second start: ${SECONDS} s of the suite have gone (budget ${START_BUDGET:-840} s)"
+      cycle=$((SECONDS - device_t0))
+      need=$((cycle * left))
+      if [ $((SECONDS + need)) -gt "${SUITE_DEADLINE:-1560}" ]; then
+        echo "$family: no second start: ${SECONDS} s gone, and $left device start(s) of about ${cycle} s each would pass ${SUITE_DEADLINE:-1560} s"
         break
       fi
       echo "$family: $why on start 1 of 2; rebooting it and restarting safaridriver"
@@ -143,6 +151,7 @@ for family in $families; do
     done
   fi
   xcrun simctl shutdown "$udid" || true
+  left=$((left - 1))
 done
 
 {
