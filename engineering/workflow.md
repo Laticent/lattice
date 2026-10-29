@@ -804,8 +804,8 @@ the issue step on `always() && (outputs.failed == 'true' || outcome != 'success'
 **A green step must not leave a green JOB.** The shape above keeps the run step green so the
 artifact and issue steps fire, and that also left the run reading green: three Guide specs sat red
 on `main` for days while every Studio E2E run passed, and a `spec:` dispatch files no issue, so
-nothing said red at all. `studio-e2e-nightly.yml`'s `e2e`, `security` and `player-parity` jobs
-therefore end with one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
+nothing said red at all. `studio-e2e-nightly.yml`'s `e2e`, `security`, `firefox-webrtc` and
+`player-parity` jobs therefore end with one more step, `if: always() && steps.<id>.outputs.failed == 'true'` → `exit 1`, placed LAST so
 every report and issue step has already run (owner's pick, 2026-10-08).
 
 **And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
@@ -850,6 +850,10 @@ qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is
   (`code-packages`, `web-images`) on three engines with no retries against a live loopback
   server. Nothing can be blessed, but a leak can show on one night in three, so one clean night
   does not prove it gone. It comments and leaves the thread open.
+- **Absolute but network-dependent** — `studio-e2e`'s `firefox-webrtc` job runs the live-session
+  spec in Firefox inside Playwright's container, with no retries. The cause it exists for is the
+  runner's network (followups.d/2959-p2), which can pass one night and fail the next, so it
+  comments and leaves the thread open.
 - **Absolute but deck-dependent** — `studio-e2e`'s `player-parity` job compares the Studio's and the
   CLI's player files for three decks. Three matching decks do not prove a new runtime stamp is
   absent from a fourth, so it comments and leaves the thread open.

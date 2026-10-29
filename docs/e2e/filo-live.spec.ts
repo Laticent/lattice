@@ -216,6 +216,10 @@ async function bothHold(pair: Pair, want: (s: string) => boolean, message: strin
 for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live session ${tag}`, () => {
 	// Two Studios boot and a session connects before the first step: more than the 60 s default.
 	test.describe.configure({ timeout: 180_000 });
+	// Firefox on CI runs in the nightly's `firefox-webrtc` job, inside Playwright's container: on the
+	// bare GitHub runner Firefox finds no network address for WebRTC (followups.d/2959-p2), so the
+	// main suite's Firefox run hands this spec to that job instead of failing every night.
+	test.skip(({ browserName }) => browserName === 'firefox' && !!process.env.CI && !process.env.FILO_FIREFOX_WEBRTC, 'Firefox on CI runs in the firefox-webrtc job (followups.d/2959-p2)');
 
 	test('a settings write is undone by the person who made it, past a newer edit of the other person', async ({ browser }, info) => {
 		const pair = await liveSession(await sessionBrowser(browser), info);

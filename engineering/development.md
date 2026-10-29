@@ -1078,7 +1078,11 @@ The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by
 sandbox specs, `code-packages.spec.ts` and `web-images.spec.ts`, also run in that workflow's own
 `security` job, on Chromium, Gecko and WebKit with no retries: the whole suite overran its
 45-minute step on most nights, and a leak must not wait on a suite that never reaches it. `player-host-parity.spec.ts` has its own
-`player-parity` job for the same reason (Chromium only, about 2 minutes of tests). That
+`player-parity` job for the same reason (Chromium only, about 2 minutes of tests).
+`filo-live.spec.ts` runs in Firefox only in the `firefox-webrtc` job, inside Playwright's
+container image (`mcr.microsoft.com/playwright:v<pin>-noble`): on the bare GitHub runner Firefox
+finds no network address for WebRTC, and the spec skips Firefox on CI unless
+`FILO_FIREFOX_WEBRTC` is set (followups.d/2959-p2). Bump the image tag with the Playwright pin. That
 asymmetry is a footgun: a change to shared Studio chrome can pass every
 PR-gating tier (unit/build/lint) while silently breaking specs that only the
 nightly runs (the #780 drift; `2026-07-06-e2e-chrome-selector-contract.md`). So

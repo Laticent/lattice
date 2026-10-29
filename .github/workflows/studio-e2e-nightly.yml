@@ -481,6 +481,162 @@ jobs:
           echo "::error::the sandbox specs failed; the report is in this run's artifact."
           exit 1
 
+  # FIREFOX'S LIVE-SESSION SPEC, IN PLAYWRIGHT'S OWN CONTAINER. docs/e2e/filo-live.spec.ts joins
+  # two browsers in one live session over real WebRTC. On the bare GitHub runner Firefox finds no
+  # network address for it: its own log reads "UDP socket error: Internal error", then "failed to
+  # find default addresses" and "Couldn't gather ICE candidates", on every connection, while
+  # Chromium and WebKit connect on the same runner (seven probes, 2026-10-29,
+  # followups.d/2959-p2). This job runs that one spec in Firefox inside Playwright's image, which
+  # carries its own network namespace and Playwright's own Firefox build. The `e2e` job skips the
+  # spec in Firefox on CI (the spec reads FILO_FIREFOX_WEBRTC), so the check moves here rather than
+  # being lost. Owner's pick, 2026-10-29 (PR #2959, decision D1 B).
+  #
+  # The image tag IS the browser pin, like `playwright install` in the jobs above: it must match
+  # docs/package-lock.json's @playwright/test (1.56.1). `--retries=0`: a session that connects on
+  # one try in two is still broken.
+  firefox-webrtc:
+    # No `spec` filter, like `security`: it runs on every dispatch, so a hand-run on a branch
+    # proves this job as well. Its issue steps file only for `main`.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      # Chromium-family pages need the host IPC namespace in Docker (Playwright's Docker guide);
+      # harmless for Firefox, and the webServer's site build is a Node process either way.
+      options: --ipc=host
+    steps:
+      # The image has Node and the browsers, not git: install it first so checkout makes a real
+      # clone (the docs build reads git history) rather than falling back to a tarball.
+      - name: Install git
+        run: apt-get update && apt-get install -y --no-install-recommends git
+      - uses: actions/checkout@v4
+      - name: Trust the workspace for git (the container runs as root on a runner-owned checkout)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install root deps (engine deps the docs build imports)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+
+      - name: Install docs deps
+        run: npm ci
+        working-directory: docs
+
+      # Same shape as the `security` job's run step: keep the STEP green on a spec failure so the
+      # alarm always runs, carry the verdict in an output, and time the step out below the job.
+      - name: Run the live-session spec on Firefox
+        id: webrtc
+        timeout-minutes: 20
+        run: |
+          set -uo pipefail
+          if npm run test:e2e -- e2e/filo-live.spec.ts --project=gecko --retries=0 2>&1 \
+            | tee "$GITHUB_WORKSPACE/firefox-webrtc-report.txt"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: docs
+        env:
+          CI: 'true'
+          FILO_FIREFOX_WEBRTC: '1'
+          # Firefox refuses to run as root when HOME belongs to another user, which GitHub's
+          # container HOME (/github/home) does (Playwright's CI guide).
+          HOME: /root
+
+      - name: Upload Playwright report + trace artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-webrtc-${{ github.run_id }}
+          path: |
+            docs/playwright-report/**
+            docs/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Its own rolling issue, in the `security` job's shape: the same exact-title lookup, and a
+      # comment (never a close) on a measured green night. The image has no gh CLI, so each step
+      # installs it from the Ubuntu archive.
+      - name: Open / append regression issue
+        if: always() && (steps.webrtc.outputs.failed == 'true' || steps.webrtc.outcome != 'success') && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          apt-get install -y --no-install-recommends gh >/dev/null
+          TITLE='[studio-firefox-webrtc] Firefox live-session spec failing on main'
+          REPORT="$GITHUB_WORKSPACE/firefox-webrtc-report.txt"
+          BODY="$GITHUB_WORKSPACE/firefox-webrtc-body.md"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
+          {
+            echo "The Firefox live-session spec failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.webrtc.outcome }})."
+            echo ""
+            echo "What failed (full report + trace in the run's artifact):"
+            echo ""
+            echo '```'
+            grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ failed|[0-9]+ passed' \
+              "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
+            echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$REPORT" 2>/dev/null | head -c 20000 || true
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "_Run: ${RUN_URL}._"
+          } > "$BODY"
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create --title "$TITLE" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # COMMENTS, never closes: a WebRTC path that connects one night can fail the next, and the
+      # cause this job exists for is the runner's network. The three conditions are the `e2e` job's.
+      - name: Report a passing run on the rolling issue
+        if: always() && steps.webrtc.outcome == 'success' && steps.webrtc.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          TITLE='[studio-firefox-webrtc] Firefox live-session spec failing on main'
+          REPORT="$GITHUB_WORKSPACE/firefox-webrtc-report.txt"
+          if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
+            echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
+            exit 0
+          fi
+          apt-get install -y --no-install-recommends gh >/dev/null || exit 0
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          {
+            echo "Measured green on \`main@${{ github.sha }}\`: the Firefox live-session spec passed (${PASSED}, no retries)."
+            echo ""
+            echo "**Left open deliberately.** A connection that works one night can fail the next on the same runner image. Check what changed and close by hand; a recurrence appends here."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+
+      # LAST, so the report upload and both issue steps above have already run (followups.d/2557-p3).
+      - name: Fail the job when the live-session spec failed
+        if: always() && steps.webrtc.outputs.failed == 'true'
+        run: |
+          echo "::error::the Firefox live-session spec failed; the report is in this run's artifact."
+          exit 1
+
   # THE TWO HOSTS' PLAYER FILES, BYTE FOR BYTE (engineering/decisions/2026-10-16-player-as-library-audit.md
   # §11.9). docs/e2e/player-host-parity.spec.ts exports three decks through the Studio's Share →
   # Webpage flow and through the CLI's `--player`, and fails on a one-byte difference. It used to run
