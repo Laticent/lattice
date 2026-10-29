@@ -466,6 +466,25 @@ describe('Studio — every top-bar control responds', () => {
 		expect(document.querySelector('[data-strip-note] button')).toBeNull();
 	});
 
+	it('one Edit-menu Undo that Safari sends as two historyUndo events takes back one step', async () => {
+		// macOS Safari 26.6 fires historyUndo twice for one Edit → Undo (ios-safari-undo). Both are refused
+		// so the browser does not edit the DOM, but only the first runs.
+		const user = await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
+		const start = railCount();
+		await stripAction(user, /^Duplicate/);
+		await stripAction(user, /^Duplicate/);
+		expect(railCount()).toBe(start + 2);
+		const rail = document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement;
+		const ask = () => {
+			const e = new InputEvent('beforeinput', { inputType: 'historyUndo', cancelable: true, bubbles: true });
+			rail.dispatchEvent(e);
+			return e.defaultPrevented;
+		};
+		expect([ask(), ask()]).toEqual([true, true]);
+		await waitFor(() => expect(railCount()).toBe(start + 1));
+	});
+
 	it('⌘Z with focus in the strip undoes the newest slide op', async () => {
 		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;

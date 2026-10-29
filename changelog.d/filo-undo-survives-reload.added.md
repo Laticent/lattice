@@ -11,3 +11,6 @@
   the Studio's top bar, as a phone does. After a reload, Safari offers its own undo (shake, the
   keyboard bar's undo key) only once the page has an undo list of its own, so before this an iPad
   had no way to reach the history that survived the reload.
+- **One Edit → Undo on a Mac takes back one step.** Safari on macOS sends the Edit menu's Undo as
+  two undo requests; the Studio now runs the first and only refuses the second, where it used to
+  take back two steps.

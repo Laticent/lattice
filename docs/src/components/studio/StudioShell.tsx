@@ -4599,11 +4599,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// The Edit menu, iOS shake and three-finger swipe, the iPad shortcut bar and Android keyboard
 		// keys ask through `beforeinput`. Unanswered in the deck editor, the browser would change the
 		// editor's DOM behind its model.
+		// macOS Safari sends one Edit-menu Undo as TWO historyUndo events (ios-safari-undo, Safari 26.6):
+		// a second within 100 ms is still refused but not run, or one Undo would take back two steps.
+		let lastAsk = Number.NEGATIVE_INFINITY;
 		const onBeforeInput = (e: InputEvent) => {
 			if (e.isComposing) return;
 			const verb = historyInput(e.inputType);
 			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
 			e.preventDefault();
+			if (e.timeStamp - lastAsk < 100) return;
+			lastAsk = e.timeStamp;
 			runHistoryRef.current(verb);
 		};
 		window.addEventListener('keydown', onKey);

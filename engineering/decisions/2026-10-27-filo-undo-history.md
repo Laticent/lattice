@@ -305,7 +305,9 @@ the shell shows Undo and Redo buttons for every pane. The tablet needs them as m
 WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) only while its own
 undo list holds something, so after a reload it has nothing to send, and the stored history is
 reachable only through the shell (measured in Mobile Safari 26.5 by `ios-safari-undo`; added
-2026-10-29 at the owner's call). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
+2026-10-29 at the owner's call). macOS Safari 26.6 sends one Edit-menu Undo as two `historyUndo`
+events, so the shell refuses both but runs only the first: a second within 100 ms is the same
+request, since no person asks twice that fast (measured by `ios-safari-undo`). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
 not (followups.d/2959-p3). The Tauri app sends its Edit menu's two items to the
 same calls.
 
