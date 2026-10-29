@@ -35,7 +35,18 @@ const src = (h: History): SourceHistory => h as unknown as SourceHistory;
 
 import { createFiloStore, type FiloStore, idbBackend, memoryBackend } from '@/lib/filo/store';
 import { hashString } from '@/playground/deck-preview';
-import { loadSourceSum } from './studio-store';
+import { FILO_SUM_PREFIX } from './studio-store';
+
+/** The sidecar the Studio wrote beside `id`'s source (studio-store.ts `saveSourceSum`). Read here, not in the
+ *  store, so the read rides this lazy module rather than the Studio's eager bundle. */
+export function loadSourceSum(id: string): number | null {
+	try {
+		const v = JSON.parse(localStorage.getItem(FILO_SUM_PREFIX + id) ?? 'null');
+		return typeof v === 'number' ? v : null;
+	} catch {
+		return null;
+	}
+}
 
 export const FILO_DB = 'lattice-filo';
 /** The label of the step a reload adds when the Studio saved text Filo had not stored yet. */

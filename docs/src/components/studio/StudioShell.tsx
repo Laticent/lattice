@@ -168,7 +168,6 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
-import { useTouchFirst } from './use-touch-first';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
@@ -1732,7 +1731,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
-	const touchFirst = useTouchFirst();
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -7038,10 +7036,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
 	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
 	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
-	const historyButtons = (
+	// The tablet pair shows by CSS (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
+	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off; no media hook rides the eager
+	// bundle. It renders only on a screen that was touch-first when the Studio opened, so a desktop's accessibility
+	// tree (and jsdom, which has no CSS) holds no hidden second Undo.
+	const touchFirst = React.useMemo(() => !!globalThis.matchMedia?.('(hover:none) and (pointer:coarse)').matches, []);
+	const historyButtons = (className: string) => (
 		<>
-			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
 		</>
 	);
 	const feedbackButton = (
@@ -7654,7 +7657,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
-				{!mobile && touchFirst && historyButtons}
+				{!mobile && touchFirst && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -7691,7 +7694,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    in every pane, Compose included, because the pre-paint skeleton (StudioChromeSkeleton)
 				    draws them before it can know the stored pane, and the two must match at hand-off. Below 360 px
 				    both drop them, or the deck title has no room left (studio-instant-shell's 320 px case). */}
-				{mobile && historyButtons}
+				{mobile && historyButtons('max-[359px]:hidden')}
 				{mobile && (
 					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}

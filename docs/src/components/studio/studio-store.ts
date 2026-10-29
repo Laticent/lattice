@@ -359,10 +359,6 @@ export function saveSourceSum(id: string, hash: number | null): void {
 	if (hash === null) remove(FILO_SUM_PREFIX + id);
 	else write(FILO_SUM_PREFIX + id, hash);
 }
-export function loadSourceSum(id: string): number | null {
-	const v = read<number>(FILO_SUM_PREFIX + id);
-	return typeof v === 'number' ? v : null;
-}
 function dropSource(id: string): void {
 	remove(FILO_SUM_PREFIX + id);
 	try {

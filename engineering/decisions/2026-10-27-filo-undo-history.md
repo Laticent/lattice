@@ -300,7 +300,7 @@ swipe, the iPad shortcut bar and Android keyboard keys arrive as `beforeinput` w
 `historyUndo` / `historyRedo`. Both history plugins handle those today, so dropping them without a
 replacement would let the browser change the editor's DOM behind its model. The Filo glue installs
 the same handler on both editors, sends it to Filo and calls `preventDefault`. On a phone, and on a
-touch-first tablet (`useTouchFirst`: no hover, a coarse pointer, so an iPad with no keyboard),
+touch-first tablet (the CSS query `(hover: none) and (pointer: coarse)`, so an iPad with no keyboard),
 the shell shows Undo and Redo buttons for every pane. The tablet needs them as much as the phone:
 WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) only while its own
 undo list holds something, so after a reload it has nothing to send, and the stored history is
