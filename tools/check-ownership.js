@@ -2033,9 +2033,10 @@ const SANCTIONED_MARGINS = [
        + 'looser leading the line absorbs it, so the effect is leading-dependent).',
   },
   {
-    file: 'lib/base/base.modifiers.css',
+    file: 'lib/plugins/checks/checks.styles.css',
     value: '0.22em',
-    why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
+    why: 'the same horizontal breathing room for an INLINE CHECK (`.lat-state`; moved here from '
+       + 'base.modifiers.css with the rest of the check\'s drawing, unchanged), which '
        + 'needs its own entry because this allowlist consumes one declaration per entry. On '
        + 'the disc the case against padding is plainer than on the pill: the box is a fixed '
        + '1em square with `box-sizing:border-box`, so `padding-inline` shrinks the CIRCLE '
@@ -2908,10 +2909,10 @@ function checkReadingRole(errors) {
 // names why the read still exists, and the commit that removes the site lowers or deletes it.
 // The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
 // read) and an entry above its count (stale).
-const SANCTIONED_PILL_READS = [
-  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the separate checks design (PR #2769)" },
-  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the separate checks design (PR #2769)' },
-];
+// Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
+// `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
+// ask the pill plugin for a pill holding a check.
+const SANCTIONED_PILL_READS = [];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
@@ -6258,13 +6259,15 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
   },
   {
-    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 1,
-    why: 'ONE ABSENCE ASSERTION on a loopback server\'s request log: the Studio\'s Reading view, with '
+    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log. (1) The Studio\'s Reading view, with '
        + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
        + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
        + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
        + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
-       + 'proves the log can see a fetch.',
+       + 'proves the log can see a fetch. (2) A drawn Mermaid `click … href` link must not request its '
+       + 'address before a click (followups 2909-p5): the same 3000ms, and the click that follows proves '
+       + 'the log sees that address.',
   },
   {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
@@ -7521,6 +7524,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'tools/squadra-fix-diff.js',
+    why: 'folds the sources it COMPARES, not author input it renders: the lint unit tests\' own '
+       + 'inputs (recorded while they run) and the REPO-COMMITTED tracked decks, which `.gitattributes` '
+       + 'keeps LF. It does what `lint:deck --fix` does at its read so both loops see the same text; '
+       + 'an on-demand diagnostic that writes a report, never a deck.',
+  },
   {
     file: 'tools/conformance-render.js',
     why: 'reads REPO-COMMITTED, generated `lib/components/**/*.gallery.md`, not author text. '
@@ -8838,6 +8848,15 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
         errors.push(`stale platform suite '${s.name}' — its \`paths\` names ${g}, which no longer exists, so a PR touching it would never select the suite. Update or remove it in .github/platform-suites.json.`);
       }
     }
+    if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+    }
+    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
+    // no flag; this refuses the one entry that would read as the opposite.
+    if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+    }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
     }
@@ -9473,6 +9492,24 @@ function checkFluidoBoundary(errors, dir = FLUIDO_DIR) {
       `${rel} imports '${spec}', which escapes the Fluido folder. Fluido's core is pure and ` +
       `dependency-free so every surface gets the same decision: every import must resolve inside ` +
       `docs/src/lib/fluido/ (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).`,
+  });
+}
+
+// ── Squadra (docs/src/lib/squadra) — the lint-and-fix library ───────────────
+// Squadra's core reads text a host hands it and returns findings and new text; it never reads a
+// file and never touches the DOM, so the same rules and the same fix driver run in Node, the
+// Studio and a worker (engineering/decisions/2026-10-26-squadra-lint-library/design.md §2.1). It
+// has NO dependencies, not even `node:`: languages that need a parser arrive as plugins.
+const SQUADRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'squadra');
+function checkSquadraBoundary(errors, dir = SQUADRA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Squadra folder. Squadra's core reads text and ` +
+      `returns findings, the same in Node and the browser, so every import must resolve inside ` +
+      `docs/src/lib/squadra/; a parser arrives as a language plugin ` +
+      `(engineering/decisions/2026-10-26-squadra-lint-library/design.md §2.1).`,
   });
 }
 
@@ -14350,6 +14387,7 @@ function run() {
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
   checkFluidoBoundary(errors);
+  checkSquadraBoundary(errors);
   checkPaginationOwners(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -14424,6 +14462,7 @@ module.exports = {
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
   checkFluidoBoundary,
+  checkSquadraBoundary,
   checkPaginationOwners,
   SANCTIONED_PAGINATORS,
   checkReadingRole,

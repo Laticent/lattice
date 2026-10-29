@@ -57,8 +57,10 @@ export async function sizeRows(names) {
           // `flowchart-grammar.js` lazily requires `./label-set` for its key, and esbuild
           // follows that into two generated catalogs — 8 KB of the first measurement, none of
           // it parsing. It is kept out, as the policy challengers call is kept out of theirs.
-          const mods = ['bracket-list', 'flowchart-grammar', 'gantt-time', 'chart-values', 'inline-pills', 'state-marks'];
-          const g = await bundle(mods.map((m, i) => `export * as m${i} from './lib/core/${m}.js';`).join('\n'), ['./label-set']);
+          // Paths, not names: the pill and check kernels moved into their plugins.
+          const mods = ['lib/core/bracket-list.js', 'lib/core/flowchart-grammar.js', 'lib/core/gantt-time.js', 'lib/core/chart-values.js',
+            'lib/plugins/pills/pills.inline.js', 'lib/plugins/checks/shared/registry.js'];
+          const g = await bundle(mods.map((m, i) => `export * as m${i} from './${m}';`).join('\n'), ['./label-set']);
           rows.push({ candidate: n, runtime: 0, grammars: g, total: g, note: 'the six kernel modules; their policy tables are still inside, so an upper bound' });
           break;
         }

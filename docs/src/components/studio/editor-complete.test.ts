@@ -486,6 +486,20 @@ describe('inlineCodeCompletion — only what comes next, in a spark or a pill', 
 	const next = (span: string) => core.inlineCodeCompletions(span);
 	const labels = (before: string) => inlineCodeCompletion(before, next)?.options.map((o) => o.label);
 
+	it('a check offers the six answers, by id or by spoken word, then its label', () => {
+		// The checks plugin's full form (engineering/decisions/2026-10-18-checks.md §18).
+		expect(labels('`@check{')).toEqual(['pass', 'warn', 'fail', 'unknown', 'todo', 'skip']);
+		const yes = inlineCodeCompletion('`@check{y', next);
+		expect(yes?.options.map((o) => o.label)).toEqual(['pass']);
+		expect(yes?.typed).toBe('y');
+		expect(yes?.options[0].info).toMatch(/^yes · /);
+		expect(labels('`@check{pass, ')).toEqual(['label=']);
+		expect(labels('`@ch')).toEqual(['@check{']);
+		// A whole answer, still being typed, opens no menu: the kernel's next step is `label=`, and offering it here
+		// let Enter replace `pass` with `label=` (the checker found it). The comma opens the label step.
+		for (const done of ['pass', 'yes', 'na']) expect(inlineCodeCompletion(`\`@check{${done}`, next)).toBeNull();
+		expect(labels('`@check{pas')).toEqual(['pass']);
+	});
 	it('offers starter sparks right after the opening backtick and `~`', () => {
 		const r = inlineCodeCompletion('Revenue `~', next);
 		expect(r?.typed).toBe('~');
@@ -530,7 +544,7 @@ describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plug
 
 	it('`@` lists every kind with its open brace, and typing narrows it', () => {
 		// Table order: the first-party pill, then the plugin kinds in plugin order (sparks became one 2026-10-16).
-		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@spark{', '@video{']);
+		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@check{', '@spark{', '@video{']);
 		expect(labels('Status `@ic')).toEqual(['@icon{']);
 		expect(inlineCodeCompletion('Status `@zz', next)).toBeNull();
 		// Outside a code span `@` is prose (a mention, an email): no menu.

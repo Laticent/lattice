@@ -859,7 +859,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       //
       // An element's content box is a SUPERSET of where its glyphs are, on both axes, and
       // the gap is not small. On the inline axis it spans the whole line even when the
-      // text does not: shipped `pricing` draws its badge mark on an IN-FLOW `::before`
+      // text does not: shipped `pricing` drew its badge mark on an IN-FLOW `::before`
       // disc, and the first glyph starts 6.0px past where the mark ends — but an in-flow
       // pseudo is never a rect of its own, it is absorbed into its host, and the host
       // carries text, so "mark on decoration" and "mark on words" were the same picture.

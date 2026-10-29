@@ -94,45 +94,52 @@ const P = (await import(`data:text/javascript;base64,${Buffer.from(gen).toString
 const K = P('a').tree.kinds;
 const [IND, PIPE, DASH, EQ, TRAIL] = ['ind', 'pipe', 'dash', 'eq', 'trail'].map((k) => K.indexOf(k));
 
+/** The Segno-generated line tokenizer alone: its tape, before the walk that fills the arrays. */
+export const parseLines = (src) => P(src);
+
 /** S-staged: the stage from the Segno tape. */
 export function stageSegno(src) {
   const r = P(src);
   if (!r.ok) throw new Error(`segno: ${JSON.stringify(r.error)}`);
   const { buf, top } = r.tree;
-  // Lines with no node are blank lines ('\n' alone); count them from the source as we go.
+  // Lines with no node are blank lines ('\n' alone, one character each). The tape already says how
+  // many lines there are, so the arrays are sized from it: every top-level node is a line, and each
+  // character between one line's end-plus-newline and the next line's start is a blank line. Counting
+  // the newlines in the source instead was 12 of the walk's 19 ms on the corpus (2026-10-29).
   let lines = 0;
-  for (let p = src.indexOf('\n'); p >= 0; p = src.indexOf('\n', p + 1)) lines++;
-  if (src.length && src.charCodeAt(src.length - 1) !== 10) lines++;
+  for (let i = 0, st = 0; i < top; i = buf[i + 3]) { lines += buf[i + 1] - st + 1; st = buf[i + 2] + 1; if (buf[i + 3] >= top && st < src.length) lines += src.length - st; }
+  if (top === 0) lines = src.length; // nothing but newlines
   const A = arrays(lines);
+  const { b: B, e: E, t: T, c: C, pipe: PIPES, under: UNDER, blank: BLANK } = A;
+  // No closure over `L` and `start`: a function that captures them puts both in a heap context, and
+  // every read and write of them in this loop then goes through it (the walk was 40% slower so).
   let L = 0, start = 0;
-  const blankUntil = (pos) => { // lines before `pos` with no line node are blank
-    while (start < pos && L < lines) { let end = src.indexOf('\n', start); if (end < 0) end = src.length; A.b[L] = start; A.e[L] = end; A.blank[L] = 1; L++; start = end + 1; }
-  };
   for (let i = 0; i < top; ) {
     // top level: one node per line
     const from = buf[i + 1], to = buf[i + 2], next = buf[i + 3];
-    blankUntil(from);
-    A.b[L] = from; A.e[L] = to;
+    // lines before `from` with no line node are blank: each is a lone '\n', one character a line
+    while (start < from && L < lines) { B[L] = start; E[L] = start; BLANK[L] = 1; L++; start++; }
+    B[L] = from; E[L] = to;
     let shift = 0, col = 0, dashOrEq = -1, trailEnd = -1;
     for (let k = i + 4; k < next; k = buf[k + 3]) {
       const kind = buf[k];
       if (kind === IND) {
         shift = buf[k + 2] - buf[k + 1];
         for (let p = buf[k + 1]; p < buf[k + 2]; p++) col += src.charCodeAt(p) === 9 ? 4 - (col % 4) : 1;
-      } else if (kind === PIPE) A.pipe[L] = 1;
+      } else if (kind === PIPE) PIPES[L] = 1;
       else if ((kind === DASH || kind === EQ) && dashOrEq < 0) { dashOrEq = buf[k + 2]; trailEnd = buf[k + 2]; }
       else if (kind === TRAIL && dashOrEq >= 0 && buf[k + 1] === trailEnd) trailEnd = buf[k + 2];
     }
-    A.t[L] = shift; A.c[L] = col;
-    if (shift === to - from) A.blank[L] = 1;
+    T[L] = shift; C[L] = col;
+    if (shift === to - from) BLANK[L] = 1;
     // an underline: the dash/equals run (and its trailing spaces) ends the line
-    if (dashOrEq >= 0 && trailEnd === to) A.under[L] = 1;
+    if (dashOrEq >= 0 && trailEnd === to) UNDER[L] = 1;
     L++;
     start = to + 1;
     i = next;
   }
-  blankUntil(src.length + 1);
-  A.b[lines] = A.e[lines] = src.length;
+  while (L < lines) { B[L] = start; E[L] = start; BLANK[L] = 1; L++; start++; }
+  B[lines] = E[lines] = src.length;
   return finish(A, lines);
 }
 

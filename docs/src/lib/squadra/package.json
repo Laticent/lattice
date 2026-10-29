@@ -1,0 +1,59 @@
+{
+  "name": "@laticent/squadra",
+  "version": "0.1.0",
+  "description": "A general-purpose lint-and-fix library that refuses a rule it cannot prove works: every rule must fire on its own bad example, stay quiet on its good one, and its fix must converge and keep the document's shape. One fix driver for every engine: spans, not line text; no overlapping edits; no edits inside code fences; a shape check that refuses a fix that deletes a slide. Framework-free, zero-dependency, no DOM, no fs.",
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/squadra"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/squadra#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "@laticent/source": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./driver": {
+      "@laticent/source": "./driver.ts",
+      "import": {
+        "types": "./dist/driver.d.ts",
+        "default": "./dist/driver.mjs"
+      },
+      "require": {
+        "types": "./dist/driver.d.ts",
+        "default": "./dist/driver.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
+}

@@ -6,7 +6,10 @@
  * trigger: the nightly (`schedule`) runs every suite; a manual dispatch runs the suites it names, or every suite when it names
  * none; a pull request runs the suites whose `paths` globs match a changed file, and every suite when the registry, this planner
  * or the workflow itself changed (so editing the plumbing proves the plumbing). A suite with several `os` entries becomes one
- * matrix row per OS.
+ * matrix row per OS. A suite that is off pull requests never runs on one, plumbing or not: it runs nightly and on a
+ * dispatch. A suite is off pull requests when it says `"on_pull_request": false`, and every iOS Simulator suite (its `run`
+ * calls docs/scripts/ios-safari/run.sh) is, whether or not it says so: derived from the command, so a new iOS suite needs
+ * no flag to stay off. Its `paths` still say when a change reaches it, so `npm run evidence` plans a dispatch for it.
  *
  * Usage: node tools/platform-suites-plan.js --event pull_request --changed changed-files.txt
  *        node tools/platform-suites-plan.js --event workflow_dispatch --suites export-confine
@@ -42,16 +45,24 @@ function globToRegExp(glob) {
 }
 
 /**
- * @param {{ suites: { name: string, os: string[], paths: string[], run: string, why: string }[] }} registry
+ * @param {{ suites: { name: string, os: string[], paths: string[], run: string, why: string, on_pull_request?: boolean }[] }} registry
  * @param {{ event: string, changed?: string[], suites?: string[] }} input
  * @returns {{ include: { suite: string, os: string, run: string, why: string }[], count: number }}
  */
-function plan(registry, { event, changed = [], suites = [] }) {
+const IOS_SIMULATOR_RUN = /docs\/scripts\/ios-safari\/run\.sh/;
+/** Whether a suite stays off pull requests: its own flag, or an iOS Simulator suite by its command. */
+function offPullRequest(s) {
+	return s.on_pull_request === false || IOS_SIMULATOR_RUN.test(String(s.run || ''));
+}
+
+/** `everySuite` (for `npm run evidence`): on a pull request, count the off-PR suites too, since a dispatch runs them. */
+function plan(registry, { event, changed = [], suites = [], everySuite = false }) {
 	let selected = registry.suites;
 	if (event === 'workflow_dispatch') {
 		if (suites.length) selected = selected.filter((s) => suites.includes(s.name));
 	} else if (event === 'pull_request') {
 		const everything = changed.some((f) => PLUMBING.includes(f));
+		if (!everySuite) selected = selected.filter((s) => !offPullRequest(s));
 		selected = everything ? selected : selected.filter((s) => s.paths.some((g) => changed.some((f) => globToRegExp(g).test(f))));
 	} // schedule, and anything else: every suite
 	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why })));
@@ -81,4 +92,4 @@ if (require.main === module) {
 	console.log(JSON.stringify(result, null, 2));
 }
 
-module.exports = { plan, globToRegExp, PLUMBING };
+module.exports = { plan, globToRegExp, offPullRequest, IOS_SIMULATOR_RUN, PLUMBING };

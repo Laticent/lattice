@@ -40,7 +40,7 @@ const R = String.raw;
 const MUTS = [
   // ── grammar.ts: the LL(1) proof. A refusal removed lets a grammar that needs a guess compile,
   //    and the predictive parser then disagrees with the grammar's language.
-  ['grammar', 'if (!isEmpty(both)) problems.push(', 'if (false) problems.push(', 'two branches may start with the same character'],
+  ['grammar', 'if (!isEmpty(both)) { problems.push(', 'if (false) { problems.push(', 'two branches may start with the same character'],
   ['grammar', 'if (empty.length > 1) problems.push(', 'if (false) problems.push(', 'two branches may both match nothing'],
   ['grammar', R`if (!isEmpty(clash)) problems.push(${'`'}${'$'}{inf.path}: branch`, R`if (false) problems.push(${'`'}${'$'}{inf.path}: branch`, 'an empty branch may clash with what follows'],
   ['grammar', 'if (body.nullable) problems.push(', 'if (false) problems.push(', 'a loop body may match nothing'],
@@ -77,6 +77,22 @@ const MUTS = [
   ['codegen', R`${'$'}{ind}depth--;\n`, '', 'generated depth never unwinds'],
   ['codegen', R`buf[${'$'}{b} + 1] = i;`, R`buf[${'$'}{b} + 1] = 0;`, 'a generated node starts at 0'],
   ['codegen', "if (ok && i < n) fail('end of input');", '', 'generated parser accepts trailing input'],
+  // ── R1 (2026-10-27 note): the node cap, roles and facts. Each path the phase added gets a mutant.
+  ['grammar', 'if (st.nodes >= maxNodes) throw NODE_CAP;', 'if (st.nodes > maxNodes) throw NODE_CAP;', 'the node cap lets one node too many through'],
+  ['grammar', '      st.nodes = c0;\n      st.err = err0;\n      return false;', '      st.err = err0;\n      return false;', 'an attempt that fails keeps its nodes against the cap'],
+  ['grammar', "else if (Object.hasOwn(roles, e.kind) && roles[e.kind] !== e.role) problems.push(", 'else if (false) problems.push(', 'one kind may carry two roles'],
+  ['grammar', '!Number.isInteger(c) || c < 1 || c > MAX_NODES_LIMIT', '!Number.isInteger(c) || c > MAX_NODES_LIMIT', 'a node cap of zero or less is accepted'],
+  ['codegen', 'if (top + 4 > CAP) throw NODE_CAP;', 'if (top + 4 > CAP + 4) throw NODE_CAP;', 'the generated node cap lets one node too many through'],
+  ['codegen', "if (top + 4 > ${capped ? 'cap' : 'buf.length'}) grow();", 'if (top + 4 > buf.length) grow();', 'a capped generated parser never consults the cap'],
+  // EQUIVALENT, left out: `grow()` not refreshing `cap`. Every node past the first buffer then calls grow(), which
+  // returns at once while the buffer has room, so only the speed changes.
+  ['codegen', 'kinds.map((k) => (Object.hasOwn(roles, k) ? roles[k] : null))', 'kinds.map(() => null)', 'the generated ROLES table drops every role'],
+  ['facts', "if (c === 13) return s.charCodeAt(i + 1) === 10 ? null : 'cr-without-lf';", "if (c === 13) return 'cr-without-lf';", 'a CRLF reads as a lone carriage return'],
+  ['facts', "return d >= 0xdc00 && d <= 0xdfff ? null : 'lone-surrogate';", "return 'lone-surrogate';", 'a valid surrogate pair reads as two lone surrogates'],
+  ['facts', "if (c === 0xfeff) return i === 0 ? 'bom' : 'zero-width';", "if (c === 0xfeff) return 'bom';", 'a U+FEFF mid-text reads as a byte-order mark'],
+  ['facts', 'if (run && run.kind === k && run.to === i) run.to = i + 1;', 'if (false) run.to = i + 1;', 'anomalies are never merged into runs'],
+  ['facts', 'if (spans.length < max) spans.push(run);\n    else truncated = true;', 'spans.push(run);', 'the anomaly list has no cap'],
+  ['facts', 'if (error.code === \'stack\' || error.code === \'nodes\') return', 'if (error.code === \'stack\') return', 'a node-cap stop is not reported as a limit'],
 
   ['grammar', 'const lo = Math.max(0, Math.ceil(cs[i]));', 'const lo = Math.ceil(cs[i]);', 'a hand-built set may hold the end-of-input code'],
 
@@ -141,7 +157,7 @@ const MUTS = [
 ];
 /* biome-ignore-end lint/suspicious/noTemplateCurlyInString: end */
 
-const FILE = { grammar: 'grammar.ts', codegen: 'codegen.ts', charset: 'charset.ts', notation: 'notation.ts', schema: 'schema.ts', types: 'types.ts', consistency: 'consistency.ts' };
+const FILE = { grammar: 'grammar.ts', codegen: 'codegen.ts', facts: 'facts.ts', charset: 'charset.ts', notation: 'notation.ts', schema: 'schema.ts', types: 'types.ts', consistency: 'consistency.ts' };
 // One Segno run takes about 10 s; a run past this is a hang, not a slow machine.
 const DEADLINE_MS = 120_000;
 const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1].split(',');

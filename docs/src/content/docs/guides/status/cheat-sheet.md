@@ -19,7 +19,11 @@ The syntax on one page. Each section links to the page that explains it.
 ```markdown
 - [!] Load test failed at peak            ← bare, in a layout that reads markers
 Residency `[x]` · SOC 2 `[?]`            ← inline, on any slide
+`@check{pass}` · `@check{yes, label=SSO}` ← the full form; with a label, a pill
 ```
+
+The full form's answer is `pass` `warn` `fail` `unknown` `todo` `skip`, or
+`yes` `partly` `no` `open` `na`.
 
 **Bare markers work in:** `checklist` · `verdict-grid` · `pricing` ·
 `obligation-matrix` · `roadmap` · any table with `state-cells`.

@@ -167,7 +167,7 @@ export function inCollageSlide(lineText: (n: number) => string, lineNumber: numb
 	return false;
 }
 
-/** What may come next in a spark or pill — lint-core's `inlineCodeCompletions()` shape. */
+/** What may come next in a spark, a pill or a check — lint-core's `inlineCodeCompletions()` shape. */
 export type InlineNext = { next: string; words: { label: string; axis: string; info: string }[] };
 
 /** Starter sparks, offered once `` `~ `` is typed. */
@@ -222,9 +222,21 @@ export function inlineCodeCompletion(
 		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'icon', info: w.info || undefined, boost: 99 - Math.min(i, 198) }));
 		return { typed, options, validFor: () => false, filter: false };
 	}
+	// A check's ANSWER, the first item of `@check{…}` (the checks plugin): the kernel answers with the six that match
+	// what is typed, by id or by spoken word (`y` offers `pass`, whose word is "yes"), so the menu is that list exactly
+	// (`filter: false`) and is asked again on every keystroke, as the icon names are.
+	// Once the typed word IS a whole answer, the kernel says what comes after it (`label=`): no menu then, or Enter
+	// would put `label=` in the answer's place. The comma opens the next step, below.
+	const answer = /^@check\{([\w-]*)$/.exec(inside);
+	if (answer) {
+		const got = next ? next(inside) : null;
+		if (!got || got.next !== 'answer') return null;
+		const options = got.words.map((w, i): Completion => ({ label: w.label, type: 'keyword', detail: 'answer', info: w.info || undefined, boost: 99 - i }));
+		return { typed: answer[1], options, validFor: () => false, filter: false };
+	}
 	// The record so far, up to the last comma: its first item, then complete words. The kernel
 	// is asked about that record CLOSED (`{LIVE, tag}`), which is what it can judge.
-	const m = /^((?:~|@spark|@pill)?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
+	const m = /^((?:~|@spark|@pill|@check)?\{[^{}`,]+(?:,\s*[\w-]+)*),\s*([\w-]*)$/.exec(inside);
 	const got = m && next ? next(`${m[1]}}`) : null;
 	if (!m || !got) return null;
 	const typed = m[2];

@@ -842,7 +842,8 @@ qualify** (the lists in `nightly-alarm-contract.test.js` are the count). This is
 - **Baseline-scored** — the check compares the tree against a COMMITTED baseline that a bless
   script rewrites: `test/oracle/family-*.json` and `player-contrast.json` and the golden PDFs
   (`integration-nightly`), the per-deck clip counts the overflow tool itself calls a ratchet
-  (`overflow-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
+  (`overflow-nightly`), the per-component clip, unreadable and lost counts in `test/fit/baseline.json`
+  (`fit-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
   (`studio-e2e`). Blessing turns the check green without fixing anything, and **the run cannot
   tell the two apart** — so a green night means "the tree matches the baseline", not "the finding
   is fixed". These comment and leave the thread open.
@@ -1383,6 +1384,12 @@ it passes, that exact tree becomes `main`.
 - **`golden-diff` and `studio-smoke` run only on `pull_request`, never in the
   queue.** On a behind PR their before/after images compare against the base of
   your last push, so they can be a few merges old. `ci` still gates correctness.
+  (`studio-smoke` did run in the queue, unread, until 2026-10-29: the queue forces
+  the `docs` tier on, and its `if` did not check the event.)
+- **`unit (node 24)` runs only in the queue.** A pull request runs `unit (node 22)`
+  alone. In 999 PR runs the node 24 leg caught nothing node 22 did not, so a
+  Node-24-only break now shows as a queue ejection, not a red PR. The per-job
+  evidence is `decisions/2026-10-29-ci-job-tiers.md`.
 
 ## Automation vs. the main ruleset
 

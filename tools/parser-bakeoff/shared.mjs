@@ -63,7 +63,7 @@ export function pill(value, mods) {
 }
 
 // The kernel's own marker set, never retyped: state-marks.test.js fails on a private copy.
-const { MARKERS, MARKER_CLASS } = require('../../lib/core/state-marks.js');
+const { MARKERS, MARKER_CLASS } = require('../../lib/plugins/checks/shared/registry.js');
 export const STATE_MARKERS = MARKERS.join('');
 export { MARKER_CLASS };
 

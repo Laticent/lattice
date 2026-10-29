@@ -2685,3 +2685,20 @@ describe('--fix on a deck whose body opens with a separator', () => {
     assert.match(out, /BX `Q1\.\.Q2`/);
   });
 });
+
+describe('lint-core: check-label-code', () => {
+  const v = { names: new Set(['verdict-grid', 'pricing', 'checklist']), modifiers: new Set() };
+  const grid = (cls, item) => `${FM}<!-- _class: ${cls} -->\n\n## Grid\n\n- Acme\n  ${item}\n  - Body.\n`;
+  const hit = (src) => core.lintTextWith(src, v).find((f) => f.rule === 'check-label-code');
+  test('inline code in a check-led criterion prints its source, so it warns', () => {
+    const f = hit(grid('verdict-grid', '- [x] Residency `@check{fail}` text'));
+    assert.equal(f?.severity, 'warning');
+    assert.equal(f.classToken, 'verdict-grid');
+    assert.ok(hit(grid('pricing', '- [/] SSO via `SAML`')), 'pricing composes too');
+  });
+  test('a criterion with no leading check, no code, or another layout is left alone', () => {
+    assert.equal(hit(grid('verdict-grid', '- Residency `@check{fail}` text')), undefined);
+    assert.equal(hit(grid('verdict-grid', '- [x] Residency in the EU')), undefined);
+    assert.equal(hit(grid('checklist', '- [x] Residency `[!]` text')), undefined);
+  });
+});

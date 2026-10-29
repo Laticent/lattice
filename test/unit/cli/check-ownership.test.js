@@ -99,6 +99,7 @@ const {
   checkFiloCommitPath,
   checkMosaicoBoundary,
   checkFluidoBoundary,
+  checkSquadraBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
   ANIMA_DIR,
@@ -1513,6 +1514,19 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
+    test('on_pull_request is optional, and a boolean when present', () => {
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: false }] }), []);
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: true }] }), []);
+      assert.ok(probe({ suites: [{ ...good, on_pull_request: 'false' }] }).some((e) => /on_pull_request/.test(e)), 'a string is refused');
+    });
+
+    test('an iOS Simulator suite cannot claim a place on pull requests', () => {
+      const ios = { ...good, run: 'PROBE=x bash docs/scripts/ios-safari/run.sh' };
+      assert.ok(probe({ suites: [{ ...ios, on_pull_request: true }] }).some((e) => /iOS Simulator suite/.test(e)), 'true is refused');
+      assert.deepEqual(probe({ suites: [ios] }), [], 'no flag is fine: the planner keeps it off by its command');
+      assert.deepEqual(probe({ suites: [{ ...ios, on_pull_request: false }] }), []);
+    });
+
     test('a well-formed entry passes', () => {
       assert.deepEqual(probe({ suites: [good] }), []);
     });
@@ -2214,6 +2228,38 @@ describe('check-ownership', () => {
       ]) {
         assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
       }
+    });
+  });
+
+  // Squadra: the lint-and-fix core reads text and returns findings, the same on every host.
+  describe('Squadra import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'squadra-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkSquadraBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkSquadraBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('relative imports pass; anything outside the folder is caught', () => {
+      assert.deepEqual(run({ 'index.ts': "export { fix } from './fix.js';\nimport type { Span } from './types.js';" }), []);
+      for (const src of [
+        "import fs from 'node:fs';",
+        "import { compile } from '@laticent/segno';",
+        "const core = require('../../../../lib/authoring/lint-core.js');",
+        "import { plan } from '../filo/patch.js';",
+      ]) {
+        assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'fix.test.ts': "import { it } from 'vitest';" }), []);
     });
   });
 

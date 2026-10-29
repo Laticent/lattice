@@ -535,11 +535,12 @@ const SURFACES = [
   // ── obligation-matrix .heat · body ink on the cell's status ground ───────
   // NB the component maps the pass CELL to the fail ground and vice versa on purpose (a heat map reads "hot =
   // attention"), so the ids below name the ground, not the state. The grounds are the theme's own --X-bg
-  // (engineering/decisions/2026-10-24-status-is-one-system.md); the exempt row sits on --bg-alt.
-  ...[['fail', '--fail-bg', /dd:has\(> \.state\.pass\) \{\s*background:var\(--fail-bg\);/],
-      ['warn', '--warn-bg', /dd:has\(> \.state\.warn\) \{\s*background:var\(--warn-bg\);/],
-      ['pass', '--pass-bg', /dd:has\(> \.state\.fail\) \{\s*background:var\(--pass-bg\);/],
-      ['muted-mark', '--bg-alt', /dd:has\(> \.state\.skip\) \{\s*background:var\(--bg-alt\);/]].map(([slug, ground, pin]) => ({
+  // (engineering/decisions/2026-10-24-status-is-one-system.md); the exempt row sits on --bg-alt. A `pills` cell
+  // matches the same rule through its pill's check (2026-10-18-checks.md §17); its label sits on the pill's own fill.
+  ...[['fail', '--fail-bg', /dd:has\(> \.state\.pass(?:, > \.lat-pill > \.lat-pill-lead > \.state\.pass)?\) \{\s*background:var\(--fail-bg\);/],
+      ['warn', '--warn-bg', /dd:has\(> \.state\.warn(?:, > \.lat-pill > \.lat-pill-lead > \.state\.warn)?\) \{\s*background:var\(--warn-bg\);/],
+      ['pass', '--pass-bg', /dd:has\(> \.state\.fail(?:, > \.lat-pill > \.lat-pill-lead > \.state\.fail)?\) \{\s*background:var\(--pass-bg\);/],
+      ['muted-mark', '--bg-alt', /dd:has\(> \.state\.skip(?:, > \.lat-pill > \.lat-pill-lead > \.state\.skip)?\) \{\s*background:var\(--bg-alt\);/]].map(([slug, ground, pin]) => ({
     id: `obligation-matrix/heat-${slug}`,
     ctx: `obligation-matrix.heat: table body ink on the ${ground} cell ground`,
     base: '--bg',

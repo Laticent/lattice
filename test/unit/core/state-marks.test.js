@@ -10,8 +10,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const marks = require('../../../lib/core/state-marks.js');
-const leading = require('../../../lib/core/leading-marker.js');
+const marks = require('../../../lib/plugins/checks/shared/registry.js');
+const leading = require('../../../lib/plugins/checks/shared/leading.js');
 
 describe('state-marks — the six markers', () => {
   const EXPECTED = {
@@ -117,6 +117,135 @@ describe('state-marks — what stays literal', () => {
   });
 });
 
+// THE CHECK REGISTRY (engineering/decisions/2026-10-18-checks.md §4 rule 4, §9 step 3). The six
+// rows used to live in three places: the classes and words in this kernel, the drawings in
+// base.modifiers.css (now the checks plugin's checks.styles.css), and the words again in the Studio picker. The kernel now holds them as one
+// table and derives the rest; the stylesheet and the layout word maps cannot import it, so these
+// tests pin them to it. A seventh row fails here until every surface knows it.
+describe('state-marks — the check registry is the one table of six', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.resolve(__dirname, '../../..');
+  const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+  const COLUMNS = ['id', 'marker', 'shape', 'mark', 'tone', 'hollow', 'word', 'aliases', 'meaning'];
+
+  test('six rows, every column, nothing shared between two rows', () => {
+    assert.equal(marks.CHECKS.length, 6);
+    for (const row of marks.CHECKS) {
+      assert.deepEqual(Object.keys(row), COLUMNS, `${row.id} has the wrong columns`);
+      assert.ok(Object.isFrozen(row), `${row.id} is mutable`);
+    }
+    for (const col of ['id', 'marker', 'shape', 'word']) {
+      const vals = marks.CHECKS.map((r) => r[col]);
+      assert.equal(new Set(vals).size, 6, `two rows share a ${col}`);
+    }
+  });
+
+  test('the spoken aliases: one bare word each, owned by one answer, never another answer\'s id', () => {
+    const ids = new Set(marks.CHECKS.map((r) => r.id));
+    const seen = new Set();
+    for (const row of marks.CHECKS) {
+      assert.ok(Object.isFrozen(row.aliases), `${row.id}'s aliases are mutable`);
+      for (const a of row.aliases) {
+        assert.match(a, /^[a-z]+$/, `${row.id}: "${a}" must be one bare word, so Segno reads it unquoted`);
+        assert.ok(!ids.has(a), `${row.id}: "${a}" is another answer's id`);
+        assert.ok(!seen.has(a), `"${a}" is an alias of two answers`);
+        seen.add(a);
+      }
+    }
+  });
+
+  test('every derived export reads the table, in its order', () => {
+    assert.deepEqual([...marks.MARKERS], marks.CHECKS.map((r) => r.marker));
+    for (const row of marks.CHECKS) {
+      assert.equal(marks.MARKER_LABELS[row.marker], row.word);
+      assert.deepEqual(marks.stateClassesFor(row.marker), { sem: row.id, shape: row.shape });
+      assert.equal(marks.checkFor(row.marker), row);
+      assert.ok(new RegExp(`^${marks.MARKER_CLASS}$`).test(row.marker), `MARKER_CLASS misses [${row.marker}]`);
+    }
+    assert.equal(marks.checkFor('X'), null);
+  });
+
+  test('every drawing the table names is a mask token base.tokens.css defines', () => {
+    const tokens = read('lib/base/base.tokens.css');
+    for (const { id, mark } of marks.CHECKS) {
+      if (mark === null) continue;
+      assert.match(tokens, new RegExp(`^\\s*--mark-${mark}:\\s*url\\(`, 'm'), `${id}: --mark-${mark} is not defined`);
+    }
+  });
+
+  test('the drawing column: the plugin stylesheet maps each shape to the mask the table names', () => {
+    const css = read('lib/plugins/checks/checks.styles.css');
+    const rules = new Map();
+    for (const m of css.matchAll(/^section \.(state-[a-z]+)\s*\{\s*--state-mark:\s*var\((--mark-[a-z]+)\);\s*\}/gm)) rules.set(m[1], m[2]);
+    const want = new Map(marks.CHECKS.filter((r) => r.mark).map((r) => [r.shape, `--mark-${r.mark}`]));
+    assert.deepEqual(Object.fromEntries(rules), Object.fromEntries(want));
+  });
+
+  test('the hollow column: exactly the hollow rows get the ring rule', () => {
+    const css = read('lib/plugins/checks/checks.styles.css');
+    const block = /((?:section \.(?:state|badge)\.[a-z]+,?\s*)+)\{\s*--state-fill-pct: 0%;/.exec(css);
+    assert.ok(block, 'the hollow-ring rule moved');
+    const ids = new Set([...block[1].matchAll(/\.state\.([a-z]+)/g)].map((m) => m[1]));
+    assert.deepEqual([...ids].sort(), marks.CHECKS.filter((r) => r.hollow).map((r) => r.id).sort());
+  });
+
+  test('the tone column: the inline disc inks each answer with the table\'s tone', () => {
+    const css = read('lib/plugins/checks/checks.styles.css');
+    const ink = {};
+    for (const m of css.matchAll(/((?:section \.lat-state\.[a-z]+,?\s*)+)\{[^}]*--state-ink:\s*var\((--[a-z-]+)\)/g)) {
+      for (const id of m[1].matchAll(/\.lat-state\.([a-z]+)/g)) ink[id[1]] = m[2];
+    }
+    assert.deepEqual(ink, Object.fromEntries(marks.CHECKS.map((r) => [r.id, r.tone])));
+  });
+
+  test('every layout word map speaks all six answers, and only those', () => {
+    const src = read('lib/transformers/prose-projection.mjs');
+    const body = /const WORD_MAPS = \{([\s\S]*?)\n\};/.exec(src)[1];
+    const maps = [...body.matchAll(/^\t'?([a-z-]+)'?: \{([^}]*)\}/gm)];
+    assert.ok(maps.length >= 5, 'the WORD_MAPS shape moved');
+    const ids = marks.CHECKS.map((r) => r.id).sort();
+    for (const [, name, inner] of maps) {
+      const keys = [...inner.matchAll(/([a-z]+):/g)].map((m) => m[1]).sort();
+      assert.deepEqual(keys, ids, `WORD_MAPS.${name}`);
+    }
+  });
+
+  test('narration\'s hand-typed shape and answer patterns name exactly the registry\'s rows', () => {
+    // prose-projection imports no kernel, so it types its own copies. A seventh answer missing
+    // here would narrate as nothing, with no other test to notice.
+    const src = read('lib/transformers/prose-projection.mjs');
+    const alts = (name) => new RegExp(`const ${name} = /\\\\b(?:state-)?\\(([a-z|]+)\\)\\\\b/;`).exec(src)?.[1].split('|').sort();
+    assert.deepEqual(alts('STATE_SHAPE_RE'), marks.CHECKS.map((r) => r.shape.replace(/^state-/, '')).sort());
+    for (const name of ['STATE_SEM_RE', 'KEY_SEM_RE']) assert.deepEqual(alts(name), marks.CHECKS.map((r) => r.id).sort(), name);
+  });
+
+  test('a manifest label set keyed by checks names only checks', () => {
+    const shortcuts = new Set(marks.CHECKS.map((r) => `[${r.marker}]`));
+    const dir = path.join(root, 'lib/components');
+    for (const bucket of fs.readdirSync(dir)) {
+      const b = path.join(dir, bucket);
+      if (!fs.statSync(b).isDirectory()) continue;
+      for (const name of fs.readdirSync(b)) {
+        const f = path.join(b, name, `${name}.manifest.json`);
+        if (!fs.existsSync(f)) continue;
+        const members = JSON.parse(fs.readFileSync(f, 'utf8')).labelSet?.members || [];
+        const keyed = members.filter((m) => /^\[.\]$/.test(m.key));
+        for (const m of keyed) assert.ok(shortcuts.has(m.key), `${name}: ${m.key} is not a check`);
+      }
+    }
+  });
+
+  test('the Studio picker reads the table instead of retyping it', () => {
+    const tsx = read('docs/src/components/studio/table-controls.tsx');
+    assert.match(tsx, /stateMarks\.CHECKS/);
+    for (const { word } of marks.CHECKS) {
+      const label = word[0].toUpperCase() + word.slice(1);
+      assert.doesNotMatch(tsx, new RegExp(`label: '${label}'`), `table-controls retypes "${label}"`);
+    }
+  });
+});
+
 describe('state-marks — one kernel, no duplicate decision', () => {
   test('no consumer retypes the marker character class — every pattern builds from MARKER_CLASS', () => {
     // The class used to be retyped as a private regex in eight places across five files
@@ -144,7 +273,7 @@ describe('state-marks — one kernel, no duplicate decision', () => {
     assert.ok(!PRIVATE.test('const r = /[x\\- ]/;'), 'matrix-grid\'s three positional markers are not the class');
     // tools/segno-legacy/list-text.js is the FROZEN copy of the regex readers the list-text
     // grammar replaced (Segno phase 3): the oracle's source, which nothing in lib/ reads.
-    const EXEMPT = new Set(['lib/core/state-marks.js', 'lib/core/matrix-grid-cells.js', 'tools/segno-legacy/list-text.js']);
+    const EXEMPT = new Set(['lib/plugins/checks/shared/registry.js', 'lib/core/matrix-grid-cells.js', 'tools/segno-legacy/list-text.js']);
     const offenders = [];
     const walk = (dir) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -159,7 +288,7 @@ describe('state-marks — one kernel, no duplicate decision', () => {
       }
     };
     for (const top of ['lib', 'tools', 'docs/src']) walk(path.join(ROOT, top));
-    assert.deepEqual(offenders, [], `retyped marker class — build it from MARKER_CLASS in lib/core/state-marks.js:\n  ${offenders.join('\n  ')}`);
+    assert.deepEqual(offenders, [], `retyped marker class — build it from MARKER_CLASS in lib/plugins/checks/shared/registry.js:\n  ${offenders.join('\n  ')}`);
   });
 
   test('neither render path carries its own copy of stateClassesFor any more', () => {
@@ -172,9 +301,9 @@ describe('state-marks — one kernel, no duplicate decision', () => {
       assert.doesNotMatch(
         src,
         /function stateClassesFor\s*\(/,
-        `${rel} defines its own stateClassesFor — import it from lib/core/state-marks.js`,
+        `${rel} defines its own stateClassesFor — import it from lib/plugins/checks/shared/registry.js`,
       );
-      assert.match(src, /state-marks/, `${rel} should import the kernel`);
+      assert.match(src, /plugins\/checks\/shared\/registry/, `${rel} should import the kernel`);
     }
   });
 });
@@ -278,5 +407,65 @@ describe('inline-code-directives — the mirror is a no-op on its own output', (
     const html = doc.querySelector('p').innerHTML;
     assert.match(html, /lat-pill/);
     assert.match(html, /lat-state/);
+  });
+});
+
+// THE SECOND SET (engineering/decisions/2026-10-18-checks.md §8, §12 decision 4, §19): the ten chart statuses are the
+// registry's `progress` set, in the same shape as the six checks. The chart family's stylesheet cannot import the
+// registry, so these hold its paint to the table, as the tests above hold the check's.
+describe('state-marks — the statuses are the registry\'s second set, in one shape', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.resolve(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8');
+  const { STATUSES, SETS, SHARED_COLUMNS, DRAWINGS, CHECKS } = marks;
+
+  test('both sets carry the shared columns, every mark is one of the drawings, ids are unique per set', () => {
+    assert.deepEqual(Object.keys(SETS), ['answers', 'progress']);
+    for (const [name, rows] of Object.entries(SETS)) {
+      for (const row of rows) {
+        for (const col of SHARED_COLUMNS) assert.ok(col in row, `${name}.${row.id} lacks ${col}`);
+        assert.ok(row.mark === null || DRAWINGS.includes(row.mark), `${name}.${row.id}: ${row.mark} is not a drawing`);
+        assert.ok(Object.isFrozen(row), `${name}.${row.id} is mutable`);
+      }
+      assert.equal(new Set(rows.map((r) => r.id)).size, rows.length, `${name}: duplicate id`);
+    }
+  });
+
+  test('the chart status kernels are read from the registry, unchanged', () => {
+    const { CHART_STATUS, SPOKEN_STATUS } = require('../../../lib/core/chart-status.js');
+    const { STATUS_MARK, MARK_PATH } = require('../../../lib/core/status-marks.js');
+    // The legend order and the words, as they shipped before the join.
+    assert.deepEqual([...CHART_STATUS], ['on-track', 'done', 'live', 'at-risk', 'warn', 'blocked', 'fail', 'pilot', 'decision', 'deferred']);
+    assert.equal(SPOKEN_STATUS.warn, 'warning');
+    assert.equal(SPOKEN_STATUS.decision, 'a decision point');
+    for (const s of STATUSES) {
+      assert.equal(STATUS_MARK[s.id], s.mark, s.id);
+      assert.ok(MARK_PATH[s.mark], `${s.id}: no SVG path for ${s.mark}`);
+    }
+    assert.equal(STATUS_MARK.pass, 'check', 'the check id a chart may stamp draws its check');
+  });
+
+  test('the chart family draws each status with the registry\'s mark and paints it in its role', () => {
+    const markRules = [...css.matchAll(/:is\(section\.chart-frame, figure\.chart-frame\) (:is\([^{]*\)|\[data-s="[a-z-]+"\]) \{ --status-mark: var\(--mark-([a-z]+)-bold\); \}/g)];
+    const drawnWith = {};
+    for (const [, sel, mark] of markRules) for (const [, id] of sel.matchAll(/data-s="([a-z-]+)"/g)) drawnWith[id] = mark;
+    const hueRules = [...css.matchAll(/((?::is\(section\.chart-frame, figure\.chart-frame\) \.chart-status\[data-s="[a-z-]+"\],?\s*)+)\{\s*--chart-status-hue: var\(--state-([a-z]+)-hue\)/g)];
+    const painted = {};
+    for (const [, sels, role] of hueRules) for (const [, id] of sels.matchAll(/data-s="([a-z-]+)"/g)) painted[id] = role;
+    for (const s of STATUSES) {
+      assert.equal(drawnWith[s.id], s.mark, `${s.id}: the chart family draws ${drawnWith[s.id]}, the registry says ${s.mark}`);
+      assert.equal(painted[s.id], s.role, `${s.id}: the chart family paints ${painted[s.id]}, the registry says ${s.role}`);
+    }
+  });
+
+  // §8 asked for the overlap to be TESTED, not decided. `sharesDrawingWith` records it, and this holds it to the drawings: a
+  // status shares an answer's drawing exactly when it names that answer. The result: done and on-track draw yes;
+  // warn and at-risk draw partly; fail and blocked draw no; deferred draws does-not-apply (a slash), although in
+  // meaning it is closer to open, "not yet". live, pilot and decision draw a dot, which no answer has.
+  test('the overlap: a status names the answer whose drawing it shares, and no other', () => {
+    for (const s of STATUSES) {
+      const same = CHECKS.filter((c) => c.mark === s.mark).map((c) => c.id);
+      assert.deepEqual(s.sharesDrawingWith ? [s.sharesDrawingWith] : [], same, `${s.id}: drawn as ${s.mark}, shared by ${same.join(', ') || 'no answer'}`);
+    }
   });
 });

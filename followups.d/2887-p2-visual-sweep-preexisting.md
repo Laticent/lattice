@@ -19,8 +19,8 @@ source: https://github.com/Laticent/lattice/pull/2887
          · rows stress test: "Content clipped", the BY FUNCTION table loses its Sales row.
          · regulatory-update cards, verdict-grid five-options: the bottom cards run into the footer, no bottom border.
          · comparison pricing: row text runs into the card's right border ("Checks accumulate up the ladder").
-         · obligation-matrix `pills`: renders the same discs as the default grid, no status words, against its caption;
-           `lanes` in dark mode loses the per-regime stripe and label color (legal gallery too, plus legal rails/eyebrows).
+         · obligation-matrix `lanes` in dark mode loses the per-regime stripe and label color (legal gallery too, plus
+           legal rails/eyebrows). (Its `pills` item, discs with no status words, is fixed by the checks work, #2972.)
          · kpi spotlight: support-tile pills are outline-only with no mark and tight left padding.
          · journey curve: sentiment gridlines stop halfway across the plot.
          · piechart donut: the center is empty although the slide says it carries the total.

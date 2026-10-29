@@ -26,14 +26,24 @@ function split(text: string) {
 }
 
 describe('catalog content', () => {
-	it('has the thirteen libraries and nine plugins', () => {
-		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(13);
-		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(9);
+	it('has the fourteen libraries and ten plugins', () => {
+		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(14);
+		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(10);
 	});
 
 	for (const f of files) {
 		describe(`${f.kind}/${f.slug}`, () => {
 			const { data, body } = split(f.text);
+
+			it('every fact says all of what it was written to say', () => {
+				// A comma in an unquoted flow-mapping value ends it: `{ k: Loaded, v: Always, no switch }` reads `v` as
+				// "Always" and drops the rest, with no error. Six facts shipped cut that way, "Loaded: Always. Part of every
+				// deck" among them. Each fact's parsed value must be the whole text after `v:` as written.
+				const raw = [...f.text.matchAll(/^ {2}- \{ k: [^,]+, v: (.*) \}$/gm)].map((m) => m[1]);
+				const unquote = (v: string) => (/^(['"]).*\1$/.test(v) ? v.slice(1, -1).replace(/\\"/g, '"').replace(/''/g, "'") : v);
+				const facts = (data.facts as { k: string; v: string }[]) || [];
+				expect(facts.map((x) => String(x.v))).toEqual(raw.map(unquote));
+			});
 
 			it('parses, with every field a page needs', () => {
 				expect(data.kind).toBe(f.kind === 'libraries' ? 'library' : 'plugin');

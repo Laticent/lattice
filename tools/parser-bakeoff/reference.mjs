@@ -24,7 +24,7 @@ const { parseBracketList } = require('../segno-legacy/bracket-list.js');
 const { splitRow } = require('../segno-legacy/flowchart-row.js');
 const { parseSpanToken, parseTimePoint } = require('../../lib/core/gantt-time.js');
 const { isValuePill, signedValue } = require('../segno-legacy/chart-values.js');
-const { parseInlineState } = require('../../lib/core/state-marks.js');
+const { parseInlineState } = require('../../lib/plugins/checks/shared/registry.js');
 const { resolve: resolvePill } = require('../segno-legacy/inline-pills.js');
 
 /** One output shape per target; every candidate's impl returns the same. */

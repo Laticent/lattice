@@ -181,6 +181,70 @@ So a diagram fetches on render in three ways, and links only on a reader's click
 
 A defect found while validating and fixed here: a rendered diagram carries `xmlns="http://www.w3.org/2000/svg"`, a namespace name the browser never fetches, and the diagram scan counted it as a web image, so every deck with a drawn diagram printed "3 web images from http://www.w3.org were left out" in the CLI and a Studio notice. The scan now ignores `xmlns` declarations (an `<image href>` or `<a xlink:href>` it draws is still counted). It existed at the merge base; only the `blocked` list changes, not the markup (the 384 decks are still byte-identical).
 
+### Mermaid fences fuzzed, and a connection oracle that can fail (2026-10-29)
+
+Followups 2909-p3. Two gaps from the table above, closed.
+
+**The fuzz now writes Mermaid.** `npm run fuzz:mermaid-refs` (tools/fuzz-mermaid-refs.mjs) generates
+Markdown with one fenced diagram (test/fixtures/mermaid-ref-fuzz.js): backticks or tildes, three to
+six of them, a language with attributes or none, indented, quoted or in a list; inside, an `img:`
+shape, an `<img>` label, `themeCSS` with a `url()`, or a `click … href`, with the address spelled
+with entity codes, Mermaid's `#58;`, a dropped tab, capitals or `//host`. Each input is rendered by
+the real engine. The blocks the runtime draws (the registry's `DRAWN_FENCE_CODE`) are drawn with the
+vendored Mermaid 11.14 at the runtime's config, and every link a diagram draws is clicked in a frame
+of its own. The control draws everything; the scanned arm draws only what `blockWebImages` lets
+through, the rule the Studio applies before it draws. Seed 7, 200 inputs per engine, with the
+generator as of `b861c71` (which escapes a backslash in `themeCSS`; before it, the `u\rl` spelling
+reached Mermaid as a carriage return, a CodeQL finding on #2973):
+
+| Engine | Drawn as written | Reach the server as written | Held back | Leaks |
+|---|---|---|---|---|
+| Chromium 131 | 91 | 44 | 149 | 0 |
+| WebKit 26.0 | 91 | 26 | 149 | 0 |
+| Firefox 142 | 91 | 26 | 149 | 0 |
+
+By class in Chromium: `click` 5 of 53 reach as written, `themeCSS` 18 of 47, `img:` 4 of 45, label
+`<img>` 17 of 55. `themeCSS` reached the server in Chromium only (0 of 47 in WebKit and Firefox),
+which the 2026-10-27 table did not see because it measured Firefox with a plain spelling. One
+control request per run lands on `/` and names no input: Mermaid decodes `#47;` to `/` inside a CSS
+`url()`, but the browser reads a `#` there as the start of a fragment. It is reported, never a
+failure, because only the control makes it.
+
+**The arm can fail.** `--scanner-file test/fixtures/naive-diagram-scanner.js` holds a diagram back
+only when its text names the address the plain way (`http://127.0.0.1…`). Seed 7, 120 inputs: 17
+leaks in Chromium, 9 in WebKit and 9 in Firefox, every one an odd spelling (`&sol;`, `#46;`,
+`Http&#58//`, capitals, `//host`). The older scanner (`--ref 1bec8e4`) holds all of them, so it is not
+a failing arm for this class.
+
+**The connection oracle.** A `<link rel=preconnect>` opens a connection and sends no request, so
+only an idle-connection count sees it. Measured with a lone preconnect to a loopback server: WebKit
+opens one connection; headless Chromium and Firefox open none, with Playwright's default flags and
+with `--disable-background-networking` dropped, `--headless=new`, Firefox's speculative-connection
+preference raised, and the proxy variables unset. In a batch the old control could not see it even
+in WebKit: another input's fetch reuses the preconnected socket, which then reads as asked. So
+`--wide` now opens with a calibration load of one lone preconnect and reports `sees` or `blind` per
+engine; the count also includes sockets that closed unused. Where the oracle sees, an idle
+connection after the rewrite fails the run. Seed 3, 300 inputs: `sees` in WebKit with 0 idle after
+the rewrite, `blind` in Chromium and Firefox. The failing arm
+(`--scanner-file test/fixtures/hint-passing-scanner.js`, which returns a document with a preconnect
+as written) fails in WebKit on 600 inputs with 0 requests and 1 idle connection. So `fetch/hint` has
+measured coverage in WebKit, and none in the other two engines, which is a fact about headless
+browsers, not a gap in the fuzz.
+
+### The click, made in the Reading view (2026-10-29)
+
+Followups 2909-p5. `docs/e2e/read-article-beacons.spec.ts` now drives a deck whose only web
+reference is a flowchart `click A href` to a loopback server: the strip offers to load it, the
+Reading view draws the anchor, nothing is requested in the 3 s before the click, and the click
+navigates the Studio's own tab to the address (not a new tab, not intercepted). Same result in
+Chromium, Firefox and WebKit (`desktop`, `gecko`, `webkit-tablet`).
+
+Driving it found a defect: the Studio's cheap pre-check (`web-image-hint.ts`) woke the web-images
+count only for image-shaped references, so a deck whose only web reference was a diagram link got
+no strip at all, while the scanner refused that address as a `diagram` ref. The pre-check now
+matches a Mermaid `click … href` line too (the rule is the scanner's set, not "images"), with unit
+cases; the spec failed in all three engines before the change and passes after.
+
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew

@@ -72,6 +72,11 @@ const PANELS: Record<string, PanelEntry> = {
 		describe: "Change this icon's shape, color, size, frame and look.",
 		Panel: (p) => <IconPanel {...(p as unknown as React.ComponentProps<typeof IconPanel>)} />,
 	},
+	check: {
+		title: 'Edit check',
+		describe: "Change this check's answer and its label.",
+		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
+	},
 	plugin: {
 		title: 'Edit plugin object',
 		describe: "Change this plugin object's fields.",

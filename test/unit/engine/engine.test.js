@@ -48,7 +48,7 @@ function profile(html) {
     secs.push({
       cls: ((attrs.match(/(?<![\w-])class="([^"]*)"/) || [])[1] || '').split(/\s+/).filter(Boolean).sort().join(' '),
       style: style.replace(/&quot;/g, '"').split(/;(?![^(]*\))/).map((s) => s.trim()).filter(Boolean).sort().join(';'),
-      badges: (body.match(/class="badge\b/g) || []).length,
+      pills: (body.match(/class="lat-pill"/g) || []).length,
       states: (body.match(/class="state\b/g) || []).length,
       strongs: (body.match(/<strong>/g) || []).length,
       tables: (body.match(/<table>/g) || []).length,
@@ -165,10 +165,10 @@ describe('lattice-engine: contract', () => {
     assert.doesNotMatch(html, /_lens/);
   });
 
-  test('composes the real plugins: verdict-grid state marker → badge span', () => {
+  test('composes the real plugins: verdict-grid check → a pill holding the check', () => {
     const md = '<!-- _class: verdict-grid -->\n\n# V\n\n- Tier\n  - [x] included\n';
     const { html } = makeEngine().render(md, 'lattice');
-    assert.match(html, /<span class="badge[^"]*">included<\/span>/);
+    assert.match(html, /<span class="lat-pill" data-shape="pill"><span class="lat-pill-lead"><span class="state pass state-full lat-state"[^>]*><\/span><\/span>included<\/span>/);
   });
 
   test('does NOT double-wrap an already-bold slot label (clean inline tokens)', () => {

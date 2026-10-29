@@ -205,7 +205,9 @@ const PROBES = {
       '- **Option one.**', '  - [ ] Criterion A', '  - [-] Criterion B', '  - [!] Criterion C',
       '- **Option two.**', '  - [x] Criterion A', '  - [/] Criterion B', '  - [?] Criterion C',
     ].join('\n'),
-    probe: marked('.badge'),
+    // The composed check (lib/plugins/checks/shared/compose.js): its classes carry the answer, and its
+    // host item carries the label, so a dropped or doubled label still differs.
+    probe: marked('li > .lat-pill > .lat-pill-lead > .lat-state'),
   },
 
   // A SECOND probe for the same row, on the shapes the first cannot reach. The first
@@ -230,7 +232,9 @@ const PROBES = {
       '    - [-] Sub criterion',      // THIRD nesting level
       '    - [/] Second sub',
     ].join('\n'),
-    probe: marked('.badge'),
+    // The composed check (lib/plugins/checks/shared/compose.js): its classes carry the answer, and its
+    // host item carries the label, so a dropped or doubled label still differs.
+    probe: marked('li > .lat-pill > .lat-pill-lead > .lat-state'),
   },
 
   // pricing rides the same decoder but reads `[ ]` the UNIVERSAL way — a neutral
@@ -247,7 +251,7 @@ const PROBES = {
       '- Starter `$0`', '  - [x] Included', '  - [ ] Unchecked', '  - [!] Missing', '  - For one team.',
       '- Growth `$49`', '  - [-] Limited', '  - [/] Not included', '  - [?] Ask sales', '  - For scaling.',
     ].join('\n'),
-    probe: marked('.badge'),
+    probe: marked('li > .lat-state'),
   },
 
   obligationMatrixBadges: {

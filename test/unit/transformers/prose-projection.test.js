@@ -987,10 +987,54 @@ test('state-cells: a plain table speaks the universal words, not silence', () =>
 	assert.match(t, /Price — North: partly; South: open\./);
 });
 
+// A check composed into a container (engineering/decisions/2026-10-18-checks.md §6 option C, §14,
+// §17) is the item's answer: verdict-grid's pill, pricing's row and an obligation-matrix `pills`
+// cell all narrate in the layout's own words. The spike measured the composed grid saying
+// "yesResidency": the check's aria-label ran into the label, and the layout's words were lost.
+// These run the real engine, so the composition and the narration are pinned together.
+test('a composed check narrates as the item\'s answer, in each layout\'s words', () => {
+	const grid = renderSpeech('<!-- _class: verdict-grid -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n')[0];
+	assert.match(grid, /Path A: Residency: yes, Speed: partial, Audit, EU: no, Cost: unknown, Calibration: not assessed, Adoption: not applicable, and Body text\./);
+	const plans = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [/] SSO\n  - For one team.\n')[0];
+	assert.match(plans, /Workspace: included/);
+	assert.match(plans, /SSO: not included/);
+	const cells = renderSpeech('<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [?] |\n')[0];
+	assert.match(cells, /GDPR — Notice: applies; Consent: partial\./);
+	assert.match(cells, /CCPA — Notice: exempt; Consent: unclear\./);
+	// The key says each word once: "Applies", not "Applies: applies" (the same on main before this).
+	assert.match(cells, /Applies\. Partial\. Unclear\. Exempt\./);
+	for (const t of [grid, plans, cells]) {
+		assert.doesNotMatch(t, /yes[A-Z]|no[A-Z]|partly[A-Z]/, 'a check\'s own word ran into its label');
+		assert.doesNotMatch(t, /\b(\w+)[,:] \1\b/i, 'the answer was spoken twice');
+	}
+});
+
+// A check is the item's answer only when it LEADS the item. `:first-child` counts elements and
+// skips text, so an inline `[!]` after words was read as the whole criterion's answer and moved:
+// "Encryption at rest, yes in transit: no" for a slide that draws no such verdict.
+test('an inline check after words is spoken where it stands, never as the item\'s answer', () => {
+	const [grid] = renderSpeech('<!-- _class: verdict-grid -->\n\n## V\n\n- Acme\n  - [x] Residency\n  - Encryption `[!]` at rest, `[x]` in transit\n  - Body.\n');
+	assert.match(grid, /Encryption no at rest, yes in transit/);
+	assert.doesNotMatch(grid, /in transit: no/);
+	const [plans] = renderSpeech('<!-- _class: pricing -->\n\n## P\n\n- Team\n  - Support: `[x]` email only\n  - [x] SSO\n');
+	assert.match(plans, /Support: yes email only/);
+	const [table] = renderSpeech('<!-- _class: table state-cells -->\n\n## T\n\n| Control | Status |\n| --- | --- |\n| SOC 2 | evidence `[!]` rejected |\n');
+	assert.match(table, /evidence no rejected/);
+	// A pill written mid-sentence is the same: `@check{…, label=…}` after words answers its phrase.
+	const [pill] = renderSpeech('<!-- _class: verdict-grid -->\n\n## V\n\n- Acme\n  - Audit `@check{fail, label=EU}` pending\n  - Body.\n');
+	assert.doesNotMatch(pill, /pending: no/);
+});
+
+test('a pill lead is its own word wherever no layout reads it', () => {
+	const dom = new JSDOM('<body><section data-class="content"><p>Status <span class="lat-pill" data-shape="pill"><span class="lat-pill-lead"><span class="state pass state-full lat-state" role="img" aria-label="yes"></span></span>Residency</span> today.</p></section></body>');
+	const [t] = speak([...dom.window.document.querySelectorAll('section')]);
+	assert.match(t, /Status yes Residency today\./);
+});
+
 test('state-cells words equal the kernel\'s universal labels', async () => {
 	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
-	// what keeps its copy of the words from drifting from lib/core/state-marks.js.
-	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/core/state-marks.js');
+	// what keeps its copy of the words from drifting from lib/plugins/checks/shared/registry.js.
+	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/plugins/checks/shared/registry.js');
 	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
 		+ Object.keys(MARKER_LABELS).map((m) => `| r${stateClassesFor(m).sem} | [${m}] |`).join('\n') + '\n');
 	for (const [m, word] of Object.entries(MARKER_LABELS)) {
@@ -2020,4 +2064,18 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 	assert.equal(text.split('Source: CRM export').length - 1, 1, text);
 	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
 	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
+});
+
+// followups.d/2348: an author's label set renames an answer on the slide (the key, and each
+// obligation-matrix `pills` cell), so the voice says the renamed word too, on the engine path.
+test('obligation-matrix: a label set renames the spoken answer as it renames the key', () => {
+	const md = '<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n`[{[x], In force}, {[/], Not subject}]`\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [x] |\n';
+	const [t] = renderSpeech(md);
+	assert.match(t, /GDPR — Notice: in force; Consent: partial\./);
+	assert.match(t, /CCPA — Notice: not subject; Consent: in force\./);
+	assert.match(t, /In force\. Partial\. Not subject\./, 'the key says each word once');
+	assert.doesNotMatch(t, /applies|exempt/, 'the layout\'s default words are not spoken for renamed answers');
+	// Without `pills` the cells are bare checks, and they speak the renamed word too.
+	const [plain] = renderSpeech(md.replace(' pills', ''));
+	assert.match(plain, /GDPR — Notice: in force; Consent: partial\./);
 });

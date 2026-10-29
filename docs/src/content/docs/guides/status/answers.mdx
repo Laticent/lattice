@@ -141,6 +141,23 @@ Residency `[x]` · SSO `[x]` · SOC 2 `[?]`
 The two forms draw the same disc. Use the bare form where a layout is built
 around marks, and the inline form everywhere else.
 
+## The full form, and a check with a label
+
+The brackets are shortcuts. Each check also has a full form, written as
+`@check{…}` in inline code, which names the answer as a word:
+
+```markdown
+Residency `@check{pass}` · SOC 2 `@check{unknown}`
+`@check{yes, label=Residency}` `@check{no, label="Audit, EU"}`
+```
+
+The answer is one of six ids, `pass` `warn` `fail` `unknown` `todo` `skip`, or
+its spoken word: `yes` `partly` `no` `open` `na`. Case does not matter. With a
+`label=`, the check and the label are drawn together as one pill, the same chip
+a verdict-grid criterion is. A label with a comma or a bracket goes in quotes,
+like `"Audit, EU"`. In the Studio, typing `` `@check{ `` offers the six answers
+with what each means, then `label=`.
+
 ## What a reader hears
 
 Every mark is also read aloud. An inline mark carries an accessible name, so a

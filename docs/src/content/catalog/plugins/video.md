@@ -1,7 +1,7 @@
 ---
 kind: plugin
 name: Video
-order: 9
+order: 10
 promise: A clip on a slide that still works in print.
 intro: 'Write `@video{"https://youtu.be/…", title="…"}` on a line of its own and Lattice draws a poster with a play badge and the provider''s name. The poster is a link, so it opens the clip in a browser and in a PDF. Add a scannable code for the room, or a matte for an exhibit.'
 useWhen: A slide is about a recording, such as a demo, a customer story or a launch film, and the deck has to read the same on a screen, in a PDF and on paper.
@@ -9,7 +9,7 @@ syntax: '`@video{"https://youtu.be/…"}`'
 facts:
   - { k: You write, v: '`@video{"address", title="…"}` on a line of its own' }
   - { k: Providers, v: 'YouTube, Vimeo, TikTok and Instagram' }
-  - { k: Draws with, v: A still, a play badge and a link, never a live player }
+  - { k: Draws with, v: 'A still, a play badge and a link, never a live player' }
   - { k: Loaded, v: By default; free until a deck uses one }
 reference:
   - label: The plugin's reference
