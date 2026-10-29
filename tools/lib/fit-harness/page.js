@@ -30,14 +30,69 @@ function install(cfg) {
   function fits(s, forSplit = false) {
     const p = probeSectionOverflow(s, cfg.clipSel, cfg.tol, cfg.ignoreSel);
     if (p.over) return { ok: false, px: Math.round(p.scrollH - p.clientH), chrome: false };
+    // Inside the frame is not the same as readable: a four-column card grid at a story box keeps
+    // every word on the slide at five characters a line (§12). The hard rule is "readable", so a
+    // page with crammed or clipped prose does not fit. Checked before the chrome-only exit below:
+    // a slide whose only cut is its footer line must still be readable.
     if (p.clipSuspect) {
       const c = probeContentClipped(s, cfg.ignoreSel, cfg.tol, cfg.bearerSel);
       if (c.cut) {
+        if (c.chromeOnly && !readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
         if (forSplit && c.chromeOnly) return { ok: true, px: 0, chrome: false };
         return { ok: false, px: 1, first: c.first, chrome: !!c.chromeOnly };
       }
     }
+    if (!readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
     return { ok: true, px: 0, chrome: false };
+  }
+
+  /** Readable prose, the harness's third hard rule (2026-10-28-fit-everywhere-model.md §12):
+   *  no body-size text cut off by an ancestor that hides its overflow, and no body-size prose of
+   *  24+ characters set at fewer than 12 characters a line over three or more lines. Labels drawn
+   *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
+   *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
+  const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
+  function readable(s) {
+    const body = parseFloat(getComputedStyle(s).fontSize) || 16;
+    const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
+    const drawn = [];
+    let n;
+    while ((n = w.nextNode())) {
+      const el = n.parentElement;
+      if (!el || !n.textContent.trim() || el.closest(CHROME) || el.closest(NOT_PROSE) || !shown(el)) continue;
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      const rects = [...r.getClientRects()].filter((x) => x.width > 1);
+      for (const x of rects) if (x.width > 2 && x.height > 2) drawn.push({ x, n });
+      for (let a = el; a && a !== s.parentElement; a = a.parentElement) {
+        const acs = getComputedStyle(a);
+        if (!/hidden|clip/.test(acs.overflowX) || acs.textOverflow === 'ellipsis') continue;
+        const box = a.getBoundingClientRect();
+        if (rects.some((x) => x.right > box.right + 2 || x.left < box.left - 2)) return false;
+      }
+      // Measure each text run against its OWN lines: a card's short bold title on its own line
+      // must not drag its body's average down (that flagged readable list-steps cards).
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      if (fs > body * 1.6 || fs < body * 0.85) continue;
+      const text = n.textContent.replace(/\s+/g, ' ').trim();
+      if (text.length < 24) continue;
+      const lines = new Set(rects.map((x) => Math.round(x.top))).size;
+      if (lines > 2 && text.length / lines < 12) return false;
+    }
+    // Text drawn over other text reads as garbage however long its lines are: redline's split NEW
+    // column at story/hall (§12). Two line boxes of DIFFERENT runs overlap when they share more
+    // than 4px across and over half the shorter one's height; adjacent lines touch, never share.
+    for (let i = 0; i < drawn.length; i++) {
+      for (let j = i + 1; j < drawn.length; j++) {
+        if (drawn[i].n === drawn[j].n) continue;
+        const a = drawn[i].x;
+        const b = drawn[j].x;
+        const across = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (across > 4 && down > Math.min(a.height, b.height) * 0.5) return false;
+      }
+    }
+    return true;
   }
 
   /** The content's natural height as a share of the content cell: the cell sized to its content
@@ -68,6 +123,38 @@ function install(cfg) {
     const share = contentShare(s);
     return share === null ? true : share <= 1 - m;
   }
+
+  /** The clip rescue's question: does the slide fit whole once its spacing tightens? No type size
+   *  changes, by the owner's ruling (font-scale-fit Amendment (3)). Two corrections to plain
+   *  `compact`, measured in 2026-10-28-fit-everywhere-model.md §9:
+   *  - `section.compact` redefines the `--sp-*` scale WITHOUT the box's `--canvas-scale`, so at
+   *    square / portrait / story it cuts spacing to 0.455 / 0.385 / 0.342 instead of 0.75. The
+   *    probe sets each of the slide's own resolved spacing tokens to 0.75 of itself instead,
+   *    which is the rescue as intended at every box.
+   *  - a component whose manifest excludes `compact` (cfg.noCompact) is never rescued.
+   *  It returns the page the rescue would make (fits, fill, a footer-only cut), and leaves the
+   *  slide as it found it. */
+  const SP = ['--sp-3xs', '--sp-2xs', '--sp-xs', '--sp-sm', '--sp-md', '--sp-lg', '--sp-xl', '--sp-2xl'];
+  function compactPage(s) {
+    const plain = fits(s, true);
+    if (plain.ok) return { ok: true, fits: true, cut: null, fill: fill(s) };
+    if ((cfg.noCompact || []).some((c) => s.classList.contains(c))) return { ok: false };
+    const cs = getComputedStyle(s);
+    const prev = SP.map((t) => [t, s.style.getPropertyValue(t), s.style.getPropertyPriority(t)]);
+    for (const t of SP) {
+      const v = cs.getPropertyValue(t).trim();
+      if (v) s.style.setProperty(t, `calc(0.75 * (${v}))`, 'important');
+    }
+    const f = fits(s, true);
+    const full = fits(s);
+    const out = f.ok ? { ok: true, fits: full.ok, cut: full.ok ? null : 'footer', fill: fill(s) } : { ok: false };
+    for (const [t, v, pr] of prev) {
+      if (v) s.style.setProperty(t, v, pr);
+      else s.style.removeProperty(t);
+    }
+    return out;
+  }
+  const fitsCompact = (s) => compactPage(s).ok;
 
   /** The slide sections, as the export enumerates them. */
   const sections = () => deckSlideSections(document);
@@ -128,7 +215,7 @@ function install(cfg) {
   function page(s) {
     const f = fits(s);
     // Where the first cut lands: chrome (the footer band; galleries write long footers) or content.
-    return { fits: f.ok, px: f.px, cut: f.ok ? null : f.chrome ? 'footer' : f.px > 1 ? 'overflow' : 'content', fill: fill(s), leaves: leaves(s) };
+    return { fits: f.ok, px: f.px, cut: f.ok ? null : f.chrome ? 'footer' : f.unreadable ? 'unreadable' : f.px > 1 ? 'overflow' : 'content', fill: fill(s), leaves: leaves(s) };
   }
 
   // ── the fit-first builder (policy arm) ─────────────────────────────────────────────────────
@@ -270,7 +357,7 @@ function install(cfg) {
     return done(made, 'cut');
   }
 
-  window.__fit = { fits, fitsWithMargin, contentShare, leaves, fill, page, build, sections, census };
+  window.__fit = { fits, fitsWithMargin, fitsCompact, compactPage, contentShare, leaves, fill, page, build, sections, census };
 }
 
 module.exports = { PAGE_SRC: `(${install.toString()})` };
