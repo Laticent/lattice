@@ -100,6 +100,40 @@ test('@webkit-tablet @gecko Fix all fixes every live line in one click and leave
 	await expect(fixAll(page)).toBeDisabled();
 });
 
+// A refused fix keeps its underline, so "Fix all" has to say why (followups.d/2966-p2). The one refusal
+// a real deck reaches: the driver's 500-pass cap. lint-core reports the card rule once per slide per
+// lint, so 501 inline-title cards on one slide need 501 passes and the last is refused (`max-passes`).
+// Run from the command palette, which every width offers (the phone layout has no "Fix all" button).
+const REFUSED_DECK = [
+	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
+	...Array.from({ length: 501 }, (_, i) => `- **Bet ${i}.** body ${i}`),
+	'',
+].join('\n');
+
+async function runFixAllFromPalette(page: import('@playwright/test').Page): Promise<void> {
+	await page.keyboard.press('ControlOrMeta+k');
+	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
+	// The row is offered once lint has counted a fixable issue; on WebKit, linting 501 cards takes longer
+	// than a click's default 15 s.
+	await page.getByRole('option', { name: 'Fix all issues' }).click({ timeout: 60_000 });
+}
+
+test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it refused, and why, then a second run finishes it', async ({ page }) => {
+	test.setTimeout(120_000);
+	await setEditorContent(page, REFUSED_DECK);
+	await runFixAllFromPalette(page);
+	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
+	await expect(page.getByText('Slide 2, card-style-inline-title: Fix all stopped before reaching it; press Fix all again.')).toBeVisible();
+	// The refused fix is still there to run; the second run applies it and refuses nothing.
+	await runFixAllFromPalette(page);
+	await expect(page.getByText('Fixed 1 issue.')).toBeVisible({ timeout: 30_000 });
+	await expect.poll(() => persistedSource(page)).toContain('Bet 500\\n  - body 500');
+	const raw = await persistedSource(page);
+	const src: string = raw.startsWith('"') ? JSON.parse(raw) : raw;
+	expect(src).toContain('- Bet 500\n  - body 500');
+	expect(src).not.toContain('**Bet');
+});
+
 test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	await appendToEditor(page, UNKNOWN_SLIDE);
 	// The count lives in the Architect Coach, which is collapsed by default.

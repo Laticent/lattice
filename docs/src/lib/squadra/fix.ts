@@ -109,7 +109,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 				continue;
 			}
 			const fx = eligible as Candidate['fix'];
-			const signature = `${f.rule}\u0000${f.message}\u0000${r.text.slice(f.span.from, f.span.to)}\u0000${fx.edits.map((e) => `${r.text.slice(e.from, e.to)}\u0001${e.text}`).join('\u0002')}`;
+			const signature = signatureOf(r.text, f, fx);
 			// Already recorded as a permanent skip when the fix was caught.
 			if (blocked.has(signature)) continue;
 			candidates.push({
@@ -264,14 +264,19 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 	if (!finished) {
 		// Out of passes: whatever is still fixable is reported, never dropped silently.
 		for (const f of last.findings) {
-			if (f.fixes.some((x) => x.edits && SAFETY_RANK[x.safety] <= ceiling) && !stoppedRules.has(f.rule)) permanent.push({ rule: f.rule, span: f.span, reason: 'max-passes', data: f.data });
+			const fx = f.fixes.find((x) => x.edits && SAFETY_RANK[x.safety] <= ceiling) as Candidate['fix'] | undefined;
+			// A fix already refused as broke-structure is listed once, not again as "out of passes".
+			if (fx && !stoppedRules.has(f.rule) && !blocked.has(signatureOf(last.text, f, fx))) permanent.push({ rule: f.rule, span: f.span, reason: 'max-passes', data: f.data });
 		}
 		transient = [];
 	}
+	// A broke-structure refusal whose rule reports nothing in the final text is moot: a later pass
+	// resolved that finding another way (a neighbor's edit moved the line), so it was not "not applied".
+	const live = new Set(last.findings.map((f) => f.rule));
 	return {
 		text: opts.dryRun ? source.text : text,
 		applied,
-		skipped: [...permanent, ...transient],
+		skipped: [...permanent.filter((s) => s.reason !== 'broke-structure' || live.has(s.rule)), ...transient],
 		passes,
 		remaining: last.findings,
 	};
@@ -289,4 +294,9 @@ function sameSpot(f: Span, m: Span): boolean {
 	if (m.from === m.to) return f.from === f.to ? f.from === m.from : f.from < m.from && m.from < f.to;
 	if (f.from === f.to) return m.from < f.from && f.from < m.to;
 	return f.from < m.to && m.from < f.to;
+}
+
+/** What makes one fix "the same fix" across passes: its rule, message, the text it names and its edits. */
+function signatureOf(text: string, f: { rule: string; message: string; span: { from: number; to: number } }, fx: { edits: readonly { from: number; to: number; text: string }[] }): string {
+	return `${f.rule}\u0000${f.message}\u0000${text.slice(f.span.from, f.span.to)}\u0000${fx.edits.map((e) => `${text.slice(e.from, e.to)}\u0001${e.text}`).join('\u0002')}`;
 }

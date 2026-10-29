@@ -1514,8 +1514,13 @@ does not carry it (`lintCoreGz`, parent note §10.4).
 - **The legacy-shape adapter is not needed yet.** "Fix all" returns text, so no consumer reads a Squadra finding
   before M1b; the adapter lands with the first migrated rule.
 - **`lint:deck --fix` prints every refusal** with its rule, slide and reason, so a refused fix never reads as
-  "nothing to fix". The Studio's "Fix all" still shows only the result; surfacing `skipped` there is a Studio change
-  of its own.
+  "nothing to fix". The Studio's "Fix all" and the Playground's Alt-Shift-F say the same in a notice (2026-10-29):
+  the count applied, then each refusal by slide, rule and reason in plain words (`docs/src/lib/fix-all-notice.ts`,
+  shared by both apps). The one refusal a real deck reaches is the pass cap: 501 inline-title cards on one slide. Showing
+  refusals to authors made two driver edges visible, both fixed in `fix.ts` the same day: the out-of-passes sweep
+  no longer lists a fix already refused as `broke-structure` a second time (with a "press Fix all again" that could
+  never work), and a `broke-structure` refusal whose rule reports nothing in the final text is dropped, because a
+  later pass resolved that finding another way.
 
 ### 15.5 Milestones as they touch Lattice
 
