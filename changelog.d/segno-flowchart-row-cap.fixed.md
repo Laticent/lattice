@@ -1,0 +1,1 @@
+- A flowchart row too long to read (more than 65,536 arrows, escapes or heads in the row, about 2,400 times the longest real row) is now refused with a `flowchart-row-too-long` error and left out of the chart, with the rows nested under it. The parser's memory on such a row is bounded, however many code spans cut it into runs.

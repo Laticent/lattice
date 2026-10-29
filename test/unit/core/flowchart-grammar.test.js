@@ -343,6 +343,24 @@ describe('grammar findings from the review', () => {
     assert.equal(m.shapes.find((sh) => sh.name === 'X').parent, 'g1');
     assert.deepEqual(rules(m), []);
   });
+  test('a row past the node cap is refused with a diagnostic, and its neighbors still read', () => {
+    // 3M characters of escapes: one `esc` node per two characters, 1.5M nodes uncapped.
+    const hostile = '\\!'.repeat(1_500_000);
+    assert.equal(hostile.length, 3_000_000);
+    const m = parse(`- A -> B\n- ${hostile}\n  - nested\n- C`);
+    assert.ok(rules(m).includes('flowchart-row-too-long'));
+    assert.ok(!m.shapes.some((sh) => sh.name.length > 100));
+    assert.ok(['A', 'B', 'C'].every((n) => m.shapes.some((sh) => sh.name === n)));
+  });
+  test('a row cut into runs by code spans is counted as one row', () => {
+    const run = '\\!'.repeat(30_000);
+    const m = parse(`- ${Array.from({ length: 5 }, () => `${run} \`x\``).join(' ')}`);
+    assert.ok(rules(m).includes('flowchart-row-too-long'));
+  });
+  test('a long real-world row sits far below the cap', () => {
+    const row = Array.from({ length: 200 }, (_, i) => `Step ${i}`).join(' => ');
+    assert.ok(!rules(parse(`- ${row}`)).includes('flowchart-row-too-long'));
+  });
   test('rows nested under a connection are errors, never silently re-pointed', () => {
     assert.ok(rules(parse('- A\n  - -> B\n    - M')).includes('flowchart-nested-under-connection'));
     const m = parse('- A\n  - -> B\n    - -> C');

@@ -14,7 +14,7 @@
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-export const { makeRowGrammar, SPACE, BOUNDARY, LABEL_MAX, PUNCT } = require('../../lib/core/flowchart-row-grammar.js');
+export const { makeRowGrammar, SPACE, BOUNDARY, LABEL_MAX, MAX_NODES, PUNCT } = require('../../lib/core/flowchart-row-grammar.js');
 
 /** One arrow node (from either runtime) as the kernel's arrow record. */
 function arrowOf(s, a) {

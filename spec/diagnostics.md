@@ -305,6 +305,7 @@ distinct, stable ID.
 | `flowchart-unknown-modifier` | warning | — | A span that is not a style; it is ignored, or read as part of the shape's name. |
 | `flowchart-orphan-connection` | error | — | A connection row with no shape above it. |
 | `flowchart-nested-under-connection` | error | — | A row nested under a connection, which is neither a member nor a connection. |
+| `flowchart-row-too-long` | error | — | A row that holds more than 65,536 arrows, escapes or heads in one run of text; it and the rows nested under it are left out. |
 | `flowchart-empty-name` | error | — | A row with no usable shape name. |
 | `flowchart-two-groups` | error | — | A shape placed in two groups. |
 | `flowchart-line-word-on-shape` | error | — | A line style written after a shape rather than a connection target. |

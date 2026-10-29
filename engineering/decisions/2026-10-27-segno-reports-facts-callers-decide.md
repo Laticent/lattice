@@ -207,6 +207,12 @@ tokenizer is about 80 states; tree construction is deliberately out of scope beh
   refusal path (a diagnostic) first; the reset in `parse()` already lets the big tape go after the
   parse. That is the caller's decision under this note's own rule, and it belongs with R4.
 
+- **Update, 2026-10-29: the flowchart row now sets `maxNodes`** (65,536; the longest of 882 corpus
+  rows holds 27 nodes). `splitRow` answers a `code: 'nodes'` refusal with `tooLong: true`, and
+  `parseFlowchart` reports `flowchart-row-too-long` and leaves the row and its children out. The cap
+  sits above the existing 6,000-step chain contract (18,000 nodes, 24,000 with labels), and `splitRow` sums the nodes of a row's runs so code spans cannot split a row under the cap. A 3,000,000-character row
+  of escapes is refused by test.
+
 ### R2: what stands between the scanner and a CSS island (2026-10-29)
 
 R2 was scoped and not started in the session that shipped R1. Two facts about CSS and one about Segno
