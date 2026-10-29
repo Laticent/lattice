@@ -1,36 +1,33 @@
 ---
 origin: 2956
 priority: P2
-recorded: 2026-10-28
+recorded: 2026-10-29
 area: website
 severity: medium
-swimlane: engineering/decisions/2026-10-28-home-positioning-audit.md §14
+deferred: blocked — waits on real-user proof that only the owner can supply
+swimlane: engineering/decisions/2026-10-28-home-positioning-audit.md §16
 source: https://github.com/Laticent/lattice/pull/2956
 ---
 
-# Home page: the next round toward 9.5 (final scores 7.9 visitor, 8.0 craft)
+# Home page: real-user proof is the last gap to 9.5 (scores 7.5 visitor, 7.5 craft)
 
 ```text
-  P2 · [no ticket] take the home page from ~8 to 9+
-       why now   — the final independent rescore on PR 2956 put the page at 7.9 (visitor lens) and
-                   8.0 (craft lens), up from 6.4 / 6.2 on main. Both reviewers named the same next gaps.
-       what      — (1) the hero: the $4M big-number is readable but sparse, and the page's
-                   strongest proof is the memo-to-waterfall before/after one section down. Both
-                   reviewers propose moving that transformation into the hero.
-                   (2) repeats: "renders what you wrote" (hero + proof band), "one command renders
-                   PDF/PPTX/PNG/HTML" (three places), the Studio pitched three times; merge the
-                   drift cards into the brand section.
-                   (3) the blank-canvas contrast is told, not shown: a small drift visual
-                   (mismatched hand-made slides vs matching Lattice slides).
-                   (4) the Marp/Slidev engineer dropped to ~6.5-7.5: one "Coming from Marp or
-                   Slidev?" line in For builders, linked to /comparison.
-                   (5) room cards describe layouts, not outcomes; give each one before/after line.
-                   (6) the palette carousel can open on "A11y Deuteranopia"; label the a11y
-                   palettes in plain words ("Color-blind safe") or start the cycle on the brand palette.
-       status    — items (1)-(6) landed in PR 2956 itself (audit §15); what remains is the
-                   rescore and real-user proof.
-       blocked   — a 9.5 also needs real-user proof (a quote, a named pilot, a measured outcome);
-                   the page has none and must not invent one.
-       done when — a rescore with the same two-lens rubric reads 9+ on both, and the page passes
-                   tools/screenshot.js at 390/820/1440 with no horizontal overflow.
+  P2 · [no ticket] put one real user's words or result on the home page
+       why now   — every rescore on PR 2956 named the same blocker: the page has no proof from
+                   a real person. Items (1)-(6) of the earlier round all landed (audit §15).
+       blocked   — the continuation session checked the issue tracker on 2026-10-29: every
+                   author is a repo member, so there is no external user, quote or outcome
+                   to cite. The page must not invent one.
+       needs     — from the owner, any ONE of:
+                   (a) a quote with a name and role, and permission to print it;
+                   (b) a named pilot (team or org) that agreed to be listed;
+                   (c) a measured outcome from a real reader ("cut our board pack from two
+                       days to two hours"), with who measured it.
+                   The cheapest route: give the page to 3-5 real readers (a CFO, a sales
+                   lead, an analyst) and ask each for one sentence.
+       where     — docs/src/components/landing/sections.tsx, the room card the proof
+                   belongs to (or the proof strip after the rooms for a general quote).
+       done when — one real proof item is on the page, and a rescore with the same two
+                   lenses (visitor, craft) reads 9+ on both. Screenshots at 390/820/1440 with
+                   no horizontal overflow.
 ```
