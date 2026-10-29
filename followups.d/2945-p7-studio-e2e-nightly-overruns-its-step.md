@@ -11,6 +11,8 @@ source: https://github.com/Laticent/lattice/actions/runs/40674917008
 
 # The Studio E2E nightly times out a quarter of the way through its suite, every night since 2026-09-22
 
+status    — built 2026-10-29 (owner's pick D1, eight legs at the 45-minute step after the four the
+            card first offered measured about 46 minutes each). Open until a full run finishes.
 why now   — The run step's `timeout-minutes: 45` stops 2,118 tests on two workers at about test
             509 (run 40674917008, 2026-10-28). The last green scheduled run is 35587408748
             (2026-09-21); the test count grew from 1,395 (10-19) to 2,118 (10-28). It is not the

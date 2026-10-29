@@ -63,6 +63,18 @@ jobs:
     # not. Note the webServer also builds the site inside this budget (up to the
     # 300s webServer.timeout in playwright.config.ts) before a single test runs.
     timeout-minutes: 60
+    # EIGHT LEGS (owner's pick, 2026-10-29, followups 2945-p7). One job ran the whole suite and hit its
+    # 45-minute step every scheduled night from 2026-09-22: on 2026-10-28 it reached test 509 of 2,118
+    # (about 5.2 s a test on two workers, so the suite needs about 185 minutes). Eight legs is about 23
+    # minutes each, inside the same 45-minute step with room for the suite to double; four would have
+    # been about 46. Each leg runs `--shard=K/8` and uploads its own report and verdict, and the
+    # `e2e-report` job below reads all eight and files or stands down the ONE rolling issue. Re-derive
+    # the count from a full run's per-leg times; if the legs drift past ~1.5x their mean, rebalance.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    name: e2e (shard ${{ matrix.shard }}/8)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -144,26 +156,104 @@ jobs:
           for f in "${specs[@]}"; do
             case "$f" in e2e/*) ;; *) echo "spec input must name paths under e2e/, got: $f" >&2; exit 2 ;; esac
           done
-          if npm run test:e2e -- --grep-invert "@perf|@player-parity" "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
+          mkdir -p "$GITHUB_WORKSPACE/studio-e2e-text"
+          # `--pass-with-no-tests`: a filtered dispatch (one spec) leaves most legs with nothing to run,
+          # and an empty leg is not a failure.
+          if npm run test:e2e -- --grep-invert "@perf|@player-parity" --shard="${SHARD}" --pass-with-no-tests "${specs[@]}" 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-text/report.txt"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "failed=false" > "$GITHUB_WORKSPACE/studio-e2e-text/verdict.txt"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "failed=true" > "$GITHUB_WORKSPACE/studio-e2e-text/verdict.txt"
           fi
         working-directory: docs
         env:
           CI: 'true'
           SPEC: ${{ inputs.spec }}
+          SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+
+      # The leg's report text and verdict, for the `e2e-report` job. A leg whose run step timed out
+      # writes no verdict, and the report job reads that absence as a failure, never as a pass.
+      - name: Upload this leg's report text and verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-e2e-text-${{ matrix.shard }}
+          path: studio-e2e-text/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Playwright report + trace/video artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: studio-e2e-${{ github.run_id }}
+          name: studio-e2e-${{ github.run_id }}-shard-${{ matrix.shard }}
           path: |
             docs/playwright-report/**
             docs/test-results/**
           if-no-files-found: warn
           retention-days: 14
+
+      # LAST, so the report uploads above have already run. The run step stays
+      # green on a spec failure so those steps always fire, which left the JOB green too: three
+      # Guide specs sat red on main for days while every run read green, and a dispatch run with
+      # `spec:` files no issue, so nothing at all said red (followups.d/2557-p3). Owner's pick,
+      # 2026-10-08. A timed-out run step already fails the job; this covers the failed specs.
+      - name: Fail the job when the Studio E2E suite failed
+        if: always() && steps.e2e.outputs.failed == 'true'
+        run: |
+          echo "::error::the Studio E2E suite failed; the report is in this run's artifact."
+          exit 1
+
+  # THE EIGHT LEGS, READ AS ONE SUITE. Each `e2e` leg uploads its report text and a verdict; this job
+  # joins them and files or stands down the ONE rolling issue, as the single job used to. A leg with no
+  # verdict (its run step timed out, or the leg never started) is a failure: the suite was not measured.
+  # The pass count is summed over the legs, so the stand-down's "N passed" is the whole suite's.
+  e2e-report:
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # download the legs' artifacts
+      issues: write # open / append the rolling tracking issue
+    env:
+      LEGS: 8 # the e2e matrix's shard count
+    steps:
+      - name: Download every leg's report text and verdict
+        uses: actions/download-artifact@v4
+        with:
+          pattern: studio-e2e-text-*
+          path: legs
+
+      - name: Join the legs
+        id: merge
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/studio-e2e-report.txt"
+          : > "$REPORT"
+          failed=false
+          summary=""
+          total=0
+          for k in $(seq 1 "$LEGS"); do
+            dir="legs/studio-e2e-text-$k"
+            verdict=$(cat "$dir/verdict.txt" 2>/dev/null || echo "failed=missing")
+            case "$verdict" in
+              failed=false) state=passed ;;
+              failed=true) state=failed; failed=true ;;
+              *) state="no verdict (timed out or never ran)"; failed=true ;;
+            esac
+            summary="${summary}${summary:+, }$k/$LEGS $state"
+            echo "=== shard $k/$LEGS: $state ===" >> "$REPORT"
+            cat "$dir/report.txt" >> "$REPORT" 2>/dev/null || echo "(no report text)" >> "$REPORT"
+            n=$(grep -oE '[0-9]+ passed' "$dir/report.txt" 2>/dev/null | tail -n 1 | grep -oE '^[0-9]+' || true)
+            total=$((total + ${n:-0}))
+          done
+          echo "TOTAL: $total passed" >> "$REPORT"
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          echo "legs=$summary" >> "$GITHUB_OUTPUT"
+          echo "$summary; $total passed in all"
 
       # Open or append ONE rolling tracking issue. This is the half of #1498 that was never
       # built: the root-deps fix (#1500) made the suite able to run, but a nightly that
@@ -177,7 +267,7 @@ jobs:
       - name: Open / append regression issue
         # Only the real nightly files here: a hand-run on a branch or a filtered probe used to post
         # "failing on main" for a commit that was not on main (#2035, 2026-09-25).
-        if: always() && (steps.e2e.outputs.failed == 'true' || steps.e2e.outcome != 'success') && github.ref == 'refs/heads/main' && inputs.spec == ''
+        if: always() && (steps.merge.outputs.failed == 'true' || steps.merge.outcome != 'success') && github.ref == 'refs/heads/main' && inputs.spec == ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -188,7 +278,7 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
           {
-            echo "The nightly Studio E2E suite failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.e2e.outcome }})."
+            echo "The nightly Studio E2E suite failed on \`main@${{ github.sha }}\` (legs: ${{ steps.merge.outputs.legs }})."
             echo ""
             echo "What failed (full report + trace/video in the run's artifact):"
             echo ""
@@ -275,7 +365,7 @@ jobs:
       # ever argues the other side". A comment naming the run and the pass count is the
       # counter-evidence a human needs to make the call the run cannot.
       - name: Report a passing suite on the rolling issue
-        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && github.ref == 'refs/heads/main' && inputs.spec == ''
+        if: always() && steps.merge.outcome == 'success' && steps.merge.outputs.failed == 'false' && github.ref == 'refs/heads/main' && inputs.spec == ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -295,7 +385,7 @@ jobs:
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
             --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
-          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          PASSED=$(grep -oE '^TOTAL: [0-9]+ passed' "$REPORT" | tail -n 1 | sed 's/^TOTAL: //')
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
           # close leaves the next reader unable to tell a recovered alarm from a triaged-away
           # one, and the count is what says the green was measured rather than vacuous.
@@ -310,17 +400,6 @@ jobs:
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
-
-      # LAST, so the report upload and both issue steps above have already run. The run step stays
-      # green on a spec failure so those steps always fire, which left the JOB green too: three
-      # Guide specs sat red on main for days while every run read green, and a dispatch run with
-      # `spec:` files no issue, so nothing at all said red (followups.d/2557-p3). Owner's pick,
-      # 2026-10-08. A timed-out run step already fails the job; this covers the failed specs.
-      - name: Fail the job when the Studio E2E suite failed
-        if: always() && steps.e2e.outputs.failed == 'true'
-        run: |
-          echo "::error::the Studio E2E suite failed; the report is in this run's artifact."
-          exit 1
 
   # THE SANDBOX SPECS, ON THEIR OWN, ON ALL THREE ENGINES. Two specs hold the Studio's
   # security claims with a network log and a control, against a real loopback server:

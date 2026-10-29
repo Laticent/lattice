@@ -109,7 +109,8 @@ const COMMENTS_ONLY = {
   'overflow-nightly.yml::overflow':
     'baseline-scored — the tool calls itself a RATCHET against committed per-deck clip counts, ' +
     'and overflow:bless raises the floor',
-  'studio-e2e-nightly.yml::e2e':
+  // The suite runs in eight `e2e` legs since 2026-10-29; `e2e-report` joins them and owns the issue.
+  'studio-e2e-nightly.yml::e2e-report':
     'baseline-scored — visual.spec.ts asserts toHaveScreenshot against committed snapshots; ' +
     'CI also retries once, so a flaky pass reads as green',
   'studio-e2e-nightly.yml::e2e-ai':

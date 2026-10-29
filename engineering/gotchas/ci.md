@@ -476,8 +476,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   and the rolling issue is **#2035**, not #1705, which is closed. Since 2026-09-22 every
   scheduled run is red for another reason: the run step hits its 45-minute `timeout-minutes`
   about a quarter of the way through the suite (2,118 tests on two workers on 2026-10-28; run
-  40674917008 stopped at test 509). Read #2035 and the job log, not the badge, before calling a
-  spec newly broken. The history below is kept because the inverted-step reading still applies
+  40674917008 stopped at test 509). Since 2026-10-29 the suite runs in eight `e2e (shard K/8)` legs
+  of about 273 tests each (owner's pick), and the `e2e-report` job joins their verdicts and owns the
+  issue: a leg with no verdict counts as a failure. Read #2035 and the job log, not the badge, before
+  calling a spec newly broken. The history below is kept because the inverted-step reading still applies
   to the sibling nightlies that swallow the exit code.
 
 - **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
