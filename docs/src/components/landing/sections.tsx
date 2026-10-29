@@ -248,30 +248,20 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 							style={slideFrameStyle('tile')}
 							data-live-card={c.live}
 						/>
-						<h3 className="mb-1 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
-							{c.room}
-						</h3>
-						<p className="m-0 mb-2 text-[13.5px] font-medium text-muted-foreground">{c.who}</p>
-						<p className="m-0 mb-2 text-[15.5px] leading-[1.45] font-semibold text-[var(--text-heading)]">{c.outcome}</p>
+						<h3 className="room-title">{c.room}</h3>
+						<p className="room-who">{c.who}</p>
+						<p className="room-outcome">{c.outcome}</p>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
-						<a
-							className="mt-3.5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
-							href={playgroundHref}
-							data-open-deck={c.live}
-						>
-							{/* Names the Playground where it is genuinely the right tool: each
-							    card holds ONE slide, and "paste a slide, watch it render" is a
-							    slide verb, not a deck verb. */}
-							Edit this in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
-						</a>
-						<a
-							className="mt-2 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
-							href={EXEMPLAR_PDF(c.deck.path)}
-							target="_blank"
-							rel="noopener"
-						>
-							See {c.deck.label} (PDF) <ArrowRight aria-hidden="true" className="size-3.5" />
-						</a>
+						<div className="room-links">
+							{/* Names the Playground where it is genuinely the right tool: each card
+							    holds ONE slide, and "paste a slide, watch it render" is a slide verb. */}
+							<a className="room-link" href={playgroundHref} data-open-deck={c.live}>
+								Edit this in the playground <ArrowRight aria-hidden="true" className="ico-arrow" />
+							</a>
+							<a className="room-link" href={EXEMPLAR_PDF(c.deck.path)} target="_blank" rel="noopener">
+								See {c.deck.label} (PDF) <ArrowRight aria-hidden="true" className="ico-arrow" />
+							</a>
+						</div>
 					</CardContent>
 				</Card>
 			))}
@@ -333,23 +323,16 @@ function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string })
 			</p>
 			<ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
 				{slides.map((m) => (
-					<li
-						key={m.title}
-						className="relative aspect-video overflow-hidden rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-sm"
-					>
+					<li key={m.title} className="drift-mini">
+						<span aria-hidden="true" className="drift-bar" style={{ background: m.bar }} />
 						<span
-							aria-hidden="true"
-							className="absolute top-0 right-0 left-0 h-[3px]"
-							style={{ background: m.bar }}
-						/>
-						<span
-							className="block text-[var(--text-heading)]"
+							className="drift-title"
 							style={{ fontFamily: m.font, fontSize: m.size, fontWeight: m.weight, textAlign: m.align as 'left' }}
 						>
 							{m.title}
 						</span>
-						<span aria-hidden="true" className="mt-2 block h-[5px] w-[70%] rounded-full bg-[var(--border)]" />
-						<span aria-hidden="true" className="mt-1.5 block h-[5px] w-[55%] rounded-full bg-[var(--border)]" />
+						<span aria-hidden="true" className="drift-line" />
+						<span aria-hidden="true" className="drift-line" />
 					</li>
 				))}
 			</ul>

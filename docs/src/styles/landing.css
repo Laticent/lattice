@@ -452,3 +452,56 @@ iframe.live {
 	0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
 	100% { box-shadow: 0 0 0 9px transparent; }
 }
+
+/* Home-page room cards and drift picture (RoomCards / DriftDemo in
+ * components/landing/sections.tsx). Plain classes rather than Tailwind utilities
+ * for the same reason the old library cards used them: these elements repeat (six
+ * cards, eight mini slides), every utility string repeats with them, and the home
+ * page's raw HTML has a hard ceiling in docs/route-budget.json. Values match the
+ * Tailwind bridge they replace (bg-card = --bg-alt, text-primary = --accent).
+ * Spacing is padding and gap, never margin. */
+.room-title {
+	margin: 0;
+	padding-bottom: 4px;
+	/* The display face, matching what the card titles always rendered in: the old
+	 * `font-[family-name:var(--font-body)]` utility never applied over the h3 base. */
+	font-family: var(--font-display);
+	font-size: 18px;
+	font-weight: 600;
+	line-height: 1.3;
+	letter-spacing: -0.01em;
+	color: var(--text-heading);
+}
+.room-who { margin: 0; padding-bottom: 8px; font-size: 13.5px; font-weight: 500; color: var(--text-muted); }
+.room-outcome { margin: 0; padding-bottom: 8px; font-size: 15.5px; font-weight: 600; line-height: 1.45; color: var(--text-heading); }
+.room-links { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 14px; }
+.room-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13.5px;
+	font-weight: 600;
+	color: var(--accent);
+	text-decoration: none;
+}
+.room-link:hover,
+.room-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.room-link .ico-arrow { width: 14px; height: 14px; }
+
+.drift-mini {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	aspect-ratio: 16 / 9;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 10px 12px;
+	background: var(--bg-alt);
+	box-shadow: 0 1px 2px color-mix(in srgb, var(--text-heading) 10%, transparent);
+}
+.drift-bar { position: absolute; top: 0; right: 0; left: 0; height: 3px; }
+.drift-title { color: var(--text-heading); }
+.drift-line { height: 5px; width: 70%; border-radius: 999px; background: var(--border); }
+.drift-line + .drift-line { width: 55%; }
