@@ -135,6 +135,9 @@ for family in $families; do
     fi
     sleep 5
     if ! start_driver; then rc=4; why='safaridriver did not answer'; continue; fi
+    # FAULT INJECTION (throwaway branch, never merged): kill safaridriver before the first device's first session, as it
+    # died after a timed-out session in PR runs, so the second-start path runs on a real macOS runner.
+    if [ "$start" = 1 ] && [ "$left" = "$(echo $families | wc -w)" ]; then echo "FAULT: killing safaridriver before $family's first session"; kill "$driver"; wait "$driver" 2>/dev/null || true; fi
     rc=0
     attempts=3
     [ "$start" = 1 ] && attempts=2
