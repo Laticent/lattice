@@ -312,8 +312,8 @@ at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each com
 and lost-content slides, per box and venue, with the committed baseline
 (`tools/lib/fit-harness/ratchet.js`). A count may only go down, and a component the baseline does
 not name starts at zero, so a new component that clips is named on its first night. Blessed from
-the §7 run: 94 sources, 564 cells, 1,146 clipped and 246 lost-content slides, and 6 cells recorded
-as **not scored** (the diagram gallery, whose split emits broken markup).
+the §12 run: 94 sources, 564 cells, 1,146 clipped, 103 unreadable and 246 lost-content slides, and
+6 cells recorded as **not scored** (the diagram gallery, whose split emits broken markup).
 
 - **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
   harness rejects produces no rows, and comparing only the rows a run produced would read that
@@ -385,4 +385,56 @@ content is 2.48% of walk steps, from the rejoin band; fix A covers an export fro
 **Limits.** Chains use the harness's variants (±10%, ±40%, ±1 member, long words), ordered by
 content size; real typing moves in smaller steps. Fix C is modeled on that size order, not on a
 measured content height.
+
+## 12. Readable is part of fitting, the corrected rescue, and a montage (2026-10-29)
+
+**What the montage showed.** The first montage of the decided policy kept a four-card grid whole
+on a story page at `hall`: every word inside the frame, so the export's overflow probe passed it,
+and every card five characters a line with words cut ("Quadra", "Compa"). Readable was the one
+hard rule (§4) the harness never measured, so every earlier "fits" could hide a crammed slide.
+
+**The readability probe** (`tools/lib/fit-harness/page.js` `readable`): a page fits only when no
+body-size text is cut off by an ancestor that hides its overflow, and no text run of 24+
+characters wraps onto three or more lines at fewer than 12 characters a line. Chart and figure
+labels, collages, QR cards, KaTeX, display type and captions are left out. It was checked by eye
+three times: a first version flagged 6 true of 12 sampled slides; a second, about 10 of 12; the
+third fixed three defects that check found (a card's short title skewing its body's average, KaTeX's
+hidden copy of a formula, and a slide whose only cut was its footer skipping the check), and flags
+1 of 70 slides at hd/laptop, where the galleries are designed. A crammed page is cut
+`unreadable`, counted apart from clips.
+
+**The rescue at its intended size.** `section.compact` redefines the spacing scale without the
+box's canvas factor (§9). The harness now sets each spacing token to 0.75 of the slide's own and
+skips the six components that exclude `compact`; the engine fix is P2's.
+
+**Measured** (same 2,632 renders, re-scored; clipped, unreadable and lost over all eight cells,
+pages and ±10% jank over the six split cells):
+
+| Policy | Clipped | Unreadable | Lost | Pages | ±10% jank |
+|---|---|---|---|---|---|
+| today's split | 1,581 | 116 | 246 | 17,860 | 0% |
+| **rescue-0-30 (decided)** | **1,483** | **103** | **151** | **13,819** | **3.02%** |
+| hysteresis-20-30 | 1,572 | 114 | 158 | 15,105 | 1.28% |
+| elastic-balanced (stateless) | 1,360 | 74 | 0* | 8,293 | 7.28% |
+
+\*The fit-first arms cut the rendered page themselves and run no component builder, so their
+lost count is not comparable with the builders'.
+
+The decided policy is ahead of today's split on every hard rule and uses 22.6% fewer pages. Its
+jank is measured from the authored state; a slide typed live gets the same (§11).
+
+**The montage** (13 gallery slides, `.scratch/montage.js`, kept out of the tree): where the
+policy keeps a slide whole it shows one readable page against today's cover and three or four
+nearly empty member pages (compare-prose, comparison, decision, table, verdict-grid); the spacing
+rescue fits agenda, statute-stack and content on one page; a slide that would be crammed whole
+(cards-grid, matrix-2x2, stats) splits as today. Two still clip as today: pricing, and redline,
+whose split pages draw overlapping text in the NEW column, a pre-existing component defect the
+probe does not see (`followups.d/2962-p2-redline-split-overlapping-text.md`).
+
+**What remains unreadable** (103 slide-cells under the policy, across 23 galleries) is led by
+agenda (13), legal (9), list-steps (9), the mixed baseline gallery (8), list (7),
+regulatory-update (7), statute-stack (7) and checklist (6): layouts whose columns or rails do not
+adapt to a narrow box at a large venue. A split policy cannot fix a layout that is cramped on every page;
+that is the Fluid family-reflow work (2026-10-27-fluid-layout-library.md), and the ratchet now
+counts it per component (§10).
 
