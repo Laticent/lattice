@@ -73,18 +73,21 @@ for (const name of engines) {
   await F.loadPage(page, code, server.home);
   const t = Date.now();
   const report = await F.runFuzz({ page, openPage, bundle: code, home: server.home, compose, hits: server.hits, conns: server.conns, base: server.base, wide, seed, count, from, batch, log: (m) => process.stderr.write(`[${name}] ${m}\n`) });
-  out.engines[name] = { version: browser.version(), seconds: Math.round((Date.now() - t) / 1000), inputs: count, css: report.kinds.css, html: report.kinds.html, controlFetched: report.controlFetched, controlRan: report.controlRan, controlByKind: report.controlByKind, requestsAllLoads: report.requests, requestsRewritten: report.rewrittenRequests, idleControl: report.controlIdle, idleRewritten: report.rewrittenIdle, leaks: report.leaks, bent: report.bent.length, unattributed: report.unattributed, hung: report.hung, errors: report.errors, slowestMs: report.slowest };
+  out.engines[name] = { version: browser.version(), seconds: Math.round((Date.now() - t) / 1000), inputs: count, css: report.kinds.css, html: report.kinds.html, controlFetched: report.controlFetched, controlRan: report.controlRan, controlByKind: report.controlByKind, requestsAllLoads: report.requests, requestsRewritten: report.rewrittenRequests, idleOracle: report.idleOracle, idleControl: report.controlIdle, idleRewritten: report.rewrittenIdle, leaks: report.leaks, bent: report.bent.length, unattributed: report.unattributed, hung: report.hung, errors: report.errors, slowestMs: report.slowest };
   await browser.close();
   await server.close();
 }
 
-const bad = Object.values(out.engines).some((e) => e.requestsRewritten || e.leaks.length || e.unattributed.length || e.errors.length || e.hung.length);
+// An idle connection after the rewrite is a hint the scanner let through (`rel=preconnect`), counted only where the
+// oracle's own control showed it can see one.
+const bad = Object.values(out.engines).some((e) => e.requestsRewritten || e.leaks.length || e.unattributed.length || e.errors.length || e.hung.length || (e.idleOracle === 'sees' && e.idleRewritten));
 if (asJson) console.log(JSON.stringify(out));
 else {
   console.log(`composition ${compose}; seed ${seed}, inputs ${from}..${from + count - 1}, scanner ${scannerFile || out.ref}, repo at ${out.commit}`);
   for (const [name, e] of Object.entries(out.engines)) {
     console.log(`${name.padEnd(9)} ${e.version}  ${e.inputs} inputs (${e.css} css, ${e.html} html) in ${e.seconds}s`);
     console.log(`          fetch as written, css ${e.controlByKind.css.join('/')}, html ${e.controlByKind.html.join('/')}`);
+    if (e.idleOracle !== 'not run') console.log(`          connection oracle ${e.idleOracle}: idle connections as written ${e.idleControl}, after rewrite ${e.idleRewritten}`);
     console.log(`          fetch as written: ${e.controlFetched}/${e.controlRan} (${((100 * e.controlFetched) / e.controlRan).toFixed(1)}%)   requests after rewrite: ${e.requestsRewritten}   leaks ${e.leaks.length}, unattributed ${e.unattributed.length}, scanner errors ${e.errors.length}, hung ${e.hung.length}, slowest rewrite ${e.slowestMs.ms} ms`);
     for (const l of e.leaks.slice(0, 10)) console.log(`          LEAK ${l.name} via ${l.via}: ${JSON.stringify(l.text).slice(0, 240)}`);
   }

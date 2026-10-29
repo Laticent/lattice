@@ -50,11 +50,23 @@ async function startServer() {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(req.url === '/' ? '<!doctype html><meta charset="utf-8"><div id="root"></div>' : '');
   });
+  // A socket that closes without a request is counted too: an engine can drop a preconnected socket it never used
+  // before the harness looks, and an open-sockets count alone then reads 0.
+  let closedIdle = 0;
   beacon.on('connection', (s) => {
     sockets.add(s);
-    s.on('close', () => sockets.delete(s));
+    s.on('close', () => {
+      if (!s.__asked) closedIdle++;
+      sockets.delete(s);
+    });
   });
-  const conns = { idle: () => [...sockets].filter((s) => !s.__asked).length, reset: () => { for (const s of sockets) s.__asked = true; } };
+  const conns = {
+    idle: () => closedIdle + [...sockets].filter((s) => !s.__asked).length,
+    reset: () => {
+      for (const s of sockets) s.__asked = true;
+      closedIdle = 0;
+    },
+  };
   const base = `http://127.0.0.1:${beacon.address().port}`;
   const homeUrl = `http://127.0.0.1:${home.address().port}/`;
   return { hits, homeHits, conns, base, home: homeUrl, close: () => Promise.all([beacon, home].map((srv) => new Promise((r) => srv.close(r)))) };
@@ -184,6 +196,8 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   };
   let idleSeen = 0;
+  // Set below, once per run, by a calibration load; `fetchedBy` is declared first.
+  report.idleOracle = 'not run';
   const fetchedBy = async (docs, mode) => {
     // a pristine page for every load: a surviving `<base>` or refresh would otherwise bend what the
     // next load fetches, and a request would be pinned on an input that did nothing
@@ -217,6 +231,18 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     report.requests += hits.length;
     return { names, urls: [...hits] };
   };
+
+  // THE CONNECTION ORACLE'S OWN CONTROL. `<link rel=preconnect>` opens a connection and sends no request, so only an
+  // idle-connection count can see it. In a batch the control cannot show it: another input's fetch reuses the
+  // preconnected socket, which then reads as asked. So one load holds a lone preconnect to the beacon. If it opens
+  // no idle connection, this engine cannot show a hint at all and the report says `blind` (measured 2026-10-29:
+  // WebKit sees, headless Chromium and Firefox open nothing, whatever the launch flags); if it does, an idle
+  // connection after the rewrite is a leak like a request.
+  if (wide && conns) {
+    await fetchedBy([`<!doctype html><link rel=preconnect href="${base}"><p>x`], 'doc');
+    report.idleOracle = idleSeen > 0 ? 'sees' : 'blind';
+    log(`connection oracle: ${report.idleOracle} (${idleSeen} idle from a lone preconnect)`);
+  }
 
   for (let at = from; at < from + count; at += batch) {
     const inputs = fuzzInputs(seed, Math.min(batch, from + count - at), base, { from: at, wide, own: new URL(home).origin });
