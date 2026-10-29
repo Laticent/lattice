@@ -122,6 +122,8 @@ lost leaf names it.
    adds a committed artifact for every deck, and the owner declined it. Shrinking type to fit
    was built once and retired (`2026-09-25-font-scale-fit.md`, Amendment (3)); the standing
    ruling is "shrink padding, not text". §8 measures what that leaves.
+7. **Stateful, with three fixes** (2026-10-29, after the outside review in §9): live/export
+   parity, undo, and a rejoin rule relative to the slide's own history.
 
 ## 6. Plan
 
@@ -239,4 +241,64 @@ change, and no state in an exported file.
 the rescue on split boxes is a lower bound. The harness toggles a CSS class on a rendered page;
 a component whose layout is computed by script at render time would need that script to run
 again, and the harness does not run it.
+
+## 9. The adversarial review, an outside review, and the decision (2026-10-29)
+
+**Three reviews.** A red team, an inversion and an independent checker (HARD RULE #25) read §7
+and §8. An outside model then assessed a neutral brief of the method and all the measurements.
+
+**What they found that holds.**
+
+1. **Live and export disagree.** A slide written live starts whole, so the 20% entry margin
+   never applies to it, while a cold export applies it: 451 authored gallery slides that fit
+   whole are split cold (1,499 extra pages). One random walk of ±10% edits: live and cold
+   disagree on 9.1% of states. The editor's export re-renders from Markdown, so it is cold today.
+2. **Undo does not undo the layout.** Rejoining needs 30% spare, so a slide an edit split stays
+   split after the undo: 96 of the 206 add-member edits that caused a split.
+3. **Compact spacing is deeper than intended at the split boxes.** It redefines the spacing scale
+   without the box's canvas factor: `--sp-md` compact ÷ normal is 0.75 at hd, 0.455 at square,
+   0.385 at portrait and 0.342 at story. It also ran on the six components that exclude it, and
+   on 7 sections at story/hall it made the content taller (13–57 px).
+4. **The margin is off for about 46% of slides** (2,454 of 5,284 fitting sections at
+   square/laptop): slides with a drawing or no content cell get no band.
+5. **The jank number is narrow.** Only 55% of slides receive edits, it is binary, it ignores
+   spacing flips (counting them raises rescue-20-30's jank by about half) and it scores one edit
+   from the authored state.
+
+**What did not hold.** The outside review recommended a stateless pipeline (whole, whole and
+compact, balanced packing) and estimated 1.6–2.4% jank. Built as `elastic-balanced` and measured
+on the same run: **6.83% mean jank** (worst 11.7%), 8,167 pages, 1,666 thin pages, 0 lost,
+1,226 clipped slides over eight cells and 1,097 over the six split cells, against rescue-20-30's
+1.03%, 14,844, 5,110, 157, 1,424 and 1,054. Its claim that fit-greedy dominates on clipping holds
+only through hd/hall, where fit-first splits 16:9 and today's split does not; at the split boxes
+fit-greedy clips 1,168 against 1,054. The fit-first arms' zero loss comes from the harness's own
+in-page cut, which runs no component builder, so it is not like for like.
+
+**Decision (owner, 2026-10-29): stateful, with three fixes.**
+
+- **A. Parity.** An export started from a running program uses that session's plan. A deck's
+  memory is seeded from the cold decision when it opens, so a reload starts from what an export
+  produces. A CLI export of a file still decides fresh.
+- **B. Undo.** The split decision rides on the undo stack with the edit.
+- **C. Rejoin.** A split slide rejoins when its content returns to a size at which it last fit
+  whole, instead of at a fixed 30%.
+
+Memory is keyed by slide identity, box and venue, and decided once in the parent program, then
+passed to the preview, presenter and stage frames.
+
+**Adopted for every policy:** compact spacing scaled by the canvas factor, vertical only,
+honoring `excludes`, re-probed after it is applied, with its own hysteresis; a 16:9 slide splits
+when it overflows at its venue; the split builders keep eyebrows, legends, paragraph breaks and
+headers; a weighted disruption score in place of binary jank; edit chains with undo and a cold
+export; edits to headings, paragraphs, quotes and code; huddle, conference, boxes between the
+named sizes, the example decks and WebKit in the grid; the metrics split by whether a slide has a
+margin; and a nightly cross-engine run with a montage and per-component clip counts that may
+only go down (the nightly ratchet is owner-approved). A fast per-PR adversarial set with hard
+invariants (no lost content, undo restores the layout, a session's export matches its plan,
+compact never grows a slide) is proposed, not approved: it adds a CI step, which is the owner's
+call.
+
+**Open.** Whether the in-page cut makes acceptable pages next to the component builders (no
+visual review yet); what fix C does to jank and pages (not built); and the outside review's
+Knuth–Plass formulation as the packing step inside the stateful design (not evaluated).
 
