@@ -1,4 +1,4 @@
-import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
+import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
 	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
@@ -30,7 +30,7 @@ import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
 import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
-import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
+import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
@@ -50,6 +50,8 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
+import type { StripActions, StripVia } from '@/lib/strip-actions';
+import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
@@ -81,7 +83,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
-import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, moveAt, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
+import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -156,7 +158,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
-import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
+import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -1016,6 +1018,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [presentOpen]);
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
+	const [shortcutsOpen, setShortcutsOpen] = React.useState(false); // the "?" list of keyboard shortcuts
 	const [insertOpen, setInsertOpen] = React.useState(false);
 	// WHERE the gallery's pick goes, fixed when it opens (2026-10-27-slide-structure-strip.md §5): a focus move while it is
 	// open cannot change it. Null means after the slide in view at the time of the pick (the palette, Compose's divider).
@@ -3175,7 +3178,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The map rail's pick. An arrow key on the rail must not hand keyboard focus to the editor or re-open a
 	// collapsed pane (a key is not a pick), so it moves the focus quietly; a click is a pick, like a pill.
 	const onMapPick = React.useCallback((chunkIndex: number, section: number, via?: { key: boolean }) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), via?.key ? { section, focus: false, expand: false } : { section }), []);
-	const onRailPick = React.useCallback((chunkIndex: number, section: number) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), { section }), []);
+	const onRailPick = React.useCallback((chunkIndex: number, section: number, via?: { key: boolean }) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), via?.key ? { section, focus: false, expand: false } : { section }), []);
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
 		setComposeLens(next);
@@ -3989,6 +3992,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 				e.preventDefault();
 				setCmdOpen((v) => !v);
+			} else if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented && !presentOpenRef.current && !isTypingTarget(document.activeElement)) {
+				// The one list of keyboard shortcuts (lib/strip-actions/shortcuts.tsx). Never from a text field, where "?" is a letter.
+				e.preventDefault();
+				setShortcutsOpen(true);
 			} else if ((e.metaKey || e.ctrlKey) && e.key === '.') {
 				e.preventDefault();
 				// Not while Fabricate is up — a full-screen surface with no compose body
@@ -4990,7 +4997,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renaming a photo, an insert the New slide door reports itself) says nothing on the strip.
 	// An op that changes nothing (moving one of two identical slides past the other) writes nothing and says
 	// nothing: a note over an unchanged deck would offer an Undo of whatever step came before it.
-	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string; note?: string } = {}) {
+	// `say` is what the one live region announces (§9): the result in words, with the slide's new place where it moved.
+	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string; note?: string; say?: (at: number, of: number) => string } = {}) {
 		if (r.source !== sourceRef.current) {
 			// Each op is a step of its own: close the open step first, or two identical ops inside Filo's
 			// typing window (a double tap on Duplicate) would join into one, and one Undo would take back both.
@@ -4998,6 +5006,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			structuralRef.current = r.source;
 			setSource(r.source, { label: o.label ?? 'Slide change', origin: 'rail' });
 			if (o.note) sayOnStrip(o.note, r.source);
+			if (o.say) say(o.say(flatOfSlide(r.source, { unit: r.active, part: 0 }) + 1, renderedCount(r.source)));
 		}
 		goToChunk(r.active, { after: r.source, grab: o.grab });
 	}
@@ -5009,8 +5018,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// "New slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
 	// insert one tap away) — the #1058 "one insert door" — inserting after the current
 	// slide, rather than dropping a bare blank with no component choice.
-	const opAddSlide = (side: NewSlideSide) => {
-		setInsertTarget({ side, at: hereAt, name: deleteTargetName(hereTitle(hereAt), 1) });
+	const opAddSlide = (side: NewSlideSide, at: SlideAt = hereAt) => {
+		setInsertTarget({ side, at, name: deleteTargetName(hereTitle(at), 1) });
 		setInsertOpen(true);
 	};
 	// The one add door (2026-10-27-slide-structure-strip.md §5): wherever the author works, never at Read,
@@ -5029,9 +5038,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const renderedSlides = deckIndex.units.reduce((n, u) => n + u.parts.length, 0);
 	const atFirstSlide = hereAt.unit <= 0 && hereAt.part <= 0;
 	const atLastSlide = hereAt.unit >= deckIndex.units.length - 1 && hereAt.part >= (deckIndex.units[hereAt.unit]?.parts.length ?? 1) - 1;
-	const opDuplicate = () => applyDeckOp(duplicateAt(source, hereAt), { label: 'Duplicate slide', note: 'Slide duplicated.' });
-	const opDelete = () => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, hereAt), { label: 'Delete slide', note: 'Slide deleted.' }); };
-	const opMove = (dir: -1 | 1) => applyDeckOp(moveAt(source, hereAt, dir), { label: dir < 0 ? 'Move slide earlier' : 'Move slide later', note: 'Slide moved.' });
+	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened).
+	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(source, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
+	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(source, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5057,25 +5067,108 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const opVenueDown = () => {
 		if (clipDown) setDeckVenue(clipDown.value);
 	};
-	// Delete is destructive → confirm in place: first tap ARMS the button (it turns
-	// into a confirm), a second tap within 3s deletes; it disarms itself otherwise.
+	// The slide menu's open slide and how it opened (THE SLIDE MENU, below).
+	const [stripMenu, setStripMenu] = React.useState<{ at: SlideAt; via: StripVia } | null>(null);
+	// In a shared Live session Delete confirms in place: the menu's first pick ARMS its Delete (it turns into a
+	// confirm that names the slide), a second pick within 3s deletes; it disarms itself otherwise.
 	const [deleteArmed, setDeleteArmed] = React.useState(false);
+	// While the menu is open the arm holds for as long as it stays open, so a screen-reader user who takes longer than 3s
+	// to reach the confirm is not made to arm it again (WCAG 2.2.1).
+	const stripMenuOpen = !!stripMenu;
 	React.useEffect(() => {
-		if (!deleteArmed) return;
+		if (!deleteArmed || stripMenuOpen) return;
 		const t = setTimeout(() => setDeleteArmed(false), 3000);
 		return () => clearTimeout(t);
-	}, [deleteArmed]);
+	}, [deleteArmed, stripMenuOpen]);
 	// Re-arm fresh for whatever slide is current — never carry an arm across a nav.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: disarm on slide change only.
 	React.useEffect(() => setDeleteArmed(false), [hereAt.unit, hereAt.part]);
 	// One tap deletes, because ⌘Z can always put it back (§7). It asks first only while other people are
 	// in a Live session with you: their view changes too, and an Undo after they have typed may no longer apply.
 	const othersLive = live.view.people.some((p) => !p.me);
-	const onDeleteClick = () => {
-		if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; }
-		if (deleteArmed || !othersLive) { setDeleteArmed(false); opDelete(); }
-		else setDeleteArmed(true);
+
+
+	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; lib/strip-actions) ──
+	// On the full view only, where a strip's place is the deck's place: never under a reader lens (a filtered, possibly
+	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
+	// for a read-only Live member.
+	const stripEditable = composeLens === 'full' && effectiveStop !== 'read' && !landscapePhone && !live.collab?.readOnly;
+	// Opening makes the menu's slide current, which reaches `hereAt` a render later. Once it has, the menu closes the
+	// moment its slide stops being current any other way (an op, a pick, a key), so it never offers to act on a slide
+	// the author has left.
+	const stripMenuLanded = React.useRef(false);
+	React.useEffect(() => {
+		setStripMenu((m) => {
+			if (!m) return m;
+			if (!stripEditable) return null;
+			const here = m.at.unit === hereAt.unit && m.at.part === hereAt.part;
+			if (here) stripMenuLanded.current = true;
+			return here || !stripMenuLanded.current ? m : null;
+		});
+	}, [stripEditable, hereAt.unit, hereAt.part]);
+	const flatOf = (at: SlideAt) => deckIndex.units.slice(0, at.unit).reduce((n, u) => n + u.parts.length, 0) + at.part;
+	const stripMenuState: StripMenuState | null = stripMenu ? { count: renderedSlides, at: flatOf(stripMenu.at), armed: deleteArmed && othersLive, name: deleteTargetName(hereTitle(stripMenu.at), 1) } : null;
+	const openStripMenu = (at: SlideAt, via: StripVia) => {
+		const i = viewChunksRef.current.indexOf(at.unit);
+		if (i < 0) return;
+		// Opened on the slide already current (the ⋯, a tap on it, Shift+F10), it has landed: `hereAt` will not change
+		// to say so, and an unlanded menu would outlive its slide.
+		stripMenuLanded.current = at.unit === hereAt.unit && at.part === hereAt.part;
+		goToSlideLatest.current(i, { section: at.part, focus: false, expand: false });
+		setStripMenu({ at, via });
 	};
+	/** Delete a slide the way every door does: at once with an Undo, or, while others are in a Live session, after the
+	 *  menu's confirm, which names the slide. */
+	const requestDelete = (at: SlideAt = hereAt) => {
+		if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; }
+		if (!othersLive) { setDeleteArmed(false); opDelete(at); return; }
+		setDeleteArmed(true);
+		openStripMenu(at, 'key');
+	};
+	const runStripAction = (id: StripActionId): boolean => {
+		const at = stripMenu?.at;
+		if (!at) return false;
+		if (id === 'delete' && othersLive && !deleteArmed && renderedSlides > 1) {
+			setDeleteArmed(true);
+			return true;
+		}
+		setStripMenu(null);
+		if (id === 'new-after' || id === 'new-before') opAddSlide(id === 'new-after' ? 'after' : 'before', at);
+		else if (id === 'duplicate') opDuplicate(at);
+		else if (id === 'move-earlier') opMove(-1, at);
+		else if (id === 'move-later') opMove(1, at);
+		else if (id === 'delete' && renderedSlides > 1) { setDeleteArmed(false); opDelete(at); }
+		return false;
+	};
+	// A strip shortcut, on the slide holding keyboard focus (§5's table). True when focus should stay in the strip.
+	const runStripShortcut = (id: StripShortcut, at: SlideAt): boolean => {
+		if (id === 'new-after' || id === 'new-before') { opAddSlide(id === 'new-after' ? 'after' : 'before', at); return false; }
+		if (id === 'duplicate') { opDuplicate(at); return true; }
+		if (id === 'move-earlier' || id === 'move-later') {
+			const f = flatOf(at);
+			if (id === 'move-earlier' ? f <= 0 : f >= renderedSlides - 1) { say(id === 'move-earlier' ? 'Already the first slide.' : 'Already the last slide.'); return true; }
+			opMove(id === 'move-earlier' ? -1 : 1, at);
+			return true;
+		}
+		if (id !== 'delete') return false;
+		if (renderedSlides <= 1) { say('A deck needs at least one slide.'); return true; }
+		requestDelete(at);
+		return !othersLive;
+	};
+	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
+	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
+	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
+	const stripStateKey = JSON.stringify(stripMenuState);
+	// Stable while the menu stays as it is: the pill strip is memoized, and a fresh object per render would re-render
+	// it on every keystroke (SlideRail.tsx's header says what that cost).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stripStateKey` stands for `stripMenuState`; the callbacks read the latest closures through the ref.
+	const stripActions = React.useMemo<StripActions | undefined>(
+		() => (stripEditable ? { menu: stripMenu, menuState: stripMenuState, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), icons: STRIP_ICONS, move: (at, to) => stripLatest.current.move(at, to) } : undefined),
+		[stripEditable, stripMenu, stripStateKey],
+	);
+	// An empty deck's strip shows one "+ Add your first slide" tile, which opens the gallery.
+	const addFirstSlide = React.useCallback(() => stripLatest.current.addFirst(), []);
 	// Recently-inserted component names (newest first) — pins a Recent band in the
 	// gallery for the "I keep reaching for this layout" flow.
 	const [recentComponents, setRecentComponents] = React.useState<string[]>([]);
@@ -6505,44 +6598,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// full-bleed read) AND on an iPhone in landscape (the "cinema" morph — see the body
 	// branch below), where the slide fills the frame and swipe is the only verb.
 	const previewChromeless = effectiveStop === 'read' || landscapePhone;
-	const slideOpsShown = composeLens === 'full' && effectiveStop !== 'read';
-	// The slide actions: ONE group that lays itself out for the height the strip gives it. It reads the
-	// tallest thing BESIDE it (the pills, or the map), not its own row, so it can grow and shrink back
-	// without propping the strip open: one row of four beside the pills, two rows beside the taller map.
-	// The ORDER is the same in both (the owner's call, 2026-10-21): duplicate, delete, then the two moves, so
-	// a wrap always leaves the move pair alone on the second row. Add left this group for the strip's own
-	// "New slide" door (2026-10-27-slide-structure-strip.md §5). The width is set from the row count
-	// (`ceil(4 / rows)` buttons), which keeps it honest; a CSS-only
-	// `auto-fill` grid sizes its width as one row.
-	const slideOpsRef = React.useRef<HTMLDivElement>(null);
-	const [slideOpsRows, setSlideOpsRows] = React.useState(1);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `slideOpsShown` is the trigger (the group mounts and unmounts with it); the body reads the ref.
-	React.useEffect(() => {
-		const ops = slideOpsRef.current;
-		const strip = ops?.parentElement;
-		if (!ops || !strip || typeof ResizeObserver === 'undefined') return;
-		const read = () => {
-			let room = 0;
-			for (const el of strip.children) if (el !== ops) room = Math.max(room, (el as HTMLElement).offsetHeight);
-			// A row is 28px with a 2px gap; the group's own border and padding take 6px.
-			setSlideOpsRows(Math.max(1, Math.min(4, Math.floor((room - 6 + 2) / 30))));
-		};
-		read();
-		const ro = new ResizeObserver(read);
-		ro.observe(strip);
-		return () => ro.disconnect();
-	}, [slideOpsShown]);
-	const slideOps = (
-		// A wrapping flex row, exactly `cols` buttons wide (28px each, 2px gaps, plus the 2px padding and
-		// 1px border each side), so a short last row CENTERS under the full one: the two moves sit in the
-		// middle, not hard left as a grid would put them. The strip centers the group vertically.
-		<div ref={slideOpsRef} className="flex shrink-0 flex-wrap content-center items-center justify-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" style={{ width: Math.ceil(4 / slideOpsRows) * 30 - 2 + 6 }}>
-			<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
-			<RailOp label={deleteArmed ? `Confirm delete ${deleteTargetName(hereTitle(hereAt), 1)}` : 'Delete slide'} onClick={onDeleteClick} disabled={renderedSlides <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
-			<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={atFirstSlide}><ArrowLeftToLine className="size-3.5" /></RailOp>
-			<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={atLastSlide}><ArrowRightToLine className="size-3.5" /></RailOp>
-		</div>
-	);
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
@@ -6720,7 +6775,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    icons on a narrow pane (the section is a size container), and the accessible
 				    name stays whole either way. */}
 				{stripNote && (
-					<div key={stripNote.n} role="status" data-strip-note="" className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-10rem)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] py-1 pr-1 pl-3.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+					// Not a live region: a note mounts fresh per action, and a fresh region is mostly not announced. The
+					// shell's one Announce says each result in words (2026-10-27-slide-structure-strip.md §9).
+					<div key={stripNote.n} data-strip-note="" className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-10rem)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] py-1 pr-1 pl-3.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
 						<span className={cn('truncate', stripNote.undo === null && 'pr-2.5')}>{stripNote.text}</span>
 						{stripNote.undo !== null && (
 						<button
@@ -6765,20 +6822,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 					</>
 				)}
-				{slideOpsShown && (
-					<>
-						{slideOps}
-						<span aria-hidden="true" className="h-6 w-px shrink-0 bg-[var(--muted-mark)]" />
-					</>
-				)}
-			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
+			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />}
 			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
 			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
 			{mapEver && (
 				<div className={cn('h-[88px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />
 					</React.Suspense>
 					</Frozen>
 				</div>
@@ -7182,6 +7233,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
 		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'New slide…', icon: Plus, keywords: ['add', 'add slide', 'insert', 'layout'], run: () => { setInsertTarget(null); setInsertOpen(true); } } satisfies StudioCommand] : []),
+		// The slide menu's actions, for the slide in view (2026-10-27-slide-structure-strip.md §11): only where the strip
+		// edits, and each only while it would do something.
+		...(stripEditable && renderedSlides > 0
+			? ([
+					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, run: () => opAddSlide('before') },
+					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, run: () => opDuplicate() },
+					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide left', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
+					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide right', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
+				] satisfies StudioCommand[])
+			: []),
 		{ id: 'insert-icon', group: 'actions', label: 'Insert an icon…', icon: Shapes, keywords: ['icon', 'symbol', 'glyph', 'picture', 'browse'], run: () => setIconsOpen(true) },
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
 		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
@@ -7200,6 +7262,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(effectiveStop === 'read' ? [{ id: 'read-article', group: 'actions', label: 'Read as an article', icon: FileText, run: () => setView('article') } satisfies StudioCommand] : []),
 		{ id: 'library', group: 'actions', label: 'Library — saved themes & components', icon: FileBox, run: () => { revealCraftDock(); setLibraryOpen(true); } },
 		{ id: 'workspace', group: 'actions', label: 'Workspace settings', icon: SettingsCog, run: () => setWorkspaceOpen(true) },
+		{ id: 'shortcuts', group: 'actions', label: 'Keyboard shortcuts', icon: Keyboard, keywords: ['keys', 'hotkeys', 'help', '?'], run: () => setShortcutsOpen(true) },
 		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => showMe() },
 		{ id: 'feedback', group: 'actions', label: 'Send feedback', icon: FeedbackIcon, run: () => setFeedbackOpen(true) },
 		// New deck — the slim Write header's switcher carries it too, but ⌘K is the header's
@@ -7302,6 +7365,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
 			{/* What the last undo or redo did ("Undid: Theme → Cuoio"), for assistive tech (Filo note §3.4). */}
 			<Announce message={undoSay} />
+			{/* Loaded on first open: it is not on the startup path, and the Studio's eager bundle is budgeted. */}
+			{/* Mounted only while open (so it closes without Radix's fade): every eager byte counts against the budget. */}
+			{shortcutsOpen && (
+				<React.Suspense fallback={null}>
+					<ShortcutsDialog open onOpenChange={setShortcutsOpen} mac={isMacLike()} />
+				</React.Suspense>
+			)}
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* ONE HEADER, EVERY STOP AND EVERY WIDTH (owner, 2026-09-05: *"the shell should
 			    also be consistent too. there should be zero shift when moving between these
@@ -8161,13 +8231,10 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
-// An ARMED op holds its hint open, so the confirm says what the next tap takes where every pointer sees it, a
-// touch included, and above the button rather than over it as a bottom notice would be (2026-10-27-slide-structure-strip.md §12 item 2).
-function RailOp({ label, onClick, disabled, danger, armed, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; armed?: boolean; children: React.ReactNode }) {
-	return (
-		<Tip label={label} forceOpen={armed}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail-fill,#b3261e)] text-white hover:bg-[var(--fail-fill,#b3261e)] hover:text-white')}>{children}</button></Tip>
-	);
-}
+// The slide menu's icons that the palette rows below load anyway (lib/strip-actions `icons`); the menu brings its own two
+// for the New slide items, which nothing eager uses.
+const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
+const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
 	if (!hit) return null;

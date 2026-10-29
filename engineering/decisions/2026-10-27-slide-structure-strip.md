@@ -103,9 +103,15 @@ behavior.
 - **The gallery opens first; the slide is added on pick.** The target (slide id and side) is fixed when the gallery
   opens, so a focus move while it is open cannot change where the slide lands. The title names it by slide title:
   "New slide after 'Market size'", falling back to the number. The last-used layout comes first.
-- **A slide menu** on every strip slide, from a `⋯` button beside the current slide (44px on touch, never inside a pill),
+- **A slide menu** on every strip slide, from a `⋯` that is the current pill's right-hand segment (44px wide on touch; on
+  a map tile it sits over the corner). *(Owner's call, 2026-10-29, on the first build's separate `⋯` beside the pill: "they
+  are not the same size and they are disjoint." The pill is now the list item around two sibling buttons, so the `⋯` is
+  inside the pill without being a button inside a button. The same review named the moves Move left and Move right, as a
+  horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical. And it
+  gave each item its icon, the icon row's own, with Delete below a rule.)*
   right-click, Shift+F10 / the context-menu key, or tapping the current slide again. It holds New slide before,
-  Duplicate, Move earlier, Move later and Delete, each showing its shortcut. Disabled items stay visible with a reason.
+  Duplicate, Move left, Move right and Delete, each showing its shortcut. *(New slide after leads the menu, above New
+  slide before: the owner's call, 2026-10-29, "usually people add slide after".)* Disabled items stay visible with a reason.
   - **Opening it makes that slide current** (Fuoco `go` with `grab:false, expand:false`), so the action's target is never
     ambiguous; strip centering is suppressed while it is open; it closes only on a scroll the user starts (wheel, touch,
     drag), never on a programmatic one.
@@ -255,7 +261,7 @@ that way (it is headed for npm). The pill strip does not use it.
 - **Losing focus.** A focused tile that scrolls out unmounts and the browser drops focus to the page. **Reproduced
   2026-10-27** in Chromium on a 60-slide deck: focus went from slide 1's tile to `BODY` once a wheel scroll unloaded it;
   ArrowRight still stepped the deck, because the shell's page-level arrow navigation handles it, but focus had left the
-  strip, so a strip-scoped shortcut would do nothing (`followups.d/2927-p9-strip-keyboard-model/`). Rendering the current slide always, returning focus to the strip, and drawing drags as a
+  strip, so a strip-scoped shortcut would do nothing (`2026-10-27-slide-structure-strip/focus-drop/`). Rendering the current slide always, returning focus to the strip, and drawing drags as a
   floating copy from the tile's poster (the strip holds the pointer) cover the three cases: an open menu, a shortcut, a
   long drag.
 
@@ -315,7 +321,7 @@ outliner that carries the ids, and fails on the earlier code.)
 
 | Surface | Change |
 |---|---|
-| Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it |
+| Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it (done, item 11) |
 | Preview | + New slide floats over its bottom-right corner, above the strip, at every width |
 | Editor header `+ Add` | Becomes a labeled "New slide", shown while the preview is collapsed |
 | Phone drawer "Add slide" | Removed: the phone's edit pane has its own round door |
@@ -323,7 +329,7 @@ outliner that carries the ids, and fails on the earlier code.)
 | Add gallery title | "New slide", the door's own name, so the two never disagree (#1654); item 15 adds the position |
 | Slide pills and slide map | Menu, drag, gap `+`, block brackets; full view only |
 | Compose slide bar | Keeps "+ below", relabeled "New slide after"; a `⋯` menu with the same actions; its delete goes through the one history |
-| Command palette | New slide before, Duplicate, Move earlier/later, Delete |
+| Command palette | New slide before, Duplicate, Move left/right, Delete |
 | Present overview grid | Unchanged |
 
 **What else depends on the names.** The accessible name changes from "Add slide" to "New slide" on purpose, and every
@@ -369,12 +375,64 @@ Each is a file in `followups.d/2927-p<n>-…`.
 **Phase 3 · Menu and drag, together** (then the icon row goes)
 
 8. The strip-actions module and the slide menu in both Studio strips: opening rules, gating to the full view, empty and
-   one-slide states, the fixed gallery target, palette entries.
+   one-slide states, the fixed gallery target, palette entries. *(Built: `docs/src/lib/strip-actions/` holds the menu's
+   rules as data (`model.ts`: five items in a fixed order, a disabled item keeps its place and says why, Delete turns
+   into a confirm that names the slide while others are in a Live session) and its doors (`menu.tsx`). The doors are
+   native listeners on each strip's container, so the map gets them through `StudioMap` and `MapRail` gains only a
+   generic `adorn` slot for the ⋯ beside its focused tile. The shell opens the menu with `goToSlide` (`focus: false`,
+   `expand: false`) and holds the slide in `stripMenu`, so every action takes that slide, and a gallery opened from
+   "New slide before" fixes its target as it opens. The menu closes on a pick, Escape, a press outside, a wheel or touch
+   scroll on the strip, or its slide stopping being current; never on focus moving, because a pick's editor focus can
+   land after the menu opens. The pill strip centers the current pill and its ⋯ as one and holds still while the menu
+   is open. An empty deck's strip shows one "+ Add your first slide" tile that opens the gallery. The palette lists New
+   slide before, Duplicate, Move left and right and Delete, each only while it would act; a palette Delete in a
+   shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
+   `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard. The module's eager half is only `index.tsx` (the types, the hook and lazy wrappers): the
+   menu (`menu.tsx`), every strip listener and the shortcuts (`gestures.ts`), drag (`drag.ts`) and the "?" list load on
+   demand, because the first build broke the Studio's 546.3 KB eager-JS ceiling by 3.8 KB; the PR now adds 2.25 KB,
+   declared in `docs/route-budget.d/`.)*
 9. The strip's keyboard model: reproduce today's focus drop first; roving tabindex, current slide always rendered, live
-   region, keyboard-only shortcuts shown in the menu and under "?".
+   region, keyboard-only shortcuts shown in the menu and under "?". *(Built: the pill strip is an `ol` whose current
+   pill is the one tab stop; the arrows, Home and End move the deck's focus without editor focus and keyboard focus
+   follows, and the ⋯ sits beside the pill, outside the roving set. `MapRail` always renders its focused tile, outside
+   Veduta's window, and ignores a modified arrow. The strip's shortcuts (`stripShortcut` in `lib/strip-actions/model.ts`)
+   fire only on focus that arrived by keyboard: `:focus-visible` cannot say so at keydown, since the key press itself
+   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. After
+   an action, focus returns to the strip's new current slide unless the action opened something that takes it (the
+   gallery, the Live confirm). The shell's one `Announce` region says each result ("Duplicated. The copy is slide 3 of
+   5. Undo available.", "Moved to position 4 of 5."), and the strip note is no longer a live region of its own. "?"
+   outside a text field, or "Keyboard shortcuts" in the palette, opens the list (`lib/strip-actions/shortcuts.tsx`).
+   The focus drop's before and after are in `2026-10-27-slide-structure-strip/focus-drop/`. Pinned by `model.test.ts`
+   and `e2e/strip-keyboard.spec.ts` (Chromium). Not verified: VoiceOver and NVDA, which the sandbox cannot run; the
+   announcements are checked as live-region text.)*
 10. Drag to reorder with the final long-press rule, a floating copy, edge auto-scroll, and tiles keyed by slide id;
-    measure the redraw cost of an insert near the start before and after.
-11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo.
+    measure the redraw cost of an insert near the start before and after. *(Built: `lib/strip-actions/drag.ts`, wired
+    through the same container listeners as the menu, so both strips drag. A still press lifts after 450 ms, shorter
+    than the OS long press so the lift wins; the hold is also read from the events' own timestamps, because a busy page
+    runs the timer late and a finger held long enough must still lift rather than scroll. A mouse or pen that moves
+    lifts at once; a finger that moves first scrolls. A lifted slide's strip holds the pointer, cancels the touch's
+    scroll, and swallows the click and Android's `contextmenu`; a copy cloned from the tile (its poster or sketch)
+    follows the pointer, a bar marks the landing gap, and the strip scrolls itself within 48 px of either end. Release
+    without moving opens the menu; Escape cancels. The drop is `moveToAt` in `deck-ops.ts`: one cut and one move, so one
+    write and one step of Filo's history, pinned against the list model for every from/to pair on both test decks.
+    `MapRail` gains a `keyOf` prop and the map keys tiles by slide id. **Measured** (`redraw/redraw.cjs`, a 60-slide
+    deck, the map at slide 1, a slide inserted after slide 1, five runs, median; the docs dev server, Chromium,
+    1440x900): time to the second frame after the insert 464 ms keyed by index and 467 ms keyed by id; long tasks in
+    the next 1.5 s 915 ms and 804 ms; DOM mutation records inside the rail 48 and 65; the frame pool's layer 16 and 15;
+    tiles touched 7 of 7 both ways. So keying by id buys no redraw time: an insert near the start renumbers and
+    re-positions every mounted tile either way, and the whole shell's re-render dominates the frame. It is kept because
+    a moved slide's tile now stays the same element, so keyboard focus and its poster go with it. Pinned by
+    `e2e/strip-drag.spec.ts`: mouse on desktop, CDP touch on the 820 and 390 touch projects, and pointer events of type
+    touch on WebKit at an iPhone box. Not verified: a real phone's touch pipeline and iOS Safari's long-press
+    handling.)*
+11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo. *(Built: the four-button group that
+    led the strip (`slideOps`, `RailOp`) is gone from `StudioShell.tsx`, and the pre-paint skeleton
+    (`StudioChromeSkeleton.tsx`) draws the strip as the app now does: the pills from the row's edge, the current one with
+    its ⋯. Every spec and unit test that drove the row now drives the menu through `stripAction` (`e2e/studio-fixture.ts`)
+    or a right-click: `slide-ops.spec.ts` (which also gains a drag arm), `compose-stress.spec.ts`, `studio-map.spec.ts`
+    and `studio.controls.test.tsx`. `status-pill.spec.ts` and `compose-note-motion.spec.ts`, which the follow-up named,
+    no longer touched the row. On the map, the ⋯ draws at 28px on touch over a 48px hit area, so it does not cover a
+    third of a 72px tile.)*
 12. ~~The "Move before" notice on its own lifetime~~ Retired 2026-10-28: the door asks Before | After in place (§5).
 
 **Phase 4 · Position and polish**

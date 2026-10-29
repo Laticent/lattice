@@ -233,15 +233,15 @@ test('the map sits in the slide strip at every width, under the slide, never in 
 		const box = await page.locator(RAIL).boundingBox();
 		const frame = await page.locator('[data-slide-frame]').first().boundingBox();
 		expect(box && frame && box.y >= frame.y + frame.height, `the map is under the slide at ${width}px`).toBe(true);
-		// The slide actions sit in the SAME row as the map (the strip), at every width.
-		const actionsBesideMap = await page.evaluate(() => {
+		// The slide actions sit ON the map (the current tile's menu button), at every width.
+		const actionsOnMap = await page.evaluate(() => {
 			const map = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
-			return [...document.querySelectorAll('button[aria-label="Duplicate slide"]')].some((b) => {
+			return [...document.querySelectorAll('[data-map-rail] button[aria-label="Slide actions"]')].some((b) => {
 				const r = b.getBoundingClientRect();
 				return !!map && r.width > 0 && r.top < map.bottom && r.bottom > map.top;
 			});
 		});
-		expect(actionsBesideMap, `the slide actions share the map's row at ${width}px`).toBe(true);
+		expect(actionsOnMap, `the slide actions sit on the map at ${width}px`).toBe(true);
 	}
 });
 

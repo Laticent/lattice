@@ -49,7 +49,7 @@ function expectNoJank() {
 		expect(active).toBeGreaterThanOrEqual(1);
 		expect(active).toBeLessThanOrEqual(total);
 		const rail = document.querySelector('nav[aria-label="Slide navigator"]');
-		if (rail) expect(rail.querySelectorAll('button').length).toBe(total);
+		if (rail) expect(rail.querySelectorAll('button[data-unit]').length).toBe(total);
 	}
 }
 
@@ -74,7 +74,7 @@ async function openClose(u: Ctx['user'], open: () => Promise<void>) {
 async function railNth(u: Ctx['user'], which: 'first' | 'last') {
 	const rail = document.querySelector('nav[aria-label="Slide navigator"]');
 	if (!rail) return;
-	const chips = rail.querySelectorAll('button');
+	const chips = rail.querySelectorAll('button[data-unit]');
 	const target = which === 'first' ? chips[0] : chips[chips.length - 1];
 	if (target) await u.click(target as HTMLElement);
 }
