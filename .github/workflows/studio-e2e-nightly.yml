@@ -504,6 +504,10 @@ jobs:
       # Chromium-family pages need the host IPC namespace in Docker (Playwright's Docker guide);
       # harmless for Firefox, and the webServer's site build is a Node process either way.
       options: --ipc=host
+    # Inside a container GitHub runs steps with `sh`, which has no `pipefail`; the run step needs bash.
+    defaults:
+      run:
+        shell: bash
     steps:
       # The image has Node and the browsers, not git: install it first so checkout makes a real
       # clone (the docs build reads git history) rather than falling back to a tarball.
