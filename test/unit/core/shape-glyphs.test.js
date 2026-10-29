@@ -31,6 +31,7 @@ const {
   NOT_SHAPES,
   shapeGlyphRe,
   stripFencedCode,
+  certainFencedLines,
   findShapeGlyphs,
   shapeGlyphAdvice,
 } = require('../../../lib/core/shape-glyphs.js');
@@ -142,6 +143,46 @@ describe('shape-glyphs — findShapeGlyphs positions', () => {
     const [hit] = findShapeGlyphs('✗');
     assert.equal(hit.entry.role, 'status');
     assert.equal(hit.entry.token, '--mark-x');
+  });
+});
+
+describe('shape-glyphs — certainFencedLines marks only what the renderer draws as code', () => {
+  // For a lint rule that read no fences before: it may stop reporting a fenced example, but a line it
+  // wrongly reads as fenced goes quiet with no gate to notice (maker-checker review, 2026-10-29). So
+  // the reader marks a top-level fence it can read exactly, and reads everything uncertain as live.
+  const F = (s) => certainFencedLines(s).map((x) => (x ? 'F' : '.')).join('');
+  test('a closed fence at column 0', () => {
+    assert.equal(F('a\n```md\nx\n```\nb'), '.FFF.');
+    assert.equal(F('````\n```\n````'), 'FFF');
+    assert.equal(F('~~~\n```\n~~~'), 'FFF');
+  });
+  test('an unclosed fence reads as live: the renderer runs it past this text', () => {
+    assert.equal(F('a\n```\nb'), '...');
+  });
+  test('a fence line inside a comment or an HTML block opens nothing', () => {
+    assert.equal(F('<!--\n```js\n-->\nlive'), '....');
+    assert.equal(F('<pre>\n```\n</pre>\n```\nx\n```'), '...FFF');
+  });
+  test('an indented opener is ambiguous (a list item may close it), so the walk stops there', () => {
+    assert.equal(F('```\nx\n```\n  ```\n```\ny\n```'), 'FFF....');
+    assert.equal(F('- a\n\n    ```\n    note\n- b\n```\nex\n```'), '.....FFF'); // markdown-it: ..FF.FFF
+  });
+  test('an HTML block that closes on its own line closes there: an empty comment, any raw end tag', () => {
+    // markdown-it tests the whole opening line for the end, so `<!-->` and `<!--->` open no block, and
+    // a `<pre>` closes at any of the four raw end tags in any case (maker-checker review, 2026-10-30).
+    assert.equal(F('<!--->\n```html\n<!--->\n```\n\n- live\n\n```\nmore\n```'), '.FFF...FFF');
+    assert.equal(F('<!-->\n```\nx\n```'), '.FFF');
+    assert.equal(F('<pre>\nx\n</TEXTAREA>\n\n```\ny\n```'), '....FFF');
+  });
+  test('inside a block a blank line may end, a fence line or a stronger start ends the walk', () => {
+    assert.equal(F('<span>x\n```\n\n- live\n```\ncode\n```'), '.......');
+    assert.equal(F('<div>\n<pre>\n</pre>\n```\nx\n```'), '......');
+  });
+  test('stays linear on a run of unclosed openers', () => {
+    const text = Array.from({ length: 50000 }, (_, i) => (i % 2 ? '```js' : '~~~~')).join('\n');
+    const t = process.hrtime.bigint();
+    certainFencedLines(text);
+    assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 1000);
   });
 });
 

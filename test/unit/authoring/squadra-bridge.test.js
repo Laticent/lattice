@@ -119,17 +119,25 @@ describe('after the bridge checker (2026-10-29)', () => {
     assert.equal(core.applyFix(fencedOnly, { slide: 1, rule: 'card-style-inline-title', line: '- **Ex.** body', autofixable: true }), null);
   });
 
-  test('a finding only a fenced line matches does not claim a fix, so Fix all is not offered for it', () => {
-    // The gantt rule still reads past fences (followups.d/2966-p1). Its finding on the fenced copy
-    // has no line `applyFix` may edit, so it must not say `autofixable`, or the Studio's Fix all
-    // stays enabled and does nothing.
+  test('a fenced copy of a fixable line is neither reported nor fixed; the live line still claims its fix', () => {
+    // The gantt rule used to read past fences (followups.d/2966-p1), and its finding on the fenced
+    // copy had to lose `autofixable` or the Studio's Fix all stayed enabled and did nothing. The rule
+    // now reads the slide with fences blanked (test/unit/authoring/lint-fenced-lines.test.js).
     const src = `${FM}<!-- _class: gantt -->\n\n## Plan\n\n\`\`\`md\n- Phase\n  - BX \`Q1->Q2\`\n\`\`\`\n\n- Phase\n  - BX \`Q1..Q2\`\n`;
-    const f = core.lintTextWith(src, vocab).filter((x) => x.rule === 'gantt-retired-delimiter');
-    assert.deepEqual(f.map((x) => x.autofixable), [false]);
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((x) => x.rule === 'gantt-retired-delimiter'), []);
     assert.equal(core.fixAllDetailed(src, vocab).text, src);
-    // The same line, live, still claims its fix.
     const live = src.replace('```md\n- Phase\n  - BX `Q1->Q2`\n```\n\n', '').replace('`Q1..Q2`', '`Q1->Q2`');
     assert.deepEqual(core.lintTextWith(live, vocab).filter((x) => x.rule === 'gantt-retired-delimiter').map((x) => x.autofixable), [true]);
+  });
+
+  test('a finding only a fenced line matches never claims a fix (the guard behind every rule)', () => {
+    // `withoutFencedFixes` stays as the backstop for a rule that regresses into reading a fence:
+    // its finding keeps its report and loses `autofixable`, so Fix all is not offered for nothing.
+    const fenced = `${FM}## H\n\n\`\`\`md\n- **Ex.** body\n\`\`\`\n`;
+    const f = { slide: 1, rule: 'any', severity: 'warning', line: '- **Ex.** body', message: 'm', autofixable: true };
+    assert.deepEqual(core.withoutFencedFixes(fenced, [f]).map((x) => x.autofixable), [false]);
+    const live = `${FM}## H\n\n- **Ex.** body\n`;
+    assert.deepEqual(core.withoutFencedFixes(live, [f]).map((x) => x.autofixable), [true]);
   });
 
   test('fixes sixty items on one slide, which needs a pass each (the old loop allowed 500)', () => {

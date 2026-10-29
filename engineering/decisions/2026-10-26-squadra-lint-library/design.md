@@ -1486,7 +1486,18 @@ does not carry it (`lintCoreGz`, parent note §10.4).
   `applyFix` now calls). That walk skips lines inside code fences: a fix used to land on an identical fenced copy
   above the live line for every rule matched on line text (eleven rules, measured by the fix diff's fourth corpus),
   and a finding only a fence matches has no fix at all. The card, ledger, split and number-slot rules also read
-  their slide with fences blanked and record the line's `chunkLine`.
+  their slide with fences blanked and record the line's `chunkLine`. On 2026-10-29 nine more rules followed (the five
+  gantt task rules, `unknown-map-region`, `statement-ol-bold`, `check-label-code`, `video-bullet`), found by moving
+  every reported line of the lint tests' inputs into a fence one at a time and relinting. Those nine read no fences
+  before, so they use a stricter reader, `certainFencedLines` (lib/core/shape-glyphs.js): the maker-checker review
+  showed `fencedLines` reads more as code than markdown-it does (an unclosed fence runs to the end of the text; a
+  stray ``` in a list item, an HTML block or a speaker note pairs with a later fence), which silenced live lines when
+  these rules adopted it. `certainFencedLines` marks only a closed fence opened at column 0 outside any HTML block, and
+  stops marking at anything it cannot read exactly. Fuzzed against markdown-it on 1.2 million random documents (up to 60 line shapes),
+  it marked no line the renderer draws, while catching about a sixth of all code lines. So these rules skip a top-level
+  fenced example and still report one inside a list item, as they did before. `fencedLines` itself, and every rule
+  that already used it, is unchanged. `test/unit/authoring/lint-fenced-lines.test.js` pins both directions, and
+  lint-core's `withoutFencedFixes` stays as the backstop for a rule that regresses.
 - **`lattice-line` runs `applyFix` itself** and lowers its result to the one smallest edit, anchored at the start of
   the line the fix names (a head matched past it would slide a deletion onto the next line when the two share a
   prefix). So every unmigrated rule keeps its exact rewrite, PR #2947's `dropEmptiedFrontMatter` included, and the
