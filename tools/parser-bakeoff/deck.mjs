@@ -171,10 +171,12 @@ function arms() {
     if (m) rows.push({ arm: m[1].trim(), mbps: Number(m[2]), ratio: Number(m[3]), parity: [Number(m[4]), Number(m[5])] });
     m = line.match(/^the stage alone: hand (\d+) MB\/s, Segno (\d+) MB\/s/);
     if (m) rows.push({ arm: 'line pass alone: hand', mbps: Number(m[1]) }, { arm: 'line pass alone: Segno', mbps: Number(m[2]) });
+    m = line.match(/^the Segno parse alone: (\d+) MB\/s/);
+    if (m) rows.push({ arm: 'Segno parse alone (no walk)', mbps: Number(m[1]) });
   }
   // vacuous truth is the failure to avoid: a changed output shape must void the run, not pass it
   const withParity = rows.filter((r) => r.parity);
-  const parityOk = !!identical && identical[0] === identical[1] && identical[1] > 0 && withParity.length === 4 && withParity.every((r) => r.parity[0] === r.parity[1] && r.parity[1] === identical[1]) && rows.length === 6;
+  const parityOk = !!identical && identical[0] === identical[1] && identical[1] > 0 && withParity.length === 4 && withParity.every((r) => r.parity[0] === r.parity[1] && r.parity[1] === identical[1]) && rows.length === 7;
   return { identical, rows, parityOk };
 }
 

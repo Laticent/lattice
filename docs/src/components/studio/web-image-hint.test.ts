@@ -15,6 +15,13 @@ describe('mayReferenceWebImage', () => {
 		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", poster=//cdn.example.com/still.jpg}`')).toBe(true);
 	});
 
+	it("sees a Mermaid click link, which the scanner refuses like an image", () => {
+		expect(mayReferenceWebImage('```mermaid\nflowchart LR\n  A --> B\n  click A href "https://example.com/report"\n```')).toBe(true);
+		expect(mayReferenceWebImage('```mermaid\nflowchart LR\n  click A "//example.com/x" _blank\n```')).toBe(true);
+		expect(mayReferenceWebImage('```mermaid\ngantt\n  click task1 href \'https://example.com\'\n```')).toBe(true);
+		expect(mayReferenceWebImage('```mermaid\nflowchart LR\n  click A call go()\n```')).toBe(false);
+	});
+
 	it('does not wake for an ordinary link, a video URL alone, or a local poster', () => {
 		expect(mayReferenceWebImage('See [the docs](https://example.com/docs).')).toBe(false);
 		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", title="Ree A., Head of Ops"}`')).toBe(false);

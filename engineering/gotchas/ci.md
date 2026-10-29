@@ -471,6 +471,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 ## The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge
 
+- **Superseded in part (2026-10-08 and later):** the job now fails on purpose when specs fail
+  (the `Fail the job when the Studio E2E suite failed` step, owner's pick, followups 2557-p3),
+  and the rolling issue is **#2035**, not #1705, which is closed. Since 2026-09-22 every
+  scheduled run is red for another reason: the run step hits its 45-minute `timeout-minutes`
+  about a quarter of the way through the suite (2,118 tests on two workers on 2026-10-28; run
+  40674917008 stopped at test 509). Since 2026-10-29 the suite runs in eight `e2e (shard K/8)` legs
+  of about 273 tests each (owner's pick), and the `e2e-report` job joins their verdicts and owns the
+  issue: a leg with no verdict counts as a failure. Read #2035 and the job log, not the badge, before
+  calling a spec newly broken. The history below is kept because the inverted-step reading still applies
+  to the sibling nightlies that swallow the exit code.
+
 - **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
   `main` looks covered — and specs have been failing in it the whole time. Measured on
   2026-09-02: the last eight scheduled runs were all `success`, and every one of them had a
@@ -517,16 +528,22 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   on its own `gh-readonly-queue/…` ref, so nothing supersedes it, and there `cancelled` is a
   timeout or a hand cancel. In the 39 completed queue runs from 2026-09-29 to 2026-10-05,
   11 merged with `integration` cut off at its 25-minute cap. The gate now fails a
-  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run still passes one, and
-  the queue run is the backstop. `integration`'s cap went to 45 minutes in the same change,
+  `cancelled` tier when `github.event_name == 'merge_group'`.
+- **On a PR run, too, since 2026-10-29.** A PR run passed every `cancelled` tier, so a shard
+  cut off by its own timeout or by hand read green: #2494 and #2900 (a shard at its 25-minute
+  cap) and #2909's `aa0302c` (shard 3/4 hung and cancelled at 23 minutes). The Verify gate now
+  reads the PR's head with `gh api`: a `cancelled` tier passes only when the head has moved
+  past the run's SHA (a newer push superseded it), and fails on the current head. If the read
+  fails, the gate fails closed and says so. `test/unit/tools/ci-gate-cancelled-tier.test.js`
+  runs the real step against a stub `gh`. `integration`'s cap went to 45 minutes in the same change,
   because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
 - **What it costs:** a PR run superseded by a push while its `changes` is still queued now
   goes red on the old SHA. With `changes` waiting 15-19 minutes for a runner, that window is
   real. It brings back a little of the red-webhook noise
-  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, and the gate cannot tell the
-  two apart: a supersession cancel and a no-runner cancel both read `cancelled`. It is
+  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, because the `changes` check
+  runs before the supersession check and a no-runner cancel reads `cancelled` too. It is
   accepted because the alternative is a green check over no tests.
 - **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
 - **Removable when:** never; this documents the gate's contract.
