@@ -78,14 +78,15 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 // "Fix all" runs lint-core's fixes through Squadra's fix driver (decision 2026-10-26-squadra-lint-library
 // M1a): every non-overlapping fix in one pass, never an edit inside a code fence. This deck has a
 // typo'd class, two card lines to nest, and a fenced copy of one of them ABOVE it, which a fix used to
-// land on. Read back from the persisted source, the text the Studio saves.
+// land on. Read back from the persisted source, the text the Studio saves. Not on a phone: the one-pane
+// phone layout has no "Fix all" control, as the arm above assumes too.
 const FIX_ALL_DECK = [
 	'---', 'theme: indaco', '---', '', '# Title', '', '---', '', '<!-- _class: cards-grid -->', '', '## Bets', '',
 	'```md', '- **Speed.** ship weekly', '```', '', '- **Speed.** ship weekly', '- **Reach.** two markets', '',
 	'---', '', '<!-- _class: kpii -->', '', '## Numbers', '',
 ].join('\n');
 
-test('Fix all fixes every live line in one click and leaves a fenced example as written', async ({ page }) => {
+test('@webkit-tablet @gecko Fix all fixes every live line in one click and leaves a fenced example as written', async ({ page }) => {
 	await setEditorContent(page, FIX_ALL_DECK);
 	await expect(fixAll(page)).toBeEnabled();
 	await fixAll(page).click();
