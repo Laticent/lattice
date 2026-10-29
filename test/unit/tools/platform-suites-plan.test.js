@@ -32,6 +32,22 @@ test('editing the registry, the planner or the workflow runs every suite on a pu
   }
 });
 
+test('a suite marked on_pull_request: false runs nightly and on dispatch, never on a pull request', () => {
+  const r = { suites: [...registry.suites, { name: 'ios-thing', os: ['macos-latest'], paths: ['lib/ios/*.js'], run: 'c', why: 'w3', on_pull_request: false }] };
+  assert.equal(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'] }).count, 2, 'its own path selects it not, only the lib/** suite');
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-thing@macos-latest'), 'not even a plumbing edit');
+  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-thing@macos-latest'));
+  assert.deepEqual(names(plan(r, { event: 'workflow_dispatch', suites: ['ios-thing'] })), ['ios-thing@macos-latest']);
+});
+
+test('an iOS Simulator suite is off pull requests by its command, with no flag', () => {
+  const r = { suites: [...registry.suites, { name: 'ios-new', os: ['macos-latest'], paths: ['lib/ios/*.js'], run: 'PROBE=x bash docs/scripts/ios-safari/run.sh', why: 'w4' }] };
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'] })).includes('ios-new@macos-latest'));
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-new@macos-latest'), 'not even a plumbing edit');
+  assert.ok(names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'], everySuite: true })).includes('ios-new@macos-latest'), 'the evidence plan still sees it');
+  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-new@macos-latest'));
+});
+
 test('globs: * stays inside a segment, ** crosses them, dots are literal', () => {
   assert.ok(globToRegExp('lib/**/*.js').test('lib/a/b/c.js'));
   assert.ok(globToRegExp('lib/**/*.js').test('lib/c.js'));

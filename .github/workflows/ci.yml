@@ -312,16 +312,21 @@ jobs:
   # 2026-09-30..10-06) first ran these tests in the merge queue, where a failure
   # ejects the PR and re-tests its whole group. Pre-push used to cover that gap
   # until PR #2554 dropped `npm test` from it (390s per push). Running here
-  # costs ~12 runner-minutes per run on those PRs (whole jobs incl. install and
-  # build, measured on PR #2554: node 22 457s + node 24 260s), and a prose-only
-  # PR now waits ~7.5 min for `ci` instead of ~1 min.
+  # costs ~7.5 runner-minutes per run on those PRs (the node 22 job incl. install
+  # and build, 457s measured on PR #2554; the node 24 leg, 260s, runs only in the
+  # merge queue since 2026-10-29), and a prose-only PR waits ~7.5 min for `ci`
+  # instead of ~1 min.
   unit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22, 24]
+        # Node 24 runs in the merge queue only (2026-10-29). On pull requests it caught nothing node 22 did not:
+        # 0 unique failures in 999 PR runs (2026-10-18..28, 167 PR branches), for ~5.7 min a run, ~35 min a PR,
+        # and the npm ci wedges noted at the top of this file are all on this leg. The queue still runs both, so
+        # nothing reaches main untested on 24; a 24-only break now ejects one queue group instead of redding a PR.
+        node-version: ${{ fromJSON(github.event_name == 'merge_group' && '[22, 24]' || '[22]') }}
     name: unit (node ${{ matrix.node-version }})
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
@@ -378,7 +383,7 @@ jobs:
       # COST: ~12s, of which ~7s re-runs the ownership guard and preflight gates
       # that `npm run build` above already ran (build.js runs them unconditionally
       # under --check; there is no flag to skip). ~5s is new verification. Doubled
-      # by the node 22/24 matrix.
+      # in the merge queue, where the node 24 leg runs too.
       - name: Generated artifacts match their generators (post-build, end-to-end)
         run: npm run build:check:all
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
@@ -480,6 +485,25 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: ISO week (for the marp-cli cache key)
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Cache marp-cli for npx
+        # Five integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
+        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its whole dependency tree again.
+        # When the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
+        # suite's before-hook failure cancelled every test under it: 4 of 4 marp-bundle-author-script failures and 5 of
+        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test.
+        # WHAT IT REMOVES, AND WHAT IT DOES NOT: a warm cache removes the tarball downloads and the unpack race; npx
+        # still asks the registry for the package's metadata on every call (npm 10's libnpmexec resolves the range
+        # online), so a registry that is down still fails the probe. A cache is scoped to the PR that saved it (this
+        # workflow has no push to main), so a PR's first run misses and its later pushes hit.
+        # The key holds the file with the range AND the ISO week: without the week a cached 4.x would satisfy the
+        # range forever, and a new marp-cli 4.x that breaks export-to-Marp would go unseen here.
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm/_npx
+          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/core/marp-bundle.js') }}-${{ steps.week.outputs.week }}
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as
@@ -902,7 +926,11 @@ jobs:
   # `--retries=0` overrides the config's CI retry so a flake shows here, not hidden.
   studio-smoke:
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    # Pull requests only (2026-10-29). In the merge queue it is advisory too, so its result reaches no one: 2,408
+    # runner-minutes over 179 queue runs (2026-10-18..28) bought nothing. It stays on the PR, where an author reads it.
+    # It is NOT moved to studio-e2e-nightly: that suite failed all 10 of its scheduled runs to 2026-10-28, so a
+    # drift caught only there would sit in a red issue nobody can tell apart from the rest.
+    if: needs.changes.outputs.docs == 'true' && github.event_name == 'pull_request'
     # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.

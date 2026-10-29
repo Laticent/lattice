@@ -33,10 +33,19 @@ test('a flowchart image node naming a file outside the deck is refused; one insi
     const result = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
     assert.equal(result.ok, true);
     // Node A (outside) drew the 16:9 stand-in at the node's height; node B (inside) drew the real 1:3 picture.
-    const widths = [...result.svg.matchAll(/<image[^>]*?\bwidth="([\d.]+)"/g)].map((m) => Number(m[1]));
-    assert.equal(widths.length, 2, `two image nodes: ${widths}`);
-    assert.ok(widths[0] > 100, `the outside picture is the stand-in (width ${widths[0]})`);
-    assert.ok(widths[1] < 40, `the inside picture is the real one (width ${widths[1]})`);
+    // Each <image> is matched to its node by the node group it sits in, not by its order in the SVG: Mermaid does not
+    // promise an order, and reading widths[0] as node A failed CI 6 times in 10 days (2026-10-18..28) with
+    // "the outside picture is the stand-in (width 20)", 20 being B's real width. The failure message carries both
+    // widths and the worker's stderr, so a real leak (A at 20, nothing refused) reads as one.
+    const widthOf = {};
+    for (const m of result.svg.matchAll(/<image[^>]*?\bwidth="([\d.]+)"/g)) {
+      const groups = [...result.svg.slice(0, m.index).matchAll(/id="[^"]*flowchart-([A-Z])-\d+"/g)];
+      widthOf[groups.length ? groups[groups.length - 1][1] : '?'] = Number(m[1]);
+    }
+    const seen = `widths ${JSON.stringify(widthOf)}; stderr: ${r.stderr.slice(0, 400)}`;
+    assert.deepEqual(Object.keys(widthOf).sort(), ['A', 'B'], `one image in each node: ${seen}`);
+    assert.ok(widthOf.A > 100, `the outside picture is the stand-in: ${seen}`);
+    assert.ok(widthOf.B < 40, `the inside picture is the real one: ${seen}`);
     assert.match(r.stderr, /refused file:\/\/\/.*secret\.svg/);
     assert.doesNotMatch(r.stderr, /inside\.svg/);
   } finally {

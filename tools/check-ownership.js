@@ -8838,6 +8838,15 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
         errors.push(`stale platform suite '${s.name}' — its \`paths\` names ${g}, which no longer exists, so a PR touching it would never select the suite. Update or remove it in .github/platform-suites.json.`);
       }
     }
+    if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
+      errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
+    }
+    // The iOS Simulator suites run nightly and on dispatch only (decisions/2026-10-29-ci-job-tiers.md). The planner derives
+    // that from the command (tools/platform-suites-plan.js offPullRequest), so a new iOS suite stays off pull requests with
+    // no flag; this refuses the one entry that would read as the opposite.
+    if (typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run) && s.on_pull_request === true) {
+      errors.push(`${at}: an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) cannot set \`"on_pull_request": true\` — it runs nightly and on dispatch, never on a pull request (engineering/decisions/2026-10-29-ci-job-tiers.md).`);
+    }
     if (typeof s.why !== 'string' || s.why.trim().length < 20) {
       errors.push(`${at}: \`why\` must say what this suite proves that Linux cannot (at least a sentence).`);
     }

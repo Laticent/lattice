@@ -1513,6 +1513,19 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
+    test('on_pull_request is optional, and a boolean when present', () => {
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: false }] }), []);
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: true }] }), []);
+      assert.ok(probe({ suites: [{ ...good, on_pull_request: 'false' }] }).some((e) => /on_pull_request/.test(e)), 'a string is refused');
+    });
+
+    test('an iOS Simulator suite cannot claim a place on pull requests', () => {
+      const ios = { ...good, run: 'PROBE=x bash docs/scripts/ios-safari/run.sh' };
+      assert.ok(probe({ suites: [{ ...ios, on_pull_request: true }] }).some((e) => /iOS Simulator suite/.test(e)), 'true is refused');
+      assert.deepEqual(probe({ suites: [ios] }), [], 'no flag is fine: the planner keeps it off by its command');
+      assert.deepEqual(probe({ suites: [{ ...ios, on_pull_request: false }] }), []);
+    });
+
     test('a well-formed entry passes', () => {
       assert.deepEqual(probe({ suites: [good] }), []);
     });
