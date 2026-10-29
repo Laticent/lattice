@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, F, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
+const { build, F, KANBAN_CODE_CAP, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
 const { loadAll } = require('../../../lib/components');
 
 const OUT = path.join(__dirname, '../../../lib/components/chart/_chart-family/marks.generated.css');
@@ -138,6 +138,38 @@ describe('marks.generated.css', () => {
     assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
     const member = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/roadmap/roadmap.styles.css'), 'utf8');
     assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
+  });
+
+  // A kanban card carries inline code on its own ground: past an 8% first-hue wash on a light slide the code fell under 4.5:1
+  // (etch's 14% read 4.07:1, tone's 12% 4.19:1 on carbone light; engineering/decisions/2026-10-28-finish-invariant.md §4).
+  test('a kanban card takes at most an 8% wash on a light slide, under every finish', () => {
+    assert.equal(KANBAN_CODE_CAP, 8);
+    const card = [...css.matchAll(/section\.marks-(\w+)\.kanban[^{]*\.kanban-card:not\(\[data-s\]\)[^{]*\{([^}]*)\}/g)];
+    assert.ok(card.length >= 2, 'a card rule per washed finish');
+    for (const [, finish, body] of card) {
+      const bg = body.match(/background: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) (\d+)%/);
+      if (finish === 'pigment') { assert.equal(bg, null, 'pigment takes no tint'); continue; }
+      assert.ok(bg, `${finish}: a light-dark card wash`);
+      assert.ok(Number(bg[1]) <= KANBAN_CODE_CAP, `${finish}: light wash ${bg[1]}% is over the ${KANBAN_CODE_CAP}% cap`);
+    }
+  });
+
+  // ETCH ON A SLOPE (the finish-invariant study's §5, the owner's pick). A line is one paint channel, so etch shows its
+  // identity in the line: a status line keeps its color at the 2.6 series weight, and a slopegraph dot takes etch's wash
+  // and ink edge. Tone keeps its one-ink lines; before this, etch drew a slope exactly as tone did.
+  test('etch keeps a slope\'s status color at its line weight, and washes its dots; tone keeps one ink', () => {
+    const body = (finish, sel) => {
+      const at = css.indexOf(`section.marks-${finish} :where(${sel})`);
+      assert.ok(at >= 0, `${finish}: a rule for ${sel}`);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    assert.match(body('etch', '.slope-svg .slope-line[data-s]'), /stroke-width: 2\.6/);
+    assert.doesNotMatch(body('etch', '.slope-svg .slope-line[data-s]'), /stroke: /, 'etch keeps the member\'s status ink');
+    assert.match(body('etch', '.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])'), /stroke: light-dark\(var\(--state-pass-hue\)/);
+    const dot = body('etch', '.slope-svg.slope-slopegraph .slope-dot');
+    assert.match(dot, /fill: color-mix\(in oklab, var\(--slope-dot-ink\) 18%, var\(--bg\)\)/);
+    assert.match(dot, /stroke: var\(--slope-dot-ink\)/);
+    assert.match(body('tone', '.slope-svg .slope-line[data-s]'), /stroke: var\(--chart-cat-1-ink\)/);
   });
 
   // THE TONE LADDER (#2908 audit). Dark slides take their own ladder with a floor, so a low step never sinks into the navy

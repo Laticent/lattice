@@ -3,17 +3,17 @@ marp: true
 size: 16:9
 theme: indaco
 paginate: true
-header: "Roadmap status level"
+header: "Chart finishes"
 ---
 
 <!-- _class: title -->
 <!-- _header: '' -->
 
-# A roadmap's status discs now quiet down with the rest of the chart
+# Three chart finish fixes: roadmap discs, kanban code, etch slopes
 
 `Charts · roadmap · finishes`
 
-Under etch and tone, every status mark in a finish takes one level. The roadmap was the last status chart that did not.
+Roadmap status discs join the one status level, kanban inline code clears AA again, and etch draws a slope its own way.
 
 ---
 
@@ -108,3 +108,43 @@ Under etch and tone, every status mark in a finish takes one level. The roadmap 
 | Signal Intake | [x] Connector v1       | [-] Dedupe pass       | [?] Auto-routing  |
 | Scoring       | [x] Equal weights      | [-] Per-team weights  | [ ] Decision profiles |
 | Decision Log  | [x] Append schema      | [!] Outcome pairing   | [/] Auditor export |
+
+---
+
+<!-- _class: kanban marks-etch -->
+<!-- _footer: "etch · the card wash is capped at 8% on a light slide, so inline code clears 4.5:1 on every theme" -->
+
+`Etch · kanban`
+
+## Inline code on a tinted card reads at AA again.
+
+- Backlog
+  - Wire the `ingest` hook
+  - Retire `csv-v1` export
+- Doing
+  - Score with `weights.v2`
+  - Dedupe on `source-id`
+- Review
+  - Ship `audit-log` view
+
+---
+
+<!-- _class: slope marks-etch -->
+<!-- _footer: "etch · a status line keeps its color at etch's line weight, and each dot takes etch's wash and ink edge" -->
+
+`Etch · slope`
+
+## Kestrel took the lead; Northwind gave it up.
+
+- Northwind `fail`
+  - 2023 `31%`
+  - 2026 `24%`
+- Kestrel Group `live`
+  - 2023 `22%`
+  - 2026 `29%`
+- Vantage
+  - 2023 `19%`
+  - 2026 `21%`
+- Everyone else
+  - 2023 `11%`
+  - 2026 `10%`

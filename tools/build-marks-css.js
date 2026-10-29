@@ -271,6 +271,8 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
  * kept its category hue is a mark that no longer matches its own series. Pigment and etch
  * keep a dot's hue, so they may repaint it.
  */
+/** The highest first-hue wash a kanban card takes on a light slide while its inline code still clears 4.5:1 on every theme. */
+const KANBAN_CODE_CAP = 8;
 const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
@@ -823,12 +825,35 @@ function build() {
       w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${pct === 100 ? wordInk : `color-mix(in oklab, ${wordInk} ${pct}%, var(--text-muted))`}`]));
     }
     w(rule(name, '.wc-word[data-tier="1"]', ['fill: var(--text-muted)']));
-    // A slope's lines are one quiet ink by default; a marked line (the signal) is the one ink at full strength, its
-    // direction carried by the geometry. The quiet ink is a pale step of the one hue, not grey.
-    w(supports(rule(name, '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])', [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
-    w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
-    w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
-    w(supports(rule(name, '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])', [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+    // A slope's lines are one quiet ink by default. The quiet ink is a pale step of the one hue, not grey, under both.
+    const quietLine = '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])';
+    const quietDot = '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])';
+    w(supports(rule(name, quietLine, [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
+    if (tone) {
+      // Under tone a marked line (the signal) is the one ink at full strength, its direction carried by the geometry.
+      w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
+      w(supports(rule(name, quietDot, [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+    } else {
+      // ETCH ON A SLOPE (engineering/decisions/2026-10-28-finish-invariant.md §5, the owner's D2 pick). A line is one paint
+      // channel, so etch cannot wash it; it shows its identity in the LINE instead. A marked or signal line keeps its status
+      // color, as pigment's does (tone is the one-hue finish, etch is not), at etch's series weight (2.6, the line and
+      // ep-curve stroke). A dot has a body and an edge, so it takes etch's own trait: a pale wash with an ink edge in its
+      // line's color. Before this, etch drew a slope exactly as tone did.
+      const up = ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))');
+      const down = ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))');
+      w(supports(rule(name, '.slope-svg .slope-line[data-s]', ['stroke-width: 2.6'])));
+      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])', [`stroke: ${up}`, 'stroke-width: 2.6'])));
+      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]:not([data-s])', [`stroke: ${down}`, 'stroke-width: 2.6'])));
+      w(supports(rule(name, quietDot, [`--slope-dot-ink: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+      // A status dot only exists on a `marked` slope (slope.transform.js), which is where the member defines --mark-ink.
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', ['--slope-dot-ink: var(--mark-ink)'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])', [`--slope-dot-ink: ${up}`])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])', [`--slope-dot-ink: ${down}`])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot', [
+        'fill: color-mix(in oklab, var(--slope-dot-ink) 18%, var(--bg))', 'stroke: var(--slope-dot-ink)', 'stroke-width: 1.4',
+      ])));
+    }
     }
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
@@ -906,8 +931,11 @@ function build() {
     // the one chart no finish reached. A card with no status takes the finish's wash and a first-hue accent edge, and each
     // lane's title rule takes the first hue; a status card and the done lane keep their status color.
     {
-      const wash = name === 'pigment' ? 12 : name === 'tone' ? 12 : null;
-      const tint = wash !== null ? `color-mix(in oklab, ${ONE} ${wash}%, var(--bg))` : `light-dark(color-mix(in oklab, ${ONE} ${f.backdrop[0]}%, var(--bg)), color-mix(in oklab, ${ONE} ${f.backdrop[1]}%, var(--bg)))`;
+      // A card carries inline code on its own ground, so on a LIGHT slide its wash is capped at KANBAN_CODE_CAP: past 8% the
+      // code fell under 4.5:1 (12% read 4.19:1 on carbone, 14% 4.07:1 on carbone, cuoio, indaco and laguna; tint sweep in
+      // engineering/decisions/2026-10-28-finish-invariant.md §4). The dark faces clear at the finish's own level.
+      const [washL, washD] = name === 'tone' ? [12, 12] : f.backdrop;
+      const tint = `light-dark(color-mix(in oklab, ${ONE} ${Math.min(washL, KANBAN_CODE_CAP)}%, var(--bg)), color-mix(in oklab, ${ONE} ${washD}%, var(--bg)))`;
       // Pigment is the default finish and its card keeps the shipped surface: a tint under the inline code a card carries
       // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
       // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
@@ -1090,4 +1118,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

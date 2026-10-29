@@ -169,7 +169,11 @@ the same intensity as the chart beside it (`engineering/decisions/2026-10-24-sta
 fail a crimson, pass short of teal, info in the cyan band. Pass and fail lean 20% toward the theme's accent, at most
 18 degrees, so a leather palette's green is olive-sage and a frost palette's red a cool rose; warn does not lean.
 Saturation follows the theme's own categories, held to 0.75-1.2 of typical. Done sits a step deeper than the
-exceptions (`STATUS_BAR`): a settled status should be the quietest mark on the slide.
+exceptions (`STATUS_BAR`): a settled status should be the quietest mark on the slide. On a dark slide that order makes
+an exception visibly louder than done: across the 14 brand themes the muted fail solid sits 0.057 OKLab lightness and
+0.135 chroma above pass and stands 0.40 further off the slide. That is the intended hierarchy, not a tuning slip
+(`engineering/decisions/2026-10-28-finish-invariant.md` §4); on a light slide the same order runs the other way, and
+chroma keeps the exception from reading quieter.
 
 **Colorblind readers.** The marks carry status by shape for every reader. The deep band is narrow, so the statuses
 are spread across it: on the light face at risk and info sit at the white bar, blocked a step deeper, done deepest
@@ -288,12 +292,16 @@ measurement, and most undo a defect a render or the adversarial review found:
   readable, so the steps in between are too (measured on every theme in `engineering/decisions/` terms: see the PR).
   `spectrum`'s own stops were tried and dropped: their deepest step is near-black on a light slide, which no other
   tone chart has. On dark, where the default words sat at about 3.7:1, every word now clears 4.5:1.
+  **Etch takes the same steps on a word cloud, on purpose.** A word is one paint channel and etch's trait needs two (a
+  wash and an ink edge); an outlined letter would spend the text's only channel and fail 4.5:1, and a word's weight is
+  its data, so etch has no line weight to spend either. So etch on a word cloud reads as tone, and that is the named
+  exception (`engineering/decisions/2026-10-28-finish-invariant.md` §5).
 - **A tone matrix grid is one hue.** The member colors a row's label and its empty cells' outlines from the row's own
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
-  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment takes a wider solid bar and no tint, because a tint under a card's inline code measured 4.19:1 on carbone) were the
+  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone, its light-slide wash capped at 8% (`KANBAN_CODE_CAP`) because past it a card's inline code falls under 4.5:1 (12% read 4.19:1 on carbone); pigment takes a wider solid bar and no tint) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
   property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
   grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
@@ -454,7 +462,11 @@ hue is for bodies, and a name keeps its category ink, so tone leaves these whole
 their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
 series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), because under
 etch the line is the identity, and gives its dots, areas and bands etch's whisper body and ink
-edge like any other mark. The family slot table is
+edge like any other mark. A slope is the one stroke chart a finish recolors (its quiet lines and status lines are not
+categories), and it follows the same split: tone draws every line in its one ink, while etch keeps a status or signal
+line's color, as pigment does, at the 2.6 series weight, and gives each slopegraph dot etch's wash and an ink edge in
+its line's color. Etch drew a slope exactly as tone did until the finish-invariant study (§5, the owner's pick).
+The family slot table is
 never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
 out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
 flowchart group, a tinted kanban column): that buried a group's title under an 82%

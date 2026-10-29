@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Why the chart finishes kept see-sawing on #2908. Measured over 32 themes x 2 modes x 3 finishes, text contrast does
   not hold any chart under 9: on those charts the worst text run is the same in all three finishes. What binds is
@@ -11,8 +11,9 @@ summary: >
 
 # The finish invariant: a finish needs as many color channels as its trait has parts
 
-**Proposed** 2026-10-28, from `followups.d/2908-p3-finish-invariant-study.md`. A study, not a fix: each change it
-recommends is its own PR, and the exceptions in §5 wait on the owner.
+**Proposed** 2026-10-28, from `followups.d/2908-p3-finish-invariant-study.md`. **Decided** 2026-10-29: the owner
+picked §5's recommendation on items 1 and 2 (the cap; etch's line weight on a slope, the word-cloud fallback named)
+and did not veto item 3. All three shipped in PR #2960; item 4 is the open taste call.
 
 ## 1. The answer
 
@@ -122,7 +123,7 @@ slide, `build-marks-css.js` § KANBAN), above the 8% ceiling. Measured on the sa
 
 The gallery sweep in §3 missed it because the gallery's kanban puts its inline code on cards the finish does not wash
 (a status card or a `keyline`/`tinted` board), so its code runs read the same in every finish. A defect #2908
-shipped; it is recorded in `followups.d/2908-p1-kanban-code-under-etch-tone.md` for its own PR, per this study's brief.
+shipped; fixed in PR #2960 by capping the light-slide card wash at 8% under every finish.
 
 **Status solids, fail minus pass** (OKLab; contrast is against the theme's own slide; 14 brand themes):
 
@@ -142,7 +143,9 @@ light face, where done stands 1.4 further off the slide than fail.
 
 ## 5. What to do with it
 
-Each line below is its own PR, and the first two need the owner's call because they set what a finish promises.
+The first two needed the owner's call because they set what a finish promises. **Outcome, PR #2960:** item 1 shipped
+as (c) for the slope and (a) for the word cloud; item 2 as the 8% cap (`KANBAN_CODE_CAP`, worst inline code now
+4.52:1 under every finish); item 3 is recorded in `chart-styling.md` §3. Item 4 stays open.
 
 1. **Name the etch exception on single-ink marks.** Etch cannot show its trait on a word or a line. Options: (a) keep
    the tone rules under etch and SAY so in `chart-styling.md` §3, "What a finish does not reach": etch on a single-ink
