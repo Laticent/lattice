@@ -92,12 +92,18 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 
 /** An init script for Firefox: hold a (fake) microphone capture, so ICE offers host candidates. */
 function captureFakeMic() {
+	const log = () => ((window as unknown as { __ice?: string[] }).__ice ??= []);
+	if (!navigator.mediaDevices) {
+		log().push('mic: no mediaDevices');
+		return;
+	}
 	navigator.mediaDevices
-		?.getUserMedia({ audio: true })
+		.getUserMedia({ audio: true, video: true })
 		.then((s) => {
 			(window as unknown as { __mic: MediaStream }).__mic = s;
+			log().push(`mic: held ${s.getTracks().map((t) => `${t.kind}:${t.readyState}`).join(',')}`);
 		})
-		.catch(() => {});
+		.catch((e) => log().push(`mic: refused ${(e as Error).name} ${(e as Error).message}`));
 }
 
 /** An init script: log what every RTCPeerConnection the page makes does with ICE, as plain strings
@@ -145,7 +151,9 @@ function iceReport(page: Page): Promise<string> {
 		.evaluate(() => {
 			const log = (window as unknown as { __ice?: string[] }).__ice ?? [];
 			// The tail is what failed; a long run of retries would bury it.
-			return log.length > 60 ? `${log.length} lines, last 60: ${log.slice(-60).join('; ')}` : log.join('; ') || 'no peer connections';
+			const mic = log.filter((l) => l.startsWith('mic:')).join('; ');
+			const tail = log.length > 60 ? `${log.length} lines, last 60: ${log.slice(-60).join('; ')}` : log.join('; ') || 'no peer connections';
+			return mic && log.length > 60 ? `${mic}; ${tail}` : tail;
 		})
 		.catch((e) => `unreadable (${(e as Error).message})`);
 }
