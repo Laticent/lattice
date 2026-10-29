@@ -426,4 +426,16 @@ cost. The step that would close the gap is the one the design already names: con
 tape directly ("one tape every consumer reads"), so nothing re-materializes markdown-it's arrays.
 That is the pipeline's next stage, not a speed fix.
 
-Second machine: not run in this session's container; the follow-up keeps that line open.
+Second machine (a separate cloud container, Xeon 2.1 GHz, 4 vCPU, Node 22.22.0), same command at
+`74149fe`, median of five, the walk from `770e007` against this change:
+
+| Measure | Before | After |
+|---|---|---|
+| Hand line pass (control) | 683 MB/s | 704 MB/s |
+| Segno line pass, parse plus walk | 439 MB/s | 636 MB/s (90% of the hand loop) |
+| Segno parse alone, no walk | not measured | 784 MB/s |
+| S-staged (Segno stage + predicates) | 97.5 MB/s, 1.23x markdown-it | 110.6 MB/s, 1.34x |
+
+So the target is met on this machine (90%) and missed on the first (77%). On both, the parse alone
+is faster than the hand loop (784 against 704 here, 650 against 615 there), which is the measured
+reason the rest is the second pass and not the parser.
