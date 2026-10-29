@@ -29,11 +29,11 @@
       "rmePct": 5.72
     },
     "math": {
-      "slides": 17,
-      "index": 42.23,
-      "ms": 182.66,
-      "slidesPerSec": 93,
-      "rmePct": 4.15
+      "slides": 16,
+      "index": 55.79,
+      "ms": 152.75,
+      "slidesPerSec": 105,
+      "rmePct": 3.31
     },
     "stress (jargon x6)": {
       "slides": 348,
@@ -165,12 +165,12 @@
       "burstMs": 624.92
     },
     "edit · math": {
-      "slides": 17,
+      "slides": 16,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 19.93,
+      "ms": 16.38,
       "scanMs": 0.01,
-      "burstMs": 228.09
+      "burstMs": 213.97
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
@@ -262,6 +262,40 @@
       "pages": 362,
       "ms": 74.91,
       "p95": 113.59
+    }
+  },
+  "squadraDatasets": {
+    "squadra · fix · 50 findings": {
+      "passes": 1,
+      "applied": 50,
+      "findings": 0,
+      "ops": 0,
+      "ms": 3.347,
+      "p95": 7
+    },
+    "squadra · lint · 1 MB one token": {
+      "passes": 0,
+      "applied": 0,
+      "findings": 1001,
+      "ops": 3004,
+      "ms": 82.005,
+      "p95": 90.797
+    },
+    "squadra · select · depth 1000": {
+      "passes": 0,
+      "applied": 0,
+      "findings": 1,
+      "ops": 5503,
+      "ms": 1.593,
+      "p95": 5.039
+    },
+    "squadra · compile · per rule": {
+      "passes": 0,
+      "applied": 0,
+      "findings": 50,
+      "ops": 0,
+      "ms": 0.052,
+      "p95": 0.086
     }
   },
   "inlineDatasets": {

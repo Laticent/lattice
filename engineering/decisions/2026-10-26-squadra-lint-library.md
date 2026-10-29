@@ -177,11 +177,17 @@ every finding through Squadra's one fix driver (design §15.4). The full table, 
 
 | | Delivers | Lattice adopts | Evidence |
 |---|---|---|---|
-| M1a | Findings with spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the registration refusals, waivers, reference YAML | The bridge: "Fix all" and `lint:deck --fix` go through the driver, which stops the live slide-deleting bug | The whole-deck fix diff; a benchmark scenario (#19); the Studio bundle delta against `lintCoreGz`; the measured strict-compile cost (design §8.2) |
+| M1a | Findings with spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the registration refusals, waivers, reference YAML | The bridge: "Fix all" and `lint:deck --fix` go through the driver, whose shape check guards the whole class of the slide-deleting bug that PR #2947 fixed in one case | The whole-deck fix diff; a benchmark scenario (#19); the Studio bundle delta against `lintCoreGz`; the measured strict-compile cost (design §8.2) |
 | M1b | `lattice-deck` and the reference Markdown, on the Segno deck pipeline | The ~23 near-mechanical deck rules | The three-corpus migration diff; lint-core line count and rules on `lattice-line`, both falling; effort per rule |
 | M2 | Waivers adopted, reference JSON | `check-ownership.js` reads `squadra.waivers.json`, starting with the 8 lists that have no staleness check | Lists moved; staleness caught in all of them |
 | M3 | Reference CSS, the JS/TS adapter, project rules, the cache, workers | Ownership checks, after profiling `check-ownership.js` | Wall-clock against the 21.8 s baseline |
-| M4 | The generic surface: the outside-domain fixture, inline suppressions, SARIF/GitHub/LSP output, the selector language (sooner if ~15 rules share a shape); learn and demo pages, README, publish | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
+| M4 | The generic surface: the outside-domain fixture, inline suppressions, SARIF/GitHub/LSP output, the selector language (sooner if ~15 rules share a shape); README, publish (the learn and demo pages landed with M1a on 2026-10-29, because the site requires both for every workspace library) | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
+
+**M1a as built (2026-10-29).** The core is `docs/src/lib/squadra/`; the bridge is `lib/authoring/squadra/`, and
+lint-core's `applyAllFixes` runs through it. The whole-deck fix diff (`npm run squadra:fix-diff`, report in
+`2026-10-26-squadra-lint-library/fix-diff.md`) found no difference from the old loop on 61,621 sources and 6,577
+applied fixes, and no fixable finding left on a live line. The reference YAML language is not built yet: nothing
+in M1a reads YAML, so it moves to M1b, where `lattice-deck`'s front-matter island first needs it.
 
 **M1b waits on the deck pipeline.** `lattice-deck` needs the pipeline's block pass (its phase P2) and its front-matter
 and directive islands (P3). As of 2026-10-28, `main` has the pipeline's census harness (P0) and native-run code
@@ -225,11 +231,30 @@ case in the core, the core is not generic yet.
 
 ## 10. Open items
 
-1. **Name check.** Squadra is chosen. Availability on npm and trademark were not checked.
+1. **Name check.** Squadra is chosen. Checked 2026-10-29, before M1a writes the name into `package.json`:
+   - **npm: free.** `npm view @laticent/squadra` and `npm view squadra` both return `E404 … is not in this
+     registry`. `npm search scope:laticent` returns `[]`: nothing is published under the scope yet, the 14 sibling
+     libraries (`@laticent/segno`, `@laticent/cadenza`, …) included. **Unverified:** whether an npm user or org
+     named `laticent` is registered. The registry's org endpoint needs a login, and `npmjs.com/org/laticent` refuses
+     scripted requests (HTTP 403). Whoever first publishes under `@laticent` has to own that scope. That holds for every
+     library in the family, not only this one.
+   - **Trademark: no conflict found in software tooling, not cleared.** A web search turned up no linter or developer
+     tool named Squadra. The SQUADRA marks it found cover fundraising (class 36), online retail of digital art
+     (class 35) and machine tools (SQUADRA VISION PLUS, pending). The one software-adjacent class-42 hit, Squadra
+     Solutions LLC (cybersecurity consulting), registers the letter "S" (Reg. 7658947), not the word. Squadra Digital
+     (Portugal) is a software services firm that holds no mark in these results. The results come from third-party
+     aggregators, not the USPTO's own database, so this is a search, not legal clearance. The name stays.
 2. **Design §21's three defaults:** JSON manifests, CSS-like selectors, fixtures in a separate file only.
 3. **Where the unclassified ~70 rule ids fall.** They are read in M1b, when the first families migrate.
 4. **Whether the Studio's browser bundle takes Squadra directly** or through the existing `authoring-core:build` step.
-   Decided in M1a by bundle size against `docs/route-budget.json`.
+   Decided in M1a by bundle size against `docs/route-budget.json`. **Decided 2026-10-29: directly, through the
+   `@laticent/squadra/driver` entry, loaded on demand.** lint-core requires no part of it statically: the Studio and
+   the Playground `await loadFixDriver()` when "Fix all" is pressed, and the ESM build splits that `import()` into a
+   chunk of its own; Node loads it synchronously. Bundled statically, the driver put `lintCoreGz` at 130.7 KB in CI,
+   past the 122.3 KB ceiling. Loaded on demand, `esm/lint.js` and its static imports grow by 425 bytes gzipped
+   (125,034 to 125,459, measured on main and on the M1a head), declared in
+   `docs/route-budget.d/2966-squadra-fix-driver.md`. The driver entry carries the fix path alone (7.7 KB min+gzip
+   against 14.3 KB for the whole library).
 5. **Performance targets.** Set from the M1a benchmark.
 6. **The `lint:deck --fix` title-slide bug.** Fixed in today's fixer by PR #2947, merged 2026-10-28. Squadra's shape
    check (design §7.4) is the general guard against the same class of bug.

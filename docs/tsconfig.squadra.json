@@ -1,0 +1,26 @@
+{
+  "//": "Isolated STANDALONE typecheck for the Squadra library (lint and fix). It compiles ONLY the core with no DOM lib and `types: []` (no repo tsconfig, no @types/node): the core reads text a host hands it and returns findings and new text, so it runs in Node, the Studio and a worker alike. If it ever reaches for the DOM or Node, this fails. Run: `npm run check:squadra`. The import-boundary gate (tools/check-ownership.js checkSquadraBoundary) guards runtime imports; this guards the type surface.",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": [
+      "@laticent/source"
+    ],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/lib/squadra/**/*.ts"
+  ],
+  "exclude": [
+    "src/lib/squadra/**/*.test.ts"
+  ]
+}

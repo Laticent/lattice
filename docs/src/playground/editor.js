@@ -673,7 +673,9 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 					return;
 				}
 			}
-			// Re-read AFTER the (possibly cold) import — the user may have typed during
+			// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
+			await lintCoreMod.loadFixDriver();
+			// Re-read AFTER the (possibly cold) imports — the user may have typed during
 			// the await, so compute the fix against the CURRENT document, not a stale one.
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
