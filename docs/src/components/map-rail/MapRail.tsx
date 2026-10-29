@@ -376,9 +376,9 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							{mark ? <span aria-hidden className="pointer-events-none absolute left-1 top-1 z-10 flex">{mark(i)}</span> : null}
 							{/* One scrim under the number and caption, not a chip behind each. It inverts the theme (dark in light mode, light in
 							    dark mode) by painting in the heading ink and lettering in the page color, so the label never blends into the slide. */}
-							<span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex min-w-0 items-end gap-1.5 bg-gradient-to-t from-[color-mix(in_srgb,var(--text-heading)_92%,transparent)] via-[color-mix(in_srgb,var(--text-heading)_70%,transparent)] to-transparent px-1.5 pb-1 pt-4">
+							<span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex min-w-0 items-end gap-1.5 bg-gradient-to-t from-[color-mix(in_srgb,var(--text-heading)_78%,transparent)] from-45% to-transparent px-1.5 pb-1 pt-2.5">
 								<span className="shrink-0 font-mono text-[10px] font-bold leading-4 text-[var(--bg)]">{i + 1}</span>
-								{caption?.(i) ? <span aria-hidden className="min-w-0 truncate font-mono text-[10px] leading-4 text-[color-mix(in_srgb,var(--bg)_85%,var(--text-heading))]">{caption(i)}</span> : null}
+								{caption?.(i) ? <span aria-hidden className="min-w-0 truncate font-mono text-[10px] leading-4 text-[var(--bg)]">{caption(i)}</span> : null}
 							</span>
 						</button>
 						{on && adorn ? adorn(i) : null}
