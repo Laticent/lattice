@@ -39,7 +39,7 @@ export type Expr =
   | { readonly t: 'until'; readonly s: string; readonly orEnd: boolean }
   | { readonly t: 'attempt'; readonly x: Expr; readonly max: number; readonly next: CharSet }
   | { readonly t: 'ref'; readonly name: string }
-  | { readonly t: 'node'; readonly kind: string; readonly x: Expr };
+  | { readonly t: 'node'; readonly kind: string; readonly x: Expr; readonly role?: string };
 
 type Part = Expr | string;
 const part = (p: Part): Expr => (typeof p === 'string' ? lit(p) : p);
@@ -166,8 +166,49 @@ export const attempt = (x: Part, options: { max: number; next: string | CharSet 
 };
 /** A reference to another rule, so rules can recurse (a record holds values). */
 export const ref = (name: string): Expr => ({ t: 'ref', name });
-/** Keep this span in the parse tree as a node of `kind`. */
-export const node = (kind: string, x: Part): Expr => ({ t: 'node', kind, x: part(x) });
+/**
+ * Keep this span in the parse tree as a node of `kind`. `role` labels the KIND with an opaque word
+ * the grammar's own package defines (`ref`, `directive`, `island`): Segno keeps it beside the kind
+ * name and never reads it, so a caller can find every node of a role in one walk of the tree. Every
+ * node of one kind carries the same role, or none (`analyze` refuses two).
+ */
+export const node = (kind: string, x: Part, options: { role?: string } = {}): Expr =>
+  options.role === undefined ? { t: 'node', kind, x: part(x) } : { t: 'node', kind, x: part(x), role: options.role };
+
+/**
+ * The role each node kind of `spec` carries, for the kinds that carry one. Throws GrammarError when
+ * one kind is given two roles, or a role that is not a non-empty string.
+ */
+export function rolesOf(spec: GrammarSpec): Readonly<Record<string, string>> {
+  const roles: Record<string, string> = Object.create(null);
+  const problems: string[] = [];
+  // A stack, not recursion: a document grammar nests thousands of levels in one rule, and lint()
+  // must not overflow on it. A kind marked with a role in one place and left bare in another is
+  // still that role: the role belongs to the kind, so a reader filtering by role sees every node.
+  const seen = new Set<Expr>();
+  // Pushed in reverse, so pieces are met in grammar order and a two-roles message names the first first.
+  const stack: Expr[] = Object.values(spec.rules).reverse();
+  while (stack.length) {
+    const e = stack.pop() as Expr;
+    if (seen.has(e)) continue;
+    seen.add(e);
+    switch (e.t) {
+      case 'seq': case 'alt': for (let k = e.xs.length - 1; k >= 0; k--) stack.push(e.xs[k]); break;
+      case 'many': case 'opt': case 'attempt': stack.push(e.x); break;
+      case 'node':
+        if (e.role !== undefined) {
+          if (typeof e.role !== 'string' || !e.role) problems.push(`node "${e.kind}": a role must be a non-empty string`);
+          else if (Object.hasOwn(roles, e.kind) && roles[e.kind] !== e.role) problems.push(`node "${e.kind}" has two roles: "${roles[e.kind]}" and "${e.role}"`);
+          else roles[e.kind] = e.role;
+        }
+        stack.push(e.x);
+        break;
+      default: break;
+    }
+  }
+  if (problems.length) throw new GrammarError(problems);
+  return roles;
+}
 
 export interface GrammarSpec {
   readonly start: string;
@@ -178,6 +219,14 @@ export interface GrammarSpec {
    * parse is an error, never a stack overflow.
    */
   readonly maxDepth?: number;
+  /**
+   * The most nodes one parse may hold at once (default: no cap). Past it the parse stops with
+   * `code: 'nodes'`, the same shape as a stack overrun, instead of growing the tree without
+   * limit: one hostile 3M-character flowchart row held 67 MB of tape (phase 3b's red team). A
+   * node an `attempt` rewinds is given back. Set it on a grammar that reads text an author or a
+   * stranger controls; a grammar that sets nothing generates the same parser as before.
+   */
+  readonly maxNodes?: number;
 }
 
 /**
@@ -302,9 +351,10 @@ export interface ParseError {
   /** The character found there, or null at the end of the input. */
   readonly found: string | null;
   /** `'stack'` when the parse stopped because the call stack ran out before the nesting cap, not
-   *  because the input is wrong. Test this rather than comparing `expected` with STACK_EXHAUSTED,
-   *  whose wording may change. Absent on an ordinary syntax error. */
-  readonly code?: 'stack';
+   *  because the input is wrong; `'nodes'` when it would have held more than the grammar's
+   *  `maxNodes`. Test this rather than comparing `expected` with STACK_EXHAUSTED or
+   *  NODES_EXHAUSTED, whose wording may change. Absent on an ordinary syntax error. */
+  readonly code?: 'stack' | 'nodes';
 }
 
 export type ParseResult = { ok: true; node: Node } | { ok: false; error: ParseError };
@@ -1022,6 +1072,8 @@ interface State {
   stack: Node[][];
   err: ParseError | null;
   depth: number;
+  /** Nodes entered and not rewound by an attempt: the generated parser's `top / 4`. */
+  nodes: number;
 }
 
 /**
@@ -1054,6 +1106,28 @@ export function isStackOverflow(x: unknown): boolean {
   return x instanceof Error && /call stack size|too much recursion/i.test(x.message);
 }
 
+/** What a parse reports when it would hold more nodes than the grammar's `maxNodes`. */
+export const NODES_EXHAUSTED = 'fewer marked pieces (the parse reached its node cap)';
+
+/**
+ * The most a grammar may raise its `maxNodes` to: the generated parser's tape is an Int32Array of
+ * four integers a node, and 2^26 nodes is a 1 GiB tape, already past what a page should hold.
+ */
+export const MAX_NODES_LIMIT = 2 ** 26;
+
+/** The node cap a spec asks for (Infinity when it sets none), checked against the ceiling. */
+export function nodesOf(spec: GrammarSpec): number {
+  const c = spec.maxNodes;
+  if (c === undefined) return Number.POSITIVE_INFINITY;
+  if (!Number.isInteger(c) || c < 1 || c > MAX_NODES_LIMIT) {
+    throw new Error(`segno: maxNodes must be a whole number from 1 to ${MAX_NODES_LIMIT}, not ${c}`);
+  }
+  return c;
+}
+
+/** Thrown inside a parse that reaches its node cap and caught by `parse()`; never escapes. */
+const NODE_CAP = { segnoNodeCap: true };
+
 /** The nesting cap a spec asks for, checked against the ceiling. */
 export function depthOf(spec: GrammarSpec): number {
   const d = spec.maxDepth ?? MAX_DEPTH;
@@ -1068,6 +1142,8 @@ type Matcher = (st: State) => boolean;
 
 export interface Grammar {
   readonly spec: GrammarSpec;
+  /** The role of each node kind that has one (`node(kind, x, { role })`). */
+  readonly roles: Readonly<Record<string, string>>;
   /** Parse a whole input against the start rule (or another rule). Never throws on input. */
   parse(input: string, rule?: string): ParseResult;
 }
@@ -1086,6 +1162,7 @@ export function analyze(spec: GrammarSpec) {
   an.firstSets();
   an.followSets();
   const problems = an.check();
+  try { rolesOf(spec); } catch (x) { if (x instanceof GrammarError) problems.push(...x.problems); else throw x; }
   if (problems.length) throw new GrammarError(problems);
   return an;
 }
@@ -1097,6 +1174,7 @@ export function compile(spec: GrammarSpec): Grammar {
   if (spec?.rules && Object.hasOwn(spec.rules, '__proto__')) throw new GrammarError(['"__proto__" cannot name a rule']);
   const an = analyze(spec);
   const maxDepth = depthOf(spec);
+  const maxNodes = nodesOf(spec);
 
   const matchers = new Map<Expr, Matcher>();
   const ruleMatchers = new Map<string, Matcher>();
@@ -1255,6 +1333,8 @@ export function compile(spec: GrammarSpec): Grammar {
         const kind = e.kind;
         m = (st) => {
           const from = st.i;
+          if (st.nodes >= maxNodes) throw NODE_CAP;
+          st.nodes++;
           st.stack.push([]);
           const ok = x(st);
           const kids = st.stack.pop() as Node[];
@@ -1283,6 +1363,7 @@ export function compile(spec: GrammarSpec): Grammar {
       const n0 = st.n;
       const kids = st.stack[st.stack.length - 1];
       const k0 = kids.length;
+      const c0 = st.nodes;
       const err0 = st.err;
       st.n = Math.min(n0, i0 + max);
       const ok = x(st);
@@ -1290,6 +1371,7 @@ export function compile(spec: GrammarSpec): Grammar {
       if (ok && st.err === err0 && (st.i >= n0 || nextOk(st.s.charCodeAt(st.i)))) return true;
       st.i = i0;
       kids.length = k0;
+      st.nodes = c0;
       st.err = err0;
       return false;
     };
@@ -1311,6 +1393,7 @@ export function compile(spec: GrammarSpec): Grammar {
       const i0 = st.i;
       const kids = st.stack[st.stack.length - 1];
       const k0 = kids.length;
+      const c0 = st.nodes;
       const err0 = st.err;
       const w = Math.min(st.n, i0 + e.max);
       const ok = x(st);
@@ -1318,6 +1401,7 @@ export function compile(spec: GrammarSpec): Grammar {
       const j = st.i;
       st.i = i0;
       kids.length = k0;
+      st.nodes = c0;
       st.err = err0;
       const at = (k: number, expected: string): ParseError => ({ at: k, expected, found: k < st.n ? st.s[k] : null });
       if (!ok && inner) return inner.at < w ? inner : at(w, wantEnd);
@@ -1350,16 +1434,19 @@ export function compile(spec: GrammarSpec): Grammar {
 
   for (const [name, body] of Object.entries(spec.rules)) ruleMatchers.set(name, build(body));
 
+  const roles = rolesOf(spec);
   return {
     spec,
+    roles,
     parse(input: string, rule = spec.start): ParseResult {
       const m = ruleMatchers.get(rule);
       if (!m) throw new Error(`segno: no rule "${rule}"`);
-      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0 };
+      const st: State = { s: input, n: input.length, i: 0, stack: [[]], err: null, depth: 0, nodes: 0 };
       let ok: boolean;
       try {
         ok = m(st);
       } catch (x) {
+        if (x === NODE_CAP) return { ok: false, error: { at: st.i, expected: NODES_EXHAUSTED, found: st.i < input.length ? input[st.i] : null, code: 'nodes' } };
         // The backstop for a grammar whose levels are unusually deep in frames: the stack ran
         // out before `maxDepth` did. Report it as an error, never throw it — and do not name a
         // level count: the cap was not reached, and where the stack runs out depends on the
@@ -1384,6 +1471,7 @@ export function lint(spec: GrammarSpec): string[] {
   try {
     analyze(spec);
     depthOf(spec);
+    nodesOf(spec);
     return [];
   } catch (e) {
     if (e instanceof GrammarError) return [...e.problems];

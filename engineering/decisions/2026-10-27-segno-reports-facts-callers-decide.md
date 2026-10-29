@@ -178,7 +178,7 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | Phase | What | Evidence it owes |
 |---|---|---|
 | **R0** | Policy table inside `remote-ref.js`, including the `ping`/`action`/`formaction` rows (A). No new reader. | Export before/after (dark and light) for sign-off; `--wide` plain run drops to 0; fuzz default stream unchanged. |
-| **R1** | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. |
+| **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
 | **R3** | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
 | **R4** | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. |
@@ -186,12 +186,48 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
 tokenizer is about 80 states; tree construction is deliberately out of scope behind `unsure`). Nothing in R0-R2 depends on R3.
 
+### R1 landed
+
+- **The node cap** is `maxNodes` on the grammar spec. Both runtimes stop at the same node with
+  `code: 'nodes'`, and an attempt's rewind gives its nodes back. The generated parser pays nothing
+  per node: its node case already compared the tape position with `buf.length` before each write,
+  and a capped grammar compares it with `cap` (the smaller of the buffer and the cap) instead.
+- **Byte identity.** A grammar that sets no cap and no role generates exactly the parser it did
+  before: `node tools/build-segno-grammar.js --check` passes on all four shipped parsers (the
+  notation, its plain subset, the flowchart row, the list text) with the new generator, and a test
+  pins it. So the three Segno benches run unchanged code and cannot regress.
+- **Roles** are a `ROLES` table beside `KINDS`, emitted only when a grammar names one.
+- **Facts** are a separate call, `facts(spec, input, result)`, not a field on every result: the
+  notation parses a span in about 130 ns, and most callers never ask. Anomalies take one native
+  regex test on clean input and one pass otherwise. They are listed up to 1,000 runs and counted
+  over the whole input, so a hostile string cannot make the report itself unbounded.
+- **Not done here:** no shipped grammar sets `maxNodes` yet. The flowchart row grammar matches
+  every string and `splitRow` treats a refusal as a defect, so capping it means giving `splitRow` a
+  refusal path (a diagnostic) first; the reset in `parse()` already lets the big tape go after the
+  parse. That is the caller's decision under this note's own rule, and it belongs with R4.
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
-- **D6. Where the role vocabulary lives.** *Recommended: the dialect package,* with Segno carrying opaque labels. *Alternative:* a fixed set in core, which is simpler to check and wrong the moment a second dialect needs a different word.
-- **D7. Fail-closed on `unsure`.** *Recommended: refuse, or defer to the platform parser.* *Alternative:* allow and warn, which recreates a quiet guess.
-- **D8. Sequencing.** *Recommended: R0 now (its own PR, after the export sign-off), R1 next, then R2.* R3 only after R2's gate has run.
+D6 to D8 were answered on 2026-10-29 by the session the owner briefed to answer them and proceed
+(the continuation brief after #2945: "Answer D6 to D8 in the design note"). Each took the
+recommendation; the owner can overturn any of them on the PR that carries this edit, and nothing
+built so far is hard to undo.
+
+- **D6. Where the role vocabulary lives. Answered: the dialect package.** Segno carries opaque
+  labels (`node(kind, x, { role })`, shipped in R1) and checks only that a kind has one role. The
+  words a CSS or HTML island uses (`ref`, `base`, `unsure`) are declared and tested in that
+  island's package, beside its grammar. *Why:* a fixed set in core is simpler to check and wrong
+  the moment a second dialect needs a different word, and the policy table already fails on a
+  `kind/when` pair with no row, which is the check that matters.
+- **D7. Fail-closed on `unsure`. Answered: fail closed.** An `unsure` span with a web-looking
+  address is refused, or handed to the platform parser where one is available and that answer
+  used. *Why:* allow-and-warn recreates the quiet guess that produced the eight misses; refusing
+  costs a deck with a genuinely ambiguous reference one blocked address, which the reader can
+  still allow by hand.
+- **D8. Sequencing. Answered: R0 (shipped with D5), then R1 (shipped 2026-10-29), then R2.** R3
+  starts only after R2's gate (433-deck byte identity, fuzz at 0 requests in three engines, the
+  failing arm still failing) has run green. R4 stays one PR per consumer.
 
 ## Not decided here
 

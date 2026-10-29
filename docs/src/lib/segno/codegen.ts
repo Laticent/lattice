@@ -16,7 +16,7 @@
  */
 
 import { ANY, type CharSet, complement, describe, equal, fromRanges, intersect, isEmpty } from './charset.js';
-import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, STACK_EXHAUSTED } from './grammar.js';
+import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, NODES_EXHAUSTED, nodesOf, rolesOf, STACK_EXHAUSTED } from './grammar.js';
 
 /**
  * The next code unit, or -1 at the end of input. NOT `s.charCodeAt(i)` alone: past the end that
@@ -101,6 +101,12 @@ function testExpr(cs: CharSet, v: string, tables: Map<string, string>): string {
 function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly string[] }): { source: string; kinds: readonly string[] } {
   const an = analyze(spec); // throws GrammarError exactly as compile() does
   const maxDepth = depthOf(spec);
+  // A node cap costs nothing per node: the node case already compares `top` with a bound before
+  // it writes (`buf.length`, when to grow), so a capped grammar compares with `cap` instead, the
+  // smaller of the buffer and the cap, and `grow()` decides which one was reached. A grammar that
+  // sets no cap is generated exactly as before.
+  const maxNodes = nodesOf(spec);
+  const capped = Number.isFinite(maxNodes);
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
   // `__proto__` is an identifier but not a key: in the generated `RULES` object literal it would
   // set the prototype, and every parse starting there would throw "no rule".
@@ -307,7 +313,7 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
         const b = fresh();
         let k = kinds.indexOf(e.kind);
         if (k < 0) { k = kinds.length; kinds.push(e.kind); }
-        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > buf.length) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `, known)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${ind}}\n`;
+        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > ${capped ? 'cap' : 'buf.length'}) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `, known)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${ind}}\n`;
       }
     }
   };
@@ -384,14 +390,20 @@ function nx_${sc}(from: number): number {
   return (nv_${sc} = s.indexOf(${q(String.fromCharCode(sc))}, from));
 }`).join('\n');
   const nativeReset = [...natives].sort((a, b) => a - b).map((sc) => `  nf_${sc} = 0x7fffffff;\n`).join('');
+  // Roles (grammar.ts `node`) ride in a table beside KINDS, indexed by kind number: nothing on the
+  // tape, nothing per node. A grammar with no role generates no table.
+  const roles = rolesOf(spec);
+  const roleDecl = Object.keys(roles).length
+    ? `\n/** The role of each node kind, by kind number, or null: \`ROLES[buf[k]]\`. */\nexport const ROLES: readonly (string | null)[] = ${JSON.stringify(kinds.map((k) => (Object.hasOwn(roles, k) ? roles[k] : null)))};`
+    : '';
   // Parser state lives at MODULE scope, not in a closure per call: a generated parse() that
   // declared its rules inside itself allocated a closure per rule on every span.
   const source = `${options.banner ?? ''}${tableDecls}
 
-export interface GenError { at: number; expected: string; found: string | null; code?: 'stack' }
+export interface GenError { at: number; expected: string; found: string | null; code?: ${capped ? "'stack' | 'nodes'" : "'stack'"} }
 export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
 
-const KINDS: readonly string[] = ${JSON.stringify(kinds)};
+const KINDS: readonly string[] = ${JSON.stringify(kinds)};${roleDecl}
 let s = '';
 let n = 0;
 let i = 0;
@@ -401,12 +413,26 @@ let buf = new Int32Array(256);
 let top = 0;
 ${nativeDecls}
 
+${capped ? `// The node cap in tape integers, and the bound the node case tests: the buffer's end or the cap.
+const CAP = ${maxNodes * 4};
+let cap = Math.min(buf.length, CAP);
+// Thrown at the cap and caught by parse(); never escapes it.
+const NODE_CAP = { segnoNodeCap: true };
+
 function grow(): void {
+  if (top + 4 > CAP) throw NODE_CAP;
+  if (top + 4 <= buf.length) return;
+  const next = new Int32Array(buf.length * 2);
+  next.set(buf);
+  buf = next;
+  cap = Math.min(buf.length, CAP);
+}
+` : `function grow(): void {
   const next = new Int32Array(buf.length * 2);
   next.set(buf);
   buf = next;
 }
-
+`}
 function fail(expected: string): false {
   if (!err) err = { at: i, expected, found: i < n ? s[i] : null };
   return false;
@@ -441,15 +467,17 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   top = 0;
 ${nativeReset}  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
   // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
-  if (buf.length > 65536) { buf = new Int32Array(256); OK.tree.buf = buf; } // the shared result must not keep the big one alive
-  ${maxDepth > MAX_DEPTH ? `let ok: boolean;
+  if (buf.length > 65536) { buf = new Int32Array(256); OK.tree.buf = buf;${capped ? ' cap = Math.min(buf.length, CAP);' : ''} } // the shared result must not keep the big one alive
+  ${maxDepth > MAX_DEPTH || capped ? `let ok: boolean;
   try {
     ok = start();
-  } catch (x) {
+  } catch (x) {${capped ? `
+    if (x === NODE_CAP) return { ok: false, error: { at: i, expected: ${q(NODES_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'nodes' } };` : ''}${maxDepth > MAX_DEPTH ? `
     // A grammar deep in frames per level can exhaust the stack before maxDepth: report it as
     // nesting, never throw it (compile() does the same).
     if (!(x instanceof Error && /call stack size|too much recursion/i.test(x.message))) throw x;
-    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'stack' } };
+    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'stack' } };` : `
+    throw x;`}
   }` : 'const ok = start();'}
   if (ok && i < n) fail('end of input');
   const e = err as GenError | null;

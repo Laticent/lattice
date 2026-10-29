@@ -198,6 +198,37 @@ const sheet = compile({
 });
 ```
 
+### Caps, roles and facts
+
+Segno reports what it found; the caller decides what that means. Three facilities, none of which
+names a browser, a URL or a policy:
+
+- **`maxNodes`** on the spec caps how many nodes one parse may hold at once (up to
+  `MAX_NODES_LIMIT`, 2^26). Past it the parse returns an error with `code: 'nodes'`, the same shape
+  as a stack overrun, and a node an `attempt` rewinds is given back. Set it on a grammar that reads
+  text a stranger controls: without it, one 3M-character flowchart row held 67 MB of tape. It costs
+  nothing per node, because the generated parser already compares its tape position with a bound
+  before each write. A grammar that sets no cap generates exactly the parser it did before.
+- **A role** labels a node KIND with a word your package defines: `node('url', x, { role: 'ref' })`.
+  Segno keeps it and never reads it. `compile()` exposes `grammar.roles` (kind to role), and a
+  generated parser exports a `ROLES` table indexed by kind number, so `ROLES[buf[k]]` finds every
+  reference in one walk of the tree. A kind with two different roles does not build.
+- **`facts(spec, input, result)`** returns what one parse capped, found odd and left unmarked:
+  `limits` (which cap stopped it: `depth`, `stack` or `nodes`), `anomalies` (merged runs of NUL,
+  lone surrogates, bidi controls, zero-width characters, C1 controls, a CR without LF, and a
+  leading BOM; counted over the whole input, listed up to `MAX_FACT_SPANS`) and `coverage` (how far
+  the parse read, and the ranges inside it that no top-level node spans). It is a separate call so
+  the parse itself stays as fast as before; read a generated parser's result before its next parse.
+
+```ts
+import { compile, facts, many1, node, noneOf, seq } from '@laticent/segno';
+
+const spec = { start: 'url', maxNodes: 10_000, rules: { url: node('url', seq('<', many1(noneOf('<>')), '>'), { role: 'ref' }) } };
+const input = '<https://exa\u202emple.com>';
+const r = compile(spec).parse(input);
+facts(spec, input, r).anomalies.spans; // [{ kind: 'bidi-control', from: 12, to: 13 }]
+```
+
 Lattice's own CSS, HTML and Markdown grammars, written with these pieces, read every tracked file
 of each type (160, 31 and 2,332 on 2026-10-04; `npm run parser:bakeoff:languages`). They are a
 tokenizer layer: there is no element tree, no rule-versus-declaration split, and no CommonMark
