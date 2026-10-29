@@ -308,8 +308,8 @@ Knuth–Plass formulation as the packing step inside the stateful design (not ev
 ## 10. The nightly fit ratchet (2026-10-29)
 
 `fit-nightly.yml` runs the harness every night on the 94 galleries at square, portrait and story,
-at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each component's clipped
-and lost-content slides, per box and venue, with the committed baseline
+at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each component's clipped,
+unreadable and lost-content slides, per box and venue, with the committed baseline
 (`tools/lib/fit-harness/ratchet.js`). A count may only go down, and a component the baseline does
 not name starts at zero, so a new component that clips is named on its first night. Blessed from
 the §12 run: 94 sources, 564 cells, 1,146 clipped, 103 unreadable and 246 lost-content slides, and

@@ -72,7 +72,7 @@ const RESUME = argv.includes('--resume');
 // new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
 // run's own --packs: the packed rows kept are the ones it names.
 const REARM = argv.includes('--rearm');
-// --ratchet <file>: compare the shipped split's per-component clip and lost counts against a
+// --ratchet <file>: compare the shipped split's per-component clip, unreadable and lost counts against a
 // committed baseline and exit 1 if any rose (tools/lib/fit-harness/ratchet.js). --bless <file>
 // writes the current counts as the baseline. Both apply after a run or a --rearm.
 const RATCHET = flag('ratchet', '');

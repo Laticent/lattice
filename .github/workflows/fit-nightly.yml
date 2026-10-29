@@ -6,7 +6,7 @@ name: Fit nightly (per-component split ratchet)
 # `tools/fit-harness.js` renders each component gallery through the real CLI at the three
 # boxes that split (square, portrait, story) and two venues (laptop, hall), scores the split
 # the engine SHIPS today (the `structural` arm), and `--ratchet` compares each component's
-# clipped and lost-content slides, per box and venue, against `test/fit/baseline.json`. A
+# clipped, unreadable and lost-content slides, per box and venue, against `test/fit/baseline.json`. A
 # count may only go down; a component the baseline does not name starts at zero, so a new
 # component that clips is named on its first night (`tools/lib/fit-harness/ratchet.js`).
 #
@@ -160,7 +160,7 @@ jobs:
           {
             case "$KIND" in
               finding)
-                echo "A component's clipped or lost-content slides rose above \`test/fit/baseline.json\` on \`main@${{ github.sha }}\`."
+                echo "A component's clipped, unreadable or lost-content slides rose above \`test/fit/baseline.json\` on \`main@${{ github.sha }}\`."
                 echo ""
                 echo "Fix the component, or, if the change is deliberate and the slide is right, re-bless with"
                 echo "\`npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --bless test/fit/baseline.json\`"

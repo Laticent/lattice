@@ -1,6 +1,6 @@
 /**
- * ratchet — the fit harness's nightly guard: per component, per box and venue, the clipped and
- * lost-content slides of the split that SHIPS today, compared against a committed baseline.
+ * ratchet — the fit harness's nightly guard: per component, per box and venue, the clipped,
+ * unreadable and lost-content slides of the split that SHIPS today, compared against a committed baseline.
  *
  * It counts the `structural` arm only, because that is the engine's real export path; the
  * policy arms are simulated until P2 builds one (2026-10-28-fit-everywhere-model.md §9). It
@@ -27,7 +27,7 @@ const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer' &&
 const unreadable = (r) => !clipsContent(r) && r.pages.some((p) => p.cut === 'unreadable');
 
 /**
- * { [src]: { [`${size}@${venue}`]: { clip, lost } | { unscored: true } } } over the original
+ * { [src]: { [`${size}@${venue}`]: { clip, unreadable, lost } | { unscored: true } } } over the original
  * slides of one arm. `expected` is [src, cell] pairs; an expected cell with no rows is unscored.
  */
 function tally(rows, expected = [], arm = 'structural') {
@@ -90,7 +90,7 @@ function format({ regressions, wins, scored = [], nothingScored = false }) {
   if (!nothingScored && !regressions.length) out.push('fit ratchet: no count rose above the baseline');
   out.push(...unscored.map(line), ...rose.map(line));
   if (wins.length) out.push(`fit ratchet: ${wins.length} count(s) fell; bank them with --bless`, ...wins.map(line));
-  if (scored.length) out.push(`fit ratchet: ${scored.length} cell(s) scored for the first time; bless to start tracking them`, ...scored.map((x) => `- ${x.src} at ${x.cell}: clip ${x.now.clip}, lost ${x.now.lost}`));
+  if (scored.length) out.push(`fit ratchet: ${scored.length} cell(s) scored for the first time; bless to start tracking them`, ...scored.map((x) => `- ${x.src} at ${x.cell}: clip ${x.now.clip}, unreadable ${x.now.unreadable ?? 0}, lost ${x.now.lost}`));
   return out.join('\n');
 }
 
