@@ -421,3 +421,10 @@ edit-after-export workflow at full fidelity.
 **Real-user proof is still absent.** A search of the issue tracker found only repo members,
 so there is no external quote, pilot or outcome to cite, and none is invented. What the owner
 needs to supply, and where it goes, is in `followups.d/2956-p2-home-page-next-round.md`.
+
+**Owner's picks on the decision card (2026-10-29).** D1, real-user proof: the owner is
+collecting it, so `followups.d/2956-p2` stays blocked on the owner. D2: the home page now
+names Compose and live editing, in the Studio section's Edit row rather than a fourth row,
+which would cost phones a screen. Both claims rest on real-surface runs from this PR: a
+two-browser live session over the public relays (four-person cap visible in the roster)
+and the Compose specs. The two-lens rescore was not rerun for this one-row change.

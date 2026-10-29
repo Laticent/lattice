@@ -4,7 +4,7 @@ priority: P2
 recorded: 2026-10-29
 area: website
 severity: medium
-deferred: blocked — waits on real-user proof that only the owner can supply
+deferred: blocked — the owner is collecting real-user proof (decision card D1, PR 2964)
 swimlane: engineering/decisions/2026-10-28-home-positioning-audit.md §16
 source: https://github.com/Laticent/lattice/pull/2956
 ---
