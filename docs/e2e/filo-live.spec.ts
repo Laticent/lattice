@@ -82,6 +82,14 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 			// host candidates, so the pages hold a fake microphone (`captureFakeMic`), allowed silently.
 			'media.navigator.streams.fake': true,
 			'media.navigator.permission.disabled': true,
+			// The eighth probe: the fake microphone was held ("mic: held audio:live,video:live") and ICE
+			// still looked only for its default address. Firefox drops that mode for a page that is
+			// capturing OR whose origin has a persistent camera or microphone permission
+			// (PeerConnectionImpl::GetPrefDefaultAddressOnly, MediaManager::
+			// IsActivelyCapturingOrHasAPermission); a fake device may not count as capturing, so grant
+			// the permission itself, by default, for every origin of this throwaway profile.
+			'permissions.default.microphone': 1,
+			'permissions.default.camera': 1,
 		},
 		// Firefox's own ICE log, so a failure on a runner says what nICEr refused (`mozLogTail`).
 		env: { ...process.env, MOZ_DISABLE_SOCKET_PROCESS_SANDBOX: '1', MOZ_LOG: 'nicer:4,mtransport:4,jsep:4', MOZ_LOG_FILE: join(mozLogDir, 'moz') },
