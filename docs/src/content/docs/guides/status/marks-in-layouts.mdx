@@ -207,9 +207,10 @@ answer.
 - **Compose** has a **Cell state** picker when the cursor is in an
   `obligation-matrix` or `roadmap` table cell: six buttons, one per answer. On
   a narrow pane it moves into the table's actions menu.
-- A slide whose list items start with a marker opens in Compose marked
-  **Edit in Markdown**, because the rich editor cannot keep `[!]` and `[?]`
-  intact. Edit that slide in the Markdown pane.
+- On a `checklist` slide (and on the nested items of a `verdict-grid` or
+  `pricing` slide), Compose draws each list item's marker as a chip. Click the
+  chip to pick one of the six answers; the pick changes only the marker.
+  On any other layout the marker is plain text, as the slide prints it.
 
 ## Next
 

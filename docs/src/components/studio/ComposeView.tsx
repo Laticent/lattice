@@ -1,9 +1,10 @@
+import { Link2 } from 'lucide-react';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -18,6 +19,7 @@ import { closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compos
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { insertLineBreak } from '@/lib/compose/line-break-command';
+import { linkAt, linkBlocker, selectedLink, startLink } from '@/lib/compose/link-commands';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
@@ -37,6 +39,8 @@ import { carrySay } from './deck-ops';
 import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
+import type { LinkEdit } from './LinkPanel';
+import { type MarkerEdit, MarkerPicker } from './MarkerPicker';
 import { mathInlineNodeView, rawBlockNodeView } from './raw-node-view';
 import { undoChord, undoOwner } from './studio-filo';
 import { TableControls } from './table-controls';
@@ -47,6 +51,8 @@ import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 const InlineObjectEditorHost = React.lazy(() => import('./InlineObjectEditor'));
 // The Library photo picker loads the first time the Image door is used, as the icon grid does.
 const PhotoPicker = React.lazy(() => import('./PhotoPicker'));
+// The link panel loads the first time a link is opened or added.
+const LinkPanel = React.lazy(() => import('./LinkPanel'));
 
 const { stateClassesFor } = stateMarks;
 
@@ -93,7 +99,7 @@ function markActive(state: EditorState, type: MarkType): boolean {
 // The floating selection bar's model: where to sit (viewport coords, so it portals to
 // <body> and dodges the surface's `overflow:hidden` + `container-type` clipping) and
 // which inline marks are live. null = no non-empty text selection, so no bar.
-type SelBar = { left: number; top: number; below: boolean; strong: boolean; em: boolean; code: boolean };
+type SelBar = { left: number; top: number; below: boolean; strong: boolean; em: boolean; code: boolean; link: boolean };
 
 // The floating bar shows ONLY on a fine-pointer/hover device (desktop). On touch, the OS
 // selection menu (Cut/Copy/Paste + Format B/I/U) owns formatting — our bar would fight it,
@@ -120,6 +126,7 @@ function computeSelBar(view: EditorView): SelBar | null {
 		strong: markActive(state, deckSchema.marks.strong),
 		em: markActive(state, deckSchema.marks.em),
 		code: markActive(state, deckSchema.marks.code),
+		link: selectedLink(state) !== null,
 	};
 }
 
@@ -375,7 +382,7 @@ function listDepthAt($pos: ResolvedPos): number {
 	}
 	return depth;
 }
-function stateMarkerPlugin() {
+function stateMarkerPlugin(onMarker?: (pos: number, marker: string) => void) {
 	// Memoize by doc IDENTITY: `decorations` is called on every view update, but the marker set only
 	// changes when the DOC changes — so a selection-only update (a caret move, the common case) skips
 	// the whole-doc rescan and returns the cached set. Behavior is identical; it just avoids O(nodes)
@@ -384,8 +391,8 @@ function stateMarkerPlugin() {
 	let cached: DecorationSet = DecorationSet.empty;
 	return new Plugin({
 		props: {
-			// A click on a list item's marker chip flips `[ ]` and `[x]` (any other marker goes to `[x]`);
-			// the other four are typed. One change, one undo step, and only the three marker bytes move.
+			// A click on a list item's marker chip opens the six answers (MarkerPicker.tsx), and a pick moves only the three
+			// marker bytes, one undo step. Without a picker host it flips `[ ]` and `[x]`, the behavior before the picker.
 			handleClick(view, pos, event) {
 				const el = event.target instanceof Element ? event.target.closest('[data-listmark]') : null;
 				if (!el) return false;
@@ -396,6 +403,10 @@ function stateMarkerPlugin() {
 				const start = $pos.start();
 				const m = readEditMarker(para.firstChild.text ?? '');
 				if (!m) return false;
+				if (onMarker) {
+					onMarker(start, m.marker);
+					return true;
+				}
 				const next = m.marker === 'x' ? ' ' : 'x';
 				view.dispatch(view.state.tr.insertText(`[${next}]`, start, start + 3));
 				return true;
@@ -449,6 +460,41 @@ function stateMarkerPlugin() {
 			},
 		},
 	});
+}
+
+// A click on a link in the text opens the link panel on it (LinkPanel.tsx). The click still places the caret, so the words
+// stay editable where they are; the panel shows the address beside them. A link on a locked slide is the slide's own, and
+// opens nothing. No Mod-K: the Studio's command palette owns it, in Compose as everywhere else.
+function linkClickPlugin(onLink: (range: { from: number; to: number }, focus: boolean) => void) {
+	return new Plugin({
+		props: {
+			handleClick(view, pos, event) {
+				if (!(event.target instanceof Element) || !event.target.closest('a')) return false;
+				const $pos = view.state.doc.resolve(pos);
+				if ($pos.depth >= 1 && $pos.node(1)?.attrs.locked) return false;
+				const link = linkAt(view.state.doc, pos);
+				if (link) onLink({ from: link.from, to: link.to }, false);
+				return false;
+			},
+		},
+	});
+}
+
+/** The selection bar's Link button and Insert → Link: open the link panel for the caret's link or the selection, with the address field focused. */
+function openLinkCommand(onLink: (range: { from: number; to: number }, focus: boolean) => void): Command {
+	return (state, dispatch) => {
+		if (linkBlocker(state)) return false;
+		const range = startLink(state, dispatch);
+		if (!range) return false;
+		onLink(range, true);
+		return true;
+	};
+}
+
+/** The pointer surfaces ComposeView hosts as React: the marker picker and the link panel. */
+interface ComposePointers {
+	onMarker: (pos: number, marker: string) => void;
+	onLink: (range: { from: number; to: number }, focus: boolean) => void;
 }
 
 // Marks the slide the caret is inside with a `cs-slide-active` node decoration so its
@@ -1958,7 +2004,7 @@ function offscreenChip(view: EditorView, spec: FlashSpec): { dir: 'above' | 'bel
 }
 
 type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
-function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions, onFlashClear?: () => void) {
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions, onFlashClear?: () => void, pointers?: ComposePointers) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
@@ -1968,7 +2014,8 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		collapsePlugin(),
 		activeSlidePlugin(),
 		changeFlashPlugin({ onClear: onFlashClear }),
-		stateMarkerPlugin(),
+		stateMarkerPlugin(pointers?.onMarker),
+		...(pointers ? [linkClickPlugin(pointers.onLink)] : []),
 		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
 		formatSyncPlugin(),
@@ -2548,6 +2595,30 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// rendering (lib/compose/inline-objects.ts, "The open editor").
 	const [objEdit, setObjEdit] = React.useState<OpenObject | null>(null);
 	const closeObjEdit = React.useCallback(() => setObjEdit(null), []);
+	// The link panel and the marker picker: one of each for the whole deck, opened by a click in the text (the plugins in
+	// `buildPlugins`), the selection bar's Link button or Insert → Link. Each opening gets a fresh id, so the panel remounts.
+	const [linkEdit, setLinkEdit] = React.useState<LinkEdit | null>(null);
+	const linkEditRef = React.useRef<LinkEdit | null>(null);
+	linkEditRef.current = linkEdit;
+	const [markerEdit, setMarkerEdit] = React.useState<MarkerEdit | null>(null);
+	const markerEditRef = React.useRef<MarkerEdit | null>(null);
+	markerEditRef.current = markerEdit;
+	const pointerSeq = React.useRef(0);
+	const openLink = React.useCallback((range: { from: number; to: number }, focus: boolean) => {
+		setSelBar(null);
+		setLinkEdit({ id: ++pointerSeq.current, from: range.from, to: range.to, focus });
+	}, []);
+	const closeLink = React.useCallback(() => setLinkEdit(null), []);
+	const openMarker = React.useCallback((pos: number, marker: string) => setMarkerEdit({ id: ++pointerSeq.current, pos, marker }), []);
+	const closeMarker = React.useCallback(() => setMarkerEdit(null), []);
+	/** Open the link panel from a button (the selection bar, Insert → Link): the caret's link, the selection, or a new placeholder. */
+	const startLinkHere = React.useCallback(() => {
+		const view = viewRef.current;
+		if (!view) return;
+		const why = linkBlocker(view.state);
+		if (why) return notify(why);
+		openLinkCommand(openLink)(view.state, view.dispatch);
+	}, [openLink]);
 	// Lazy readers for the Insert menu, stable so the menu island does not remount on every render.
 	// The Library photo picker, opened by the Insert menu's Image door. The caret stays where it was in the document while it
 	// is up, so a pick goes in at the place the author chose.
@@ -2743,7 +2814,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null)),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
@@ -2762,6 +2833,19 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
 					view.updateState(next);
+					// The open link panel follows its text through every change, and closes when the caret leaves the link
+					// while the author is not in the panel, or when the link's text is gone.
+					const le = linkEditRef.current;
+					if (le) {
+						const from = next.doc === prevDoc ? le.from : tr.mapping.map(le.from, 1);
+						const to = next.doc === prevDoc ? le.to : tr.mapping.map(le.to, -1);
+						const inPanel = document.activeElement instanceof Element && document.activeElement.closest('[data-link-panel]');
+						const { from: sf, to: st } = next.selection;
+						if (from >= to || (!inPanel && (sf < from || st > to))) setLinkEdit(null);
+						else if (from !== le.from || to !== le.to) setLinkEdit({ ...le, from, to });
+					}
+					// The marker picker names a position it read on open: any change to the document closes it.
+					if (markerEditRef.current && next.doc !== prevDoc) setMarkerEdit(null);
 					// Guard on the APPLIED doc, NOT `tr.docChanged`: a transaction the structural
 					// guard REJECTS (a keystroke inside a locked slide, or a delete spanning a slide
 					// boundary) still reports `tr.docChanged === true` — but `state.apply` returns the
@@ -2990,10 +3074,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						<button type="button" aria-label="Code" aria-pressed={selBar.code} className={cn('cs-sb-btn cs-sb-mono', selBar.code && 'cs-sb-on')} onClick={() => onMark('code')}>
 							{'</>'}
 						</button>
+						<button type="button" aria-label={selBar.link ? 'Edit link' : 'Link'} aria-pressed={selBar.link} className={cn('cs-sb-btn', selBar.link && 'cs-sb-on')} onClick={startLinkHere}>
+							<Link2 aria-hidden className="size-3.5" />
+						</button>
 					</div>,
 					document.body,
 				)}
-			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} onInsertMotion={onOpenLibrary ? () => onOpenLibraryRef.current?.('motion') : undefined} />, insertHost)}
+			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} onInsertLink={startLinkHere} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} onInsertMotion={onOpenLibrary ? () => onOpenLibraryRef.current?.('motion') : undefined} />, insertHost)}
 			{island?.kind === 'table' && createPortal(<TableControls view={viewRef.current as EditorView} stateful={island.stateful} />, island.slot)}
 			{island?.kind === 'code' && createPortal(<CodeControls view={viewRef.current as EditorView} source={source} />, island.slot)}
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
@@ -3006,6 +3093,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					<InlineObjectEditorHost key={objEdit.id} view={viewRef.current} kernels={kernelsRef.current} open={objEdit} onClose={closeObjEdit} onOpenLibrary={onOpenLibrary ? () => onOpenLibraryRef.current?.() : undefined} />
 				</React.Suspense>
 			)}
+			{linkEdit && viewRef.current && (
+				<React.Suspense fallback={null}>
+					<LinkPanel key={linkEdit.id} view={viewRef.current} edit={linkEdit} onClose={closeLink} />
+				</React.Suspense>
+			)}
+			{markerEdit && viewRef.current && <MarkerPicker key={markerEdit.id} view={viewRef.current} edit={markerEdit} onClose={closeMarker} />}
 			{pickerOpen && viewRef.current && (
 				<React.Suspense fallback={null}>
 					<PhotoPicker

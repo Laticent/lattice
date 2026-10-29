@@ -722,7 +722,7 @@ export function insertBlocker(state: EditorState, kernels: InlineKernels | null,
 }
 
 /** How each kind goes in at the caret: its noun for the messages, whether it follows the caret's word, and its sample. */
-interface InsertPlan {
+export interface InsertPlan {
 	noun: string;
 	/** A pill is flush with its text. The rest sit beside words, so they follow the word the caret is in and are set off by a space. */
 	afterWord: boolean;
@@ -730,7 +730,7 @@ interface InsertPlan {
 	sample(kernels: InlineKernels, label: string | null): string | null;
 }
 
-export type InsertKind = 'pill' | 'spark' | 'avatar' | 'icon';
+export type InsertKind = 'pill' | 'spark' | 'avatar' | 'icon' | 'check';
 
 const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
 	pill: { noun: 'pill', afterWord: false, sample: (k, label) => k.pill.edit('{X}', { label: label ?? 'Status' }) },
@@ -738,7 +738,38 @@ const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
 	// A selected word is the person's name ("make this an avatar"); with nothing selected the sample name draws a face to start from.
 	avatar: { noun: 'avatar', afterWord: false, sample: (k, label) => k.avatar.edit('!{X}', { name: label ?? AVATAR_NAME }) },
 	icon: { noun: 'icon', afterWord: true, sample: (k) => (k.icon.read(ICON_SAMPLE) ? ICON_SAMPLE : null) },
+	// A selected word is the check's label ("mark this as passed"); with nothing selected it is the bare answer.
+	check: { noun: 'check', afterWord: false, sample: (k, label) => (k.check?.read(CHECK_SAMPLE) ? ((label && k.check.edit(CHECK_SAMPLE, { label })) || CHECK_SAMPLE) : null) },
 };
+
+/** What "Insert → Check" writes: the first answer, which the panel then changes. */
+export const CHECK_SAMPLE = '@check{pass}';
+
+/** The inline kinds the Studio's installed plugins declare, as Insert lists them. */
+export const installedPluginKinds = (): readonly PluginKindEntry[] => pluginKindProvider();
+
+/**
+ * A starting record for an installed plugin's kind, built from its slot: each positional value gets a first value of its type
+ * (a text gets the kind's title, a choice its first word, a number 1). Null when a positional is of a type with no obvious
+ * first value, or when the result does not read back as the kind: Insert then says it cannot start one.
+ */
+export function pluginStarter(entry: PluginKindEntry, kernels: InlineKernels): string | null {
+	const values: string[] = [];
+	for (const p of entry.slot.positional ?? []) {
+		const t = (typeof p.type === 'string' ? { type: p.type } : p.type) as { type?: string; values?: readonly string[] } | null;
+		if (t?.type === 'text') values.push((entry.title ?? entry.name).replace(/[{},\n]/g, ' ').trim() || 'Label');
+		else if (t?.type === 'oneOf' && t.values?.length) values.push(t.values[0]);
+		else if (t?.type === 'number') values.push('1');
+		else return null;
+	}
+	const src = `@${entry.name}{${values.join(', ')}}`;
+	return pluginKind.read(src, kernels) ? src : null;
+}
+
+/** The plan Insert uses for an installed plugin's kind. */
+export function pluginInsertPlan(entry: PluginKindEntry): InsertPlan {
+	return { noun: (entry.title ?? entry.name).toLowerCase(), afterWord: false, sample: (k) => pluginStarter(entry, k) };
+}
 
 /**
  * The "+ Pill", "+ Spark", "+ Avatar" and "+ Icon" doors: put a new object at the caret and open its
@@ -747,16 +778,16 @@ const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
  * span's edge, or beside another object, a space keeps the two code spans apart (`{A}``{B}` is one span
  * in Markdown).
  */
-export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: InsertKind } = {}): Command {
+export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: InsertKind; plan?: InsertPlan } = {}): Command {
 	return (state, dispatch) => {
 		const kernels = getKernels();
-		const plan = INSERT_PLANS[opts.kind ?? 'pill'];
+		const plan = opts.plan ?? INSERT_PLANS[opts.kind ?? 'pill'];
 		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, plan.noun) || !kernels) return false;
 		const { $from, $to, from, to, empty } = state.selection;
 		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
 		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : null;
 		// An icon and a spark have no use for a selected word, so it is left where it is.
-		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar;
+		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar || plan === INSERT_PLANS.check;
 		const src = plan.sample(kernels, usesLabel ? (label ?? (opts.sample ?? null)) : null);
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {

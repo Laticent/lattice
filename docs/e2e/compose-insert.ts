@@ -5,10 +5,10 @@ import { gotoStudio, persistedSource, setEditorContent } from './studio-fixture'
  * The Insert menu in the active slide's bar (docs/src/components/studio/InsertControls.tsx).
  *
  * One door holds every thing an author can put on a slide: Table, Code, Diagram, Equation, Plot, Image, Pill,
- * Spark, Avatar, Icon. The specs that used to press four separate buttons ("Insert pill", "Insert table", ...)
+ * Spark, Avatar, Icon, Check, Link. The specs that used to press four separate buttons ("Insert pill", "Insert table", ...)
  * open the menu and pick the item by name here, so the way in lives in one place.
  */
-export type InsertItem = 'Motion' | 'Table' | 'Code' | 'Diagram' | 'Equation' | 'Plot' | 'Image' | 'Pill' | 'Spark' | 'Avatar' | 'Icon';
+export type InsertItem = 'Motion' | 'Table' | 'Code' | 'Diagram' | 'Equation' | 'Plot' | 'Image' | 'Pill' | 'Spark' | 'Avatar' | 'Icon' | 'Check' | 'Link';
 
 /** The menu's trigger on the active slide, or on `slide` when a spec names one. */
 export const insertTrigger = (page: Page, slide?: Locator): Locator => (slide ?? page.locator('.cs-slide-active')).getByRole('button', { name: 'Insert', exact: true });
