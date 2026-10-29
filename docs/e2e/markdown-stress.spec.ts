@@ -201,7 +201,7 @@ async function persistedDeck(page: Page): Promise<string> {
  *  The label is the tail of the button's accessible name (`Slide 3 — big-number`). */
 function railState(page: Page): Promise<{ count: number; index: number; cls: string }> {
 	return page.evaluate(() => {
-		const bs = [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Slide navigator"] button')];
+		const bs = [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Slide navigator"] button[data-unit]')];
 		const index = bs.findIndex((b) => b.getAttribute('aria-current') === 'true');
 		const name = bs[index]?.getAttribute('aria-label') ?? '';
 		return { count: bs.length, index, cls: name.split('—').pop()?.trim() ?? '' };

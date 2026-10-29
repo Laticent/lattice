@@ -344,7 +344,7 @@ describe('Studio — every top-bar control responds', () => {
 
 	it('the slide toolbar adds (via the gallery), duplicates, and deletes slides', async () => {
 		const user = await setup();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		expect(start).toBeGreaterThan(1);
 		// New slide opens the unified add-slide gallery (the #1058 "one insert door"); its
@@ -370,7 +370,7 @@ describe('Studio — every top-bar control responds', () => {
 
 	it('after typing elsewhere the strip’s Undo goes away, and ⌘Z walks back the typing, then the delete (one history)', async () => {
 		const user = await setup();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
 		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 		const start = railCount();
@@ -398,7 +398,7 @@ describe('Studio — every top-bar control responds', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
 		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 		const original: string = view().state.doc.toString();
-		const rail = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button') ?? [];
+		const rail = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]') ?? [];
 		await user.click(rail()[1] as HTMLElement);
 		// Type inside slide 2, then delete slide 2.
 		const v = view();
@@ -418,7 +418,7 @@ describe('Studio — every top-bar control responds', () => {
 		// The checker's case against the Filo rebase: inside Filo's typing window, two Duplicates with one label and one
 		// origin joined into one step, and one Undo took back both.
 		await setup();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
@@ -431,7 +431,7 @@ describe('Studio — every top-bar control responds', () => {
 		// Duplicate, then move the copy past its identical original: the deck reads the same. The checker found the
 		// note still said "Slide moved." with an Undo that took back the Duplicate.
 		await setup();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
 		expect(railCount()).toBe(start + 1);
@@ -461,7 +461,7 @@ describe('Studio — every top-bar control responds', () => {
 
 	it('⌘Z with focus in the strip undoes the newest slide op', async () => {
 		const user = await setup();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
 		expect(railCount()).toBe(start + 1);
@@ -495,7 +495,7 @@ describe('Studio — every top-bar control responds', () => {
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {
 		const user = await setupWithCatalog();
-		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		// Open the add-slide gallery. ONE visible door at a time (2026-10-27-slide-structure-strip.md §5):
 		// with the preview open it is the "New slide" floating over the preview, and the editor header draws none.

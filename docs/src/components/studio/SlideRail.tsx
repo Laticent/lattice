@@ -18,6 +18,7 @@ import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
+import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions/menu';
 import { cn } from '@/lib/utils';
 import { slideClass, slideTitle } from './lint';
 import { type LiveColor, liveColor } from './live/live-model';
@@ -52,9 +53,13 @@ export interface SlideRailProps {
 	/** People on each chunk (full-deck index), for the Live presence dots. */
 	liveBySlide: ReadonlyMap<number, readonly RailPerson[]>;
 	onPick: (unitIndex: number, section: number) => void;
+	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the strip only navigates. */
+	actions?: StripActions;
+	/** An empty deck's one tile, "+ Add your first slide", where the strip edits. */
+	onAddFirst?: () => void;
 }
 
-export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick }: SlideRailProps) {
+export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick, actions, onAddFirst }: SlideRailProps) {
 	const flat = useFocus(hub, (f) => f.flat);
 	const pills = React.useMemo(() => {
 		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string }> = [];
@@ -80,14 +85,22 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	// phone). Paging through a split slide's run does not move `flat`, so the rail holds still
 	// while the preview pages.
 	const navRef = React.useRef<HTMLElement | null>(null);
+	// While a slide's menu is open the strip holds still: the menu is anchored beside that slide.
+	const holdRef = React.useRef(false);
+	holdRef.current = !!actions?.menu;
 	const center = React.useCallback((nav: HTMLElement | null, animate: boolean) => {
+		if (holdRef.current) return;
 		const pill = nav?.querySelector<HTMLElement>('button[aria-current="true"]');
+		// The current pill and the menu's ⋯ beside it are centered as one.
+		const menu = nav?.querySelector<HTMLElement>('[data-strip-menu]');
 		// A zero-width rail has not been laid out yet (measured at mount: width 0, so the
 		// centering maths scrolled it 39.5px and the first pill sat half under the rail's own
 		// edge). Do nothing now; the ResizeObserver below centers it once it has a width.
 		if (!nav || !pill || !nav.clientWidth || nav.scrollWidth <= nav.clientWidth) return;
 		const n = nav.getBoundingClientRect();
-		const p = pill.getBoundingClientRect();
+		const r = pill.getBoundingClientRect();
+		const m = menu?.getBoundingClientRect();
+		const p = m ? { left: r.left, width: Math.max(r.right, m.right) - r.left } : r;
 		const left = nav.scrollLeft + (p.left + p.width / 2) - (n.left + n.width / 2);
 		const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		nav.scrollTo({ left: Math.max(0, Math.min(left, nav.scrollWidth - nav.clientWidth)), behavior: animate && !reduce ? 'smooth' : 'auto' });
@@ -119,16 +132,42 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	React.useLayoutEffect(() => {
 		center(navRef.current, true);
 	}, [flat, pills.length, readLabels]);
+	// A menu opening on a pill near the strip's edge brings its ⋯ into view, so the menu never hangs off a button the
+	// strip has scrolled away. The strip's own scroll, which never closes the menu.
+	const menuOpen = !!actions?.menu;
+	React.useLayoutEffect(() => {
+		const nav = navRef.current;
+		const btn = menuOpen ? nav?.querySelector<HTMLElement>('[data-strip-menu]') : null;
+		if (!nav || !btn) return;
+		const n = nav.getBoundingClientRect();
+		const b = btn.getBoundingClientRect();
+		if (b.right > n.right) nav.scrollLeft += b.right - n.right + 8;
+		else if (b.left < n.left) nav.scrollLeft -= n.left - b.left + 8;
+	}, [menuOpen]);
+
+	const here = pills.find((p) => p.flat === flat);
+	const current: StripSlide | null = here ? { unit: here.unit, part: here.section } : null;
+	const slideOf = React.useCallback((el: Element) => {
+		const p = pills[Number((el as HTMLElement).dataset.unit)];
+		return p ? { unit: p.unit, part: p.section } : null;
+	}, [pills]);
+	useStripMenuGestures(navRef, { actions, slideOf, current });
 
 	return (
-		<nav ref={navCallback} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
-			{pills.map((p) => {
+		<nav ref={navCallback} data-strip="pills" className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
+			{!pills.length && onAddFirst && (
+				<button type="button" onClick={onAddFirst} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-[var(--accent)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] [@media(pointer:coarse)]:min-h-11">
+					+ Add your first slide
+				</button>
+			)}
+			{pills.map((p, i) => {
 				const on = p.flat === flat;
 				const people = p.section === 0 ? liveBySlide.get(p.unit) : undefined;
 				return (
+					<React.Fragment key={`${index.units[p.unit].id}:${p.section}`}>
 					<button
 						type="button"
-						key={`${index.units[p.unit].id}:${p.section}`}
+						data-unit={i}
 						onClick={() => onPick(p.unit, p.section)}
 						aria-current={on}
 						aria-label={p.aria}
@@ -145,6 +184,9 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 							</span>
 						)}
 					</button>
+					{/* The menu's ⋯ sits BESIDE the current pill, never inside it: a button in a button is not a button. */}
+					{on && actions && <SlideMenuButton actions={actions} at={{ unit: p.unit, part: p.section }} />}
+					</React.Fragment>
 				);
 			})}
 		</nav>

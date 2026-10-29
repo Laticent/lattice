@@ -70,6 +70,9 @@ export interface MapRailProps {
 	mark?: (unit: number) => React.ReactNode | null;
 	/** The units the rail has mounted, each time that set changes, so a host can pin their posters (poster-cache.ts). */
 	onWindow?: (units: readonly number[]) => void;
+	/** Something to sit beside the FOCUSED tile, over its top corner and outside its button (the Studio's slide menu ⋯).
+	 *  Called only for the focused unit. The rail knows nothing about what it does. */
+	adorn?: (unit: number) => React.ReactNode | null;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -152,7 +155,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -365,6 +368,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 									{caption?.(i) ? <span aria-hidden className="min-w-0 truncate rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] leading-4 text-muted-foreground">{caption(i)}</span> : null}
 								</span>
 						</button>
+						{on && adorn ? adorn(i) : null}
 					</li>
 				);
 			})}

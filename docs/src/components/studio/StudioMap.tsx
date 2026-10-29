@@ -33,6 +33,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/lib/strip-actions/menu';
 import { slideClass } from './lint';
 import { liveColor } from './live/live-model';
 import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';
@@ -63,6 +64,10 @@ export interface StudioMapProps {
 	classLabels?: boolean;
 	/** Called once the map has mounted, so the shell hides the pills only when there is a map to replace them. */
 	onReady?: () => void;
+	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the map only navigates. */
+	actions?: StripActions;
+	/** An empty deck's one tile, "+ Add your first slide", where the map edits. */
+	onAddFirst?: () => void;
 }
 
 /** The focused preview beside the rail is one live document on the same page, so Veduta charges it to the same
@@ -100,7 +105,7 @@ interface Item {
 	flat: number;
 }
 
-export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation, people, classLabels = false, onReady }: StudioMapProps) {
+export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation, people, classLabels = false, onReady, actions, onAddFirst }: StudioMapProps) {
 	const items = React.useMemo(() => {
 		const out: Item[] = [];
 		for (const unit of view) {
@@ -279,6 +284,35 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	onReadyRef.current = onReady;
 	React.useEffect(() => onReadyRef.current?.(), []);
 
+	// ── THE SLIDE MENU (lib/strip-actions) ── on the rail's container, so MapRail, which the Playground shares, stays a
+	// pure navigator: the menu's doors are native listeners here, and its ⋯ goes in the rail's one slot by the focus.
+	const wrapRef = React.useRef<HTMLDivElement>(null);
+	const slideOf = React.useCallback((el: Element) => {
+		const it = items[Number((el as HTMLElement).dataset.unit)];
+		return it ? { unit: it.unit, part: it.section } : null;
+	}, [items]);
+	const here = items[focus];
+	useStripMenuGestures(wrapRef, { actions, slideOf, current: here && here.flat === flat ? { unit: here.unit, part: here.section } : null });
+	const adorn = React.useCallback(
+		(i: number) => {
+			const it = items[i];
+			return actions && it ? <SlideMenuButton actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute top-1 left-1 z-20 size-6 bg-[color-mix(in_srgb,var(--bg)_88%,transparent)]" /> : null;
+		},
+		[items, actions],
+	);
+
 	const [maxSlots] = React.useState(diagnosticSlots);
-	return <MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />;
+	return (
+		<div ref={wrapRef} data-strip="map" className="relative size-full min-h-0 min-w-0">
+			{!items.length && onAddFirst ? (
+				<div className="flex size-full items-center border-t border-border bg-[var(--bg-alt)] px-2">
+					<button type="button" onClick={onAddFirst} className="grid h-[72px] w-32 place-items-center rounded-md border border-dashed border-[var(--accent)] text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">
+						+ Add your first slide
+					</button>
+				</div>
+			) : (
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+			)}
+		</div>
+	);
 }

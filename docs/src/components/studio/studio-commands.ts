@@ -28,7 +28,12 @@ export type StudioCommandId =
 	| 'fix-all'
 	| 'format-code'
 	| 'toggle-mode'
-	| 'slide-settings';
+	| 'slide-settings'
+	| 'slide-new-before'
+	| 'slide-duplicate'
+	| 'slide-move-earlier'
+	| 'slide-move-later'
+	| 'slide-delete';
 
 export type StudioCommand = {
 	id: StudioCommandId;

@@ -418,7 +418,7 @@ export async function backEntryRegistered(page: Page): Promise<void> {
 
 /** Bottom-rail slide buttons — exactly one per slide (a fuzz invariant). */
 export function railButtons(page: Page): Locator {
-	return page.locator('nav[aria-label="Slide navigator"] button');
+	return page.locator('nav[aria-label="Slide navigator"] button[data-unit]');
 }
 
 /** Read a persisted studio value from localStorage. */

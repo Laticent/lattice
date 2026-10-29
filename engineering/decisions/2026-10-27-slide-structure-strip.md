@@ -369,7 +369,19 @@ Each is a file in `followups.d/2927-p<n>-…`.
 **Phase 3 · Menu and drag, together** (then the icon row goes)
 
 8. The strip-actions module and the slide menu in both Studio strips: opening rules, gating to the full view, empty and
-   one-slide states, the fixed gallery target, palette entries.
+   one-slide states, the fixed gallery target, palette entries. *(Built: `docs/src/lib/strip-actions/` holds the menu's
+   rules as data (`model.ts`: five items in a fixed order, a disabled item keeps its place and says why, Delete turns
+   into a confirm that names the slide while others are in a Live session) and its doors (`menu.tsx`). The doors are
+   native listeners on each strip's container, so the map gets them through `StudioMap` and `MapRail` gains only a
+   generic `adorn` slot for the ⋯ beside its focused tile. The shell opens the menu with `goToSlide` (`focus: false`,
+   `expand: false`) and holds the slide in `stripMenu`, so every action takes that slide, and a gallery opened from
+   "New slide before" fixes its target as it opens. The menu closes on a pick, Escape, a press outside, a wheel or touch
+   scroll on the strip, or its slide stopping being current; never on focus moving, because a pick's editor focus can
+   land after the menu opens. The pill strip centers the current pill and its ⋯ as one and holds still while the menu
+   is open. An empty deck's strip shows one "+ Add your first slide" tile that opens the gallery. The palette lists New
+   slide before, Duplicate, Move earlier and later and Delete, each only while it would act; a palette Delete in a
+   shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
+   `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard.)*
 9. The strip's keyboard model: reproduce today's focus drop first; roving tabindex, current slide always rendered, live
    region, keyboard-only shortcuts shown in the menu and under "?".
 10. Drag to reorder with the final long-press rule, a floating copy, edge auto-scroll, and tiles keyed by slide id;

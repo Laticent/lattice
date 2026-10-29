@@ -140,7 +140,7 @@ function collapsedIndices(page: Page): Promise<number[]> {
 /** The rail's currently-selected slide — what the preview is showing. */
 function railCurrent(page: Page): Promise<number> {
 	return page.evaluate(() =>
-		[...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Slide navigator"] button')].findIndex(
+		[...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Slide navigator"] button[data-unit]')].findIndex(
 			(b) => b.getAttribute('aria-current') === 'true' || b.getAttribute('aria-pressed') === 'true' || b.dataset.active === 'true',
 		),
 	);

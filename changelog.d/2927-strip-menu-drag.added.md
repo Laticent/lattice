@@ -1,0 +1,1 @@
+- **Studio:** every slide in the strip (the slide pills and the slide map) has a menu with New slide before, Duplicate, Move earlier, Move later and Delete. Open it from the ⋯ beside the current slide, a right-click, Shift+F10, or a tap on the slide you are already on. The command palette has the same five actions, and an empty deck's strip offers "+ Add your first slide".
