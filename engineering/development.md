@@ -407,9 +407,10 @@ integration tests, not unit tests.
 - **`lint`** — ALWAYS runs, single Node, browser-free
   (`PUPPETEER_SKIP_DOWNLOAD=1`). `npm run lint` + `npm run lint:deck:all`.
 - **`unit`** — ALWAYS runs, on every PR, because unit tests read prose and
-  config too (the US-English audit walks every `.md`). Matrix Node 22/24, `fail-fast: false`,
-  browser-free. `npm run build`, then `npm run build:check:all`, then
-  `npm test` on 22 (an engine subset on 24). The committed-artifact
+  config too (the US-English audit walks every `.md`). Node 22 on a pull request;
+  Node 22 and 24 in the merge queue (`fail-fast: false`; the node 24 leg left the PR on
+  2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`), browser-free. `npm run build`, then
+  `npm run build:check:all`, then `npm test` on 22 (an engine subset on 24). The committed-artifact
   freshness gate (`build:check`) lives in `lint`. Costs ~12 runner-minutes
   a run (457s + 260s, measured on PR #2554).
 - **`integration`** — code changes only, `needs: changes` (it runs beside

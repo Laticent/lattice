@@ -1513,6 +1513,12 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
+    test('on_pull_request is optional, and a boolean when present', () => {
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: false }] }), []);
+      assert.deepEqual(probe({ suites: [{ ...good, on_pull_request: true }] }), []);
+      assert.ok(probe({ suites: [{ ...good, on_pull_request: 'false' }] }).some((e) => /on_pull_request/.test(e)), 'a string is refused');
+    });
+
     test('a well-formed entry passes', () => {
       assert.deepEqual(probe({ suites: [good] }), []);
     });

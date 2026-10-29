@@ -3327,8 +3327,11 @@ const { guard, isTargetGone } = require('./lib/engine/render-guard');
 const RENDER_WATCHDOG_MS = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
 // Puppeteer's `timeout` for starting Chrome: the watchdog's, not Puppeteer's own 30 s default. That default undercut the
 // watchdog, so a box busy enough to start Chrome slowly failed the launch at 30 s ("Timed out after 30000 ms while waiting
-// for the WS endpoint URL") although the CLI meant to allow 90. On CI runners running tests in parallel that was 9 of
-// unit (node 22)'s 29 failures in 999 PR runs, 2026-10-18..28.
+// for the WS endpoint URL") although the CLI meant to allow 90. On CI runners running tests in parallel that was 7 of
+// unit (node 22)'s 29 failures and 2 of unit (node 24)'s 16 in 999 PR runs, 2026-10-18..28.
+// The price: the launch `guard` now fires first, its timeout counts as a wedge, and renderExport is retried once with the
+// hardening flags (which is what starts Chrome in a small container). So a Chrome that never starts fails after about
+// twice the watchdog, 180 s by default, where it used to fail at 30 s.
 const LAUNCH_TIMEOUT_MS = RENDER_WATCHDOG_MS;
 // Puppeteer's `protocolTimeout` (see renderExport): one hour, or the watchdog plus a minute
 // when LATTICE_RENDER_WATCHDOG_MS is set higher. `composePdfInPage` caps its own watchdog

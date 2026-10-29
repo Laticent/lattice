@@ -382,7 +382,7 @@ jobs:
       # COST: ~12s, of which ~7s re-runs the ownership guard and preflight gates
       # that `npm run build` above already ran (build.js runs them unconditionally
       # under --check; there is no flag to skip). ~5s is new verification. Doubled
-      # by the node 22/24 matrix.
+      # in the merge queue, where the node 24 leg runs too.
       - name: Generated artifacts match their generators (post-build, end-to-end)
         run: npm run build:check:all
       # REMOVED: the playground-bundle byte-diff gate. It asked "is the COMMITTED
@@ -484,17 +484,25 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: ISO week (for the marp-cli cache key)
+        id: week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
       - name: Cache marp-cli for npx
-        # Nine integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
-        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its dependency tree again. When
-        # the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
+        # Five integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
+        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its whole dependency tree again.
+        # When the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
         # suite's before-hook failure cancelled every test under it: 4 of 4 marp-bundle-author-script failures and 5 of
-        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test. The key is the file that
-        # holds the range, so a new range fetches once and is kept.
+        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test.
+        # WHAT IT REMOVES, AND WHAT IT DOES NOT: a warm cache removes the tarball downloads and the unpack race; npx
+        # still asks the registry for the package's metadata on every call (npm 10's libnpmexec resolves the range
+        # online), so a registry that is down still fails the probe. A cache is scoped to the PR that saved it (this
+        # workflow has no push to main), so a PR's first run misses and its later pushes hit.
+        # The key holds the file with the range AND the ISO week: without the week a cached 4.x would satisfy the
+        # range forever, and a new marp-cli 4.x that breaks export-to-Marp would go unseen here.
         uses: actions/cache@v4
         with:
           path: ~/.npm/_npx
-          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/core/marp-bundle.js') }}
+          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/core/marp-bundle.js') }}-${{ steps.week.outputs.week }}
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as
