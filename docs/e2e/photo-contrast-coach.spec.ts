@@ -153,6 +153,20 @@ test('a statement slide over a bright photo is not flagged', async ({ page }) =>
 	await expect(warning).toHaveCount(0);
 });
 
+// A statement's list row takes the card ink like its paragraph, so the Coach reads it against the same scrim. A row left on
+// the theme's ink is dark in a light deck and would be flagged here, against the default dark scrim.
+test('a statement list row takes the card ink and is not flagged', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await openCoach(page);
+	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
+	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('image spotlight card-clear', 'image statement').replace('## A quiet harbor.\n', '## A quiet harbor.\n\n- The margins hold\n- The plan ships\n'));
+	await readSettled(page, 'image statement');
+	await expect(warning).toHaveCount(0);
+});
+
 // With `card-clear` the scrim paints nothing, so the statement's fixed white ink sits straight on the bright photo. No slide
 // pin changes that ink, so the finding offers the dark card ink, which flips the ink and the scrim together.
 for (const width of [1440, 390]) {

@@ -83,12 +83,11 @@ function rgba(css: string): number[] | null {
 }
 
 /**
- * Heading and the first paragraph or list row of the card: the text a viewer reads first. A statement colors only its
- * heading and paragraph (the fixed card ink its scrim is paired with); a list row there keeps the theme's ink, which the
- * scrim does not back, so judging it against the strongest scrim would not be an upper bound.
+ * Heading and the first paragraph or list row of the card: the text a viewer reads first. On a statement all three take
+ * the fixed card ink its scrim is paired with, so the strongest scrim is an upper bound for each.
  */
-function inkTargets(card: HTMLElement, statement: boolean): HTMLElement[] {
-	return (statement ? ['h1, h2', 'p'] : ['h1, h2', 'p', 'li']).map((sel) => card.querySelector<HTMLElement>(sel)).filter((el): el is HTMLElement => !!el && !!el.textContent?.trim());
+function inkTargets(card: HTMLElement): HTMLElement[] {
+	return ['h1, h2', 'p', 'li'].map((sel) => card.querySelector<HTMLElement>(sel)).filter((el): el is HTMLElement => !!el && !!el.textContent?.trim());
 }
 
 /** One gradient layer's color stops: computed colors carry no nested parentheses, so each is one `fn(...)`. */
@@ -106,11 +105,11 @@ function scrimBacking(scrim: HTMLElement): number[] | null {
 }
 
 /** The scene on `card`: its fill, or for a statement (`scrim` given) the scrim at its strongest, and its ink. */
-function readScene(card: HTMLElement, scrim: HTMLElement | null = null, statement = !!scrim): Scene | null {
+function readScene(card: HTMLElement, scrim: HTMLElement | null = null): Scene | null {
 	const view = card.ownerDocument.defaultView;
 	if (!view) return null;
 	const fill = scrim ? scrimBacking(scrim) : rgba(view.getComputedStyle(card).backgroundColor);
-	const ink = inkTargets(card, statement).map((el) => rgba(view.getComputedStyle(el).color));
+	const ink = inkTargets(card).map((el) => rgba(view.getComputedStyle(el).color));
 	if (!ink.length || ink.some((c) => !c)) return null;
 	return { card: fill && fill[3] > 0 ? fill : null, ink: ink as number[][] };
 }
@@ -129,7 +128,7 @@ function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin, statement
 	doc.head.appendChild(hush);
 	try {
 		for (const c of GROUP[pin]) section.classList.toggle(c, c === pin);
-		const scene = readScene(card, null, statement);
+		const scene = readScene(card);
 		// A statement's fix is judged with its scrim OFF (the card the text box reads is transparent): the scrim may be thin
 		// where the words are, so a fix is offered only if it clears with no help from it.
 		return scene && statement ? { card: null, ink: scene.ink } : scene;

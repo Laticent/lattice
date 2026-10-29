@@ -253,11 +253,8 @@ variant, all of which move the dense end. So it does not model the point; it bou
   offer is **Set card ink dark**, which turns the ink near-black and the scrim light together.
 - **What it does not catch.** A statement whose scrim is partly on and whose words still fail at the scrim's thin end is not
   flagged: the bound gives the scrim its best case. The bound also assumes the scrim backs the ink (dark under light ink,
-  light under `ink-dark`), which the ink classes guarantee by setting `--_scrim-rgb` with the ink. That pairing covers
-  only the heading and paragraph, which take `--_card-heading-ink` / `--_card-body-ink`. A statement's list row keeps the
-  theme's ink, so the reader leaves `li` out for statements; the independent check found that judging a dark row against
-  the strongest dark scrim is a floor, not a ceiling. Whether that row reads at all is
-  `followups.d/2932-p3-statement-list-row-ink.md`.
+  light under `ink-dark`), which the ink classes guarantee by setting `--_scrim-rgb` with the ink. The heading takes
+  `--_card-heading-ink`, and the paragraph and list row take `--_card-body-ink`, so the pairing covers all three.
 
 The unit tests pin `strongestScrim` (the stacked alpha of the default scrim, `null` for `card-clear`, the browser's layer
 order) and the "at most" wording. The e2e puts a `card-clear` statement over the bright photo, expects **Set card ink dark**,
@@ -386,3 +383,11 @@ passes there.
   mousemove, of a tooltip opened BEFORE the hover: the test's earlier click left the mouse over another underline. The test now
   parks the mouse and starts from no tooltip. Its Chromium-at-390 waiver is deleted, and it passed 48 runs out of 48 across
   every project and both widths.
+
+## A statement's list row takes the card ink (2026-10-29)
+
+The statement rules colored the heading and paragraph with the card ink but left `li` alone, so a list row inherited the
+theme's text color. In a light deck that is a dark navy, and a render showed the rows close to invisible on the default
+dark scrim (follow-up from #2932). `image.styles.css` now gives a statement's `li` the paragraph's `--_card-body-ink` and
+shadow, and nothing else: its size and width stay as they were. With the row paired to the scrim like the paragraph,
+`inkTargets` in `photo-verdict.ts` reads `li` on a statement again, and the strongest scrim is an upper bound for it too.
