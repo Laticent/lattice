@@ -18,6 +18,7 @@ import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
+import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions';
 import { cn } from '@/lib/utils';
 import { slideClass, slideTitle } from './lint';
 import { type LiveColor, liveColor } from './live/live-model';
@@ -51,10 +52,15 @@ export interface SlideRailProps {
 	readLabels: boolean;
 	/** People on each chunk (full-deck index), for the Live presence dots. */
 	liveBySlide: ReadonlyMap<number, readonly RailPerson[]>;
-	onPick: (unitIndex: number, section: number) => void;
+	/** `key` is true for an arrow, Home or End on the strip, which must not take keyboard focus away from it. */
+	onPick: (unitIndex: number, section: number, via?: { key: boolean }) => void;
+	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the strip only navigates. */
+	actions?: StripActions;
+	/** An empty deck's one tile, "+ Add your first slide", where the strip edits. */
+	onAddFirst?: () => void;
 }
 
-export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick }: SlideRailProps) {
+export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick, actions, onAddFirst }: SlideRailProps) {
 	const flat = useFocus(hub, (f) => f.flat);
 	const pills = React.useMemo(() => {
 		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string }> = [];
@@ -80,14 +86,22 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	// phone). Paging through a split slide's run does not move `flat`, so the rail holds still
 	// while the preview pages.
 	const navRef = React.useRef<HTMLElement | null>(null);
+	// While a slide's menu is open the strip holds still: the menu is anchored beside that slide.
+	const holdRef = React.useRef(false);
+	holdRef.current = !!actions?.menu;
 	const center = React.useCallback((nav: HTMLElement | null, animate: boolean) => {
+		if (holdRef.current) return;
 		const pill = nav?.querySelector<HTMLElement>('button[aria-current="true"]');
+		// The current pill and the menu's ⋯ beside it are centered as one.
+		const menu = nav?.querySelector<HTMLElement>('[data-strip-menu]');
 		// A zero-width rail has not been laid out yet (measured at mount: width 0, so the
 		// centering maths scrolled it 39.5px and the first pill sat half under the rail's own
 		// edge). Do nothing now; the ResizeObserver below centers it once it has a width.
 		if (!nav || !pill || !nav.clientWidth || nav.scrollWidth <= nav.clientWidth) return;
 		const n = nav.getBoundingClientRect();
-		const p = pill.getBoundingClientRect();
+		const r = pill.getBoundingClientRect();
+		const m = menu?.getBoundingClientRect();
+		const p = m ? { left: r.left, width: Math.max(r.right, m.right) - r.left } : r;
 		const left = nav.scrollLeft + (p.left + p.width / 2) - (n.left + n.width / 2);
 		const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		nav.scrollTo({ left: Math.max(0, Math.min(left, nav.scrollWidth - nav.clientWidth)), behavior: animate && !reduce ? 'smooth' : 'auto' });
@@ -119,20 +133,76 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	React.useLayoutEffect(() => {
 		center(navRef.current, true);
 	}, [flat, pills.length, readLabels]);
+	// A menu opening on a pill near the strip's edge brings its ⋯ into view, so the menu never hangs off a button the
+	// strip has scrolled away. The strip's own scroll, which never closes the menu.
+	const menuOpen = !!actions?.menu;
+	React.useLayoutEffect(() => {
+		const nav = navRef.current;
+		const btn = menuOpen ? nav?.querySelector<HTMLElement>('[data-strip-menu]') : null;
+		if (!nav || !btn) return;
+		const n = nav.getBoundingClientRect();
+		const b = btn.getBoundingClientRect();
+		if (b.right > n.right) nav.scrollLeft += b.right - n.right + 8;
+		else if (b.left < n.left) nav.scrollLeft -= n.left - b.left + 8;
+	}, [menuOpen]);
+
+	const here = pills.find((p) => p.flat === flat);
+	const current: StripSlide | null = here ? { unit: here.unit, part: here.section } : null;
+	const slideOf = React.useCallback((el: Element) => {
+		const p = pills[Number((el as HTMLElement).dataset.unit)];
+		return p ? { unit: p.unit, part: p.section } : null;
+	}, [pills]);
+	useStripMenuGestures(navRef, { actions, slideOf, current, rev: index.rev, count: pills.length, scroller: () => navRef.current });
+
+	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
+	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
+	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (lib/strip-actions).
+	const keyNav = React.useRef(false);
+	const onKeyDown = (e: React.KeyboardEvent) => {
+		// Only a key on a slide button steps. React bubbles events through portals, so the open slide menu's own arrow
+		// keys (and ArrowDown on the ⋯, which opens it) reach this list too; they belong to the menu.
+		if (!(e.target as Element).closest?.('[data-unit]')) return;
+		if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || !pills.length) return;
+		const at = Math.max(0, pills.findIndex((p) => p.flat === flat));
+		const to = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? at + 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? pills.length - 1 : null;
+		if (to === null) return;
+		e.preventDefault();
+		const p = pills[Math.max(0, Math.min(pills.length - 1, to))];
+		if (p.flat === flat) return;
+		keyNav.current = true;
+		onPick(p.unit, p.section, { key: true });
+	};
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the focused slide is the trigger; the body reads the DOM.
+	React.useLayoutEffect(() => {
+		if (!keyNav.current) return;
+		keyNav.current = false;
+		navRef.current?.querySelector<HTMLElement>('button[aria-current="true"]')?.focus({ preventScroll: true });
+	}, [flat]);
+	const tabStop = here ? here.flat : pills[0]?.flat;
 
 	return (
-		<nav ref={navCallback} className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
-			{pills.map((p) => {
+		<nav ref={navCallback} data-strip="pills" className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
+			{!pills.length && onAddFirst && (
+				<button type="button" onClick={onAddFirst} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-[var(--accent)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] [@media(pointer:coarse)]:min-h-11">
+					+ Add your first slide
+				</button>
+			)}
+			<ol className="m-0 flex list-none items-center gap-1.5 p-0" onKeyDown={onKeyDown}>
+			{pills.map((p, i) => {
 				const on = p.flat === flat;
 				const people = p.section === 0 ? liveBySlide.get(p.unit) : undefined;
 				return (
+					// THE LI IS THE PILL: its border and fill frame the slide button and, on the current slide, the menu's ⋯ as
+					// the pill's right-hand segment (the owner's call, 2026-10-29). Two sibling buttons, never one inside another.
+					<li key={`${index.units[p.unit].id}:${p.section}`} className={cn('flex shrink-0 items-stretch rounded-lg border transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}>
 					<button
 						type="button"
-						key={`${index.units[p.unit].id}:${p.section}`}
+						data-unit={i}
 						onClick={() => onPick(p.unit, p.section)}
 						aria-current={on}
 						aria-label={p.aria}
-						className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+						tabIndex={p.flat === tabStop ? 0 : -1}
+						className="flex shrink-0 select-none items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-left [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]"
 					>
 						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.n}</span>
 						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{p.label}</span>
@@ -145,8 +215,12 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 							</span>
 						)}
 					</button>
+					{/* The ⋯ is outside the roving set: Tab reaches it after the slide button, the arrows never land on it. */}
+					{on && actions && <SlideMenuButton inset actions={actions} at={{ unit: p.unit, part: p.section }} />}
+					</li>
 				);
 			})}
+			</ol>
 		</nav>
 	);
 });

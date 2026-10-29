@@ -70,6 +70,12 @@ export interface MapRailProps {
 	mark?: (unit: number) => React.ReactNode | null;
 	/** The units the rail has mounted, each time that set changes, so a host can pin their posters (poster-cache.ts). */
 	onWindow?: (units: readonly number[]) => void;
+	/** A stable React key for a unit (the Studio's slide id), so a tile follows its slide when slides are inserted or
+	 *  moved before it rather than being rewritten in place. Default: the unit's index. */
+	keyOf?: (unit: number) => React.Key;
+	/** Something to sit beside the FOCUSED tile, over its top corner and outside its button (the Studio's slide menu ⋯).
+	 *  Called only for the focused unit. The rail knows nothing about what it does. */
+	adorn?: (unit: number) => React.ReactNode | null;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -152,7 +158,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, keyOf, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -267,8 +273,13 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	// first ask of a mount runs before any settle, so it is uncapped; the settle after it carries the cap and,
 	// because that changes what Veduta holds, re-asks at once (the pool clamps the extra meanwhile, so nothing
 	// shows). A capacity that changes later re-asks the same way, so a smaller pool is never left over-asked.
-	// The one tab stop is the focused tile; when a hand scroll has taken it out of the window, the first mounted tile.
-	const tabStop = plan.units.includes(focus) ? focus : (plan.units[0] ?? -1);
+	// THE FOCUSED TILE IS ALWAYS RENDERED, even when a hand scroll has taken it out of Veduta's window (2026-10-27-slide-
+	// structure-strip.md §9). It is the rail's one tab stop, and a focused button that unmounts drops keyboard focus to
+	// the page. Rendered outside the window, not added to it: it costs one sketch (or its poster) at its own offset, and
+	// Veduta's plan, its hysteresis and the live budget are untouched.
+	const pinned = focus >= 0 && focus < count && !plan.units.includes(focus);
+	const units = pinned ? [...plan.units, focus] : plan.units;
+	const tabStop = focus >= 0 && focus < count ? focus : (plan.units[0] ?? -1);
 	const liveMounted = liveOn ? plan.units.filter((i) => plan.tiers.get(i) === 'live').length : 0;
 	const liveCap = !liveOn ? 0 : poolCap === undefined ? undefined : poolCap + stageCost;
 	const heldCap = React.useRef<number | undefined>(undefined);
@@ -306,6 +317,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	}, [focus, plan]);
 
 	const onKeyDown = (e: React.KeyboardEvent) => {
+		// A modified arrow is someone else's chord (a host's ⇧⌘→), and a key a host already answered is not a step.
+		if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
 		const next = vertical ? 'ArrowDown' : 'ArrowRight';
 		const prev = vertical ? 'ArrowUp' : 'ArrowLeft';
 		const action: RailStep | null = e.key === next || e.key === (vertical ? 'ArrowRight' : 'ArrowDown') ? 'next' : e.key === prev || e.key === (vertical ? 'ArrowLeft' : 'ArrowUp') ? 'prev' : e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null;
@@ -333,14 +346,14 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 
 	const tiles = (
 		<ol className="relative m-0 list-none p-0" style={vertical ? { height: geo.total, width: '100%' } : { width: geo.total, height: '100%' }}>
-			{plan.units.map((i) => {
-				const tier = plan.tiers.get(i) ?? 'wireframe';
+			{units.map((i) => {
+				const tier = plan.tiers.get(i) ?? (posterFloor ? 'poster' : 'wireframe');
 				const on = i === focus;
 				const at = PAD + i * geo.pitch;
 				// The window mounts a few tiles of a long deck, so each says where it sits in the whole list: a screen reader
 				// then hears "4 of 40", as it did on the pill navigator, which listed every slide.
 				return (
-					<li key={i} aria-setsize={count} aria-posinset={i + 1} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
+					<li key={keyOf ? keyOf(i) : i} aria-setsize={count} aria-posinset={i + 1} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
 						<button
 							type="button"
 							onClick={() => onPick(i)}
@@ -349,7 +362,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							tabIndex={i === tabStop ? 0 : -1}
 							data-tier={tier}
 							data-unit={i}
-							className={cn('group relative block size-full text-left outline outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
+							className={cn('group relative block size-full select-none text-left outline [-webkit-touch-callout:none] outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
 						>
 							{/* The sketch is the floor: it is there before a picture and under one. */}
 							{tier !== 'placeholder' && (
@@ -365,6 +378,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 									{caption?.(i) ? <span aria-hidden className="min-w-0 truncate rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] leading-4 text-muted-foreground">{caption(i)}</span> : null}
 								</span>
 						</button>
+						{on && adorn ? adorn(i) : null}
 					</li>
 				);
 			})}

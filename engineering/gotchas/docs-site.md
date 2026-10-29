@@ -539,3 +539,15 @@ owe nothing here. See
 - **Also seen on the way:** the Studio's rail buttons read `3stats`, with no word boundary between
   the number and the name, so `\bstats\b` never matches; and `astro dev` cannot mount the engine
   bundle (`engine.js?import` is refused from `/public`), so drive `docs/dist`.
+
+## A docs-site "after" run measures the old engine because root `dist/` was stale
+
+- **Symptom:** You change engine code (`lib/engine/*`, `lib/core/*`), rebuild the docs site, drive the real
+  Studio, and the "after" run behaves exactly like "before". Nothing errors.
+- **Cause:** The docs build does not compile the engine. It stages the engine from the root `dist/` and
+  from `docs/public/playground/esm`. `cd docs && npm run build` alone repackages whatever the last root
+  build left there, so the Studio runs the old engine against the new site.
+- **Fix:** Run `npm run build` at the repo root BEFORE `cd docs && npm run build`, every time the engine
+  changes. Then confirm the change reached the bundle you serve (grep `docs/dist` for a string only the new
+  code writes) before you read any measurement from it.
+- **Triggered by:** #2753, where a stale root `dist/` made the first "after" Studio run invalid.

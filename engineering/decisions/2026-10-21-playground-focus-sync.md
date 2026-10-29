@@ -457,3 +457,23 @@ center; a burner that never rests stalls iOS taps (`touchstart` without `touchen
 simulator (the runner retries the session three times, and the other iOS suites fail the same way on `main`'s nightly); and the
 first `Element Click` is enough, with no touch-action fallback needed (it is still tried if the click fails to place the caret).
 Not covered: a physical iPad or iPhone, and the iPhone layout (one pane at a time, so the bug cannot occur there).
+
+**The iOS suites restart a stuck start (2026-10-28, followup `2950-p3`).** `main`'s nightly failed on the iOS suites on each of
+its first three days with them (runs 40307494617, 40485085426, 40674748940). All three were the same failure: safaridriver
+answered `POST /session` with "session not created" after the device had booted and Safari had launched, so no probe ran. Each
+made one attempt, because the three-attempt retry landed with #2950 after them. PR runs on 2026-10-28 that did have the retry
+still failed on attempts 2 and 3 (40748220516, 40764835364), and in one safaridriver itself was gone by attempt 2
+(`ECONNREFUSED` on :4444, 40744674119): retrying against the same device and the same driver does not clear either. So
+`run.mjs` now exits 3 for "no session", and `run.sh` answers that, a boot failure or a silent safaridriver with ONE second
+start: reboot the device, relaunch Safari, restart safaridriver. A probe failure is never retried. A start costs minutes
+against a 30-minute job, and the Studio suite used 27 m 45 s of it with no restart at all (PR run on 73bc09a). So the
+first start makes 2 session attempts, and the second start runs only if one more cycle of this device and every device
+still to come, each at what this device's first start cost, ends by `SUITE_DEADLINE` (1560 s of the script). A fixed
+budget (840 s, the first cut) bounded only when the second start began, and could still have run the Studio job out of
+time and lost its iPhone. Proved locally with stub `xcrun`, `safaridriver` and `node` (recover on the second start, give up
+after two, a probe failure not retried, a dead driver restarted for the next device, no second start past the budget); the
+real-runner evidence is the branch dispatch named in the PR, and whether the nightly holds for 10 runs is the follow-up's.
+Probe steps that time out after the session has started are not start failures. The iPad's slide-2 photo measurement
+(2 of 5 iPad runs) is issue #2967; the Studio editor's load, the Coach button and two focus-sync taps are in followup
+`2950-p4`. One more,
+the iPad's Coach sheet not closing after a synthetic Escape, was the probe's own: it now presses the sheet's close button.

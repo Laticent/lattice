@@ -210,7 +210,7 @@ test.describe('notes and motion in Compose', () => {
 
 	test('@crosswidth @gecko @webkit-tablet picking a slide in the rail never leaves its leading note selected for the next key to delete', async ({ page }) => {
 		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.');
-		const rail = page.locator('nav[aria-label="Slide navigator"] button').nth(1);
+		const rail = page.locator('nav[aria-label="Slide navigator"] button[data-unit]').nth(1);
 		test.skip(!(await rail.isVisible()), 'the desktop slide rail is not shown at this width');
 		await page.getByText('Para a.').click();
 		await rail.click();
