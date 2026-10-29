@@ -36,18 +36,64 @@ test.afterEach(async () => {
 });
 
 /**
- * The browser the session runs in. Firefox hides a peer's local addresses behind mDNS names by
- * default, and a CI runner cannot resolve them, so two Firefox contexts on one machine never
- * connect there (the GitHub-runner probe of this spec failed in Gecko only, at the guest's lobby,
- * 2026-10-29). Its own browser with the obfuscation off gets the plain host candidates Chromium
- * and WebKit already use here. The WebRTC path stays real; only how a candidate is named changes.
+ * The browser the session runs in. On a GitHub runner two Firefox contexts never connected (the
+ * probe of this spec failed in Gecko only, at the guest's lobby: "Nobody answered", and "WebRTC:
+ * ICE failed" in the trace, 2026-10-29), while Chromium and WebKit did. Firefox hides local
+ * addresses behind mDNS names and leaves loopback candidates out by default; its own browser with
+ * both off gets candidates that always pair on one machine. The WebRTC path stays real; only which
+ * candidates Firefox offers changes.
  */
 async function sessionBrowser(browser: Browser): Promise<Browser> {
 	const type = browser.browserType();
 	if (type.name() !== 'firefox') return browser;
-	const b = await type.launch({ firefoxUserPrefs: { 'media.peerconnection.ice.obfuscate_host_addresses': false } });
+	const b = await type.launch({
+		firefoxUserPrefs: {
+			'media.peerconnection.ice.obfuscate_host_addresses': false,
+			// Both peers are on this machine, so the loopback pair always works. Firefox leaves loopback
+			// (and link-local) candidates out by default, and on a runner whose other interface it will
+			// not use, that left no pair at all: "WebRTC: ICE failed" in the probe's trace, 2026-10-29.
+			'media.peerconnection.ice.loopback': true,
+			'media.peerconnection.ice.link_local': true,
+		},
+	});
 	launched.push(b);
 	return b;
+}
+
+/** An init script: record every RTCPeerConnection the page makes on `window.__pcs`. */
+function keepPeerConnections() {
+	const Native = window.RTCPeerConnection;
+	if (!Native) return;
+	const pcs: RTCPeerConnection[] = [];
+	(window as unknown as { __pcs: RTCPeerConnection[] }).__pcs = pcs;
+	// biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
+	const Spy = function (...a: ConstructorParameters<typeof RTCPeerConnection>) {
+		const pc = new Native(...a);
+		pcs.push(pc);
+		return pc;
+	} as unknown as typeof RTCPeerConnection;
+	Spy.prototype = Native.prototype;
+	window.RTCPeerConnection = Spy;
+}
+
+/** Each recorded peer connection's ICE state and the kinds of local and remote candidates it saw. */
+function iceReport(page: Page): Promise<string> {
+	return page
+		.evaluate(async () => {
+			const pcs = (window as unknown as { __pcs?: RTCPeerConnection[] }).__pcs ?? [];
+			const out: string[] = [];
+			for (const pc of pcs) {
+				const stats = [...(await pc.getStats()).values()] as Array<Record<string, unknown>>;
+				const kinds = (type: string) =>
+					stats
+						.filter((s) => s.type === type)
+						.map((s) => `${s.candidateType}/${s.protocol}/${String(s.address ?? '').includes(':') ? 'v6' : String(s.address ?? '').endsWith('.local') ? 'mdns' : s.address ? 'v4' : '?'}`)
+						.join(',');
+				out.push(`[ice ${pc.iceConnectionState}, gathering ${pc.iceGatheringState}; local ${kinds('local-candidate') || 'none'}; remote ${kinds('remote-candidate') || 'none'}]`);
+			}
+			return `${pcs.length} connection(s) ${out.join(' ')}`;
+		})
+		.catch((e) => `unreadable (${(e as Error).message})`);
 }
 
 /** Two browsers in one live session: the host starts it with DECK, the guest knocks, the host admits. */
@@ -60,6 +106,8 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	open.push(hctx, gctx);
 	await relay.attach(hctx);
 	await relay.attach(gctx);
+	// Keep every peer connection the pages make, so a failed connection can say why (below).
+	for (const c of [hctx, gctx]) await c.addInitScript(keepPeerConnections);
 	const host = await hctx.newPage();
 	const guest = await gctx.newPage();
 
@@ -77,7 +125,14 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	await gotoStudio(guest);
 	await guest.goto('about:blank');
 	await guest.goto(link);
-	await guest.locator('#live-lobby-name').fill('Guest', { timeout: 60_000 });
+	await guest
+		.locator('#live-lobby-name')
+		.fill('Guest', { timeout: 60_000 })
+		.catch(async (e) => {
+			// The guest never reached the host. Name what each side's ICE did, so a red run on a CI
+			// runner explains itself instead of needing another round to find out.
+			throw new Error(`${(e as Error).message}\n  host ICE: ${await iceReport(host)}\n  guest ICE: ${await iceReport(guest)}`);
+		});
 	await guest.getByRole('button', { name: 'Ask to join' }).click();
 	await host.locator('button[aria-label="Admit Guest"]').click({ timeout: 30_000 });
 	await guest.locator('[data-live-pill]').waitFor({ timeout: 30_000 });
