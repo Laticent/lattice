@@ -51,6 +51,8 @@ import { LENSES } from './lens-picker';
 // measures these two rows against the app's own, and studio.astro's cinema rule hides the chrome by
 // them. Renaming one without updating both reds that spec — which is the point.
 const NOOP = () => {};
+// Shown only where `useTouchFirst` (use-breakpoint.ts) is true, so the pre-paint row matches the app's.
+const TOUCH_FIRST = 'hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex';
 
 /** The phone's eight-cell deck-actions bar — the app's own cells, in the app's own order. */
 function ActionBar() {
@@ -238,6 +240,9 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					</span>
 					<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours hidden text-[var(--text-body)] xl:inline-flex"><MonitorPlay className="size-[18px]" /></Button>
 					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden min-[1100px]:block')} />
+					{/* Undo · Redo on a touch-first tablet only: the app's `!mobile && touchFirst`, as CSS (TOUCH_FIRST_QUERY). */}
+					<Button variant="ghost" size="icon-sm" aria-label="Undo" className={TOUCH_FIRST} disabled><Undo2 className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Redo" className={TOUCH_FIRST} disabled><Redo2 className="size-[18px]" /></Button>
 					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>

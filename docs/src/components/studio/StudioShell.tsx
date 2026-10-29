@@ -52,7 +52,7 @@ import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import type { StripActions, StripVia } from '@/lib/strip-actions';
 import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
-import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone, useTouchFirst } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { hashString } from '@/playground/deck-preview';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
@@ -1731,6 +1731,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
+	const touchFirst = useTouchFirst();
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -7032,6 +7033,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</div>
 	);
 
+	// Undo and Redo for a screen with no ⌘Z: in the phone's tail, and before Present on a touch-first
+	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
+	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
+	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
+	const historyButtons = (
+		<>
+			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+		</>
+	);
 	const feedbackButton = (
 		<Tip label="Send feedback">
 			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
@@ -7642,6 +7653,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
+				{!mobile && touchFirst && historyButtons}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -7678,12 +7690,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    in every pane, Compose included, because the pre-paint skeleton (StudioChromeSkeleton)
 				    draws them before it can know the stored pane, and the two must match at hand-off. Below 360 px
 				    both drop them, or the deck title has no room left (studio-instant-shell's 320 px case). */}
-				{mobile && (
-					<>
-						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-						<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
-					</>
-				)}
+				{mobile && historyButtons}
 				{mobile && (
 					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}

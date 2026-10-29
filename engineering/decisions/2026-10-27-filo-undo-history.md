@@ -299,8 +299,14 @@ key events from inside it, so the same typing is never undone twice.
 swipe, the iPad shortcut bar and Android keyboard keys arrive as `beforeinput` with `inputType`
 `historyUndo` / `historyRedo`. Both history plugins handle those today, so dropping them without a
 replacement would let the browser change the editor's DOM behind its model. The Filo glue installs
-the same handler on both editors, sends it to Filo and calls `preventDefault`. On a phone the shell
-shows Undo and Redo buttons for every pane. The Tauri app sends its Edit menu's two items to the
+the same handler on both editors, sends it to Filo and calls `preventDefault`. On a phone, and on a
+touch-first tablet (`useTouchFirst`: no hover, a coarse pointer, so an iPad with no keyboard),
+the shell shows Undo and Redo buttons for every pane. The tablet needs them as much as the phone:
+WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) only while its own
+undo list holds something, so after a reload it has nothing to send, and the stored history is
+reachable only through the shell (measured in Mobile Safari 26.5 by `ios-safari-undo`; added
+2026-10-29 at the owner's call). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
+not (followups.d/2959-p3). The Tauri app sends its Edit menu's two items to the
 same calls.
 
 The preview iframe takes no keys today (the Studio box is `pointer-events: none`). When the pill
