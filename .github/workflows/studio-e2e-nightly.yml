@@ -220,6 +220,9 @@ jobs:
       issues: write # open / append the rolling tracking issue
     env:
       LEGS: 8 # the e2e matrix's shard count
+      # This job checks nothing out, so `gh` has no git remote to read the repository from: the first
+      # full run (40914402541) failed its filing step with "failed to run git: not a git repository".
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Download every leg's report text and verdict
         uses: actions/download-artifact@v4
