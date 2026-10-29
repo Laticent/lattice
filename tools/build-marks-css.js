@@ -836,20 +836,18 @@ function build() {
       w(supports(rule(name, quietDot, [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
     } else {
       // ETCH ON A SLOPE (engineering/decisions/2026-10-28-finish-invariant.md §5, the owner's D2 pick). A line is one paint
-      // channel, so etch cannot wash it; it shows its identity in the LINE instead. A marked or signal line keeps its status
-      // color, as pigment's does (tone is the one-hue finish, etch is not), at etch's series weight (2.6, the line and
-      // ep-curve stroke). A dot has a body and an edge, so it takes etch's own trait: a pale wash with an ink edge in its
-      // line's color. Before this, etch drew a slope exactly as tone did.
-      const up = ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))');
-      const down = ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))');
-      w(supports(rule(name, '.slope-svg .slope-line[data-s]', ['stroke-width: 2.6'])));
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])', [`stroke: ${up}`, 'stroke-width: 2.6'])));
-      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]:not([data-s])', [`stroke: ${down}`, 'stroke-width: 2.6'])));
+      // channel, so etch cannot wash it; it shows its identity in the LINE instead. A marked or signal line keeps the
+      // member's own status ink (`--mark-ink`, `--state-*-ink`), as tone does not, at etch's series weight (2.6, the line
+      // and ep-curve stroke). A dot has a body and an edge, so it takes etch's own trait: a pale wash with an edge in its
+      // line's ink. The ink, not the dim status hue pigment mixes toward a dark slide: under that hue a dark etch signal
+      // line read 1.82-2.02:1 against the slide, where the member's ink reads 6.2-14:1 (maker-checker on #2960). Before
+      // this, etch drew a slope exactly as tone did.
+      w(supports(rule(name, '.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])', ['stroke-width: 2.6'])));
       w(supports(rule(name, quietDot, [`--slope-dot-ink: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
       // A status dot only exists on a `marked` slope (slope.transform.js), which is where the member defines --mark-ink.
       w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', ['--slope-dot-ink: var(--mark-ink)'])));
-      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])', [`--slope-dot-ink: ${up}`])));
-      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])', [`--slope-dot-ink: ${down}`])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])', ['--slope-dot-ink: var(--state-pass-ink)'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])', ['--slope-dot-ink: var(--state-fail-ink)'])));
       w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot', [
         'fill: color-mix(in oklab, var(--slope-dot-ink) 18%, var(--bg))', 'stroke: var(--slope-dot-ink)', 'stroke-width: 1.4',
       ])));

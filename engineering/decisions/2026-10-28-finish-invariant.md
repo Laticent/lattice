@@ -12,7 +12,8 @@ summary: >
 # The finish invariant: a finish needs as many color channels as its trait has parts
 
 **Proposed** 2026-10-28, from `followups.d/2908-p3-finish-invariant-study.md`. **Decided** 2026-10-29: the owner
-picked §5's recommendation on items 1 and 2 (the cap; etch's line weight on a slope, the word-cloud fallback named)
+picked the cap for item 2 and, for item 1, etch's line weight on a slope with the word-cloud fallback named
+(decision card D1 A, D2 B)
 and did not veto item 3. All three shipped in PR #2960; item 4 is the open taste call.
 
 ## 1. The answer
@@ -144,7 +145,9 @@ light face, where done stands 1.4 further off the slide than fail.
 ## 5. What to do with it
 
 The first two needed the owner's call because they set what a finish promises. **Outcome, PR #2960:** item 1 shipped
-as (c) for the slope and (a) for the word cloud; item 2 as the 8% cap (`KANBAN_CODE_CAP`, worst inline code now
+as the card's D2 B rather than (c) as written above: a slope's status and signal lines keep the member's own status
+ink at etch's 2.6 weight, its slopegraph dots take etch's wash and an ink edge, quiet lines keep tone's one-hue step,
+and the line chart was already at 2.6; the word cloud takes (a); item 2 as the 8% cap (`KANBAN_CODE_CAP`, worst inline code now
 4.52:1 under every finish); item 3 is recorded in `chart-styling.md` §3. Item 4 stays open.
 
 1. **Name the etch exception on single-ink marks.** Etch cannot show its trait on a word or a line. Options: (a) keep

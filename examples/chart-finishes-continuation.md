@@ -148,3 +148,25 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 - Everyone else
   - 2023 `11%`
   - 2026 `10%`
+
+---
+
+<!-- _class: slope signal marks-etch dark -->
+<!-- _footer: "etch · dark · a signal line keeps the member's status ink, which clears 6:1 against the slide on every theme" -->
+
+`Etch · slope · dark`
+
+## On a dark slide, the direction still reads at a glance.
+
+- Northwind
+  - 2023 `31%`
+  - 2026 `24%`
+- Kestrel Group
+  - 2023 `22%`
+  - 2026 `29%`
+- Vantage
+  - 2023 `19%`
+  - 2026 `21%`
+- Everyone else
+  - 2023 `11%`
+  - 2026 `10%`

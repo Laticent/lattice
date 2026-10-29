@@ -1016,22 +1016,8 @@ figure.marks-etch :where(.slope-svg:not(.slope-signal) .slope-line:not([data-s])
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(.slope-svg .slope-line[data-s]),
-figure.marks-etch :where(.slope-svg .slope-line[data-s]) {
-  stroke-width: 2.6 !important;
-}
-}
-@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])),
-figure.marks-etch :where(.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])) {
-  stroke: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))) !important;
-  stroke-width: 2.6 !important;
-}
-}
-@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(.slope-svg.slope-signal .slope-line[data-dir="down"]:not([data-s])),
-figure.marks-etch :where(.slope-svg.slope-signal .slope-line[data-dir="down"]:not([data-s])) {
-  stroke: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))) !important;
+section.marks-etch :where(.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])),
+figure.marks-etch :where(.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])) {
   stroke-width: 2.6 !important;
 }
 }
@@ -1050,13 +1036,13 @@ figure.marks-etch :where(.slope-svg.slope-slopegraph .slope-dot[data-s]) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-etch :where(.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])),
 figure.marks-etch :where(.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])) {
-  --slope-dot-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))) !important;
+  --slope-dot-ink: var(--state-pass-ink) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-etch :where(.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])),
 figure.marks-etch :where(.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])) {
-  --slope-dot-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))) !important;
+  --slope-dot-ink: var(--state-fail-ink) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

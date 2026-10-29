@@ -464,7 +464,8 @@ series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), b
 etch the line is the identity, and gives its dots, areas and bands etch's whisper body and ink
 edge like any other mark. A slope is the one stroke chart a finish recolors (its quiet lines and status lines are not
 categories), and it follows the same split: tone draws every line in its one ink, while etch keeps a status or signal
-line's color, as pigment does, at the 2.6 series weight, and gives each slopegraph dot etch's wash and an ink edge in
+line's own status ink (the member's, which clears 4.8:1 against the slide on every theme in both modes) at the 2.6
+series weight, and gives each slopegraph dot etch's wash and an ink edge in
 its line's color. Etch drew a slope exactly as tone did until the finish-invariant study (§5, the owner's pick).
 The family slot table is
 never re-pointed; an earlier cut did, under tone, and washed line's series 5–8

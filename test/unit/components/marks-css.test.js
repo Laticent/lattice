@@ -157,15 +157,23 @@ describe('marks.generated.css', () => {
   // ETCH ON A SLOPE (the finish-invariant study's §5, the owner's pick). A line is one paint channel, so etch shows its
   // identity in the line: a status line keeps its color at the 2.6 series weight, and a slopegraph dot takes etch's wash
   // and ink edge. Tone keeps its one-ink lines; before this, etch drew a slope exactly as tone did.
-  test('etch keeps a slope\'s status color at its line weight, and washes its dots; tone keeps one ink', () => {
+  test('etch keeps a slope\'s status ink at its line weight, and washes its dots; tone keeps one ink', () => {
     const body = (finish, sel) => {
       const at = css.indexOf(`section.marks-${finish} :where(${sel})`);
       assert.ok(at >= 0, `${finish}: a rule for ${sel}`);
       return css.slice(at, css.indexOf('}', at));
     };
-    assert.match(body('etch', '.slope-svg .slope-line[data-s]'), /stroke-width: 2\.6/);
-    assert.doesNotMatch(body('etch', '.slope-svg .slope-line[data-s]'), /stroke: /, 'etch keeps the member\'s status ink');
-    assert.match(body('etch', '.slope-svg.slope-signal .slope-line[data-dir="up"]:not([data-s])'), /stroke: light-dark\(var\(--state-pass-hue\)/);
+    // Marked and signal lines: etch's weight only, so the member's own status ink shows. A recolor to the dim status
+    // hue read 1.82-2.02:1 against a dark slide (maker-checker on #2960).
+    const lines = body('etch', '.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])');
+    assert.match(lines, /stroke-width: 2\.6/);
+    assert.doesNotMatch(lines, /stroke: /, 'etch keeps the member\'s status ink on a slope line');
+    assert.doesNotMatch(css, /marks-etch :where\([^)]*slope-line[^{]*\{[^}]*state-(pass|fail)-hue/, 'no etch slope line takes the dim hue');
+    // Every slopegraph dot gets an ink, and the dot paints a wash of it with an edge in it.
+    assert.match(body('etch', '.slope-svg.slope-slopegraph .slope-dot[data-s]'), /--slope-dot-ink: var\(--mark-ink\)/);
+    assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])'), /--slope-dot-ink: var\(--state-pass-ink\)/);
+    assert.match(body('etch', '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])'), /--slope-dot-ink: var\(--state-fail-ink\)/);
+    assert.match(css, /marks-etch :where\(\.slope-svg\.slope-slopegraph:not\(\.slope-signal\) \.slope-dot:not\(\[data-s\]\)[^{]*\{\s*--slope-dot-ink: color-mix\(in oklab, var\(--chart-cat-1-ink\) 62%/);
     const dot = body('etch', '.slope-svg.slope-slopegraph .slope-dot');
     assert.match(dot, /fill: color-mix\(in oklab, var\(--slope-dot-ink\) 18%, var\(--bg\)\)/);
     assert.match(dot, /stroke: var\(--slope-dot-ink\)/);
