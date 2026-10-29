@@ -17,15 +17,21 @@ name: Fit nightly (per-component split ratchet)
 # which no other gate counts. Owner-approved on 2026-10-28 (#2953); the measurements behind
 # it are `engineering/decisions/2026-10-28-fit-everywhere-model.md` §7-§9.
 #
-# WHAT IT DOES NOT DO YET. The policy P2 builds (rescue-20-30 with its three fixes) is
+# WHAT IT DOES NOT DO YET. The policy P2 builds (rescue-0-30 with its three fixes, §11) is
 # simulated in the harness until P2 lands, and a simulated arm is not shipped code, so it is
 # not ratcheted here. Cross-engine runs and a visual montage are recorded in §9 as later
 # steps.
 #
 # COST. 94 galleries x 3 boxes x 2 venues x 2 renders (as shipped, and whole) = 1,128 CLI
-# renders, then the in-page scoring. Estimated from the 2,632-render run in §7 (1,637 s to
-# render, 2,424 s to score on 4 cores, with packed renders this run skips): about 30 minutes
-# plus setup. The first dispatched run is the measurement; correct this line from it.
+# renders of the AUTHORED slides only (`--edits none`), then the in-page scoring. Measured on
+# ubuntu-latest (4 cores) before `--edits none`, with every perturbed copy as well: 2,421 s to
+# render and 2,009 s to score, 74 minutes, which a 75-minute ceiling cut at its last step
+# (run 40839485067, 2026-10-29). The ratchet counts authored slides only, so the edits bought
+# the nightly nothing. With `--edits none`, in a 4-core sandbox: 1,675 s to render, 562 s to score.
+#
+# `--edits none` IS PART OF THE BASELINE. A gallery renders as one deck, and its perturbed
+# copies sit between the authored slides, so dropping them moves a few counts by one (and lets
+# the diagram gallery render at all). Bless with the same flags this step runs.
 #
 # REPORT-ONLY, deliberately, as `2026-06-28-experience-gating-playwright.md` §3 requires of a
 # browser-dependent check: it becomes blocking only after an observed green streak on a real
@@ -101,7 +107,7 @@ jobs:
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/fit-nightly-report.txt"
           CODE=0
-          if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none \
+          if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none \
                --out "$RUNNER_TEMP/fit" --ratchet test/fit/baseline.json 2>&1 | grep -v 'bus.cc\|object_proxy' | tee "$REPORT"; then CODE=0; else CODE=$?; fi
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           # NOT SCORED wins over everything: a verdict over galleries that did not render is not
@@ -167,7 +173,7 @@ jobs:
                 echo "A component's clipped, unreadable or lost-content slides rose above \`test/fit/baseline.json\` on \`main@${{ github.sha }}\`."
                 echo ""
                 echo "Fix the component, or, if the change is deliberate and the slide is right, re-bless with"
-                echo "\`npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --bless test/fit/baseline.json\`"
+                echo "\`npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none --bless test/fit/baseline.json\`"
                 echo "and justify the new count in the PR."
                 ;;
               broken)

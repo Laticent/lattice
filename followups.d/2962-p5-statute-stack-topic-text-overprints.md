@@ -17,4 +17,4 @@ why now   — the readability probe's overlap check (#2962) found two pre-existi
 where     — lib/components/legal/statute-stack/statute-stack.styles.css (the chip row: the citation chip must shrink or wrap rather than slide under the pill) and lib/components/anchor/topic/topic.styles.css (the eyebrow and basis bands at a narrow box and large venue).
 done when — neither slide draws text over text at square, portrait or story at hall, and the fit ratchet's unreadable counts for both galleries fall at those cells, banked with `--bless`.
 evidence  — renders of the slides before and after, the ratchet diff in test/fit/baseline.json, and a demo deck (HARD RULE #9).
-verify    — for g in statute-stack topic; do npm run fit:harness -- --only $g --sizes square,portrait,story --venues hall --packs none --ratchet test/fit/baseline.json; done
+verify    — for g in statute-stack topic; do npm run fit:harness -- --only $g --sizes square,portrait,story --venues hall --packs none --edits none --ratchet test/fit/baseline.json; done

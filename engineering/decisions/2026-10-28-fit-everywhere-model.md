@@ -312,8 +312,14 @@ at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each com
 unreadable and lost-content slides, per box and venue, with the committed baseline
 (`tools/lib/fit-harness/ratchet.js`). A count may only go down, and a component the baseline does
 not name starts at zero, so a new component that clips is named on its first night. Blessed from
-the §12 run: 94 sources, 564 cells, 1,146 clipped, 108 unreadable (with the overlap check) and 246 lost-content slides, and
-6 cells recorded as **not scored** (the diagram gallery, whose split emits broken markup).
+the nightly's own command (`--edits none`, authored slides only): 94 sources, 564 cells, 1,161
+clipped, 108 unreadable (with the overlap check) and 246 lost-content slides, every cell scored.
+The first bless came from the full §12 run, with perturbed copies in each gallery deck: 1,146
+clipped and 6 cells **not scored** (the diagram gallery, whose split emitted broken markup with
+the copies in it). Without the copies the diagram gallery renders and adds 18 clipped slides, and
+three counts fall by one. A GitHub runner reproduced the first baseline with no count above it
+(run 40839485067), so the bless is portable; that run also measured the cost that moved the nightly
+to `--edits none`.
 
 - **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
   harness rejects produces no rows, and comparing only the rows a run produced would read that

@@ -14,4 +14,4 @@ why now   — the fit-harness montage (§12) shows lib/components/comparison/red
 where     — lib/components/comparison/redline/ (the split pages' NEW column layout at a narrow box and large venue).
 done when — the slide renders without overlapping text at story/hall, and the fit ratchet's clip count for redline at story@hall falls, banked with `--bless`.
 evidence  — the montage row before and after, and the ratchet diff in test/fit/baseline.json.
-verify    — npm run fit:harness -- --only redline --sizes story --venues hall --packs none --ratchet test/fit/baseline.json
+verify    — npm run fit:harness -- --only redline --sizes story --venues hall --packs none --edits none --ratchet test/fit/baseline.json

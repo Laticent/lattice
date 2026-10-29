@@ -277,7 +277,7 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 1,
+      "clip": 0,
       "unreadable": 0,
       "lost": 0
     },
@@ -1601,22 +1601,34 @@
   },
   "lib/components/diagram/diagram/diagram.gallery.md": {
     "portrait@hall": {
-      "unscored": true
+      "clip": 8,
+      "unreadable": 0,
+      "lost": 0
     },
     "portrait@laptop": {
-      "unscored": true
+      "clip": 1,
+      "unreadable": 0,
+      "lost": 0
     },
     "square@hall": {
-      "unscored": true
+      "clip": 3,
+      "unreadable": 0,
+      "lost": 0
     },
     "square@laptop": {
-      "unscored": true
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
     },
     "story@hall": {
-      "unscored": true
+      "clip": 5,
+      "unreadable": 0,
+      "lost": 0
     },
     "story@laptop": {
-      "unscored": true
+      "clip": 1,
+      "unreadable": 0,
+      "lost": 0
     }
   },
   "lib/components/evidence/evidence.gallery.md": {
@@ -2965,12 +2977,12 @@
   },
   "test/integration/baseline-decks/gallery.md": {
     "portrait@hall": {
-      "clip": 91,
+      "clip": 90,
       "unreadable": 0,
       "lost": 7
     },
     "portrait@laptop": {
-      "clip": 12,
+      "clip": 11,
       "unreadable": 1,
       "lost": 7
     },
