@@ -473,6 +473,7 @@ budget (840 s, the first cut) bounded only when the second start began, and coul
 time and lost its iPhone. Proved locally with stub `xcrun`, `safaridriver` and `node` (recover on the second start, give up
 after two, a probe failure not retried, a dead driver restarted for the next device, no second start past the budget); the
 real-runner evidence is the branch dispatch named in the PR, and whether the nightly holds for 10 runs is the follow-up's.
-Probe steps that time out after the session has started are not start failures: four seen so far (the iPad's slide-2
-photo measurement, the Studio editor's load, the Coach button, two focus-sync taps) are in followup `2950-p4`. One more,
+Probe steps that time out after the session has started are not start failures. The iPad's slide-2 photo measurement
+(2 of 5 iPad runs) is issue #2967; the Studio editor's load, the Coach button and two focus-sync taps are in followup
+`2950-p4`. One more,
 the iPad's Coach sheet not closing after a synthetic Escape, was the probe's own: it now presses the sheet's close button.
