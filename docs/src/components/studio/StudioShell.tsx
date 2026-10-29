@@ -35,7 +35,7 @@ import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
-import { createFilo, hashText } from '@/lib/filo';
+import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
 import { partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
@@ -54,6 +54,7 @@ import type { StripActions, StripVia } from '@/lib/strip-actions';
 import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { hashString } from '@/playground/deck-preview';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
@@ -2048,7 +2049,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Filo's reload sidecar, in the same synchronous write: the Studio wrote this text through the
 		// open deck's history. Not for another deck (a retired-plugin rewrite, `onRetire`), and not
 		// during a live session: the history did not record those, so they read as outside changes.
-		saveSourceSum(id, liveSharedRef.current || id !== deckIdRef.current ? null : hashText(src));
+		saveSourceSum(id, liveSharedRef.current || id !== deckIdRef.current ? null : hashString(src));
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
 		// rather than passed in: this is the deck's real title as the deck states it —
 		// its `title:` override, else its heading — never its creation label (which stays

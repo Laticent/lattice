@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createFiloStore, History, hashText, memoryBackend, type Snapshot, toSnapshot } from '@/lib/filo';
-import { adoptStored, createFiloPersistence, EARLY_LABEL, reloadCase, UNSAVED_LABEL } from './studio-filo-persist';
+import { createFiloStore, History, memoryBackend, type Snapshot, toSnapshot } from '@/lib/filo';
+import { adoptStored, createFiloPersistence, EARLY_LABEL, reloadCase, sourceSum, UNSAVED_LABEL } from './studio-filo-persist';
 
 const A = '# Deck\n\nOne.\n';
 const B = '# Deck\n\nOne. Two.\n';
@@ -15,11 +15,11 @@ function storedAB(): Snapshot {
 
 describe('reloadCase (Filo note §5)', () => {
 	const stored = storedAB();
-	it('in step: the source is the stored text', () => expect(reloadCase(B, hashText(B), stored)).toBe('in-step'));
+	it('in step: the source is the stored text', () => expect(reloadCase(B, sourceSum(B), stored)).toBe('in-step'));
 	it('in step wins even with a stale sidecar', () => expect(reloadCase(B, 123, stored)).toBe('in-step'));
-	it('ahead: the Studio wrote the source after Filo stored', () => expect(reloadCase(C, hashText(C), stored)).toBe('ahead'));
+	it('ahead: the Studio wrote the source after Filo stored', () => expect(reloadCase(C, sourceSum(C), stored)).toBe('ahead'));
 	it('outside: the source is not what the Studio wrote', () => {
-		expect(reloadCase(C, hashText(B), stored)).toBe('outside');
+		expect(reloadCase(C, sourceSum(B), stored)).toBe('outside');
 		expect(reloadCase(C, null, stored)).toBe('outside');
 	});
 });
@@ -27,12 +27,12 @@ describe('reloadCase (Filo note §5)', () => {
 describe('adoptStored', () => {
 	it('in step: ⌘Z after the reload undoes the edit before it', () => {
 		const h = new History('deck', B);
-		expect(adoptStored(h, B, hashText(B), storedAB())).toBe('in-step');
+		expect(adoptStored(h, B, sourceSum(B), storedAB())).toBe('in-step');
 		expect(h.undo()?.text).toBe(A);
 	});
 	it('ahead: one "Unsaved changes" step, then the stored past', () => {
 		const h = new History('deck', C);
-		expect(adoptStored(h, C, hashText(C), storedAB())).toBe('ahead');
+		expect(adoptStored(h, C, sourceSum(C), storedAB())).toBe('ahead');
 		expect(h.text).toBe(C);
 		expect(h.state().undoLabel).toBe(UNSAVED_LABEL);
 		expect(h.undo()?.text).toBe(B);
@@ -40,7 +40,7 @@ describe('adoptStored', () => {
 	});
 	it('outside: one gap step, and the stack is applied only past it', () => {
 		const h = new History('deck', C);
-		expect(adoptStored(h, C, hashText(B), storedAB())).toBe('outside');
+		expect(adoptStored(h, C, sourceSum(B), storedAB())).toBe('outside');
 		const gap = h.undo();
 		expect(gap?.gap).toBe(true);
 		expect(gap?.text, 'the gap stops: the text the author sees stays').toBe(C);
@@ -50,7 +50,7 @@ describe('adoptStored', () => {
 	it('an edit made before storage answered stays its own step on top of the stored past', () => {
 		const h = new History('deck', B);
 		h.commit({ base: h.head, next: C, label: 'Typing', origin: 'markdown' });
-		expect(adoptStored(h, B, hashText(B), storedAB())).toBe('in-step');
+		expect(adoptStored(h, B, sourceSum(B), storedAB())).toBe('in-step');
 		expect(h.text, 'the screen is untouched').toBe(C);
 		expect(h.state().undoLabel).toBe('Typing');
 		expect(h.undo()?.text).toBe(B);
@@ -62,7 +62,7 @@ describe('adoptStored', () => {
 		h.commit({ base: h.head, next: C, label: 'Duplicate slide', origin: 'structure' });
 		h.closeGroup();
 		h.commit({ base: h.head, next: D, label: 'Move slide', origin: 'structure' });
-		adoptStored(h, B, hashText(B), storedAB());
+		adoptStored(h, B, sourceSum(B), storedAB());
 		expect(h.state().undoLabel).toBe('Move slide');
 		expect(h.undo()?.text).toBe(C);
 		expect(h.undo()?.text).toBe(B);
@@ -74,7 +74,7 @@ describe('adoptStored', () => {
 		h.closeGroup();
 		h.commit({ base: h.head, next: `${C}x`, label: 'Typing', origin: 'markdown' });
 		h.undo();
-		expect(adoptStored(h, B, hashText(B), storedAB())).toBe('in-step');
+		expect(adoptStored(h, B, sourceSum(B), storedAB())).toBe('in-step');
 		expect(h.text).toBe(C);
 		expect(h.state().undoLabel).toBe(EARLY_LABEL);
 		expect(h.undo()?.text).toBe(B);
@@ -82,7 +82,7 @@ describe('adoptStored', () => {
 	it('never adopts under a history that recorded an outside change', () => {
 		const h = new History('deck', B);
 		h.sync(C);
-		expect(adoptStored(h, B, hashText(B), storedAB())).toBeNull();
+		expect(adoptStored(h, B, sourceSum(B), storedAB())).toBeNull();
 	});
 });
 
@@ -96,7 +96,7 @@ describe('createFiloPersistence', () => {
 		const h1 = new History('deck', A);
 		await page1.open(h1, A);
 		h1.commit({ base: h1.head, next: B, label: 'Typing', origin: 'markdown' });
-		sums.set('deck', hashText(B));
+		sums.set('deck', sourceSum(B));
 		page1.flush();
 		await tick();
 		const opened: string[] = [];
@@ -117,7 +117,7 @@ describe('createFiloPersistence', () => {
 		await tick();
 		const opened: string[] = [];
 		const store2 = createFiloStore(backend);
-		const page2 = createFiloPersistence({ store: store2, sidecar: () => hashText(B), delayMs: 0, onOpen: (_d, c) => opened.push(c) });
+		const page2 = createFiloPersistence({ store: store2, sidecar: () => sourceSum(B), delayMs: 0, onOpen: (_d, c) => opened.push(c) });
 		const h2 = new History('deck', B);
 		// The Studio asks at load; the author makes two strip ops before storage answers.
 		const asked = page2.open(h2, B, h2.state().revision);
@@ -146,7 +146,7 @@ describe('createFiloPersistence', () => {
 			writer.release('deck');
 			const opened: string[] = [];
 			const asked: Snapshot[] = [];
-			const p = createFiloPersistence({ store: createFiloStore(backend), sidecar: () => hashText(B), verify: async (s) => {
+			const p = createFiloPersistence({ store: createFiloStore(backend), sidecar: () => sourceSum(B), verify: async (s) => {
 					asked.push(s);
 					return verdict;
 				}, onOpen: (_d, c) => opened.push(c) });

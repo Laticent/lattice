@@ -34,6 +34,7 @@ type SourceHistory = Parameters<typeof toSnapshot>[0];
 const src = (h: History): SourceHistory => h as unknown as SourceHistory;
 
 import { createFiloStore, type FiloStore, idbBackend, memoryBackend } from '@/lib/filo/store';
+import { hashString } from '@/playground/deck-preview';
 import { loadSourceSum } from './studio-store';
 
 export const FILO_DB = 'lattice-filo';
@@ -44,11 +45,17 @@ export type ReloadCase = 'in-step' | 'ahead' | 'outside';
 
 /** What a stored history means for the source the Studio opened (the table above). Pure. */
 export function reloadCase(source: string, sidecar: number | null, stored: Pick<Snapshot, 'text' | 'hash'>): ReloadCase {
-	const h = hashText(source);
-	if (h === stored.hash && source === stored.text) return 'in-step';
-	if (sidecar !== null && sidecar === h) return 'ahead';
+	if (hashText(source) === stored.hash && source === stored.text) return 'in-step';
+	if (sidecar !== null && sidecar === sourceSum(source)) return 'ahead';
 	return 'outside';
 }
+
+/**
+ * The sidecar's hash of a saved source: the preview's djb2 (`hashString`), which the Studio's
+ * startup bundle already carries, where Filo's own `hashText` would add it there (route budget).
+ * The sidecar only chooses a step's label (`ahead` or `outside`), never which text a patch meets.
+ */
+export const sourceSum = hashString;
 
 /** The label of the step that holds what the author changed before the stored history arrived. */
 export const EARLY_LABEL = 'Edits before the history loaded';
