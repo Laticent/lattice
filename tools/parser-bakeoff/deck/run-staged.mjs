@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { files, MB } from './corpus.mjs';
 import { md2 } from './lines-arm.mjs';
-import { mdWithStage, stageHand, stageSegno } from './staged.mjs';
+import { mdWithStage, parseLines, stageHand, stageSegno } from './staged.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const MarkdownIt = require('markdown-it');
@@ -24,4 +24,7 @@ for (const [name, md] of Object.entries(arms)) {
 }
 const tH = best(() => { for (const x of files) stageHand(x.s); });
 const tS = best(() => { for (const x of files) stageSegno(x.s); });
+// The parse alone, so the stage's cost splits into the generated parser and the walk over its tape.
+const tP = best(() => { for (const x of files) parseLines(x.s); });
 console.log(`the stage alone: hand ${(MB / tH).toFixed(0)} MB/s, Segno ${(MB / tS).toFixed(0)} MB/s`);
+console.log(`the Segno parse alone: ${(MB / tP).toFixed(0)} MB/s`);

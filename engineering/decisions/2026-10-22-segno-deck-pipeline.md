@@ -383,3 +383,47 @@ Second machine (a separate cloud container, Xeon 2.3 GHz, 4 vCPU, Node 22.22.0),
 The gain holds across machines (+41% here, +46% on the first), and the generated pass reaches 62% of the hand loop on this one (72% on the first).
 
 `npm run mutate:segno`: 13 of 13 codegen mutants killed in the full run. None of the 13 targets the native-run path, so three hand mutants of it were run against the Segno suite: a cache that is always valid hangs the suite (caught); skipping the empty-run test survives and cannot change a result (it is a speed shortcut); letting a hit one past an attempt window's end win survives, because the attempt fails the same way either way. Neither survivor changes a parse.
+
+## Tape trimming, measured (2026-10-29)
+
+The follow-up after G6 (followups 2909-p2) assumed the generated line pass lost to the hand loop on
+node bookkeeping and tape writes. Measured, it does not. `npm run parser:bakeoff:deck -- --arms` now
+also prints the generated parse alone, before the walk that turns its tape into markdown-it's
+arrays. On the 4-core Xeon (2.8 GHz, Node 22.22.0), corpus of 1,293 files and 20.2 MB, 530k nodes
+(26 a KB):
+
+| Measure | MB/s |
+|---|---|
+| Hand line pass (control) | 608-626 |
+| Segno parse alone, no walk | 637-660 |
+| Segno line pass, parse plus walk, before | 381 (median of five) |
+| Segno line pass, parse plus walk, after | 471 (median of five, range 443-478) |
+
+So the generated parser already matches the hand loop, and the whole gap was the bake-off's own
+walk (`stageSegno`, tools/parser-bakeoff/deck/staged.mjs), which took 22 of the stage's 54 ms.
+Two changes to the walk, trees and arrays identical on all 1,293 files:
+
+- **Size the arrays from the tape.** The walk counted the source's newlines with `indexOf` before
+  it read the tape: 12 ms of its 19. Every top-level node is a line, and each character between one
+  line's end-plus-newline and the next line's start is a blank line, so the tape already holds the
+  count.
+- **No closure over the loop's counters.** `blankUntil` captured `L` and `start`, which put both in
+  a heap context and every read and write of them in the hot loop with it.
+
+One generator-side trim was tried and reverted: a node that can hold no other node writing all four
+integers after its body, in one place, instead of reserving its slot first. Parse alone went from
+645 to 650 MB/s, inside the run-to-run range, so tape writes are not where the time goes.
+
+**Where that leaves the 15% target.** The stage is 77% of the hand loop (471 against 615), not
+within 15%. What separates them is now structural, not tunable: the hand stage reads the source once
+and writes the arrays as it goes; the Segno stage parses into a tape (31 ms) and then walks the
+tape into the same arrays (about 5 ms of walk plus the 6 ms of allocation both stages pay). The
+remaining 15% is the second pass and the arrays materialized from it.
+
+**The wasm question, answered from this measurement: no.** Wasm would speed up the parse, and the
+parse is already at the hand loop's speed. It cannot remove the walk or the arrays, which are the
+cost. The step that would close the gap is the one the design already names: consumers read the
+tape directly ("one tape every consumer reads"), so nothing re-materializes markdown-it's arrays.
+That is the pipeline's next stage, not a speed fix.
+
+Second machine: not run in this session's container; the follow-up keeps that line open.
