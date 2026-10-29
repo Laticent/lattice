@@ -53,8 +53,20 @@ function undoProbeKit(result) {
 		[...document.querySelectorAll('span[role="status"][aria-live="polite"]')].map((s) => s.textContent ?? '').find((t) => /^(Undid|Redid|Nothing)/.test(t)) ?? '';
 	/** Show the editor (a phone shows one pane at a time) and put the caret at the end of the deck. */
 	const focusEnd = async () => {
-		if (innerWidth <= 699 && !editor()) (await until(() => button('Markdown source'), 15000, 'the Markdown source button')).click();
-		const el = await until(editor, 15000, 'a visible Deck source editor');
+		// A tap that lands before the app has hydrated does nothing, so tap again every 2 s until the editor shows.
+		let tapped = 0;
+		const el = await until(
+			() => {
+				const e = editor();
+				if (!e && innerWidth <= 699 && Date.now() - tapped > 2000) {
+					tapped = Date.now();
+					button('Markdown source')?.click();
+				}
+				return e;
+			},
+			30000,
+			'a visible Deck source editor',
+		);
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) el.setSelectionRange(el.value.length, el.value.length);
 		else {
@@ -107,7 +119,8 @@ function undoProbeKit(result) {
 		});
 	const ready = async () => {
 		try {
-			await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor');
+			// A phone opens on the preview, so its editor mounts only once the Markdown source pane is shown (focusEnd).
+			await until(() => window.__latticeRenderMetrics && (document.querySelector('[aria-label="Deck source"]') || button('Markdown source')), 90000, 'the Studio editor');
 		} catch (e) {
 			// Say what the page did have, so a red device run explains itself.
 			const panes = [...document.querySelectorAll('button[aria-label]')].filter(visible).map((b) => b.getAttribute('aria-label')).slice(0, 20);
@@ -184,6 +197,7 @@ async function latticeUndoAfterReload(before, after) {
 	const k = undoProbeKit(result);
 	try {
 		await k.ready();
+		await k.focusEnd();
 		await k.until(() => k.deckText() === after, 30000, 'the deck as it was before the reload');
 		k.step('the reload kept the deck', true);
 		// The history loads from IndexedDB a moment after the Studio paints; until then an undo has nothing to take
