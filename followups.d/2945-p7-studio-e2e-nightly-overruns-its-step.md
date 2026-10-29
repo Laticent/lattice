@@ -12,7 +12,15 @@ source: https://github.com/Laticent/lattice/actions/runs/40674917008
 # The Studio E2E nightly times out a quarter of the way through its suite, every night since 2026-09-22
 
 status    — built 2026-10-29 (owner's pick D1, eight legs at the 45-minute step after the four the
-            card first offered measured about 46 minutes each). Open until a full run finishes.
+            card first offered measured about 46 minutes each). FIRST FULL RUN: dispatched on #2973's
+            branch, run 40841405144 at c02d2d6. Every leg finished its run step inside the cap
+            (13.4-29.3 minutes, 272-273 tests each), and `e2e-report` joined them: 2,073 passed and
+            the suite reached its end for the first time since 2026-09-22. What is left is not the
+            time budget but the 48 failing tests the old nightly never reached, in 26
+            specs: studio-raster-export-marker.spec.ts (6), journeys/author-export.spec.ts (4), studio-read-article-charts.spec.ts (4), compose-stress.spec.ts (3), mermaid-cache-bindings.spec.ts (3), playground-kpi-pill.spec.ts (3), print-preview-documents.spec.ts (3), visual.spec.ts (3), studio-warm-offline.spec.ts (2), anima-motion-frames.spec.ts (1), blank-slide-editors.spec.ts (1), command-palette.spec.ts (1), journeys/chart-export.spec.ts (1), marp-bundle-panes.spec.ts (1), mermaid-unavailable-export.spec.ts (1), preview-remote-subresource.spec.ts (1), scenarios/exec-board-update.spec.ts (1), scenarios/power-user-fabricate.spec.ts (1), venue-fixed-size.spec.ts (1), workspace-backup-size.spec.ts (1), preview-nav.spec.ts (1), ios-zoom.spec.ts (1), chart-popup-dismiss.spec.ts (1), demo-mobile.spec.ts (1), library-header-search.spec.ts (1), library-images.spec.ts (1). The four nearest #2973's diff (mermaid-cache-bindings,
+            preview-remote-subresource, studio-read-article-charts, mermaid-unavailable-export) fail
+            identically on origin/main. Close this item once a SCHEDULED run on main finishes; the
+            failing specs belong to #2035 and are triaged there one by one.
 why now   — The run step's `timeout-minutes: 45` stops 2,118 tests on two workers at about test
             509 (run 40674917008, 2026-10-28). The last green scheduled run is 35587408748
             (2026-09-21); the test count grew from 1,395 (10-19) to 2,118 (10-28). It is not the
