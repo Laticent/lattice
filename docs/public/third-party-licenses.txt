@@ -17,7 +17,8 @@ Tabler Icons
 ------------
 The icons plugin's drawings (`^{name}`) and the six status marks every check
 draws (the `--mark-*` masks in the engine stylesheet) are drawn from Tabler
-Icons. Lattice fits the marks into its disc and does not otherwise change them.
+Icons. Lattice resizes and repositions each mark to fit its disc and draws it
+at its own stroke weight; the shapes are Tabler's.
 
   Package : @tabler/icons
   License : MIT  (https://github.com/tabler/tabler-icons/blob/main/LICENSE)

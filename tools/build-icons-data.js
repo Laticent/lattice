@@ -220,6 +220,9 @@ function bakePath(d, scale, at, from, where) {
     if (C === 'V') { const y = rel ? cy + num() : num(); out.push(`L${n3(X(cx))} ${n3(Y(y))}`); cy = y; continue; }
     if (C === 'A') {
       const rx = num(); const ry = num(); const rot = num(); const large = num(); const sweep = num();
+      // SVG lets an arc pack its flags (`a1 1 0 011 1`), which this tokenizer reads as one number and would shift
+      // every slot after it. Refuse it loudly rather than draw a wrong mark; Tabler's sources do not pack them.
+      if ((large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) fail(`${where}: path "${d}" packs its arc flags; write them apart`);
       const [x, y] = pt(num(), num());
       out.push(`A${n3(rx * scale)} ${n3(ry * scale)} ${n3(rot)} ${large} ${sweep} ${n3(X(x))} ${n3(Y(y))}`);
       cx = x; cy = y; continue;
@@ -289,7 +292,7 @@ function dotWidth(nodes, e) {
 function spliceBetween(file, text, begin, end, body) {
   const a = text.indexOf(begin);
   const b = text.indexOf(end);
-  if (a < 0 || b < a || text.indexOf(begin, a + 1) >= 0) fail(`${path.relative(ROOT, file)}: the ${begin.trim()} … ${end.trim()} markers are missing, out of order or doubled`);
+  if (a < 0 || b < a || text.indexOf(begin, a + 1) >= 0 || text.indexOf(end, b + 1) >= 0) fail(`${path.relative(ROOT, file)}: the ${begin.trim()} … ${end.trim()} markers are missing, out of order or doubled`);
   return text.slice(0, a) + body + text.slice(b + end.length);
 }
 
