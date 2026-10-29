@@ -1,7 +1,8 @@
 /**
  * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
- * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
- * Safari's own (PROBE=jpeg).
+ * photo-probe.js in the real Studio (PROBE=studio, the default), jpeg-probe.js, the shared JPEG encoder against
+ * Safari's own (PROBE=jpeg), or undo-probe.js, the Filo undo checks across a reload (PROBE=undo). SIM_UDID=mac drives
+ * the Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
@@ -47,9 +48,10 @@ async function wd(method, url, body) {
 	return json.value;
 }
 
+const MAC = UDID === 'mac';
 const session = await wd('POST', '/session', {
 	capabilities: {
-		alwaysMatch: { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
+		alwaysMatch: MAC ? { browserName: 'Safari', platformName: 'mac' } : { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
 	},
 });
 const id = session.sessionId;
@@ -57,10 +59,11 @@ const caps = session.capabilities || {};
 let ok = false;
 try {
 	const platform = String(caps.platformName || '').toLowerCase();
-	if (platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
+	if (!MAC && platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
+	if (MAC && platform !== 'mac') throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -103,6 +106,45 @@ async function runStudioProbe(id) {
 		width: photo.width ?? preview.width,
 		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
 	};
+}
+
+/**
+ * The undo probe (undo-probe.js): the edit half in a fresh Studio, a real reload through WebDriver, then the after-reload
+ * half. On the Mac it then presses a real ⌘Z (a WebDriver key action, which Safari delivers as a keydown) if the text is
+ * still unchanged, since a Mac's keyboard needs no on-screen button.
+ */
+async function runUndoProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8');
+	const run = (call) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${source}\nconst done = arguments[arguments.length - 1];\n${call}.then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			args: [],
+		});
+	const first = await studioPage(id, 'undo-probe.js', 'latticeUndoProbe');
+	if (!first.ok) return first;
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await run(`latticeUndoAfterReload(${JSON.stringify(first.before)}, ${JSON.stringify(first.after)})`);
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	let ok = !!second.ok;
+	let error = second.error;
+	if (MAC) {
+		const text = () => wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn undoProbeKit({ steps: [] }).deckText();`, args: [] });
+		const t0 = Date.now();
+		while ((await text()) === first.after && Date.now() - t0 < 20000) {
+			await wd('POST', `/session/${id}/actions`, {
+				actions: [{ type: 'key', id: 'kb', actions: [{ type: 'keyDown', value: '\uE03D' }, { type: 'keyDown', value: 'z' }, { type: 'keyUp', value: 'z' }, { type: 'keyUp', value: '\uE03D' }] }],
+			});
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+		const now = await text();
+		const pass = now === first.before;
+		steps.push({ name: 'after reload · a real ⌘Z key undid the edit made before the reload', pass, detail: pass ? '' : JSON.stringify(String(now).slice(-40)) });
+		if (!pass) {
+			ok = false;
+			error = [error, 'the ⌘Z key did not undo after the reload'].filter(Boolean).join('; ');
+		}
+	}
+	return { ok, error, ua: second.ua ?? first.ua, width: first.width, steps };
 }
 
 async function runJpegProbe(id) {

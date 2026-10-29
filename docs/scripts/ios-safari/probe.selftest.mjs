@@ -5,6 +5,7 @@
  * in Mobile Safari, where Playwright cannot go.
  *
  *   node scripts/ios-safari/probe.selftest.mjs
+ *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,6 +29,32 @@ const shapes = [
 ];
 let failed = 0;
 const browser = await webkit.launch();
+const UNDO = fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8');
+const report = (label, file, result) => {
+	console.log(`${label} ${file}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px`);
+	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
+	if (!result.ok) failed++;
+};
+if (process.env.PROBE === 'undo') {
+	// The undo probe, as run.mjs runs it: the edit half, a real reload, then the after-reload half.
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: UNDO });
+		const first = await page.evaluate(() => globalThis.latticeUndoProbe());
+		report(label, 'undo-probe.js', first);
+		if (first.ok) {
+			await page.reload({ waitUntil: 'domcontentloaded' });
+			await page.addScriptTag({ content: UNDO });
+			report(label, 'undo-probe.js after reload', await page.evaluate(([b, a]) => globalThis.latticeUndoAfterReload(b, a), [first.before, first.after]));
+		}
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 for (const { label, options } of shapes) {
 	for (const probe of PROBES) {
 		const context = await browser.newContext(options);
