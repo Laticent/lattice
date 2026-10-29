@@ -78,12 +78,20 @@ async function latticePhotoProbe() {
 	const openSource = async () => {
 		// Where the Coach is a sheet OVER the editor (a phone, or iPad Safari's desktop-site width), close it with its back
 		// button, as a person would, or every tap below lands on an editor nobody can see.
-		if (coachOpen() && !editorOnTop()) {
+		// Where the sheet has no back button (iPad Safari's width), press its own close button, as a person does. A synthetic
+		// Escape was the only way here once, and in the iPad simulator one in a run was sometimes never honored (#2961); it is
+		// kept as the last resort, and each way gets a few seconds before the next is tried.
+		const closed = () => !coachOpen() || editorOnTop();
+		for (let i = 0; i < 3 && !closed(); i++) {
 			const back = byText(/^Deck$/);
+			const x = [...document.querySelectorAll('[role="dialog"] button[aria-label="Close"]')].find(visible);
 			if (back) back.click();
+			else if (x && i < 2) x.click();
 			else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-			await until(() => !coachOpen() || editorOnTop(), 5000, 'the Coach sheet to close');
+			const t0 = Date.now();
+			while (!closed() && Date.now() - t0 < 4000) await sleep(100);
 		}
+		await until(closed, 1000, 'the Coach sheet to close');
 		if (!narrow) return;
 		(await until(() => byLabel('Markdown source'), 15000, 'the Markdown source button')).click();
 		await until(() => visible(document.querySelector('[aria-label="Deck source"]')), 15000, 'the editor');
