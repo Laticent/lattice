@@ -143,17 +143,33 @@ async function latticeUndoProbe() {
 	const k = undoProbeKit(result);
 	try {
 		await k.ready();
-		const el = await k.focusEnd();
-		if (el instanceof HTMLTextAreaElement) el.select();
-		else document.execCommand('selectAll');
-		document.execCommand('insertText', false, UNDO_DECK);
-		// The paste must land; macOS Safari's selectAll can leave the editor's empty first line in place, so compare
-		// trimmed and take what the editor holds as the text every later undo must return to.
-		await k.until(() => k.deckText().trim() === UNDO_DECK.trim(), 30000, 'the deck in the editor').catch((e) => {
-			throw new Error(`${e.message} (the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
-		});
+		// Paste the deck, and paste again every 3 s until it holds: on the Mac the boot deck can land after the first
+		// paste and replace it. macOS Safari's selectAll can also leave the editor's empty first line, so compare trimmed
+		// and take what the editor holds as the text every later undo must return to.
+		let pastes = 0;
+		let last = 0;
+		await k
+			.until(
+				async () => {
+					if (k.deckText().trim() === UNDO_DECK.trim()) return true;
+					if (Date.now() - last > 3000) {
+						last = Date.now();
+						pastes++;
+						const el = await k.focusEnd();
+						if (el instanceof HTMLTextAreaElement) el.select();
+						else document.execCommand('selectAll');
+						document.execCommand('insertText', false, UNDO_DECK);
+					}
+					return false;
+				},
+				30000,
+				'the deck in the editor',
+			)
+			.catch((e) => {
+				throw new Error(`${e.message} (${pastes} pastes; the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
+			});
 		const pasted = k.deckText();
-		k.step('put the deck in the editor', true);
+		k.step('put the deck in the editor', true, pastes > 1 ? `${pastes} pastes` : '');
 		// A new step: past the 500 ms typing window, so the word does not join the paste.
 		await k.sleep(800);
 		await k.type(' ONE');
