@@ -46,6 +46,9 @@ export type RenderMarkdownOpts = {
 	 *  stays. Filled by the same hook as `assetUrls`, and by an export beside its data-URI map. */
 	assetAlts?: Record<string, string>;
 	stats?: boolean;
+	/** `false` for a render nobody will see, such as a scan of the HTML: it does not warm the previews' draw
+	 *  host, so a scan cannot reopen a draw frame the preview closed (a frame whose modules failed to load). */
+	warmDraw?: boolean;
 	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the
 	 *  shown slide ALONE and still print a true page number, instead of re-parsing the
@@ -132,7 +135,7 @@ export async function renderMarkdown(
 	// A deck with a plot or a diagram warms the previews' draw host NOW, before the render and before the preview frame boots, so the
 	// host's code, the library and the frame's start overlap them instead of following the first draw
 	// (docs/src/lib/preview-draw-host-impl.ts; measured: they were 400 ms of a 520 ms first draw).
-	for (const [kind, pattern] of DRAW_WARM_PATTERNS) if (pattern.test(rendered)) warmPreviewDrawHost(kind);
+	if (opts?.warmDraw !== false) for (const [kind, pattern] of DRAW_WARM_PATTERNS) if (pattern.test(rendered)) warmPreviewDrawHost(kind);
 	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});

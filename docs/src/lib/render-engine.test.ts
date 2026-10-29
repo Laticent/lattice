@@ -3,12 +3,14 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
+import { warmPreviewDrawHost } from './preview-draw-host';
 import { renderMarkdown } from './render-engine';
 
 vi.mock('./ensure-katex', () => ({
 	deriveKatexProviderUrl: vi.fn(),
 	ensureKatexProvider: vi.fn(),
 }));
+vi.mock('./preview-draw-host', () => ({ warmPreviewDrawHost: vi.fn() }));
 
 describe('renderMarkdown', () => {
 	beforeEach(() => {
@@ -22,6 +24,19 @@ describe('renderMarkdown', () => {
 		const result = await renderMarkdown(PG, '# hi', 'indaco', { baseUrl: 'https://example.test/samples/' });
 		expect(render).toHaveBeenCalledWith('# hi', 'indaco', { baseUrl: 'https://example.test/samples/' });
 		expect(result).toEqual({ html: '<section></section>', css: 'body{}', width: 1280, height: 720 });
+	});
+
+	// A scan renders HTML nobody sees. Warming would reopen a draw frame the preview closed after its modules
+	// failed (draw-frame-preview.spec.ts), so the Studio's web-images scan passes `warmDraw: false`.
+	it('warms the draw host for a diagram deck, unless the caller says the render is a scan', async () => {
+		const PG = { render: vi.fn().mockReturnValue({ html: '', css: '' }), addThemes: vi.fn(), hasTheme: vi.fn() };
+		const deck = '# x\n\n```mermaid\nflowchart LR\n  A --> B\n```\n';
+		vi.mocked(warmPreviewDrawHost).mockClear();
+		await renderMarkdown(PG, deck, 'indaco');
+		expect(warmPreviewDrawHost).toHaveBeenCalledWith('mermaid');
+		vi.mocked(warmPreviewDrawHost).mockClear();
+		await renderMarkdown(PG, deck, 'indaco', { warmDraw: false });
+		expect(warmPreviewDrawHost).not.toHaveBeenCalled();
 	});
 
 	it('works with opts omitted', async () => {
