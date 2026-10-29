@@ -530,6 +530,12 @@ section.image[data-img-composition="statement"] .image-text p {
   max-width: 40ch;
   text-shadow: var(--_card-shadow, 0 0.12cqi 0 rgba(0, 0, 0, 0.5));
 }
+/* A list row sits on the same scrim as the paragraph, so it takes the same ink;
+ * left to inherit, it keeps the theme's ink, which is dark in a light deck. */
+section.image[data-img-composition="statement"] .image-text li {
+  color: var(--_card-body-ink, rgba(255, 255, 255, 0.9));
+  text-shadow: var(--_card-shadow, 0 0.12cqi 0 rgba(0, 0, 0, 0.5));
+}
 section.image[data-img-composition="statement"] .image-text h2 + p { padding-top: var(--sp-sm); }
 
 /* Portrait: text sits in the lower third, full width. */
