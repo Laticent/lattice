@@ -29,9 +29,26 @@ type Pair = { host: Page; guest: Page; relayed: () => number };
 // Each test's two contexts, closed after it: a live Studio left running would keep its peer
 // connection and its relay routes alive and load every later test in the worker.
 const open: BrowserContext[] = [];
+const launched: Browser[] = [];
 test.afterEach(async () => {
 	await Promise.all(open.splice(0).map((c) => c.close()));
+	await Promise.all(launched.splice(0).map((b) => b.close()));
 });
+
+/**
+ * The browser the session runs in. Firefox hides a peer's local addresses behind mDNS names by
+ * default, and a CI runner cannot resolve them, so two Firefox contexts on one machine never
+ * connect there (the GitHub-runner probe of this spec failed in Gecko only, at the guest's lobby,
+ * 2026-10-29). Its own browser with the obfuscation off gets the plain host candidates Chromium
+ * and WebKit already use here. The WebRTC path stays real; only how a candidate is named changes.
+ */
+async function sessionBrowser(browser: Browser): Promise<Browser> {
+	const type = browser.browserType();
+	if (type.name() !== 'firefox') return browser;
+	const b = await type.launch({ firefoxUserPrefs: { 'media.peerconnection.ice.obfuscate_host_addresses': false } });
+	launched.push(b);
+	return b;
+}
 
 /** Two browsers in one live session: the host starts it with DECK, the guest knocks, the host admits. */
 async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
@@ -91,7 +108,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 	test.describe.configure({ timeout: 180_000 });
 
 	test('a settings write is undone by the person who made it, past a newer edit of the other person', async ({ browser }, info) => {
-		const pair = await liveSession(browser, info);
+		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;
 		expect(pair.relayed(), 'witness: the session signaled through the local relay').toBeGreaterThan(0);
 
@@ -124,7 +141,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 	});
 
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
-		const pair = await liveSession(browser, info);
+		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;
 		await openCompose(host);
 		await openCompose(guest);
