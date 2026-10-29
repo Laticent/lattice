@@ -254,7 +254,7 @@ AGPL above.
 | Component | Files | License |
 |---|---|---|
 | Mermaid | \`mermaid-v11-min.js\` | MIT — Copyright (c) 2014-2022 Knut Sveidqvist |
-| Tabler Icons | \`lattice-plugin-icons.js\` (all but \`stream\` and \`gateway\`) | MIT — Copyright (c) 2020-2026 Paweł Kuna |
+| Tabler Icons | \`lattice-plugin-icons.js\` (all but \`stream\` and \`gateway\`), and the six status marks (\`--mark-*\`) in \`lattice-min.css\` and \`lattice.css\` | MIT — Copyright (c) 2020-2026 Paweł Kuna |
 | KaTeX fonts | \`fonts/KaTeX_*.woff2\` | MIT — Copyright (c) 2013-2020 Khan Academy and contributors |
 | Outfit | \`fonts/outfit-*.woff2\` | SIL Open Font License 1.1 |
 | Playfair Display | \`fonts/playfair-*.woff2\` | SIL Open Font License 1.1 |

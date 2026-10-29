@@ -31,16 +31,36 @@ test('the generated block defines every mark token the stylesheets read, and onl
   assert.deepEqual([...outside.matchAll(/^\s+(--mark-[a-z-]+):\s*url/gm)].map((m) => m[1]), []);
 });
 
-test('each mark is a colorless, #-free mask drawing its Tabler icon', () => {
+// The fit is baked into the path's coordinates, so the path text is not Tabler's; its SHAPE is: the same commands in
+// the same order (relative ones made absolute, h and v made lines). A hand-drawn path would not match.
+const commands = (d) => (d.match(/[a-zA-Z]/g) || []).map((c) => c.toUpperCase()).map((c) => (c === 'H' || c === 'V' ? 'L' : c)).join('');
+const value = (name) => new RegExp(`^\\s+${name}: (url\\("[^"]*"\\));`, 'm').exec(block)?.[1];
+const pathOf = (url) => /<path d='([^']*)'/.exec(url)?.[1];
+
+test('each mark is one bare, colorless, #-free path drawn in its Tabler icon\'s commands', () => {
   for (const e of marks) {
     const nodes = tabler(e.set || 'outline')[e.tabler];
     assert.ok(nodes, `${e.mark}: Tabler has no ${e.set || 'outline'} "${e.tabler}"`);
     for (const name of [e.boldOnly ? null : `--mark-${e.mark}`, `--mark-${e.mark}-bold`].filter(Boolean)) {
-      const value = new RegExp(`^\\s+${name}: (url\\("[^"]*"\\));`, 'm').exec(block)?.[1];
-      assert.ok(value, `${name} is not generated`);
-      assert.doesNotMatch(value, /#/, `${name} carries a #`);
-      assert.doesNotMatch(value, /(fill|stroke)='(?!black|none)/, `${name} carries a color`);
-      for (const [, attrs] of nodes) assert.ok(value.includes(`d='${attrs.d}'`), `${name} does not draw Tabler's ${e.tabler}`);
+      const url = value(name);
+      assert.ok(url, `${name} is not generated`);
+      assert.doesNotMatch(url, /#/, `${name} carries a #`);
+      assert.doesNotMatch(url, /(fill|stroke)='(?!black|none)/, `${name} carries a color`);
+      // The PPTX/ODP exporter lifts a mask as a native shape only when it is <svg> + <path> children and nothing else
+      // (docs/src/lib/calco/reader.ts markOf); a <g transform> wrapper sent every mark to a raster picture.
+      assert.equal((url.match(/<[a-z]+/g) || []).join(','), '<svg,<path', `${name} is not a bare <svg><path/>`);
+      assert.equal(commands(pathOf(url)), commands(nodes.map(([, a]) => a.d).join('')), `${name} is not Tabler's ${e.tabler}`);
     }
+  }
+});
+
+test('the SVG charts draw exactly the bold tokens\' paths', () => {
+  // lib/core/status-marks.js says an SVG chart draws what an HTML chart masks; the generator writes both, this holds it.
+  const { MARK_PATH } = require('../../../lib/core/status-marks.js');
+  for (const [mark, { d, w }] of Object.entries(MARK_PATH)) {
+    const url = value(`--mark-${mark}-bold`);
+    if (mark === 'dot') { assert.equal(d, 'M12 12h.01'); assert.equal(w, 7); continue; }
+    assert.equal(d, pathOf(url), `${mark}: the chart path is not the token's`);
+    assert.ok(url.includes(`stroke-width='${w}'`), `${mark}: the chart weight ${w} is not the token's`);
   }
 });
