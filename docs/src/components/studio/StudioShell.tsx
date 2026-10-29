@@ -7036,11 +7036,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
 	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
 	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
-	// The tablet pair shows by CSS (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
-	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off; no media hook rides the eager
-	// bundle. It renders only on a screen that was touch-first when the Studio opened, so a desktop's accessibility
-	// tree (and jsdom, which has no CSS) holds no hidden second Undo.
-	const touchFirst = React.useMemo(() => !!globalThis.matchMedia?.('(hover:none) and (pointer:coarse)').matches, []);
+	// The tablet pair shows by CSS alone (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
+	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off and no media hook rides the eager
+	// bundle. Elsewhere it is display:none, which keeps it out of the accessibility tree as well.
 	const historyButtons = (className: string) => (
 		<>
 			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
@@ -7657,7 +7655,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
-				{!mobile && touchFirst && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
+				{!mobile && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width

@@ -873,6 +873,18 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
+	// The toast's Undo, not the top bar's touch-first pair: jsdom applies no CSS, so that `hidden` pair is in its tree.
+	const toastUndo = () => {
+		const b = screen.queryAllByRole('button', { name: 'Undo' }).find((e) => !e.className.includes('pointer:coarse'));
+		return b ?? undefined;
+	};
+	const findToastUndo = () =>
+		waitFor(() => {
+			const b = toastUndo();
+			if (!b) throw new Error('no Undo toast yet');
+			return b;
+		});
+
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
@@ -881,14 +893,14 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(sw);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
 		// The change surfaces a one-click Undo, labeled by what changed.
-		const undo = await screen.findByRole('button', { name: 'Undo' });
+		const undo = await findToastUndo();
 		expect(screen.getByText('Page numbers off')).toBeInTheDocument();
 		// One click reverts the source to before the change and dismisses the toast.
 		await user.click(undo);
 		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));
 		// Sonner dismisses the toast through an exit animation, so the button leaves the
 		// DOM a beat after the click (the hand-rolled pill removed it synchronously).
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		await waitFor(() => expect(toastUndo()).toBeUndefined());
 	});
 
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
@@ -896,13 +908,13 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
-		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
+		expect(await findToastUndo()).toBeInTheDocument();
 		// Edit the source AFTER the settings change — the pending Undo must bow out so it
 		// can never revert (clobber) this edit. A whole-document restore would lose it.
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- keep-me-marker -->\n\n');
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		await waitFor(() => expect(toastUndo()).toBeUndefined());
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/keep-me-marker/);
 	});
 
