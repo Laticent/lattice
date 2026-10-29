@@ -4,7 +4,7 @@
 // and the source changed behind the Studio's back. Runs in all three engines.
 import type { Page } from '@playwright/test';
 import { savedDeck } from './compose-insert';
-import { expect, gotoStudio, setEditorContent, test, toastText, waitForStudioPaint } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test, waitForStudioPaint } from './studio-fixture';
 
 const DECK = ['# Reload deck', '', 'First slide.', '', '---', '', '# Second', '', 'Second slide.', ''].join('\n');
 
@@ -41,22 +41,34 @@ async function chord(page: Page): Promise<void> {
 	await page.keyboard.press(mac ? 'Meta+z' : 'Control+z');
 }
 
+/** The latest history announcement (`Announce`), raw: each one toggles a zero-width tail, so the
+ *  same words twice still read as a new value. '' before the first. */
+const lastSaid = (page: Page) =>
+	page.evaluate(() => [...document.querySelectorAll('span[role="status"][aria-live="polite"]')].map((e) => e.textContent ?? '').find((t) => /^(Undid|Redid|Nothing|Changed outside)/.test(t)) ?? '');
+
 /**
- * ⌘Z with focus on the page body, once the stored history is in place. The history loads from
- * IndexedDB after the Studio paints; until then an undo finds nothing and changes nothing (an empty
- * history is replaced only while untouched), so a "Nothing to undo" is retried, briefly.
+ * Press ⌘Z (focus on the page body) until `landed` holds. The history loads from IndexedDB after
+ * the Studio paints; until then an undo finds nothing, says so, and changes nothing (an empty
+ * history is replaced only while untouched), so the press is repeated. NEVER blindly: each press
+ * is followed by a wait for its own outcome, either `landed` or a new announcement, before the
+ * next. A retry fired before the previous press resolved would undo one step too many on a busy
+ * machine, which is how the first version of this helper failed once in ~140 runs.
  */
-async function undoAfterReload(page: Page): Promise<void> {
+async function pressUntil(page: Page, landed: () => Promise<boolean>, what: string): Promise<void> {
 	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-	await expect
-		.poll(
-			async () => {
-				await chord(page);
-				return (await announced(page).first().textContent({ timeout: 5_000 }).catch(() => '')) ?? '';
-			},
-			{ message: 'the stored history never arrived: every undo after the reload found nothing', intervals: [250], timeout: 15_000 },
-		)
-		.toMatch(/^(Undid|Redid)/);
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const said = await lastSaid(page);
+		await chord(page);
+		await expect.poll(async () => (await landed()) || (await lastSaid(page)) !== said, { message: `this ⌘Z neither ${what} nor said anything`, timeout: 15_000 }).toBe(true);
+		if (await landed()) return;
+	}
+	throw new Error(`the stored history never arrived: no ⌘Z ${what} within 30 s`);
+}
+
+/** ⌘Z after a reload, until it undoes something: the text on screen moves off `shown`. */
+async function undoAfterReload(page: Page, shown: string): Promise<void> {
+	await pressUntil(page, async () => (await editorDoc(page)) !== shown, 'changed the deck');
 }
 
 /** Load DECK, wait until the history holds it, then type `mark` at the end of slide 1's body. */
@@ -67,7 +79,9 @@ async function editAndStore(page: Page, mark: string): Promise<string> {
 	// A new step after the load-in: typing joins a step only next to where the last edit ended.
 	await page.locator('.cm-line').filter({ hasText: 'First slide.' }).first().click();
 	await page.keyboard.press('End');
-	await page.keyboard.type(mark);
+	// One insert, one step: typed key by key, a loaded machine's gaps past the 500 ms grouping
+	// window would split the word into several steps, and one ⌘Z would take back only the last.
+	await page.keyboard.insertText(mark);
 	const after = await editorDoc(page);
 	expect(after, 'witness: the edit landed').toContain(mark);
 	await expect.poll(() => savedDeck(page), { message: 'the Studio never saved the source' }).toBe(after);
@@ -88,7 +102,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: undo surviv
 		const after = await editAndStore(page, ' MARK');
 		await reload(page);
 		await expect.poll(() => editorDoc(page)).toBe(after);
-		await undoAfterReload(page);
+		await undoAfterReload(page, after);
 		await expect.poll(() => editorDoc(page)).toBe(DECK);
 		await expect(announced(page)).toHaveText(/^Undid: Typing/);
 	});
@@ -108,14 +122,14 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: undo surviv
 				return put.apply(this, a);
 			};
 		});
-		await page.keyboard.type(' TWO');
+		await page.keyboard.insertText(' TWO');
 		const second = await editorDoc(page);
 		await expect.poll(() => savedDeck(page)).toBe(second);
 		await expect.poll(() => page.evaluate(() => (window as unknown as { __filoRefused: number }).__filoRefused), { message: 'witness: Filo tried to store the second edit', timeout: 15_000 }).toBeGreaterThan(0);
 		expect(await storedTexts(page), 'witness: the store still holds the first edit only').toContain(first);
 		await reload(page);
 		await expect.poll(() => editorDoc(page)).toBe(second);
-		await undoAfterReload(page);
+		await undoAfterReload(page, second);
 		await expect.poll(() => editorDoc(page)).toBe(first);
 		await expect(announced(page)).toHaveText(/^Undid: Unsaved changes/);
 		await chord(page);
@@ -138,16 +152,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: undo surviv
 		await expect.poll(() => editorDoc(page)).toBe(outside);
 		// The first ⌘Z records the outside change as a step and stops: the text stays.
 		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-		await expect
-			.poll(
-				async () => {
-					await chord(page);
-					return page.getByText('Changed outside this history').first().isVisible();
-				},
-				{ message: 'the first ⌘Z never recorded the outside change', intervals: [250], timeout: 15_000 },
-			)
-			.toBe(true);
-		await expect(page.getByText(/Changed outside this history/).first()).toBeVisible();
+		await pressUntil(page, async () => (await lastSaid(page)).startsWith('Changed outside'), 'recorded the outside change');
 		expect(await editorDoc(page), 'the gap step changes nothing on screen').toBe(outside);
 		await chord(page);
 		await expect.poll(() => editorDoc(page), { message: 'the second ⌘Z did not undo the outside change' }).toBe(after);
@@ -159,9 +164,27 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: undo surviv
 	// chain, so the second tab's history stays in memory and the tab says so. A real Web Lock.
 	test('a second tab on the same deck keeps its undo in memory, and says so', async ({ page, context }) => {
 		await gotoStudio(page);
+		// The first tab claims the deck's lock once its storage module loads, a moment after it paints.
+		// Wait for the claim, or a loaded machine lets the second tab claim first and the notice lands
+		// in the first.
+		await expect
+			.poll(() => page.evaluate(async () => ((await navigator.locks.query()).held ?? []).some((l) => l.name?.startsWith('filo:'))), { message: 'the first tab never claimed the deck', timeout: 20_000 })
+			.toBe(true);
 		const second = await context.newPage();
+		// Sample the status pill from before the boot, every 100 ms: the notice is raised while the tab
+		// is still loading (it dwells 8 s), and a loaded machine can be slow to reach an assertion.
+		await second.addInitScript(() => {
+			const seen: string[] = [];
+			(window as unknown as { __toasts: string[] }).__toasts = seen;
+			setInterval(() => {
+				const t = document.querySelector('[data-sonner-toaster]')?.textContent;
+				if (t && !seen.includes(t)) seen.push(t);
+			}, 100);
+		});
 		await gotoStudio(second);
-		await expect(toastText(second)).toContainText('open in another tab', { timeout: 15_000 });
+		await expect
+			.poll(() => second.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts.some((t) => t.includes('open in another tab'))), { message: 'the second tab never said its undo stays in memory', timeout: 20_000 })
+			.toBe(true);
 		await expect(page.getByText('open in another tab'), 'the first tab holds the deck and says nothing').toHaveCount(0);
 	});
 });

@@ -759,6 +759,16 @@ it differs from the plan above, and why:
 Evidence. `docs/e2e/filo-reload.spec.ts` runs the three tests of §5 and the two-tab rule in Chromium,
 Firefox and WebKit (24 of 24 over two repeats). Two mutations fail it: never adopting the stored
 history fails all three reload tests, and ignoring the sidecar fails the killed-page test.
+Under load (four workers, ten repeats, three engines) the first cut of the spec failed 28 of 120
+runs, and every failure was the test's: a retry of ⌘Z fired before the previous press had resolved
+and undid one step too many; ` MARK` typed key by key split into several steps whenever a loaded
+Firefox paused past the 500 ms grouping window (Filo grouping correctly); the second tab could
+claim the lock before the first tab's storage module loaded; and the second-tab notice closed
+before a slow assertion looked. The spec now waits for each press to resolve, inserts each edit as
+one step, waits for the first tab's claim, and samples the status pill from before the boot; the
+notice itself now dwells 8 s, since it arrives while the tab is still loading. After the fixes:
+120 of 120 under the same load, and `filo-live.spec.ts` 30 of 30. The one unexplained failure the
+first pre-merge card reported is the first of these (the double ⌘Z).
 `npm run bench` has a Filo tier, blessed in `test/benchmark/baseline.json` (`filoDatasets`):
 
 The 100-step rows commit 100 steps; the 2 MB byte cap keeps 90 of them, which is the `steps: 90`

@@ -510,7 +510,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const filoPersist = React.useMemo((): FiloPersistence => {
 		let ready: FiloPersistence | null = null;
 		const loading = import('./studio-filo-persist').then((m) => {
-			ready = m.createFiloPersistence({ store: m.filoStore(), sidecar: loadSourceSum, narrow: m.narrowInWorker, verify: m.verifyInWorker, notify });
+			// Its one notice (the second-tab one) dwells 8 s, not the 2.6 s default: it arrives while
+			// the tab is still loading, when an author is not yet looking at the status pill.
+			ready = m.createFiloPersistence({ store: m.filoStore(), sidecar: loadSourceSum, narrow: m.narrowInWorker, verify: m.verifyInWorker, notify: (msg) => notify(msg, { duration: 8000 }) });
 			return ready;
 		});
 		return {
