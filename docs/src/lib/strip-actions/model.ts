@@ -60,3 +60,34 @@ export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 		{ id: 'delete', label: s.armed ? `Confirm delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
 	];
 }
+
+export type StripShortcut = StripActionId | 'new-after';
+
+/** The action a key press means while a strip slide holds keyboard focus (§5's table), or null. ⌥← is not used: a lost
+ *  focus would make Alt+← the browser's Back on Windows. Backspace and Delete both delete, with no modifier. */
+export function stripShortcut(e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>, mac: boolean): StripShortcut | null {
+	if (e.altKey) return null;
+	const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+	if (!mod) return !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'Backspace' || e.key === 'Delete') ? 'delete' : null;
+	if (e.key === 'Enter') return e.shiftKey ? 'new-before' : 'new-after';
+	if (e.shiftKey && e.key === 'ArrowLeft') return 'move-earlier';
+	if (e.shiftKey && e.key === 'ArrowRight') return 'move-later';
+	if (!e.shiftKey && e.key.toLowerCase() === 'd') return 'duplicate';
+	return null;
+}
+
+/** Every shortcut the strip answers to, for the "?" list: the menu's actions plus moving between slides. Each row's
+ *  `keys` are alternatives (either one does it). */
+export function stripShortcutRows(mac: boolean): { keys: string[]; does: string }[] {
+	return [
+		{ keys: mac ? ['←', '→'] : ['Left', 'Right'], does: 'Previous or next slide' },
+		{ keys: ['Home', 'End'], does: 'First or last slide' },
+		{ keys: [keysFor('new-after', mac)], does: 'New slide after' },
+		{ keys: [keysFor('new-before', mac)], does: 'New slide before' },
+		{ keys: [keysFor('duplicate', mac)], does: 'Duplicate' },
+		{ keys: [keysFor('move-earlier', mac), keysFor('move-later', mac)], does: 'Move earlier or later' },
+		{ keys: mac ? ['⌫', 'Delete'] : ['Delete', 'Backspace'], does: 'Delete' },
+		{ keys: [mac ? '⌘Z' : 'Ctrl+Z'], does: 'Undo' },
+		{ keys: ['Shift+F10'], does: 'Open the slide menu' },
+	];
+}

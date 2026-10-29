@@ -38,3 +38,32 @@ describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 		for (const i of menuItems({ count: 3, at: 1 }, false)) expect(i.keys).toBe(keysFor(i.id, false));
 	});
 });
+
+describe('the strip’s shortcuts (§5)', async () => {
+	const { stripShortcut } = await import('./model');
+	const k = (key: string, o: Partial<KeyboardEvent> = {}) => ({ key, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...o });
+
+	it('maps §5’s table on a Mac', () => {
+		expect(stripShortcut(k('Enter', { metaKey: true }), true)).toBe('new-after');
+		expect(stripShortcut(k('Enter', { metaKey: true, shiftKey: true }), true)).toBe('new-before');
+		expect(stripShortcut(k('d', { metaKey: true }), true)).toBe('duplicate');
+		expect(stripShortcut(k('ArrowLeft', { metaKey: true, shiftKey: true }), true)).toBe('move-earlier');
+		expect(stripShortcut(k('ArrowRight', { metaKey: true, shiftKey: true }), true)).toBe('move-later');
+		expect(stripShortcut(k('Backspace'), true)).toBe('delete');
+		expect(stripShortcut(k('Delete'), true)).toBe('delete');
+	});
+
+	it('uses Ctrl elsewhere, and never a chord of the other platform', () => {
+		expect(stripShortcut(k('d', { ctrlKey: true }), false)).toBe('duplicate');
+		expect(stripShortcut(k('d', { metaKey: true }), false)).toBeNull();
+		expect(stripShortcut(k('d', { ctrlKey: true }), true)).toBeNull();
+	});
+
+	it('leaves alone what it does not own: plain arrows, Alt chords, a modified Backspace, ⌘Z', () => {
+		expect(stripShortcut(k('ArrowRight'), true)).toBeNull();
+		expect(stripShortcut(k('ArrowLeft', { altKey: true, metaKey: true, shiftKey: true }), true)).toBeNull();
+		expect(stripShortcut(k('Backspace', { metaKey: true }), true)).toBeNull();
+		expect(stripShortcut(k('Backspace', { shiftKey: true }), true)).toBeNull();
+		expect(stripShortcut(k('z', { metaKey: true }), true)).toBeNull();
+	});
+});

@@ -323,6 +323,24 @@ export function moveAt(source: string, s: SlideAt, dir: -1 | 1): DeckOpResult {
 	return moveSlide(c.source, c.unit(s), c.unit(n));
 }
 
+/** Where rendered slide `s` sits among the deck's rendered slides, 0-based; -1 for a slide the deck does not have. */
+export function flatOfSlide(source: string, s: SlideAt): number {
+	const units = buildDeckIndex(source).units;
+	if (!units[s.unit] || s.part < 0 || s.part >= units[s.unit].parts.length) return -1;
+	return units.slice(0, s.unit).reduce((n, u) => n + u.parts.length, 0) + s.part;
+}
+
+/** The rendered slide at flat position `f`, 0-based across blocks; null past either end. */
+export function slideAtFlat(source: string, f: number): SlideAt | null {
+	if (!Number.isInteger(f) || f < 0) return null;
+	let n = f;
+	for (const [unit, u] of buildDeckIndex(source).units.entries()) {
+		if (n < u.parts.length) return { unit, part: n };
+		n -= u.parts.length;
+	}
+	return null;
+}
+
 /**
  * What a delete of one block takes, in words a confirm can show (2026-10-27-slide-structure-strip.md §12
  * item 2): its title, and how many rendered slides go with it. A block whose headings split it renders as

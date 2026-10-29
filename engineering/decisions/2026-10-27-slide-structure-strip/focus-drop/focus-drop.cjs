@@ -4,7 +4,7 @@ const SHOT = require('node:os').tmpdir(); // screenshots stay out of the evidenc
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
   await p.addInitScript(() => { try { localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' })); } catch {} });
-  await p.goto('http://localhost:4399/studio/', { waitUntil: 'domcontentloaded' });
+  await p.goto('http://localhost:4321/studio/', { waitUntil: 'domcontentloaded' });
   await p.locator('.cm-content').first().waitFor({ timeout: 90000 });
   // A 60-slide deck, so the strip must window its tiles.
   const deck = '---\ntheme: indaco\n---\n\n' + Array.from({ length: 60 }, (_, i) => `# Slide ${i + 1}\n\nBody ${i + 1}.`).join('\n\n---\n\n') + '\n';
@@ -15,9 +15,10 @@ const SHOT = require('node:os').tmpdir(); // screenshots stay out of the evidenc
   const RAIL = '[data-map-rail]';
   await p.locator(`${RAIL} button[data-unit]`).first().waitFor({ timeout: 60000 });
   // Go to slide 1 and put KEYBOARD focus on its tile.
-  await p.locator(`${RAIL} button[data-unit="0"]`).click();
   await p.waitForTimeout(800);
   await p.locator(`${RAIL} button[aria-current="true"]`).focus();
+  await p.keyboard.press('Home');
+  await p.waitForTimeout(800);
   const before = await p.evaluate(() => { const a = document.activeElement; return { tag: a?.tagName, unit: a?.getAttribute('data-unit'), label: a?.getAttribute('aria-label') }; });
   await p.screenshot({ path: `${SHOT}/1-focused.png` });
   // Scroll the strip far away with the wheel (mixed input), as a pointer user would.

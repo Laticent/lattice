@@ -33,7 +33,8 @@ export type StudioCommandId =
 	| 'slide-duplicate'
 	| 'slide-move-earlier'
 	| 'slide-move-later'
-	| 'slide-delete';
+	| 'slide-delete'
+	| 'shortcuts';
 
 export type StudioCommand = {
 	id: StudioCommandId;

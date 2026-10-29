@@ -255,7 +255,7 @@ that way (it is headed for npm). The pill strip does not use it.
 - **Losing focus.** A focused tile that scrolls out unmounts and the browser drops focus to the page. **Reproduced
   2026-10-27** in Chromium on a 60-slide deck: focus went from slide 1's tile to `BODY` once a wheel scroll unloaded it;
   ArrowRight still stepped the deck, because the shell's page-level arrow navigation handles it, but focus had left the
-  strip, so a strip-scoped shortcut would do nothing (`followups.d/2927-p9-strip-keyboard-model/`). Rendering the current slide always, returning focus to the strip, and drawing drags as a
+  strip, so a strip-scoped shortcut would do nothing (`2026-10-27-slide-structure-strip/focus-drop/`). Rendering the current slide always, returning focus to the strip, and drawing drags as a
   floating copy from the tile's poster (the strip holds the pointer) cover the three cases: an open menu, a shortcut, a
   long drag.
 
@@ -383,7 +383,19 @@ Each is a file in `followups.d/2927-p<n>-…`.
    shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
    `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard.)*
 9. The strip's keyboard model: reproduce today's focus drop first; roving tabindex, current slide always rendered, live
-   region, keyboard-only shortcuts shown in the menu and under "?".
+   region, keyboard-only shortcuts shown in the menu and under "?". *(Built: the pill strip is an `ol` whose current
+   pill is the one tab stop; the arrows, Home and End move the deck's focus without editor focus and keyboard focus
+   follows, and the ⋯ sits beside the pill, outside the roving set. `MapRail` always renders its focused tile, outside
+   Veduta's window, and ignores a modified arrow. The strip's shortcuts (`stripShortcut` in `lib/strip-actions/model.ts`)
+   fire only on focus that arrived by keyboard: `:focus-visible` cannot say so at keydown, since the key press itself
+   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. After
+   an action, focus returns to the strip's new current slide unless the action opened something that takes it (the
+   gallery, the Live confirm). The shell's one `Announce` region says each result ("Duplicated. The copy is slide 3 of
+   5. Undo available.", "Moved to position 4 of 5."), and the strip note is no longer a live region of its own. "?"
+   outside a text field, or "Keyboard shortcuts" in the palette, opens the list (`lib/strip-actions/shortcuts.tsx`).
+   The focus drop's before and after are in `2026-10-27-slide-structure-strip/focus-drop/`. Pinned by `model.test.ts`
+   and `e2e/strip-keyboard.spec.ts` (Chromium). Not verified: VoiceOver and NVDA, which the sandbox cannot run; the
+   announcements are checked as live-region text.)*
 10. Drag to reorder with the final long-press rule, a floating copy, edge auto-scroll, and tiles keyed by slide id;
     measure the redraw cost of an insert near the start before and after.
 11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo.

@@ -270,8 +270,13 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	// first ask of a mount runs before any settle, so it is uncapped; the settle after it carries the cap and,
 	// because that changes what Veduta holds, re-asks at once (the pool clamps the extra meanwhile, so nothing
 	// shows). A capacity that changes later re-asks the same way, so a smaller pool is never left over-asked.
-	// The one tab stop is the focused tile; when a hand scroll has taken it out of the window, the first mounted tile.
-	const tabStop = plan.units.includes(focus) ? focus : (plan.units[0] ?? -1);
+	// THE FOCUSED TILE IS ALWAYS RENDERED, even when a hand scroll has taken it out of Veduta's window (2026-10-27-slide-
+	// structure-strip.md §9). It is the rail's one tab stop, and a focused button that unmounts drops keyboard focus to
+	// the page. Rendered outside the window, not added to it: it costs one sketch (or its poster) at its own offset, and
+	// Veduta's plan, its hysteresis and the live budget are untouched.
+	const pinned = focus >= 0 && focus < count && !plan.units.includes(focus);
+	const units = pinned ? [...plan.units, focus] : plan.units;
+	const tabStop = focus >= 0 && focus < count ? focus : (plan.units[0] ?? -1);
 	const liveMounted = liveOn ? plan.units.filter((i) => plan.tiers.get(i) === 'live').length : 0;
 	const liveCap = !liveOn ? 0 : poolCap === undefined ? undefined : poolCap + stageCost;
 	const heldCap = React.useRef<number | undefined>(undefined);
@@ -309,6 +314,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	}, [focus, plan]);
 
 	const onKeyDown = (e: React.KeyboardEvent) => {
+		// A modified arrow is someone else's chord (a host's ⇧⌘→), and a key a host already answered is not a step.
+		if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
 		const next = vertical ? 'ArrowDown' : 'ArrowRight';
 		const prev = vertical ? 'ArrowUp' : 'ArrowLeft';
 		const action: RailStep | null = e.key === next || e.key === (vertical ? 'ArrowRight' : 'ArrowDown') ? 'next' : e.key === prev || e.key === (vertical ? 'ArrowLeft' : 'ArrowUp') ? 'prev' : e.key === 'Home' ? 'first' : e.key === 'End' ? 'last' : null;
@@ -336,8 +343,8 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 
 	const tiles = (
 		<ol className="relative m-0 list-none p-0" style={vertical ? { height: geo.total, width: '100%' } : { width: geo.total, height: '100%' }}>
-			{plan.units.map((i) => {
-				const tier = plan.tiers.get(i) ?? 'wireframe';
+			{units.map((i) => {
+				const tier = plan.tiers.get(i) ?? (posterFloor ? 'poster' : 'wireframe');
 				const on = i === focus;
 				const at = PAD + i * geo.pitch;
 				// The window mounts a few tiles of a long deck, so each says where it sits in the whole list: a screen reader

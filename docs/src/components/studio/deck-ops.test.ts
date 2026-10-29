@@ -469,6 +469,19 @@ describe('ops on a rendered slide inside a heading-split block (§6)', async () 
 		}
 	});
 
+	it('names a rendered slide by its flat place and back', async () => {
+		const { flatOfSlide, slideAtFlat } = await import('./deck-ops');
+		for (const src of [example, outline]) {
+			const n = engine(src).length;
+			for (let f = 0; f < n; f++) {
+				expect(flatOfSlide(src, at(src, f))).toBe(f);
+				expect(slideAtFlat(src, f)).toEqual(at(src, f));
+			}
+			expect(slideAtFlat(src, n)).toBeNull();
+			expect(flatOfSlide(src, { unit: 99, part: 0 })).toBe(-1);
+		}
+	});
+
 	it('the result lands on the slide the op acted on', () => {
 		const flatOf = (src: string, unit: number) => buildDeckIndex(src).units.slice(0, unit).reduce((k, u) => k + u.parts.length, 0);
 		const s = at(outline, 1); // B, inside the first block

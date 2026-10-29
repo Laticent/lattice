@@ -52,7 +52,8 @@ export interface SlideRailProps {
 	readLabels: boolean;
 	/** People on each chunk (full-deck index), for the Live presence dots. */
 	liveBySlide: ReadonlyMap<number, readonly RailPerson[]>;
-	onPick: (unitIndex: number, section: number) => void;
+	/** `key` is true for an arrow, Home or End on the strip, which must not take keyboard focus away from it. */
+	onPick: (unitIndex: number, section: number, via?: { key: boolean }) => void;
 	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the strip only navigates. */
 	actions?: StripActions;
 	/** An empty deck's one tile, "+ Add your first slide", where the strip edits. */
@@ -153,6 +154,29 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 	}, [pills]);
 	useStripMenuGestures(navRef, { actions, slideOf, current });
 
+	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
+	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
+	// while it walks. A modified arrow is not a step: ⇧⌘← is Move earlier (lib/strip-actions).
+	const keyNav = React.useRef(false);
+	const onKeyDown = (e: React.KeyboardEvent) => {
+		if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || !pills.length) return;
+		const at = Math.max(0, pills.findIndex((p) => p.flat === flat));
+		const to = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? at + 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? at - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? pills.length - 1 : null;
+		if (to === null) return;
+		e.preventDefault();
+		const p = pills[Math.max(0, Math.min(pills.length - 1, to))];
+		if (p.flat === flat) return;
+		keyNav.current = true;
+		onPick(p.unit, p.section, { key: true });
+	};
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the focused slide is the trigger; the body reads the DOM.
+	React.useLayoutEffect(() => {
+		if (!keyNav.current) return;
+		keyNav.current = false;
+		navRef.current?.querySelector<HTMLElement>('button[aria-current="true"]')?.focus({ preventScroll: true });
+	}, [flat]);
+	const tabStop = here ? here.flat : pills[0]?.flat;
+
 	return (
 		<nav ref={navCallback} data-strip="pills" className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 			{!pills.length && onAddFirst && (
@@ -160,18 +184,20 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 					+ Add your first slide
 				</button>
 			)}
+			<ol className="m-0 flex list-none items-center gap-1.5 p-0" onKeyDown={onKeyDown}>
 			{pills.map((p, i) => {
 				const on = p.flat === flat;
 				const people = p.section === 0 ? liveBySlide.get(p.unit) : undefined;
 				return (
-					<React.Fragment key={`${index.units[p.unit].id}:${p.section}`}>
+					<li key={`${index.units[p.unit].id}:${p.section}`} className="flex shrink-0 items-center gap-1.5">
 					<button
 						type="button"
 						data-unit={i}
 						onClick={() => onPick(p.unit, p.section)}
 						aria-current={on}
 						aria-label={p.aria}
-						className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+						tabIndex={p.flat === tabStop ? 0 : -1}
+						className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
 					>
 						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.n}</span>
 						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{p.label}</span>
@@ -184,11 +210,13 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 							</span>
 						)}
 					</button>
-					{/* The menu's ⋯ sits BESIDE the current pill, never inside it: a button in a button is not a button. */}
+					{/* The menu's ⋯ sits BESIDE the current pill, never inside it (a button in a button is not a button), and
+					    outside the roving set: Tab reaches it after the pill, the arrows never land on it. */}
 					{on && actions && <SlideMenuButton actions={actions} at={{ unit: p.unit, part: p.section }} />}
-					</React.Fragment>
+					</li>
 				);
 			})}
+			</ol>
 		</nav>
 	);
 });
