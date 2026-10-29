@@ -40,6 +40,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { StringDecoder } = require('node:string_decoder');
 const ratchet = require('./lib/fit-harness/ratchet');
+const chains = require('./lib/fit-harness/chains');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
@@ -494,6 +495,7 @@ function summarize(rows, run) {
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
   lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with `compact` spacing only for a slide that would otherwise clip. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', chains.chainReport(rows));
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }
