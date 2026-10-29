@@ -1,0 +1,219 @@
+name: Fit nightly (per-component split ratchet)
+
+# NIGHTLY, REPORT-ONLY guard on how every component's gallery splits at the boxes and venues
+# its author did not write it for.
+#
+# `tools/fit-harness.js` renders each component gallery through the real CLI at the three
+# boxes that split (square, portrait, story) and two venues (laptop, hall), scores the split
+# the engine SHIPS today (the `structural` arm), and `--ratchet` compares each component's
+# clipped and lost-content slides, per box and venue, against `test/fit/baseline.json`. A
+# count may only go down; a component the baseline does not name starts at zero, so a new
+# component that clips is named on its first night (`tools/lib/fit-harness/ratchet.js`).
+#
+# WHY IT EXISTS, and why it is not `overflow-nightly.yml`. That sweep renders every shipped
+# deck at the deck's OWN size and default venue. Component galleries are mostly 16:9 at
+# laptop, so a component that clips in a square feed post at `hall` never shows there. This
+# one adds the boxes and venues, and lost text (a split that drops an eyebrow or a legend),
+# which no other gate counts. Owner-approved on 2026-10-28 (#2953); the measurements behind
+# it are `engineering/decisions/2026-10-28-fit-everywhere-model.md` §7-§9.
+#
+# WHAT IT DOES NOT DO YET. The policy P2 builds (rescue-20-30 with its three fixes) is
+# simulated in the harness until P2 lands, and a simulated arm is not shipped code, so it is
+# not ratcheted here. Cross-engine runs and a visual montage are recorded in §9 as later
+# steps.
+#
+# COST. 94 galleries x 3 boxes x 2 venues x 2 renders (as shipped, and whole) = 1,128 CLI
+# renders, then the in-page scoring. Estimated from the 2,632-render run in §7 (1,637 s to
+# render, 2,424 s to score on 4 cores, with packed renders this run skips): about 30 minutes
+# plus setup. The first dispatched run is the measurement; correct this line from it.
+#
+# REPORT-ONLY, deliberately, as `2026-06-28-experience-gating-playwright.md` §3 requires of a
+# browser-dependent check: it becomes blocking only after an observed green streak on a real
+# cadence. The job concludes SUCCESS even when the ratchet is red; the signal is one rolling
+# tracking issue, found by its title marker. The workflow shape, and every lesson in its
+# comments, follows `overflow-nightly.yml`; read that file before changing this one.
+
+on:
+  schedule:
+    # daily 01:53 UTC, ahead of overflow-nightly 02:41. A non-round minute, like every cron
+    # here: GitHub queues scheduled workflows heavily at the top of the hour.
+    - cron: '53 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append the rolling tracking issue
+
+concurrency:
+  group: fit-nightly
+  cancel-in-progress: false
+
+jobs:
+  fit:
+    runs-on: ubuntu-latest
+    # About 30 minutes expected; 75 leaves room for a slower runner. Without a ceiling a hung
+    # render would inherit GitHub's 360-minute default.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Pinned to puppeteer's own cached Chromium, as overflow-nightly.yml explains at length:
+      # the CLI renders with it and the harness scores with it, and the baseline was blessed
+      # against that build.
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install color emoji font
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
+      # `npm ci` runs `prepare` (tools/prepare.js), which builds the uncommitted dist/ artifacts the
+      # CLI renders with; overflow-nightly.yml relies on the same.
+      - run: npm ci
+      - name: Resolve the puppeteer Chromium
+        id: chrome
+        run: |
+          CHROME="$(node -p "require('puppeteer').executablePath()")"
+          if [ ! -x "$CHROME" ]; then
+            echo "::error::puppeteer resolved $CHROME but nothing executable is there — the browser cache did not restore and npm ci did not download it."
+            exit 1
+          fi
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+
+      # `if …; then`, never a bare pipeline and `${PIPESTATUS[0]}`: GitHub runs steps under
+      # `bash -e`, which would kill the step before the exit code is read
+      # (overflow-nightly.yml, perf-nightly.yml). Exit 1 is a count that rose, 3 a cell the
+      # baseline scores that this run did not (a render failed, a gallery was rejected), 2 the
+      # harness itself failing.
+      - name: Fit sweep (report-only)
+        id: sweep
+        env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
+          CHROME_PATH: ${{ steps.chrome.outputs.path }}
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/fit-nightly-report.txt"
+          CODE=0
+          if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none \
+               --out "$RUNNER_TEMP/fit" --ratchet test/fit/baseline.json 2>&1 | grep -v 'bus.cc\|object_proxy' | tee "$REPORT"; then CODE=0; else CODE=$?; fi
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          # NOT SCORED wins over everything: a verdict over galleries that did not render is not
+          # a verdict (exit 3, ratchet.js). Clean needs exit 0 AND the clean marker AND no
+          # not-scored marker, so a run that measured nothing can never read as green.
+          if grep -q 'NOTHING SCORED\|NOT SCORED' "$REPORT" || [ "$CODE" -eq 3 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "kind=broken" >> "$GITHUB_OUTPUT"
+          elif [ "$CODE" -eq 0 ] && grep -q 'no count rose above the baseline' "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "kind=clean" >> "$GITHUB_OUTPUT"
+          elif grep -q 'ROSE above the baseline' "$REPORT"; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "kind=finding" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "kind=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo '### Fit nightly — per-component split ratchet'
+            echo '```'
+            { grep -E '^[0-9]+ source decks' "$GITHUB_WORKSPACE/fit-nightly-report.txt"; sed -n '/^fit ratchet/,$p' "$GITHUB_WORKSPACE/fit-nightly-report.txt" | grep -E '^fit ratchet|^- ' | head -n 80; } || echo '(no report)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fit-nightly-${{ github.run_id }}
+          path: |
+            fit-nightly-report.txt
+            ${{ runner.temp }}/fit/report.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      # One rolling issue, found by its title marker with the same client-side lookup
+      # overflow-nightly.yml uses (a `--search "in:title"` query tokenizes on the brackets and
+      # matches human issues). `!= 'false'`, so a sweep that died before writing its output
+      # still files.
+      - name: Open / append fit issue
+        if: always() && steps.sweep.outputs.failed != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[fit-nightly]'
+          BODY="$GITHUB_WORKSPACE/fit-nightly-body.md"
+          CODE='${{ steps.sweep.outputs.code }}'
+          KIND='${{ steps.sweep.outputs.kind }}'
+          case "$KIND" in
+            finding) SUBJECT='a component splits worse than its baseline on main' ;;
+            broken)  SUBJECT='fit-nightly did not score every gallery' ;;
+            *)       SUBJECT="fit-nightly could not run (exit ${CODE:-unknown})" ;;
+          esac
+          {
+            case "$KIND" in
+              finding)
+                echo "A component's clipped or lost-content slides rose above \`test/fit/baseline.json\` on \`main@${{ github.sha }}\`."
+                echo ""
+                echo "Fix the component, or, if the change is deliberate and the slide is right, re-bless with"
+                echo "\`npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --bless test/fit/baseline.json\`"
+                echo "and justify the new count in the PR."
+                ;;
+              broken)
+                echo "Some galleries were NOT SCORED on \`main@${{ github.sha }}\`: a render failed, or the harness rejected a gallery's markup."
+                echo "This is not a ratchet finding, and the run is not green: nothing is known about those galleries."
+                echo "If the gap is deliberate (a gallery the split cannot render yet), re-bless records it as known; otherwise fix the render."
+                ;;
+              *)
+                echo "The sweep did NOT reach a verdict on \`main@${{ github.sha }}\` — exit \`${CODE:-unknown}\`."
+                echo "Nothing is known about the galleries until this is fixed; treat a quiet night as unmeasured, not clean."
+                ;;
+            esac
+            echo ""
+            echo '```'
+            { grep -E '^[0-9]+ source decks' "$GITHUB_WORKSPACE/fit-nightly-report.txt"; sed -n '/^fit ratchet/,$p' "$GITHUB_WORKSPACE/fit-nightly-report.txt" | grep -E '^fit ratchet|^- ' | head -n 80; } || echo '(no report)'
+            echo '```'
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$BODY"
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue edit "$ISSUE" --title "$MARKER $SUBJECT" >/dev/null
+            gh issue comment "$ISSUE" --body-file "$BODY"
+          else
+            gh issue create \
+              --title "$MARKER $SUBJECT" \
+              --label "area:engine" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # Comment on a clean night, never close: the ratchet is scored against a committed
+      # baseline that `--bless` rewrites, so a green night cannot tell a fixed component from a
+      # raised floor (overflow-nightly.yml's stand-down step explains the trap).
+      - name: Report a clean sweep on the rolling issue
+        if: always() && steps.sweep.outcome == 'success' && steps.sweep.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[fit-nightly]'
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          {
+            echo "Measured green on \`main@${{ github.sha }}\`: no component's count rose above the baseline."
+            echo ""
+            echo "**Left open deliberately.** \`--bless\` can lower the bar, so a green night cannot tell a fixed component from a raised floor. Check which happened and close by hand."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true

@@ -1,0 +1,2440 @@
+{
+  "lib/components/anchor/anchor.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/anchor/closing/closing.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/anchor/divider/divider.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/anchor/title/title.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/anchor/topic/topic.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/bar/bar.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/bullet/bullet.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/chart.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 5,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/ep-curve/ep-curve.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/flowchart/flowchart.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/funnel/funnel.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/gantt/gantt.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 3,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 5,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/heatmap/heatmap.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/histogram/histogram.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/hub-spoke/hub-spoke.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/journey/journey.gallery.md": {
+    "square@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 12,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/kanban/kanban.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/line/line.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/map/map.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/matrix-grid/matrix-grid.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/piechart/piechart.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/progress/progress.gallery.md": {
+    "square@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 6,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/quadrant/quadrant.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/radar/radar.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/risk-matrix/risk-matrix.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/roadmap/roadmap.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/scatter/scatter.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/slope/slope.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/stacked-bar/stacked-bar.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/state-chart/state-chart.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 4,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/timeline-list/timeline-list.gallery.md": {
+    "square@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 6,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/tower/tower.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/waterfall/waterfall.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/chart/word-cloud/word-cloud.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/code/code.gallery.md": {
+    "square@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 1
+    }
+  },
+  "lib/components/code/code/code.gallery.md": {
+    "square@laptop": {
+      "clip": 4,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 5,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 5,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 5,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 1
+    }
+  },
+  "lib/components/code/compare-code/compare-code.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 5
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 5
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 5
+    }
+  },
+  "lib/components/comparison/compare-prose/compare-prose.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/comparison.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 6,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 1
+    }
+  },
+  "lib/components/comparison/decision/decision.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/matrix-2x2/matrix-2x2.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/pricing/pricing.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/redline/redline.gallery.md": {
+    "square@laptop": {
+      "clip": 2,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 8,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 11,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 10,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/split-compare/split-compare.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 0
+    }
+  },
+  "lib/components/comparison/table/table.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 5
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "portrait@hall": {
+      "clip": 4,
+      "lost": 5
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 5
+    }
+  },
+  "lib/components/comparison/verdict-grid/verdict-grid.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 6,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/connect/connect.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/connect/contact/contact.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/connect/wifi/wifi.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/diagram/diagram.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 5,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 4,
+      "lost": 1
+    }
+  },
+  "lib/components/evidence/evidence.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/evidence/kpi/kpi.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 3,
+      "lost": 0
+    }
+  },
+  "lib/components/evidence/stats/stats.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/imagery/collage/collage.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/imagery/image/image.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 4,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 5,
+      "lost": 0
+    }
+  },
+  "lib/components/imagery/imagery.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/imagery/scene/scene.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/imagery/video/video.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/actors/actors.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/agenda/agenda.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 14,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/cards-grid/cards-grid.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/cards-stack/cards-stack.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/checklist/checklist.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/glossary/glossary.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/inventory.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/inventory/inventory.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/list-tabular/list-tabular.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/list/list.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/logo-wall/logo-wall.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 6,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 3,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/q-and-a/q-and-a.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/inventory/team-profile/team-profile.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 3,
+      "lost": 0
+    }
+  },
+  "lib/components/layout/columns/columns.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 1
+    }
+  },
+  "lib/components/layout/layout.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 0,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 1
+    }
+  },
+  "lib/components/layout/rows/rows.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 5
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "portrait@hall": {
+      "clip": 2,
+      "lost": 5
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 5
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 5
+    }
+  },
+  "lib/components/legal/authority-chain/authority-chain.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 6,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 7,
+      "lost": 0
+    }
+  },
+  "lib/components/legal/citation-card/citation-card.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 9,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 7,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 12,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 9,
+      "lost": 0
+    }
+  },
+  "lib/components/legal/legal.gallery.md": {
+    "square@laptop": {
+      "clip": 2,
+      "lost": 4
+    },
+    "square@hall": {
+      "clip": 20,
+      "lost": 4
+    },
+    "portrait@laptop": {
+      "clip": 11,
+      "lost": 4
+    },
+    "portrait@hall": {
+      "clip": 28,
+      "lost": 4
+    },
+    "story@laptop": {
+      "clip": 4,
+      "lost": 4
+    },
+    "story@hall": {
+      "clip": 22,
+      "lost": 4
+    }
+  },
+  "lib/components/legal/obligation-matrix/obligation-matrix.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 8
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 8
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 8
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 8
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 8
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 8
+    }
+  },
+  "lib/components/legal/policy-recommendation/policy-recommendation.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 13,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 13,
+      "lost": 0
+    }
+  },
+  "lib/components/legal/regulatory-update/regulatory-update.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 10,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 4,
+      "lost": 0
+    }
+  },
+  "lib/components/legal/statute-stack/statute-stack.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 6,
+      "lost": 0
+    }
+  },
+  "lib/components/math/math.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/math/math/math.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 15,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 11,
+      "lost": 0
+    }
+  },
+  "lib/components/progression/cycle/cycle.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/progression/list-steps/list-steps.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 3,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 1,
+      "lost": 0
+    }
+  },
+  "lib/components/progression/progression.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "lost": 0
+    }
+  },
+  "lib/components/statement/big-number/big-number.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 4,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 7,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 5,
+      "lost": 0
+    }
+  },
+  "lib/components/statement/content/content.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 1
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 1
+    },
+    "portrait@hall": {
+      "clip": 6,
+      "lost": 1
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 1
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 1
+    }
+  },
+  "lib/components/statement/premise/premise.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 5,
+      "lost": 0
+    }
+  },
+  "lib/components/statement/quote/quote.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 1,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 2,
+      "lost": 0
+    }
+  },
+  "lib/components/statement/split-panel/split-panel.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 8,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 14,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 9,
+      "lost": 0
+    }
+  },
+  "lib/components/statement/statement.gallery.md": {
+    "square@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 2,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "portrait@hall": {
+      "clip": 5,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 3,
+      "lost": 0
+    }
+  },
+  "test/integration/baseline-decks/gallery.md": {
+    "square@laptop": {
+      "clip": 1,
+      "lost": 7
+    },
+    "square@hall": {
+      "clip": 39,
+      "lost": 7
+    },
+    "portrait@laptop": {
+      "clip": 12,
+      "lost": 7
+    },
+    "portrait@hall": {
+      "clip": 91,
+      "lost": 7
+    },
+    "story@laptop": {
+      "clip": 1,
+      "lost": 7
+    },
+    "story@hall": {
+      "clip": 45,
+      "lost": 7
+    }
+  },
+  "lib/components/diagram/diagram/diagram.gallery.md": {
+    "square@laptop": {
+      "unscored": true
+    },
+    "square@hall": {
+      "unscored": true
+    },
+    "portrait@laptop": {
+      "unscored": true
+    },
+    "portrait@hall": {
+      "unscored": true
+    },
+    "story@laptop": {
+      "unscored": true
+    },
+    "story@hall": {
+      "unscored": true
+    }
+  }
+}

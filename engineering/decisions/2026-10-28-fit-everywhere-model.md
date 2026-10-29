@@ -302,3 +302,38 @@ call.
 visual review yet); what fix C does to jank and pages (not built); and the outside review's
 Knuth–Plass formulation as the packing step inside the stateful design (not evaluated).
 
+## 10. The nightly fit ratchet (2026-10-29)
+
+`fit-nightly.yml` runs the harness every night on the 94 galleries at square, portrait and story,
+at `laptop` and `hall`, and `--ratchet test/fit/baseline.json` compares each component's clipped
+and lost-content slides, per box and venue, with the committed baseline
+(`tools/lib/fit-harness/ratchet.js`). A count may only go down, and a component the baseline does
+not name starts at zero, so a new component that clips is named on its first night. Blessed from
+the §7 run: 94 sources, 564 cells, 1,146 clipped and 246 lost-content slides, and 6 cells recorded
+as **not scored** (the diagram gallery, whose split emits broken markup).
+
+- **Not scored is a result, not a silence.** A gallery whose renders fail or whose markup the
+  harness rejects produces no rows, and comparing only the rows a run produced would read that
+  run as clean. So every gallery × box × venue the run was asked for is compared: a cell with no
+  rows is NOT SCORED, a cell the baseline scores that this run did not exits 3, and a run that
+  scored nothing at all exits 3. The workflow files that as "did not score every gallery", never
+  as green. The checker found the first version reading an all-renders-failed run as clean;
+  that run now exits 3.
+
+- **It ratchets the split the engine ships** (the `structural` arm), not a simulated policy: a
+  simulated arm is not shipped code (§9). When P2 lands, the ratchet moves to P2's real path.
+- **It complements `overflow-nightly.yml`,** which renders every shipped deck at its own size;
+  galleries are mostly 16:9 at `laptop`, so a component that clips in a square post at `hall`
+  never shows there.
+- **Report-only**, as every browser check here is until it has an observed green streak
+  (`2026-06-28-experience-gating-playwright.md` §3): the run stays green and a rolling issue
+  carries the finding. Its posture is pinned in `test/unit/tools/nightly-alarm-contract.test.js`:
+  comment, never close, since `--bless` can lower the floor.
+- **Proved it can fail:** a planted baseline one below the real count for one component and cell
+  (`code.gallery.md` at square/laptop) exits 1 and names the component, cell and metric; the
+  real baseline exits 0.
+- **Cost** is estimated at about 30 minutes plus setup (1,128 renders, no packed renders); the
+  first dispatched run measures it.
+- **Not yet:** the cross-engine run and the montage §9 adopts, and the per-PR adversarial set,
+  which is a proposal.
+

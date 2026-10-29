@@ -109,6 +109,9 @@ const COMMENTS_ONLY = {
   'overflow-nightly.yml::overflow':
     'baseline-scored — the tool calls itself a RATCHET against committed per-deck clip counts, ' +
     'and overflow:bless raises the floor',
+  'fit-nightly.yml::fit':
+    'baseline-scored — a ratchet against committed per-component clip and lost counts in ' +
+    'test/fit/baseline.json, and --bless raises the floor',
   // The suite runs in eight `e2e` legs since 2026-10-29; `e2e-report` joins them and owns the issue.
   'studio-e2e-nightly.yml::e2e-report':
     'baseline-scored — visual.spec.ts asserts toHaveScreenshot against committed snapshots; ' +
@@ -262,7 +265,7 @@ test('nightly alarm contract', async (t) => {
     const files = new Set(jobs.map((j) => j.file));
     for (const f of [
       'perf-nightly.yml', 'preview-e2e-nightly.yml', 'integration-nightly.yml',
-      'modulepreload-coverage-nightly.yml', 'overflow-nightly.yml', 'studio-e2e-nightly.yml',
+      'modulepreload-coverage-nightly.yml', 'overflow-nightly.yml', 'studio-e2e-nightly.yml', 'fit-nightly.yml',
     ]) {
       assert.ok(files.has(f), `${f} no longer files a rolling issue — did it move or get renamed?`);
     }

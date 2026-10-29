@@ -17,7 +17,7 @@
  *   3. Builds the fit-first arms in the page on the whole render (tools/lib/fit-harness/page.js),
  *      and computes `fit-then-structural`: the whole slide when it fits, today's pages otherwise.
  *   4. Scores every arm with ONE oracle, the export's own overflow probes, in the export's own
- *      browser (CHROME_PATH). Hard rules first (a page the probe rejects; content lost), then
+ *      browser (PUPPETEER_EXECUTABLE_PATH, then CHROME_PATH, then puppeteer's own). Hard rules first (a page the probe rejects; content lost), then
  *      stability, page count, thin pages and timing.
  *
  * MAPPING. A batch slide can render as more than one section (a panes slide at a non-wide box
@@ -33,11 +33,13 @@
  *   node tools/fit-harness.js --jobs 4 --out .scratch/fit-harness
  *
  * Writes <out>/results.jsonl (one row a line: every slide × arm × box × venue) and <out>/report.md, and prints
- * the report. Advisory: exit 0 unless the harness itself fails. Needs CHROME_PATH.
+ * the report. Exit 0 unless the harness fails (2); with --ratchet, 1 when a count rose and 3 when
+ * a cell the baseline scores was not scored this run (ratchet.js).
  */
 const fs = require('node:fs');
 const path = require('node:path');
 const { StringDecoder } = require('node:string_decoder');
+const ratchet = require('./lib/fit-harness/ratchet');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
@@ -69,6 +71,11 @@ const RESUME = argv.includes('--resume');
 // new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
 // run's own --packs: the packed rows kept are the ones it names.
 const REARM = argv.includes('--rearm');
+// --ratchet <file>: compare the shipped split's per-component clip and lost counts against a
+// committed baseline and exit 1 if any rose (tools/lib/fit-harness/ratchet.js). --bless <file>
+// writes the current counts as the baseline. Both apply after a run or a --rearm.
+const RATCHET = flag('ratchet', '');
+const BLESS = flag('bless', '');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
@@ -184,15 +191,18 @@ async function main() {
   }
   const tRender = Date.now();
 
-  const { chromium } = require('playwright');
-  // The export's own browser: Playwright's bundled build flips a verdict now and then.
-  const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+  // The export's own browser, through the engine's own dependency (puppeteer), so a CI runner
+  // needs nothing beyond `npm ci`. Playwright's bundled build flipped a verdict now and then.
+  const puppeteer = require('puppeteer');
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
+  const browser = await puppeteer.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
   const cfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
   const open = async (file) => {
-    const p = await browser.newPage({ viewport: { width: 1400, height: 2400 } });
+    const p = await browser.newPage();
+    await p.setViewport({ width: 1400, height: 2400 });
     await p.goto(`file://${file}`);
     await p.evaluate(() => document.fonts.ready);
-    await p.waitForTimeout(400);
+    await new Promise((r) => setTimeout(r, 400));
     await p.evaluate(`${PAGE_SRC}(${JSON.stringify(cfg)})`);
     return p;
   };
@@ -308,6 +318,7 @@ async function main() {
   const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(`\n${report}`);
+  applyRatchet(rows);
 }
 
 /** Stability: of the leaves an edit did not touch, the share of pairs whose same-page status flipped. */
@@ -519,6 +530,24 @@ function readRows(file) {
   return rows;
 }
 
+function applyRatchet(rows) {
+  if (!RATCHET && !BLESS) return;
+  // Every gallery x box x venue this run was asked to score: a cell with no rows is NOT SCORED,
+  // never silently absent (ratchet.js).
+  const expected = sources().flatMap((src) => SIZES.flatMap((size) => VENUES.map((venue) => [path.relative(ROOT, src), `${size}@${venue}`])));
+  const now = ratchet.tally(rows.filter((r) => SIZES.includes(r.size) && VENUES.includes(r.venue)), expected);
+  if (BLESS) {
+    fs.writeFileSync(BLESS, `${JSON.stringify(now, null, 2)}\n`);
+    console.log(`fit ratchet: blessed ${Object.keys(now).length} sources into ${BLESS}`);
+  }
+  if (RATCHET) {
+    const result = ratchet.compare(JSON.parse(fs.readFileSync(RATCHET, 'utf8')), now);
+    console.log(ratchet.format(result));
+    const code = ratchet.exitCode(result);
+    if (code) process.exitCode = code;
+  }
+}
+
 async function rearm() {
   const file = path.join(OUT, 'results.jsonl');
   const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`)]);
@@ -528,6 +557,7 @@ async function rearm() {
   const report = summarize(rows, { renders: 0, problems: ['rearmed from an earlier run: its render count, timings and problems are in that run\'s report'], renderS: 0, scoreS: 0, sources: new Set(rows.map((r) => r.src)).size });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(report);
+  applyRatchet(rows);
 }
 
 (REARM ? rearm() : main()).catch((e) => { console.error(e); process.exit(2); });
