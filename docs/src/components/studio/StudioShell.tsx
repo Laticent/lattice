@@ -159,10 +159,9 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
-import type { FiloPersistence } from './studio-filo-persist';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, loadSourceSum, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
@@ -509,28 +508,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The history survives a reload (Filo slice 5, studio-filo-persist.ts): one IndexedDB store,
 	// the Studio's own sidecar hash beside each saved source, broad steps narrowed in a worker.
 	// Loaded after the first paint, off the Studio's eager bundle (route budget): nothing is stored
-	// before a history changes, and opens and drops queue on the load in the order they were asked.
-	const filoPersist = React.useMemo((): FiloPersistence => {
-		let ready: FiloPersistence | null = null;
-		const loading = import('./studio-filo-persist').then((m) => {
-			// Its one notice (the second-tab one) dwells 8 s, not the 2.6 s default: it arrives while
-			// the tab is still loading, when an author is not yet looking at the status pill.
-			ready = m.createFiloPersistence({ store: m.filoStore(), sidecar: loadSourceSum, narrow: m.narrowInWorker, verify: m.verifyInWorker, notify: (msg) => notify(msg, { duration: 8000 }) });
-			return ready;
-		});
-		return {
-			// The revision now, before the module loads: a change made while it loads is the author's.
-			open: (h, text) => {
-				const revision = h.state().revision;
-				return loading.then((p) => p.open(h, text, revision));
-			},
-			flush: () => ready?.flush(),
-			drop: (id) => {
-				if (ready) ready.drop(id);
-				else void loading.then((p) => p.drop(id));
-			},
-		};
-	}, []);
+	// before a history changes, opens and drops queue on the load in the order they were asked, and
+	// the module flushes the histories on page hide, after the source flush.
+	const filoPersist = React.useMemo(() => import('./studio-filo-persist').then((m) => m.studioPersistence((msg) => notify(msg, { duration: 8000 }))), []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
@@ -4476,7 +4456,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				if (h?.doc.startsWith('practice:')) filo.drop(h.doc);
 				const opened = filo.load(doc, text);
 				// Its stored past, if any, goes under it once storage answers (§5). A practice deck is memory only.
-				if (!doc.startsWith('practice:')) void filoPersist.open(opened, text);
+				if (!doc.startsWith('practice:')) {
+					// The revision now: a change made while the module loads is the author's (studio-filo-persist.ts).
+					const revision = opened.state().revision;
+					void filoPersist.then((p) => p.open(opened, text, revision));
+				}
 				return;
 			}
 			if (liveSharedRef.current) {
@@ -4500,23 +4484,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const filoDropDeck = React.useCallback(
 		(id: string) => {
 			filo.drop(id);
-			filoPersist.drop(id);
+			void filoPersist.then((p) => p.drop(id));
 		},
 		[filo, filoPersist],
 	);
-	// The history is stored on idle; a page hiding stores it now, after the source flush above.
-	React.useEffect(() => {
-		const flush = () => filoPersist.flush();
-		const onVisibility = () => {
-			if (document.visibilityState === 'hidden') flush();
-		};
-		window.addEventListener('pagehide', flush);
-		document.addEventListener('visibilitychange', onVisibility);
-		return () => {
-			window.removeEventListener('pagehide', flush);
-			document.removeEventListener('visibilitychange', onVisibility);
-		};
-	}, [filoPersist]);
 	filoDropRef.current = filoDropDeck;
 
 	// What the last undo or redo did, for assistive tech (`Announce`). A sighted author sees it: the

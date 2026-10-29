@@ -34,6 +34,7 @@ type SourceHistory = Parameters<typeof toSnapshot>[0];
 const src = (h: History): SourceHistory => h as unknown as SourceHistory;
 
 import { createFiloStore, type FiloStore, idbBackend, memoryBackend } from '@/lib/filo/store';
+import { loadSourceSum } from './studio-store';
 
 export const FILO_DB = 'lattice-filo';
 /** The label of the step a reload adds when the Studio saved text Filo had not stored yet. */
@@ -317,3 +318,21 @@ export const verifyInWorker = (snap: Snapshot): Promise<boolean | null> => ask('
 
 /** The same check on this thread, for a test or a host with no worker. */
 export const verifyHere = (snap: Snapshot): Promise<boolean> => Promise.resolve(replaySnapshot(snap) !== null);
+
+let studio: FiloPersistence | null = null;
+/**
+ * The Studio's one persistence, made when this module loads after the first paint: the store, the
+ * sidecar the Studio writes beside each saved source, the worker, and a flush when the page hides
+ * (after the Studio's own source flush). Everything here, so the Studio's startup bundle carries
+ * only the `import()` that loads it (route budget).
+ */
+export function studioPersistence(notify: (message: string) => void): FiloPersistence {
+	if (studio) return studio;
+	const p = createFiloPersistence({ store: filoStore(), sidecar: loadSourceSum, narrow: narrowInWorker, verify: verifyInWorker, notify });
+	addEventListener('pagehide', () => p.flush());
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') p.flush();
+	});
+	studio = p;
+	return p;
+}
