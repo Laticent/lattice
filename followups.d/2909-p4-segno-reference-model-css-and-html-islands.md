@@ -19,15 +19,10 @@ why now   — R2 is built and held to the old tokenizer (the note's "R2 built, n
             differently, replacing the scanner's private `risky` flag, and R4 migrates the consumers (gallery
             gate, export, linter, narrator) one PR each, each deleting its own scan. D8 says R3 starts after
             R2's gate has run green; the gate's evidence exists (the note), pending the wiring.
-where the platform parser
-            would build the tree differently, replacing the scanner's private `risky` flag. R4 migrates the
-            consumers (gallery gate, export, linter, narrator) one PR each, and each deletes its own scan.
-            D8 says R3 starts after R2's gate has run green: it has (430 decks, 0 differences; fuzz 4,000
-            inputs in Chromium, WebKit and Firefox, 0 requests).
 where     — `lib/core/remote-ref.js` (`cssRefSpans` to swap; `scanHtml`, the `risky` flag), the note's R3 and R4 rows.
 done when — R2: the ceiling decision made, `cssRefSpans` replaced by `makeCssRefSpans(...)`, docs-build green. R3: the soundness invariant holds on 100,000 inputs per engine, a platform-parser differential
             on the corpus, and the `unsure` rate is reported. R4: the census count of private reference
             readers goes down by one per PR.
-evidence  — the decision note's "R2 landed" is the pattern: a frozen oracle, a differential, the corpus
+evidence  — the decision note's "R2 built, not wired" is the pattern: a frozen oracle, a differential, the corpus
             check (`tools/check-css-ref-spans.mjs`), and `npm run fuzz:web-refs` in three engines.
 verify    — tier 2 per phase: each rewrites a security sanitizer.
