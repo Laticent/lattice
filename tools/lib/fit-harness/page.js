@@ -55,6 +55,7 @@ function install(cfg) {
   function readable(s) {
     const body = parseFloat(getComputedStyle(s).fontSize) || 16;
     const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
+    const drawn = [];
     let n;
     while ((n = w.nextNode())) {
       const el = n.parentElement;
@@ -62,6 +63,7 @@ function install(cfg) {
       const r = document.createRange();
       r.selectNodeContents(n);
       const rects = [...r.getClientRects()].filter((x) => x.width > 1);
+      for (const x of rects) if (x.width > 2 && x.height > 2) drawn.push({ x, n });
       for (let a = el; a && a !== s.parentElement; a = a.parentElement) {
         const acs = getComputedStyle(a);
         if (!/hidden|clip/.test(acs.overflowX) || acs.textOverflow === 'ellipsis') continue;
@@ -76,6 +78,19 @@ function install(cfg) {
       if (text.length < 24) continue;
       const lines = new Set(rects.map((x) => Math.round(x.top))).size;
       if (lines > 2 && text.length / lines < 12) return false;
+    }
+    // Text drawn over other text reads as garbage however long its lines are: redline's split NEW
+    // column at story/hall (§12). Two line boxes of DIFFERENT runs overlap when they share more
+    // than 4px across and over half the shorter one's height; adjacent lines touch, never share.
+    for (let i = 0; i < drawn.length; i++) {
+      for (let j = i + 1; j < drawn.length; j++) {
+        if (drawn[i].n === drawn[j].n) continue;
+        const a = drawn[i].x;
+        const b = drawn[j].x;
+        const across = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (across > 4 && down > Math.min(a.height, b.height) * 0.5) return false;
+      }
     }
     return true;
   }
