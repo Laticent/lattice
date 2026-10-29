@@ -99,12 +99,22 @@ function undoProbeKit(result) {
 	const command = async (which) => {
 		await focusEnd();
 		let seen = '';
+		const log = [];
 		const spy = (e) => {
-			seen ||= e.inputType;
+			if (e.type === 'beforeinput') seen ||= e.inputType;
+			log.push(`${e.type}:${e.inputType}${e.cancelable ? '' : ' (not cancelable)'}`);
 		};
+		// Bubble phase, after the page's own handlers: did one cancel it? Safari runs its own undo when nothing does.
+		const after = (e) => log.push(`  prevented ${e.defaultPrevented}`);
 		addEventListener('beforeinput', spy, { capture: true });
+		addEventListener('input', spy, { capture: true });
+		addEventListener('beforeinput', after);
 		document.execCommand(which);
+		await sleep(300);
 		removeEventListener('beforeinput', spy, { capture: true });
+		removeEventListener('input', spy, { capture: true });
+		removeEventListener('beforeinput', after);
+		result.events = [...(result.events || []), `${which}: ${log.join(', ')}`];
 		return seen;
 	};
 	/** Every stored history's text, from Filo's IndexedDB store (studio-filo-persist.ts FILO_DB). */
@@ -200,7 +210,7 @@ async function latticeUndoProbe() {
 		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command').catch((e) => {
 			// Say where the undo went: one step too many (the paste gone too) or none, and what the Studio announced.
 			const now = k.deckText();
-			throw new Error(`${e.message} (editor ${now.length} chars, pasted ${pasted.length}, typed ${typed.length}; ends ${JSON.stringify(now.slice(-30))}; said ${JSON.stringify(k.said())})`);
+			throw new Error(`${e.message} (editor ${now.length} chars, pasted ${pasted.length}, typed ${typed.length}; ends ${JSON.stringify(now.slice(-30))}; said ${JSON.stringify(k.said())}; events ${JSON.stringify(result.events)})`);
 		});
 		k.step('the WebKit undo command undid the word', true);
 		await k.until(() => k.said().startsWith('Undid'), 5000, 'the "Undid" announcement');
@@ -210,6 +220,8 @@ async function latticeUndoProbe() {
 		k.step('WebKit redo command raised historyRedo', redoType === 'historyRedo', redoType || 'no beforeinput');
 		await k.until(() => k.deckText() === typed, 10000, 'the word back after redo');
 		k.step('the WebKit redo command brought it back', true);
+		// What the page saw during both commands, so a pass also shows whether Safari's own undo ran beside Filo's.
+		k.step('events around the WebKit commands', true, (result.events || []).join(' ; '));
 
 		// The Studio draws its own Undo and Redo only at phone width (StudioShell, `mobile`). Wider, a tablet's undo
 		// is the keyboard bar's undo key, the shake or the three-finger swipe: the WebKit command checked above.
