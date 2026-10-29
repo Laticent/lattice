@@ -98,7 +98,10 @@
         "macos-latest"
       ],
       "paths": [
-        "docs/scripts/ios-safari/*",
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/studio-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
         "docs/src/lib/single-slide-render.ts",
         "docs/src/lib/sanitize-slide-html.js",
         "lib/core/sanitize-slide-html.mjs",
@@ -109,13 +112,37 @@
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device."
     },
     {
+      "name": "ios-safari-photo",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/photo-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/coach/photo-contrast-watch.ts",
+        "docs/src/components/studio/photo-verdict.ts",
+        "docs/src/components/studio/photo-ink-read.ts",
+        "docs/src/components/studio/thin-card-fix.ts",
+        "docs/src/components/studio/card-ink-sampler.ts",
+        "lib/core/photo-contrast.mjs",
+        "lib/core/card-ink-policy.mjs",
+        "lib/core/card-ink.mjs"
+      ],
+      "run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device."
+    },
+    {
       "name": "ios-safari-jpeg",
       "os": [
         "macos-latest"
       ],
       "paths": [
         "lib/core/jpeg-encode.mjs",
-        "docs/scripts/ios-safari/*"
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/jpeg-probe.js"
       ],
       "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
       "why": "Every export JPEG goes through the shared encoder (lib/core/jpeg-encode.mjs) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's."
@@ -126,7 +153,10 @@
         "macos-latest"
       ],
       "paths": [
-        "docs/scripts/ios-safari/*",
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/focus-sync-probe.js",
+        "docs/scripts/ios-safari/focus-sync-deck.mjs",
         "docs/src/lib/playground-sync.ts"
       ],
       "run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",

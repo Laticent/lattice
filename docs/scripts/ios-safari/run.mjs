@@ -1,6 +1,6 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
- * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js in the real
+ * Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), or jpeg-probe.js, the shared JPEG encoder against
  * Safari's own (PROBE=jpeg), or focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
@@ -92,7 +92,7 @@ try {
 	if (platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -122,19 +122,15 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite: the preview payload probe (studio-probe.js), then the photo verdict probe (photo-probe.js), each on a
- * fresh page. One result: every step, each named for its probe, and a pass only when both pass.
+ * The Studio suite (PROBE=studio): the preview payload probe, studio-probe.js. The photo suite (PROBE=photo): the photo verdict
+ * probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change does not pay for the photo
+ * check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes on a slow runner.
  */
 async function runStudioProbe(id) {
-	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
-	const photo = await studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
-	return {
-		ok: !!preview.ok && !!photo.ok,
-		error: [preview.error && `preview: ${preview.error}`, photo.error && `photo: ${photo.error}`].filter(Boolean).join('; ') || undefined,
-		ua: photo.ua ?? preview.ua,
-		width: photo.width ?? preview.width,
-		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
-	};
+	return studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
+}
+async function runPhotoProbe(id) {
+	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
 }
 
 /**

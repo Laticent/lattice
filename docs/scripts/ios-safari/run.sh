@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The `ios-safari-studio` and `ios-safari-jpeg` platform suites (.github/platform-suites.json): a probe in REAL Mobile
+# The `ios-safari-*` platform suites (.github/platform-suites.json): a probe in REAL Mobile
 # Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
-# preview probe against the built docs site; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
+# preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).

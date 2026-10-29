@@ -506,10 +506,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
 - **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
   serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
-  The page-side checks are `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
-  that must fire, and then, on a fresh page, `photo-probe.js`: the photo verdict's Coach finding and editor warning agree word
-  for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide
-  (engineering/decisions/2026-10-26-photo-contrast-coach.md). Where the Coach is a sheet over the editor, the probe closes
+  The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
+  that must fire. `ios-safari-photo` runs the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's
+  Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
+  that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
+  until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
+  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs`, so a probe edit runs one suite, not all four. Where the Coach is a sheet over the editor, the probe closes
   it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
   Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
