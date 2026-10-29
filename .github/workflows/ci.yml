@@ -1029,6 +1029,8 @@ jobs:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session
     steps:
       - name: Verify gate
+        env:
+          GH_TOKEN: ${{ github.token }} # read the PR's head, to tell a superseded run from a timeout
         run: |
           echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
@@ -1036,8 +1038,8 @@ jobs:
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
           # (check-run conclusion / needs.<job>.result), not house prose, so HARD
           # RULE #21 does not reach it — a US-English sweep here makes both
-          # allowlists below dead and inverts their branches. 'cancelled' here is
-          # a SUPERSEDED run — a force-push tripped
+          # allowlists below dead and inverts their branches. 'cancelled' passes
+          # only for a SUPERSEDED run (exception 3 below proves it) — a push tripped
           # `concurrency: cancel-in-progress`, so a newer run on the new head SHA
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge
@@ -1059,7 +1061,26 @@ jobs:
           #    `cancelled` tier is a timeout or a hand cancel, and the queue merges on
           #    THIS check. d63fa45 (#2524) merged with integration cut off at its
           #    25-minute timeout, mid-suite.
+          #
+          # 3. On a PR run a `cancelled` tier passes ONLY when the run was superseded,
+          #    which the gate checks rather than assumes: the PR's head must have moved
+          #    past this run's SHA. A tier cancelled on the PR's CURRENT head was cut off
+          #    by its own timeout-minutes or by hand, and ran none of its remaining tests.
+          #    #2909's `aa0302c` went green with integration shard 3/4 hung and cancelled
+          #    at 23 minutes; #2494 and #2900 with a shard cut off at its 25-minute cap
+          #    (followups 2909-p2 and 2494-p1, engineering/gotchas/ci.md). If the PR
+          #    cannot be read, the gate fails closed and says so: a re-run decides it.
           changes="${{ needs.changes.result }}"
+          superseded() {
+            # True when this PR's head is no longer the SHA this run tested.
+            [ "${{ github.event_name }}" = "pull_request" ] || return 1
+            head=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq .head.sha 2>/dev/null) || head=""
+            if [ -z "$head" ]; then
+              echo "::warning::could not read the PR's head, so a cancelled tier cannot be shown superseded"
+              return 1
+            fi
+            [ "$head" != "${{ github.event.pull_request.head.sha }}" ]
+          }
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
             exit 1
@@ -1072,6 +1093,12 @@ jobs:
               cancelled)
                 if [ "${{ github.event_name }}" = "merge_group" ]; then
                   echo "::error::tier ${tier%%=*} was cancelled in the merge queue (a timeout or a hand cancel; nothing supersedes a queue run)"
+                  exit 1
+                fi
+                if superseded; then
+                  echo "tier ${tier%%=*} was cancelled by a newer push (the PR's head is now ${head}); that run carries the verdict"
+                else
+                  echo "::error::tier ${tier%%=*} was cancelled on the PR's current head (a timeout or a hand cancel, not a newer push), so its remaining tests never ran"
                   exit 1
                 fi ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;
