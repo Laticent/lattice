@@ -471,6 +471,15 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 ## The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge
 
+- **Superseded in part (2026-10-08 and later):** the job now fails on purpose when specs fail
+  (the `Fail the job when the Studio E2E suite failed` step, owner's pick, followups 2557-p3),
+  and the rolling issue is **#2035**, not #1705, which is closed. Since 2026-09-22 every
+  scheduled run is red for another reason: the run step hits its 45-minute `timeout-minutes`
+  about a quarter of the way through the suite (2,118 tests on two workers on 2026-10-28; run
+  40674917008 stopped at test 509). Read #2035 and the job log, not the badge, before calling a
+  spec newly broken. The history below is kept because the inverted-step reading still applies
+  to the sibling nightlies that swallow the exit code.
+
 - **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
   `main` looks covered — and specs have been failing in it the whole time. Measured on
   2026-09-02: the last eight scheduled runs were all `success`, and every one of them had a
