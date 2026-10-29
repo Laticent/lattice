@@ -33,7 +33,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/lib/strip-actions/menu';
+import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/lib/strip-actions';
 import { slideClass } from './lint';
 import { liveColor } from './live/live-model';
 import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';

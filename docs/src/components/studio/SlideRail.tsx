@@ -18,7 +18,7 @@ import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions/menu';
+import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions';
 import { cn } from '@/lib/utils';
 import { slideClass, slideTitle } from './lint';
 import { type LiveColor, liveColor } from './live/live-model';

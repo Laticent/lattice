@@ -50,9 +50,8 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import type { StripActions, StripVia } from '@/lib/strip-actions/menu';
-import { menuItems, type StripActionId, type StripMenuItem, type StripShortcut } from '@/lib/strip-actions/model';
-import { ShortcutsDialog } from '@/lib/strip-actions/shortcuts';
+import type { StripActions, StripVia } from '@/lib/strip-actions';
+import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
@@ -5108,7 +5107,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		});
 	}, [stripEditable, hereAt.unit, hereAt.part]);
 	const flatOf = (at: SlideAt) => deckIndex.units.slice(0, at.unit).reduce((n, u) => n + u.parts.length, 0) + at.part;
-	const stripItems: readonly StripMenuItem[] = stripMenu ? menuItems({ count: renderedSlides, at: flatOf(stripMenu.at), armed: deleteArmed && othersLive, name: deleteTargetName(hereTitle(stripMenu.at), 1) }, isMacLike()) : NO_STRIP_ITEMS;
+	const stripMenuState: StripMenuState | null = stripMenu ? { count: renderedSlides, at: flatOf(stripMenu.at), armed: deleteArmed && othersLive, name: deleteTargetName(hereTitle(stripMenu.at), 1) } : null;
 	const openStripMenu = (at: SlideAt, via: StripVia) => {
 		const i = viewChunksRef.current.indexOf(at.unit);
 		if (i < 0) return;
@@ -5159,13 +5158,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
 	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
-	const stripItemsKey = JSON.stringify(stripItems);
+	const stripStateKey = JSON.stringify(stripMenuState);
 	// Stable while the menu stays as it is: the pill strip is memoized, and a fresh object per render would re-render
 	// it on every keystroke (SlideRail.tsx's header says what that cost).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `stripItemsKey` stands for `stripItems`; the callbacks read the latest closures through the ref.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stripStateKey` stands for `stripMenuState`; the callbacks read the latest closures through the ref.
 	const stripActions = React.useMemo<StripActions | undefined>(
-		() => (stripEditable ? { menu: stripMenu, items: stripItems, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), move: (at, to) => stripLatest.current.move(at, to) } : undefined),
-		[stripEditable, stripMenu, stripItemsKey],
+		() => (stripEditable ? { menu: stripMenu, menuState: stripMenuState, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), move: (at, to) => stripLatest.current.move(at, to) } : undefined),
+		[stripEditable, stripMenu, stripStateKey],
 	);
 	// An empty deck's strip shows one "+ Add your first slide" tile, which opens the gallery.
 	const addFirstSlide = React.useCallback(() => stripLatest.current.addFirst(), []);
@@ -7237,11 +7236,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// edits, and each only while it would do something.
 		...(stripEditable && renderedSlides > 0
 			? ([
-					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, keywords: ['add', 'insert', 'before'], run: () => opAddSlide('before') },
-					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, keywords: ['copy', 'clone'], run: () => opDuplicate() },
-					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide earlier', icon: ArrowLeftToLine, keywords: ['reorder', 'up', 'left'], run: () => opMove(-1) } satisfies StudioCommand] : []),
-					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide later', icon: ArrowRightToLine, keywords: ['reorder', 'down', 'right'], run: () => opMove(1) } satisfies StudioCommand] : []),
-					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, keywords: ['remove'], run: () => requestDelete() } satisfies StudioCommand] : []),
+					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, run: () => opAddSlide('before') },
+					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, run: () => opDuplicate() },
+					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide earlier', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
+					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide later', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
 				] satisfies StudioCommand[])
 			: []),
 		{ id: 'insert-icon', group: 'actions', label: 'Insert an icon…', icon: Shapes, keywords: ['icon', 'symbol', 'glyph', 'picture', 'browse'], run: () => setIconsOpen(true) },
@@ -7365,7 +7364,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
 			{/* What the last undo or redo did ("Undid: Theme → Cuoio"), for assistive tech (Filo note §3.4). */}
 			<Announce message={undoSay} />
-			<ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} mac={isMacLike()} />
+			{/* Loaded on first open: it is not on the startup path, and the Studio's eager bundle is budgeted. */}
+			{shortcutsOpen && (
+				<React.Suspense fallback={null}>
+					<ShortcutsDialog open onOpenChange={setShortcutsOpen} mac={isMacLike()} />
+				</React.Suspense>
+			)}
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* ONE HEADER, EVERY STOP AND EVERY WIDTH (owner, 2026-09-05: *"the shell should
 			    also be consistent too. there should be zero shift when moving between these
@@ -8225,7 +8229,7 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
-const NO_STRIP_ITEMS: readonly StripMenuItem[] = [];
+const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
 	if (!hit) return null;

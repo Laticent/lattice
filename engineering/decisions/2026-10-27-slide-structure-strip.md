@@ -381,7 +381,10 @@ Each is a file in `followups.d/2927-p<n>-…`.
    is open. An empty deck's strip shows one "+ Add your first slide" tile that opens the gallery. The palette lists New
    slide before, Duplicate, Move earlier and later and Delete, each only while it would act; a palette Delete in a
    shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
-   `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard.)*
+   `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard. The module's eager half is only `index.tsx` (the types, the hook and lazy wrappers): the
+   menu (`menu.tsx`), every strip listener and the shortcuts (`gestures.ts`), drag (`drag.ts`) and the "?" list load on
+   demand, because the first build broke the Studio's 546.3 KB eager-JS ceiling by 3.8 KB; the PR now adds 2.25 KB,
+   declared in `docs/route-budget.d/`.)*
 9. The strip's keyboard model: reproduce today's focus drop first; roving tabindex, current slide always rendered, live
    region, keyboard-only shortcuts shown in the menu and under "?". *(Built: the pill strip is an `ol` whose current
    pill is the one tab stop; the arrows, Home and End move the deck's focus without editor focus and keyboard focus
