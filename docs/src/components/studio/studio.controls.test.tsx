@@ -482,17 +482,24 @@ describe('Studio — every top-bar control responds', () => {
 			rail().dispatchEvent(e);
 			return e.defaultPrevented;
 		};
-		expect([ask(), ask()]).toEqual([true, true]);
-		await waitFor(() => expect(railCount()).toBe(start + 1));
-		// Undo then Redo, as fast as a person presses (20 ms): a request of its own, so it runs.
-		await new Promise((r) => setTimeout(r, 20));
-		expect(ask('historyRedo')).toBe(true);
+		// The pair, with a render's worth of work between them in one task (a real menu click lets React render
+		// between the two events): still one request. A 16 ms window takes two steps here.
+		const t0 = Date.now();
+		const first = ask();
+		while (Date.now() - t0 < 25) {
+			// busy: the second event is created 25 ms after the first
+		}
+		const second = ask();
+		// Redo 60 ms after the Undo, faster than most people: a request of its own, so it runs. A 100 ms window
+		// drops it.
+		await new Promise((r) => setTimeout(r, Math.max(0, 60 - (Date.now() - t0))));
+		expect([first, second, ask('historyRedo')]).toEqual([true, true, true]);
 		await waitFor(() => expect(railCount()).toBe(start + 2));
-		// A held ⌘Z repeats about every 33 ms: each one runs.
-		await new Promise((r) => setTimeout(r, 40));
+		// And two more Undos, each its own request.
+		await new Promise((r) => setTimeout(r, 60));
 		expect(ask()).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start + 1));
-		await new Promise((r) => setTimeout(r, 40));
+		await new Promise((r) => setTimeout(r, 60));
 		expect(ask()).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start));
 	});

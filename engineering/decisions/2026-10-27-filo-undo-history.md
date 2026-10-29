@@ -306,11 +306,13 @@ WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) on
 undo list holds something, so after a reload it has nothing to send, and the stored history is
 reachable only through the shell (measured in Mobile Safari 26.5 by `ios-safari-undo`; added
 2026-10-29 at the owner's call). macOS Safari 26.6 answers one undo command with two `historyUndo`
-events created together (measured by `ios-safari-undo` through `execCommand`; a real menu click is not
-driven), so the shell refuses both but runs one: two requests created within 16 ms are one. It reads
-each event's creation time, not when it runs, so a held ⌘Z (about 33 ms apart), a press queued behind a
-long undo, and Undo then Redo each run. A 100 ms window was tried first and dropped a fast Redo in
-Compose; a same-task flag was tried next and could drop a press queued behind a long undo. On a Mac after a reload, ⌘Z reaches it and the Edit menu does
+events (measured by `ios-safari-undo` through `execCommand`), so the shell refuses both but runs one:
+two requests created within 50 ms are one. From a real menu click React can render between the two
+events (12-19 ms measured in Chromium), which is why the window is 50 ms and not 16; a person's separate
+presses, Undo then Redo included, are further apart, and a held ⌘Z comes through keydown, not this path.
+A real menu click is UNVERIFIED: no runner here drives the macOS menu. Tried and dropped: a 100 ms window
+(it swallowed a fast Redo in Compose) and a same-task flag (it could swallow a press queued behind a long
+undo). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
 not (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md). The Tauri app sends its Edit menu's two items to the
 same calls.
 

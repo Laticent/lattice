@@ -223,8 +223,8 @@ async function latticeUndoProbe() {
 		// What the page saw during both commands, so a pass also shows whether Safari's own undo ran beside Filo's.
 		k.step('events around the WebKit commands', true, (result.events || []).join(' ; '));
 
-		// The Studio draws its own Undo and Redo only at phone width (StudioShell, `mobile`). Wider, a tablet's undo
-		// is the keyboard bar's undo key, the shake or the three-finger swipe: the WebKit command checked above.
+		// The Studio draws its own Undo and Redo at phone width and on a touch-first screen (StudioShell, `historyButtons`).
+		// Elsewhere, a Mac or a tablet with a pointer, undo is the Edit menu or the keyboard: the WebKit command checked above.
 		const undoBtn = k.button('Undo');
 		if (undoBtn) {
 			undoBtn.click();

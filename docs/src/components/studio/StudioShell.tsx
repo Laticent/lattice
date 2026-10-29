@@ -4599,18 +4599,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// The Edit menu, iOS shake and three-finger swipe, the iPad shortcut bar and Android keyboard
 		// keys ask through `beforeinput`. Unanswered in the deck editor, the browser would change the
 		// editor's DOM behind its model.
-		// macOS Safari answers one undo command with TWO historyUndo events created together (ios-safari-undo,
-		// Safari 26.6, through execCommand): the second is still refused but not run, or one Undo would take
-		// back two steps. Judged by when each event was created, not when it runs: two within 16 ms are one
-		// request, while a held ⌘Z (about 33 ms apart), a press queued behind a long undo, and Undo then Redo
-		// are each a person's own and run.
+		// macOS Safari answers one undo command with TWO historyUndo events (ios-safari-undo, Safari 26.6, through
+		// execCommand): the second is still refused but not run, or one Undo would take back two steps. Judged by
+		// when each event was created: two within 50 ms are one request. From a real menu click React may render
+		// between them (12-19 ms measured), so the window has room for that; a person's separate presses, Undo then
+		// Redo included, are further apart. A held ⌘Z comes through keydown (onKey), not this.
 		let last = 0;
 		const onBeforeInput = (e: InputEvent) => {
 			if (e.isComposing) return;
 			const verb = historyInput(e.inputType);
 			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
 			e.preventDefault();
-			if (e.timeStamp - last < 16) return;
+			if (e.timeStamp - last < 50) return;
 			last = e.timeStamp;
 			runHistoryRef.current(verb);
 		};
