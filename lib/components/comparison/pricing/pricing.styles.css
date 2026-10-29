@@ -138,7 +138,9 @@ section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) 
 }
 section.pricing > .cell-stage > ul > li > ul > li > .lat-state:first-child {
   margin-inline: 0;
-  top: calc((var(--pricing-line) - 1em * var(--state-disc-scale)) / 2);
+  /* Centred on the first line: the PAINTED disc (`--_disc`, the check's own, rim included) is centred,
+   * and its box sits one rim inside it (lib/plugins/checks/checks.styles.css). */
+  top: calc((var(--pricing-line) - var(--_disc)) / 2 + var(--state-ring-outer-w, 0px));
 }
 /* A sub-list under a feature takes its own line. */
 section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) > :is(ul, ol) { grid-column: 1 / -1; }

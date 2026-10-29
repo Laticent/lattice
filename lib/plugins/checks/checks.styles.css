@@ -37,12 +37,21 @@ section .state-unknown { --state-mark: var(--mark-question); }
 section .state.todo,
 section .state.unknown {
   --state-fill-pct: 0%;
-  --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
-  /* `checks-outline` and `checks-tonal` set an INNER ring on the section, which
-   * these elements would inherit and draw inside the outer one: a double ring
-   * that reads as a target, not as "open". One ring is the unsettled shape. */
-  --state-ring-inner-w: 0px;
+  /* THE RING IS DRAWN INSIDE THE DISC, and sized in `em`. It used to be a fixed 2.2px OUTER ring,
+   * which painted the two hollow answers 4.4px wider than the four solid ones in every container
+   * and style, sat them 2.2px closer to their label, and did not grow with a pill's size (measured,
+   * engineering/decisions/2026-10-18-checks.md §21). As an inset ring it keeps the style's own rim
+   * outside (the hairline, ringed's 1.6px, or none), so every answer paints the same diameter. It
+   * also replaces the INNER ring `checks-outline` and `checks-tonal` give the solid answers, rather
+   * than drawing inside it: one ring is the unsettled shape, two would read as a target. */
+  /* ONE ring weight, 0.14em of the type, whatever the style's rim: the rim (same ink, outside) and this inset ring
+   * read as one ring, so the inset ring takes only what the rim leaves. A fixed 0.12em on top of the default
+   * style's 1.3px rim drew a 3px donut on a 12.7px pill disc. */
+  --state-ring-inner-w: max(0px, calc(0.14em * var(--state-size-k, 1) - var(--state-ring-outer-w, 0px)));
+  /* No signal ring: only the exceptions (at risk, blocked) carry one. It also keeps the hollow ring the box's
+   * ONE inset ring, which is all the PPTX/ODP exporter reads (calco-refusals, state-marks). */
+  --state-ring-signal-w: 0px;
 }
 section .state.todo::after { display: none; }
 /* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
@@ -65,16 +74,25 @@ section .state.unknown { --state-mark-pct: 100%; }
  * never matches. `lat-state` is that box, and nothing else.
  *
  * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
- * body prose — and `vertical-align:-0.15em` sets it on the text's optical center rather
+ * body prose — and its `vertical-align` sets it on the text's optical center rather
  * than its baseline, where a circle reads as sitting high. */
 section .lat-state {
   position:relative;
   display:inline-block;
-  width:calc(1em * var(--state-disc-scale));
-  height:calc(1em * var(--state-disc-scale));
+  /* THE PAINTED DISC is set by the context and the size alone, never by a style: `--_disc` is what a
+   * reader sees, rim included. A style's rim (`--state-ring-outer-w`, ringed's 1.6px or a signal
+   * hairline) is drawn OUTSIDE the box, so the box gives it back and box + rim is `--_disc` (§21).
+   * The rim stays outside because the signal ring sits just inside it, and the PPTX/ODP exporter
+   * draws one stroke per shape plus one outer ring: two rings inside one box went to a picture.
+   * `checks-bold` is the one style that is bigger, on purpose, through `--state-disc-scale`. */
+  --_disc:calc(1em * var(--state-disc-scale) * var(--state-size-k, 1));
+  width:calc(var(--_disc) - 2 * var(--state-ring-outer-w, 0px));
+  height:calc(var(--_disc) - 2 * var(--state-ring-outer-w, 0px));
   border-radius:50%;
   box-sizing:border-box;
-  vertical-align:-0.15em;
+  /* Centred on the text: the disc's centre 0.345em above the baseline. At the default scale this is
+   * the -0.15em it always was; a fixed -0.15em sat `checks-bold`'s larger disc 1.7px high. */
+  vertical-align:calc(0.345em - var(--_disc) / 2 + var(--state-ring-outer-w, 0px));
   line-height:1;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
@@ -105,10 +123,23 @@ section .lat-state {
  * The offset re-centres it. A disc centred on the text sits 0.345em above the baseline, so its
  * `vertical-align` is that less half its height; at a full 1em disc this is the -0.15em above, and
  * at 0.85 it measured 0.1px off the capsule's centre (the fixed -0.15em left it 1.1px low). */
+/* A disc alone written with a size (`@check{pass, lg}`) takes the pill's own factors
+ * (pills.styles.css `--lat-pill-scale`), so a check is the same size with or without its words.
+ * A factor, not a font-size: the centring above is measured in the TEXT's em, which a font-size
+ * on the disc would change. */
+section .lat-state[data-size='sm'] { --state-size-k:0.85; }
+section .lat-state[data-size='lg'] { --state-size-k:1.2; }
+/* In a pill, the lead reserves the rim on both sides, so the painted disc sits exactly where the pill's
+ * icon would: the same distance from the pill's edge and from its words (pills.styles.css gives every
+ * lead its 0.35em gap; this adds only what the rim takes). */
+section .lat-pill[data-shape] > .lat-pill-lead:has(> .lat-state) {
+  padding-inline:var(--state-ring-outer-w, 0px) calc(0.35em + var(--state-ring-outer-w, 0px));
+}
 section .lat-pill[data-shape] > .lat-pill-lead > .lat-state {
-  width:calc(0.85em * var(--state-disc-scale));
-  height:calc(0.85em * var(--state-disc-scale));
-  vertical-align:calc(0.345em - 0.425em * var(--state-disc-scale));
+  /* Capped at 0.9em so a larger style (`checks-bold`'s 1.16) never outgrows the pill's line: at 0.99em it
+   * made a bold check pill 0.56px taller than the icon pill beside it (§21). Bold still reads heavier,
+   * through its bolder marks and the larger disc up to the cap. */
+  --_disc:min(calc(0.85em * var(--state-disc-scale)), 0.9em);
 }
 section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
 section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
@@ -119,7 +150,8 @@ section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--
 section .lat-state::after {
   content:'';
   position:absolute;
-  inset:0;
+  /* The whole painted disc, rim included, so the mark is the same size in every style. */
+  inset:calc(-1 * var(--state-ring-outer-w, 0px));
   background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;

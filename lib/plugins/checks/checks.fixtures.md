@@ -57,6 +57,25 @@ Status `@check{yes, label=Residency}` today.
 - renders `class="state fail state-empty lat-state"`
 - detect true
 
+## a size is the pill's size
+
+```markdown
+Status `@check{yes, label=Residency, lg}` and `@check{no, sm}` today.
+```
+
+- renders `<span class="lat-pill" data-shape="pill" data-size="lg"><span class="lat-pill-lead">`
+- renders `<span data-size="sm" class="state fail state-empty lat-state"`
+- detect true
+
+## a size the pill does not have stays code
+
+```markdown
+`@check{yes, xl}`
+```
+
+- renders `<code>@check{yes, xl}</code>`
+- detect true
+
 ## an answer that is not one of the six stays code
 
 ```markdown

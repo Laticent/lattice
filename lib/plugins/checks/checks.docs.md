@@ -41,6 +41,8 @@ inline code, `` `[x]` ``, which draws the disc in running text. `[X]` is NOT a c
 | `` `@check{pass}` `` | The disc alone, in running text |
 | `` `@check{yes, label=Residency}` `` | A pill holding the check and the word "Residency" |
 | `` `@check{no, label="Audit, EU"}` `` | A label with a comma is quoted, like any Segno text |
+| `` `@check{yes, label=Residency, lg}` `` | The pill at a pill's size: `sm`, `md` (the default) or `lg` |
+| `` `@check{yes, sm}` `` | The disc alone, scaled by the same factors a pill's size uses |
 
 The answer comes first: one of the six ids (`pass warn fail unknown todo skip`), which are canonical, or its spoken
 word (`yes partly no open na`). Case does not matter. The label is a named parameter, `label=`, never text after the
@@ -73,3 +75,12 @@ tone token, whether it is hollow, its spoken word, the spoken `aliases` the full
 stylesheet, the narration word maps, manifest label sets and the Studio's marker picker cannot import it, so
 `test/unit/core/state-marks.test.js` pins each to it. Adding an answer is adding a row; the test then names every
 surface that does not know it yet.
+
+## How a check is sized
+
+Every answer draws the same disc: in one container, at one size, the six answers paint the same diameter, sit at
+the same height and keep the same gap to their words, in all five `checks-*` styles. A style's rim never changes the
+footprint, because the disc gives it back; only `checks-bold` is larger, on purpose. In a pill the disc is
+0.85 of the pill's type and sits where the pill's own icon sits, at `sm`, `md` and `lg`.
+`test/integration/invariants/check-marks-uniform.test.js` holds all of this, to half a pixel; the measurements and
+the defects it closed are `engineering/decisions/2026-10-18-checks.md` §21.
