@@ -2033,9 +2033,10 @@ const SANCTIONED_MARGINS = [
        + 'looser leading the line absorbs it, so the effect is leading-dependent).',
   },
   {
-    file: 'lib/base/base.modifiers.css',
+    file: 'lib/plugins/checks/checks.styles.css',
     value: '0.22em',
-    why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
+    why: 'the same horizontal breathing room for an INLINE CHECK (`.lat-state`; moved here from '
+       + 'base.modifiers.css with the rest of the check\'s drawing, unchanged), which '
        + 'needs its own entry because this allowlist consumes one declaration per entry. On '
        + 'the disc the case against padding is plainer than on the pill: the box is a fixed '
        + '1em square with `box-sizing:border-box`, so `padding-inline` shrinks the CIRCLE '
@@ -2908,10 +2909,10 @@ function checkReadingRole(errors) {
 // names why the read still exists, and the commit that removes the site lowers or deletes it.
 // The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
 // read) and an entry above its count (stale).
-const SANCTIONED_PILL_READS = [
-  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the separate checks design (PR #2769)" },
-  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the separate checks design (PR #2769)' },
-];
+// Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
+// `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
+// ask the pill plugin for a pill holding a check.
+const SANCTIONED_PILL_READS = [];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {
@@ -6258,13 +6259,15 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
   },
   {
-    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 1,
-    why: 'ONE ABSENCE ASSERTION on a loopback server\'s request log: the Studio\'s Reading view, with '
+    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log. (1) The Studio\'s Reading view, with '
        + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
        + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
        + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
        + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
-       + 'proves the log can see a fetch.',
+       + 'proves the log can see a fetch. (2) A drawn Mermaid `click … href` link must not request its '
+       + 'address before a click (followups 2909-p5): the same 3000ms, and the click that follows proves '
+       + 'the log sees that address.',
   },
   {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,

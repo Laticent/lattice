@@ -197,7 +197,7 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 - Code comparison
   - Use `compare-code` for two fenced blocks. compare-prose is for sentences, not snippets.
 - Three or more options
-  - compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid` with criteria badges.
+  - compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid`, which scores each option against shared criteria.
 - Verbatim text differences
   - When the diff lives inside the prose itself — legal language, contract clauses — use `redline` so insertions and deletions render inline.
 

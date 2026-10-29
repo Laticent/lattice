@@ -14,6 +14,14 @@ Owner OK 2026-10-29 (asked in the PR 2959 session: "D2 A", then "Studio only, +0
 |---|---|---|---|---|---|
 | studio | eagerJsGz | 504833 | 504833 | +0 | 559719 |
 
+### 2026-10-29 — ceiling raised by hand, measured on the built tree at d423918
+
+Owner OK 2026-10-29 (asked in the PR 2966 session). PR 2966 runs the Studio's Fix all through Squadra's fix driver; the driver itself loads on demand, but the loader, the fence-aware fix lookup in four rules and the guard that keeps a fenced-only finding from claiming a fix add about 0.6KB gz to the Studio lint core (615 bytes, measured locally against main). Main alone sits about 0.2KB under the ceiling, so the PR measured 122.7KB in CI against 122.3KB. The tool's own reset re-slacks to 10% over the measurement; the owner approved 1KB, so only the ceiling moved, from 125200 to 126224 (+1024), and the soft target stayed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 126224 |
+
 ### 2026-10-28 — ceiling raised by hand, measured on the built tree at be19565
 
 Owner OK 2026-10-28 (asked in the PR 2927 session). Filo (#2940) brought the Studio's eager JS to within 2KB of its ceiling, and PR 2927 (one New slide door, strip ops on the rendered slide, undo on Filo) adds 3,711 bytes over main, measured with `measure-route-base.sh`: 1.6KB past the ceiling. The owner chose a 4KB raise over loading the slide ops lazily, so only the ceiling moved, from 555316 to 559412 (+4096), and the soft target stayed.

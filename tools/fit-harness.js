@@ -17,7 +17,7 @@
  *   3. Builds the fit-first arms in the page on the whole render (tools/lib/fit-harness/page.js),
  *      and computes `fit-then-structural`: the whole slide when it fits, today's pages otherwise.
  *   4. Scores every arm with ONE oracle, the export's own overflow probes, in the export's own
- *      browser (CHROME_PATH). Hard rules first (a page the probe rejects; content lost), then
+ *      browser (PUPPETEER_EXECUTABLE_PATH, then CHROME_PATH, then puppeteer's own). Hard rules first (a page the probe rejects; content lost), then
  *      stability, page count, thin pages and timing.
  *
  * MAPPING. A batch slide can render as more than one section (a panes slide at a non-wide box
@@ -30,13 +30,18 @@
  *   node tools/fit-harness.js --sizes hd,square,portrait,story --venues laptop,conference,hall
  *   node tools/fit-harness.js --corpus all           # galleries + examples
  *   node tools/fit-harness.js --only inventory       # source decks whose path contains this
+ *   node tools/fit-harness.js --edits none           # authored slides only (the nightly ratchet)
  *   node tools/fit-harness.js --jobs 4 --out .scratch/fit-harness
  *
- * Writes <out>/results.json (every slide × arm × box × venue) and <out>/report.md, and prints
- * the report. Advisory: exit 0 unless the harness itself fails. Needs CHROME_PATH.
+ * Writes <out>/results.jsonl (one row a line: every slide × arm × box × venue) and <out>/report.md, and prints
+ * the report. Exit 0 unless the harness fails (2); with --ratchet, 1 when a count rose and 3 when
+ * a cell the baseline scores was not scored this run (ratchet.js).
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const { StringDecoder } = require('node:string_decoder');
+const ratchet = require('./lib/fit-harness/ratchet');
+const chains = require('./lib/fit-harness/chains');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
@@ -50,6 +55,10 @@ const flag = (name, def) => { const i = argv.indexOf(`--${name}`); return i >= 0
 const SIZES = flag('sizes', 'square,story').split(',');
 const VENUES = flag('venues', 'laptop,hall').split(',');
 const JOBS = Number(flag('jobs', '4'));
+// --edits none: score the authored slides only, no perturbed copies. The ratchet counts only
+// authored slides, so the nightly's verdict is the same at a fraction of the renders; jank and
+// the edit-chain report need the edits and read n/a without them.
+const EDITS_ON = flag('edits', 'all') !== 'none';
 const OUT = path.resolve(ROOT, flag('out', '.scratch/fit-harness'));
 const ONLY = flag('only', '');
 const CORPUS = flag('corpus', 'galleries');
@@ -60,13 +69,19 @@ const MARGINS = [0.1, 0.2, 0.3];
 // --rescore: reuse the renders already in <out>/html (same sources, sizes and venues) and only
 // score again, for a change that touches scoring and not rendering.
 const RESCORE = argv.includes('--rescore');
-// --resume: keep the renders already in <out>/html and render only the missing ones, so a run the
-// sandbox killed picks up where it stopped. Delete any half-written render first.
+// --resume: keep the renders already in <out>/html and render only the missing ones, and keep the
+// decks already scored in <out>/rows, so a run the sandbox killed picks up where it stopped. Delete
+// any half-written render first. Without --resume the scored rows start over.
 const RESUME = argv.includes('--resume');
-// --rearm: read <out>/results.json, drop its computed arms and compute them again, then write a
+// --rearm: read <out>/results.jsonl, drop its computed arms and compute them again, then write a
 // new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
 // run's own --packs: the packed rows kept are the ones it names.
 const REARM = argv.includes('--rearm');
+// --ratchet <file>: compare the shipped split's per-component clip, unreadable and lost counts against a
+// committed baseline and exit 1 if any rose (tools/lib/fit-harness/ratchet.js). --bless <file>
+// writes the current counts as the baseline. Both apply after a run or a --rearm.
+const RATCHET = flag('ratchet', '');
+const BLESS = flag('bless', '');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
@@ -94,7 +109,7 @@ function batch(src) {
   slides.forEach((s, k) => {
     out.push(s);
     map.push({ slide: k + 1, variant: 'orig' });
-    for (const [name, edit] of Object.entries(EDITS)) {
+    for (const [name, edit] of EDITS_ON ? Object.entries(EDITS) : []) {
       const v = edit(s);
       // A variant that only moves whitespace changes nothing, and would dilute the jank rate.
       if (v && squash(v) !== squash(s)) { out.push(v); map.push({ slide: k + 1, variant: name }); }
@@ -182,21 +197,56 @@ async function main() {
   }
   const tRender = Date.now();
 
-  const { chromium } = require('playwright');
-  // The export's own browser: Playwright's bundled build flips a verdict now and then.
-  const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
-  const cfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+  // The export's own browser, through the engine's own dependency (puppeteer), so a CI runner
+  // needs nothing beyond `npm ci`. Playwright's bundled build flipped a verdict now and then.
+  const puppeteer = require('puppeteer');
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
+  const browser = await puppeteer.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
+  // Components whose manifest excludes `compact`: the clip rescue never applies to them.
+  const noCompact = [];
+  for (const bucket of fs.readdirSync(path.join(ROOT, 'lib/components'))) {
+    const dir = path.join(ROOT, 'lib/components', bucket);
+    if (!fs.statSync(dir).isDirectory()) continue;
+    for (const c of fs.readdirSync(dir)) {
+      const f = path.join(dir, c, `${c}.manifest.json`);
+      if (fs.existsSync(f) && (JSON.parse(fs.readFileSync(f, 'utf8')).excludes || []).includes('compact')) noCompact.push(c);
+    }
+  }
+  const cfg = { noCompact, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
   const open = async (file) => {
-    const p = await browser.newPage({ viewport: { width: 1400, height: 2400 } });
+    const p = await browser.newPage();
+    await p.setViewport({ width: 1400, height: 2400 });
     await p.goto(`file://${file}`);
     await p.evaluate(() => document.fonts.ready);
-    await p.waitForTimeout(400);
+    await new Promise((r) => setTimeout(r, 400));
     await p.evaluate(`${PAGE_SRC}(${JSON.stringify(cfg)})`);
     return p;
   };
   const rows = [];
   const keys = [...new Set(jobs.map((j) => j.key))];
+  // Each deck's scored rows are saved as it finishes, so --resume skips the decks a killed run
+  // already scored. A run without --resume starts the cache over: its scoring may differ.
+  const rowsDir = path.join(OUT, 'rows');
+  // The cache is valid only for the scoring code and flags that wrote it: a fingerprint of both
+  // sits beside it, and a mismatch clears it, so --resume after a scoring change cannot mix rows.
+  const fingerprint = require('node:crypto')
+    .createHash('sha256')
+    .update([__filename, ...['page.js', 'ratchet.js', 'chains.js'].map((f) => path.join(__dirname, 'lib/fit-harness', f))].map((f) => fs.readFileSync(f, 'utf8')).join('\0'))
+    .update(JSON.stringify({ PACKS, MARGINS, EDITS_ON }))
+    .digest('hex');
+  const stamp = path.join(rowsDir, '.fingerprint');
+  if (!RESUME || !fs.existsSync(stamp) || fs.readFileSync(stamp, 'utf8') !== fingerprint) fs.rmSync(rowsDir, { recursive: true, force: true });
+  fs.mkdirSync(rowsDir, { recursive: true });
+  fs.writeFileSync(stamp, fingerprint);
+  const allRows = rows;
   await pool(keys, Math.max(1, Math.min(JOBS, 4)), async (key) => {
+    const cache = path.join(rowsDir, `${key}.json`);
+    if (RESUME && fs.existsSync(cache)) {
+      allRows.push(...JSON.parse(fs.readFileSync(cache, 'utf8')));
+      process.stdout.write('.');
+      return;
+    }
+    const rows = [];
     const [id, size, venue] = key.split('@');
     const { src, map, counts } = decks[id];
     const A = path.join(OUT, 'html', `${key}-A.html`);
@@ -212,6 +262,8 @@ async function main() {
       leaves: window.__fit.sections().map((s) => window.__fit.leaves(s)),
       // Per section: does it fit with each margin of spare room (for the margin and hysteresis arms)?
       margin: window.__fit.sections().map((s) => Object.fromEntries(margins.map((m) => [m, window.__fit.fitsWithMargin(s, m)]))),
+      // Per section: does it fit whole once `compact` tightens its spacing (the elastic arms)?
+      compact: window.__fit.sections().map((s) => window.__fit.compactPage(s)),
     }), MARGINS);
     await pw.close();
     if (!wInfo.check.ok || wInfo.leaves.length !== owner.length) {
@@ -266,6 +318,13 @@ async function main() {
     // A batch slide fits with a margin when every one of its sections does.
     const margin = map.map(() => Object.fromEntries(MARGINS.map((m) => [m, true])));
     wInfo.margin.forEach((mm, w) => { for (const m of MARGINS) if (!mm[m]) margin[owner[w]][m] = false; });
+    // The rescue's pages: every section of the batch slide must fit with its spacing tightened.
+    const compact = map.map(() => true);
+    const compactPages = map.map(() => []);
+    wInfo.compact.forEach((pg, w) => {
+      if (!pg.ok) compact[owner[w]] = false;
+      else compactPages[owner[w]].push({ fits: pg.fits, px: 0, cut: pg.cut, fill: pg.fill });
+    });
     const source = map.map(() => []);
     wInfo.leaves.forEach((l, w) => { source[owner[w]].push(...l); });
     map.forEach((meta, i) => {
@@ -274,19 +333,24 @@ async function main() {
         if (!r.pages.length) { problems.push(`no pages: ${key} ${arm} slide ${meta.slide} ${meta.variant}`); continue; }
         const where = {};
         for (const l of source[i]) if (!(l in where)) where[l] = r.pages.findIndex((pg) => pg.leaves.includes(l));
-        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i],
+        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i], compact: compact[i], compactPages: compact[i] ? compactPages[i] : null,
           pages: r.pages.map((pg) => ({ fits: pg.fits, px: pg.px, cut: pg.cut, fill: pg.fill })), where });
       }
     });
+    // Write then rename, so a run killed mid-write leaves no truncated cache file.
+    fs.writeFileSync(`${cache}.tmp`, JSON.stringify(rows));
+    fs.renameSync(`${cache}.tmp`, cache);
+    allRows.push(...rows);
     process.stdout.write('.');
   });
   await browser.close();
   addComputedArms(rows);
   const tScore = Date.now();
-  fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
+  writeRows(path.join(OUT, 'results.jsonl'), rows);
   const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(`\n${report}`);
+  applyRatchet(rows);
 }
 
 /** Stability: of the leaves an edit did not touch, the share of pairs whose same-page status flipped. */
@@ -340,9 +404,44 @@ function addComputedArms(rows) {
       pick(g, whole, `hysteresis-${enter * 100}-${exit * 100}`);
     }
   };
+  // Elastic (stateless): whole when it fits; whole with `compact` spacing when that fits; today's
+  // split otherwise. A compact page is one whole page, so it keeps every leaf.
+  // The rescue's own pages (one per section, with its fill and any footer-only cut). Rows from a
+  // run before the rescue was measured per section fall back to one clean page.
+  const compactWhole = (g) => ({ ...g, how: 'fits', pages: g.compactPages ?? [{ fits: true, px: 0, cut: null, fill: null }], lost: 0, where: Object.fromEntries(Object.keys(g.where).map((l) => [l, 0])) });
+  const elasticFits = (g) => g.how === 'fits' || g.compact === true;
+  const elastic = (g, whole, arm) => {
+    if (!whole) return pick(g, false, arm);
+    rows.push({ ...(g.how === 'fits' ? g : compactWhole(g)), arm, ms: g.how === 'fits' ? g.ms : null });
+  };
+  for (const g of greedy) if (g.compact !== undefined) elastic(g, elasticFits(g), 'elastic');
+  // elastic-balanced (stateless): whole if it fits; whole and compact if that fits; otherwise the
+  // fit-first balanced pages (no member-a-page explosion).
+  const balancedBy = new Map(rows.filter((r) => r.arm === 'fit-balanced').map((r) => [`${r.src}#${r.slide}#${r.variant}#${r.size}#${r.venue}`, r]));
+  for (const g of greedy) {
+    if (g.compact === undefined) continue;
+    const b = balancedBy.get(`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`);
+    if (!b) continue;
+    if (g.how === 'fits') rows.push({ ...g, arm: 'elastic-balanced' });
+    else if (g.compact === true) rows.push({ ...compactWhole(g), arm: 'elastic-balanced', ms: null });
+    else rows.push({ ...b, arm: 'elastic-balanced' });
+  }
   hyst(0, 0.2);
   hyst(0.1, 0.2);
   hyst(0.2, 0.3);
+  // The owner's pick after §11: no entry margin, the 30% rejoin band.
+  hyst(0, 0.3);
+  // rescue-20-30: the hysteresis-20-30 decision, and `compact` spacing only as a last resort: a
+  // slide whose pages would clip (outside the footer) renders whole and compact when that fits.
+  // It touches only slides that are broken anyway, so it should not move a working plan.
+  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  const greedyBy = new Map(greedy.map((g) => [`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`, g]));
+  for (const [trigger, arm] of [['hysteresis-20-30', 'rescue-20-30'], ['hysteresis-0-30', 'rescue-0-30']]) {
+    for (const h of rows.filter((r) => r.arm === trigger)) {
+      const g = greedyBy.get(`${h.src}#${h.slide}#${h.variant}#${h.size}#${h.venue}`);
+      rows.push(g && g.compact === true && clipsContent(h) ? { ...compactWhole(g), arm, ms: null } : { ...h, arm });
+    }
+  }
   // packed-fit: today's builders with the most members a page that still fits, per slide (one a
   // page when nothing denser fits). hybrid: the hysteresis-10-20 decision on whether to split,
   // and packed-fit pages when it does: the P2 candidate (2026-10-27-fluid-layout-library.md §13.1).
@@ -394,13 +493,16 @@ function summarize(rows, run) {
   const q = (xs, k) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(k * (s.length - 1))] : 0; };
   const pct = (x) => `${(100 * x).toFixed(1)}%`;
   const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  // Clips: a page cut outside the footer. Unreadable: no cut, but crammed or clipped prose (§12),
+  // counted apart so the clip count keeps its meaning.
+  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer' && p.cut !== 'unreadable');
+  const unreadableOnly = (r) => !clipsContent(r) && r.pages.some((p) => p.cut === 'unreadable');
   const lines = [];
   lines.push('# Fit harness report', '');
   lines.push(`${run.sources} source decks, ${run.renders} renders. Render ${run.renderS.toFixed(0)} s, score ${run.scoreS.toFixed(0)} s. ${run.problems.length} problem(s)${run.problems.length ? ' (listed at the end)' : ''}.`, '');
   lines.push('**Clips** are slides with a page the export\'s overflow probe rejects for content (a cut that lands only in chrome, such as a long footer line, is counted apart as **footer only**). **Unfixable** of those are slides that clip in BOTH today\'s split (one member a page) and the fit-first arm, so no split policy here fixes them; the rest are the arm\'s own. **Lost** counts slides with a text leaf on no page. **Jank** is the share of ±10% text edits that change the page count; **pair flips** the share of untouched leaf pairs that change pages under a ±1-member edit; **±40% text** how often a large edit changes the page count, which is correct for a fit policy. Pair flips favor today\'s split by construction (one member a page).', '');
-  lines.push('| Box | Venue | Arm | Slides | Footer only | Clips | of which unfixable | Lost | Pages | Thin pages | Fill p50 | Jank ±10% | Pair flips ±1 | ±40% text | ms/slide p50 |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| Box | Venue | Arm | Slides | Footer only | Clips | of which unfixable | Unreadable | Lost | Pages | Thin pages | Fill p50 | Jank ±10% | Pair flips ±1 | ±40% text | ms/slide p50 |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   const key = (r) => `${r.src}#${r.slide}#${r.size}#${r.venue}`;
   const origOf = (arm) => new Set(rows.filter((r) => r.arm === arm && r.variant === 'orig' && clipsContent(r)).map(key));
   const sClip = origOf('structural');
@@ -425,27 +527,81 @@ function summarize(rows, run) {
       for (const v of ['nudgeUp', 'nudgeDown']) { const e = byKey.get(`${o.src}#${o.slide}#${v}`); if (e) jank.push(e.pages.length !== o.pages.length ? 1 : 0); }
       for (const v of ['longer', 'shorter']) { const e = byKey.get(`${o.src}#${o.slide}#${v}`); if (e) big.push(e.pages.length !== o.pages.length ? 1 : 0); }
     }
-    const footerOnly = orig.filter((r) => r.pages.some((p) => !p.fits) && !clipsContent(r)).length;
+    const footerOnly = orig.filter((r) => r.pages.some((p) => !p.fits) && !clipsContent(r) && !unreadableOnly(r)).length;
     const clips = orig.filter(clipsContent);
     const unfix = clips.filter((r) => unfixable.has(key(r))).length;
     const ms = orig.map((r) => r.ms).filter((x) => x !== null);
-    lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
+    lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter(unreadableOnly).length} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
-  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with tightened spacing only for a slide that would otherwise clip. `rescue-0-30`: the same on hysteresis-0-30, with no entry margin (the owner\'s pick, §11). The rescue sets each spacing token to 0.75 of the slide\'s own and skips components that exclude `compact`. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', chains.chainReport(rows));
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }
 
+/** One JSON row a line: a full run's rows outgrow the longest string V8 can build (one
+ *  JSON.stringify of them threw RangeError once the elastic arms were added). */
+function writeRows(file, rows) {
+  const fd = fs.openSync(file, 'w');
+  try {
+    for (const r of rows) fs.writeSync(fd, `${JSON.stringify(r)}\n`);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function readRows(file) {
+  const rows = [];
+  let rest = '';
+  const fd = fs.openSync(file, 'r');
+  const buf = Buffer.alloc(1 << 24);
+  // A chunk can end inside a multi-byte character; the decoder holds it for the next chunk.
+  const dec = new StringDecoder('utf8');
+  try {
+    for (let n; (n = fs.readSync(fd, buf, 0, buf.length, null)) > 0; ) {
+      const lines = (rest + dec.write(buf.subarray(0, n))).split('\n');
+      rest = lines.pop();
+      for (const l of lines) if (l) rows.push(JSON.parse(l));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  rest += dec.end();
+  if (rest) rows.push(JSON.parse(rest));
+  return rows;
+}
+
+function applyRatchet(rows) {
+  if (!RATCHET && !BLESS) return;
+  // Every gallery x box x venue this run was asked to score: a cell with no rows is NOT SCORED,
+  // never silently absent (ratchet.js).
+  const expected = sources().flatMap((src) => SIZES.flatMap((size) => VENUES.map((venue) => [path.relative(ROOT, src), `${size}@${venue}`])));
+  const now = ratchet.tally(rows.filter((r) => SIZES.includes(r.size) && VENUES.includes(r.venue)), expected);
+  if (BLESS) {
+    // Sorted, so a re-bless diffs only the counts that moved, never the order rows arrived in.
+    const sorted = Object.fromEntries(Object.keys(now).sort().map((src) => [src, Object.fromEntries(Object.keys(now[src]).sort().map((c) => [c, now[src][c]]))]));
+    fs.writeFileSync(BLESS, `${JSON.stringify(sorted, null, 2)}\n`);
+    console.log(`fit ratchet: blessed ${Object.keys(now).length} sources into ${BLESS}`);
+  }
+  if (RATCHET) {
+    const result = ratchet.compare(JSON.parse(fs.readFileSync(RATCHET, 'utf8')), now);
+    console.log(ratchet.format(result));
+    const code = ratchet.exitCode(result);
+    if (code) process.exitCode = code;
+  }
+}
+
 async function rearm() {
-  const file = path.join(OUT, 'results.json');
+  const file = path.join(OUT, 'results.jsonl');
   const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`)]);
-  const rows = JSON.parse(fs.readFileSync(file, 'utf8')).filter((r) => RENDERED.has(r.arm));
+  const rows = readRows(file).filter((r) => RENDERED.has(r.arm));
   addComputedArms(rows);
-  fs.writeFileSync(file, JSON.stringify(rows));
+  writeRows(file, rows);
   const report = summarize(rows, { renders: 0, problems: ['rearmed from an earlier run: its render count, timings and problems are in that run\'s report'], renderS: 0, scoreS: 0, sources: new Set(rows.map((r) => r.src)).size });
   fs.writeFileSync(path.join(OUT, 'report.md'), report);
   console.log(report);
+  applyRatchet(rows);
 }
 
 (REARM ? rearm() : main()).catch((e) => { console.error(e); process.exit(2); });

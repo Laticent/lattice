@@ -68,7 +68,7 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 
 - Build in-house
   - [x] Certified
-  - [~] Residency
+  - [-] Residency
   - [!] Export
   - Full control of every axis, and three engineer-quarters from having any of it.
 - Vendor West

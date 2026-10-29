@@ -12,7 +12,7 @@ facts:
   - { k: Package, v: '@laticent/fuoco' }
   - { k: Status, v: Coming to npm with Lattice 1.0 }
   - { k: Runs in, v: The browser and Node }
-  - { k: Dependencies, v: None (React optional, for the hook) }
+  - { k: Dependencies, v: "None (React optional, for the hook)" }
   - { k: License, v: AGPL-3.0 }
 reference:
   - label: The README

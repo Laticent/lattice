@@ -221,3 +221,50 @@ describe('applyToDom — the live-DOM path must agree with the string path', () 
     assert.ok(table.nextElementSibling.classList.contains('label-set-key'));
   });
 });
+
+// THE `pills` VARIANT: each cell's answer as a word in a pill, the check as the pill's lead
+// (engineering/decisions/2026-10-18-checks.md §17). The word is the label set's, so the key and the
+// pills say the same thing, and an author's rename reaches both.
+describe('pills — each cell is its answer as a word', () => {
+  const { JSDOM } = require('jsdom');
+  const pillsSection = (cells, extra = '') => section(cells, extra).replace('class="obligation-matrix"', 'class="obligation-matrix pills"');
+  const pillWords = (html) => [...html.matchAll(/<\/span><\/span>([^<]*)<\/span><\/td>/g)].map((m) => m[1]);
+
+  test('every check cell becomes a pill with the check and the default word', () => {
+    const out = t.applyToHtml(pillsSection(FULL + HALF + FAIL + UNKNOWN + TODO + SLASH));
+    assert.deepEqual(pillWords(out), ['Applies', 'Partial', 'Not required', 'Unclear', 'Undetermined', 'Exempt']);
+    assert.match(out, /<td><span class="lat-pill" data-shape="pill"><span class="lat-pill-lead"><span class="state pass state-full lat-state" role="img" aria-label="yes"><\/span><\/span>Applies<\/span><\/td>/);
+    assert.ok(!/<td><span class="state /.test(out), 'no bare cell span is left');
+  });
+
+  test('the author\'s rename reaches the pills as it reaches the key', () => {
+    const out = t.applyToHtml(pillsSection(FULL + TODO, setPara('[{[x], In force}]')));
+    assert.deepEqual(pillWords(out), ['In force', 'Undetermined']);
+    assert.deepEqual(labels(out), ['In force', 'Undetermined']);
+  });
+
+  test('a hostile renamed word lands as text, never as markup', () => {
+    const out = t.applyToHtml(pillsSection(FULL, setPara('[{[x], &quot;&lt;img src=x onerror=alert(1)&gt;&quot;}]')));
+    assert.ok(!out.includes('<img'), 'the word must not become a live element');
+    assert.match(out, /<\/span><\/span>&lt;img src=x onerror=alert\(1\)&gt;<\/span>/);
+  });
+
+  test('without `pills` the cells stay bare checks', () => {
+    const out = t.applyToHtml(section(FULL + HALF));
+    assert.ok(!out.includes('lat-pill'));
+  });
+
+  test('a second pass changes nothing', () => {
+    const once = t.applyToHtml(pillsSection(FULL + HALF));
+    assert.equal(t.applyToHtml(once), once);
+  });
+
+  test('the live-DOM path draws the same pills as the string path', () => {
+    const html = pillsSection(FULL + HALF + SLASH, setPara('[{[x], In force}]'));
+    const d = new JSDOM(`<!doctype html><html><body>${html}</body></html>`).window.document;
+    t.applyToDom(d.body);
+    const viaString = new JSDOM(`<!doctype html><html><body>${t.applyToHtml(html)}</body></html>`).window.document;
+    const cellsOf = (doc) => [...doc.querySelectorAll('td')].map((c) => c.innerHTML);
+    assert.deepEqual(cellsOf(d), cellsOf(viaString));
+  });
+});

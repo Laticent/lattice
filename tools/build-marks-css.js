@@ -271,6 +271,8 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
  * kept its category hue is a mark that no longer matches its own series. Pigment and etch
  * keep a dot's hue, so they may repaint it.
  */
+/** The highest first-hue wash a kanban card takes on a light slide while its inline code still clears 4.5:1 on every theme. */
+const KANBAN_CODE_CAP = 8;
 const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
@@ -564,6 +566,25 @@ function build() {
     w(textLevel ? supports(rule(ALL, s.sel, decls)) : rule(ALL, s.sel, decls));
   }
 
+  // ROADMAP — a status chart, so its status discs take the one status level like a gantt bar (#2908's P2 follow-up:
+  // they stayed solid under etch and tone, the loudest status marks in the class). A disc is a cell's or key item's
+  // ::before / ::after, which no `:where()` can name, so the finish sets the member's own disc channels on the cell and
+  // the pseudo-elements inherit them: `--state-fill` (roadmap.styles.css paints it in place of the solid) and the
+  // glyph's ink, which on a pale disc is the finish ink, as a gantt key's status mark is. Every FILLED disc moves:
+  // shipped, in flight, missed, and out of scope, whose solid muted disc was the loudest mark on an etch slide once the
+  // rest went pale. The hollow rings (planned, uncertain) have no body to move, `heat` included: its planned cell takes
+  // the pass hue but stays a hollow ring, so a fill set on it would never paint.
+  // Pigment's status level is the solid itself, so pigment emits nothing here.
+  // It waits behind the guard with the gantt key it matches, so an older engine keeps the shipped discs.
+  {
+    const rm = ':is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item)';
+    const stated = `.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped)`;
+    w(supports(rule(MOVERS, stated, [
+      `--state-fill: ${tld('var(--state-color)', T.statusText, T.statusTextD, T.statusBase)}`,
+      `--state-glyph-mark: ${tv(T.ink)}`,
+    ])));
+  }
+
   // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
   // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
   // It waits behind the same guard as the bar's own wider edge (TEXT WAITS), so an engine that keeps the bar's
@@ -804,12 +825,33 @@ function build() {
       w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${pct === 100 ? wordInk : `color-mix(in oklab, ${wordInk} ${pct}%, var(--text-muted))`}`]));
     }
     w(rule(name, '.wc-word[data-tier="1"]', ['fill: var(--text-muted)']));
-    // A slope's lines are one quiet ink by default; a marked line (the signal) is the one ink at full strength, its
-    // direction carried by the geometry. The quiet ink is a pale step of the one hue, not grey.
-    w(supports(rule(name, '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])', [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
-    w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
-    w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
-    w(supports(rule(name, '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])', [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+    // A slope's lines are one quiet ink by default. The quiet ink is a pale step of the one hue, not grey, under both.
+    const quietLine = '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])';
+    const quietDot = '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])';
+    w(supports(rule(name, quietLine, [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
+    if (tone) {
+      // Under tone a marked line (the signal) is the one ink at full strength, its direction carried by the geometry.
+      w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
+      w(supports(rule(name, quietDot, [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+    } else {
+      // ETCH ON A SLOPE (engineering/decisions/2026-10-28-finish-invariant.md §5, the owner's D2 pick). A line is one paint
+      // channel, so etch cannot wash it; it shows its identity in the LINE instead. A marked or signal line keeps the
+      // member's own status ink (`--mark-ink`, `--state-*-ink`), as tone does not, at etch's series weight (2.6, the line
+      // and ep-curve stroke). A dot has a body and an edge, so it takes etch's own trait: a pale wash with an edge in its
+      // line's ink. The ink, not the dim status hue pigment mixes toward a dark slide: under that hue a dark etch signal
+      // line read 1.82-2.02:1 against the slide, where the member's ink reads 6.2-14:1 (maker-checker on #2960). Before
+      // this, etch drew a slope exactly as tone did.
+      w(supports(rule(name, '.slope-svg .slope-line[data-s], .slope-svg.slope-signal .slope-line:is([data-dir="up"], [data-dir="down"]):not([data-s])', ['stroke-width: 2.6'])));
+      w(supports(rule(name, quietDot, [`--slope-dot-ink: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+      // A status dot only exists on a `marked` slope (slope.transform.js), which is where the member defines --mark-ink.
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', ['--slope-dot-ink: var(--mark-ink)'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="up"]:not([data-s])', ['--slope-dot-ink: var(--state-pass-ink)'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="down"]:not([data-s])', ['--slope-dot-ink: var(--state-fail-ink)'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot', [
+        'fill: color-mix(in oklab, var(--slope-dot-ink) 18%, var(--bg))', 'stroke: var(--slope-dot-ink)', 'stroke-width: 1.4',
+      ])));
+    }
     }
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
@@ -887,8 +929,11 @@ function build() {
     // the one chart no finish reached. A card with no status takes the finish's wash and a first-hue accent edge, and each
     // lane's title rule takes the first hue; a status card and the done lane keep their status color.
     {
-      const wash = name === 'pigment' ? 12 : name === 'tone' ? 12 : null;
-      const tint = wash !== null ? `color-mix(in oklab, ${ONE} ${wash}%, var(--bg))` : `light-dark(color-mix(in oklab, ${ONE} ${f.backdrop[0]}%, var(--bg)), color-mix(in oklab, ${ONE} ${f.backdrop[1]}%, var(--bg)))`;
+      // A card carries inline code on its own ground, so on a LIGHT slide its wash is capped at KANBAN_CODE_CAP: past 8% the
+      // code fell under 4.5:1 (12% read 4.19:1 on carbone, 14% 4.07:1 on carbone, cuoio, indaco and laguna; tint sweep in
+      // engineering/decisions/2026-10-28-finish-invariant.md §4). The dark faces clear at the finish's own level.
+      const [washL, washD] = name === 'tone' ? [12, 12] : f.backdrop;
+      const tint = `light-dark(color-mix(in oklab, ${ONE} ${Math.min(washL, KANBAN_CODE_CAP)}%, var(--bg)), color-mix(in oklab, ${ONE} ${washD}%, var(--bg)))`;
       // Pigment is the default finish and its card keeps the shipped surface: a tint under the inline code a card carries
       // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
       // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
@@ -1071,4 +1116,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, KANBAN_CODE_CAP, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

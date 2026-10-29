@@ -196,6 +196,7 @@ distinct, stable ID.
 | `callout-spelling` | info | — | A `@legend{…}` span that pins a mark: a callout written the way it was before callouts had a plugin of their own. It still draws; `@callout{…}` is the spelling now. |
 | `legend-off` | info | — | A callout on a slide where the author switched callouts off (`callout: off`, `callout-off`): it is hidden, and its detail still reaches the speaker note. |
 | `bare-row-pill` | warning | — | A bare code span where a component used to draw a pill from one (cards, kpi, actors, a register, a roadmap header and the others): it is plain inline code now, and the pills plugin's `{…}` draws the pill. |
+| `check-label-code` | warning | — | Inline code in a `verdict-grid` or `pricing` criterion that starts with a check. The label beside the check is plain text, so the span prints as typed (`` [x] `@check{fail}` text `` shows "@check{fail} text"). |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
 | `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |

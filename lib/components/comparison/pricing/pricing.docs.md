@@ -31,7 +31,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 ### Common mistakes
 
 - **Writing the ribbon marker as `**Most popular**` (bold) instead of `*Most popular*` (single asterisk).** The ribbon is CSS-targeted at `li > em` specifically — `*…*` parses to `<em>`. A `**bold**` marker parses to `<strong>` instead and triggers neither the ribbon nor the accent-elevated card styling.
-- **Adding a state marker (`[x]`/`[/]`/`[-]`) to the final "who it's for" line.** The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just layers badge chrome (check icon + strike, etc.) on top of it, so the line ends up looking like a feature row instead of a plain caption.
+- **Adding a state marker (`[x]`/`[/]`/`[-]`) to the final "who it's for" line.** The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just puts a check (and, for `[/]`, a strike) in front of it, so the line ends up looking like a feature row instead of a plain caption.
 
 ## When to use
 

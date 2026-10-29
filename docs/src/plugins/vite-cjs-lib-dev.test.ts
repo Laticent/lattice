@@ -12,7 +12,7 @@ import { inlineSiblingLeaves } from './vite-cjs-lib-dev.mjs';
  * named …" the moment the module loads on `npm run dev`. `astro build` interops it fine, so the
  * built-site smoke job never sees it. It happened three times: the Studio island (#2119), the
  * webpage export's diagram bake, which then shipped raw Mermaid source, and the whole Compose
- * view (`state-marks.js`, `fence-languages.js`).
+ * view (`lib/plugins/checks/shared/registry.js`, `fence-languages.js`).
  *
  * Second arm: the shim wraps only a CJS file that requires NOTHING. A default import of a CJS
  * file with its own `require(` is served raw and fails the same way — every Studio preview

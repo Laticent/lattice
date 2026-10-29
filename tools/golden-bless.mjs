@@ -29,10 +29,12 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  BLESS_BUDGET_MS,
   goldenRows,
   lastBlessRenderedFrom,
   parseShownGoldens,
   prNumber,
+  runWithinBudget,
   seenFromPrs,
   verdict,
   verdictMarkdown,
@@ -212,17 +214,26 @@ async function main() {
     if (m) galleryNames.add(galleryName(`${m[1]}.gallery.md`));
     else decks.add(r.golden.replace(/\.pdf$/, ''));
   }
-  for (const name of galleryNames) {
-    const r = gate(['--scope', 'galleries', '--bless', '--only', name], [0]);
+  // One process per gallery or deck, inside a time budget (BLESS_BUDGET_MS): a night with hundreds
+  // drifted ran the job into its 180-minute cap and committed nothing (2026-10-26 to 10-28, followups
+  // 2945-p7). What is left waits for the next night. Progress goes to stderr, so a run that is still
+  // cut off shows how far it got.
+  const units = [...[...galleryNames].map((name) => ['galleries', name]), ...[...decks].map((deck) => ['decks', deck])];
+  const blessed = runWithinBudget(units, ([scope, only], k) => {
+    process.stderr.write(`[golden-bless] re-bless ${k + 1}/${units.length}: ${scope} ${only}\n`);
+    const r = gate(['--scope', scope, '--bless', '--only', only], [0]);
     if (!r.ok) blessProblems.push(r.error);
-  }
-  for (const deck of decks) {
-    const r = gate(['--scope', 'decks', '--bless', '--only', deck], [0]);
-    if (!r.ok) blessProblems.push(r.error);
-  }
+  });
+  const blessedGoldens = new Set(blessed.done.flatMap(([scope, only]) => (scope === 'decks' ? [`${only}.pdf`] : [])));
+  const blessedGalleries = new Set(blessed.done.filter(([scope]) => scope === 'galleries').map(([, name]) => name));
 
-  // Step 3. The tree was clean at the start, so every changed PDF is ours to keep or undo.
-  const want = new Set(drifted.map((r) => r.golden));
+  // Step 3. The tree was clean at the start, so every changed PDF is ours to keep or undo. A drifted
+  // golden the budget did not reach is not wanted tonight (it is unchanged anyway).
+  const reached = (golden) => {
+    const m = golden.match(/^(.*)\.gallery\.(light|dark)\.pdf$/);
+    return m ? blessedGalleries.has(galleryName(`${m[1]}.gallery.md`)) : blessedGoldens.has(golden);
+  };
+  const want = new Set(drifted.map((r) => r.golden).filter(reached));
   const restore = changedPdfs().filter((f) => !want.has(f));
   if (restore.length) undo(restore);
 
@@ -241,6 +252,9 @@ async function main() {
   }
   // Deferred is not failed: it holds auto-merge (a problem) but does not turn the night red.
   const deferred = [];
+  if (blessed.left.length) {
+    deferred.push(`${blessed.left.length} more drifted gallery or deck re-bless(es) wait for the next night (budget ${BLESS_BUDGET_MS / 60000} min)`);
+  }
   if (missing.length > MISSING_CAP) {
     deferred.push(`${missing.length - MISSING_CAP} more golden(s) have no PDF yet; the next night renders them (cap ${MISSING_CAP})`);
   }
@@ -290,7 +304,9 @@ async function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  const v = verdict(rows, seen, written, { created });
+  // A drifted golden the budget did not reach is deferred, not failed: it is left out of tonight's
+  // verdict (the `deferred` line says how many wait), so it is not listed as a bless that failed.
+  const v = verdict(rows.filter((r) => r.status !== 'DRIFT' || reached(r.golden)), seen, written, { created });
   v.problems.push(...blessProblems, ...renderProblems, ...deferred, ...seenProblems);
   if (v.problems.length) v.autoMerge = false;
   v.renderedFrom = renderedFrom;

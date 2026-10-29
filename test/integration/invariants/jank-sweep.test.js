@@ -468,7 +468,7 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
   });
 
   test('discovery reaches the marks that hang below TEXT, and the ones that are not pseudos at all', () => {
-    // Shipped `pricing`, whose badge marks hang off a `<li>` that carries the card title.
+    // Shipped `pricing`, whose feature checks hang off a `<li>` that carries the card title.
     // The walk used to stop at any element with its own text, so 2 positioned pseudos per
     // slide were reached 0 times and `--anchors` answered "this component draws no positioned
     // pseudo the walk can place" over marks it places fine. An empty candidate list passed
@@ -487,7 +487,9 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // measured ceilings.
     const r = anchors('pricing', '4', ['--axis', 'heading']);
     const sels = r.candidates.map((c) => c.sel);
-    assert.ok(sels.some((s) => /\.badge.*::after$/.test(s)),
+    // The feature check draws its mark on `::after` (lib/plugins/checks/checks.styles.css); it was
+    // a `.badge` until the check moved into its own plugin.
+    assert.ok(sels.some((s) => /\.lat-state.*::after$/.test(s)),
       `discovery missed the marks below the card title: ${JSON.stringify(sels)}`);
     // And `pricing`'s corner tag is an absolutely positioned ELEMENT, not a pseudo — invisible
     // to a walk that enumerates pseudos only, for the same reason it was invisible to the ink.

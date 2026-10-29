@@ -162,3 +162,39 @@ test('the built-in kinds in the named form: `@icon{…}` and `@avatar{…}` draw
 	const menu = page.locator('.cm-tooltip-autocomplete');
 	await expect(menu.getByRole('option', { name: /@avatar/ })).toBeVisible();
 });
+
+// ── The embedded checks plugin's full form, in the real Studio (engineering/decisions/2026-10-18-checks.md §18) ──
+// `@check{pass}` draws the same disc as `[x]`, and a label puts the check in a pill. The `@check{` menu offers the six
+// answers by id or spoken word; a whole answer still being typed opens no menu (a checker found Enter replacing `pass`
+// with `label=`), and the comma opens the label step.
+test('the checks plugin: `@check{…}` draws a disc or a pill at three widths, and its menu offers the answers, then label= @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await setEditorContent(page, '## Vendor review\n\nResidency `[x]`, SOC 2 `@check{unknown}` and `@check{yes, label=Residency}` today.\n\n');
+	const preview = livePreview(page);
+	const disc = preview.locator('section p > span.lat-state.unknown');
+	const shortcut = preview.locator('section p > span.lat-state.pass');
+	const pill = preview.locator('section p > span.lat-pill > span.lat-pill-lead > span.lat-state.pass');
+	for (const [width, height] of [
+		[1440, 900],
+		[820, 1180],
+		[390, 844],
+	] as const) {
+		await page.setViewportSize({ width, height });
+		await expect(disc, `${width}px`).toBeAttached({ timeout: 30_000 });
+		await expect(shortcut, `${width}px`).toBeAttached();
+		await expect(pill, `${width}px`).toBeAttached();
+		await expect(pill.locator('xpath=../..')).toContainText('Residency');
+		for (const el of [disc, pill]) {
+			await expect.poll(async () => ((await el.boundingBox())?.height ?? 0) > 4, `${width}px`).toBe(true);
+		}
+	}
+	await page.setViewportSize({ width: 1440, height: 900 });
+	const menu = page.locator('.cm-tooltip-autocomplete');
+	await typeInEditor(page, 'Audit `@check{y');
+	await expect(menu.getByRole('option', { name: /^pass/ })).toBeVisible();
+	await typeInEditor(page, 'es');
+	await expect(menu).toHaveCount(0);
+	await typeInEditor(page, ', ');
+	await expect(menu.getByRole('option', { name: /label=/ })).toBeVisible();
+});

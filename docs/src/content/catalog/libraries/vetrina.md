@@ -11,7 +11,7 @@ mark: /vetrina-mark.svg
 facts:
   - { k: Package, v: '@laticent/vetrina' }
   - { k: Status, v: Coming to npm with Lattice 1.0 }
-  - { k: Runs in, v: The browser, any framework }
+  - { k: Runs in, v: "The browser, any framework" }
   - { k: Dependencies, v: One — '@laticent/ltt'. React optional }
   - { k: License, v: AGPL-3.0 }
 reference:

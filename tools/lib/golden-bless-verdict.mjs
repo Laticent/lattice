@@ -25,6 +25,31 @@ export const MAX_GOLDENS = 10;
 // THAT commit, not since a person got round to merging the PR. Squash-merge appends
 // " (#N)". The pattern matches the whole subject, so a body line or a longer subject
 // that merely starts the same way never counts.
+/**
+ * How long one night spends re-blessing drifted goldens before it stops starting new ones. The job's
+ * cap is 180 minutes; the check before this phase and the first renders after it need the rest.
+ * Measured 2026-10-29 in the 4-core sandbox: a deck re-bless takes about 28 s and a gallery about 12 s,
+ * so an hour is roughly 130-300 of them. With no budget, 378 drifted decks on 2026-10-28 ran the job
+ * into its cap and it committed nothing; with it, a backlog clears over a few nights instead.
+ */
+export const BLESS_BUDGET_MS = 60 * 60 * 1000;
+
+/**
+ * Run `runOne` on `items` in order until `budgetMs` has passed since the first started. An item already
+ * started always finishes; the rest are returned as `left` for the next night. Pure apart from
+ * `runOne` and `now`, so a test drives it with a fake clock.
+ */
+export function runWithinBudget(items, runOne, { budgetMs = BLESS_BUDGET_MS, now = Date.now } = {}) {
+  const start = now();
+  const done = [];
+  for (let k = 0; k < items.length; k++) {
+    if (k > 0 && now() - start >= budgetMs) return { done, left: items.slice(k) };
+    runOne(items[k], k);
+    done.push(items[k]);
+  }
+  return { done, left: [] };
+}
+
 export const BLESS_TITLE_PREFIX = 'chore(goldens): nightly bless of ';
 const BLESS_SUBJECT_RE = /^chore\(goldens\): nightly bless of ([0-9a-f]{12,40}) \(#\d+\)$/;
 const PR_NUMBER_RE = / \(#(\d+)\)$/;

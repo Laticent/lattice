@@ -31,7 +31,7 @@ import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-import stateMarks from '../../../../lib/core/state-marks.js';
+import stateMarks from '../../../../lib/plugins/checks/shared/registry.js';
 import { CodeControls, FencePicker } from './code-controls';
 import { carrySay } from './deck-ops';
 import { registerValue } from './deck-preset';
@@ -339,7 +339,7 @@ export function collapsePlugin() {
 // signature obligation-matrix / roadmap grammar. The underlying text stays the literal marker
 // (so the round-trip is untouched and the marker is still editable); an inline decoration just
 // tints it to the engine's semantics. The marker is read by the engine's list-text grammar
-// (lib/core/cell-marker-edit.mjs) and each marker's meaning comes from lib/core/state-marks.js,
+// (lib/core/cell-marker-edit.mjs) and each marker's meaning comes from lib/plugins/checks/shared/registry.js,
 // so the editor cannot drift from the render.
 // Recomputed from the doc each update (tables are small), the same view-only pattern as the
 // collapse decoration.

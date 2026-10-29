@@ -64,6 +64,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
   ['examples/pills-plugin.md', 'the demo deck for the embedded pills plugin: one pill, placed and tinted by seven components (HARD RULE #9)'],
+  ['examples/checks.md', 'the demo deck for the embedded checks plugin: the `[x]` shortcuts and the `@check{…}` full form beside them, inline and in a pill (HARD RULE #9)'],
   ['examples/plugin-sandbox-tour.md', 'the demo deck for every plugin in the Studio and Playground, inline ones included: an icon, an avatar, a spark and a pill on one slide, so typing near them can be tried (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
@@ -131,6 +132,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/imagery/video/video.gallery.md', 'the video gallery: every slide names its clip with a `@video{…}` record'],
   ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],
   ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
+  ['examples/chart-finishes-continuation.md', 'roadmap slides: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

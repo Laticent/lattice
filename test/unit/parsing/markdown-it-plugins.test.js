@@ -1009,7 +1009,14 @@ describe('markdown-it-plugins', () => {
 
   // ── verdictGridBadges ──────────────────────────────────────────────────
 
-  test('verdictGridBadges: all six markers become badge spans with shape classes', () => {
+  // The composed shapes (lib/plugins/checks/shared/compose.js), spelled from the check's own
+  // markup so the tests pin the composition, not a retyped disc.
+  const checkSpan = (sem, shape, word) => `<span class="state ${sem} ${shape} lat-state" role="img" aria-label="${word}"></span>`;
+  const pillOf = (sem, shape, word, label) =>
+    `<span class="lat-pill" data-shape="pill"><span class="lat-pill-lead">${checkSpan(sem, shape, word)}</span>${label}</span>`;
+  const has = (html, s) => assert.ok(html.includes(s), `missing ${s}`);
+
+  test('verdictGridBadges: all six markers become a check in a pill, with shape classes', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = [
       '<!-- _class: verdict-grid -->',
@@ -1025,16 +1032,17 @@ describe('markdown-it-plugins', () => {
       '  - body line passes through untouched',
     ].join('\n');
     const { html } = m.render(md);
-    assert.match(html, /<span class="badge pass state-full">Pass item<\/span>/);
-    assert.match(html, /<span class="badge warn state-half">Warn item<\/span>/);
-    assert.match(html, /<span class="badge fail state-empty">Fail item<\/span>/);
-    assert.match(html, /<span class="badge unknown state-unknown">Unknown item<\/span>/);
+    has(html, pillOf('pass', 'state-full', 'yes', 'Pass item'));
+    has(html, pillOf('warn', 'state-half', 'partly', 'Warn item'));
+    has(html, pillOf('fail', 'state-empty', 'no', 'Fail item'));
+    has(html, pillOf('unknown', 'state-unknown', 'unknown', 'Unknown item'));
     // `[ ]` is the open ring in verdict-grid as everywhere: "not assessed", not "not met".
-    assert.match(html, /<span class="badge todo state-todo">Open item<\/span>/);
-    assert.match(html, /<span class="badge skip state-slashed">Skip item<\/span>/);
-    // The body line (no marker) should NOT be wrapped in a badge.
+    has(html, pillOf('todo', 'state-todo', 'open', 'Open item'));
+    has(html, pillOf('skip', 'state-slashed', 'does not apply', 'Skip item'));
+    // The body line (no marker) is not composed, and nothing builds a chip by hand any more.
     assert.match(html, /body line passes through untouched/);
-    assert.doesNotMatch(html, /<span class="badge[^"]*">body line/);
+    assert.doesNotMatch(html, /<span class="lat-pill"[^>]*>(?:<span[^>]*>)*[^<]*body line/);
+    assert.doesNotMatch(html, /class="badge/);
   });
 
   test('verdictGridBadges: pricing reads [ ] as the open ring, like every layout', () => {
@@ -1053,10 +1061,12 @@ describe('markdown-it-plugins', () => {
       '  - For one team.',
     ].join('\n');
     const { html } = m.render(md);
-    assert.match(html, /<span class="badge pass state-full">Included<\/span>/);
-    assert.match(html, /<span class="badge todo state-todo">Unchecked<\/span>/);
-    assert.match(html, /<span class="badge skip state-slashed">Not included<\/span>/);
+    // Pricing composes a ROW, not a pill: the check, then the label.
+    has(html, `${checkSpan('pass', 'state-full', 'yes')}Included`);
+    has(html, `${checkSpan('todo', 'state-todo', 'open')}Unchecked`);
+    has(html, `${checkSpan('skip', 'state-slashed', 'does not apply')}Not included`);
     assert.doesNotMatch(html, /state-empty/);
+    assert.doesNotMatch(html, /lat-pill/);
   });
 
   test('badge and cell labels land as text, never as markup', () => {
@@ -1066,7 +1076,7 @@ describe('markdown-it-plugins', () => {
     const badge = makeHost(plugins.verdictGridBadges).render([
       '<!-- _class: verdict-grid -->', '', '- Card', '  - [!] A &lt;b&gt;x&lt;/b&gt; &amp; B',
     ].join('\n')).html;
-    assert.match(badge, /<span class="badge fail state-empty">A &lt;b&gt;x&lt;\/b&gt; &amp; B<\/span>/);
+    has(badge, pillOf('fail', 'state-empty', 'no', 'A &lt;b&gt;x&lt;/b&gt; &amp; B'));
     const cell = makeHost(plugins.obligationMatrixBadges).render([
       '<!-- _class: table state-cells -->', '', '| A | B |', '| - | - |', '| x | [?] &lt;i&gt; |',
     ].join('\n')).html;
@@ -1076,7 +1086,7 @@ describe('markdown-it-plugins', () => {
   test('inline HTML in a label keeps its text and drops its tag, as the runtime\'s textContent does', () => {
     const badge = makeHost(plugins.verdictGridBadges).render(
       '<!-- _class: verdict-grid -->\n\n- Card\n  - [x] <em>x</em> crit').html;
-    assert.match(badge, /<span class="badge pass state-full">x crit<\/span>/);
+    has(badge, pillOf('pass', 'state-full', 'yes', 'x crit'));
     assert.doesNotMatch(badge, /&lt;em&gt;/, 'a tag must never print as literal text');
     const cell = makeHost(plugins.obligationMatrixBadges).render(
       '<!-- _class: table state-cells -->\n\n| A | B |\n| - | - |\n| x | [x] <b>y</b> |').html;
@@ -1087,7 +1097,7 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.verdictGridBadges);
     const md = '## Title\n\n- Card\n  - [x] would-be-pass';
     const { html } = m.render(md);
-    assert.doesNotMatch(html, /badge pass/);
+    assert.doesNotMatch(html, /lat-state/);
     // The literal `[x]` text is preserved when the plugin does not fire.
     assert.match(html, /\[x\]/);
   });
@@ -1100,7 +1110,7 @@ describe('markdown-it-plugins', () => {
       '- [x] this is a depth-1 item — should NOT be a badge',
     ].join('\n');
     const { html } = m.render(md);
-    assert.doesNotMatch(html, /badge pass/);
+    assert.doesNotMatch(html, /lat-state/);
   });
 
   // ── obligationMatrixBadges ─────────────────────────────────────────────

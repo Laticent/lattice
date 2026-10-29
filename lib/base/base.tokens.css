@@ -1094,7 +1094,7 @@
   --state-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><line x1='2' y1='14' x2='14' y2='2' stroke='black' stroke-opacity='0.55' stroke-width='3.5' stroke-linecap='round'/></svg>");
 
   /* ── Universal state-token MARKS — circle + distinct in-disc symbol ───
-   * The six-marker checkbox grammar (lib/core/state-marks.js). Every
+   * The six-marker checkbox grammar (lib/plugins/checks/shared/registry.js). Every
    * state carries a DISTINCT mark, so the SHAPE channel carries the
    * meaning independently of color — the color-blind-safe redundant
    * encoding the old fill-level discs (full/half/empty) lacked. FILL says

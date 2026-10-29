@@ -11,7 +11,7 @@
  *     →  lib/core/list-text.generated.js  (the same, as CommonJS for lib/, committed)
  *
  * The flowchart row and the list text are Lattice's grammars, not Segno's, so their parsers live
- * in lib/core beside the readers that walk them (`splitRow` in flowchart-grammar.js; state-marks.js,
+ * in lib/core beside the readers that walk them (`splitRow` in flowchart-grammar.js; the check registry,
  * matrix-grid-cells.js and track-spec.js). They are plain JavaScript because lib/ is CommonJS that
  * runs untranspiled in Node and is bundled as-is for the browser.
  *
@@ -52,7 +52,7 @@ const libBanner = (from, readers) =>
   '// generator (docs/src/lib/segno/codegen.ts). DO NOT EDIT — change the grammar and run\n' +
   `// \`npm run segno-lib:build\`. ${readers}\n`;
 const ROW_BANNER = libBanner('flowchart-row-grammar.js', '`splitRow` in flowchart-grammar.js reads it.');
-const LIST_BANNER = libBanner('list-text-grammar.js', 'leading-marker.js, matrix-grid-cells.js, track-spec.js and cell-marker-edit.mjs read it.');
+const LIST_BANNER = libBanner('list-text-grammar.js', 'The checks plugin\'s leading.js, matrix-grid-cells.js, track-spec.js and cell-marker-edit.mjs read it.');
 
 /** Segno's code generator and the Segno API, bundled from source and loaded in-process. */
 async function segnoSource() {

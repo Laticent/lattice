@@ -62,6 +62,22 @@ describe('contributes.inline', () => {
     // The kind NAME `pill` is the host's: a plugin that is not embedded can never draw `@pill{…}`.
     expectError([plugin('a', { inline: { pill: { sigil: '^' } } })], /inline kind "pill", which the host already owns/);
   });
+  test('a SHORTCUT (`[x]`) is one ASCII punctuation character, embedded only, claimed once (2026-10-18-checks.md §18)', () => {
+    const shortcut = (name, ch, kind = 'k', extra = {}) => {
+      const p = plugin(name, { inline: { [kind]: { shortcut: ch, ...extra } } });
+      p.manifest.embedded = true;
+      return p;
+    };
+    assert.deepEqual(errorsOf([shortcut('checks', '[')]), []);
+    expectError([plugin('a', { inline: { k: { shortcut: '[' } } })], /is a shortcut, and only an embedded plugin may declare one/);
+    expectError([shortcut('a', '['), shortcut('b', '[', 'j')], /claims the shortcut "\[", which "a" \(k\) already claims/);
+    // `\\` would be asked before the escape, so `\[x]` stopped escaping; a backtick is the span's own fence; a letter,
+    // a space or a non-ASCII lead is no sigil at all, and a non-ASCII one threw when the dispatcher loaded.
+    for (const ch of ['{', '@', '^', '\\', '`', ' ', 'a', 'é', '', '[['])
+      expectError([shortcut('a', ch)], /which is not one free ASCII punctuation character/);
+    // A kind is a shortcut OR the bare record, never both: the untagged branch used to win silently.
+    expectError([shortcut('a', '[', 'k', { untagged: true })], /is untagged and also declares the shortcut "\["/);
+  });
   test('an embedded plugin may require only embedded plugins, so no switch can take it down', () => {
     const base = plugin('pills', { inline: { pill: { untagged: true } } });
     base.manifest.embedded = true;

@@ -1360,7 +1360,7 @@ section :is(blockquote, li) > :is(pre, marp-pre)[data-lattice-hydrate][data-latt
 }
 
 /* Themed parser-error block. Uses the same fail-soft palette as .verdict
- * and .badge.fail so it feels native to the deck. Width matches the
+ * and the fail check so it feels native to the deck. Width matches the
  * source <pre> / rendered .mermaid container so the error sits flush with
  * the diagram slot above it. Height is intrinsic — errors are short. */
 /* Gap from the diagram slot above, for a host where the `.mermaid` container is still

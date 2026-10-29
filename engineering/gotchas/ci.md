@@ -471,6 +471,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 ## The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge
 
+- **Superseded in part (2026-10-08 and later):** the job now fails on purpose when specs fail
+  (the `Fail the job when the Studio E2E suite failed` step, owner's pick, followups 2557-p3),
+  and the rolling issue is **#2035**, not #1705, which is closed. Since 2026-09-22 every
+  scheduled run is red for another reason: the run step hits its 45-minute `timeout-minutes`
+  about a quarter of the way through the suite (2,118 tests on two workers on 2026-10-28; run
+  40674917008 stopped at test 509). Since 2026-10-29 the suite runs in eight `e2e (shard K/8)` legs
+  of about 273 tests each (owner's pick), and the `e2e-report` job joins their verdicts and owns the
+  issue: a leg with no verdict counts as a failure. Read #2035 and the job log, not the badge, before
+  calling a spec newly broken. The history below is kept because the inverted-step reading still applies
+  to the sibling nightlies that swallow the exit code.
+
 - **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
   `main` looks covered — and specs have been failing in it the whole time. Measured on
   2026-09-02: the last eight scheduled runs were all `success`, and every one of them had a
@@ -517,16 +528,22 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   on its own `gh-readonly-queue/…` ref, so nothing supersedes it, and there `cancelled` is a
   timeout or a hand cancel. In the 39 completed queue runs from 2026-09-29 to 2026-10-05,
   11 merged with `integration` cut off at its 25-minute cap. The gate now fails a
-  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run still passes one, and
-  the queue run is the backstop. `integration`'s cap went to 45 minutes in the same change,
+  `cancelled` tier when `github.event_name == 'merge_group'`.
+- **On a PR run, too, since 2026-10-29.** A PR run passed every `cancelled` tier, so a shard
+  cut off by its own timeout or by hand read green: #2494 and #2900 (a shard at its 25-minute
+  cap) and #2909's `aa0302c` (shard 3/4 hung and cancelled at 23 minutes). The Verify gate now
+  reads the PR's head with `gh api`: a `cancelled` tier passes only when the head has moved
+  past the run's SHA (a newer push superseded it), and fails on the current head. If the read
+  fails, the gate fails closed and says so. `test/unit/tools/ci-gate-cancelled-tier.test.js`
+  runs the real step against a stub `gh`. `integration`'s cap went to 45 minutes in the same change,
   because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
 - **What it costs:** a PR run superseded by a push while its `changes` is still queued now
   goes red on the old SHA. With `changes` waiting 15-19 minutes for a runner, that window is
   real. It brings back a little of the red-webhook noise
-  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, and the gate cannot tell the
-  two apart: a supersession cancel and a no-runner cancel both read `cancelled`. It is
+  `decisions/2026-06-14-drift-watch-rebase-thrash.md` removed, because the `changes` check
+  runs before the supersession check and a no-runner cancel reads `cancelled` too. It is
   accepted because the alternative is a green check over no tests.
 - **Triggered by:** #2524 (`followups.d/2524-p1-ci-path-filter-skipped-tiers-on-rerun.md`).
 - **Removable when:** never; this documents the gate's contract.
@@ -705,3 +722,22 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **How to tell it from a real failure:** the job log stops at `npx playwright install` and the Playwright report artifact is empty. A real test failure prints the failing spec.
 - **Triggered by:** GitHub moving the `ubuntu-latest` label.
 - **Removable when:** the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) moves to a version that supports the new image; then unpin each job in the same PR as the bump.
+
+## `studio-smoke` red on "the pre-paint replay never ran"
+
+- **Symptom:** `@smoke a reload paints one geometry per element` in `docs/e2e/playground-first-paint.spec.ts` fails
+  on some runs with `the pre-paint replay never ran`, on PRs that touch nothing near the Playground (six runs from
+  2026-10-27, among them 40431166278 and 40727236903), and passes 60 times in a row locally.
+- **Cause:** the Playground's snapshot capture skipped any capture within 500 ms of the last one
+  (`PlaygroundApp.tsx` `captureFirstSlide`). The test seeds a snapshot, drags the divider and reloads; when the app's
+  first capture landed less than 500 ms before that reload (run 40727236903's trace: the poll that saw the snapshot
+  took 45 ms instead of 3, because the page was busy capturing, and the reload followed 0.34 to 0.42 s later), the
+  reload's `pagehide` capture was skipped. The stored snapshot kept the pre-drag pane width, and the replay in
+  `playground.astro`, which paints only into the box a snapshot was measured in, returned without a word.
+- **Fix:** the dedupe now skips only a capture of the SAME box (PR #2960). `@smoke a reload right after
+  a capture still replays the slide at the new pane width` holds it still: it freezes `Date.now()` with
+  `page.clock.setFixedTime`, so the reload always lands inside the old window. It fails 5 of 5 on the pre-fix build
+  with the CI message and passes 10 of 10 with the fix.
+- **Reading a smoke trace without the 2.5 GB artifact:** the artifact zip's central directory is at its end, so HTTP
+  range reads fetch one test's `trace.zip` (4 MB here). `0-trace.trace` is JSON lines; the `before` / `after` pairs
+  give each action's timing and every `page.evaluate` result.

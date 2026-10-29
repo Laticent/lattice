@@ -15,7 +15,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '../../..');
 const table = require('../../../lib/core/inline-code-directives.js');
-const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/state-marks.js');
+const { stateHtml, stateElement, parseInlineState } = require('../../../lib/plugins/checks/shared/registry.js');
 const pills = require('../../../lib/plugins/pills/pills.inline.js');
 const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 const icons = require('../../../lib/plugins/icons/icons.inline.js');
@@ -67,13 +67,17 @@ describe('the inline-code table — first-party rows are byte-identical to the h
   // by switching their plugins off, so this holds whatever plugins ship.
   const off = new Set(table.KINDS.filter((k) => k.plugin).map((k) => k.plugin));
 
-  test('the first-party row is the state mark; the pill is the embedded pills plugin\'s row, asked right after it', () => {
-    // The pill left FIRST_PARTY when it became a plugin (2026-10-17-pills-plugin.md), and the dispatcher keeps its row
-    // right after the marks, so the order the hand list had is unchanged.
-    assert.deepEqual(firstParty, ['state']);
+  test('no first-party row is left: the check shortcut and the pill are the embedded plugins\' rows, asked first', () => {
+    // The pill left FIRST_PARTY when it became a plugin (2026-10-17-pills-plugin.md), and the check shortcut when the checks
+    // plugin took it (2026-10-18-checks.md §18). The dispatcher asks the shortcut first and the pill second, the order the
+    // hand list had.
+    assert.deepEqual(firstParty, []);
     assert.deepEqual(table.KINDS.slice(0, 2).map((k) => k.name), ['state', 'pill']);
     const [state, pill] = table.KINDS;
-    assert.equal(state, table.FIRST_PARTY[0]);
+    assert.equal(state.plugin, 'checks');
+    assert.equal(state.shortcut, true);
+    assert.equal(state.sigil, null);
+    assert.equal(state.lead, 0x5b);
     assert.equal(pill.plugin, 'pills');
     assert.equal(pill.untagged, true);
     assert.equal(pill.sigil, null);
@@ -168,8 +172,8 @@ describe('the inline-code table — the lead table and the probe flags', () => {
 
   test('every row has an ASCII lead, or asks regardless', () => {
     for (const k of KINDS) assert.ok(k.lead === -1 || (Number.isInteger(k.lead) && k.lead >= 0 && k.lead < 128), `${k.name}: ${k.lead}`);
-    // A tagged plugin row's lead is its sigil; the untagged pill declares its own (`{`).
-    const tagged = KINDS.filter((k) => k.plugin && !k.untagged);
+    // A tagged plugin row's lead is its sigil; the untagged pill declares its own (`{`), and a shortcut its manifest's character.
+    const tagged = KINDS.filter((k) => k.plugin && !k.untagged && !k.shortcut);
     assert.deepEqual(tagged.map((k) => [k.name, k.lead]), tagged.map((k) => [k.name, k.sigil.charCodeAt(0)]));
   });
 
@@ -311,9 +315,9 @@ describe('the inline-code table — the lead table and the probe flags', () => {
 });
 
 describe('the inline-code table — plugin rows', () => {
-  test('every plugin row names its plugin, a tag sigil and the four functions', () => {
+  test('every plugin row names its plugin, a tag sigil (or none, untagged or a shortcut) and the four functions', () => {
     for (const k of table.KINDS.filter((r) => r.plugin)) {
-      if (k.untagged) assert.equal(k.sigil, null, `${k.name} is untagged`);
+      if (k.untagged || k.shortcut) assert.equal(k.sigil, null, `${k.name} is ${k.untagged ? 'untagged' : 'a shortcut'}`);
       else assert.match(k.sigil, /^[~^!]$/, k.name);
       for (const fn of ['resolve', 'html', 'element', 'diagnose']) assert.equal(typeof k[fn], 'function', `${k.name}.${fn}`);
     }

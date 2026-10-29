@@ -42,7 +42,7 @@ export const FROZEN_BLOCK = 100;
 /** The shipped kernels, shaped as the legacy readers are. Async: the editor's readers are ESM. */
 export async function shippedReaders() {
   const edit = await import('../../lib/core/cell-marker-edit.mjs');
-  const marks = require('../../lib/core/leading-marker.js');
+  const marks = require('../../lib/plugins/checks/shared/leading.js');
   const { parseCell } = require('../../lib/core/matrix-grid-cells.js');
   const { parseTrackSpec } = require('../../lib/core/track-spec.js');
   const pair = (r, b) => (r ? [r.marker, b(r)] : null);
