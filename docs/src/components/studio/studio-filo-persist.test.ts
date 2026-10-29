@@ -47,14 +47,37 @@ describe('adoptStored', () => {
 		expect(h.undo()?.text).toBe(B);
 		expect(h.undo()?.text).toBe(A);
 	});
-	it('an edit made before storage answered stays one step on top of the stored past', () => {
+	it('an edit made before storage answered stays its own step on top of the stored past', () => {
 		const h = new History('deck', B);
 		h.commit({ base: h.head, next: C, label: 'Typing', origin: 'markdown' });
 		expect(adoptStored(h, B, hashText(B), storedAB())).toBe('in-step');
 		expect(h.text, 'the screen is untouched').toBe(C);
-		expect(h.state().undoLabel).toBe(EARLY_LABEL);
+		expect(h.state().undoLabel).toBe('Typing');
 		expect(h.undo()?.text).toBe(B);
 		expect(h.undo()?.text, 'the stored past survived').toBe(A);
+	});
+	it('two ops before storage answered are two undos, not one', () => {
+		const D = `${C}\n---\n\n# Copy\n`;
+		const h = new History('deck', B);
+		h.commit({ base: h.head, next: C, label: 'Duplicate slide', origin: 'structure' });
+		h.closeGroup();
+		h.commit({ base: h.head, next: D, label: 'Move slide', origin: 'structure' });
+		adoptStored(h, B, hashText(B), storedAB());
+		expect(h.state().undoLabel).toBe('Move slide');
+		expect(h.undo()?.text).toBe(C);
+		expect(h.undo()?.text).toBe(B);
+		expect(h.undo()?.text, 'the stored past survived').toBe(A);
+	});
+	it('early edits that do not replay from the opened text fall back to one step', () => {
+		const h = new History('deck', B);
+		h.commit({ base: h.head, next: C, label: 'Typing', origin: 'markdown' });
+		h.closeGroup();
+		h.commit({ base: h.head, next: `${C}x`, label: 'Typing', origin: 'markdown' });
+		h.undo();
+		expect(adoptStored(h, B, hashText(B), storedAB())).toBe('in-step');
+		expect(h.text).toBe(C);
+		expect(h.state().undoLabel).toBe(EARLY_LABEL);
+		expect(h.undo()?.text).toBe(B);
 	});
 	it('never adopts under a history that recorded an outside change', () => {
 		const h = new History('deck', B);

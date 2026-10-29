@@ -726,8 +726,12 @@ it differs from the plan above, and why:
   meets.
 - **An edit made before storage answers is kept.** The stored history arrives a moment after the
   Studio paints (an IndexedDB read, then the worker's replay). An author who types in that moment
-  keeps the edit as one step, "Edits before the history loaded", on top of the stored past; the
-  first cut refused the stored past and the next write overwrote it (the checker reproduced it).
+  keeps each of its steps, with its own label, on top of the stored past; the first cut refused
+  the stored past and the next write overwrote it (the checker reproduced it). The second cut
+  folded them into one step, so two strip ops made in that moment came back with one ⌘Z: main's
+  `studio.controls.test.tsx` strip test caught it on CI, where storage answers late (reproduced
+  here with a 400 ms delay on the read). Only steps that do not replay from the opened text to
+  the text on screen (an early undo) still fold into one step, "Edits before the history loaded".
 - **A failed write is retried** by the next idle write or the `pagehide` flush, a generation read that failed is read again at the next write (a store that ran Clear all refuses its own writes outright, so the retry cannot let its flush through), a worker request that gets no answer falls back after 15 s, and a deck deleted
   in one tab leaves a tombstone, so a tab that still shows it (and holds its lock) cannot write it
   back. A tab holds the lock of every deck it opened for the session, and a tab that started

@@ -67,16 +67,29 @@ export function adoptStored(h: History, source: string, sidecar: number | null, 
 	const now = h.text;
 	// The early changes must have started from `source`, or the bridge below would mislabel them.
 	if (now !== source && h.state().steps === 0 && !h.state().canRedo) return null;
+	// The early steps, one by one, so each stays its own undo (two strip ops before storage answered
+	// are two ⌘Zs, not one). Null when they do not replay from `source` to `now`: then one step.
+	const early = now === source ? [] : earlySteps(src(h), source, now);
 	if (!restoreSnapshot(src(h), stored, { verified })) return null;
 	const c = reloadCase(source, sidecar, stored);
 	if (c === 'ahead') h.commit({ base: h.head, next: source, label: UNSAVED_LABEL, origin: 'reload' });
 	else if (c === 'outside') h.sync(source);
 	h.closeGroup();
-	if (now !== source) {
-		h.commit({ base: h.head, next: now, label: EARLY_LABEL, origin: 'markdown' });
+	for (const e of early ?? [{ next: now, label: EARLY_LABEL, origin: 'markdown' }]) {
+		h.commit({ base: h.head, ...e });
 		h.closeGroup();
 	}
 	return c;
+}
+
+/** The done steps a history recorded on top of `source`, as the text each one left, when they
+ *  replay from `source` to `now`; null otherwise (an early undo, a history that did not open on
+ *  `source`). */
+function earlySteps(h: Parameters<typeof toSnapshot>[0], source: string, now: string): Array<{ next: string; label: string; origin: string }> | null {
+	const snap = toSnapshot(h);
+	const texts = snap.floor === source && snap.undone.length === 0 ? replaySnapshot(snap) : null;
+	if (!texts || texts[texts.length - 1] !== now || snap.done.length === 0) return null;
+	return snap.done.map((s, i) => ({ next: texts[i + 1], label: s.label, origin: s.origin }));
 }
 
 /** True when a step of `snap` holds a change wide enough to narrow that has not been tried yet. */
