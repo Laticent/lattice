@@ -60,38 +60,52 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 	return b;
 }
 
-/** An init script: record every RTCPeerConnection the page makes on `window.__pcs`. */
+/** An init script: log what every RTCPeerConnection the page makes does with ICE, as plain strings
+ *  on `window.__ice`, written as it happens. A connection that failed is often closed (and replaced)
+ *  by the time a test looks, and a closed one answers nothing (the third probe, 2026-10-29). */
 function keepPeerConnections() {
 	const Native = window.RTCPeerConnection;
 	if (!Native) return;
-	const pcs: RTCPeerConnection[] = [];
-	(window as unknown as { __pcs: RTCPeerConnection[] }).__pcs = pcs;
+	const log: string[] = [];
+	(window as unknown as { __ice: string[] }).__ice = log;
+	let n = 0;
+	const kind = (c: string) => {
+		const f = c.split(' ');
+		const addr = f[4] ?? '';
+		return `${f[7] ?? '?'}/${(f[2] ?? '?').toLowerCase()}/${addr.includes(':') ? 'v6' : addr.endsWith('.local') ? 'mdns' : /^127\./.test(addr) ? 'lo' : addr ? 'v4' : '?'}`;
+	};
 	// biome-ignore lint/complexity/useArrowFunction: it is called with `new`, which an arrow cannot be.
 	const Spy = function (...a: ConstructorParameters<typeof RTCPeerConnection>) {
 		const pc = new Native(...a);
-		pcs.push(pc);
+		const id = ++n;
+		log.push(`pc${id} new`);
+		pc.addEventListener('icecandidate', (e) => log.push(`pc${id} local ${e.candidate?.candidate ? kind(e.candidate.candidate) : 'end'}`));
+		pc.addEventListener('iceconnectionstatechange', () => log.push(`pc${id} ice ${pc.iceConnectionState}`));
+		pc.addEventListener('icegatheringstatechange', () => log.push(`pc${id} gathering ${pc.iceGatheringState}`));
+		const add = pc.addIceCandidate.bind(pc);
+		pc.addIceCandidate = ((c?: RTCIceCandidateInit) => {
+			log.push(`pc${id} remote ${c?.candidate ? kind(c.candidate) : 'end'}`);
+			return add(c as RTCIceCandidateInit);
+		}) as typeof pc.addIceCandidate;
+		const setRemote = pc.setRemoteDescription.bind(pc);
+		pc.setRemoteDescription = ((d: RTCSessionDescriptionInit) => {
+			const cands = (d?.sdp ?? '').split(/\r?\n/).filter((l) => l.startsWith('a=candidate:')).map((l) => kind(l.slice(2)));
+			log.push(`pc${id} remote ${d?.type} sdp [${cands.join(',') || 'no candidates'}]`);
+			return setRemote(d);
+		}) as typeof pc.setRemoteDescription;
 		return pc;
 	} as unknown as typeof RTCPeerConnection;
 	Spy.prototype = Native.prototype;
 	window.RTCPeerConnection = Spy;
 }
 
-/** Each recorded peer connection's ICE state and the kinds of local and remote candidates it saw. */
+/** What the page's peer connections did with ICE, from `keepPeerConnections`'s log. */
 function iceReport(page: Page): Promise<string> {
 	return page
-		.evaluate(async () => {
-			const pcs = (window as unknown as { __pcs?: RTCPeerConnection[] }).__pcs ?? [];
-			const out: string[] = [];
-			for (const pc of pcs) {
-				const stats = [...(await pc.getStats()).values()] as Array<Record<string, unknown>>;
-				const kinds = (type: string) =>
-					stats
-						.filter((s) => s.type === type)
-						.map((s) => `${s.candidateType}/${s.protocol}/${String(s.address ?? '').includes(':') ? 'v6' : String(s.address ?? '').endsWith('.local') ? 'mdns' : s.address ? 'v4' : '?'}`)
-						.join(',');
-				out.push(`[ice ${pc.iceConnectionState}, gathering ${pc.iceGatheringState}; local ${kinds('local-candidate') || 'none'}; remote ${kinds('remote-candidate') || 'none'}]`);
-			}
-			return `${pcs.length} connection(s) ${out.join(' ')}`;
+		.evaluate(() => {
+			const log = (window as unknown as { __ice?: string[] }).__ice ?? [];
+			// The tail is what failed; a long run of retries would bury it.
+			return log.length > 60 ? `${log.length} lines, last 60: ${log.slice(-60).join('; ')}` : log.join('; ') || 'no peer connections';
 		})
 		.catch((e) => `unreadable (${(e as Error).message})`);
 }
