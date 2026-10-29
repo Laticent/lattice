@@ -335,7 +335,8 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   change and docs render no new or changed slide surface and owe none. `workflow.md`'s
   escape ("live with the feature implementation") RELOCATES a code-level feature's demo;
   it never excused one. Judge the surface a human sees, not the directory the diff lands
-  in (a `lib/` ⇒ deck rule misfired on 15 of the 40 commits ending at `4c9075c`).
+  in (a mechanical `lib/` ⇒ deck rule would have flagged 15 of the 40 commits ending at
+  `4c9075c`: 21 touched `lib/` or `themes/`, 6 shipped a deck).
   **Non-visual work still owes its EVIDENCE in the PR body** — the before/after numbers,
   the measured table, the arm that proves the thing can fail. *(discipline — no automated
   gate; the test is whether a reviewer can see the change without checking out the
@@ -365,7 +366,7 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   **Before the merge ask, run `npm run queue:precheck`** — a check, not a rebase. It
   fetches `main` and merges it in memory **the way GitHub does** (ignoring
   `.gitattributes` merge drivers such as the decision index's `merge=union`, so a local
-  rebase that "just works" can still leave the PR `dirty`) and exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports
+  rebase that "just works" can still leave the PR `dirty` and its CI silent) and exits 1 on a conflict. **Rebase when:** it exits 1, GitHub reports
   `mergeable_state: dirty`, the queue ejected the PR, or you need a specific commit from
   `main` (name it in the commit message). **Do not rebase when:** the PR page says
   "out-of-date", `main` moved, or another PR merged. A polling auto-rebase is banned
