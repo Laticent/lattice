@@ -37,7 +37,47 @@ function install(cfg) {
         return { ok: false, px: 1, first: c.first, chrome: !!c.chromeOnly };
       }
     }
+    // Inside the frame is not the same as readable: a four-column card grid at a story box keeps
+    // every word on the slide at five characters a line (§12). The hard rule is "readable", so a
+    // page with crammed or clipped prose does not fit.
+    if (!readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
     return { ok: true, px: 0, chrome: false };
+  }
+
+  /** Readable prose, the harness's third hard rule (2026-10-28-fit-everywhere-model.md §12):
+   *  no body-size text cut off by an ancestor that hides its overflow, and no body-size prose of
+   *  24+ characters set at fewer than 12 characters a line over three or more lines. Labels drawn
+   *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
+   *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
+  const NOT_PROSE = 'svg, canvas, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
+  function readable(s) {
+    const body = parseFloat(getComputedStyle(s).fontSize) || 16;
+    const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
+    const seen = new Set();
+    let n;
+    while ((n = w.nextNode())) {
+      const el = n.parentElement;
+      if (!el || !n.textContent.trim() || el.closest(CHROME) || el.closest(NOT_PROSE) || !shown(el)) continue;
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      const rects = [...r.getClientRects()].filter((x) => x.width > 1);
+      for (let a = el; a && a !== s.parentElement; a = a.parentElement) {
+        const acs = getComputedStyle(a);
+        if (!/hidden|clip/.test(acs.overflowX) || acs.textOverflow === 'ellipsis') continue;
+        const box = a.getBoundingClientRect();
+        if (rects.some((x) => x.right > box.right + 2 || x.left < box.left - 2)) return false;
+      }
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      if (seen.has(el) || fs > body * 1.6 || fs < body * 0.85) continue;
+      seen.add(el);
+      const text = el.textContent.replace(/\s+/g, ' ').trim();
+      if (text.length < 24) continue;
+      const er = document.createRange();
+      er.selectNodeContents(el);
+      const lines = new Set([...er.getClientRects()].filter((x) => x.width > 1).map((x) => Math.round(x.top))).size;
+      if (lines > 2 && text.length / lines < 12) return false;
+    }
+    return true;
   }
 
   /** The content's natural height as a share of the content cell: the cell sized to its content
@@ -160,7 +200,7 @@ function install(cfg) {
   function page(s) {
     const f = fits(s);
     // Where the first cut lands: chrome (the footer band; galleries write long footers) or content.
-    return { fits: f.ok, px: f.px, cut: f.ok ? null : f.chrome ? 'footer' : f.px > 1 ? 'overflow' : 'content', fill: fill(s), leaves: leaves(s) };
+    return { fits: f.ok, px: f.px, cut: f.ok ? null : f.chrome ? 'footer' : f.unreadable ? 'unreadable' : f.px > 1 ? 'overflow' : 'content', fill: fill(s), leaves: leaves(s) };
   }
 
   // ── the fit-first builder (policy arm) ─────────────────────────────────────────────────────

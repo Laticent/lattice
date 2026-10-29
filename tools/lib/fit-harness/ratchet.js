@@ -21,7 +21,10 @@
  * Pure and fs-free, so it is unit-tested.
  */
 
-const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
+// A cut outside the footer is a clip; crammed or clipped prose with no cut is `unreadable`
+// (2026-10-28-fit-everywhere-model.md §12), tracked as its own count.
+const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer' && p.cut !== 'unreadable');
+const unreadable = (r) => !clipsContent(r) && r.pages.some((p) => p.cut === 'unreadable');
 
 /**
  * { [src]: { [`${size}@${venue}`]: { clip, lost } | { unscored: true } } } over the original
@@ -32,8 +35,9 @@ function tally(rows, expected = [], arm = 'structural') {
   for (const r of rows) {
     if (r.arm !== arm || r.variant !== 'orig') continue;
     const cell = `${r.size}@${r.venue}`;
-    const t = ((out[r.src] ??= {})[cell] ??= { clip: 0, lost: 0 });
+    const t = ((out[r.src] ??= {})[cell] ??= { clip: 0, unreadable: 0, lost: 0 });
     if (clipsContent(r)) t.clip++;
+    if (unreadable(r)) t.unreadable++;
     if (r.lost) t.lost++;
   }
   for (const [src, cell] of expected) (out[src] ??= {})[cell] ??= { unscored: true };
@@ -60,10 +64,12 @@ function compare(baseline, now) {
         scored.push({ src, cell, now: t });
         continue;
       }
-      const base = b ?? { clip: 0, lost: 0 };
-      for (const k of ['clip', 'lost']) {
-        if (t[k] > base[k]) regressions.push({ src, cell, metric: k, was: base[k], now: t[k] });
-        else if (t[k] < base[k]) wins.push({ src, cell, metric: k, was: base[k], now: t[k] });
+      const base = b ?? {};
+      for (const k of ['clip', 'unreadable', 'lost']) {
+        const was = base[k] ?? 0;
+        const now = t[k] ?? 0;
+        if (now > was) regressions.push({ src, cell, metric: k, was, now });
+        else if (now < was) wins.push({ src, cell, metric: k, was, now });
       }
     }
   }
@@ -94,4 +100,4 @@ function exitCode({ regressions, nothingScored }) {
   return regressions.length ? 1 : 0;
 }
 
-module.exports = { tally, compare, format, exitCode, clipsContent };
+module.exports = { tally, compare, format, exitCode, clipsContent, unreadable };

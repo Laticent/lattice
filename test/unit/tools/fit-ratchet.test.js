@@ -12,7 +12,7 @@ test('tally counts clipped and lost original slides of the structural arm only',
     row({ variant: 'add', pages: [{ fits: false, cut: 'content' }] }), // edits are not counted
     row({ arm: 'rescue-20-30', pages: [{ fits: false, cut: 'content' }] }), // simulated arms are not counted
   ]);
-  assert.deepEqual(t, { 'a.md': { 'story@hall': { clip: 1, lost: 1 } } });
+  assert.deepEqual(t, { 'a.md': { 'story@hall': { clip: 1, unreadable: 0, lost: 1 } } });
 });
 
 test('compare names a count that rose, and a count that fell as a win', () => {
@@ -68,4 +68,11 @@ test('a known-unscored cell that scores again is reported for a bless, not as a 
 test('exit codes: 0 clean, 1 a count rose', () => {
   assert.equal(exitCode(compare({ 'a.md': { 'x@y': { clip: 0, lost: 0 } } }, { 'a.md': { 'x@y': { clip: 0, lost: 0 } } })), 0);
   assert.equal(exitCode(compare({ 'a.md': { 'x@y': { clip: 0, lost: 0 } } }, { 'a.md': { 'x@y': { clip: 1, lost: 0 } } })), 1);
+});
+
+test('an unreadable page (crammed prose, no cut) is counted apart from clips', () => {
+  const t = tally([row({ pages: [{ fits: false, cut: 'unreadable' }] }), row({ pages: [{ fits: false, cut: 'content' }, { fits: false, cut: 'unreadable' }] })]);
+  assert.deepEqual(t['a.md']['story@hall'], { clip: 1, unreadable: 1, lost: 0 });
+  const r = compare({ 'a.md': { 'story@hall': { clip: 1, lost: 0 } } }, t);
+  assert.deepEqual(r.regressions, [{ src: 'a.md', cell: 'story@hall', metric: 'unreadable', was: 0, now: 1 }]);
 });

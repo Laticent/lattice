@@ -488,13 +488,16 @@ function summarize(rows, run) {
   const q = (xs, k) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(k * (s.length - 1))] : 0; };
   const pct = (x) => `${(100 * x).toFixed(1)}%`;
   const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  // Clips: a page cut outside the footer. Unreadable: no cut, but crammed or clipped prose (§12),
+  // counted apart so the clip count keeps its meaning.
+  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer' && p.cut !== 'unreadable');
+  const unreadableOnly = (r) => !clipsContent(r) && r.pages.some((p) => p.cut === 'unreadable');
   const lines = [];
   lines.push('# Fit harness report', '');
   lines.push(`${run.sources} source decks, ${run.renders} renders. Render ${run.renderS.toFixed(0)} s, score ${run.scoreS.toFixed(0)} s. ${run.problems.length} problem(s)${run.problems.length ? ' (listed at the end)' : ''}.`, '');
   lines.push('**Clips** are slides with a page the export\'s overflow probe rejects for content (a cut that lands only in chrome, such as a long footer line, is counted apart as **footer only**). **Unfixable** of those are slides that clip in BOTH today\'s split (one member a page) and the fit-first arm, so no split policy here fixes them; the rest are the arm\'s own. **Lost** counts slides with a text leaf on no page. **Jank** is the share of ±10% text edits that change the page count; **pair flips** the share of untouched leaf pairs that change pages under a ±1-member edit; **±40% text** how often a large edit changes the page count, which is correct for a fit policy. Pair flips favor today\'s split by construction (one member a page).', '');
-  lines.push('| Box | Venue | Arm | Slides | Footer only | Clips | of which unfixable | Lost | Pages | Thin pages | Fill p50 | Jank ±10% | Pair flips ±1 | ±40% text | ms/slide p50 |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| Box | Venue | Arm | Slides | Footer only | Clips | of which unfixable | Unreadable | Lost | Pages | Thin pages | Fill p50 | Jank ±10% | Pair flips ±1 | ±40% text | ms/slide p50 |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   const key = (r) => `${r.src}#${r.slide}#${r.size}#${r.venue}`;
   const origOf = (arm) => new Set(rows.filter((r) => r.arm === arm && r.variant === 'orig' && clipsContent(r)).map(key));
   const sClip = origOf('structural');
@@ -519,11 +522,11 @@ function summarize(rows, run) {
       for (const v of ['nudgeUp', 'nudgeDown']) { const e = byKey.get(`${o.src}#${o.slide}#${v}`); if (e) jank.push(e.pages.length !== o.pages.length ? 1 : 0); }
       for (const v of ['longer', 'shorter']) { const e = byKey.get(`${o.src}#${o.slide}#${v}`); if (e) big.push(e.pages.length !== o.pages.length ? 1 : 0); }
     }
-    const footerOnly = orig.filter((r) => r.pages.some((p) => !p.fits) && !clipsContent(r)).length;
+    const footerOnly = orig.filter((r) => r.pages.some((p) => !p.fits) && !clipsContent(r) && !unreadableOnly(r)).length;
     const clips = orig.filter(clipsContent);
     const unfix = clips.filter((r) => unfixable.has(key(r))).length;
     const ms = orig.map((r) => r.ms).filter((x) => x !== null);
-    lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
+    lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter(unreadableOnly).length} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
   lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with tightened spacing only for a slide that would otherwise clip. `rescue-0-30`: the same on hysteresis-0-30, with no entry margin (the owner\'s pick, §11). The rescue sets each spacing token to 0.75 of the slide\'s own and skips components that exclude `compact`. The packed arms appear only at boxes that split (not 16:9).');
