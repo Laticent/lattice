@@ -9,3 +9,6 @@
   commit.** A shard stopped by its own timeout or by hand used to read green, because a
   cancelled tier was always taken for a run superseded by a newer push. The gate now reads the
   PR's head and lets a cancelled tier pass only when a newer push replaced the run.
+- **Fixed: the Studio offers to load a deck's Mermaid diagram link.** A deck whose only web
+  address sat in a diagram's `click … href` line showed no "Load" strip, although the address was
+  counted and refused like a web image. The strip now appears for it.

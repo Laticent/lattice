@@ -229,6 +229,20 @@ as written) fails in WebKit on 600 inputs with 0 requests and 1 idle connection.
 measured coverage in WebKit, and none in the other two engines, which is a fact about headless
 browsers, not a gap in the fuzz.
 
+### The click, made in the Reading view (2026-10-29)
+
+Followups 2909-p5. `docs/e2e/read-article-beacons.spec.ts` now drives a deck whose only web
+reference is a flowchart `click A href` to a loopback server: the strip offers to load it, the
+Reading view draws the anchor, nothing is requested in the 3 s before the click, and the click
+navigates the Studio's own tab to the address (not a new tab, not intercepted). Same result in
+Chromium, Firefox and WebKit (`desktop`, `gecko`, `webkit-tablet`).
+
+Driving it found a defect: the Studio's cheap pre-check (`web-image-hint.ts`) woke the web-images
+count only for image-shaped references, so a deck whose only web reference was a diagram link got
+no strip at all, while the scanner refused that address as a `diagram` ref. The pre-check now
+matches a Mermaid `click … href` line too (the rule is the scanner's set, not "images"), with unit
+cases; the spec failed in all three engines before the change and passes after.
+
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew
