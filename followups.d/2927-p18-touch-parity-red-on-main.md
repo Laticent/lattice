@@ -5,7 +5,7 @@ recorded: 2026-10-29
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-27-slide-structure-strip.md
-deferred: off-path — red on main at cd555a7 too; this PR touches neither path
+deferred: off-path — red on main at cd555a7 too; this PR touches SlideRail but not the landscape-phone mount condition that preview-nav:268 tests, and not the gallery-insert focus that compose-stress:500 tests
 ---
 
 # Two @parity specs fail on the touch projects, on main too
