@@ -6,7 +6,8 @@
  * trigger: the nightly (`schedule`) runs every suite; a manual dispatch runs the suites it names, or every suite when it names
  * none; a pull request runs the suites whose `paths` globs match a changed file, and every suite when the registry, this planner
  * or the workflow itself changed (so editing the plumbing proves the plumbing). A suite with several `os` entries becomes one
- * matrix row per OS.
+ * matrix row per OS. A suite marked `"on_pull_request": false` never runs on a pull request, plumbing or not: it runs nightly
+ * and on a dispatch. Its `paths` still say when a change reaches it, so `npm run evidence` plans a dispatch for it.
  *
  * Usage: node tools/platform-suites-plan.js --event pull_request --changed changed-files.txt
  *        node tools/platform-suites-plan.js --event workflow_dispatch --suites export-confine
@@ -42,7 +43,7 @@ function globToRegExp(glob) {
 }
 
 /**
- * @param {{ suites: { name: string, os: string[], paths: string[], run: string, why: string }[] }} registry
+ * @param {{ suites: { name: string, os: string[], paths: string[], run: string, why: string, on_pull_request?: boolean }[] }} registry
  * @param {{ event: string, changed?: string[], suites?: string[] }} input
  * @returns {{ include: { suite: string, os: string, run: string, why: string }[], count: number }}
  */
@@ -52,6 +53,7 @@ function plan(registry, { event, changed = [], suites = [] }) {
 		if (suites.length) selected = selected.filter((s) => suites.includes(s.name));
 	} else if (event === 'pull_request') {
 		const everything = changed.some((f) => PLUMBING.includes(f));
+		selected = selected.filter((s) => s.on_pull_request !== false);
 		selected = everything ? selected : selected.filter((s) => s.paths.some((g) => changed.some((f) => globToRegExp(g).test(f))));
 	} // schedule, and anything else: every suite
 	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why })));

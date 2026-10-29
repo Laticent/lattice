@@ -11,7 +11,8 @@
  *
  * It REUSES the selectors that already exist rather than restating them (HARD RULE #15):
  *   - platform suites: tools/platform-suites-plan.js `plan()` over .github/platform-suites.json, the same
- *     rule the platform-suites workflow applies to a pull request;
+ *     path rule the platform-suites workflow applies to a pull request, but counting the suites a PR run skips
+ *     (`on_pull_request: false`), since a dispatch is how those run before the merge;
  *   - unit tests: tools/affected-tests.js, named as a command (it runs the tests itself).
  * The browser-engine and owner-stop rows are the only rules defined here.
  *
@@ -111,13 +112,16 @@ function evidencePlan(changed, registry = JSON.parse(fs.readFileSync(path.join(R
 		const hits = changed.filter(s.match);
 		if (hits.length) steps.push({ surface: s.surface, kind: s.kind, command: s.command, why: s.why, files: hits });
 	}
-	const suites = [...new Set(platformPlan(registry, { event: 'pull_request', changed }).include.map((i) => i.suite))];
+	// Every suite the change reaches, including those marked `on_pull_request: false`: the PR run skips them, so the
+	// dispatch below is the only way they run before the merge.
+	const reach = { suites: registry.suites.map((s) => ({ ...s, on_pull_request: true })) };
+	const suites = [...new Set(platformPlan(reach, { event: 'pull_request', changed }).include.map((i) => i.suite))];
 	if (suites.length) {
 		steps.push({
 			surface: `real macOS / Windows / iOS Simulator: ${suites.join(', ')}`,
 			kind: 'dispatch',
 			command: `workflow_dispatch platform-suites.yml on this branch with suites=${suites.join(',')}`,
-			why: 'Linux CI cannot reach these OSes; the PR run is report-only, so read its result before the card',
+			why: 'Linux CI cannot reach these OSes; the PR run is report-only and skips the nightly-only suites (the iOS Simulator), so dispatch and read the result before the card',
 		});
 	}
 	return { changed, steps, ownerStop: steps.some((s) => s.kind === 'owner') };

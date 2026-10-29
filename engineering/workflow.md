@@ -1379,6 +1379,12 @@ it passes, that exact tree becomes `main`.
 - **`golden-diff` and `studio-smoke` run only on `pull_request`, never in the
   queue.** On a behind PR their before/after images compare against the base of
   your last push, so they can be a few merges old. `ci` still gates correctness.
+  (`studio-smoke` did run in the queue, unread, until 2026-10-29: the queue forces
+  the `docs` tier on, and its `if` did not check the event.)
+- **`unit (node 24)` runs only in the queue.** A pull request runs `unit (node 22)`
+  alone. In 999 PR runs the node 24 leg caught nothing node 22 did not, so a
+  Node-24-only break now shows as a queue ejection, not a red PR. The per-job
+  evidence is `decisions/2026-10-29-ci-job-tiers.md`.
 
 ## Automation vs. the main ruleset
 

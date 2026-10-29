@@ -3325,6 +3325,11 @@ const { guard, isTargetGone } = require('./lib/engine/render-guard');
 // `disconnected` race in ms; this only backstops a SILENT wedge. Override with
 // LATTICE_RENDER_WATCHDOG_MS for very large decks on slow hardware. See #502.
 const RENDER_WATCHDOG_MS = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
+// Puppeteer's `timeout` for starting Chrome: the watchdog's, not Puppeteer's own 30 s default. That default undercut the
+// watchdog, so a box busy enough to start Chrome slowly failed the launch at 30 s ("Timed out after 30000 ms while waiting
+// for the WS endpoint URL") although the CLI meant to allow 90. On CI runners running tests in parallel that was 9 of
+// unit (node 22)'s 29 failures in 999 PR runs, 2026-10-18..28.
+const LAUNCH_TIMEOUT_MS = RENDER_WATCHDOG_MS;
 // Puppeteer's `protocolTimeout` (see renderExport): one hour, or the watchdog plus a minute
 // when LATTICE_RENDER_WATCHDOG_MS is set higher. `composePdfInPage` caps its own watchdog
 // below this (COMPOSE_MAX_MS), so no guard deadline can outlast the ceiling.
@@ -3347,6 +3352,7 @@ async function renderExport({ hardened }) {
       ...OFFLINE_ARGS,
     ],
     headless: 'new',
+    timeout: LAUNCH_TIMEOUT_MS,
     // Puppeteer's own per-call limit is 180 s, and it fires BEFORE `composePdfInPage`'s
     // watchdog (slides x 4 s). A 151-slide deck that composes in 4 minutes then fails with
     // "Runtime.callFunctionOn timed out" and prints with Chrome instead: Type 3 fonts, a
@@ -5066,7 +5072,7 @@ async function renderBody(browser, g, closeBrowser) {
         if (encoderFailed) return null;
         if (!chromeEncoder) {
           try {
-            const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new' };
+            const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new', timeout: LAUNCH_TIMEOUT_MS };
             if (CHROME_EXEC) encOpts.executablePath = CHROME_EXEC;
             imageEncoderBrowser = await puppeteer.launch(encOpts);
             chromeEncoder = await require('./lib/export/chrome-recode.js').createChromeEncoder(imageEncoderBrowser);
@@ -5360,6 +5366,7 @@ async function prunePlayerCssInPage(playerHtml) {
     const pruneOpts = {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS],
       headless: 'new',
+      timeout: LAUNCH_TIMEOUT_MS,
     };
     if (CHROME_EXEC) pruneOpts.executablePath = CHROME_EXEC;
     const pruneBrowser = await puppeteer.launch(pruneOpts);

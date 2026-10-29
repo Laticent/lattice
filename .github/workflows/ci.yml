@@ -321,7 +321,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [22, 24]
+        # Node 24 runs in the merge queue only (2026-10-29). On pull requests it caught nothing node 22 did not:
+        # 0 unique failures in 999 PR runs (2026-10-18..28, 167 PR branches), for ~5.7 min a run, ~35 min a PR,
+        # and the npm ci wedges noted at the top of this file are all on this leg. The queue still runs both, so
+        # nothing reaches main untested on 24; a 24-only break now ejects one queue group instead of redding a PR.
+        node-version: ${{ fromJSON(github.event_name == 'merge_group' && '[22, 24]' || '[22]') }}
     name: unit (node ${{ matrix.node-version }})
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
@@ -480,6 +484,17 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Cache marp-cli for npx
+        # Nine integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
+        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its dependency tree again. When
+        # the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
+        # suite's before-hook failure cancelled every test under it: 4 of 4 marp-bundle-author-script failures and 5 of
+        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test. The key is the file that
+        # holds the range, so a new range fetches once and is kept.
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm/_npx
+          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/core/marp-bundle.js') }}
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as
@@ -902,7 +917,11 @@ jobs:
   # `--retries=0` overrides the config's CI retry so a flake shows here, not hidden.
   studio-smoke:
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    # Pull requests only (2026-10-29). In the merge queue it is advisory too, so its result reaches no one: 2,408
+    # runner-minutes over 179 queue runs (2026-10-18..28) bought nothing. It stays on the PR, where an author reads it.
+    # It is NOT moved to studio-e2e-nightly: that suite failed all 10 of its scheduled runs to 2026-10-28, so a
+    # drift caught only there would sit in a red issue nobody can tell apart from the rest.
+    if: needs.changes.outputs.docs == 'true' && github.event_name == 'pull_request'
     # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
