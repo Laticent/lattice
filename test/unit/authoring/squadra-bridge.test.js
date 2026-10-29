@@ -8,13 +8,14 @@ const core = require('../../../lib/authoring/lint-core');
 const { buildVocab } = require('../../../lib/authoring/lint');
 const { fixDeck, deckLanguage } = require('../../../lib/authoring/squadra/bridge');
 const { trimEdit } = require('../../../lib/authoring/squadra/lattice-line');
-const { splitTopLevel } = require('../../../lib/authoring/slide-split');
+const { splitTopLevel, separatorLines } = require('../../../lib/authoring/slide-split');
+const { fencedLines } = require('../../../lib/core/shape-glyphs');
 
 const vocab = buildVocab();
 const FM = '---\ntheme: indaco\n---\n\n';
 const CARDS = '<!-- _class: cards-grid -->\n\n## H\n\n';
 const slides = (t) => splitTopLevel(t).length - core.fmChunks(t);
-const deps = { vocab, lintTextWith: core.lintTextWith, applyFix: core.applyFix, fixLineIndex: core.fixLineIndex, fmChunks: core.fmChunks };
+const deps = { vocab, lintTextWith: core.lintTextWith, applyFix: core.applyFix, fixLineIndex: core.fixLineIndex, fmChunks: core.fmChunks, separatorLines, splitTopLevel, fencedLines };
 
 /** The loop applyAllFixes ran before the bridge (the reference tools/squadra-fix-diff.js keeps). */
 function legacy(source) {
@@ -144,8 +145,9 @@ describe('after the bridge checker (2026-10-29)', () => {
 describe('the bridge deck language', () => {
   test('counts slides as lint-core numbers them, and marks every fence inert', () => {
     const src = `${FM}## A\n\n\`\`\`yaml\nkey: 1\n---\n\`\`\`\n\n---\n\n## B\n`;
-    const { tree } = deckLanguage.parse({ path: 'd.md', text: src, language: deckLanguage.id });
-    const shape = deckLanguage.shape(tree, { text: src });
+    const lang = deckLanguage(deps);
+    const { tree } = lang.parse({ path: 'd.md', text: src, language: lang.id });
+    const shape = lang.shape(tree, { text: src });
     assert.equal(shape.units, 2, 'the --- inside the fence is not a slide break');
     assert.deepEqual(shape.header, { from: 0, to: FM.length - 1 });
     assert.deepEqual(shape.inert, ['```yaml\nkey: 1\n---\n```']);

@@ -38,7 +38,9 @@ const { buildVocab } = require('../lib/authoring/lint');
 const { splitTopLevel } = require('../lib/authoring/slide-split');
 const { discoverDecks } = require('./lint-deck');
 const { separatorLines } = require('../lib/authoring/slide-split');
-const { deckLanguage } = require('../lib/authoring/squadra/bridge');
+const { fencedLines } = require('../lib/core/shape-glyphs');
+const { deckLanguage: deckLanguageOf } = require('../lib/authoring/squadra/bridge');
+const deckLanguage = deckLanguageOf({ splitTopLevel, fencedLines });
 
 const argv = process.argv.slice(2);
 const flag = (name, dflt) => {
