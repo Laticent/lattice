@@ -76,12 +76,28 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 			// gathers them in its sandboxed socket process; run that transport in the parent instead.
 			'media.peerconnection.mtransport_process': false,
 			'network.process.enabled': false,
+			// The sixth probe's Firefox log named it: "failed to find default addresses", after a UDP socket
+			// error. A page that captures no camera or microphone gets only its default-route address,
+			// which Firefox finds through a UDP socket the runner refuses. A page that captures gets its
+			// host candidates, so the pages hold a fake microphone (`captureFakeMic`), allowed silently.
+			'media.navigator.streams.fake': true,
+			'media.navigator.permission.disabled': true,
 		},
 		// Firefox's own ICE log, so a failure on a runner says what nICEr refused (`mozLogTail`).
 		env: { ...process.env, MOZ_DISABLE_SOCKET_PROCESS_SANDBOX: '1', MOZ_LOG: 'nicer:4,mtransport:4,jsep:4', MOZ_LOG_FILE: join(mozLogDir, 'moz') },
 	});
 	launched.push(b);
 	return b;
+}
+
+/** An init script for Firefox: hold a (fake) microphone capture, so ICE offers host candidates. */
+function captureFakeMic() {
+	navigator.mediaDevices
+		?.getUserMedia({ audio: true })
+		.then((s) => {
+			(window as unknown as { __mic: MediaStream }).__mic = s;
+		})
+		.catch(() => {});
 }
 
 /** An init script: log what every RTCPeerConnection the page makes does with ICE, as plain strings
@@ -146,6 +162,7 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	await relay.attach(gctx);
 	// Keep every peer connection the pages make, so a failed connection can say why (below).
 	for (const c of [hctx, gctx]) await c.addInitScript(keepPeerConnections);
+	if (browser.browserType().name() === 'firefox') for (const c of [hctx, gctx]) await c.addInitScript(captureFakeMic);
 	const host = await hctx.newPage();
 	const guest = await gctx.newPage();
 
