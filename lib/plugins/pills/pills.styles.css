@@ -157,6 +157,21 @@
   --lat-pill-inset:2px;
 }
 
+/* THE LEAD — content a caller handed the pill (`lead` in pills.inline.js), drawn before the label.
+ * The pill does not know what it holds, so this rule names no kind of content: it spaces whatever
+ * leads from the label by the same 0.35em the icon takes (icons.styles.css), and it zeroes the lead
+ * child's own inline margin so that one gap, and the pill's padding on the left, are the only
+ * spacing. Without it a drawn check kept its prose margin, 0.22em a side: measured on a 4K
+ * verdict-grid, its disc stood 8.4px from a 38px label, which read as touching, and sat 0.22em
+ * further from the pill's left edge than from the label. `margin-inline:0` is a reset (#20). */
+.lat-pill[data-shape] > .lat-pill-lead { padding-right:0.35em; }
+.lat-pill[data-shape] > .lat-pill-lead > * { margin-inline:0; }
+/* A pill with no label after its content (`data-bare`, set by the builder because CSS cannot see a
+ * text node) gives its last drawn thing no gap and no tracking indent, so the content sits centered:
+ * measured before this rule, a lead-only pill had 16px of room on its left and 20.9px on its right. */
+.lat-pill[data-shape][data-bare] { text-indent:0; }
+.lat-pill[data-shape][data-bare] > :last-child { padding-right:0; }
+
 /* THE ROUND AND POINTED SHAPES ARE AS TALL AS A CAPSULE, NOT TALLER. `--lat-pill-h` is a capsule's
  * outer height (one line of pill type, both paddings, both 1px borders), and the
  * circle and diamond boxes take exactly that height. They used to take `2em` and `2.4em` of

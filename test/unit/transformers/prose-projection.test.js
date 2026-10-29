@@ -987,6 +987,40 @@ test('state-cells: a plain table speaks the universal words, not silence', () =>
 	assert.match(t, /Price — North: partly; South: open\./);
 });
 
+// A check that LEADS a pill (engineering/decisions/2026-10-18-checks.md §6 option C, §14) is the
+// same answer a `.badge` carries, so a composed grid must narrate as today's grid does. The spike
+// measured it saying "yesResidency": the check's aria-label ran into the label, and the layout's
+// own words were lost. The composed form here is what staging step 5 will emit: each `.badge`
+// rebuilt as a pill whose lead is the drawn check.
+function composeBadges(html) {
+	const pills = require('../../../lib/plugins/pills/pills.inline.js');
+	const { CHECKS, stateElement } = require('../../../lib/core/state-marks.js');
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const doc = dom.window.document;
+	for (const b of doc.querySelectorAll('.badge')) {
+		const row = CHECKS.find((r) => b.classList.contains(r.id));
+		b.replaceWith(pills.pillElementFrom(doc, { value: b.textContent.trim() }, undefined, stateElement(doc, `[${row.marker}]`)));
+	}
+	return [...doc.querySelectorAll('section[data-class]')];
+}
+
+test('a check leading a pill narrates like the badge it replaces, in the layout\'s words', () => {
+	for (const layout of ['verdict-grid', 'pricing']) {
+		const md = `<!-- _class: ${layout} -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n`;
+		const { html } = engine.render(md, 'indaco', {});
+		const today = speak([...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('section[data-class]')]);
+		const composed = speak(composeBadges(html));
+		assert.equal(composed[0], today[0], `${layout}: the composed grid speaks differently`);
+		assert.doesNotMatch(composed[0], /yesResidency|yes Residency/, `${layout}: the check's own word leaked`);
+	}
+});
+
+test('a pill lead is its own word wherever no layout reads it', () => {
+	const dom = new JSDOM('<body><section data-class="content"><p>Status <span class="lat-pill" data-shape="pill"><span class="lat-pill-lead"><span class="state pass state-full lat-state" role="img" aria-label="yes"></span></span>Residency</span> today.</p></section></body>');
+	const [t] = speak([...dom.window.document.querySelectorAll('section')]);
+	assert.match(t, /Status yes Residency today\./);
+});
+
 test('state-cells words equal the kernel\'s universal labels', async () => {
 	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
 	// what keeps its copy of the words from drifting from lib/core/state-marks.js.

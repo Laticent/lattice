@@ -50,6 +50,17 @@ knows, through custom properties set on the pill or on an ancestor:
 | `--lat-pill-cap` | How much of the surrounding text a pill may fill, `0.85` by default; `1` matches a caption instead of undercutting it |
 | `--lat-pill-scale` | A multiplier on the size the plugin chose |
 
+**A pill holds what it is handed.** `pillHtml(text, off, lead)` and `pillElement(doc, text, off, lead)` take an
+optional `lead`: content the component built (on the string path, markup a kernel produced, never author text; on the
+DOM path, a node). The pill puts it first, in a `.lat-pill-lead` span spaced `0.35em` from the label, and zeroes the
+lead's own inline margin, so that gap and the pill's padding are the only spacing. The pill never reads what the lead
+is: a drawn check, a mark or a dot all go through the same door. `pillHtmlFrom(parts, off, lead)` and
+`pillElementFrom(doc, parts, off, lead)` take the pill's parts (`{value, shape, c, size, icon}`) instead of its
+`{…}` text, so a component that already has a label never quotes it. Narration reads a check that leads a pill
+sitting directly in a list item or cell as that item's answer, in the layout's own words, exactly as it reads a
+`.badge` today (`lib/transformers/prose-projection.mjs`). Elsewhere the lead is spoken as its own word before the
+label. Why: `engineering/decisions/2026-10-18-checks.md` §6 and §16.
+
 A component may place a pill (`position`, `align-self`, `flex`) and may ring it (`box-shadow`). It never sets the pill's
 border, background, padding, radius or font from `--pill-*`, and no stylesheet outside this plugin may read a
 `--pill-*` token: `checkHandRolledPills` (`tools/check-ownership.js`) counts reads per file against an allowlist that

@@ -165,3 +165,71 @@ describe('inline-pills — the two render paths agree', () => {
     }
   });
 });
+
+// A pill holds what its caller hands it (engineering/decisions/2026-10-18-checks.md §6 option C):
+// `lead` goes first, in a `.lat-pill-lead` span the stylesheet spaces from the label, and the pill
+// never reads it. The `…From` forms take parts, so a label with a comma is never quoted into `{…}`.
+describe('inline-pills — content the caller hands in', () => {
+  const LEAD = '<span class="drawn" role="img" aria-label="yes"></span>';
+
+  test('the lead comes first, wrapped, and the label is still escaped', () => {
+    assert.equal(
+      pills.pillHtml('{"R&D"}', undefined, LEAD),
+      `<span class="lat-pill" data-shape="pill"><span class="lat-pill-lead">${LEAD}</span>R&amp;D</span>`,
+    );
+  });
+
+  test('no lead, no change: the output is byte-identical to the two-argument call', () => {
+    for (const text of ['{LIVE}', '{BETA, tag, c4}', '{1, circle, c5, lg}']) {
+      assert.equal(pills.pillHtml(text, undefined, undefined), pills.pillHtml(text));
+    }
+  });
+
+  test('from parts: a label holding a comma and a bracket stays a label', () => {
+    const html = pills.pillHtmlFrom({ value: 'Residency, EU [draft]', shape: 'tag', c: 'c3' }, undefined, LEAD);
+    assert.equal(html, `<span class="lat-pill" data-shape="tag" data-c="c3"><span class="lat-pill-lead">${LEAD}</span>Residency, EU [draft]</span>`);
+    assert.match(pills.pillHtmlFrom({ value: 'X' }), /data-shape="pill"/, 'the shape defaults to a capsule');
+  });
+
+  test('a pill with a lead and no label is marked bare and does not name itself after an icon it lacks', () => {
+    const html = pills.pillHtmlFrom({ value: '' }, undefined, LEAD);
+    assert.ok(html.startsWith('<span class="lat-pill" data-shape="pill" data-bare=""><span class="lat-pill-lead">'), html);
+    const doc = new JSDOM().window.document;
+    assert.equal(pills.pillElementFrom(doc, { value: '' }, undefined, doc.createElement('i')).getAttribute('data-bare'), '');
+  });
+
+  test('parts are held to the vocabulary: nothing unchecked reaches an attribute', () => {
+    const doc = new JSDOM().window.document;
+    const hostile = [
+      { value: 'a', shape: 'x" onmouseover="alert(1)' },
+      { value: 'a', c: 'c1" onclick="x' },
+      { value: 'a', size: 'xl' },
+      { value: 'a', c: 'c13' },
+      {},
+      { value: '' },
+      null,
+    ];
+    for (const p of hostile) {
+      assert.equal(pills.pillHtmlFrom(p), null, JSON.stringify(p));
+      assert.equal(pills.pillElementFrom(doc, p), null, JSON.stringify(p));
+    }
+  });
+
+  test('the DOM path builds the same pill, the lead as a node and never as markup', () => {
+    const doc = new JSDOM().window.document;
+    const lead = doc.createElement('span');
+    lead.className = 'drawn';
+    lead.setAttribute('role', 'img');
+    lead.setAttribute('aria-label', 'yes');
+    const el = pills.pillElementFrom(doc, { value: 'R&D', shape: 'pill' }, undefined, lead);
+    assert.equal(el.outerHTML, pills.pillHtmlFrom({ value: 'R&D', shape: 'pill' }, undefined, LEAD));
+    assert.equal(pills.pillElement(doc, '{LIVE}').outerHTML, pills.pillHtml('{LIVE}'));
+  });
+
+  test('the stylesheet spaces the lead without naming what it holds', () => {
+    const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/pills/pills.styles.css'), 'utf8');
+    const rules = css.split('\n').filter((l) => l.includes('.lat-pill-lead'));
+    assert.ok(rules.some((l) => /padding-right:0\.35em/.test(l)), 'the lead lost its gap');
+    for (const l of rules) assert.doesNotMatch(l, /lat-state|state|check|mark/, `the pill sheet names its content: ${l}`);
+  });
+});

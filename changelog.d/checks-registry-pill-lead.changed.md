@@ -1,0 +1,2 @@
+- The six check answers (`[x] [-] [!] [?] [ ] [/]`) now live in one registry table, `CHECKS` in `lib/core/state-marks.js`; the stylesheet, the layout word maps and the Studio's marker picker are pinned to it by test. No rendered output changes.
+- A pill can hold content a component hands it: `pillHtml` / `pillElement` take an optional `lead`, drawn before the label with a `0.35em` gap, and `pillHtmlFrom` / `pillElementFrom` build a pill from parts. Narration reads a check that leads a pill in the layout's own words ("Residency: yes"), as it reads a badge.
