@@ -120,10 +120,10 @@ Roadmap status discs join the one status level, kanban inline code clears AA aga
 
 - Backlog
   - Wire the `ingest` hook
-  - Retire `csv-v1` export
+  - Retire `csv_v1` export
 - Doing
   - Score with `weights.v2`
-  - Dedupe on `source-id`
+  - Dedupe on `source_id`
 - Review
   - Ship `audit-log` view
 
