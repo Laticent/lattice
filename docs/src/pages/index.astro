@@ -225,28 +225,30 @@ const nextSteps = nextStepsFor(url);
 		<SiteHeader palettes={palettes} />
 
 		<main>
-			<!-- Hero — THREE grid children, the Studio section's shape: below lg the
-			     order reads copy → live slide → actions, so on a phone the slide is on the
-			     first screen instead of under the buttons; at lg the copy and actions sit
-			     in column 1 and the slide spans both rows of column 2. -->
+			<!-- Hero — THREE grid children. Below lg the DOM order rules: copy → actions →
+			     before/after, so a phone keeps the buttons on the first screen (the fourth
+			     scoring round found the memo-plus-chart had pushed them to screen 2). At lg
+			     the copy and actions sit in column 1 and the before/after spans both rows of
+			     column 2, placed explicitly, so desktop is unchanged. -->
 			<section class="py-[clamp(48px,7vw,96px)] pb-[clamp(40px,5vw,72px)]">
 				<div class="wrap grid grid-cols-1 items-center gap-x-[clamp(28px,4vw,56px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
 					<!-- Static copy (zero JS). -->
 					<div class="min-w-0 lg:col-start-1 lg:row-start-1 lg:self-end"><HeroCopy /></div>
 					<!-- Interactive Preview/Source flip + live render (hydrates). -->
-					<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-						<HeroBeforeAfter />
-						<HeroPreview client:load data={heroData} />
-						<p class="m-0 mt-3 text-[13px] text-muted-foreground">
-							The same facts as six lines of text, one per bar. Open <span class="font-semibold text-foreground">Source</span> to see them.
-						</p>
-					</div>
 					<div class="min-w-0 lg:col-start-1 lg:row-start-2 lg:self-start">
 						<HeroActions
 							studioHref={url('studio/')}
 							getStartedHref={url('getting-started/')}
 							galleryHref={url('gallery.pdf')}
 						/>
+					</div>
+					<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+						<HeroBeforeAfter />
+						<p class="m-0 mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-primary">After · one slide</p>
+						<HeroPreview client:load data={heroData} />
+						<p class="m-0 mt-3 text-[13px] text-muted-foreground">
+							The same facts as six lines of text, one per bar. Open <span class="font-semibold text-foreground">Source</span> to see them.
+						</p>
 					</div>
 				</div>
 			</section>

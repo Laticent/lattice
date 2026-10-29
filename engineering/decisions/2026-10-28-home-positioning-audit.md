@@ -386,3 +386,21 @@ proof is still absent and is not invented.
 - No word runs into an inline element.
 - `build:check` passes.
 - studio-smoke `reader-alarms`: 8/8 locally with `--retries=0`.
+
+**Fourth rescore** (fresh reviewers, same rubric, against `main`): visitor lens 4.5 → **7.5**,
+craft lens 6.2 → **7.5**. That is flat to slightly below the third round's 7.9 and 8.0, within
+the usual run-to-run spread. Both reviewers found two phone regressions this pass introduced:
+
+- The memo-plus-chart pushed the buttons to the second screen.
+- The memo, clamped to three lines, stopped mid-sentence.
+
+Both are fixed: below `lg` the hero order is now copy → actions → before/after, and the memo
+shows in full. An "After · one slide" label pairs with "Before · the memo".
+
+What the reviewers now ask for is mostly outside page changes:
+
+- A real external user or outcome.
+- Rewording the protected comparison headline.
+- A humanities lecture sample.
+- Folding the How-it-works strip into the Studio block.
+

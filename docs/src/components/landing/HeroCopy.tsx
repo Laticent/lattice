@@ -93,15 +93,16 @@ export function HeroActions({
 // skims past, set above the live waterfall that says the same thing (room-decks.ts
 // HERO_SLIDE). It was a section of its own one scroll down until the third scoring
 // round, where both reviewers named it the page's strongest proof and asked for it
-// at the fold. Kept to three lines on a phone (line-clamp) so the slide and the
-// buttons stay near the first screen.
+// at the fold. Shown in full on every width: clamped to three lines on a phone it
+// stopped mid-sentence and lost the point (fourth scoring round); the buttons now
+// sit above it on a phone instead.
 export function HeroBeforeAfter() {
 	return (
 		<figure className="lx-ui m-0 mb-4 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground">
 			<figcaption className="mb-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
 				Before · the memo
 			</figcaption>
-			<p className="m-0 text-[13.5px] leading-[1.55] text-muted-foreground max-sm:line-clamp-3">
+			<p className="m-0 text-[13.5px] leading-[1.55] text-muted-foreground">
 				Revenue grew from $12.0M last year to $14.6M. New customers added $3.1M and price increases $0.8M, partly offset
 				by churn, which cost $1.2M, and currency, a further $0.1M. In short, growth came mainly from new customers, and
 				churn is now the largest drag.
