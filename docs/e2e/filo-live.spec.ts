@@ -54,7 +54,13 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 			// not use, that left no pair at all: "WebRTC: ICE failed" in the probe's trace, 2026-10-29.
 			'media.peerconnection.ice.loopback': true,
 			'media.peerconnection.ice.link_local': true,
+			// The fourth probe's ICE log: on the runner, Firefox gathered no local candidate at all, on
+			// every one of 15 connections, while it gathers host candidates at once locally. Firefox
+			// gathers them in its sandboxed socket process; run that transport in the parent instead.
+			'media.peerconnection.mtransport_process': false,
+			'network.process.enabled': false,
 		},
+		env: { ...process.env, MOZ_DISABLE_SOCKET_PROCESS_SANDBOX: '1' },
 	});
 	launched.push(b);
 	return b;
