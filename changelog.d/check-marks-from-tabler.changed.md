@@ -1,0 +1,1 @@
+- The six check marks (check, dash, x, slash, question mark and the chart dot) are now drawn from Tabler Icons, the same pinned set the icons plugin uses, instead of hand-made SVG. Every check style looks the same; the one visible change is a slightly steeper slash on `[/]`.

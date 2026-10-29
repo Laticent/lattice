@@ -1,0 +1,92 @@
+[
+  {
+    "mark": "check",
+    "tabler": "check",
+    "scale": 0.8,
+    "at": [
+      12,
+      12.1
+    ],
+    "from": [
+      12.5,
+      12
+    ],
+    "stroke": 2.5,
+    "bold": 3.6
+  },
+  {
+    "mark": "dash",
+    "tabler": "minus",
+    "scale": 0.7143,
+    "at": [
+      12,
+      12
+    ],
+    "from": [
+      12,
+      12
+    ],
+    "stroke": 2.6,
+    "bold": 3.8
+  },
+  {
+    "mark": "x",
+    "tabler": "x",
+    "scale": 0.6667,
+    "at": [
+      12,
+      12
+    ],
+    "from": [
+      12,
+      12
+    ],
+    "stroke": 2.5,
+    "bold": 3.6
+  },
+  {
+    "mark": "slash",
+    "tabler": "slash",
+    "scale": 0.5714,
+    "at": [
+      12,
+      12
+    ],
+    "from": [
+      12,
+      12
+    ],
+    "stroke": 2.6,
+    "bold": 3.8
+  },
+  {
+    "mark": "question",
+    "tabler": "question-mark",
+    "scale": 0.6746,
+    "at": [
+      12.1,
+      12.05
+    ],
+    "from": [
+      12.002,
+      12.005
+    ],
+    "stroke": 2.4,
+    "bold": 3.4
+  },
+  {
+    "mark": "dot",
+    "tabler": "point",
+    "set": "filled",
+    "scale": 0.7,
+    "at": [
+      12,
+      12
+    ],
+    "from": [
+      12,
+      12
+    ],
+    "boldOnly": true
+  }
+]

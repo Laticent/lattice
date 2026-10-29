@@ -19,7 +19,7 @@
  * its geometry attributes (no fill, no stroke, no style, no href), so a later Tabler release
  * cannot slip color or markup into a slide. Our own SVGs pass the same check.
  *
- *   node tools/build-icons-data.js           write both files
+ *   node tools/build-icons-data.js           write both files, and the status-mark block in base.tokens.css
  *   node tools/build-icons-data.js --check   exit 1 when either is stale
  */
 const fs = require('node:fs');
@@ -153,7 +153,75 @@ ${lines.join('\n')}
   }),
 });
 `;
-  return [[VOCAB_FILE, vocab], [DATA_FILE, data]];
+  return [[VOCAB_FILE, vocab], [DATA_FILE, data], spliceMarks(tabler)];
+}
+
+/**
+ * THE STATUS MARKS (`--mark-*` in lib/base/base.tokens.css), drawn from the same pinned Tabler package
+ * as the icons (engineering/decisions/2026-10-18-checks.md §20). A mark is a CSS mask a state disc
+ * carries, so it is one SVG with no color (the stroke is `black`, which the mask reads as alpha) and no
+ * `#` (the data URI then needs no escaping). Each entry in `_icons-source/marks.json` names its Tabler
+ * icon and the fit that places it in the disc: `scale` about `from` (the icon's centre) onto `at`,
+ * measured so it covers the ink box of the mark it replaced. Strokes are in DISC units, divided by the
+ * scale so a mark's weight does not change with its size. `bold` is the `checks-bold` and chart-family
+ * weight; a mask's stroke cannot be set from CSS, so bold is its own token.
+ */
+const TOKENS_FILE = path.join(ROOT, 'lib', 'base', 'base.tokens.css');
+const MARKS_BEGIN = '  /* ── BEGIN GENERATED STATUS MARKS';
+const MARKS_END = '  /* ── END GENERATED STATUS MARKS ── */';
+
+function buildMarks(sets) {
+  const marks = JSON.parse(fs.readFileSync(path.join(SRC, 'marks.json'), 'utf8'));
+  const n = (v) => String(+v.toFixed(3));
+  const url = (nodes, e, stroke) => {
+    // One rounded scale for the transform AND the stroke, so the drawn weight is exactly `stroke`.
+    const scale = +n(e.scale);
+    const tf = `translate(${n(e.at[0])} ${n(e.at[1])}) scale(${scale}) translate(${n(-e.from[0])} ${n(-e.from[1])})`;
+    const paint = stroke === null
+      ? "fill='black'"
+      : `fill='none' stroke='black' stroke-width='${n(stroke / scale)}' stroke-linecap='round' stroke-linejoin='round'`;
+    const shapes = nodes.map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}='${v}'`).join(' ')} ${paint}/>`).join('');
+    return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='${tf}'>${shapes}</g></svg>")`;
+  };
+  const regular = [];
+  const bold = [];
+  for (const e of marks) {
+    if (!NAME.test(e.mark)) fail(`marks.json: "${e.mark}" is not a lower-case name`);
+    const set = e.set || 'outline';
+    if (!sets[set]) fail(`marks.json: ${e.mark}: set "${set}" is not outline or filled`);
+    const raw = sets[set][e.tabler];
+    if (!raw) fail(`marks.json: ${e.mark}: Tabler has no ${set} icon "${e.tabler}"`);
+    const nodes = validNodes(raw, `mark ${e.mark}`);
+    if (!(e.scale > 0) || e.at?.length !== 2 || e.from?.length !== 2) fail(`marks.json: ${e.mark}: give a positive scale and two-number "at" and "from"`);
+    const filled = set === 'filled';
+    if (!e.boldOnly) regular.push(`  --mark-${e.mark}: ${url(nodes, e, filled ? null : e.stroke)};`);
+    bold.push(`  --mark-${e.mark}-bold: ${url(nodes, e, filled ? null : e.bold)};`);
+  }
+  return [
+    `${MARKS_BEGIN} — tools/build-icons-data.js writes this from`,
+    '   * lib/plugins/_icons-source/marks.json and the pinned Tabler Icons (MIT, https://tabler.io/icons;',
+    '   * the notice ships in the kits\' THIRD-PARTY-LICENSES.txt). DO NOT EDIT: change marks.json and',
+    '   * rebuild; `--check` fails on a hand edit. ── */',
+    ...regular,
+    '  /* Heavier-stroked set for the `checks-bold` variant and the chart family (a mask\'s stroke',
+    '   * can\'t be tuned by CSS var, so bold swaps the token). */',
+    ...bold,
+    MARKS_END,
+  ].join('\n');
+}
+
+function spliceMarks(tabler) {
+  let filled;
+  try {
+    filled = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules', '@tabler', 'icons', 'tabler-nodes-filled.json'), 'utf8'));
+  } catch {
+    fail('the @tabler/icons dev dependency is not installed — run npm install');
+  }
+  const css = fs.readFileSync(TOKENS_FILE, 'utf8');
+  const a = css.indexOf(MARKS_BEGIN);
+  const b = css.indexOf(MARKS_END);
+  if (a < 0 || b < a) fail('lib/base/base.tokens.css lost its GENERATED STATUS MARKS markers');
+  return [TOKENS_FILE, css.slice(0, a) + buildMarks({ outline: tabler, filled }) + css.slice(b + MARKS_END.length)];
 }
 
 const files = build();
@@ -162,5 +230,5 @@ if (check) {
   if (stale.length) fail(`stale: ${stale.map(([f]) => path.relative(ROOT, f)).join(', ')}. Run: node tools/build-icons-data.js`);
 } else {
   for (const [f, t] of files) fs.writeFileSync(f, t);
-  if (!process.argv.includes('--silent')) process.stdout.write(`icons data: ${files.length} files → lib/plugins/icons/\n`);
+  if (!process.argv.includes('--silent')) process.stdout.write(`icons data: ${files.length - 1} files → lib/plugins/icons/, status marks → lib/base/base.tokens.css\n`);
 }
