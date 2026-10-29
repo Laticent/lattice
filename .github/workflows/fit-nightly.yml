@@ -39,6 +39,10 @@ on:
     # here: GitHub queues scheduled workflows heavily at the top of the hour.
     - cron: '53 1 * * *'
   workflow_dispatch:
+  # TEMPORARY (#2962): one run on a real runner before merge, since a dispatch needs the file on
+  # main. Removed in the next commit; the issue steps below skip this event.
+  pull_request:
+    paths: ['.github/workflows/fit-nightly.yml']
 
 permissions:
   contents: read
@@ -143,7 +147,7 @@ jobs:
       # matches human issues). `!= 'false'`, so a sweep that died before writing its output
       # still files.
       - name: Open / append fit issue
-        if: always() && steps.sweep.outputs.failed != 'false'
+        if: always() && steps.sweep.outputs.failed != 'false' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
