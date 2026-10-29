@@ -372,11 +372,13 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							)}
 							{poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
 							{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
-							{mark ? <span aria-hidden className="pointer-events-none absolute right-1 top-1 z-10 flex">{mark(i)}</span> : null}
-							<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
-									<span className="shrink-0 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
-									{caption?.(i) ? <span aria-hidden className="min-w-0 truncate rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] leading-4 text-muted-foreground">{caption(i)}</span> : null}
-								</span>
+							{/* The top-right corner belongs to the host's adornment (the Studio's ⋯), so the presence mark takes the left. */}
+							{mark ? <span aria-hidden className="pointer-events-none absolute left-1 top-1 z-10 flex">{mark(i)}</span> : null}
+							{/* One scrim under the number and caption, not a chip behind each, so both read on any slide, light or dark. */}
+							<span className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex min-w-0 items-end gap-1.5 bg-gradient-to-t from-[color-mix(in_srgb,var(--bg)_92%,transparent)] via-[color-mix(in_srgb,var(--bg)_70%,transparent)] to-transparent px-1.5 pb-1 pt-4">
+								<span className="shrink-0 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
+								{caption?.(i) ? <span aria-hidden className="min-w-0 truncate font-mono text-[10px] leading-4 text-[var(--text-body)]">{caption(i)}</span> : null}
+							</span>
 						</button>
 						{on && adorn ? adorn(i) : null}
 					</li>

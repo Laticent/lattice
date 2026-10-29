@@ -1,0 +1,1 @@
+- The Studio's slide map strip puts each tile's number and component name on one soft scrim along the bottom, so both stay readable on any slide, and moves the current slide's ⋯ menu to the top-right corner. Live presence dots move to the top-left to make room.
