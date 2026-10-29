@@ -23,6 +23,7 @@ import EngineWarm from '../components/site/EngineWarm.astro';
 import { SectionHead } from '../components/landing/sections.tsx';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { joinBase } from '../lib/base-url.mjs';
 import { GITHUB_URL } from '../lib/nav.mjs';
 
@@ -37,6 +38,12 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
 const docsRoot = process.cwd();
 const tokensCss = readFileSync(join(docsRoot, 'src/styles/lattice-tokens.generated.css'), 'utf8');
 const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].map((m) => m[1]))];
+// Counted from the manifests at build time, like the components index, so the page never states a stale number.
+const require = createRequire(import.meta.url);
+const { loadAll, manifestBucket } = require(join(docsRoot, '..', 'lib/components', 'index.js'));
+const manifests = loadAll();
+const componentCount = manifests.length;
+const bucketCount = new Set(manifests.map((m) => manifestBucket(m))).size;
 
 const SOURCE_DOC = `${GITHUB_URL}/blob/main/engineering/decisions/2026-06-14-competitive-analysis.md`;
 
@@ -56,7 +63,7 @@ const COMMITMENTS = [
 	},
 	{
 		head: 'Your work is yours to keep',
-		body: 'Lattice is open source under AGPL-3.0, and a Lattice Output Exception frees every deck you make — no license attaches to your slides, ever. It runs offline, phones home to nobody, and can’t be shut down on you. Leave whenever you like: every deck is still a plain PDF sitting next to the Markdown that built it.',
+		body: 'Lattice is open source under AGPL-3.0, and a Lattice Output Exception frees every deck you make — no license attaches to your slides, ever. It runs offline, phones home to nobody, and can’t be shut down on you. (A live session finds its peers through public relays, but no Lattice server ever sees your deck.) Leave whenever you like: export the Markdown and a plain PDF, or the whole project, at any time.',
 	},
 ];
 
@@ -75,7 +82,7 @@ const FAMILIES = [
 		name: 'Office suites + AI',
 		tools: 'PowerPoint + Copilot · Google Slides + Gemini · Apple Keynote',
 		win: 'These own the boardroom today. PowerPoint is the universal format, Google runs the best live co-editing on the market, and everyone already knows how to drive all three. That reach is a real moat, and it isn’t going anywhere.',
-		fall: 'The file is a binary blob or a cloud object, so you can’t reliably compare two versions — you get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot guesses like the rest — even bundled into Office, it’s paid for by only about 3% of seats.',
+		fall: 'The file is a binary blob or a cloud object, so you can’t reliably compare two versions — you get final_v3_FINAL.pptx instead. Fonts fall back and layouts reflow on the next machine, so “looks right here” means nothing. The brand guide sits in a folder nobody enforces. And Copilot guesses like the rest — even bundled into Office, it’s paid for by an estimated 3% of seats.',
 	},
 	{
 		name: 'Code engines',
@@ -104,7 +111,7 @@ const ROWS = [
 	{
 		axis: 'A deck you can track and roll back',
 		why: 'Compare two drafts, see what changed, undo a bad edit.',
-		marks: ['yes', 'no', 'no', 'yes', 'no'],
+		marks: ['yes', 'no', 'part', 'yes', 'part'],
 	},
 	{
 		axis: 'Brand enforced by the theme itself',
@@ -129,12 +136,12 @@ const ROWS = [
 	{
 		axis: 'Real-time co-editing',
 		why: 'Several people in one live document.',
-		marks: ['no', 'yes', 'yes', 'no', 'yes'],
+		marks: ['part', 'yes', 'yes', 'no', 'yes'],
 	},
 	{
 		axis: 'WYSIWYG, no syntax to learn',
 		why: 'Drag, drop, done — nothing to memorize.',
-		marks: ['no', 'yes', 'yes', 'no', 'yes'],
+		marks: ['part', 'yes', 'yes', 'no', 'yes'],
 	},
 	{
 		axis: 'Reliably agent / AI-authorable',
@@ -193,28 +200,28 @@ const RECEIPTS = [
 // ── Lattice's honest weaknesses ─────────────────────────────────────────────
 const WEAKNESSES = [
 	{
-		head: 'No WYSIWYG canvas',
-		body: 'You write Markdown and pick a component; you don’t drag a box across a canvas. The Studio narrows the gap — live preview, an apply-a-fix chat, a visual finish designer — but the source of truth stays structured text. If you think in pictures instead of structure, that grates.',
+		head: 'No free-form canvas',
+		body: 'Compose lets you write a deck without any Markdown, but you still fill components rather than drag boxes around a page. A slide’s layout comes from the component you pick, not from where you drop things. If you think in pictures instead of structure, that grates.',
 	},
 	{
-		head: 'A real learning curve',
-		body: 'Markdown, a vocabulary of layouts, and an authoring contract with rules. The tooling teaches as you go — autocomplete, a live gallery, an inline linter — but your first deck still takes longer than typing a prompt into Gamma.',
+		head: 'A vocabulary to learn',
+		body: 'Compose removes the Markdown, and the Studio’s chat can draft a whole deck from a prompt. But getting the best out of Lattice still means learning its layouts and what each one is for. Built-in lessons and the inline linter teach as you go; your first deck still takes longer than a prompt into Gamma.',
 	},
 	{
-		head: 'No real-time co-editing',
-		body: 'Collaboration is asynchronous: you review a change and fold it in, rather than sharing five live cursors in one document. That’s how serious documents get edited everywhere else — but if your team lives in Google Slides, it’s a real change of habit.',
+		head: 'Live editing is for small teams',
+		body: 'Share a link and up to four people edit one deck live, with their own cursors, comments and an audio call. It runs browser to browser with no server of ours, so it has no video, and an office network that blocks direct browser traffic won’t connect. If thirty people need to live in one deck, Google Slides does that better.',
 	},
 	{
-		head: 'A young ecosystem, a real install',
-		body: 'The Studio and the playground run in a browser tab with nothing to install, but rendering on your own machine still means installing a toolchain, and the desktop app that removes that last step hasn’t shipped. The engine is at v1 — components and tokens are stable; the tooling around them is young. You’re early.',
+		head: 'A young ecosystem',
+		body: 'The Studio runs in a browser tab, installs as an app, works offline and exports PDF, PowerPoint and more on its own. The command line still needs Node and a browser, and the desktop app hasn’t shipped. The engine is at v1 — components and tokens are stable; the tooling around them is young. You’re early.',
 	},
 	{
 		head: 'Editable PowerPoint keeps charts as pictures',
 		body: 'The plain PowerPoint export is pictures of the slides, identical to the PDF. Ask for editable text and every paragraph becomes a real text box in the deck’s font, but charts, diagrams and equations stay pictures. And Google Slides and LibreOffice ignore the fonts the file carries, so there the layout holds only where the deck’s fonts are installed.',
 	},
 	{
-		head: 'Not for the stage',
-		body: 'No builds, no transitions, no presenter animations. Lattice makes documents you email and archive and that read without you in the room. For a live keynote with stagecraft, use Keynote.',
+		head: 'No slide transitions',
+		body: 'There’s a presenter console, a rehearsal planner and charts that build in, but no slide transitions or free-form animation. Lattice makes documents you email and archive and that read without you in the room. For a keynote built on stagecraft, use Keynote.',
 	},
 ];
 
@@ -445,7 +452,7 @@ const ROADMAP = [
 						/>
 						<figcaption class="text-[13px] leading-[1.5] text-muted-foreground sm:col-span-2">
 							Not a mockup: the same slide, rendered by the engine in a light and a dark palette — identical layout, one
-							theme line apart. <a class="font-semibold text-primary hover:underline" href={url('components/')}>Browse all fifty-six components →</a>
+							theme line apart. <a class="font-semibold text-primary hover:underline" href={url('components/')}>Browse all {componentCount} components →</a>
 						</figcaption>
 					</figure>
 				</div>
@@ -474,7 +481,7 @@ const ROADMAP = [
 						<div class="rounded-xl border border-primary p-[26px] shadow-sm" style="background: color-mix(in srgb, var(--accent) 7%, transparent);">
 							<h3 class="m-0 mb-3 t-body text-[18px] font-semibold tracking-[-0.01em] text-primary">Ours</h3>
 							<p class="m-0 text-[15px] leading-[1.6] text-foreground">
-								Lattice front-loads the cost once. You learn the tool and you write the words — and after that, every
+								Lattice front-loads the cost once. You learn the layouts and you write the words — and after that, every
 								render is final: on brand, correct, identical each time. No re-brand, no broken PPTX, no fact-checking the
 								layout, not on this deck and not on the next fifty. Their draft is fast and the fixing never ends; ours
 								starts slower and the finish comes free.
@@ -549,8 +556,8 @@ const ROADMAP = [
 						eyebrow="Side by side"
 						title="The capabilities that decide a high-stakes deck."
 					>
-						We score capability, not feature count. Lattice loses rows here. It trades live collaboration and
-						point-and-click ease for reproducible output, enforced brand, and a file you own. That trade is the whole
+						We score capability, not feature count. Lattice loses rows here. It trades crowd-scale co-editing and a
+						free-form canvas for reproducible output, enforced brand, and a file you own. That trade is the whole
 						pitch — and it’s the right one exactly when the deck matters.
 					</SectionHead>
 					<div class="relative">
@@ -655,12 +662,12 @@ const ROADMAP = [
 					<div class="rounded-xl border border-border bg-card p-[26px] shadow-sm">
 						<h3 class="m-0 mb-3 t-body text-[17px] font-semibold text-[var(--text-heading)]">What Lattice is now</h3>
 						<ul class="m-0 list-disc space-y-1.5 pl-5 text-[14.5px] leading-[1.55] text-foreground lg:columns-2 lg:gap-10 [&>li]:break-inside-avoid">
-							<li><strong>More than fifty components</strong> across thirteen buckets. Pick the meaning, get the composition.</li>
+							<li><strong>{componentCount} components</strong> across {bucketCount} buckets. Pick the meaning, get the composition.</li>
 							<li>A <strong>design-token system</strong> and <strong>14 editorial palettes + 4 color-blind-safe</strong>. Layouts never name a color.</li>
 							<li><strong>Boardroom-grade defaults</strong> and WCAG-AA contrast in every palette, light and dark.</li>
 							<li>An <strong>owned, pinned render engine</strong>. It renders plain HTML sections, not SVG-wrapped slides, so modern CSS works natively — container queries, counters, masks — and layout holds across browsers.</li>
 							<li><strong>Agent authoring.</strong> A machine catalog and a shared linter give an LLM rails, so it composes valid, on-brand decks.</li>
-							<li><strong>The Studio.</strong> The whole loop in a browser tab — write with live preview, get coached, apply fixes from chat, present — nothing to install.</li>
+							<li><strong>The Studio.</strong> The whole loop in a browser tab — write in Markdown or in Compose, edit live with your team, comment, get coached, apply fixes from chat, present, export — nothing to install.</li>
 							<li><strong>A finish layer.</strong> Premium surface treatments — marks, washes, backdrops — applied with one line and tuned visually in Fabricate, the Studio’s finish designer.</li>
 						</ul>
 					</div>
@@ -708,7 +715,8 @@ const ROADMAP = [
 						</div>
 					</div>
 					<p class="mt-6 max-w-[68ch] text-[14px] leading-[1.6] text-muted-foreground">
-						Today you connect your own OpenRouter account in one click — your key, your credits, your spend.
+						Today you connect your own OpenRouter account in one click — your key, your credits, your spend — or run a
+						model on your own device, free and private, with no account at all.
 						<span class="font-semibold text-[var(--text-heading)]">Next:</span> bring your own provider key, so you can
 						point Lattice straight at Anthropic or OpenAI and cut out the middle layer entirely.
 					</p>

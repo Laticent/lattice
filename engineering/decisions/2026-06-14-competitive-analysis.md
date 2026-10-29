@@ -410,3 +410,31 @@ Where this addendum and the June body disagree, the addendum is current.
   `LICENSE` + `LICENSE-EXCEPTIONS`, `package.json`). The page is correct.
 - **Marp characterization** (restating the correction above): describe, never
   quote — marpit's docs do not contain the sentence an earlier revision quoted.
+
+## Addendum — 2026-10-29 capability refresh (Compose, live sessions)
+
+The June body (§2 warts, §7 matrix) predates three shipped Studio capabilities. Where it
+disagrees with this addendum, this addendum and the live page win:
+
+- **Real-time co-editing: ❌ → ⚠️ part.** Live sessions shipped in #2547 and grew in #2810:
+  share a link, knock and admit, up to four people edit one source with their own carets,
+  synced comments, follow and present-together, and an audio call (no video; `live-audio.ts`
+  asks for `video: false`). Browser to browser over WebRTC, peers found through public Nostr
+  relays, no Lattice server. Not ✅: the four-person cap, and networks that block WebRTC.
+- **WYSIWYG / no learning curve: ❌ → ⚠️ part.** Compose (`docs/src/lib/compose`, one toggle
+  in the Studio editor pane) writes the deck with no Markdown. Not ✅: there is still no
+  free-form canvas, and some slide kinds are not yet point-and-click
+  (`2026-10-21-compose-point-and-click.md`).
+- **"Not for the stage" is now narrower.** A presenter console with a separate audience
+  window, a rehearsal planner, chart build-in motion and narration all ship. What stays true
+  is no slide transitions.
+- **AI tiers.** Besides the user's own OpenRouter account, the Studio runs on-device models,
+  free and private (`OnDeviceTier.tsx`).
+- **Track and roll back, competitors: ❌ → ⚠️ part** for the office suites and the
+  design/collab tools. Google Slides, PowerPoint 365, Figma and Canva all keep a version
+  history you can restore; what they lack is a diffable source.
+- **Counts:** the comparison page now reads the component and bucket counts from the
+  manifests at build time (79 components, 14 buckets on 2026-10-29), so no number here needs
+  re-syncing.
+- **Still estimates:** the Copilot "about 3% of seats" figure is an analyst estimate, not a
+  Microsoft disclosure (Addendum 2026-07-07); the page now says "an estimated 3%".
