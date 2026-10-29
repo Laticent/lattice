@@ -8,6 +8,9 @@
 // WebRTC between two browser contexts, and an in-test Nostr relay (`live-relay.ts`) in place of
 // the public ones, so it runs in CI without the network. tools/live-session-check.mjs drives the
 // same flows over the public relays, on demand. Runs in all three engines.
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
@@ -43,6 +46,20 @@ test.afterEach(async () => {
  * both off gets candidates that always pair on one machine. The WebRTC path stays real; only which
  * candidates Firefox offers changes.
  */
+const mozLogDir = mkdtempSync(join(tmpdir(), 'filo-moz-'));
+
+/** The ICE errors and warnings in Firefox's log (every process writes its own file), newest last. */
+function mozLogTail(): string {
+	try {
+		const lines = readdirSync(mozLogDir)
+			.flatMap((f) => readFileSync(join(mozLogDir, f), 'utf8').split('\n'))
+			.filter((l) => /\b[EW]\/|error|fail|couldn't|cannot|refus/i.test(l));
+		return lines.length ? lines.slice(-40).join('\n    ') : 'no errors logged';
+	} catch (e) {
+		return `unreadable (${(e as Error).message})`;
+	}
+}
+
 async function sessionBrowser(browser: Browser): Promise<Browser> {
 	const type = browser.browserType();
 	if (type.name() !== 'firefox') return browser;
@@ -60,7 +77,8 @@ async function sessionBrowser(browser: Browser): Promise<Browser> {
 			'media.peerconnection.mtransport_process': false,
 			'network.process.enabled': false,
 		},
-		env: { ...process.env, MOZ_DISABLE_SOCKET_PROCESS_SANDBOX: '1' },
+		// Firefox's own ICE log, so a failure on a runner says what nICEr refused (`mozLogTail`).
+		env: { ...process.env, MOZ_DISABLE_SOCKET_PROCESS_SANDBOX: '1', MOZ_LOG: 'nicer:4,mtransport:4,jsep:4', MOZ_LOG_FILE: join(mozLogDir, 'moz') },
 	});
 	launched.push(b);
 	return b;
@@ -151,7 +169,7 @@ async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 		.catch(async (e) => {
 			// The guest never reached the host. Name what each side's ICE did, so a red run on a CI
 			// runner explains itself instead of needing another round to find out.
-			throw new Error(`${(e as Error).message}\n  host ICE: ${await iceReport(host)}\n  guest ICE: ${await iceReport(guest)}`);
+			throw new Error(`${(e as Error).message}\n  host ICE: ${await iceReport(host)}\n  guest ICE: ${await iceReport(guest)}${launched.length ? `\n  Firefox log:\n    ${mozLogTail()}` : ''}`);
 		});
 	await guest.getByRole('button', { name: 'Ask to join' }).click();
 	await host.locator('button[aria-label="Admit Guest"]').click({ timeout: 30_000 });
