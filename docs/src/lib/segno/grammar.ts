@@ -222,8 +222,10 @@ export interface GrammarSpec {
   /**
    * The most nodes one parse may hold at once (default: no cap). Past it the parse stops with
    * `code: 'nodes'`, the same shape as a stack overrun, instead of growing the tree without
-   * limit: one hostile 3M-character flowchart row held 67 MB of tape (phase 3b's red team). A
-   * node an `attempt` rewinds is given back. Set it on a grammar that reads text an author or a
+   * limit: one hostile 3M-character flowchart row held 67 MB of tape (phase 3b's red team). The
+   * cap counts what the parse holds at its peak: the nodes an `attempt` has entered count while it
+   * runs, so a cap reached inside an attempt stops the parse even when that attempt would have failed
+   * and rewound (both runtimes agree). Nodes a failed attempt rewinds are given back. Set it on a grammar that reads text an author or a
    * stranger controls; a grammar that sets nothing generates the same parser as before.
    */
   readonly maxNodes?: number;

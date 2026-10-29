@@ -169,8 +169,21 @@ describe('facts', () => {
     expect(coverage(s, g.parse(s))).toEqual(want);
     const r = gen.parse(s);
     expect(r.ok && coverage(s, r)).toEqual(want);
-    expect(coverage('a x', g.parse('a x'))).toEqual({ read: 2, unmarked: [[0, 2]], truncated: false });
+    expect(coverage('a x', g.parse('a x'))).toEqual({ read: 2, unmarked: null, truncated: false });
   });
+  it('reports the same `found` from both runtimes when the cap fires inside an attempt window', () => {
+    // The checker's repro: at the cap the generated parser's `n` is still the window's end.
+    const spec: GrammarSpec = { start: 's', maxNodes: 1, rules: { s: seq(node('p', 'x'), attempt(seq('a', node('k', opt('c'))), { max: 1, next: 'b' }), 'b') } };
+    expect(both(spec)('xab')).toEqual({ ok: false, error: { at: 2, expected: NODES_EXHAUSTED, found: 'b', code: 'nodes' } });
+  });
+
+  it('counts an attempt\'s nodes at their peak, even when the attempt would fail', () => {
+    // Both runtimes stop here, though the winning parse holds one node: the documented contract.
+    const spec: GrammarSpec = { start: 's', maxNodes: 2, rules: { s: seq(node('p', 'x'), alt(attempt(seq(node('k', 'a'), node('k2', 'a'), 'e'), { max: 5, next: 'b' }), seq('a', many('a'))), 'b') } };
+    expect(both(spec)('xaab')).toMatchObject({ ok: false, error: { code: 'nodes' } });
+    expect(compile({ ...spec, maxNodes: 3 }).parse('xaab').ok).toBe(true);
+  });
+
   it('names the cap a parse hit: nodes, depth, or none', () => {
     const capped = words(1);
     const r = compile(capped).parse('a b ');

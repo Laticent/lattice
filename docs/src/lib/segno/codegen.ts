@@ -472,11 +472,12 @@ ${nativeReset}  // A tree that outgrew the first buffer is let go here rather th
   try {
     ok = start();
   } catch (x) {${capped ? `
-    if (x === NODE_CAP) return { ok: false, error: { at: i, expected: ${q(NODES_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'nodes' } };` : ''}${maxDepth > MAX_DEPTH ? `
+    // \`s.length\`, not \`n\`: a cap reached inside an attempt leaves \`n\` at the window's end.
+    if (x === NODE_CAP) return { ok: false, error: { at: i, expected: ${q(NODES_EXHAUSTED)}, found: i < s.length ? s[i] : null, code: 'nodes' } };` : ''}${maxDepth > MAX_DEPTH ? `
     // A grammar deep in frames per level can exhaust the stack before maxDepth: report it as
     // nesting, never throw it (compile() does the same).
     if (!(x instanceof Error && /call stack size|too much recursion/i.test(x.message))) throw x;
-    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < n ? s[i] : null, code: 'stack' } };` : `
+    return { ok: false, error: { at: i, expected: ${q(STACK_EXHAUSTED)}, found: i < s.length ? s[i] : null, code: 'stack' } };` : `
     throw x;`}
   }` : 'const ok = start();'}
   if (ok && i < n) fail('end of input');

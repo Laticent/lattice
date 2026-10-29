@@ -189,7 +189,8 @@ tokenizer is about 80 states; tree construction is deliberately out of scope beh
 ### R1 landed
 
 - **The node cap** is `maxNodes` on the grammar spec. Both runtimes stop at the same node with
-  `code: 'nodes'`, and an attempt's rewind gives its nodes back. The generated parser pays nothing
+  `code: 'nodes'`. It counts the peak: an attempt's nodes count while it runs, and a failed
+  attempt gives them back (the independent checker found the earlier wording promised more). The generated parser pays nothing
   per node: its node case already compared the tape position with `buf.length` before each write,
   and a capped grammar compares it with `cap` (the smaller of the buffer and the cap) instead.
 - **Byte identity.** A grammar that sets no cap and no role generates exactly the parser it did
@@ -205,6 +206,31 @@ tokenizer is about 80 states; tree construction is deliberately out of scope beh
   every string and `splitRow` treats a refusal as a defect, so capping it means giving `splitRow` a
   refusal path (a diagnostic) first; the reset in `parse()` already lets the big tape go after the
   parse. That is the caller's decision under this note's own rule, and it belongs with R4.
+
+### R2: what stands between the scanner and a CSS island (2026-10-29)
+
+R2 was scoped and not started in the session that shipped R1. Two facts about CSS and one about Segno
+make it a design step of its own, not a port:
+
+- **The unquoted `url(` token is context-sensitive.** After a name that decodes to `url` and a `(`,
+  CSS reads everything up to `)` as one token: quotes, `/*` and `{` lose their meaning. A
+  character-level LL(1) grammar can only take that branch if the name's spelling decides it, and
+  the name can be spelled with escapes (`u\72l(`, `\55 RL(`, `\000075rl(`, `\u\r\l(`). So the
+  grammar has to factor every escaped spelling of `u`, `r` and `l` against ordinary names and
+  ordinary escapes, character by character, including the optional whitespace a hex escape eats.
+  `cssRefSpans` makes the same decision after decoding the name, which no grammar can.
+- **The block stack is state, not syntax.** `@font-face` (only at a rule start, only with its block
+  next) and `[…]` (an attribute selector never fetches) are decided by the open blocks, and a closer
+  that does not match the innermost block is an ordinary token. That half belongs in the reader
+  over the tape, which is the design's intent, and it is small.
+- **Segno parses whole inputs.** An island is `(ranges, language, entry rule)`, but `parse(input,
+  rule)` has no start offset, so the reader cannot hand the url body to a second rule mid-stream.
+  Either the url token is factored into the one grammar (above), or Segno grows a
+  `parse(input, rule, from)` entry, which is an engine change with its own differential.
+
+Recommended next step: add the offset entry (it also serves S3 islands), write the CSS tokenizer as
+a grammar whose `url-name` branch covers the escaped spellings, and gate it on the R2 evidence in the
+table above. Measured cost is unknown; the note's "follows the pipeline's P5" estimate stands.
 
 ## Decisions for the owner
 

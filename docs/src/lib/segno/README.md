@@ -205,7 +205,9 @@ names a browser, a URL or a policy:
 
 - **`maxNodes`** on the spec caps how many nodes one parse may hold at once (up to
   `MAX_NODES_LIMIT`, 2^26). Past it the parse returns an error with `code: 'nodes'`, the same shape
-  as a stack overrun, and a node an `attempt` rewinds is given back. Set it on a grammar that reads
+  as a stack overrun. It counts the peak: an `attempt`'s nodes count while it runs (a cap reached
+  inside one stops the parse even if the attempt would have failed), and a failed attempt gives
+  them back. So leave headroom over the largest real tree. Set it on a grammar that reads
   text a stranger controls: without it, one 3M-character flowchart row held 67 MB of tape. It costs
   nothing per node, because the generated parser already compares its tape position with a bound
   before each write. A grammar that sets no cap generates exactly the parser it did before.
@@ -217,7 +219,8 @@ names a browser, a URL or a policy:
   `limits` (which cap stopped it: `depth`, `stack` or `nodes`), `anomalies` (merged runs of NUL,
   lone surrogates, bidi controls, zero-width characters, C1 controls, a CR without LF, and a
   leading BOM; counted over the whole input, listed up to `MAX_FACT_SPANS`) and `coverage` (how far
-  the parse read, and the ranges inside it that no top-level node spans). It is a separate call so
+  the parse read, and the ranges inside it that no top-level node spans; `null` after a failed
+  parse, which keeps no tree to say). It is a separate call so
   the parse itself stays as fast as before; read a generated parser's result before its next parse.
 
 ```ts

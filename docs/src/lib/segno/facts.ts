@@ -116,8 +116,11 @@ export function limitOf(spec: GrammarSpec, error: ParseError | null | undefined)
 export interface Coverage {
   /** The parse read `[0, read)`: the whole input on success, up to the error on failure. */
   readonly read: number;
-  /** The ranges inside `[0, read)` that no top-level node spans, at most `max` of them. */
-  readonly unmarked: ReadonlyArray<readonly [number, number]>;
+  /**
+   * The ranges inside `[0, read)` that no top-level node spans, at most `max` of them; `null` after a
+   * failed parse, which keeps no tree, so what was marked before the error is not known.
+   */
+  readonly unmarked: ReadonlyArray<readonly [number, number]> | null;
   readonly truncated: boolean;
 }
 
@@ -125,7 +128,7 @@ export interface Coverage {
 export function coverage(input: string, result: { ok: true; node?: Node; tree?: FlatTree } | { ok: false; error: ParseError }, max = MAX_FACT_SPANS): Coverage {
   if (!result.ok) {
     const read = Math.min(result.error.at, input.length);
-    return { read, unmarked: read ? [[0, read]] : [], truncated: false };
+    return { read, unmarked: null, truncated: false };
   }
   const tops: Array<[number, number]> = [];
   if (result.tree) for (let k = 0; k < result.tree.top; k = result.tree.buf[k + 3]) tops.push([result.tree.buf[k + 1], result.tree.buf[k + 2]]);
