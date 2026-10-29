@@ -341,6 +341,18 @@ export function slideAtFlat(source: string, f: number): SlideAt | null {
 	return null;
 }
 
+/** Move rendered slide `s` so it lands at flat position `to` (clamped), past every slide between: a drag's drop. One
+ *  write, so the whole move is one step of the undo history. The slide at `to` is cut out of its block as `moveAt`
+ *  cuts its neighbor, and the moved slide goes after it (moving later) or before it (moving earlier). */
+export function moveToAt(source: string, s: SlideAt, to: number): DeckOpResult {
+	const from = flatOfSlide(source, s);
+	const t = Math.max(0, Math.min(renderedCount(source) - 1, Math.trunc(to)));
+	const target = slideAtFlat(source, t);
+	if (from < 0 || t === from || !target) return { source, active: s.unit, moved: identity(slideCount(source)) };
+	const c = cut(source, [s, after(s), target, after(target)]);
+	return moveSlide(c.source, c.unit(s), c.unit(target));
+}
+
 /**
  * What a delete of one block takes, in words a confirm can show (2026-10-27-slide-structure-strip.md §12
  * item 2): its title, and how many rendered slides go with it. A block whose headings split it renders as

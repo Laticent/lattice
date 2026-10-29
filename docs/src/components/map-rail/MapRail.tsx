@@ -70,6 +70,9 @@ export interface MapRailProps {
 	mark?: (unit: number) => React.ReactNode | null;
 	/** The units the rail has mounted, each time that set changes, so a host can pin their posters (poster-cache.ts). */
 	onWindow?: (units: readonly number[]) => void;
+	/** A stable React key for a unit (the Studio's slide id), so a tile follows its slide when slides are inserted or
+	 *  moved before it rather than being rewritten in place. Default: the unit's index. */
+	keyOf?: (unit: number) => React.Key;
 	/** Something to sit beside the FOCUSED tile, over its top corner and outside its button (the Studio's slide menu ⋯).
 	 *  Called only for the focused unit. The rail knows nothing about what it does. */
 	adorn?: (unit: number) => React.ReactNode | null;
@@ -155,7 +158,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, keyOf, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -350,7 +353,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 				// The window mounts a few tiles of a long deck, so each says where it sits in the whole list: a screen reader
 				// then hears "4 of 40", as it did on the pill navigator, which listed every slide.
 				return (
-					<li key={i} aria-setsize={count} aria-posinset={i + 1} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
+					<li key={keyOf ? keyOf(i) : i} aria-setsize={count} aria-posinset={i + 1} className="absolute" style={vertical ? { top: at, left: PAD, width: geo.cross, height: geo.main } : { left: at, top: PAD, height: geo.cross, width: geo.main }}>
 						<button
 							type="button"
 							onClick={() => onPick(i)}
@@ -359,7 +362,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							tabIndex={i === tabStop ? 0 : -1}
 							data-tier={tier}
 							data-unit={i}
-							className={cn('group relative block size-full text-left outline outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
+							className={cn('group relative block size-full select-none text-left outline [-webkit-touch-callout:none] outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
 						>
 							{/* The sketch is the floor: it is there before a picture and under one. */}
 							{tier !== 'placeholder' && (

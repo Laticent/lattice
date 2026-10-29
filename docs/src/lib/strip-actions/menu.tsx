@@ -16,6 +16,7 @@ import { MoreHorizontal } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { attachStripDrag } from './drag';
 import { type StripActionId, type StripMenuItem, type StripShortcut, stripShortcut } from './model';
 
 /** A rendered slide in the full deck: part `part` of block `unit` (the shape of deck-ops' `SlideAt`). */
@@ -38,6 +39,8 @@ export interface StripActions {
 	shortcut: (id: StripShortcut, at: StripSlide) => boolean;
 	/** Whether the shortcuts are the Mac's (⌘) or everyone else's (Ctrl). */
 	mac: boolean;
+	/** Drag's drop: move slide `from` so it lands at deck position `to`, as one step of the undo history. */
+	move: (from: StripSlide, to: number) => void;
 }
 
 /** Focus the strip's current slide once an action has moved it, unless focus has gone somewhere that took it on
@@ -130,6 +133,13 @@ export interface StripGestureOptions {
 	slideOf: (el: Element) => StripSlide | null;
 	/** The strip's current slide. */
 	current: StripSlide | null;
+	/** The strip's scrolling element: it holds a dragged slide's pointer and scrolls itself near either end. */
+	scroller: () => HTMLElement | null;
+	vertical?: boolean;
+	/** The deck's revision (`DeckIndex.rev`): a drag drops nothing if it changed while the slide was lifted. */
+	rev: unknown;
+	/** How many slides the strip lists (its `data-unit` runs 0 to count - 1, the deck's places on the full view). */
+	count: number;
 }
 
 /**
@@ -144,6 +154,17 @@ export function useStripMenuGestures(ref: React.RefObject<HTMLElement | null>, o
 	React.useEffect(() => {
 		const el = ref.current;
 		if (!el || !on) return;
+		// Drag first: its click and context-menu listeners swallow what a lift has already answered, ahead of the menu's.
+		const detachDrag = attachStripDrag<StripSlide>(el, {
+			scroller: () => opts.current.scroller(),
+			vertical: !!opts.current.vertical,
+			count: () => opts.current.count,
+			enabled: () => !!opts.current.actions,
+			pick: (tile) => opts.current.slideOf(tile),
+			rev: () => opts.current.rev,
+			move: (s, to) => opts.current.actions?.move(s, to),
+			hold: (s) => opts.current.actions?.openMenu(s, 'pointer'),
+		});
 		const slideAt = (t: EventTarget | null) => {
 			const node = t instanceof Element ? t.closest('[data-unit]') : null;
 			return node && el.contains(node) ? opts.current.slideOf(node) : null;
@@ -173,13 +194,20 @@ export function useStripMenuGestures(ref: React.RefObject<HTMLElement | null>, o
 			if (!a || !s || e.detail === 0 || !sameSlide(s, opts.current.current)) return;
 			e.preventDefault();
 			e.stopPropagation();
-			if (!openAtPress) a.openMenu(s, 'pointer');
+			// Radix closes a menu on a touch only when that tap's click reaches the document, which this click no longer
+			// does, so the strip closes it itself.
+			if (openAtPress) a.closeMenu();
+			else a.openMenu(s, 'pointer');
 		};
+		// Windows sends `contextmenu` on the context-menu key's release, after the keydown already opened the menu from
+		// the keyboard; that echo must not reopen it as a pointer open (which would not hand focus back to the strip).
+		let menuKeyAt = -Infinity;
 		const onContextMenu = (e: MouseEvent) => {
 			const a = opts.current.actions;
 			const s = slideAt(e.target);
 			if (!a || !s) return;
 			e.preventDefault();
+			if (performance.now() - menuKeyAt < 600) return;
 			a.openMenu(s, 'pointer');
 		};
 		const onKeyDown = (e: KeyboardEvent) => {
@@ -188,6 +216,7 @@ export function useStripMenuGestures(ref: React.RefObject<HTMLElement | null>, o
 			if (!a || !s || e.isComposing) return;
 			if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
 				e.preventDefault();
+				menuKeyAt = performance.now();
 				a.openMenu(s, 'key');
 				return;
 			}
@@ -208,6 +237,7 @@ export function useStripMenuGestures(ref: React.RefObject<HTMLElement | null>, o
 		el.addEventListener('wheel', onUserScroll, { passive: true });
 		el.addEventListener('touchmove', onUserScroll, { passive: true });
 		return () => {
+			detachDrag();
 			el.removeEventListener('pointerdown', onPointerDown, true);
 			document.removeEventListener('pointerdown', onAnyPointerDown, true);
 			el.removeEventListener('focusin', onFocusIn);

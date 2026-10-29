@@ -84,7 +84,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
-import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, moveAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
+import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -5068,14 +5068,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const opVenueDown = () => {
 		if (clipDown) setDeckVenue(clipDown.value);
 	};
+	// The slide menu's open slide and how it opened (THE SLIDE MENU, below).
+	const [stripMenu, setStripMenu] = React.useState<{ at: SlideAt; via: StripVia } | null>(null);
 	// Delete is destructive → confirm in place: first tap ARMS the button (it turns
 	// into a confirm), a second tap within 3s deletes; it disarms itself otherwise.
 	const [deleteArmed, setDeleteArmed] = React.useState(false);
+	// While the menu is open the arm holds for as long as it stays open, so a screen-reader user who takes longer than 3s
+	// to reach the confirm is not made to arm it again (WCAG 2.2.1).
+	const stripMenuOpen = !!stripMenu;
 	React.useEffect(() => {
-		if (!deleteArmed) return;
+		if (!deleteArmed || stripMenuOpen) return;
 		const t = setTimeout(() => setDeleteArmed(false), 3000);
 		return () => clearTimeout(t);
-	}, [deleteArmed]);
+	}, [deleteArmed, stripMenuOpen]);
 	// Re-arm fresh for whatever slide is current — never carry an arm across a nav.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: disarm on slide change only.
 	React.useEffect(() => setDeleteArmed(false), [hereAt.unit, hereAt.part]);
@@ -5093,7 +5098,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
 	// for a read-only Live member.
 	const stripEditable = composeLens === 'full' && effectiveStop !== 'read' && !landscapePhone && !live.collab?.readOnly;
-	const [stripMenu, setStripMenu] = React.useState<{ at: SlideAt; via: StripVia } | null>(null);
 	// Opening makes the menu's slide current, which reaches `hereAt` a render later. Once it has, the menu closes the
 	// moment its slide stops being current any other way (an op, a pick, a key), so it never offers to act on a slide
 	// the author has left.
@@ -5112,7 +5116,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const openStripMenu = (at: SlideAt, via: StripVia) => {
 		const i = viewChunksRef.current.indexOf(at.unit);
 		if (i < 0) return;
-		stripMenuLanded.current = false;
+		// Opened on the slide already current (the ⋯, a tap on it, Shift+F10), it has landed: `hereAt` will not change
+		// to say so, and an unlanded menu would outlive its slide.
+		stripMenuLanded.current = at.unit === hereAt.unit && at.part === hereAt.part;
 		goToSlideLatest.current(i, { section: at.part, focus: false, expand: false });
 		setStripMenu({ at, via });
 	};
@@ -5153,14 +5159,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		requestDelete(at);
 		return !othersLive;
 	};
-	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, addFirst: () => opAddSlide('after') });
-	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, addFirst: () => opAddSlide('after') };
+	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
+	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
+	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
 	const stripItemsKey = JSON.stringify(stripItems);
 	// Stable while the menu stays as it is: the pill strip is memoized, and a fresh object per render would re-render
 	// it on every keystroke (SlideRail.tsx's header says what that cost).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stripItemsKey` stands for `stripItems`; the callbacks read the latest closures through the ref.
 	const stripActions = React.useMemo<StripActions | undefined>(
-		() => (stripEditable ? { menu: stripMenu, items: stripItems, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike() } : undefined),
+		() => (stripEditable ? { menu: stripMenu, items: stripItems, openMenu: (at, via) => stripLatest.current.open(at, via), closeMenu: () => setStripMenu(null), run: (id) => stripLatest.current.run(id), shortcut: (id, at) => stripLatest.current.shortcut(id, at), mac: isMacLike(), move: (at, to) => stripLatest.current.move(at, to) } : undefined),
 		[stripEditable, stripMenu, stripItemsKey],
 	);
 	// An empty deck's strip shows one "+ Add your first slide" tile, which opens the gallery.

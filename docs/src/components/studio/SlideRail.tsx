@@ -152,7 +152,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 		const p = pills[Number((el as HTMLElement).dataset.unit)];
 		return p ? { unit: p.unit, part: p.section } : null;
 	}, [pills]);
-	useStripMenuGestures(navRef, { actions, slideOf, current });
+	useStripMenuGestures(navRef, { actions, slideOf, current, rev: index.rev, count: pills.length, scroller: () => navRef.current });
 
 	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
 	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
@@ -197,7 +197,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 						aria-current={on}
 						aria-label={p.aria}
 						tabIndex={p.flat === tabStop ? 0 : -1}
-						className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+						className={cn('flex shrink-0 select-none items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
 					>
 						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.n}</span>
 						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{p.label}</span>

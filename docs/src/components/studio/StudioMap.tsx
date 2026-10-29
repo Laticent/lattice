@@ -292,7 +292,21 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		return it ? { unit: it.unit, part: it.section } : null;
 	}, [items]);
 	const here = items[focus];
-	useStripMenuGestures(wrapRef, { actions, slideOf, current: here && here.flat === flat ? { unit: here.unit, part: here.section } : null });
+	useStripMenuGestures(wrapRef, {
+		actions,
+		slideOf,
+		current: here && here.flat === flat ? { unit: here.unit, part: here.section } : null,
+		rev: index.rev,
+		count: items.length,
+		scroller: () => wrapRef.current?.querySelector<HTMLElement>('[data-map-rail] .overflow-x-scroll, [data-map-rail] .overflow-y-scroll') ?? null,
+		vertical: orientation === 'vertical',
+	});
+	// Tiles follow their slide's id, so a slide inserted or moved near the start moves the tiles after it instead of
+	// rewriting every mounted tile in place (2026-10-27-slide-structure-strip.md §12 item 10 measures it).
+	const tileKey = React.useCallback((i: number) => {
+		const it = items[i];
+		return it ? `${index.units[it.unit]?.id ?? it.unit}:${it.section}` : i;
+	}, [items, index]);
 	const adorn = React.useCallback(
 		(i: number) => {
 			const it = items[i];
@@ -311,7 +325,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 					</button>
 				</div>
 			) : (
-				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
 			)}
 		</div>
 	);

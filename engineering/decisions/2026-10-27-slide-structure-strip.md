@@ -397,7 +397,25 @@ Each is a file in `followups.d/2927-p<n>-…`.
    and `e2e/strip-keyboard.spec.ts` (Chromium). Not verified: VoiceOver and NVDA, which the sandbox cannot run; the
    announcements are checked as live-region text.)*
 10. Drag to reorder with the final long-press rule, a floating copy, edge auto-scroll, and tiles keyed by slide id;
-    measure the redraw cost of an insert near the start before and after.
+    measure the redraw cost of an insert near the start before and after. *(Built: `lib/strip-actions/drag.ts`, wired
+    through the same container listeners as the menu, so both strips drag. A still press lifts after 450 ms, shorter
+    than the OS long press so the lift wins; the hold is also read from the events' own timestamps, because a busy page
+    runs the timer late and a finger held long enough must still lift rather than scroll. A mouse or pen that moves
+    lifts at once; a finger that moves first scrolls. A lifted slide's strip holds the pointer, cancels the touch's
+    scroll, and swallows the click and Android's `contextmenu`; a copy cloned from the tile (its poster or sketch)
+    follows the pointer, a bar marks the landing gap, and the strip scrolls itself within 48 px of either end. Release
+    without moving opens the menu; Escape cancels. The drop is `moveToAt` in `deck-ops.ts`: one cut and one move, so one
+    write and one step of Filo's history, pinned against the list model for every from/to pair on both test decks.
+    `MapRail` gains a `keyOf` prop and the map keys tiles by slide id. **Measured** (`redraw/redraw.cjs`, a 60-slide
+    deck, the map at slide 1, a slide inserted after slide 1, five runs, median; the docs dev server, Chromium,
+    1440x900): time to the second frame after the insert 464 ms keyed by index and 467 ms keyed by id; long tasks in
+    the next 1.5 s 915 ms and 804 ms; DOM mutation records inside the rail 48 and 65; the frame pool's layer 16 and 15;
+    tiles touched 7 of 7 both ways. So keying by id buys no redraw time: an insert near the start renumbers and
+    re-positions every mounted tile either way, and the whole shell's re-render dominates the frame. It is kept because
+    a moved slide's tile now stays the same element, so keyboard focus and its poster go with it. Pinned by
+    `e2e/strip-drag.spec.ts`: mouse on desktop, CDP touch on the 820 and 390 touch projects, and pointer events of type
+    touch on WebKit at an iPhone box. Not verified: a real phone's touch pipeline and iOS Safari's long-press
+    handling.)*
 11. Remove the icon row; rewrite `e2e/slide-ops.spec.ts` for the menu, drag and Undo.
 12. ~~The "Move before" notice on its own lifetime~~ Retired 2026-10-28: the door asks Before | After in place (§5).
 

@@ -469,16 +469,26 @@ describe('ops on a rendered slide inside a heading-split block (§6)', async () 
 		}
 	});
 
-	it('names a rendered slide by its flat place and back', async () => {
-		const { flatOfSlide, slideAtFlat } = await import('./deck-ops');
+	it('a drag’s move to any position gives the list model’s order, in one write, landing on the moved slide', async () => {
+		const { moveToAt, flatOfSlide, slideAtFlat } = await import('./deck-ops');
 		for (const src of [example, outline]) {
-			const n = engine(src).length;
+			const before = engine(src);
+			const n = before.length;
 			for (let f = 0; f < n; f++) {
 				expect(flatOfSlide(src, at(src, f))).toBe(f);
 				expect(slideAtFlat(src, f)).toEqual(at(src, f));
+				for (let t = 0; t < n; t++) {
+					const want = [...before];
+					const [x] = want.splice(f, 1);
+					want.splice(t, 0, x);
+					const r = moveToAt(src, at(src, f), t);
+					expect(engine(r.source), `move ${f} to ${t}`).toEqual(want);
+					if (t !== f) expect(flatOfSlide(r.source, { unit: r.active, part: 0 }), `move ${f} to ${t} lands on it`).toBe(t);
+				}
 			}
 			expect(slideAtFlat(src, n)).toBeNull();
 			expect(flatOfSlide(src, { unit: 99, part: 0 })).toBe(-1);
+			expect(moveToAt(src, at(src, 0), 0).source).toBe(src);
 		}
 	});
 
