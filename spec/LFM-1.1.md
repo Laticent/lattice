@@ -7,7 +7,7 @@ tests: spec/conformance/lfm/ tools/lfm-conformance.js
 -->
 
 **Version:** 1.1 · **Status:** Draft, for the owner's sign-off · **Date:** 2026-10-08 · **Owner:** @saden1
-**Supersedes:** [LFM 1.0](./LFM-1.0.md) once ratified. 1.1 adds the front-matter registers (§2.3), the `_lens` tag (§2.4) and the inline notation (§3.6); nothing in 1.0 changes meaning.
+**Supersedes:** [LFM 1.0](./LFM-1.0.md) once ratified. 1.1 adds the front-matter registers (§2.3), the `_lens` tag (§2.4) and the inline notation (§3.6). It also changes two keys 1.0 left to Marpit (§2.3): a `header` or `footer` slide comment now sets its own slide only, and `paginate` is front matter only and on by default. A 1.0 deck that uses either can render differently under 1.1.
 **License:** [CC-BY-4.0](#12-governance--license)
 
 LFM (Lattice-Flavored Markdown) is the authoring dialect of the
@@ -579,6 +579,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
 | 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
 | 1.1-draft | 2026-10-20 | §2.3: `header` and `footer` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. `paginate` is front matter only, on by default, and a slide comment for it has no effect (classes decide, audit §11s). A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
+| 1.1-draft | 2026-10-29 | The header line no longer says nothing in 1.0 changes meaning. It names the two keys 1.1 changes (§2.3 `header`/`footer` and `paginate`), which 1.0 left to Marpit. Editorial: it states what the 2026-10-20 row already landed. |
 
 ## Appendix A — A worked example (informative)
 
