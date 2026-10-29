@@ -17,24 +17,6 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 
 ---
 
-<!-- _class: waterfall marks-tone -->
-<!-- _footer: "tone · waterfall" -->
-
-`FY26 plan · actual`
-
-## Price paid for the volume we lost.
-
-- Plan `12.0M`
-- Price `+1.4M`
-  - Two list-price rises, both held
-- Volume `-0.8M`
-- Mix `-0.6M`
-- FX `-0.3M`
-- Cost base `-1.9M`
-- Actual `9.8M`
-
----
-
 <!-- _class: waterfall marks-tone dark -->
 <!-- _footer: "tone · dark · waterfall" -->
 
@@ -124,3 +106,57 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
 Illustrative — placements vary by company.
+
+---
+
+<!-- _class: waterfall marks-etch -->
+<!-- _footer: "etch · waterfall" -->
+
+`FY26 plan · actual`
+
+## Price paid for the volume we lost.
+
+- Plan `12.0M`
+- Price `+1.4M`
+  - Two list-price rises, both held
+- Volume `-0.8M`
+- Mix `-0.6M`
+- FX `-0.3M`
+- Cost base `-1.9M`
+- Actual `9.8M`
+
+---
+
+<!-- _class: waterfall marks-etch dark -->
+<!-- _footer: "etch · dark · waterfall" -->
+
+`FY26 plan · actual`
+
+## Price paid for the volume we lost.
+
+- Plan `12.0M`
+- Price `+1.4M`
+  - Two list-price rises, both held
+- Volume `-0.8M`
+- Mix `-0.6M`
+- FX `-0.3M`
+- Cost base `-1.9M`
+- Actual `9.8M`
+
+---
+
+<!-- _class: map marks-etch dark -->
+<!-- _footer: "etch · dark · map" -->
+
+## The map fills regions by value.
+
+- India `48.2`
+  - Largest by volume, thinnest by margin
+  - Two new state hubs this year
+- Nigeria `36.4`
+- Kenya `31.0`
+- Brazil `27.5`
+- Indonesia `19.3`
+- Ethiopia `14.1`
+- Bangladesh `11.8`
+- Peru `9.6`

@@ -309,6 +309,13 @@ measurement, and most undo a defect a render or the adversarial review found:
   matrix's outlined (reachable) cell takes the one ink as its edge, not the one hue: the two are the same color on a light
   slide, and on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty
   (not applicable) cell's muted edge is 1.81:1.
+- **Etch's waterfall columns match the bars beside them, and an etch map starts higher on a dark slide.** Plan and Actual are
+  no-category marks in the first hue, so they take the status level (14/19%) and etch's 2.6x edge, as the up and down bars
+  do. They wore the category body (30/40%) and the member's 1x hairline, so a column read as a second chart beside its
+  bars. A text-free ramp (a map region) on a dark slide starts at 24% of the hue and climbs 0.8 per mix point (it was 6%
+  and 0.5): measured on indaco, the weakest region sat 0.051 OKLab from the land and now sits 0.124, the strongest 0.142
+  and now 0.266, and the spread from the lowest region to the highest grows from 0.091 to 0.143. A light slide is
+  unchanged (0.088 to 0.245 from the land).
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
   Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone, its light-slide wash capped at 8% (`KANBAN_CODE_CAP`) because past it a card's inline code falls under 4.5:1 (12% read 4.19:1 on carbone); pigment takes a wider solid bar and no tint) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue

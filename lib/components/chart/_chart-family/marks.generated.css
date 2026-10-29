@@ -161,8 +161,8 @@ figure.marks-etch,
   --finish-status-text-d: 19%;
   --finish-ramp-lo: 6%;
   --finish-ramp-k: 0.5;
-  --finish-ramp-d-lo: 6%;
-  --finish-ramp-d-k: 0.5;
+  --finish-ramp-d-lo: 24%;
+  --finish-ramp-d-k: 0.8;
   --finish-ramp-text-lo: 6%;
   --finish-ramp-text-k: 0.5;
   --finish-ramp-text-d-lo: 6%;
@@ -1085,8 +1085,10 @@ figure.marks-etch :where(.chart-status-mark) {
 }
 section.marks-etch :where(.waterfall-bar[data-s="total"]),
 figure.marks-etch :where(.waterfall-bar[data-s="total"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
+  stroke-width: calc(var(--chart-edge) * 2.6) !important;
+  vector-effect: non-scaling-stroke !important;
 }
 
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */

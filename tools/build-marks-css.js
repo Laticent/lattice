@@ -98,8 +98,9 @@ const F = {
   pigment: { body: [100, 100], backdrop: [100, 100], ramp: [0, 1.136], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1, border: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
-  // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
+  // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable. On a dark slide a text-free ramp
+  // (a map) starts at 24% and climbs faster, as tone's starts at 40%: from 6% a region sat within a hair of the land and the scale vanished.
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampD: [24, 0.8], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -893,7 +894,9 @@ function build() {
     }
     if (name === 'etch') {
       // Etch's Plan / Actual anchors: the same pale wash and edge every other etch body wears, in the first hue.
-      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${pair(ONE, f.body)}`, `stroke: ${inkOf(1)}`]));
+      // The columns take the wash and the edge of the status bars beside them (the status level, the etch edge), not the category body
+      // and the member's 1x hairline: a hairline column beside 2.6x delta bars read as a second chart.
+      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${pair(ONE, f.backdrop)}`, `stroke: ${inkOf(1)}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
     }
 
     // ── RISK BANDS — a severity ramp whose hue is the meaning ───────────────
