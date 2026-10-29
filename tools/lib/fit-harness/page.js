@@ -30,16 +30,18 @@ function install(cfg) {
   function fits(s, forSplit = false) {
     const p = probeSectionOverflow(s, cfg.clipSel, cfg.tol, cfg.ignoreSel);
     if (p.over) return { ok: false, px: Math.round(p.scrollH - p.clientH), chrome: false };
+    // Inside the frame is not the same as readable: a four-column card grid at a story box keeps
+    // every word on the slide at five characters a line (§12). The hard rule is "readable", so a
+    // page with crammed or clipped prose does not fit. Checked before the chrome-only exit below:
+    // a slide whose only cut is its footer line must still be readable.
     if (p.clipSuspect) {
       const c = probeContentClipped(s, cfg.ignoreSel, cfg.tol, cfg.bearerSel);
       if (c.cut) {
+        if (c.chromeOnly && !readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
         if (forSplit && c.chromeOnly) return { ok: true, px: 0, chrome: false };
         return { ok: false, px: 1, first: c.first, chrome: !!c.chromeOnly };
       }
     }
-    // Inside the frame is not the same as readable: a four-column card grid at a story box keeps
-    // every word on the slide at five characters a line (§12). The hard rule is "readable", so a
-    // page with crammed or clipped prose does not fit.
     if (!readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
     return { ok: true, px: 0, chrome: false };
   }
@@ -49,11 +51,10 @@ function install(cfg) {
    *  24+ characters set at fewer than 12 characters a line over three or more lines. Labels drawn
    *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
    *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
-  const NOT_PROSE = 'svg, canvas, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
+  const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
   function readable(s) {
     const body = parseFloat(getComputedStyle(s).fontSize) || 16;
     const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
-    const seen = new Set();
     let n;
     while ((n = w.nextNode())) {
       const el = n.parentElement;
@@ -67,14 +68,13 @@ function install(cfg) {
         const box = a.getBoundingClientRect();
         if (rects.some((x) => x.right > box.right + 2 || x.left < box.left - 2)) return false;
       }
+      // Measure each text run against its OWN lines: a card's short bold title on its own line
+      // must not drag its body's average down (that flagged readable list-steps cards).
       const fs = parseFloat(getComputedStyle(el).fontSize);
-      if (seen.has(el) || fs > body * 1.6 || fs < body * 0.85) continue;
-      seen.add(el);
-      const text = el.textContent.replace(/\s+/g, ' ').trim();
+      if (fs > body * 1.6 || fs < body * 0.85) continue;
+      const text = n.textContent.replace(/\s+/g, ' ').trim();
       if (text.length < 24) continue;
-      const er = document.createRange();
-      er.selectNodeContents(el);
-      const lines = new Set([...er.getClientRects()].filter((x) => x.width > 1).map((x) => Math.round(x.top))).size;
+      const lines = new Set(rects.map((x) => Math.round(x.top))).size;
       if (lines > 2 && text.length / lines < 12) return false;
     }
     return true;
