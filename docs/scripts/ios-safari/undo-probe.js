@@ -66,7 +66,15 @@ function undoProbeKit(result) {
 			},
 			30000,
 			'a visible Deck source editor',
-		);
+		).catch((e) => {
+			// Say what the phone shows instead, so a red device run names the pane and the editor mode it found.
+			const shown = [...document.querySelectorAll('button[aria-label]')]
+				.filter(visible)
+				.map((b) => `${b.getAttribute('aria-label')}${b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true' ? '*' : ''}`)
+				.slice(0, 24);
+			const src = document.querySelector('[aria-label="Deck source"]');
+			throw new Error(`${e.message} (Deck source ${src ? `${src.tagName.toLowerCase()}, ${src.getClientRects().length} rects` : 'absent'}, .cm-content ${!!document.querySelector('.cm-content')}, contenteditable ${document.querySelectorAll('[contenteditable="true"]').length}, taps ${tapped ? 'yes' : 'no'}; buttons, * = pressed: ${shown.join(' | ')})`);
+		});
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) el.setSelectionRange(el.value.length, el.value.length);
 		else {
@@ -120,7 +128,7 @@ function undoProbeKit(result) {
 	const ready = async () => {
 		try {
 			// A phone opens on the preview, so its editor mounts only once the Markdown source pane is shown (focusEnd).
-			await until(() => window.__latticeRenderMetrics && (document.querySelector('[aria-label="Deck source"]') || button('Markdown source')), 90000, 'the Studio editor');
+			await until(() => window.__latticeRenderMetrics && (document.querySelector('[aria-label="Deck source"]') || (innerWidth <= 699 && button('Markdown source'))), 90000, 'the Studio editor');
 		} catch (e) {
 			// Say what the page did have, so a red device run explains itself.
 			const panes = [...document.querySelectorAll('button[aria-label]')].filter(visible).map((b) => b.getAttribute('aria-label')).slice(0, 20);
