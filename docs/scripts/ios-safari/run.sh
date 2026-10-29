@@ -122,6 +122,16 @@ for family in $families; do
       need=$((cycle * left))
       if [ $((SECONDS + need)) -gt "${SUITE_DEADLINE:-1560}" ]; then
         echo "$family: no second start: ${SECONDS} s gone, and $left device start(s) of about ${cycle} s each would pass ${SUITE_DEADLINE:-1560} s"
+        # Without a second start this device would get fewer session attempts than main's three: make the third here, in
+        # place, 20 s on, as run.mjs would have.
+        if [ "$rc" = 3 ]; then
+          echo "$family: one more session attempt in place"
+          sleep 20
+          if start_driver; then
+            rc=0
+            SESSION_ATTEMPTS=1 PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+          fi
+        fi
         break
       fi
       echo "$family: $why on start 1 of 2; rebooting it and restarting safaridriver"
@@ -144,7 +154,7 @@ for family in $families; do
   done
   if [ "$rc" != 0 ]; then
     status=1
-    [ "$rc" -ge 3 ] && echo "$family: $why on the last start: the simulator or safaridriver failed, not the probe" >&2
+    [ "$rc" -ge 3 ] && echo "$family: $why, so no probe ran: the simulator or safaridriver failed, not the probe" >&2
     xcrun simctl list devices booted || true
     for domain in com.apple.webinspectord com.apple.mobilesafari; do
       echo "--- $domain"; xcrun simctl spawn "$udid" defaults read "$domain" || true

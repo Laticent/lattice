@@ -538,8 +538,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   second 3. The second start runs only if another cycle of this device, plus every device still to come at the same cost,
   ends by `SUITE_DEADLINE` (1560 s of the script: the job's 30 minutes less about 3 before the Suite step and a minute's
   margin), so a restart never gets the job cancelled and its later devices lost. The Studio suite (a docs build, then an
-  iPhone that took 12 minutes on one runner) usually has no room for the iPad's; jpeg and focus-sync do. A probe failure
-  (exit 1) is never retried.
+  iPhone that took 12 minutes on one runner) usually has no room for the iPad's; jpeg and focus-sync do. A device refused
+  its second start still gets the third session attempt `main` always made, in place. A probe failure (exit 1) is never
+  retried.
 
 ## Integration test cache
 
