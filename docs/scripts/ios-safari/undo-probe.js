@@ -145,6 +145,22 @@ async function latticeUndoProbe() {
 	const k = undoProbeKit(result);
 	try {
 		await k.ready();
+		// Let the boot deck land first: it replaces whatever the editor holds, so a paste that races it is lost.
+		await k.focusEnd();
+		let seen = '';
+		let since = Date.now();
+		await k.until(
+			() => {
+				const now = k.deckText();
+				if (now !== seen) {
+					seen = now;
+					since = Date.now();
+				}
+				return now.length > 0 && Date.now() - since > 1000;
+			},
+			30000,
+			'the boot deck to settle',
+		);
 		// Paste the deck, and paste again every 3 s until it holds: on the Mac the boot deck can land after the first
 		// paste and replace it. macOS Safari's selectAll can also leave the editor's empty first line, so compare trimmed
 		// and take what the editor holds as the text every later undo must return to.
@@ -172,8 +188,8 @@ async function latticeUndoProbe() {
 			});
 		const pasted = k.deckText();
 		k.step('put the deck in the editor', true, pastes > 1 ? `${pastes} pastes` : '');
-		// A new step: past the 500 ms typing window, so the word does not join the paste.
-		await k.sleep(800);
+		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
+		await k.sleep(1500);
 		await k.type(' ONE');
 		const typed = await k.until(() => (k.deckText().includes(' ONE') ? k.deckText() : ''), 15000, 'the typed word');
 		k.step('typed a word as its own step', true);
