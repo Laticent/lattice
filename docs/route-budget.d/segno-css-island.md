@@ -1,0 +1,2 @@
+studio: +2700
+The web-reference scanner reads CSS through a generated Segno parser (lib/core/css-ref.generated.js, about 2.6 KB gzip) in place of a hand-written tokenizer, so remote-ref.js grows by 2,690 gzip bytes on every route that imports it (measured with esbuild minify and gzip: 9,677 to 12,367). The owner approved raising the Studio ceiling for it (D1 A on #2980); only that ceiling moves, 559719 to 562200.

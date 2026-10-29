@@ -39,25 +39,10 @@ for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js']) {
   }
 }
 const oldMod = require(path.join(dir, 'remote-ref.js'));
-const { makeCssRefSpans } = require('../lib/core/css-ref-reader.js');
-const cssRefSpans = makeCssRefSpans(require('../lib/core/css-ref.generated.js'), require('../lib/core/remote-ref.js'));
-// The current remote-ref.js, with `cssRefSpans` swapped for the grammar-driven reader. `blockWebCss` and
-// `webRefsInCss` call the module's own function, so the swap loads a copy of the file with that one
-// function replaced (the wiring R2 holds back; see css-ref-reader.js).
-const newMod = loadWired();
+const newMod = require('../lib/core/remote-ref.js');
+const cssRefSpans = newMod.cssRefSpans;
 const legacy = require('./segno-legacy/css-ref-spans.js');
 const engine = require('../lib/engine/index.js');
-
-function loadWired() {
-  const wired = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-wired-'));
-  const src = fs.readFileSync(path.join(ROOT, 'lib/core/remote-ref.js'), 'utf8');
-  const a = src.indexOf('function cssRefSpans(css) {');
-  const b = src.indexOf('/**\n * The remote targets in a piece of CSS');
-  if (a < 0 || b < 0) throw new Error('remote-ref.js changed shape; update loadWired');
-  fs.writeFileSync(path.join(wired, 'remote-ref.js'), `${src.slice(0, a)}const cssRefSpans = require('./css-ref-reader.js').makeCssRefSpans(require('./css-ref.generated.js'), { cssEscape, cssString });\n\n${src.slice(b)}`);
-  for (const f of ['media-sources.js', 'css-ref-reader.js', 'css-ref.generated.js']) fs.copyFileSync(path.join(ROOT, 'lib/core', f), path.join(wired, f));
-  return require(path.join(wired, 'remote-ref.js'));
-}
 
 const tracked = (glob) => execFileSync('git', ['ls-files', glob], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
 const decks = [

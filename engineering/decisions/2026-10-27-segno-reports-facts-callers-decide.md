@@ -238,29 +238,25 @@ Recommended next step: add the offset entry (it also serves S3 islands), write t
 a grammar whose `url-name` branch covers the escaped spellings, and gate it on the R2 evidence in the
 table above. Measured cost is unknown; the note's "follows the pipeline's P5" estimate stands.
 
-### R2 built, not wired (2026-10-29)
+### R2 landed (2026-10-29)
 
-The CSS reader exists, is held to the old tokenizer on every test below, and is **not yet what
-`cssRefSpans` runs**. The reason is one number, and it is the owner's.
+`cssRefSpans` reads CSS through a generated parser and is held to the old tokenizer by every test below.
+It was built unwired first, because the parser's bytes crossed a route-budget ceiling; the owner answered
+D1 A on #2980 (raise the Studio ceiling by about 2.5 KB and switch now), and the switch is done.
 
 - **What is built.** `lib/core/css-ref-grammar.js` is a Segno grammar; `tools/build-segno-grammar.js`
   generates `lib/core/css-ref.generated.js`; `lib/core/css-ref-reader.js` (`makeCssRefSpans`) walks its tape
   and keeps the block stack (`@font-face`, `[…]`, mismatched closers) as reader state, as the design said.
   The old tokenizer is frozen in `tools/segno-legacy/css-ref-spans.js` as the oracle.
-- **The blocker.** Wiring it in makes `remote-ref.js` require the generated parser. Measured, that adds
-  2,690 gzip bytes to the module in a browser bundle (9,677 to 12,367; the parser alone is 2,616). A docs
-  build with the wiring (this branch at 18:00 UTC) failed `check:route-budget`: **studio eagerJsGz 548.5 KB
-  against a ceiling of 546.3 KB**; playground, home, components and getting-started stayed under theirs.
-  The ledger says "raising a ceiling is the owner's decision, made rarely and in its own PR", so the
-  wiring is held. Without it, nothing the Studio ships changes.
-- **The wiring** is small: in `remote-ref.js`, delete the hand-written `cssRefSpans` and its `isNameCode`
-  helpers, and write
-  `const cssRefSpans = require('./css-ref-reader.js').makeCssRefSpans(require('./css-ref.generated.js'), { cssEscape, cssString });`
-  (`tools/check-css-ref-spans.mjs` builds exactly that copy and tests it). The docs-site dev shim inlines the
-  two siblings (checked). Options for the owner: **(a)** raise the studio ceiling by about 2.3 KB and
-  wire it; **(b)** wire it and find 2.3 KB elsewhere in the Studio's eager JS first; **(c)** wire it only
-  with R4, when the consumers' own scans are deleted and the bytes come back. Recommendation: (c) or (b);
-  R2 alone changes no behavior and costs 2.7 KB on every Studio load.
+- **The cost, and the owner's answer.** `remote-ref.js` requires the generated parser, which adds 2,690
+  gzip bytes to the module in a browser bundle (9,677 to 12,367; the parser alone is 2,616). That put
+  the Studio's `eagerJsGz` at 548.6 KB against a ceiling of 546.6 KB. The ledger says raising a ceiling is
+  the owner's decision, so the first version held the switch; the owner chose to raise it. Only the
+  Studio's eagerJsGz ceiling moved, 559,719 to 562,200 bytes (a hand edit with its history entry, because
+  `route-budget:rebaseline --raise --ceiling` resets every route that is over its soft target and moved
+  other routes' ceilings by up to 76 KB). No soft target moved. The swap is
+  `const cssRefSpans = require('./css-ref-reader.js').makeCssRefSpans(require('./css-ref.generated.js'), { cssEscape, cssString });`;
+  the docs-site dev shim and the code-door sanitizer page both inline the two siblings (checked).
 - **How the unquoted `url(` is handled.** The note's two options were a factored grammar or an offset
   entry. The grammar does both, each for the half it fits. `urlName` spells every form of `u`, `r`,
   `l` (`u`, `\u`, `\75 `, `\000075`, either case, the whitespace a hex escape eats) inside one
@@ -285,8 +281,7 @@ The CSS reader exists, is held to the old tokenizer on every test below, and is 
   addresses; `blockWebCss` and `webRefsInCss` return the same bytes as at 242de4a, with no origin
   allowed and with one allowed; spans equal. The corpus holds few `url(` addresses, so the fuzz is the
   stronger arm.
-- **Fuzz.** `npm run fuzz:web-refs -- --seed 11 --count 4000 --scanner-file <the wired copy>`: see the PR
-  body for the run on the final grammar. On the first grammar: Chromium 131, WebKit 26.0 and Firefox
+- **Fuzz.** `npm run fuzz:web-refs -- --seed 11 --count 4000` on the wired tree: see the PR body. On the first grammar: Chromium 131, WebKit 26.0 and Firefox
   142.0.1, 4,000 inputs each, 0 requests after the rewrite (630 to 650 of 4,000 fetch as written).
   The same fuzz on a scanner whose `url(` window is cut to 5 characters leaks on the escaped spellings.
 - **Cost on hostile input.** The first version kept a tape node for every `;`, so 5 MB of `;` held 235 MB

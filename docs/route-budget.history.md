@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-29 — measured on the built tree at b482093
+
+Owner's D1 A on #2980 (2026-10-29): the web-reference scanner reads CSS through a generated parser (lib/core/css-ref.generated.js, read by lib/core/css-ref-reader.js), which adds about 2.7 KB gzip to the Studio's eager JS. Only the studio eagerJsGz CEILING moves, from 559719 to 562200 (measured 548.6 KB, about 561,700 bytes); no soft target moves and no other route changes.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 562200 |
+
 ### 2026-10-29 — ceiling raised by hand, measured against main by CI on PR 2959
 
 Owner OK 2026-10-29 (asked in the PR 2959 session: "D2 A", then "Studio only, +0.3 KB" over the tool's full reset, which would have moved this ceiling 54.6 KB and four other routes with it). `main` passes its 559,412 ceiling with nothing to spare (CI: "0.0KB left"; a local build of main on 2026-10-29 read 559,414). PR 2959 (Filo slice 5, undo survives a reload) adds 268 bytes of eager JS, as CI's per-PR check measured it on 75cc813: StudioIsland +182 (one `import()` of the lazy persistence module with a `then()` per open and drop, the sidecar hash written beside each saved source, and the touch-first Undo and Redo, drawn by CSS), studio-store +58 (the sidecar's key and writer), dist +15 (the history's revision counter) and StorageOverlay +13. Everything else in it loads lazily. The ceiling moves 307 bytes, so that PR lands at most at 559,680 bytes, at least 39 under the new ceiling; the soft target is untouched.
