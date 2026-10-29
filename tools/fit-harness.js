@@ -30,6 +30,7 @@
  *   node tools/fit-harness.js --sizes hd,square,portrait,story --venues laptop,conference,hall
  *   node tools/fit-harness.js --corpus all           # galleries + examples
  *   node tools/fit-harness.js --only inventory       # source decks whose path contains this
+ *   node tools/fit-harness.js --edits none           # authored slides only (the nightly ratchet)
  *   node tools/fit-harness.js --jobs 4 --out .scratch/fit-harness
  *
  * Writes <out>/results.jsonl (one row a line: every slide × arm × box × venue) and <out>/report.md, and prints
@@ -54,6 +55,10 @@ const flag = (name, def) => { const i = argv.indexOf(`--${name}`); return i >= 0
 const SIZES = flag('sizes', 'square,story').split(',');
 const VENUES = flag('venues', 'laptop,hall').split(',');
 const JOBS = Number(flag('jobs', '4'));
+// --edits none: score the authored slides only, no perturbed copies. The ratchet counts only
+// authored slides, so the nightly's verdict is the same at a fraction of the renders; jank and
+// the edit-chain report need the edits and read n/a without them.
+const EDITS_ON = flag('edits', 'all') !== 'none';
 const OUT = path.resolve(ROOT, flag('out', '.scratch/fit-harness'));
 const ONLY = flag('only', '');
 const CORPUS = flag('corpus', 'galleries');
@@ -104,7 +109,7 @@ function batch(src) {
   slides.forEach((s, k) => {
     out.push(s);
     map.push({ slide: k + 1, variant: 'orig' });
-    for (const [name, edit] of Object.entries(EDITS)) {
+    for (const [name, edit] of EDITS_ON ? Object.entries(EDITS) : []) {
       const v = edit(s);
       // A variant that only moves whitespace changes nothing, and would dilute the jank rate.
       if (v && squash(v) !== squash(s)) { out.push(v); map.push({ slide: k + 1, variant: name }); }
@@ -227,7 +232,7 @@ async function main() {
   const fingerprint = require('node:crypto')
     .createHash('sha256')
     .update([__filename, ...['page.js', 'ratchet.js', 'chains.js'].map((f) => path.join(__dirname, 'lib/fit-harness', f))].map((f) => fs.readFileSync(f, 'utf8')).join('\0'))
-    .update(JSON.stringify({ PACKS, MARGINS }))
+    .update(JSON.stringify({ PACKS, MARGINS, EDITS_ON }))
     .digest('hex');
   const stamp = path.join(rowsDir, '.fingerprint');
   if (!RESUME || !fs.existsSync(stamp) || fs.readFileSync(stamp, 'utf8') !== fingerprint) fs.rmSync(rowsDir, { recursive: true, force: true });
