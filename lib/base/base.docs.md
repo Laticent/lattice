@@ -1333,7 +1333,7 @@ reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
 the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
 transform, the table row-label heuristic, and chart narration. The docs-site
 Compose editor still builds its patterns from the kernel's `MARKER_CLASS`. Each strips the marker and adds
-`class="state {sem} {shape}"` (a `badge` span on verdict-grid and pricing rows).
+`class="state {sem} {shape}"`. verdict-grid and pricing compose the check into a container instead of drawing a chip of their own (`lib/core/check-compose.js`): a pill holding the check and the label on verdict-grid, the check then the label on a pricing row.
 A unit test fails on a private copy of the marker class. Two consumers cannot
 import the kernel and are pinned to it by test instead: the linter
 (`lib/authoring/lint-core.js`, which runs in the browser and stays require-free)

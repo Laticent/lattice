@@ -2,22 +2,23 @@
  * column. See lib/components/comparison/pricing/pricing.manifest.json.
  *
  * Substance: structure. Authoring shape mirrors verdict-grid (nested cards
- * with [x]/[/]/[-] state markers), so the SAME badge transform fires on it —
- * `verdictGridBadges` (marp), the emulator's verdict-grid pass, and the
- * runtime's transformVerdictGridBadges all match `.pricing` too. Everything
- * else is CSS:
+ * with [x]/[/]/[-] checks), so the SAME transform fires on it —
+ * `verdictGridBadges` (markdown-it) and the runtime's
+ * transformVerdictGridBadges both match `.pricing` too, and compose each
+ * feature as a ROW: the check, then the label (lib/core/check-compose.js).
+ * Everything else is CSS:
  *   ul > li             one tier card (auto-bold name, like cards-grid)
  *   li > code           the price (trailing inline code, promoted to display)
  *   li > em             the *Most popular* marker → a corner ribbon; its
  *                       presence (`:has(> em)`, a standalone :has — safe per
  *                       gotchas.md) elevates the card
- *   li > ul > li .badge feature rows (disc + label; pill chrome stripped)
+ *   li > ul > li > .lat-state  feature rows (the check, then the label)
  *   li > ul > li:last   the marker-less "who it's for" line, pinned to bottom
  *
  * Rules are UNLAYERED (no `@layer components` wrapper) to match every other
  * component file — broad @layer activation is blocked (see engineering/
  * cascade.md), so a wrapped file would lose to unlayered rules like the
- * shared `.badge` chrome regardless of specificity.
+ * shared check recipe regardless of specificity.
  */
 
 section.pricing > .cell-stage { display: flex; flex-direction: column; }
@@ -87,14 +88,14 @@ section.pricing > .cell-stage > ul > li > code {
 /* ── Recommendation ribbon ── the author's *marker* renders top-right. A corner tab, not a pill:
  * it owns its type and padding. */
 section.pricing > .cell-stage > ul > li > em {
-  position: absolute; top: 0; right: 0;
+  position: absolute; top: 0; inset-inline-end: 0;
   font-style: normal; font-weight: 700;
   font-family: var(--font-body);
   font-size: var(--fs-meta); letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--on-accent); background: var(--accent);
   padding: 0.3em var(--sp-sm);
-  border-bottom-left-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
 }
 
 /* ── Elevated tier ── any card carrying a marker (standalone :has). */
@@ -120,44 +121,30 @@ section.pricing > .cell-stage > ul > li > ul > li {
   font-weight: 400; color: var(--text-body);
   line-height: var(--lh-snug);
 }
-/* Badge feature rows — strip verdict-grid's pill chrome, keep the disc +
- * mark (::before/::after) and left-align. The pill's horizontal padding is kept so
- * the absolute ::after mark stays registered over the ::before disc.
+/* Feature rows — the check, then the label. The row is a two-column grid so a long feature
+ * WRAPS under its own text, never under the disc (a wrapping flex row dropped the whole label
+ * to a line of its own below the disc): in a 368px tier "Checks accumulate up the
+ * ladder" ran 11px past the card when the row was a one-line chip, and "Single sign-on with
+ * your identity provider" lost whole words. The disc sits on the FIRST line, centered on it.
  *
- * A feature row WRAPS. The shared pill is `white-space: nowrap` with `line-height: 1`,
- * which suits a one-word verdict-grid chip and not a feature name: in a 368px tier the
- * default sample's "Checks accumulate up the ladder" ran 11px past the card and the card's
- * `overflow: hidden` cut it, and a real row ("Single sign-on with your identity provider")
- * lost whole words. So the row wraps under its own text at the tight line height,
- * and the disc and its mark sit on the FIRST line rather than the middle of the block. */
-section.pricing > .cell-stage > ul > li > ul > li > .badge {
-  background: none; border: none;
-  justify-content: flex-start;
-  align-items: flex-start;
-  white-space: normal; text-wrap: pretty; text-align: start; line-height: var(--lh-tight);
-  max-width: 100%; box-sizing: border-box;
-  /* The row's own vertical padding, stated here so the mark below can be placed from it
-   * (pricing has stripped the pill and reads none of its tokens). A one-line row keeps the
-   * pill's 1.6em: one 1.2 line plus 0.2em above and below, where the pill was a 1.0 line
-   * plus 0.3em. Only a row that wraps gets taller. */
-  /* One line, in em: the row's line height as a length. Spelled from the token rather than as
-   * `1lh`, which no other engine CSS uses and Safari before 16.4 / Firefox before 120 reject. */
+ * A one-line row is 1.6em tall, as it was: one tight line plus the row's own padding. The
+ * disc is the check's own (base.modifiers.css `.lat-state`); this sheet only places it. Its
+ * prose margin is reset (#20 allows `margin:0`), and `gap` spaces it from the label. */
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) {
   --pricing-line: calc(var(--lh-tight) * 1em);
-  --pricing-row-pad-y: calc((1.6em - var(--pricing-line)) / 2);
-  padding-block: var(--pricing-row-pad-y);
-  /* No end padding: it framed the pill's border, which is gone, and once the row wraps it
-   * only narrows the line (a 16px gap that wrapped rows the card had room for). */
-  padding-inline-end: 0;
-  font-family: inherit; font-size: inherit; font-weight: 400;
-  letter-spacing: 0; color: var(--text-body);
-  --pricing-disc-drop: calc((var(--pricing-line) - 0.95em * var(--state-disc-scale)) / 2);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: 0.35em;
+  line-height: var(--lh-tight); text-wrap: pretty;
+  padding-block: calc((1.6em - var(--pricing-line)) / 2);
 }
-section.pricing > .cell-stage > ul > li > ul > li > .badge::before {
-  position: relative; top: var(--pricing-disc-drop);
+section.pricing > .cell-stage > ul > li > ul > li > .lat-state:first-child {
+  margin-inline: 0;
+  top: calc((var(--pricing-line) - 1em * var(--state-disc-scale)) / 2);
 }
-section.pricing > .cell-stage > ul > li > ul > li > .badge::after {
-  top: calc(var(--pricing-row-pad-y) + var(--pricing-disc-drop)); transform: none;
-}
+/* A sub-list under a feature takes its own line. */
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state:first-child) > :is(ul, ol) { grid-column: 1 / -1; }
+/* `[/]` not included: the label is struck and muted, as it was. The label is a text node, so
+ * the row carries the decoration and the disc, an atomic inline box, does not inherit it. */
+section.pricing > .cell-stage > ul > li > ul > li:has(> .lat-state.skip:first-child) { color: var(--text-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* ── "Who it's for" line ── the marker-less last nested li, pinned bottom. */
 section.pricing > .cell-stage > ul > li > ul > li:last-child {
   flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end;

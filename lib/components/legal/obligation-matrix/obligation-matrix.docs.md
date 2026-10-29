@@ -26,7 +26,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 - **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
 - **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[/]`) and undetermined (`[ ]`) cells stay neutral; `heat` does NOT re-color them; they keep their default neutral ring rather than turning 'relief' green.
 - **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
-- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content.
+- **`pills`.** The state should read as a word — a status label — as well as a mark. Each marker cell becomes a pill holding its check and the key's word for it (Applies, Partial, Exempt, …), so the grid reads without the key. A label set above the grid renames the words on the pills, the key and the narration together. Use it when the grid is read cell by cell, aloud or at a distance; the bare discs of the default scan faster as a pattern.
 - **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
 
 ### Common mistakes

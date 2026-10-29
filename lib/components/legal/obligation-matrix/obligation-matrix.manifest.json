@@ -183,7 +183,7 @@
     },
     {
       "variant": "pills",
-      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content."
+      "useWhen": "The state should read as a word — a status label — as well as a mark. Each marker cell becomes a pill holding its check and the key's word for it (Applies, Partial, Exempt, …), so the grid reads without the key. A label set above the grid renames the words on the pills, the key and the narration together. Use it when the grid is read cell by cell, aloud or at a distance; the bare discs of the default scan faster as a pattern."
     },
     {
       "variant": "lanes",

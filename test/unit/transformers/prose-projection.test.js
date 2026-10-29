@@ -987,31 +987,25 @@ test('state-cells: a plain table speaks the universal words, not silence', () =>
 	assert.match(t, /Price — North: partly; South: open\./);
 });
 
-// A check that LEADS a pill (engineering/decisions/2026-10-18-checks.md §6 option C, §14) is the
-// same answer a `.badge` carries, so a composed grid must narrate as today's grid does. The spike
-// measured it saying "yesResidency": the check's aria-label ran into the label, and the layout's
-// own words were lost. The composed form here is what staging step 5 will emit: each `.badge`
-// rebuilt as a pill whose lead is the drawn check.
-function composeBadges(html) {
-	const pills = require('../../../lib/plugins/pills/pills.inline.js');
-	const { CHECKS, stateElement } = require('../../../lib/core/state-marks.js');
-	const dom = new JSDOM(`<body>${html}</body>`);
-	const doc = dom.window.document;
-	for (const b of doc.querySelectorAll('.badge')) {
-		const row = CHECKS.find((r) => b.classList.contains(r.id));
-		b.replaceWith(pills.pillElementFrom(doc, { value: b.textContent.trim() }, undefined, stateElement(doc, `[${row.marker}]`)));
-	}
-	return [...doc.querySelectorAll('section[data-class]')];
-}
-
-test('a check leading a pill narrates like the badge it replaces, in the layout\'s words', () => {
-	for (const layout of ['verdict-grid', 'pricing']) {
-		const md = `<!-- _class: ${layout} -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n`;
-		const { html } = engine.render(md, 'indaco', {});
-		const today = speak([...new JSDOM(`<body>${html}</body>`).window.document.querySelectorAll('section[data-class]')]);
-		const composed = speak(composeBadges(html));
-		assert.equal(composed[0], today[0], `${layout}: the composed grid speaks differently`);
-		assert.doesNotMatch(composed[0], /yesResidency|yes Residency/, `${layout}: the check's own word leaked`);
+// A check composed into a container (engineering/decisions/2026-10-18-checks.md §6 option C, §14,
+// §17) is the item's answer: verdict-grid's pill, pricing's row and an obligation-matrix `pills`
+// cell all narrate in the layout's own words. The spike measured the composed grid saying
+// "yesResidency": the check's aria-label ran into the label, and the layout's words were lost.
+// These run the real engine, so the composition and the narration are pinned together.
+test('a composed check narrates as the item\'s answer, in each layout\'s words', () => {
+	const grid = renderSpeech('<!-- _class: verdict-grid -->\n\n## Paths\n\n- Path A\n  - [x] Residency\n  - [-] Speed\n  - [!] Audit, EU\n  - [?] Cost\n  - [ ] Calibration\n  - [/] Adoption\n  - Body text.\n- Path B\n  - [x] Residency\n  - Body.\n')[0];
+	assert.match(grid, /Path A: Residency: yes, Speed: partial, Audit, EU: no, Cost: unknown, Calibration: not assessed, Adoption: not applicable, and Body text\./);
+	const plans = renderSpeech('<!-- _class: pricing -->\n\n## Plans\n\n- Starter `$0`\n  - [x] Workspace\n  - [/] SSO\n  - For one team.\n')[0];
+	assert.match(plans, /Workspace: included/);
+	assert.match(plans, /SSO: not included/);
+	const cells = renderSpeech('<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [?] |\n')[0];
+	assert.match(cells, /GDPR — Notice: applies; Consent: partial\./);
+	assert.match(cells, /CCPA — Notice: exempt; Consent: unclear\./);
+	// The key says each word once: "Applies", not "Applies: applies" (the same on main before this).
+	assert.match(cells, /Applies\. Partial\. Unclear\. Exempt\./);
+	for (const t of [grid, plans, cells]) {
+		assert.doesNotMatch(t, /yes[A-Z]|no[A-Z]|partly[A-Z]/, 'a check\'s own word ran into its label');
+		assert.doesNotMatch(t, /\b(\w+)[,:] \1\b/i, 'the answer was spoken twice');
 	}
 });
 
@@ -2054,4 +2048,18 @@ test('stats: a paragraph after the stat list reaches the article and narration o
 	assert.equal(text.split('Source: CRM export').length - 1, 1, text);
 	assert.ok(text.indexOf('Signal recall') < text.indexOf('Source: CRM export'), text);
 	assert.ok(text.indexOf('Source: CRM export') < text.indexOf('Revenue up.'), text);
+});
+
+// followups.d/2348: an author's label set renames an answer on the slide (the key, and each
+// obligation-matrix `pills` cell), so the voice says the renamed word too, on the engine path.
+test('obligation-matrix: a label set renames the spoken answer as it renames the key', () => {
+	const md = '<!-- _class: obligation-matrix pills -->\n\n## Duties\n\n`[{[x], In force}, {[/], Not subject}]`\n\n| Regime | Notice | Consent |\n| --- | --- | --- |\n| GDPR | [x] | [-] |\n| CCPA | [/] | [x] |\n';
+	const [t] = renderSpeech(md);
+	assert.match(t, /GDPR — Notice: in force; Consent: partial\./);
+	assert.match(t, /CCPA — Notice: not subject; Consent: in force\./);
+	assert.match(t, /In force\. Partial\. Not subject\./, 'the key says each word once');
+	assert.doesNotMatch(t, /applies|exempt/, 'the layout\'s default words are not spoken for renamed answers');
+	// Without `pills` the cells are bare checks, and they speak the renamed word too.
+	const [plain] = renderSpeech(md.replace(' pills', ''));
+	assert.match(plain, /GDPR — Notice: in force; Consent: partial\./);
 });

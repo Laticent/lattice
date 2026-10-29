@@ -1700,7 +1700,7 @@ section.heat > ul > li.state.pass,
 section.heat > ol > li.state.pass,
 section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
-section.heat .badge.pass,
+section.heat .lat-state.pass,
 section.heat td .state.pass,
 section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 
@@ -1710,7 +1710,7 @@ section.heat > ul > li.state.warn,
 section.heat > ol > li.state.warn,
 section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
-section.heat .badge.warn,
+section.heat .lat-state.warn,
 section.heat td .state.warn,
 section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 
@@ -1719,7 +1719,7 @@ section.heat > ul > li.state.fail,
 section.heat > ol > li.state.fail,
 section.heat > .cell-stage > ul > li.state.fail,
 section.heat > .cell-stage > ol > li.state.fail,
-section.heat .badge.fail,
+section.heat .lat-state.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
 section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
@@ -1729,7 +1729,7 @@ section.heat > ul > li.state.skip,
 section.heat > ol > li.state.skip,
 section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
-section.heat .badge.skip,
+section.heat .lat-state.skip,
 section.heat td .state.skip,
 section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 
@@ -1769,9 +1769,7 @@ section .state-unknown { --state-mark: var(--mark-question); }
  * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
  * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
 section .state.todo,
-section .badge.todo,
-section .state.unknown,
-section .badge.unknown {
+section .state.unknown {
   --state-fill-pct: 0%;
   --state-ring-outer-w: 2.2px;
   --state-ring-mix: 100%;
@@ -1780,13 +1778,11 @@ section .badge.unknown {
    * that reads as a target, not as "open". One ring is the unsettled shape. */
   --state-ring-inner-w: 0px;
 }
-section .state.todo::after,
-section .badge.todo::after { display: none; }
+section .state.todo::after { display: none; }
 /* `[?]` keeps its mark, painted in the ring's own ink: on an empty disc a
  * knockout (canvas-colored) mark would be invisible, so every `checks-*`
  * variant's --state-mark-pct is overridden here. */
-section .state.unknown,
-section .badge.unknown { --state-mark-pct: 100%; }
+section .state.unknown { --state-mark-pct: 100%; }
 
 /* ── `state-cells` — the state markers, in ANY table's cells ───────────────
  * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
@@ -1928,33 +1924,18 @@ section.checks-tonal {             /* soft tint of the solid, inner ring + mark 
 
 /* ──────────────────────────────────────────────────────────────────── */
 
-/* .pills — each non-first cell is a status pill. Universal pill geometry
- * (base.tokens.css --pill-*); cell keeps its own neutral fill/border. */
-section.obligation-matrix.pills td:not(:first-child) > * {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-section.obligation-matrix.pills td:not(:first-child) {
-  background:none;
-  padding:0.46875cqi var(--sp-xs);
-}
-section.obligation-matrix.pills td:not(:first-child) code,
-section.obligation-matrix.pills td:not(:first-child) strong {
-  text-align:center;
-  line-height:1;
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
-  font-weight:var(--pill-weight);
-  letter-spacing:var(--pill-tracking);
-  padding:var(--pill-pad-y) var(--pill-pad-x);
-  border-radius:var(--pill-radius);
-  background:var(--bg-alt);
-  border:1px solid var(--border);
-  color:var(--text-body);
-  white-space:nowrap;
-}
-section.obligation-matrix.pills tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
+/* .pills — each non-first cell is its answer as a WORD in a pill: the check, then the label
+ * set's word for it, composed by lib/transformers/label-set-key.js through
+ * lib/core/check-compose.js. The pill plugin draws the pill and the check draws its disc; this
+ * block only gives the cell room and drops the zebra, which would fight the pills' own fill.
+ * It used to draw hand-rolled pills from seven `--pill-*` reads, on cell `code` and `strong`
+ * only, so a marker cell stayed a bare disc against the variant's caption. */
+section.obligation-matrix.pills td:not(:first-child) { padding:0.46875cqi var(--sp-xs); }
+/* Under `heat` the cell ground IS the reading (obligation-matrix.styles.css), so the reset
+ * stands down there: it used to win on odd rows only, and a heat grid of pills tinted every
+ * other row's burden. */
+section.obligation-matrix.pills:not(.heat) td:not(:first-child),
+section.obligation-matrix.pills:not(.heat) tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 
 /* .lanes — categorical row stripes. */
 /* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,

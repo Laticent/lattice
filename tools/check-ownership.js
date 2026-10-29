@@ -2908,10 +2908,10 @@ function checkReadingRole(errors) {
 // names why the read still exists, and the commit that removes the site lowers or deletes it.
 // The gate fails both ways, like the reading-role gate: a count above its entry (a new hand-rolled
 // read) and an entry above its count (stale).
-const SANCTIONED_PILL_READS = [
-  { file: 'lib/base/base.modifiers.css', count: 7, why: "obligation-matrix `.pills`: status cells drawn as pill-shaped chips; waits on the separate checks design (PR #2769)" },
-  { file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css', count: 15, why: 'the `.badge` family; waits on the separate checks design (PR #2769)' },
-];
+// Empty since the checks migration (engineering/decisions/2026-10-18-checks.md §17): verdict-grid's
+// `.badge` and obligation-matrix's `.pills` were the last two hand-rolled pills, and both now
+// ask the pill plugin for a pill holding a check.
+const SANCTIONED_PILL_READS = [];
 
 /** `var(--pill-*)` / `var(--lat-pill-*)` reads in one stylesheet, comments stripped. */
 function pillReadsIn(css) {

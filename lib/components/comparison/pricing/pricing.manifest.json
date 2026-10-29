@@ -1,7 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "pricing",
-  "inlineRun": { "depths": [1, 2], "slots": [".badge", "em", "strong"] },
+  "inlineRun": { "depths": [1, 2], "slots": [".lat-state", "em", "strong"] },
   "cards": {
     "default": "center",
     "withCoda": "stretch"
@@ -161,7 +161,7 @@
     },
     {
       "mistake": "Adding a state marker (`[x]`/`[/]`/`[-]`) to the final \"who it's for\" line.",
-      "fix": "The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just layers badge chrome (check icon + strike, etc.) on top of it, so the line ends up looking like a feature row instead of a plain caption."
+      "fix": "The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just puts a check (and, for `[/]`, a strike) in front of it, so the line ends up looking like a feature row instead of a plain caption."
     }
   ],
   "variantDecisionRule": [
