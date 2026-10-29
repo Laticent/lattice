@@ -30,6 +30,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BLESS_BUDGET_MS,
+  BLESS_DEADLINE_MS,
   goldenRows,
   lastBlessRenderedFrom,
   parseShownGoldens,
@@ -219,11 +220,17 @@ async function main() {
   // 2945-p7). What is left waits for the next night. Progress goes to stderr, so a run that is still
   // cut off shows how far it got.
   const units = [...[...galleryNames].map((name) => ['galleries', name]), ...[...decks].map((deck) => ['decks', deck])];
-  const blessed = runWithinBudget(units, ([scope, only], k) => {
-    process.stderr.write(`[golden-bless] re-bless ${k + 1}/${units.length}: ${scope} ${only}\n`);
-    const r = gate(['--scope', scope, '--bless', '--only', only], [0]);
-    if (!r.ok) blessProblems.push(r.error);
-  });
+  // The deadline is measured from the process start, so the check phase's time counts against the job's cap.
+  const deadline = Date.now() - process.uptime() * 1000 + BLESS_DEADLINE_MS;
+  const blessed = runWithinBudget(
+    units,
+    ([scope, only], k) => {
+      process.stderr.write(`[golden-bless] re-bless ${k + 1}/${units.length}: ${scope} ${only}\n`);
+      const r = gate(['--scope', scope, '--bless', '--only', only], [0]);
+      if (!r.ok) blessProblems.push(r.error);
+    },
+    { deadline },
+  );
   const blessedGoldens = new Set(blessed.done.flatMap(([scope, only]) => (scope === 'decks' ? [`${only}.pdf`] : [])));
   const blessedGalleries = new Set(blessed.done.filter(([scope]) => scope === 'galleries').map(([, name]) => name));
 
@@ -253,7 +260,7 @@ async function main() {
   // Deferred is not failed: it holds auto-merge (a problem) but does not turn the night red.
   const deferred = [];
   if (blessed.left.length) {
-    deferred.push(`${blessed.left.length} more drifted gallery or deck re-bless(es) wait for the next night (budget ${BLESS_BUDGET_MS / 60000} min)`);
+    deferred.push(`${blessed.left.length} more drifted gallery or deck re-bless(es) wait for the next night (budget ${BLESS_BUDGET_MS / 60000} min, and none after minute ${BLESS_DEADLINE_MS / 60000} of the run)`);
   }
   if (missing.length > MISSING_CAP) {
     deferred.push(`${missing.length - MISSING_CAP} more golden(s) have no PDF yet; the next night renders them (cap ${MISSING_CAP})`);
