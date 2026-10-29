@@ -70,19 +70,23 @@ const R = scanner();
 
 /** Draw every runtime-picked diagram in `html`, then click every link each one drew, each in a frame of its own. */
 async function drawAndClick(page, docs) {
-  return page.evaluate(async ({ docs: d, config, selector }) => {
+  // First the texts the runtime would draw: what its own selector picks out of the rendered page.
+  // Read in one call and drawn in the next, so the harness hands Mermaid a string, as the runtime does.
+  const texts = await page.evaluate(({ docs: d, selector }) => d.flatMap((html) => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    return [...tpl.content.querySelectorAll(selector)].map((code) => code.textContent || '');
+  }), { docs, selector: DRAWN_FENCE_CODE });
+  return page.evaluate(async ({ texts: t, config }) => {
     if (!window.__mmInit) { window.mermaid.initialize(config); window.__mmInit = true; }
     const root = document.getElementById('root');
     root.textContent = '';
     const out = { drawn: 0, links: 0, failed: 0 };
     let k = 0;
-    for (const html of d) {
-      const tpl = document.createElement('template');
-      tpl.innerHTML = html;
-      for (const code of tpl.content.querySelectorAll(selector)) {
+      for (const text of t) {
         let svg;
         try {
-          ({ svg } = await window.mermaid.render(`fz${k++}`, code.textContent || ''));
+          ({ svg } = await window.mermaid.render(`fz${k++}`, text));
         } catch {
           out.failed++;
           continue;
@@ -112,9 +116,8 @@ async function drawAndClick(page, docs) {
           root.appendChild(f);
         });
       }
-    }
     return out;
-  }, { docs, config: CONFIG, selector: DRAWN_FENCE_CODE });
+  }, { texts, config: CONFIG });
 }
 
 const out = { seed, from, count, scanner: scannerFile || ref || 'working tree', commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(), engines: {} };

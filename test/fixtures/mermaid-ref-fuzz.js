@@ -51,7 +51,8 @@ function makeKit(next) {
         return `${kind}\n  A[${q === '"' ? "'" : '"'}<${pick(['img', 'IMG', 'img '])} src=${q}${u}${q}>${q === '"' ? "'" : '"'}] --> B`;
       case 'theme-css': {
         const css = `.node rect { fill: ${pick(['url', 'URL', 'u\\rl'])}(${u}) }`;
-        return `%%{init: {"themeCSS": "${css.replace(/"/g, '\\"')}"}}%%\n${kind}\n  A --> B`;
+        // JSON string escaping, backslash first: `u\rl` must reach Mermaid as a backslash, not as `\r`.
+        return `%%{init: {"themeCSS": "${css.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"}}%%\n${kind}\n  A --> B`;
       }
       default: {
         const how = pick([

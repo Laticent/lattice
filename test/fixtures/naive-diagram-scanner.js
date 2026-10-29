@@ -14,7 +14,13 @@ function blockWebImages(html, allowed, opts) {
   // every code block, diagram or not: the naivety under test is the address regex, not the fence match
   const fences = String(html).match(/<code[\s\S]*?<\/code>/g) || [];
   for (const f of fences) {
-    const m = /https?:\/\/127\.0\.0\.1[^\s"'<)]*/.exec(f.replace(/<[^>]+>/g, ''));
+    // Tags stripped until none is left, so a tag split by another (`<<b>script>`) is gone too.
+    let text = f;
+    for (let prev = ''; prev !== text; ) {
+      prev = text;
+      text = text.replace(/<[^>]*>/g, '');
+    }
+    const m = /https?:\/\/127\.0\.0\.1[^\s"'<)]*/.exec(text);
     if (m) blocked.push({ url: m[0], origin: 'naive', kind: 'diagram' });
   }
   return { ...r, blocked };
