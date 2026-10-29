@@ -1,6 +1,6 @@
 ---
 origin: 2959
-priority: P1
+priority: P2
 recorded: 2026-10-29
 area: website
 severity: medium
@@ -12,7 +12,7 @@ source: https://github.com/Laticent/lattice/pull/2959
 # Firefox cannot open a WebRTC connection on GitHub's runners
 
 ```text
-  P1 · [no ticket] make filo-live.spec.ts connect in Firefox on the GitHub runner
+  P2 · [no ticket] make filo-live.spec.ts connect in Firefox on the GitHub runner
        why now   — seven runner probes (runs 40807145457 to 40819691890, 2026-10-29) pass
                    in Chromium and WebKit and fail in Firefox only. Firefox's own log
                    (MOZ_LOG nicer) names the cause: "UDP socket error: Internal error at
