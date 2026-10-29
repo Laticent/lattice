@@ -1,1 +1,2 @@
 - Under `tone`, a waterfall's up and down bars and a risk matrix's four bands keep their status hue (pass, warn, fail) instead of one blue; this reverses #2887's one-hue rule for direction and severity, which the blind scorers marked down. Band strengths are unchanged.
+- Under `tone`, a pie on a dark slide takes a wider ladder of its hue's ink, so neighboring wedges (and their key swatches) read apart (adjacent OKLab gaps 0.032 to 0.047 become 0.052 to 0.085 on indaco), and a matrix's reachable cell takes the one ink as its edge.

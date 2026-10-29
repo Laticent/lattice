@@ -300,6 +300,15 @@ measurement, and most undo a defect a render or the adversarial review found:
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
+- **A tone pie takes its own dark ladder, and a tone matrix's reachable cell wears the ink.** Wedges touch, so each needs a
+  lightness gap to the next. The dark ladder (`TONE_D`) mixes the hue toward the canvas and tops out at the hue's own
+  lightness, which left adjacent wedges 0.032 to 0.047 OKLab apart on indaco: the 18% wedge read as the 22% one. A pie on a
+  dark slide mixes the hue's INK (the lighter member of the same hue) toward the canvas (`TONE_PIE_D`), and the gaps measure
+  0.052 to 0.085 (the key swatches follow, so the legend still matches). A light slide keeps `TONE`, whose gaps are already
+  0.069 to 0.083. This is the one place tone's ladder differs by chart, because no other tone chart has marks that touch. A
+  matrix's outlined (reachable) cell takes the one ink as its edge, not the one hue: the two are the same color on a light
+  slide, and on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty
+  (not applicable) cell's muted edge is 1.81:1.
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
   Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone, its light-slide wash capped at 8% (`KANBAN_CODE_CAP`) because past it a card's inline code falls under 4.5:1 (12% read 4.19:1 on carbone); pigment takes a wider solid bar and no tint) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue

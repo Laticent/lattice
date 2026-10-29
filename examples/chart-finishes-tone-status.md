@@ -82,3 +82,45 @@ A waterfall's up and down bars and a risk matrix's bands stay green, amber and r
 - FX swing `{4, 2}`
 - Key person loss `{2, 3}`
 - Pandemic `{1, 5}`
+
+
+---
+
+<!-- _class: piechart marks-tone dark -->
+<!-- _footer: "tone · dark · piechart" -->
+
+`H1 2026 · 1,840 person-hours`
+
+## The pie gives each share one wedge.
+
+Nearly half went to producing decks; the deciding itself was the smallest slice.
+
+- Deck production `46%`
+  - 92 decks, averaging 18 slides each
+  - Most of it review-cycle churn
+- Meetings about meetings `22%`
+- Realigning on priorities `18%`
+- Stakeholder management `9%`
+- Actually deciding `5%`
+
+---
+
+<!-- _class: matrix-grid marks-tone dark -->
+<!-- _footer: "tone · dark · matrix-grid" -->
+
+## Your level is a cell, not a rung.
+
+Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`[Wider reach, Deeper cognition]`
+
+| Verb | Self | Team | Org | Field |
+| ---------- | :--: | :--: | :--: | :---: |
+| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |
+| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |
+| Analyze    | [ ]  | [-]  | [x] Staff | [-] |
+| Apply      | [-]  | [x] Senior | [-] | [ ] |
+| Understand | [x] Mid | [-] | [ ] | [ ] |
+| Remember   | [x] Junior | [-] | [ ] | [ ] |
+
+Illustrative — placements vary by company.

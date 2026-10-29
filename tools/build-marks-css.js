@@ -71,6 +71,11 @@ const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // crepuscolo), and a base of another hue dragged every pale step toward it (the checker, #2908). The dark ladder mixes
 // toward the canvas.
 const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3))';
+// a pie's wedges on a DARK slide: wedges touch, so each needs a lightness gap to the next, and TONE_D's steps (a mix of the
+// hue toward the canvas, which tops out at the hue's own lightness) left adjacent wedges 0.032 to 0.047 OKLab apart on
+// indaco (wedge 3 beside wedge 4 read as one blue). The pie mixes the hue's INK (the lighter member of the same hue) toward
+// the canvas instead, a wider range of the one hue.
+const TONE_PIE_D = [90, 70, 52, 36, 24, 18, 14, 11];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
@@ -781,6 +786,14 @@ function build() {
       // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
       // are; the filled cells keep the one ladder (a row's depth is its category).
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
+      // A PIE under tone: the dark ladder is TONE_PIE_D (above), for the wedges and the key swatches that repeat them.
+      for (const n of SLOTS) {
+        w(supports(rule(name, `.piechart-svg :is([data-hue="${n}"], [data-key-hue="${n}"])`, [`--finish-mark-body-d: color-mix(in oklab, ${ONE_INK} ${TONE_PIE_D[n - 1]}%, ${tv(T.baseD)})`], false)));
+      }
+      // An OUTLINED cell (reachable) wears the one ink as its edge, not the one hue. On a light slide the two are the same color;
+      // on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty (not
+      // applicable) cell's muted edge is 1.81:1, so the ink states "reachable" more firmly beside its neighbors.
+      w(rule(name, '.matrix-grid-figure td .cell.cell-outlined', [`border-color: ${ONE_INK}`]));
       // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${tstep(1)}`, `stroke: ${ONE_INK}`]));
       // A delta's up and down bars keep their status hue (pass, fail) at tone's one status level: the STATUS block paints them
