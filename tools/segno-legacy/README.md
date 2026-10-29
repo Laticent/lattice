@@ -15,3 +15,7 @@ incumbent, and `tools/parser-bakeoff/freeze-flow-rows.mjs` reads it to (re)write
 
 Do not fix bugs here: a fix would change what the bake-off measured. Each file is deleted when
 nothing reads it.
+
+`css-ref-spans.js` joined at Segno R2: `cssRefSpans` and its helpers as they were at 242de4a, before the
+generated CSS parser replaced the tokenizer. `test/unit/core/css-ref-spans-differential.test.js` and
+`tools/check-css-ref-spans.mjs` read it as the oracle; nothing in `lib/` may.

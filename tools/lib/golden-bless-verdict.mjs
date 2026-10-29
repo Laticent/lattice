@@ -35,15 +35,28 @@ export const MAX_GOLDENS = 10;
 export const BLESS_BUDGET_MS = 60 * 60 * 1000;
 
 /**
- * Run `runOne` on `items` in order until `budgetMs` has passed since the first started. An item already
- * started always finishes; the rest are returned as `left` for the next night. Pure apart from
- * `runOne` and `now`, so a test drives it with a fake clock.
+ * The latest moment, in minutes after the golden-bless process starts, at which the night may start a
+ * re-bless. The job's cap is 180 minutes and counts from the job start (setup takes about two); what
+ * follows the re-blesses is the first render of up to 40 missing goldens, the showcase builds, the
+ * artifact upload and the PR, so 20 minutes stay free. Measured on run 40914407337 (2026-10-29): the
+ * check phase took 125 minutes, so an hour of re-blessing started at minute 125 ended past the cap and
+ * the job was cancelled at item 259 of 369 with nothing committed. The budget alone cannot hold a cap
+ * that the phase before it spends.
  */
-export function runWithinBudget(items, runOne, { budgetMs = BLESS_BUDGET_MS, now = Date.now } = {}) {
+export const BLESS_DEADLINE_MS = 160 * 60 * 1000;
+
+/**
+ * Run `runOne` on `items` in order until `budgetMs` has passed since the first started, or the clock
+ * reaches `deadline` (an absolute time; none by default). An item already started always finishes; the
+ * rest are returned as `left` for the next night. The first item starts whatever the budget, so a night
+ * is never empty, but never past the deadline, which protects the job's cap. Pure apart from `runOne`
+ * and `now`, so a test drives it with a fake clock.
+ */
+export function runWithinBudget(items, runOne, { budgetMs = BLESS_BUDGET_MS, deadline = Number.POSITIVE_INFINITY, now = Date.now } = {}) {
   const start = now();
   const done = [];
   for (let k = 0; k < items.length; k++) {
-    if (k > 0 && now() - start >= budgetMs) return { done, left: items.slice(k) };
+    if (now() >= deadline || (k > 0 && now() - start >= budgetMs)) return { done, left: items.slice(k) };
     runOne(items[k], k);
     done.push(items[k]);
   }

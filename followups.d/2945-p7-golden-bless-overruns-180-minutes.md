@@ -15,6 +15,21 @@ status    — narrowed 2026-10-29 (owner's pick D2-A on #2973): re-blessing now 
             items after an hour (`BLESS_BUDGET_MS`, tools/lib/golden-bless-verdict.mjs), reports
             how many wait as a deferred line, and prints progress per item. What is left is the
             owner's half: merge or close #2751, then a scheduled run that finishes.
+status    — SECOND LOOK 2026-10-29 (run 40914407337, dispatched on main at 242de4a, which carried D2-A):
+            still CANCELLED at the 180-minute cap, because the hour is counted from the start of the
+            re-bless phase and the phase before it is not short. The check phase took 125 minutes
+            (16:47:53 to 18:53:11), 369 re-blesses were due, 259 finished (7 to 10 seconds each, not the
+            28 and 12 the budget was sized on), and the cap hit at 19:45 with the budget not yet spent.
+            Fixed: `BLESS_DEADLINE_MS` (160 minutes from the process start) stops new re-blesses
+            whatever the hour says, leaving 20 of the 180 for the missing-golden renders, the showcase
+            builds, the artifact upload and the PR. At the 125-minute check that is about 35 minutes of
+            re-blessing, roughly 200 items. The margin after the deadline is a measurement,
+            not a guess: on the last green run (40167488191, 2026-10-25) the renders and builds that follow the
+            re-blesses took 4 minutes 5 seconds (08:25:42 to 08:29:47 in the step's log), and the upload and PR
+            took 22 seconds, against the 20 minutes the deadline leaves. A run on a branch cannot show the
+            fix: the `automation` environment refuses anything but `main` (run 40954627889 failed in one
+            second). A scheduled run on main must still finish and open a fresh
+            bless PR before this item closes; #2751 is still the owner's to merge or close.
 why now   — Green through 2026-10-25 at 2h28m; cancelled on 10-26, 10-27 and 10-28. The check
             phase finishes; the re-bless phase then re-renders every drifted deck in its own
             `regression-gate --bless --only` process with no cap (`tools/golden-bless.mjs:215-222`),

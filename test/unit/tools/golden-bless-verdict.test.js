@@ -253,6 +253,21 @@ describe('runWithinBudget: a night stops starting re-blesses once its budget is 
     assert.deepEqual(r, { done: ['a'], left: ['b'] });
   });
 
+  test('stops at the deadline even inside the budget, and starts nothing after it', async () => {
+    await load();
+    let t = 0;
+    const r = m.runWithinBudget(['a', 'b', 'c', 'd'], () => { t += 40; }, { budgetMs: 1000, deadline: 100, now: () => t });
+    // a at 0, b at 40, c at 80, then 120 >= 100: d waits, though 1000 ms of budget remain
+    assert.deepEqual(r, { done: ['a', 'b', 'c'], left: ['d'] });
+    const late = m.runWithinBudget(['a', 'b'], () => { throw new Error('ran past the deadline'); }, { deadline: 50, now: () => 60 });
+    assert.deepEqual(late, { done: [], left: ['a', 'b'] });
+  });
+
+  test('the deadline leaves twenty of the job\'s 180 minutes for what follows the re-blesses', async () => {
+    await load();
+    assert.equal(m.BLESS_DEADLINE_MS, 160 * 60 * 1000);
+  });
+
   test('the budget is an hour of a 180-minute job', async () => {
     await load();
     assert.equal(m.BLESS_BUDGET_MS, 60 * 60 * 1000);

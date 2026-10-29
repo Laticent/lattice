@@ -207,6 +207,12 @@ tokenizer is about 80 states; tree construction is deliberately out of scope beh
   refusal path (a diagnostic) first; the reset in `parse()` already lets the big tape go after the
   parse. That is the caller's decision under this note's own rule, and it belongs with R4.
 
+- **Update, 2026-10-29: the flowchart row now sets `maxNodes`** (65,536; the longest of 882 corpus
+  rows holds 27 nodes). `splitRow` answers a `code: 'nodes'` refusal with `tooLong: true`, and
+  `parseFlowchart` reports `flowchart-row-too-long` and leaves the row and its children out. The cap
+  sits above the existing 6,000-step chain contract (18,000 nodes, 24,000 with labels), and `splitRow` sums the nodes of a row's runs so code spans cannot split a row under the cap. A 3,000,000-character row
+  of escapes is refused by test.
+
 ### R2: what stands between the scanner and a CSS island (2026-10-29)
 
 R2 was scoped and not started in the session that shipped R1. Two facts about CSS and one about Segno
@@ -231,6 +237,60 @@ make it a design step of its own, not a port:
 Recommended next step: add the offset entry (it also serves S3 islands), write the CSS tokenizer as
 a grammar whose `url-name` branch covers the escaped spellings, and gate it on the R2 evidence in the
 table above. Measured cost is unknown; the note's "follows the pipeline's P5" estimate stands.
+
+### R2 landed (2026-10-29)
+
+`cssRefSpans` reads CSS through a generated parser and is held to the old tokenizer by every test below.
+It was built unwired first, because the parser's bytes crossed a route-budget ceiling; the owner answered
+D1 A on #2980 (raise the Studio ceiling by about 2.5 KB and switch now), and the switch is done.
+
+- **What is built.** `lib/core/css-ref-grammar.js` is a Segno grammar; `tools/build-segno-grammar.js`
+  generates `lib/core/css-ref.generated.js`; `lib/core/css-ref-reader.js` (`makeCssRefSpans`) walks its tape
+  and keeps the block stack (`@font-face`, `[…]`, mismatched closers) as reader state, as the design said.
+  The old tokenizer is frozen in `tools/segno-legacy/css-ref-spans.js` as the oracle.
+- **The cost, and the owner's answer.** `remote-ref.js` requires the generated parser, which adds 2,690
+  gzip bytes to the module in a browser bundle (9,677 to 12,367; the parser alone is 2,616). That put
+  the Studio's `eagerJsGz` at 548.6 KB against a ceiling of 546.6 KB. The ledger says raising a ceiling is
+  the owner's decision, so the first version held the switch; the owner chose to raise it. Only the
+  Studio's eagerJsGz ceiling moved, 559,719 to 562,200 bytes (a hand edit with its history entry, because
+  `route-budget:rebaseline --raise --ceiling` resets every route that is over its soft target and moved
+  other routes' ceilings by up to 76 KB). No soft target moved. The swap is
+  `const cssRefSpans = require('./css-ref-reader.js').makeCssRefSpans(require('./css-ref.generated.js'), { cssEscape, cssString });`;
+  the docs-site dev shim and the code-door sanitizer page both inline the two siblings (checked).
+- **How the unquoted `url(` is handled.** The note's two options were a factored grammar or an offset
+  entry. The grammar does both, each for the half it fits. `urlName` spells every form of `u`, `r`,
+  `l` (`u`, `\u`, `\75 `, `\000075`, either case, the whitespace a hex escape eats) inside one
+  bounded attempt of 32 characters; the node it keeps (`url`) is a STOP kind. The parse ends there, and
+  `urlBody` is parsed from the end of the stop with `parse(input, rule, from)`. That is two parses per
+  `url(` plus one, each reading its own stretch, so the cost stays linear.
+- **Segno gained `stops` and the `from` entry**, in both runtimes (`stops.test.ts`, 14 cases) and
+  `mutate:segno` (52 of 52 mutants killed in the grammar and codegen run, 12 of them new). A stop does not unwind: the first version threw to end the parse and cost 1,579 ms on
+  150,000 `url(a)` (900 KB), against 40 ms for the old tokenizer; cutting the input window at the stop
+  instead (`n = i`, so every loop and optional after it sees the end) measured 40 ms in the same loop.
+  The independent review found the cut was incomplete for a multi-character literal and for `until`
+  (the runtimes disagreed on `end`); both now respect the cut, with tests. A grammar that names no stops
+  generates byte-identical parsers: `build-segno-grammar --check` passes on all five.
+- **Differential.** `test/unit/core/css-ref-spans-differential.test.js` compares the reader with the frozen
+  tokenizer, field for field: 50 picked spellings, every CSS file and `<style>` body under `lib`,
+  `themes`, `examples` and the baseline decks, and 60,000 seeded token soups. The failing arm runs the
+  real generated parser with its `url(` window cut from 32 characters to 5 and requires a difference.
+  The independent red team ran about 90 million further comparisons (every zero-padded, cased,
+  whitespace-terminated spelling of `url`; exhaustive small alphabets; a mutation at every position of
+  hostile seeds): no difference and no throw.
+- **Corpus.** `npm run check:css-ref-spans`: 430 decks, 191 CSS files, 198 CSS texts, 4 blocked
+  addresses; `blockWebCss` and `webRefsInCss` return the same bytes as at 242de4a, with no origin
+  allowed and with one allowed; spans equal. The corpus holds few `url(` addresses, so the fuzz is the
+  stronger arm.
+- **Fuzz.** `npm run fuzz:web-refs -- --seed 11 --count 4000` on the wired tree: see the PR body. On the first grammar: Chromium 131, WebKit 26.0 and Firefox
+  142.0.1, 4,000 inputs each, 0 requests after the rewrite (630 to 650 of 4,000 fetch as written).
+  The same fuzz on a scanner whose `url(` window is cut to 5 characters leaks on the escaped spellings.
+- **Cost on hostile input.** The first version kept a tape node for every `;`, so 5 MB of `;` held 235 MB
+  of ArrayBuffer for good. `;` needs no node (`@font-face` is only armed when the next significant
+  character is `{`), and `cssRefSpans` now parses an empty string on exit, which releases a large tape.
+  Speed on the repo's 3.1 MB of CSS is within about 15% of the old tokenizer; dense `{` and `url(` input
+  is 2 to 3 times slower and 16 bytes of tape per kept token. A reader cannot throw on input except by
+  failing to allocate that tape.
+- **Not done:** R3 (the HTML island) and R4 (each consumer deletes its scanner) stay open, as D8 says.
 
 ## Decisions for the owner
 

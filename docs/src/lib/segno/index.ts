@@ -15,7 +15,7 @@ export { anomalies, coverage, facts, limitOf, MAX_FACT_SPANS } from './facts.js'
 export type { FlatTree } from './flat.js';
 export { toNodes } from './flat.js';
 export type { Expr, Grammar, GrammarSpec, Node, ParseError, ParseResult } from './grammar.js';
-export { alt, any, attempt, compile, GrammarError, greedy, lint, lit, MAX_ATTEMPT, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_NODES_LIMIT, MAX_UNTIL, many, many1, NODES_EXHAUSTED, node, noneOf, oneOf as chars, opt, range as charRange, ref, restrict, rolesOf, STACK_EXHAUSTED, seq, set, until } from './grammar.js';
+export { alt, any, attempt, compile, GrammarError, greedy, lint, lit, MAX_ATTEMPT, MAX_DEPTH, MAX_DEPTH_LIMIT, MAX_NODES_LIMIT, MAX_UNTIL, many, many1, NODES_EXHAUSTED, node, noneOf, oneOf as chars, opt, range as charRange, ref, restrict, rolesOf, STACK_EXHAUSTED, seq, set, stopsOf, until } from './grammar.js';
 export type { DescValue, Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, notationGrammar, parse } from './notation.js';
 export { notationSpec, plainRecordSpec, STOP, TAGS, WS } from './notation-grammar.js';

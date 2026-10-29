@@ -21,6 +21,13 @@ status    — built 2026-10-29 (owner's pick D1, eight legs at the 45-minute ste
             preview-remote-subresource, studio-read-article-charts, mermaid-unavailable-export) fail
             identically on origin/main. Close this item once a SCHEDULED run on main finishes; the
             failing specs belong to #2035 and are triaged there one by one.
+            SECOND FULL RUN, on main at 242de4a (dispatched 2026-10-29, run 40914402541): all eight legs
+            ended their run step inside the 45-minute cap (14.6, 30.5, 19.8, 25.2, 27.5, 13.6, 29.6 and
+            32.0 minutes for legs 1 to 8), the run took 42 minutes end to end, and `e2e-report` joined
+            all eight verdicts ("legs: 1/8 failed … 8/8 failed", the same specs). Its filing step
+            FAILED: the job checks nothing out, so `gh issue list` died with "failed to run git: not a
+            git repository", and no rolling issue was filed or appended. Fixed by `GH_REPO` on the
+            job's env; the next run shows whether it files.
 why now   — The run step's `timeout-minutes: 45` stops 2,118 tests on two workers at about test
             509 (run 40674917008, 2026-10-28). The last green scheduled run is 35587408748
             (2026-09-21); the test count grew from 1,395 (10-19) to 2,118 (10-28). It is not the

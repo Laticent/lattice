@@ -211,6 +211,19 @@ names a browser, a URL or a policy:
   text a stranger controls: without it, one 3M-character flowchart row held 67 MB of tape. It costs
   nothing per node, because the generated parser already compares its tape position with a bound
   before each write. A grammar that sets no cap generates exactly the parser it did before.
+- **`stops`** on the spec names node kinds that END the parse where they close. The parse succeeds
+  there and leaves the rest unread; the result carries `end` (a generated parser's tree has `end`),
+  and `parse(input, rule, from)` starts at an offset, so a caller can read a body the grammar
+  cannot know and resume after it. CSS's unquoted `url(` is the case: its `)` ends a token in which
+  quotes and comments lose their meaning, and the name before the `(` can be spelled with escapes.
+  The grammar recognizes the name and stops; the caller reads the body and resumes. A stop does not
+  unwind: the input is cut where the stop node closes, so everything after it sees the end of input.
+  A node around the stop closes there; a required literal, set or `until` after it fails the parse
+  (in both runtimes); an `attempt` that holds the stop still tests its `next` character against the
+  real input and keeps the cut only if it keeps the node. A stop node must consume a character, or a
+  caller that resumes at `end` never advances. `parse(input, rule, from)` exists only for a grammar
+  with stops, and `facts()` / `coverage()` describe whole-input parses. A grammar that names no stops
+  generates the same parser as before.
 - **A role** labels a node KIND with a word your package defines: `node('url', x, { role: 'ref' })`.
   Segno keeps it and never reads it. `compile()` exposes `grammar.roles` (kind to role), and a
   generated parser exports a `ROLES` table indexed by kind number, so `ROLES[buf[k]]` finds every

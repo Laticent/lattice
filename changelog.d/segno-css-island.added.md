@@ -1,0 +1,1 @@
+- Segno grammars can name `stops`, node kinds that end a parse where they close, and `parse(input, rule, from)` resumes at an offset (grammars without stops generate the same parsers as before).

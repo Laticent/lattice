@@ -16,7 +16,7 @@
  */
 
 import { ANY, type CharSet, complement, describe, equal, fromRanges, intersect, isEmpty } from './charset.js';
-import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, NODES_EXHAUSTED, nodesOf, rolesOf, STACK_EXHAUSTED } from './grammar.js';
+import { analyze, depthOf, type Expr, GrammarError, type GrammarSpec, MAX_DEPTH, NODES_EXHAUSTED, nodesOf, rolesOf, STACK_EXHAUSTED, stopsOf } from './grammar.js';
 
 /**
  * The next code unit, or -1 at the end of input. NOT `s.charCodeAt(i)` alone: past the end that
@@ -107,6 +107,10 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
   // sets no cap is generated exactly as before.
   const maxNodes = nodesOf(spec);
   const capped = Number.isFinite(maxNodes);
+  // A grammar with `stops` ends its parse where a node of a stop kind closes, and its parse takes a
+  // start offset. One that names none is generated exactly as before.
+  const stopKinds = stopsOf(spec);
+  const halting = stopKinds.size > 0;
   // Rule names become identifiers (`r_<name>`), so they must be identifiers.
   // `__proto__` is an identifier but not a key: in the generated `RULES` object literal it would
   // set the prototype, and every parse starting there would throw "no rule".
@@ -213,7 +217,7 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
         if (e.s.length === 1 && known && within(known.cs, [e.s.charCodeAt(0), e.s.charCodeAt(0)])) return `${ind}i++;\n`;
         if (e.s.length === 1) return `${ind}if (${AT} !== ${e.s.charCodeAt(0)}) return fail(${q(expected(e))});\n${ind}i++;\n`;
         // Inside an attempt the input ends at the window, so a literal must fit before `n`.
-        return `${ind}if (${hasAttempt ? `i + ${e.s.length} > n || ` : ''}!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
+        return `${ind}if (${hasAttempt || halting ? `i + ${e.s.length} > n || ` : ''}!s.startsWith(${q(e.s)}, i)) return fail(${q(expected(e))});\n${ind}i += ${e.s.length};\n`;
       case 'set': {
         if (known && within(known.cs, e.cs)) return `${ind}i++;\n`;
         const c = fresh();
@@ -302,7 +306,7 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
       case 'until': {
         const c = fresh();
         const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
-        return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
+        return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0${halting ? ` && ${c} + ${e.s.length} <= n` : ''}) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
       }
       case 'attempt': {
         const k = attemptFn(e);
@@ -313,7 +317,7 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
         const b = fresh();
         let k = kinds.indexOf(e.kind);
         if (k < 0) { k = kinds.length; kinds.push(e.kind); }
-        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > ${capped ? 'cap' : 'buf.length'}) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `, known)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${ind}}\n`;
+        return `${ind}{\n${ind}  const ${b} = top;\n${ind}  if (top + 4 > ${capped ? 'cap' : 'buf.length'}) grow();\n${ind}  top += 4;\n${ind}  buf[${b}] = ${k};\n${ind}  buf[${b} + 1] = i;\n${gen(e.x, `${ind}  `, known)}${ind}  buf[${b} + 2] = i;\n${ind}  buf[${b} + 3] = top;\n${stopKinds.has(e.kind) ? `${ind}  halted = true;\n${ind}  n = i;\n` : ''}${ind}}\n`;
       }
     }
   };
@@ -337,8 +341,8 @@ function t_${k}(): boolean {
   n = n0;
   if (ok && err === e0) {
     const ${c} = ${AT};
-    if (${c} < 0 || ${testExpr(e.next, c, tables)}) return true;
-  }
+    if (${c} < 0 || ${testExpr(e.next, c, tables)})${halting ? ' {\n      if (halted) n = i;\n      return true;\n    }' : ' return true;'}
+  }${halting ? '\n  halted = false;' : ''}
   i = i0;
   top = top0;
   depth = d0;
@@ -358,10 +362,10 @@ function x_${k}(): GenError {
   const top0 = top;
   const d0 = depth;
   const e0 = err;
-  const w = Math.min(n, i0 + ${e.max});
+  const w = Math.min(n, i0 + ${e.max});${halting ? '\n  const n1 = n;\n  const h1 = halted;' : ''}
   const ok = b_${k}();
   const inner = err as GenError | null;
-  const j = i;
+  const j = i;${halting ? '\n  n = n1;\n  halted = h1;' : ''}
   i = i0;
   top = top0;
   depth = d0;
@@ -401,7 +405,7 @@ function nx_${sc}(from: number): number {
   const source = `${options.banner ?? ''}${tableDecls}
 
 export interface GenError { at: number; expected: string; found: string | null; code?: ${capped ? "'stack' | 'nodes'" : "'stack'"} }
-export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[] }
+export interface GenTree { buf: Int32Array; top: number; kinds: readonly string[]${halting ? '; end: number' : ''} }
 
 const KINDS: readonly string[] = ${JSON.stringify(kinds)};${roleDecl}
 let s = '';
@@ -413,7 +417,11 @@ let buf = new Int32Array(256);
 let top = 0;
 ${nativeDecls}
 
-${capped ? `// The node cap in tape integers, and the bound the node case tests: the buffer's end or the cap.
+${halting ? `// Set when a node of a stop kind closes. The input window is cut to that point (\`n = i\`), so every
+// loop and optional after it sees the end of input and the parse finishes without unwinding.
+let halted = false;
+
+` : ''}${capped ? `// The node cap in tape integers, and the bound the node case tests: the buffer's end or the cap.
 const CAP = ${maxNodes * 4};
 let cap = Math.min(buf.length, CAP);
 // Thrown at the cap and caught by parse(); never escapes it.
@@ -445,13 +453,13 @@ const RULES: Record<string, () => boolean> = { ${Object.keys(spec.rules).map((r)
 // next parse (the buffer is shared), so a caller holding it across parses was never safe, and
 // allocating a result and a tree object per span was measurable (~15% of a pill's parse). A caller
 // must not keep, compare or mutate a result across parses.
-const OK: { ok: true; tree: GenTree } = { ok: true, tree: { buf, top: 0, kinds: KINDS } };
+const OK: { ok: true; tree: GenTree } = { ok: true, tree: { buf, top: 0, kinds: KINDS${halting ? ', end: 0' : ''} } };
 
 /**
  * Parse \`input\` against rule \`rule\` (default ${q(spec.start)}). Never throws on input. The tree
  * is a flat buffer that the NEXT call overwrites (flat.ts) — read it first.
  */
-export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree: GenTree } | { ok: false; error: GenError } {
+export function parse(input: string, rule = ${q(spec.start)}${halting ? ', from = 0' : ''}): { ok: true; tree: GenTree } | { ok: false; error: GenError } {
   // The default rule skips the table lookup: every call from the notation reader is this one.
   let start = r_${spec.start};
   if (rule !== ${q(spec.start)}) {
@@ -461,8 +469,10 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   }
   s = input;
   n = s.length;
-  i = 0;
-  depth = 0;
+${halting ? `  if (!(from >= 0 && from <= n && Number.isInteger(from))) throw new Error('segno: from must be a whole number from 0 to ' + n + ', not ' + from);
+  i = from;
+  halted = false;
+` : '  i = 0;\n'}  depth = 0;
   err = null;
   top = 0;
 ${nativeReset}  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
@@ -484,7 +494,7 @@ ${nativeReset}  // A tree that outgrew the first buffer is let go here rather th
   const e = err as GenError | null;
   if (!ok || e) return { ok: false, error: e ?? { at: i, expected: 'a valid input', found: null } };
   OK.tree.buf = buf;
-  OK.tree.top = top;
+  OK.tree.top = top;${halting ? '\n  OK.tree.end = n;' : ''}
   return OK;
 }
 `;
