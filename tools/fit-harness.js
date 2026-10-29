@@ -197,7 +197,17 @@ async function main() {
   const puppeteer = require('puppeteer');
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
   const browser = await puppeteer.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
-  const cfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+  // Components whose manifest excludes `compact`: the clip rescue never applies to them.
+  const noCompact = [];
+  for (const bucket of fs.readdirSync(path.join(ROOT, 'lib/components'))) {
+    const dir = path.join(ROOT, 'lib/components', bucket);
+    if (!fs.statSync(dir).isDirectory()) continue;
+    for (const c of fs.readdirSync(dir)) {
+      const f = path.join(dir, c, `${c}.manifest.json`);
+      if (fs.existsSync(f) && (JSON.parse(fs.readFileSync(f, 'utf8')).excludes || []).includes('compact')) noCompact.push(c);
+    }
+  }
+  const cfg = { noCompact, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
   const open = async (file) => {
     const p = await browser.newPage();
     await p.setViewport({ width: 1400, height: 2400 });
@@ -212,8 +222,17 @@ async function main() {
   // Each deck's scored rows are saved as it finishes, so --resume skips the decks a killed run
   // already scored. A run without --resume starts the cache over: its scoring may differ.
   const rowsDir = path.join(OUT, 'rows');
-  if (!RESUME) fs.rmSync(rowsDir, { recursive: true, force: true });
+  // The cache is valid only for the scoring code and flags that wrote it: a fingerprint of both
+  // sits beside it, and a mismatch clears it, so --resume after a scoring change cannot mix rows.
+  const fingerprint = require('node:crypto')
+    .createHash('sha256')
+    .update([__filename, ...['page.js', 'ratchet.js', 'chains.js'].map((f) => path.join(__dirname, 'lib/fit-harness', f))].map((f) => fs.readFileSync(f, 'utf8')).join('\0'))
+    .update(JSON.stringify({ PACKS, MARGINS }))
+    .digest('hex');
+  const stamp = path.join(rowsDir, '.fingerprint');
+  if (!RESUME || !fs.existsSync(stamp) || fs.readFileSync(stamp, 'utf8') !== fingerprint) fs.rmSync(rowsDir, { recursive: true, force: true });
   fs.mkdirSync(rowsDir, { recursive: true });
+  fs.writeFileSync(stamp, fingerprint);
   const allRows = rows;
   await pool(keys, Math.max(1, Math.min(JOBS, 4)), async (key) => {
     const cache = path.join(rowsDir, `${key}.json`);
@@ -239,7 +258,7 @@ async function main() {
       // Per section: does it fit with each margin of spare room (for the margin and hysteresis arms)?
       margin: window.__fit.sections().map((s) => Object.fromEntries(margins.map((m) => [m, window.__fit.fitsWithMargin(s, m)]))),
       // Per section: does it fit whole once `compact` tightens its spacing (the elastic arms)?
-      compact: window.__fit.sections().map((s) => window.__fit.fitsCompact(s)),
+      compact: window.__fit.sections().map((s) => window.__fit.compactPage(s)),
     }), MARGINS);
     await pw.close();
     if (!wInfo.check.ok || wInfo.leaves.length !== owner.length) {
@@ -294,8 +313,13 @@ async function main() {
     // A batch slide fits with a margin when every one of its sections does.
     const margin = map.map(() => Object.fromEntries(MARGINS.map((m) => [m, true])));
     wInfo.margin.forEach((mm, w) => { for (const m of MARGINS) if (!mm[m]) margin[owner[w]][m] = false; });
+    // The rescue's pages: every section of the batch slide must fit with its spacing tightened.
     const compact = map.map(() => true);
-    wInfo.compact.forEach((ok, w) => { if (!ok) compact[owner[w]] = false; });
+    const compactPages = map.map(() => []);
+    wInfo.compact.forEach((pg, w) => {
+      if (!pg.ok) compact[owner[w]] = false;
+      else compactPages[owner[w]].push({ fits: pg.fits, px: 0, cut: pg.cut, fill: pg.fill });
+    });
     const source = map.map(() => []);
     wInfo.leaves.forEach((l, w) => { source[owner[w]].push(...l); });
     map.forEach((meta, i) => {
@@ -304,11 +328,13 @@ async function main() {
         if (!r.pages.length) { problems.push(`no pages: ${key} ${arm} slide ${meta.slide} ${meta.variant}`); continue; }
         const where = {};
         for (const l of source[i]) if (!(l in where)) where[l] = r.pages.findIndex((pg) => pg.leaves.includes(l));
-        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i], compact: compact[i],
+        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i], compact: compact[i], compactPages: compact[i] ? compactPages[i] : null,
           pages: r.pages.map((pg) => ({ fits: pg.fits, px: pg.px, cut: pg.cut, fill: pg.fill })), where });
       }
     });
-    fs.writeFileSync(cache, JSON.stringify(rows));
+    // Write then rename, so a run killed mid-write leaves no truncated cache file.
+    fs.writeFileSync(`${cache}.tmp`, JSON.stringify(rows));
+    fs.renameSync(`${cache}.tmp`, cache);
     allRows.push(...rows);
     process.stdout.write('.');
   });
@@ -375,7 +401,9 @@ function addComputedArms(rows) {
   };
   // Elastic (stateless): whole when it fits; whole with `compact` spacing when that fits; today's
   // split otherwise. A compact page is one whole page, so it keeps every leaf.
-  const compactWhole = (g) => ({ ...g, how: 'fits', pages: [{ fits: true, px: 0, cut: null, fill: null }], lost: 0, where: Object.fromEntries(Object.keys(g.where).map((l) => [l, 0])) });
+  // The rescue's own pages (one per section, with its fill and any footer-only cut). Rows from a
+  // run before the rescue was measured per section fall back to one clean page.
+  const compactWhole = (g) => ({ ...g, how: 'fits', pages: g.compactPages ?? [{ fits: true, px: 0, cut: null, fill: null }], lost: 0, where: Object.fromEntries(Object.keys(g.where).map((l) => [l, 0])) });
   const elasticFits = (g) => g.how === 'fits' || g.compact === true;
   const elastic = (g, whole, arm) => {
     if (!whole) return pick(g, false, arm);
@@ -396,14 +424,18 @@ function addComputedArms(rows) {
   hyst(0, 0.2);
   hyst(0.1, 0.2);
   hyst(0.2, 0.3);
+  // The owner's pick after §11: no entry margin, the 30% rejoin band.
+  hyst(0, 0.3);
   // rescue-20-30: the hysteresis-20-30 decision, and `compact` spacing only as a last resort: a
   // slide whose pages would clip (outside the footer) renders whole and compact when that fits.
   // It touches only slides that are broken anyway, so it should not move a working plan.
   const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
   const greedyBy = new Map(greedy.map((g) => [`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`, g]));
-  for (const h of rows.filter((r) => r.arm === 'hysteresis-20-30')) {
-    const g = greedyBy.get(`${h.src}#${h.slide}#${h.variant}#${h.size}#${h.venue}`);
-    rows.push(g && g.compact === true && clipsContent(h) ? { ...compactWhole(g), arm: 'rescue-20-30', ms: null } : { ...h, arm: 'rescue-20-30' });
+  for (const [trigger, arm] of [['hysteresis-20-30', 'rescue-20-30'], ['hysteresis-0-30', 'rescue-0-30']]) {
+    for (const h of rows.filter((r) => r.arm === trigger)) {
+      const g = greedyBy.get(`${h.src}#${h.slide}#${h.variant}#${h.size}#${h.venue}`);
+      rows.push(g && g.compact === true && clipsContent(h) ? { ...compactWhole(g), arm, ms: null } : { ...h, arm });
+    }
   }
   // packed-fit: today's builders with the most members a page that still fits, per slide (one a
   // page when nothing denser fits). hybrid: the hysteresis-10-20 decision on whether to split,
@@ -494,7 +526,7 @@ function summarize(rows, run) {
     lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
-  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with `compact` spacing only for a slide that would otherwise clip. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with tightened spacing only for a slide that would otherwise clip. `rescue-0-30`: the same on hysteresis-0-30, with no entry margin (the owner\'s pick, §11). The rescue sets each spacing token to 0.75 of the slide\'s own and skips components that exclude `compact`. The packed arms appear only at boxes that split (not 16:9).');
   lines.push('', chains.chainReport(rows));
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;

@@ -69,18 +69,37 @@ function install(cfg) {
     return share === null ? true : share <= 1 - m;
   }
 
-  /** Does the slide fit with the universal `compact` modifier, which only tightens the spacing
-   *  scale (shared.styles.css)? The elastic arm's question: a slide that just misses closes its
-   *  gaps before it splits. No type size changes, by the owner's ruling (font-scale-fit
-   *  Amendment (3)). The class is removed again unless the slide already carried it. */
-  function fitsCompact(s) {
-    if (fitsSplit(s).ok) return true;
-    if (s.classList.contains('compact')) return false;
-    s.classList.add('compact');
-    const ok = fitsSplit(s).ok;
-    s.classList.remove('compact');
-    return ok;
+  /** The clip rescue's question: does the slide fit whole once its spacing tightens? No type size
+   *  changes, by the owner's ruling (font-scale-fit Amendment (3)). Two corrections to plain
+   *  `compact`, measured in 2026-10-28-fit-everywhere-model.md §9:
+   *  - `section.compact` redefines the `--sp-*` scale WITHOUT the box's `--canvas-scale`, so at
+   *    square / portrait / story it cuts spacing to 0.455 / 0.385 / 0.342 instead of 0.75. The
+   *    probe sets each of the slide's own resolved spacing tokens to 0.75 of itself instead,
+   *    which is the rescue as intended at every box.
+   *  - a component whose manifest excludes `compact` (cfg.noCompact) is never rescued.
+   *  It returns the page the rescue would make (fits, fill, a footer-only cut), and leaves the
+   *  slide as it found it. */
+  const SP = ['--sp-3xs', '--sp-2xs', '--sp-xs', '--sp-sm', '--sp-md', '--sp-lg', '--sp-xl', '--sp-2xl'];
+  function compactPage(s) {
+    const plain = fits(s, true);
+    if (plain.ok) return { ok: true, fits: true, cut: null, fill: fill(s) };
+    if ((cfg.noCompact || []).some((c) => s.classList.contains(c))) return { ok: false };
+    const cs = getComputedStyle(s);
+    const prev = SP.map((t) => [t, s.style.getPropertyValue(t), s.style.getPropertyPriority(t)]);
+    for (const t of SP) {
+      const v = cs.getPropertyValue(t).trim();
+      if (v) s.style.setProperty(t, `calc(0.75 * (${v}))`, 'important');
+    }
+    const f = fits(s, true);
+    const full = fits(s);
+    const out = f.ok ? { ok: true, fits: full.ok, cut: full.ok ? null : 'footer', fill: fill(s) } : { ok: false };
+    for (const [t, v, pr] of prev) {
+      if (v) s.style.setProperty(t, v, pr);
+      else s.style.removeProperty(t);
+    }
+    return out;
   }
+  const fitsCompact = (s) => compactPage(s).ok;
 
   /** The slide sections, as the export enumerates them. */
   const sections = () => deckSlideSections(document);
@@ -283,7 +302,7 @@ function install(cfg) {
     return done(made, 'cut');
   }
 
-  window.__fit = { fits, fitsWithMargin, fitsCompact, contentShare, leaves, fill, page, build, sections, census };
+  window.__fit = { fits, fitsWithMargin, fitsCompact, compactPage, contentShare, leaves, fill, page, build, sections, census };
 }
 
 module.exports = { PAGE_SRC: `(${install.toString()})` };

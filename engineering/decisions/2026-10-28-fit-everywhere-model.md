@@ -124,6 +124,9 @@ lost leaf names it.
    ruling is "shrink padding, not text". §8 measures what that leaves.
 7. **Stateful, with three fixes** (2026-10-29, after the outside review in §9): live/export
    parity, undo, and a rejoin rule relative to the slide's own history.
+8. **No entry margin** (2026-10-29, §11): a fresh decision is plain fit. This amends decision 5:
+   the 20% entry margin is dropped; the 30% rejoin band, the undo stack and the history rejoin
+   stay.
 
 ## 6. Plan
 
@@ -336,4 +339,50 @@ as **not scored** (the diagram gallery, whose split emits broken markup).
   first dispatched run measures it.
 - **Not yet:** the cross-engine run and the montage §9 adopts, and the per-PR adversarial set,
   which is a proposal.
+
+## 11. Edit chains, and the entry margin dropped (2026-10-29)
+
+**What the single-edit number hid.** `tools/lib/fit-harness/chains.js` replays every slide as
+authored → edit → undo, and as 20-step random walks across the text-length variants, under each
+policy, from two starts: memory seeded from a cold decision, and a slide typed live in the editor.
+A typed slide starts "whole while it fits", without the 20% entry margin. Measured over the six
+split cells:
+
+| Policy | Start | ±10% jank | Undo strands (no fix B) | Live ≠ fresh export | Walk: page changes a step | Walk: live ≠ fresh |
+|---|---|---|---|---|---|---|
+| stateless (margin-20) | — | 3.28% | 0% | 0% | 3.75% | 0% |
+| h2030+C | cold seed | 0.91% | 17.96% | 0.08% | 1.14% | 3.72% |
+| h2030+C | typed live | 2.99% | 0% | 10.01% | 2.64% | 9.28% |
+| **h0-30+C** | either | **2.99%** | **0%** | **0%** | **2.64%** | **2.48%** |
+
+1. **hysteresis-20-30's 0.91% holds only for a slide whose first decision was cold.** The 20%
+   entry margin had pre-split the slides near the fit edge, so a ±10% edit could not move them.
+   A slide typed live moves on 2.99% of edits under any memory policy here. Those moves are
+   mostly correct splits of content that no longer fits, which no policy avoids.
+2. **The entry margin is where live and export part.** A typed slide is whole while it fits;
+   its fresh export applies the margin and splits it. That is 10% of single-edit chains and 9.3%
+   of walk steps, and seeding memory from the cold decision (fix A as first written) would
+   carry the same split into a deck the next time it opens.
+3. **The margin also costs pages:** 14,855 authored pages over the six cells against 13,405 with
+   plain fit.
+
+**Decision (owner, 2026-10-29): no entry margin.** P2 builds **h0-30+C**:
+
+- a fresh decision is plain fit, so a typed slide, a reopened deck and a CLI export start from the
+  same decision;
+- a whole slide stays whole until it overflows;
+- a split slide rejoins at 30% spare, or when it fits at a content size no larger than the size at
+  which it last fit whole (fix C);
+- the split decision rides on the undo stack (fix B);
+- an export from a session uses that session's plan (fix A); with no margin, seeding a reopened
+  deck from the cold decision no longer moves a slide that fit.
+
+The cost: a reopened deck loses the margin's head start, 2.64% page changes a walk step against
+h2030+C's 1.14% from a cold seed. The rescue (compact spacing on a slide that would clip) is
+unchanged. Residual divergence between a long live session and a fresh export of the same
+content is 2.48% of walk steps, from the rejoin band; fix A covers an export from the session.
+
+**Limits.** Chains use the harness's variants (±10%, ±40%, ±1 member, long words), ordered by
+content size; real typing moves in smaller steps. Fix C is modeled on that size order, not on a
+measured content height.
 
