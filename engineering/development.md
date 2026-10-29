@@ -509,7 +509,9 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   The page-side checks are `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
   that must fire, and then, on a fresh page, `photo-probe.js`: the photo verdict's Coach finding and editor warning agree word
   for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide
-  (engineering/decisions/2026-10-26-photo-contrast-coach.md). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
+  (engineering/decisions/2026-10-26-photo-contrast-coach.md). Where the Coach is a sheet over the editor, the probe closes
+  it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
+  Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
