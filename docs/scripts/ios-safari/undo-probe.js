@@ -215,7 +215,11 @@ async function latticeUndoAfterReload(before, after) {
 			k.step(
 				'after a reload, WebKit offers its undo command (Edit → Undo, shake, keyboard bar)',
 				raised,
-				raised ? '' : `queryCommandEnabled('undo') is ${document.queryCommandEnabled('undo')}: a fresh page's own undo list is empty, so the system undo has nothing to send and this width draws no Undo button`,
+				raised
+					? ''
+					: document.queryCommandEnabled('undo')
+						? "WebKit's undo command is enabled but raised no historyUndo, so the system undo does not reach the stored history (and this width draws no Undo button)"
+						: "queryCommandEnabled('undo') is false: a fresh page's own undo list is empty, so the system undo has nothing to send and this width draws no Undo button",
 			);
 		k.step('Undo after the reload took back the edit made before it', k.deckText() === before, JSON.stringify(k.deckText().slice(-40)));
 		result.ok = true;
