@@ -362,9 +362,7 @@ function addComputedArms(rows) {
     }
   };
   // Elastic (stateless): whole when it fits; whole with `compact` spacing when that fits; today's
-  // split otherwise. elastic-hyst-20-30: the same first decision behind a 20% entry margin, then
-  // memory as hysteresis-20-30, where "fits" also counts a compact fit. A compact page is one
-  // whole page, so it keeps every leaf.
+  // split otherwise. A compact page is one whole page, so it keeps every leaf.
   const compactWhole = (g) => ({ ...g, how: 'fits', pages: [{ fits: true, px: 0, cut: null, fill: null }], lost: 0, where: Object.fromEntries(Object.keys(g.where).map((l) => [l, 0])) });
   const elasticFits = (g) => g.how === 'fits' || g.compact === true;
   const elastic = (g, whole, arm) => {
@@ -372,16 +370,18 @@ function addComputedArms(rows) {
     rows.push({ ...(g.how === 'fits' ? g : compactWhole(g)), arm, ms: g.how === 'fits' ? g.ms : null });
   };
   for (const g of greedy) if (g.compact !== undefined) elastic(g, elasticFits(g), 'elastic');
-  for (const g of greedy) {
-    if (g.compact === undefined) continue;
-    const o = greedyOrig.get(`${g.src}#${g.slide}#${g.size}#${g.venue}`);
-    const first = (x) => (x.how === 'fits' && x.margin[0.2]) || (x.how !== 'fits' && x.compact === true);
-    const whole = g.variant === 'orig' || !o ? first(g) : first(o) ? elasticFits(g) : g.how === 'fits' && g.margin[0.3];
-    elastic(g, whole, 'elastic-hyst-20-30');
-  }
   hyst(0, 0.2);
   hyst(0.1, 0.2);
   hyst(0.2, 0.3);
+  // rescue-20-30: the hysteresis-20-30 decision, and `compact` spacing only as a last resort: a
+  // slide whose pages would clip (outside the footer) renders whole and compact when that fits.
+  // It touches only slides that are broken anyway, so it should not move a working plan.
+  const clipsContent = (r) => r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  const greedyBy = new Map(greedy.map((g) => [`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`, g]));
+  for (const h of rows.filter((r) => r.arm === 'hysteresis-20-30')) {
+    const g = greedyBy.get(`${h.src}#${h.slide}#${h.variant}#${h.size}#${h.venue}`);
+    rows.push(g && g.compact === true && clipsContent(h) ? { ...compactWhole(g), arm: 'rescue-20-30', ms: null } : { ...h, arm: 'rescue-20-30' });
+  }
   // packed-fit: today's builders with the most members a page that still fits, per slide (one a
   // page when nothing denser fits). hybrid: the hysteresis-10-20 decision on whether to split,
   // and packed-fit pages when it does: the P2 candidate (2026-10-27-fluid-layout-library.md §13.1).
@@ -471,7 +471,7 @@ function summarize(rows, run) {
     lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
-  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `elastic-hyst-20-30`: the elastic fit behind hysteresis-20-30\'s memory. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `rescue-20-30`: the hysteresis-20-30 decision, with `compact` spacing only for a slide that would otherwise clip. The packed arms appear only at boxes that split (not 16:9).');
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }

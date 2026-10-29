@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Fit everywhere. A component designed once must read well on any box and at any distance (a laptop, a boardroom, a stadium, an Instagram or LinkedIn post, a poster, a kiosk, 4K). The model has two independent axes, the box (Fluid; the named sizes are breakpoints) and the venue (type scale for reading distance), and pagination takes what no longer fits. Measured: a square post in a phone feed reads like a boardroom back row (8.7 arcminutes of x-height at the default venue). Before P2, a Monte Carlo harness scores split policies on every real deck, perturbed, at every box and venue, with no clip, no lost content and readability as hard rules and stability ahead of page count. The first corpus run leaves four finalists on one frontier, from hysteresis-20-30 (16.6% fewer pages than today, 0.9% jank) to hybrid-sticky (25.9% fewer, 2.3%), and finds that 16:9 at hall clips 435 of 1,158 gallery slides with nothing to split them.
+summary: Fit everywhere. A component designed once must read well on any box and at any distance (a laptop, a boardroom, a stadium, an Instagram or LinkedIn post, a poster, a kiosk, 4K). The model has two independent axes, the box (Fluid; the named sizes are breakpoints) and the venue (type scale for reading distance), and pagination takes what no longer fits. Measured: a square post in a phone feed reads like a boardroom back row (8.7 arcminutes of x-height at the default venue). Before P2, a Monte Carlo harness scores split policies on every real deck, perturbed, at every box and venue, with no clip, no lost content and readability as hard rules and stability ahead of page count. The first corpus run leaves four finalists on one frontier, from hysteresis-20-30 (16.6% fewer pages than today, 0.9% jank) to hybrid-sticky (25.9% fewer, 2.3%), and finds that 16:9 at hall clips 435 of 1,158 gallery slides with nothing to split them. §8: compact spacing is a clip rescue, not a stability fix (rescue-20-30: 148 fewer clipped slides for 0.1 point of jank); stability needs memory, which only a running program holds.
 builds-on: 2026-10-27-fluid-layout-library.md, 2026-09-29-one-reading-size-per-venue.md, 2026-06-16-social-mobile-portrait-sizes.md
 ---
 
@@ -117,6 +117,11 @@ lost leaf names it.
 2. **The harness comes first,** before P2, with perturbations, since stability is where jank lives.
 3. **Stability wins after the hard rules,** then fewer pages, then balance.
 4. **All four groups of viewing situations weigh the same.**
+5. **P2 builds hysteresis-20-30** (2026-10-28, D1 A on #2953): stability first.
+6. **No plan file, and no type shrink** (2026-10-28). A file that remembers the last page plan
+   adds a committed artifact for every deck, and the owner declined it. Shrinking type to fit
+   was built once and retired (`2026-09-25-font-scale-fit.md`, Amendment (3)); the standing
+   ruling is "shrink padding, not text". §8 measures what that leaves.
 
 ## 6. Plan
 
@@ -190,4 +195,48 @@ of four, so `huddle` and `conference` are interpolated. The named sizes only, no
 serves between them. Jank is measured on the page count alone, not on where members land (the
 pair-flip column has that, and it favors today's split by construction). And no montage yet, so
 nothing here says the pages look good.
+
+## 8. Memory, spacing and the clip rescue (2026-10-29)
+
+**The question.** hysteresis-20-30 is steady because it remembers the last plan: an edit keeps a
+slide's decision unless the slide must change. A live surface (the Playground, Studio, the viewer,
+a watch preview) holds that memory in the running program for free. A cold export does not: it
+decides fresh, and on a fresh decision hysteresis-20-30 is `margin-20`, at 3.3% mean jank
+against 0.9%. Could the slide itself absorb a small edit instead, with no memory?
+
+**The arm.** `elastic` tightens a slide's spacing with the universal `compact` modifier (the
+`--sp-*` scale only, `shared.styles.css`) before it splits: whole if it fits, whole and compact
+if that fits, today's split otherwise. No type size changes. The harness toggles the class on the
+rendered whole slide and asks the export's overflow oracle again, so the arm costs no render.
+
+**Measured** (the same run as §7, re-scored; six split cells, and 16:9 at `hall` for clips):
+
+| Policy | Memory | Mean jank | Pages | Clipped slides |
+|---|---|---|---|---|
+| fit-then-structural | no | 4.3% | 13,480 | 1,565 |
+| elastic | no | 3.6% | 12,241 | 1,424 |
+| margin-20 | no | 3.3% | 14,904 | 1,572 |
+| hysteresis-20-30 | yes | 0.9% | 14,904 | 1,572 |
+| **rescue-20-30** | yes | **1.0%** | 14,844 | **1,424** |
+
+1. **Spacing does not buy stability.** Compact spacing absorbs about a sixth of the plain arm's
+   jank, which leaves `elastic` no steadier than a margin. No stateless rule here gets below
+   about 3%: a stateless decision has a threshold, and some edit always crosses it. So stability
+   needs memory, and memory lives where someone watches a change, which is always a running
+   program. A cold export needs to be deterministic, which it already is.
+2. **Spacing does rescue clips.** `compact` fits 141 slides that clip under fit-then-structural, 65 of them at
+   16:9 and `hall`, where nothing splits and nothing else helped.
+3. **So spacing is the rescue, not the decision.** `rescue-20-30` keeps hysteresis-20-30's split
+   decision and uses `compact` only for a slide whose pages would clip. It touches only slides
+   that are broken anyway: 148 fewer clipped slides than hysteresis-20-30 for 0.1 point of jank, and
+   60 fewer pages.
+
+**What P2 builds:** hysteresis-20-30 as the split decision; memory in the running program only;
+`compact` spacing as the last-resort rescue for a slide that would clip. No plan file, no type
+change, and no state in an exported file.
+
+**Caveats.** `compact` is applied to the whole slide, not to the page a split leaves clipping, so
+the rescue on split boxes is a lower bound. The harness toggles a CSS class on a rendered page;
+a component whose layout is computed by script at render time would need that script to run
+again, and the harness does not run it.
 
