@@ -467,8 +467,8 @@ describe('Studio — every top-bar control responds', () => {
 	});
 
 	it('one Edit-menu Undo that Safari sends as two historyUndo events takes back one step', async () => {
-		// macOS Safari 26.6 fires historyUndo twice in one task for one Edit → Undo (ios-safari-undo). Both are
-		// refused so the browser does not edit the DOM, but only the first runs.
+		// macOS Safari 26.6 answers one undo command with two historyUndo events created together (ios-safari-undo).
+		// Both are refused so the browser does not edit the DOM, but only the first runs.
 		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
@@ -477,15 +477,22 @@ describe('Studio — every top-bar control responds', () => {
 		expect(railCount()).toBe(start + 2);
 		// The current slide's pill, looked up each time: an undo re-renders the strip.
 		const rail = () => document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement;
-		const ask = () => {
-			const e = new InputEvent('beforeinput', { inputType: 'historyUndo', cancelable: true, bubbles: true });
+		const ask = (inputType = 'historyUndo') => {
+			const e = new InputEvent('beforeinput', { inputType, cancelable: true, bubbles: true });
 			rail().dispatchEvent(e);
 			return e.defaultPrevented;
 		};
 		expect([ask(), ask()]).toEqual([true, true]);
 		await waitFor(() => expect(railCount()).toBe(start + 1));
-		// A held ⌘Z, or Undo then Redo, comes as separate tasks: each one runs.
-		await new Promise((r) => setTimeout(r, 0));
+		// Undo then Redo, as fast as a person presses (20 ms): a request of its own, so it runs.
+		await new Promise((r) => setTimeout(r, 20));
+		expect(ask('historyRedo')).toBe(true);
+		await waitFor(() => expect(railCount()).toBe(start + 2));
+		// A held ⌘Z repeats about every 33 ms: each one runs.
+		await new Promise((r) => setTimeout(r, 40));
+		expect(ask()).toBe(true);
+		await waitFor(() => expect(railCount()).toBe(start + 1));
+		await new Promise((r) => setTimeout(r, 40));
 		expect(ask()).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start));
 	});

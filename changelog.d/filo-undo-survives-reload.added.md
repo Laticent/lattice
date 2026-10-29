@@ -12,5 +12,5 @@
   keyboard bar's undo key) only once the page has an undo list of its own, so before this an iPad
   had no way to reach the history that survived the reload.
 - **One Edit → Undo on a Mac takes back one step.** Safari on macOS sends the Edit menu's Undo as
-  two undo requests; the Studio now runs the first and only refuses the second, where it used to
+  two undo requests; the Studio now runs one and only refuses the other, where it used to
   take back two steps.
