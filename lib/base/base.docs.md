@@ -1323,7 +1323,12 @@ hollow rings neutral.
 **Implementation contract:** the marker grammar AND its meaning live in one
 pair of kernels: `lib/core/leading-marker.js` reads it (`readLeadingMarker`, the
 Segno list-text grammar in `lib/core/list-text-grammar.js`) and
-`lib/core/state-marks.js` says what it means (`stateClassesFor`). Every consumer
+`lib/core/state-marks.js` says what it means. Its `CHECKS` table is the one place the six
+answers live: each row holds the answer's id, marker, shape class, mask token, tone token,
+hollow-or-solid, universal word and meaning, and `stateClassesFor`, `MARKERS` and
+`MARKER_LABELS` are read from it. The stylesheet, the layout word maps and the Studio's
+marker picker are pinned to the table by `test/unit/core/state-marks.test.js`, so a
+seventh row fails there until every surface knows it. Every consumer
 reads through them: the engine (`lib/integrations/markdown-it/plugins.js`),
 the VS Code / export-to-Marp runtime (`lib/runtime/index.js`), roadmap's
 transform, the table row-label heuristic, and chart narration. The docs-site

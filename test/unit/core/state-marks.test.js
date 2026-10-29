@@ -117,6 +117,112 @@ describe('state-marks — what stays literal', () => {
   });
 });
 
+// THE CHECK REGISTRY (engineering/decisions/2026-10-18-checks.md §4 rule 4, §9 step 3). The six
+// rows used to live in three places: the classes and words in this kernel, the drawings in
+// base.modifiers.css, and the words again in the Studio picker. The kernel now holds them as one
+// table and derives the rest; the stylesheet and the layout word maps cannot import it, so these
+// tests pin them to it. A seventh row fails here until every surface knows it.
+describe('state-marks — the check registry is the one table of six', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.resolve(__dirname, '../../..');
+  const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+  const COLUMNS = ['id', 'marker', 'shape', 'mask', 'tone', 'hollow', 'word', 'meaning'];
+
+  test('six rows, every column, nothing shared between two rows', () => {
+    assert.equal(marks.CHECKS.length, 6);
+    for (const row of marks.CHECKS) {
+      assert.deepEqual(Object.keys(row), COLUMNS, `${row.id} has the wrong columns`);
+      assert.ok(Object.isFrozen(row), `${row.id} is mutable`);
+    }
+    for (const col of ['id', 'marker', 'shape', 'word']) {
+      const vals = marks.CHECKS.map((r) => r[col]);
+      assert.equal(new Set(vals).size, 6, `two rows share a ${col}`);
+    }
+  });
+
+  test('every derived export reads the table, in its order', () => {
+    assert.deepEqual([...marks.MARKERS], marks.CHECKS.map((r) => r.marker));
+    for (const row of marks.CHECKS) {
+      assert.equal(marks.MARKER_LABELS[row.marker], row.word);
+      assert.deepEqual(marks.stateClassesFor(row.marker), { sem: row.id, shape: row.shape });
+      assert.equal(marks.checkFor(row.marker), row);
+      assert.ok(new RegExp(`^${marks.MARKER_CLASS}$`).test(row.marker), `MARKER_CLASS misses [${row.marker}]`);
+    }
+    assert.equal(marks.checkFor('X'), null);
+  });
+
+  test('every mask the table names is a token base.tokens.css defines', () => {
+    const tokens = read('lib/base/base.tokens.css');
+    for (const { id, mask } of marks.CHECKS) {
+      if (mask === null) continue;
+      assert.match(tokens, new RegExp(`^\\s*${mask}:\\s*url\\(`, 'm'), `${id}: ${mask} is not defined`);
+    }
+  });
+
+  test('the drawing column: base.modifiers.css maps each shape to the mask the table names', () => {
+    const css = read('lib/base/base.modifiers.css');
+    const rules = new Map();
+    for (const m of css.matchAll(/^section \.(state-[a-z]+)\s*\{\s*--state-mark:\s*var\((--mark-[a-z]+)\);\s*\}/gm)) rules.set(m[1], m[2]);
+    const want = new Map(marks.CHECKS.filter((r) => r.mask).map((r) => [r.shape, r.mask]));
+    assert.deepEqual(Object.fromEntries(rules), Object.fromEntries(want));
+  });
+
+  test('the hollow column: exactly the hollow rows get the ring rule', () => {
+    const css = read('lib/base/base.modifiers.css');
+    const block = /((?:section \.(?:state|badge)\.[a-z]+,?\s*)+)\{\s*--state-fill-pct: 0%;/.exec(css);
+    assert.ok(block, 'the hollow-ring rule moved');
+    const ids = new Set([...block[1].matchAll(/\.state\.([a-z]+)/g)].map((m) => m[1]));
+    assert.deepEqual([...ids].sort(), marks.CHECKS.filter((r) => r.hollow).map((r) => r.id).sort());
+  });
+
+  test('the tone column: the inline disc inks each answer with the table\'s tone', () => {
+    const css = read('lib/base/base.modifiers.css');
+    const ink = {};
+    for (const m of css.matchAll(/((?:section \.lat-state\.[a-z]+,?\s*)+)\{[^}]*--state-ink:\s*var\((--[a-z-]+)\)/g)) {
+      for (const id of m[1].matchAll(/\.lat-state\.([a-z]+)/g)) ink[id[1]] = m[2];
+    }
+    assert.deepEqual(ink, Object.fromEntries(marks.CHECKS.map((r) => [r.id, r.tone])));
+  });
+
+  test('every layout word map speaks all six answers, and only those', () => {
+    const src = read('lib/transformers/prose-projection.mjs');
+    const body = /const WORD_MAPS = \{([\s\S]*?)\n\};/.exec(src)[1];
+    const maps = [...body.matchAll(/^\t'?([a-z-]+)'?: \{([^}]*)\}/gm)];
+    assert.ok(maps.length >= 5, 'the WORD_MAPS shape moved');
+    const ids = marks.CHECKS.map((r) => r.id).sort();
+    for (const [, name, inner] of maps) {
+      const keys = [...inner.matchAll(/([a-z]+):/g)].map((m) => m[1]).sort();
+      assert.deepEqual(keys, ids, `WORD_MAPS.${name}`);
+    }
+  });
+
+  test('a manifest label set keyed by checks names only checks', () => {
+    const shortcuts = new Set(marks.CHECKS.map((r) => `[${r.marker}]`));
+    const dir = path.join(root, 'lib/components');
+    for (const bucket of fs.readdirSync(dir)) {
+      const b = path.join(dir, bucket);
+      if (!fs.statSync(b).isDirectory()) continue;
+      for (const name of fs.readdirSync(b)) {
+        const f = path.join(b, name, `${name}.manifest.json`);
+        if (!fs.existsSync(f)) continue;
+        const members = JSON.parse(fs.readFileSync(f, 'utf8')).labelSet?.members || [];
+        const keyed = members.filter((m) => /^\[.\]$/.test(m.key));
+        for (const m of keyed) assert.ok(shortcuts.has(m.key), `${name}: ${m.key} is not a check`);
+      }
+    }
+  });
+
+  test('the Studio picker reads the table instead of retyping it', () => {
+    const tsx = read('docs/src/components/studio/table-controls.tsx');
+    assert.match(tsx, /stateMarks\.CHECKS/);
+    for (const { word } of marks.CHECKS) {
+      const label = word[0].toUpperCase() + word.slice(1);
+      assert.doesNotMatch(tsx, new RegExp(`label: '${label}'`), `table-controls retypes "${label}"`);
+    }
+  });
+});
+
 describe('state-marks — one kernel, no duplicate decision', () => {
   test('no consumer retypes the marker character class — every pattern builds from MARKER_CLASS', () => {
     // The class used to be retyped as a private regex in eight places across five files

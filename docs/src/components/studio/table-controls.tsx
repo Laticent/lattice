@@ -6,19 +6,21 @@ import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { type ColAlign, currentColumnAlign, setCellMarker, setColumnAlign } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
+// A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import stateMarks from '../../../../lib/core/state-marks.js';
 
-// The six LFM state markers, for the class-aware picker (obligation-matrix / roadmap), in the
-// kernel's order (lib/core/state-marks.js MARKERS). Each sets the marker at the caret cell's
-// start; the cell's own rendered chip (stateMarkerPlugin) shows the live state, so the picker
-// itself needs no pressed-state. The labels are the universal answers, not a layout's words.
-const MARKERS = [
-	{ token: '[x]', Icon: Check, label: 'Yes', cls: 'cs-mk-pass' },
-	{ token: '[-]', Icon: Minus, label: 'Partly', cls: 'cs-mk-warn' },
-	{ token: '[!]', Icon: X, label: 'No', cls: 'cs-mk-fail' },
-	{ token: '[?]', Icon: CircleHelp, label: 'Unknown', cls: 'cs-mk-unknown' },
-	{ token: '[ ]', Icon: Circle, label: 'Open', cls: 'cs-mk-todo' },
-	{ token: '[/]', Icon: Slash, label: 'Does not apply', cls: 'cs-mk-skip' },
-] as const;
+// The six checks, for the class-aware picker (obligation-matrix / roadmap), read from the
+// check registry (lib/core/state-marks.js CHECKS) in its order. Each sets the marker at the
+// caret cell's start; the cell's own rendered chip (stateMarkerPlugin) shows the live state,
+// so the picker itself needs no pressed-state. The labels are the registry's universal words,
+// not a layout's words. Only the icon is the picker's own: it is Studio chrome, not the drawing.
+const ICONS: Record<string, typeof Check> = { pass: Check, warn: Minus, fail: X, unknown: CircleHelp, todo: Circle, skip: Slash };
+const MARKERS = (stateMarks.CHECKS as ReadonlyArray<{ id: string; marker: string; word: string }>).map((c) => ({
+	token: `[${c.marker}]`,
+	Icon: ICONS[c.id],
+	label: c.word[0].toUpperCase() + c.word.slice(1),
+	cls: `cs-mk-${c.id}`,
+}));
 
 // The table controls that live IN the slide's context-sensitive divider bar when the caret is in a
 // table (mounted into a pill slot by ComposeView). Quick insert-row/column inline on desktop, and a
