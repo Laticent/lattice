@@ -370,6 +370,17 @@ function addComputedArms(rows) {
     rows.push({ ...(g.how === 'fits' ? g : compactWhole(g)), arm, ms: g.how === 'fits' ? g.ms : null });
   };
   for (const g of greedy) if (g.compact !== undefined) elastic(g, elasticFits(g), 'elastic');
+  // elastic-balanced (stateless): whole if it fits; whole and compact if that fits; otherwise the
+  // fit-first balanced pages (no member-a-page explosion).
+  const balancedBy = new Map(rows.filter((r) => r.arm === 'fit-balanced').map((r) => [`${r.src}#${r.slide}#${r.variant}#${r.size}#${r.venue}`, r]));
+  for (const g of greedy) {
+    if (g.compact === undefined) continue;
+    const b = balancedBy.get(`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`);
+    if (!b) continue;
+    if (g.how === 'fits') rows.push({ ...g, arm: 'elastic-balanced' });
+    else if (g.compact === true) rows.push({ ...compactWhole(g), arm: 'elastic-balanced', ms: null });
+    else rows.push({ ...b, arm: 'elastic-balanced' });
+  }
   hyst(0, 0.2);
   hyst(0.1, 0.2);
   hyst(0.2, 0.3);
