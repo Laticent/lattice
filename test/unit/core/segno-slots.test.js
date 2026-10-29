@@ -59,13 +59,17 @@ describe('segno-spec: JSON → Segno slot', () => {
 });
 
 describe('core slots', () => {
-  test('state marks are the six shortcuts and their words', () => {
-    const state = coreSlot('state');
-    const pairs = { '[x]': 'done', '[-]': 'partial', '[!]': 'fail', '[?]': 'unknown', '[ ]': 'todo', '[/]': 'skip' };
-    for (const [token, word] of Object.entries(pairs)) {
-      assert.equal(value(state, token).state, word, token);
-      assert.equal(value(state, `{${word}}`).state, word, word);
+  test('a check is not a core slot: the checks plugin owns it, and its slot reads the six shortcuts as its ids', () => {
+    // The core `state` slot spelled the six as done/partial/fail/unknown/todo/skip, a third vocabulary nothing read;
+    // it retired when the checks plugin took the grammar (engineering/decisions/2026-10-18-checks.md §18).
+    assert.ok(!('state' in CORE));
+    const check = compileSlot(require('../../../lib/plugins/checks/checks.inline.js').SPEC);
+    const pairs = { '[x]': 'pass', '[-]': 'warn', '[!]': 'fail', '[?]': 'unknown', '[ ]': 'todo', '[/]': 'skip' };
+    for (const [token, id] of Object.entries(pairs)) {
+      assert.equal(value(check, token).answer, id, token);
+      assert.equal(value(check, `{${id}}`).answer, id, id);
     }
+    assert.equal(value(check, '{yes, label=SSO}').answer, 'pass', 'a spoken word is an alias');
   });
   test('a pill reads its words in any order', () => {
     const pill = coreSlot('pill');

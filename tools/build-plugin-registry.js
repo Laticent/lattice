@@ -415,7 +415,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
     ].join('\n');
   });
   return `${HEADER('The plugins\' GRAMMAR, in dependency order: manifest data + syntax rules + detect. No renderer library is reachable from here.')}
-${imports.join('\n')}
+${byModule(imports).join('\n')}
 
 export const PLUGIN_GRAMMAR = Object.freeze([
 ${entries.join('\n')}
@@ -481,7 +481,7 @@ function renderBlocks(ordered) {
   const opaque = entries.filter((e) => e.rule.opaque).map((e) => e.token);
   const ahead = entries.filter((e) => typeof e.rule.scansAhead === 'string').map((e) => `${JSON.stringify(e.token)}: ${JSON.stringify(e.rule.scansAhead)}`);
   return `${HEADER('Every plugin BLOCK rule, as the boundary parser installs it. Straight-line on purpose: it ships in the Studio\'s startup JavaScript.')}
-${imports.join('\n')}${imports.length ? '\n' : ''}
+${byModule(imports).join('\n')}${imports.length ? '\n' : ''}
 /** Install every plugin block rule on \`md\`, in dependency order. */
 export function installPluginBlocks(md) {
 ${calls.join('\n')}${calls.length ? '\n' : ''}}
@@ -710,7 +710,7 @@ function renderDrawShims(ordered) {
   const imports = shimmed.map((p, i) => `import { createShim as shim${i} } from './${p.folder}/${p.manifest.name}.draw-shim.mjs';`);
   const rows = shimmed.map((p, i) => `  ${JSON.stringify(p.manifest.name)}: shim${i},`);
   return `${HEADER('The stand-ins a preview frame installs for the libraries its page draws for it (a plugin whose browser half is a pass).')}
-${imports.join('\n')}
+${byModule(imports).join('\n')}
 
 export const DRAW_SHIMS = Object.freeze({${rows.length ? `\n${rows.join('\n')}\n` : ''}});
 `;
@@ -778,14 +778,26 @@ module.exports = { PLUGIN_STYLE_SOURCES: Object.freeze(${JSON.stringify(files)})
 
 /**
  * The plugins' INLINE kinds, in dependency order: the rows lib/core/inline-code-directives.js
- * appends to its own (marks, pills). Each row's module is light by contract — no data —
+ * appends to its own (checks, pills, and the rest). Each row's module is light by contract — no data —
  * because every bundle that dispatches inline code (the linter, the runtime) carries it.
  */
+/**
+ * Import lines sorted by the module they import, as the repo's formatter (Biome's organizeImports) sorts them. The
+ * registry is written in DEPENDENCY order, which is not alphabetical once a plugin requires one named after it (checks
+ * requires pills), and the generated files must pass lint as written. The modules are pure, so their import order
+ * changes nothing at runtime.
+ */
+const byModule = (lines) => [...lines].sort((a, b) => {
+  const from = (l) => /from '([^']+)'/.exec(l)?.[1] || l;
+  return from(a) < from(b) ? -1 : from(a) > from(b) ? 1 : 0;
+});
+
 function renderInline(ordered) {
   const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.inline || {}).map(([kind, decl]) => {
     const m = p.manifest;
     // An untagged kind (the bare record `{…}`, the pill) has no sigil; the dispatcher keeps its row between the marks and the sparks.
-    const tag = decl.untagged ? `sigil: null, untagged: true` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
+    // A SHORTCUT kind (`[x]`, a check) is not a record: the manifest's one opening character is the row's `lead`.
+    const tag = decl.untagged ? `sigil: null, untagged: true` : decl.shortcut ? `sigil: null, shortcut: true, lead: ${decl.shortcut.charCodeAt(0)}` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
     const embedded = m.embedded === true ? ', embedded: true' : '';
     return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
   }));
@@ -855,7 +867,7 @@ function renderDataProbe(ordered, exportsByName) {
     if (!exportsByName.get(p.manifest.name).detect) throw new Error(`build-plugin-registry: plugin "${p.manifest.name}" declares data but its syntax module exports no detect(source)`);
   }
   return `${HEADER('Each data plugin\'s usage probe and on-demand data file, for a browser surface that fetches the data before it renders.')}
-${imports.join('\n')}${imports.length ? '\n' : ''}
+${byModule(imports).join('\n')}${imports.length ? '\n' : ''}
 export const DATA_PLUGINS = Object.freeze([${rows.length ? `\n${rows.join('\n')}\n` : ''}]);
 `;
 }

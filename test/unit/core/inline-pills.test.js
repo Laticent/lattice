@@ -233,3 +233,29 @@ describe('inline-pills — content the caller hands in', () => {
     for (const l of rules) assert.doesNotMatch(l, /lat-state|state|check|mark/, `the pill sheet names its content: ${l}`);
   });
 });
+
+// THE UNIX TEST (engineering/decisions/2026-10-18-checks.md §4, §10): the pill holds whatever it is handed and never
+// learns what a check is. A word grep cannot say that (`markup`, `--cat-N-mark` and `checkedParts` are all fine), so this
+// reads the CODE, comments stripped, for what a dependency on checks would look like: an import of the checks plugin or of
+// its registry, or a name only a check has. The one known exception is `RESERVED_MARKERS`, which keeps `{x}` from reading as
+// a pill: it is a grammar collision guard, not a check, as the pill's `icon=` word is the known exception for icons.
+describe('inline-pills — the pill knows nothing of checks', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+  const read = (f) => strip(fs.readFileSync(path.join(__dirname, '../../../lib/plugins/pills', f), 'utf8'));
+  const FORBIDDEN = /plugins\/checks|shared\/registry|\blat-state\b|\bstateHtml\b|\bstateElement\b|\bstateClassesFor\b|\bCHECKS\b|\bparseInlineState\b/;
+
+  for (const f of ['pills.inline.js', 'pills.services.js', 'pills.syntax.mjs', 'pills.styles.css']) {
+    test(`${f} imports no check and names none`, () => {
+      const code = read(f);
+      const hit = code.split('\n').find((l) => FORBIDDEN.test(l));
+      assert.equal(hit, undefined, `the pill reaches into checks: ${hit}`);
+    });
+  }
+
+  test('the test bites: a pill that drew its own check would fail it', () => {
+    assert.match("const { stateHtml } = require('../checks/shared/registry.js');", FORBIDDEN);
+    assert.match('.lat-pill > .lat-state { margin:0 }', FORBIDDEN);
+  });
+});

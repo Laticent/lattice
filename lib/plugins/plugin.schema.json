@@ -157,6 +157,13 @@
                 "type": "boolean",
                 "description": "In-tree and EMBEDDED plugins only: the kind is the bare record `{…}` with no tag character (a pill). At most one kind in the whole registry is untagged. The row declares its own `lead` and `alias` in `<name>.inline.js`, and the dispatcher keeps it where the first-party pill row sat, between the state marks and the sparks."
               },
+              "shortcut": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1,
+                "pattern": "^[!-/:-@\\[-`{-~]$",
+                "description": "In-tree and EMBEDDED plugins only: the kind is NOT a record but a short fixed spelling that opens with this one character (the check shortcuts `[x]`, which open with `[`). The dispatcher asks the row about every span opening with it. A character may be claimed by one shortcut, and one ASCII punctuation character, never one a record opens with (`{`), the named form's `@`, a Segno tag, the escape `\\` or a backtick. The kind has no named form; give the plugin a `named` kind for that (engineering/decisions/2026-10-18-checks.md §18)."
+              },
               "named": {
                 "type": "boolean",
                 "description": "In-tree only: the kind has no short alias and is called only as `@kind{…}` (a kind whose `{…}` record would collide with the pill's bare record, or whose tag Segno does not yet carry). The row reads the bare record `{…}` the host hands it after peeling `@kind`, and is never asked about a span that does not open with `@`. Declares no `sigil`."

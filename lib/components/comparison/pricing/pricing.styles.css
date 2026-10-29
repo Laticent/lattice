@@ -5,7 +5,7 @@
  * with [x]/[/]/[-] checks), so the SAME transform fires on it —
  * `verdictGridBadges` (markdown-it) and the runtime's
  * transformVerdictGridBadges both match `.pricing` too, and compose each
- * feature as a ROW: the check, then the label (lib/core/check-compose.js).
+ * feature as a ROW: the check, then the label (lib/plugins/checks/shared/compose.js).
  * Everything else is CSS:
  *   ul > li             one tier card (auto-bold name, like cards-grid)
  *   li > code           the price (trailing inline code, promoted to display)

@@ -1104,11 +1104,11 @@ function renderPortalJson(manifests) {
 // plugin set changes; the grammar.json --check gate makes drift loud.
 
 // The shared state-marker grammar (LFM-1.0 §3.2), DERIVED from the kernel that
-// renders it (lib/core/state-marks.js) so grammar.json cannot disagree with the
+// renders it (lib/plugins/checks/shared/registry.js) so grammar.json cannot disagree with the
 // engine: the semantic and shape classes are `stateClassesFor`'s, the answer is the
 // kernel's universal word. Each marker has ONE meaning in every component; only
 // `[x]` and `[ ]` are GitHub task-list syntax (§5.1).
-const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/core/state-marks');
+const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/plugins/checks/shared/registry');
 const STATE_MARKERS = Object.fromEntries(MARKERS.map((m) => {
   const { sem, shape } = stateClassesFor(m);
   return [`[${m}]`, {

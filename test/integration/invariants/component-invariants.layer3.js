@@ -147,8 +147,9 @@ const LAYER3 = {
     },
   },
   pricing: {
-    'renders pricing state badges (.badge)':
-      present('.badge', 1, 'pricing did not render state badges'),
+    // Each feature is a composed ROW: the check, then its words (lib/plugins/checks/shared/compose.js).
+    'renders each feature as a check row (li > .lat-state)':
+      present('li > .lat-state:first-child', 1, 'pricing did not compose its feature checks'),
   },
   'split-compare': {
     'renders left + right compare panels and a verdict': async (page, assert, SLIDE) => {
@@ -165,8 +166,9 @@ const LAYER3 = {
     },
   },
   'verdict-grid': {
-    'renders verdict badges (.badge)':
-      present('.badge', 1, 'verdict-grid did not render verdict badges'),
+    // Each criterion is a composed PILL holding its check (lib/plugins/checks/shared/compose.js).
+    'renders each criterion as a pill holding its check':
+      present('.lat-pill > .lat-pill-lead > .lat-state', 1, 'verdict-grid did not compose its criterion checks'),
   },
   redline: {
     'renders the redlined quote (blockquote)':

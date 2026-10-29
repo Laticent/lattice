@@ -8,9 +8,9 @@ useWhen: A row, a heading or a sentence needs a status, a step, a count or a tag
 syntax: '`{LIVE}`'
 facts:
   - { k: You write, v: '`{label, words}` in inline code' }
-  - { k: Draws with, v: Lattice's own drawing, in the deck's colors }
+  - { k: Draws with, v: "Lattice's own drawing, in the deck's colors" }
   - { k: Surfaces, v: Every one — drawn at render time }
-  - { k: Loaded, v: Always. Part of every deck, so it has no off switch }
+  - { k: Loaded, v: "Always. Part of every deck, so it has no off switch" }
 reference:
   - label: The plugin's reference
     href: https://github.com/Laticent/lattice/blob/main/lib/plugins/pills/pills.docs.md

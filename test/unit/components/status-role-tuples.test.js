@@ -13,6 +13,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const FILES = [
   'lib/base/base.modifiers.css',
+  'lib/plugins/checks/checks.styles.css',
   'lib/components/inventory/checklist/checklist.styles.css',
   'lib/components/comparison/verdict-grid/verdict-grid.styles.css',
   'lib/components/legal/obligation-matrix/obligation-matrix.styles.css',

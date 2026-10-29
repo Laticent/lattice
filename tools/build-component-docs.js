@@ -37,7 +37,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadAll, manifestBucket } = require('../lib/components');
-const { MARKER_CLASS } = require('../lib/core/state-marks');
+const { MARKER_CLASS } = require('../lib/plugins/checks/shared/registry');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
 
@@ -776,7 +776,7 @@ ${items.join('\n')}`;
  * characters an author types. The same string feeds two outputs with opposite rules:
  * `<name>.docs.md` is ordinary markdown, where a backslash would be VISIBLE noise, and
  * `<name>.gallery.md` is a rendered DECK, where `[x]` inside inline code now decodes to a
- * state mark (`lib/core/state-marks.js`).
+ * state mark (`lib/plugins/checks/shared/registry.js`).
  *
  * So the escape belongs here, on the deck side only, rather than in the manifest. Written
  * into the manifest it would leak a literal backslash into every docs page and every

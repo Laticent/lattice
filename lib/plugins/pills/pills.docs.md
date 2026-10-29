@@ -57,8 +57,8 @@ lead's own inline margin, so that gap and the pill's padding are the only spacin
 is: a drawn check, a mark or a dot all go through the same door. `pillHtmlFrom(parts, off, lead)` and
 `pillElementFrom(doc, parts, off, lead)` take the pill's parts (`{value, shape, c, size, icon}`) instead of its
 `{…}` text, so a component that already has a label never quotes it. Narration reads a check that leads a pill
-sitting directly in a list item or cell as that item's answer, in the layout's own words, exactly as it reads a
-`.badge` today (`lib/transformers/prose-projection.mjs`). Elsewhere the lead is spoken as its own word before the
+sitting directly in a list item or cell, and leading it, as that item's answer, in the layout's own words
+(`lib/transformers/prose-projection.mjs`). Elsewhere the lead is spoken as its own word before the
 label. Why: `engineering/decisions/2026-10-18-checks.md` §6 and §16.
 
 A component may place a pill (`position`, `align-self`, `flex`) and may ring it (`box-shadow`). It never sets the pill's

@@ -14,6 +14,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf, RELATION, stripTags } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
+const { composeHtml } = require('../../../lib/plugins/checks/shared/compose.js');
+const { render } = require('../../../lib/engine');
 
 // Reads a signal as { mark, label } rather than matching its markup.
 //
@@ -127,7 +129,7 @@ describe('core: relationship — the four kinds', () => {
 
   test('comparison: Option N of M, with the shared criteria read from the first member', () => {
     const withBadges = (t, badges) =>
-      `<li><strong>${t}</strong><ul>${badges.map((b) => `<li><span class="badge pass state-full">${b}</span></li>`).join('')}<li>the verdict line</li></ul></li>`;
+      `<li><strong>${t}</strong><ul>${badges.map((b) => `<li>${composeHtml('x', b, 'pill')}</li>`).join('')}<li>the verdict line</li></ul></li>`;
     const pages = [
       [withBadges('Build', ['Residency', 'Self-serve', 'SOC 2'])],
       [withBadges('Buy', ['Residency', 'Self-serve', 'SOC 2'])],
@@ -256,11 +258,26 @@ describe('core: relationship — refusals and reading', () => {
     assert.equal(labelOf('<li><strong>Draft the policy.</strong><ul><li>body</li></ul></li>'), 'Draft the policy');
   });
 
-  test('criteriaOf reads the badge labels a verdict/pricing member carries', () => {
-    const m = '<li><strong>Build</strong><ul><li><span class="badge pass state-full">Residency</span></li>' +
-      '<li><span class="badge warn state-half">Self-serve</span></li><li>rationale</li></ul></li>';
-    assert.deepEqual(criteriaOf(m), ['Residency', 'Self-serve']);
-    assert.deepEqual(criteriaOf(li('Build', 'no badges here')), []);
+  // The criteria are the labels beside the checks a member's items LEAD with, as the composer
+  // writes them (lib/plugins/checks/shared/compose.js). They were read off a `.badge` span, which
+  // the composed grid no longer draws, and the signal fell silently to the bare count.
+  test('criteriaOf reads the labels beside the checks a verdict/pricing member leads with', () => {
+    for (const container of ['pill', 'row']) {
+      const m = `<li><strong>Build</strong><ul><li>${composeHtml('x', 'Residency', container)}</li>` +
+        `<li>${composeHtml('-', 'Self-serve', container)}</li><li>rationale</li></ul></li>`;
+      assert.deepEqual(criteriaOf(m), ['Residency', 'Self-serve'], container);
+    }
+    assert.deepEqual(criteriaOf(li('Build', 'no checks here')), []);
+    // A check written mid-sentence answers its phrase, and is no criterion.
+    assert.deepEqual(criteriaOf(`<li>Audit ${composeHtml('!', 'EU', 'pill')} pending</li>`), []);
+  });
+
+  test('the engine\'s own verdict-grid and pricing output carries its criteria', () => {
+    for (const cls of ['verdict-grid', 'pricing']) {
+      const { html } = render(`<!-- _class: ${cls} -->\n\n## T\n\n- Build\n  - [x] Residency\n  - [/] Self-serve\n  - Body.\n`);
+      const first = /<li>[\s\S]*<\/li>/.exec(html.slice(html.indexOf('<ul')))[0];
+      assert.deepEqual(criteriaOf(first), ['Residency', 'Self-serve'], cls);
+    }
   });
 
   test('membersIn reads the page\'s real members on the item axis and the row axis', () => {
@@ -475,7 +492,7 @@ describe('core: the signal resolves its axis from the PAGE, not the manifest (§
   // exercise this. Without a fixture the guard is unpinned — reverting it to `cap.split?.axis ||
   // cap.axis` passed all 4363 tests.
   const CAP = { 'pivot-grid': { axis: 'item', perPage: 1, relationship: 'comparison' } };
-  const row = (name) => `<tr><td><strong>${name}</strong></td><td><span class="badge b">Residency</span></td></tr>`;
+  const row = (name) => `<tr><td><strong>${name}</strong></td><td>${composeHtml('x', 'Residency', 'row')}</td></tr>`;
   const page = (n, rows) =>
     `<section data-split-run="r1" data-split-role="${n === 0 ? 'cover' : 'body'}" ` +
     `data-lattice-slide="${n + 1}" class="${n === 0 ? 'content lat-split-cover form' : 'pivot-grid form lat-split-native'}">` +

@@ -10,6 +10,12 @@
  * The two never collide in the cascade: that rule selects `code`, this one selects
  * `[data-shape]`, which only the decoder emits.
  *
+ * OTHER COMPONENTS ARE BUILT OF THIS PILL: a caller may hand it a `.lat-pill-lead`, and
+ * whole layouts are drawn from pills that do. A change to the capsule's height, padding or
+ * gap here moves every one of them, so render the comparison and legal galleries before
+ * shipping one. (This sheet names no caller on purpose: the pill knows nothing of what it
+ * holds. The callers' selectors into this markup are pinned on their side.)
+ *
  * Shape is GEOMETRY ONLY — every color goes through a token (HARD RULE #3), and no
  * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
  * not a `❯` borrowed from whatever font the machine has. */

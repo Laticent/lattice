@@ -700,7 +700,7 @@ async function splitTier() {
 // THE DENOMINATOR IS FROZEN CODE, for the reason the calibration probe is upstream code: a
 // denominator that moved with lib/ would hide the change. The retired kernel lives in
 // tools/segno-legacy/, which nothing ships. One part of it is live — it reads state marks
-// through lib/core/state-marks.js `parseInlineState` — and that is the price of reusing it: a
+// through lib/plugins/checks/shared/registry.js `parseInlineState` — and that is the price of reusing it: a
 // state-mark change moves both columns. A state mark is 3 characters and a few percent of the
 // kernel's time, so the ratio still sees a change to the dispatcher.
 //

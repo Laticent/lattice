@@ -12,7 +12,7 @@
  * | ---------- | :----: | :-----: | :-------: | :----: | :--: |
  * | CCPA       | [x]    | [-]     | [x]       | [x]    | [x]  |
  *
- * Cells are authored with the six-marker state grammar (lib/core/state-marks.js), decoded
+ * Cells are authored with the six-marker state grammar (lib/plugins/checks/shared/registry.js), decoded
  * into status-colored state discs (masked SVG via --state-mark). Variants:
  * .heat (cell fills), .pills (cell pills), .lanes (row stripes),
  * .asymmetric (cards).

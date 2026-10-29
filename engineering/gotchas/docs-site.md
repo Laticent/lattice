@@ -121,12 +121,12 @@ owe nothing here. See
 - **The same trap, second shape: a NAMED import off a CJS leaf.** Since #2119,
   `docs/src/plugins/vite-cjs-lib-dev.mjs` serves a CJS leaf under `lib/` (one that
   requires nothing) with a `default` export in dev, and nothing else. So
-  `import x from '…/lib/core/state-marks.js'` works in dev and build, while
+  `import x from '…/lib/plugins/checks/shared/registry.js'` works in dev and build, while
   `import { MARKER_CLASS } from …` builds and then dies in dev with `does not provide
   an export named 'MARKER_CLASS'`. Seen twice more: the Studio's webpage export
   (`fromBase64` from `base64-utf8.js`) failed its diagram bake and shipped raw
-  Mermaid source, and the whole Compose view failed to load (`state-marks.js`,
-  `fence-languages.js`). **Fix:** `import x from …;` then `const { a } = x;`.
+  Mermaid source, and the whole Compose view failed to load (the state-mark kernel, now
+  `lib/plugins/checks/shared/registry.js`, and `fence-languages.js`). **Fix:** `import x from …;` then `const { a } = x;`.
   `docs/src/plugins/vite-cjs-lib-dev.test.ts` fails on any named or namespace
   import from a CJS leaf in a non-test `docs/src` file.
 - **Third shape: a default import of a CJS file that requires something.** The shim

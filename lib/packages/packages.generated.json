@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 14
+    "plugin": 15
   },
   "packages": [
     {
@@ -1421,6 +1421,20 @@
         "fixtures.md",
         "manifest.json",
         "styles.css"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "checks",
+      "path": "lib/plugins/checks",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
+        "styles.css",
+        "syntax.mjs"
       ],
       "code": true
     },

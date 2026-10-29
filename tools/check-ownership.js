@@ -2033,9 +2033,10 @@ const SANCTIONED_MARGINS = [
        + 'looser leading the line absorbs it, so the effect is leading-dependent).',
   },
   {
-    file: 'lib/base/base.modifiers.css',
+    file: 'lib/plugins/checks/checks.styles.css',
     value: '0.22em',
-    why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
+    why: 'the same horizontal breathing room for an INLINE CHECK (`.lat-state`; moved here from '
+       + 'base.modifiers.css with the rest of the check\'s drawing, unchanged), which '
        + 'needs its own entry because this allowlist consumes one declaration per entry. On '
        + 'the disc the case against padding is plainer than on the pill: the box is a fixed '
        + '1em square with `box-sizing:border-box`, so `padding-inline` shrinks the CIRCLE '

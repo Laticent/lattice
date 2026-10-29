@@ -5,7 +5,7 @@
 /* ── VERDICT-GRID ──
  * ## heading  then cards: a title, criteria, and a closing line of body text.
  *
- * Each criterion is a CHECK INSIDE A PILL, composed by lib/core/check-compose.js on both render
+ * Each criterion is a CHECK INSIDE A PILL, composed by lib/plugins/checks/shared/compose.js on both render
  * paths: the pill plugin draws the capsule, the check draws its own disc, and this sheet draws
  * neither (engineering/decisions/2026-10-18-checks.md §6 option C). The `.badge` chip this
  * component used to build by hand, with its own copy of the disc recipe and fifteen `--pill-*`

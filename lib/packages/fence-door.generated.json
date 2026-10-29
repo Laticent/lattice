@@ -266,6 +266,7 @@
   ],
   "shippedKinds": [
     "avatar",
+    "check",
     "icon",
     "pill",
     "spark",

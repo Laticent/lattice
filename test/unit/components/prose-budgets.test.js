@@ -120,3 +120,15 @@ describe('prose-budgets: universalProseOverages', () => {
     assert.ok(!universalProseOverages(slide).some((o) => o.kind === 'keyInsight'));
   });
 });
+
+// The check's full form counts exactly like its shortcut (engineering/decisions/2026-10-18-checks.md §18): moving a
+// criterion from `[x] …` to `@check{pass, label="…"}` must not take it out of the density budget it was held to.
+test('a check written in full counts the same as its bracket shortcut', () => {
+  const { elementWordCounts } = require('../../../lib/authoring/prose-budgets.js');
+  const shortcut = '- Path A\n  - [x] Residency within the European area\n  - [-] Speed\n  - [ ] Calibration\n  - [/] Adoption\n  - Body.\n';
+  const full = '- Path A\n  - `@check{pass, label="Residency within the European area"}`\n  - `@check{partly, label=Speed}`\n'
+    + '  - `@check{todo, label=Calibration}`\n  - `@check{na, label=Adoption}`\n  - Body.\n';
+  assert.deepEqual(elementWordCounts(full, 'item'), elementWordCounts(shortcut, 'item'));
+  // A span that does not read is code like any other, and counts nothing.
+  assert.deepEqual(elementWordCounts('- A\n  - `@check{maybe, label=Words here}`\n', 'item'), elementWordCounts('- A\n  - `x`\n', 'item'));
+});

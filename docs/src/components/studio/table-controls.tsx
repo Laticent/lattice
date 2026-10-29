@@ -7,10 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { type ColAlign, currentColumnAlign, setCellMarker, setColumnAlign } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-import stateMarks from '../../../../lib/core/state-marks.js';
+import stateMarks from '../../../../lib/plugins/checks/shared/registry.js';
 
 // The six checks, for the class-aware picker (obligation-matrix / roadmap), read from the
-// check registry (lib/core/state-marks.js CHECKS) in its order. Each sets the marker at the
+// check registry (lib/plugins/checks/shared/registry.js CHECKS) in its order. Each sets the marker at the
 // caret cell's start; the cell's own rendered chip (stateMarkerPlugin) shows the live state,
 // so the picker itself needs no pressed-state. The labels are the registry's universal words,
 // not a layout's words. Only the icon is the picker's own: it is Studio chrome, not the drawing.

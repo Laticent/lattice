@@ -121,7 +121,7 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
 	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
 	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
-	// A list item led by `[X]`. The six markers (lib/core/state-marks.js) round-trip now: the
+	// A list item led by `[X]`. The six markers (lib/plugins/checks/shared/registry.js) round-trip now: the
 	// serializer keeps a list item's leading marker unescaped, as it does in a table cell. `[X]` is
 	// not one of the six (GFM reads it as a checked box, the opposite of a cross), so it stays locked.
 	/^\s*(?:[-*+]|\d+[.)])\s+\[X\]/m,
