@@ -304,7 +304,7 @@ measurement, and most undo a defect a render or the adversarial review found:
   lightness gap to the next. The dark ladder (`TONE_D`) mixes the hue toward the canvas and tops out at the hue's own
   lightness, which left adjacent wedges 0.032 to 0.047 OKLab apart on indaco: the 18% wedge read as the 22% one. A pie on a
   dark slide mixes the hue's INK (the lighter member of the same hue) toward the canvas (`TONE_PIE_D`), and the gaps measure
-  0.052 to 0.085 (the key swatches follow, so the legend still matches). A light slide keeps `TONE`, whose gaps are already
+  0.060 to 0.074 (the key swatches follow, so the legend still matches). A light slide keeps `TONE`, whose gaps are already
   0.069 to 0.083. This is the one place tone's ladder differs by chart, because no other tone chart has marks that touch. A
   matrix's outlined (reachable) cell takes the one ink as its edge, not the one hue: the two are the same color on a light
   slide, and on a dark slide the hue's edge measures 3.69:1 against the slide on indaco and the ink's 5.33:1, where an empty

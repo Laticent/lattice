@@ -75,7 +75,7 @@ const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc
 // hue toward the canvas, which tops out at the hue's own lightness) left adjacent wedges 0.032 to 0.047 OKLab apart on
 // indaco (wedge 3 beside wedge 4 read as one blue). The pie mixes the hue's INK (the lighter member of the same hue) toward
 // the canvas instead, a wider range of the one hue.
-const TONE_PIE_D = [90, 70, 52, 36, 24, 18, 14, 11];
+const TONE_PIE_D = [100, 83, 66, 50, 36, 28, 22, 18];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.

@@ -1334,49 +1334,49 @@ figure.marks-tone :where(.matrix-grid-figure tbody tr) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="1"], [data-key-hue="1"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="1"], [data-key-hue="1"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 90%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="2"], [data-key-hue="2"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="2"], [data-key-hue="2"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 70%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 83%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="3"], [data-key-hue="3"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="3"], [data-key-hue="3"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 66%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="4"], [data-key-hue="4"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="4"], [data-key-hue="4"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 36%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 50%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="5"], [data-key-hue="5"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="5"], [data-key-hue="5"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 24%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 36%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="6"], [data-key-hue="6"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="6"], [data-key-hue="6"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 18%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 28%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="7"], [data-key-hue="7"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="7"], [data-key-hue="7"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 14%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 22%, var(--finish-base-d));
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.piechart-svg :is([data-hue="8"], [data-key-hue="8"])),
 figure.marks-tone :where(.piechart-svg :is([data-hue="8"], [data-key-hue="8"])) {
-  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 11%, var(--finish-base-d));
+  --finish-mark-body-d: color-mix(in oklab, var(--chart-cat-1-ink) 18%, var(--finish-base-d));
 }
 }
 section.marks-tone :where(.matrix-grid-figure td .cell.cell-outlined),
