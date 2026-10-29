@@ -155,7 +155,7 @@ test('a statement slide over a bright photo is not flagged', async ({ page }) =>
 
 // A statement's list row takes the card ink like its paragraph, so the Coach reads it against the same scrim. A row left on
 // the theme's ink is dark in a light deck and would be flagged here, against the default dark scrim.
-test('a statement list row takes the card ink and is not flagged', async ({ page }) => {
+test('a statement list row takes the card ink and is not flagged @webkit-tablet @crosswidth', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await typeDeck(page, DARK_PHOTO_DECK);
