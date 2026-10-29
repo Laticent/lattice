@@ -60,7 +60,8 @@ let ok = false;
 try {
 	const platform = String(caps.platformName || '').toLowerCase();
 	if (!MAC && platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
-	if (MAC && platform !== 'mac') throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
+	// safaridriver reports `macOS` (or `mac`) for the desktop session.
+	if (MAC && !platform.startsWith('mac')) throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
 	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);

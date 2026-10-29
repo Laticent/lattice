@@ -105,7 +105,15 @@ function undoProbeKit(result) {
 				all.onerror = () => resolve([]);
 			};
 		});
-	const ready = () => until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor');
+	const ready = async () => {
+		try {
+			await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor');
+		} catch (e) {
+			// Say what the page did have, so a red device run explains itself.
+			const panes = [...document.querySelectorAll('button[aria-label]')].filter(visible).map((b) => b.getAttribute('aria-label')).slice(0, 20);
+			throw new Error(`${e.message} (render metrics ${!!window.__latticeRenderMetrics}, Deck source ${!!document.querySelector('[aria-label="Deck source"]')}, ${location.pathname}, ${document.readyState}, ${innerWidth}px; buttons: ${panes.join(' | ') || 'none'})`);
+		}
+	};
 	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready };
 }
 
@@ -118,7 +126,9 @@ async function latticeUndoProbe() {
 		if (el instanceof HTMLTextAreaElement) el.select();
 		else document.execCommand('selectAll');
 		document.execCommand('insertText', false, UNDO_DECK);
-		await k.until(() => k.deckText() === UNDO_DECK, 30000, 'the deck in the editor');
+		await k.until(() => k.deckText() === UNDO_DECK, 30000, 'the deck in the editor').catch((e) => {
+			throw new Error(`${e.message} (the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
+		});
 		k.step('put the deck in the editor', true);
 		// A new step: past the 500 ms typing window, so the word does not join the paste.
 		await k.sleep(800);
