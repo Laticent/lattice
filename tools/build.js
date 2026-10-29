@@ -96,8 +96,9 @@ const STEPS = [
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
   { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
-  // Squadra, the lint-and-fix library (2026-10-26-squadra-lint-library.md). FOREGROUND and early, like
-  // Fluido: it is built before every bundle, so a bundle that inlines it finds its dist on a cold tree.
+  // Squadra, the lint-and-fix library (2026-10-26-squadra-lint-library.md). FOREGROUND and early for
+  // the same reason: lint-core's fix path requires `@laticent/squadra/driver` (lib/authoring/squadra/
+  // bridge.js), and the playground, authoring-core and CLI bundles inline it.
   { label: 'Squadra library dist (ESM + CJS + .d.ts)', script: 'build-squadra-lib.js', uncommitted: true },
   // The shipped finish rules, written into base.finish.css from their recipes
   // (portable-packages §3.6). BEFORE lattice.css bundles that file, or a recipe edit would
@@ -454,6 +455,8 @@ async function main(argv) {
     'docs/src/lib/mosaico/dist/index.cjs',
     // …and the split kernels require `@laticent/fluido` (2026-10-27-fluid-layout-library.md).
     'docs/src/lib/fluido/dist/index.cjs',
+    // …and lint-core's fix path requires `@laticent/squadra/driver` (2026-10-26-squadra-lint-library.md).
+    'docs/src/lib/squadra/dist/driver.cjs',
   ];
   if (!onlyUncommitted && GUARD_INPUTS.some((f) => !fs.existsSync(path.join(ROOT, f)))) {
     process.stdout.write('▸ cold tree — generating the built-not-committed artifacts first\n');

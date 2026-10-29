@@ -98,7 +98,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 		const candidates: Candidate[] = [];
 		for (const f of r.findings) {
 			if (f.rule.startsWith('squadra/') || !f.fixes.length) continue;
-			const skip = (reason: SkipReason, detail?: string) => transient.push({ rule: f.rule, span: f.span, reason, ...(detail ? { detail } : {}) });
+			const skip = (reason: SkipReason, detail?: string) => transient.push({ rule: f.rule, span: f.span, reason, ...(detail ? { detail } : {}), data: f.data });
 			// Already recorded as a permanent skip when the rule was stopped.
 			if (stoppedRules.has(f.rule)) continue;
 			const eligible = f.fixes.find((x) => x.edits && SAFETY_RANK[x.safety] <= ceiling);
@@ -130,7 +130,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 		// Plan.
 		let accepted: Candidate[] = [];
 		for (const c of candidates) {
-			const skip = (reason: SkipReason, detail?: string) => transient.push({ rule: c.finding.rule, span: c.finding.span, reason, ...(detail ? { detail } : {}) });
+			const skip = (reason: SkipReason, detail?: string) => transient.push({ rule: c.finding.rule, span: c.finding.span, reason, ...(detail ? { detail } : {}), data: c.finding.data });
 			if (!c.exclusive && !inertOk(r, c.finding) && c.fix.edits.some((e) => touchesInert(r.parsed.inert, e))) {
 				skip('inert', 'the fix edits an inert range (a code fence, a comment) its rule did not opt into');
 				continue;
@@ -166,7 +166,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 		if (accepted.length > 1) {
 			for (const c of [...accepted]) {
 				if (shapeOk([c])) continue;
-				permanent.push({ rule: c.finding.rule, span: c.finding.span, reason: 'broke-structure', detail: 'the fix changed the document shape (units, header or inert text) and its rule did not declare that change' });
+				permanent.push({ rule: c.finding.rule, span: c.finding.span, data: c.finding.data, reason: 'broke-structure', detail: 'the fix changed the document shape (units, header or inert text) and its rule did not declare that change' });
 				blocked.add(c.signature);
 				accepted = accepted.filter((x) => x !== c);
 			}
@@ -191,7 +191,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 					accepted = [];
 					break;
 				}
-				permanent.push({ rule: culprit.finding.rule, span: culprit.finding.span, reason: 'broke-structure', detail: 'the fix changed the document shape (units, header or inert text) and its rule did not declare that change' });
+				permanent.push({ rule: culprit.finding.rule, span: culprit.finding.span, data: culprit.finding.data, reason: 'broke-structure', detail: 'the fix changed the document shape (units, header or inert text) and its rule did not declare that change' });
 				blocked.add(culprit.signature);
 				accepted = accepted.filter((c) => c !== culprit);
 				continue;
@@ -205,7 +205,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 			});
 			if (!unresolved.length) break;
 			for (const c of unresolved) {
-				permanent.push({ rule: c.finding.rule, span: c.finding.span, reason: 'did-not-resolve', detail: 'after the fix, the rule still reported the same finding at the same place' });
+				permanent.push({ rule: c.finding.rule, span: c.finding.span, data: c.finding.data, reason: 'did-not-resolve', detail: 'after the fix, the rule still reported the same finding at the same place' });
 				stoppedRules.add(c.finding.rule);
 			}
 			accepted = accepted.filter((c) => !unresolved.includes(c));
@@ -217,13 +217,13 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 		}
 		if (!accepted.length) continue;
 		if (seen.has(next)) {
-			for (const c of accepted) permanent.push({ rule: c.finding.rule, span: c.finding.span, reason: 'cycle', detail: 'the text repeated an earlier pass' });
+			for (const c of accepted) permanent.push({ rule: c.finding.rule, span: c.finding.span, data: c.finding.data, reason: 'cycle', detail: 'the text repeated an earlier pass' });
 			finished = true;
 			break;
 		}
 		seen.add(next);
 		passes = pass;
-		for (const c of accepted) applied.push({ rule: c.finding.rule, span: c.finding.span, edits: c.fix.edits, pass, description: c.fix.description });
+		for (const c of accepted) applied.push({ rule: c.finding.rule, span: c.finding.span, edits: c.fix.edits, pass, description: c.fix.description, data: c.finding.data });
 		text = next;
 
 		// Follow each rule's growth through this pass.
@@ -250,7 +250,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 		chains = chains.filter((ch) => ch.touched);
 		if (runaway) {
 			const first = applied.find((a) => a.rule === runaway.rule && a.pass === runaway.startPass);
-			permanent.push({ rule: runaway.rule, span: first?.span ?? { from: 0, to: 0 }, reason: 'did-not-resolve', detail: `the fix grew the same place ${GROW_LIMIT} passes running without resolving its finding; the run rewound to before the first of them` });
+			permanent.push({ rule: runaway.rule, span: first?.span ?? { from: 0, to: 0 }, data: first?.data, reason: 'did-not-resolve', detail: `the fix grew the same place ${GROW_LIMIT} passes running without resolving its finding; the run rewound to before the first of them` });
 			stoppedRules.add(runaway.rule);
 			text = history[runaway.startPass];
 			applied.splice(0, applied.length, ...applied.filter((a) => a.pass < runaway.startPass));
@@ -264,7 +264,7 @@ export function fix(rules: Ruleset, source: Source, opts: FixOptions = {}): FixR
 	if (!finished) {
 		// Out of passes: whatever is still fixable is reported, never dropped silently.
 		for (const f of last.findings) {
-			if (f.fixes.some((x) => x.edits && SAFETY_RANK[x.safety] <= ceiling) && !stoppedRules.has(f.rule)) permanent.push({ rule: f.rule, span: f.span, reason: 'max-passes' });
+			if (f.fixes.some((x) => x.edits && SAFETY_RANK[x.safety] <= ceiling) && !stoppedRules.has(f.rule)) permanent.push({ rule: f.rule, span: f.span, reason: 'max-passes', data: f.data });
 		}
 		transient = [];
 	}

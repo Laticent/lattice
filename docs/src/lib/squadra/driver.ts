@@ -3,7 +3,7 @@
 // A host that fixes findings from a producer (design §15.4) needs the fix driver, the edit kernel
 // and the `edits` engine, and never compiles a rule, prints a diff or applies waivers. A CommonJS
 // `require` of a built entry cannot drop what it does not use, so this entry carries only the fix
-// path: 6.9 KB min+gzip against 13.3 KB for the main entry (2026-10-29), measured because the
+// path: 7.7 KB min+gzip against 14.3 KB for the main entry (the built dist bundled by esbuild, minified, gzip -6; 2026-10-29), measured because the
 // Studio's lint core has a gzip budget (`lintCoreGz`, docs/route-budget.json). A ruleset with
 // rules still comes from `compileRuleset` in the main entry.
 

@@ -145,8 +145,8 @@ driver never writes: it returns text.
 
 `@laticent/squadra/driver` is the fix path alone, for a browser bundle that fixes findings from a
 producer and never compiles a rule: `fix`, `rulesetOf` (a ruleset with languages and engines and
-no rules), the edit kernel and the `edits` engine. It is 7.0 KB minified and gzipped, against 13.3 KB
-for the whole library (2026-10-29).
+no rules), the edit kernel and the `edits` engine. It is 7.7 KB minified and gzipped, against 14.3 KB
+for the whole library (the built dist bundled by esbuild, minified, gzip -6; 2026-10-29).
 
 ### The `edits` engine
 
@@ -227,4 +227,4 @@ M1b brings the reference Markdown language and Lattice's deck language, on the S
 pipeline. M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
 CSS, the JS/TS adapter, project rules (`collect` and `decide`), the cache and workers. M4 adds the
 declarative selector language and rule manifests, inline suppressions, the SARIF, GitHub and LSP
-reporters, and the learn and demo pages. The reference YAML language is the rest of M1a.
+reporters, and the learn and demo pages. The reference YAML language moves to M1b, where `lattice-deck`'s front-matter island first needs it.

@@ -7525,6 +7525,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/squadra-fix-diff.js',
+    why: 'folds the sources it COMPARES, not author input it renders: the lint unit tests\' own '
+       + 'inputs (recorded while they run) and the REPO-COMMITTED tracked decks, which `.gitattributes` '
+       + 'keeps LF. It does what `lint:deck --fix` does at its read so both loops see the same text; '
+       + 'an on-demand diagnostic that writes a report, never a deck.',
+  },
+  {
     file: 'tools/conformance-render.js',
     why: 'reads REPO-COMMITTED, generated `lib/components/**/*.gallery.md`, not author text. '
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '

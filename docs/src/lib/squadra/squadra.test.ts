@@ -422,7 +422,7 @@ describe('fix', () => {
 		};
 		const res = fix(rules, src('a\n'), { producers: [chain], maxPasses: 1 });
 		expect(res.text).toBe('b\n');
-		expect(res.skipped).toEqual([{ rule: 'legacy/b', span: { from: 0, to: 1 }, reason: 'max-passes' }]);
+		expect(res.skipped).toEqual([{ rule: 'legacy/b', span: { from: 0, to: 1 }, reason: 'max-passes', data: {} }]);
 	});
 
 	it('applies only fixes at or under the requested safety, and refuses unsafe without `only`', () => {

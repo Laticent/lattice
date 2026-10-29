@@ -377,6 +377,8 @@ export interface AppliedFix {
 	readonly edits: readonly Edit[];
 	readonly pass: number;
 	readonly description: string;
+	/** The finding's `data`, so a host can say where the fix was in its own terms (a slide). */
+	readonly data?: Readonly<Record<string, unknown>>;
 }
 
 export interface SkippedFix {
@@ -384,6 +386,8 @@ export interface SkippedFix {
 	readonly span: Span;
 	readonly reason: SkipReason;
 	readonly detail?: string;
+	/** The finding's `data`, as on `AppliedFix`. */
+	readonly data?: Readonly<Record<string, unknown>>;
 }
 
 export interface FixResult {
