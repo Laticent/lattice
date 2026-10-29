@@ -64,7 +64,7 @@ the notation your discipline already uses:
 - **Analysts** — radar, quadrant, KPI, stats, progress, pie, and
   word-cloud components that turn numbers into an argument.
 
-More than fifty components in all — and you reach every one of them with
+More than seventy components in all — and you reach every one of them with
 the same Markdown, never a new tool to learn.
 
 ## What changes for…
