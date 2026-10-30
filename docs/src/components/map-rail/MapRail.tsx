@@ -390,9 +390,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							</span>
 							{band ? (
 								// THE CAPTION IS THE PILL: the same number badge, name and current-slide fill as the pill strip
-								// (SlideRail.tsx), so the two strips differ only by the picture. The host's adornment (the ⋯) sits over
-								// its right end, outside this button, and the caption leaves it room.
-								<span className={cn('absolute inset-x-0 bottom-0 flex h-[22px] min-w-0 items-center gap-1.5 rounded-md border pl-[3px] pr-1.5 transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-transparent group-hover:border-border', on && adorn && 'pr-7 [@media(pointer:coarse)]:pr-11')}>
+								// (SlideRail.tsx), so the two strips differ only by the picture. It hugs its text, like a pill; on the
+								// current tile with an adornment (the ⋯, outside this button) it runs to the tile's right edge and leaves
+								// the ⋯ room there.
+								<span className={cn('absolute bottom-0 left-0 flex h-[22px] min-w-0 items-center gap-1.5 rounded-md border pl-[3px] pr-1.5 transition-colors', on && adorn ? 'right-0' : 'max-w-full', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-transparent group-hover:border-border', on && adorn && 'pr-7 [@media(pointer:coarse)]:pr-11')}>
 									<span className={cn('grid h-4 min-w-4 shrink-0 place-items-center rounded px-0.5 font-mono text-[10px] font-bold tabular-nums', on ? 'bg-primary text-primary-foreground' : 'bg-[color-mix(in_srgb,var(--border)_22%,transparent)] text-muted-foreground')}>{i + 1}</span>
 									{caption?.(i) ? <span aria-hidden className={cn('min-w-0 truncate font-mono text-[11px] leading-4', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{caption(i)}</span> : null}
 								</span>

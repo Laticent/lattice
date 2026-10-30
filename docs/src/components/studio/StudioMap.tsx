@@ -105,6 +105,10 @@ interface Item {
 	flat: number;
 }
 
+// At the Read stop the caption row still runs, holding the number alone, so every stop draws the same picture size in
+// the same 116px strip (StudioShell.tsx).
+const NO_CLASS = () => '';
+
 export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation, people, classLabels = false, onReady, actions, onAddFirst }: StudioMapProps) {
 	const items = React.useMemo(() => {
 		const out: Item[] = [];
@@ -327,7 +331,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 					</button>
 				</div>
 			) : (
-				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
 			)}
 		</div>
 	);
