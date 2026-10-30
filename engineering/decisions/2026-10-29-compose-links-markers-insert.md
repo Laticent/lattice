@@ -55,7 +55,9 @@ The write half is `docs/src/lib/compose/link-commands.ts` and the panel is `Link
   and `http://` or `https://` to a host with a port (`localhost:3000`). Only a host counts as one (`localhost` or a dotted
   name), so `javascript:1/…` is a scheme and is refused. A bracketed IPv6 host is not offered: markdown-it percent-encodes
   the brackets, which no browser accepts. Entities and backslash escapes are decoded first, as the parser decodes them, so
-  `&#106;avascript:` is judged as `javascript:`, and an `&` that would still start an entity is written as `%26`. The address is then written as markdown-it's
+  `&#106;avascript:` is judged as `javascript:`. The link mark holds the decoded address; the serializer writes an `&` that
+  starts a real entity as `&amp;` (`deck-markdown.ts` `entitySafeHref`), so the next parse does not decode it again. That
+  also fixes a hand-written link like `[t](…?a&amp;lt;b)`, which drifted on every save before this change. The address is then written as markdown-it's
   own `normalizeLink` would write it, with parentheses also encoded because the serializer writes the destination bare, so the
   next parse reads back the same bytes (`é` → `%C3%A9`, `50%off` → `50%25off`), and markdown-it's `validateLink` has the last
   word. A refusal is shown under the field and nothing is written. Done on an unchanged address only closes the panel: an
@@ -123,6 +125,13 @@ kept selection that ended mid-word split the word. These predate this PR for pil
 the same path, so they are fixed for all three. Left as they are, by design: with an empty caret, an avatar, a check or a
 plugin's kind goes in exactly at the caret, as a pill does; and a bare file name like `notes.md` reads as a host, as it
 did before.
+
+A third checker read that commit (round 3, the last the raise loop allows). Fixed in the fourth: the pill door, which the
+keep-selection rule had excluded, replaced a selection it could not use as a label (a code span, another pill, a line
+break) with a `Status` pill, so it now keeps the selection like every other kind; a kept selection that ended mid-word at a
+mark boundary (`**bold**er`) split the word; `&b;`, which is no entity, was percent-encoded and changed a query; a spark or
+icon over a selection that took a trailing space landed after the next word; and the `&amp;` drift on hand-written links
+above.
 
 ## 6. Still typed, and where each is planned
 

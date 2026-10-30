@@ -19,7 +19,7 @@
 //     (lib/authoring/inline-editors.js → lib/plugins/pills/pills.inline.js), never a second parser
 //     (HARD RULES #1, #7).
 
-import { Mark, type Node as PMNode } from 'prosemirror-model';
+import { Mark, type Node as PMNode, type ResolvedPos } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
@@ -810,13 +810,13 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
 			const node = objectType().create({ src });
-			// An avatar, a check or a plugin's kind never deletes a selection it cannot use as the name or label (long, over a line
-			// break, holding code, or a kind that takes none): it goes in after it, as a spark does.
-			const keepSelection = plan !== INSERT_PLANS.pill && !plan.afterWord && !empty && !(usesLabel && label);
+			// No kind deletes a selection it cannot use as the name or label (long, over a line break, holding code, or a kind that
+			// takes none): it goes in after it, as a spark does.
+			const keepSelection = !plan.afterWord && !empty && !(usesLabel && label);
 			// A spark and an icon go after the word the caret is in, never through it; so does an object after a kept selection that
-			// ends inside a word.
-			const toWordEnd = plan.afterWord || (keepSelection && !/\s$/.test(raw));
-			const rest = toWordEnd && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
+			// ends inside a word. A selection that ends in a space has already reached the end of its word.
+			const toWordEnd = (plan.afterWord || keepSelection) && !(!empty && /\s$/.test(raw));
+			const rest = toWordEnd ? restOfWord($to) : 0;
 			const at0 = plan.afterWord || keepSelection ? $to.pos + rest : from;
 			const end0 = plan.afterWord || keepSelection ? at0 : to;
 			const $at = plan.afterWord || keepSelection ? state.doc.resolve(at0) : $from;
@@ -835,6 +835,27 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 		}
 		return true;
 	};
+}
+
+/** How many characters of the word at `$pos` follow it, across text nodes in other marks (`**bold**er`), up to a space, a code span or an object. */
+function restOfWord($pos: ResolvedPos): number {
+	const parent = $pos.parent;
+	const offset = $pos.parentOffset;
+	let n = 0;
+	let start = 0;
+	for (let i = 0; i < parent.childCount; i++) {
+		const child = parent.child(i);
+		const end = start + child.nodeSize;
+		if (end > offset) {
+			if (!child.isText || isCodeish(child)) break;
+			const text = (child.text ?? '').slice(Math.max(0, offset - start));
+			const run = /^\S*/.exec(text)?.[0].length ?? 0;
+			n += run;
+			if (run < text.length) break;
+		}
+		start = end;
+	}
+	return n;
 }
 
 /** What "+ Spark" inserts: a short rising line, readable on a slide the moment it lands. */

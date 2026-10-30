@@ -582,8 +582,26 @@ const latticeNodes = {
 	table_cell() {},
 };
 
+/**
+ * A link's address as the parser will read it back. The mark holds the DECODED address, so an `&` in it that starts a real
+ * HTML entity (`?a&lt;b`, read from `?a&amp;lt;b`) would be decoded a second time on the next parse and the address would
+ * drift on every save. That `&` is written as `&amp;`; an `&` that starts no entity (`&b=2`, `&b;`) is written as it is.
+ */
+const unescapeAll = new MarkdownIt().utils.unescapeAll;
+export const entitySafeHref = (href: string): string => href.replace(/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/gi, (m) => (unescapeAll(m) !== m ? `&amp;${m.slice(1)}` : m));
+
+const defaultLink = defaultMarkdownSerializer.marks.link;
+const latticeMarks = {
+	...defaultMarkdownSerializer.marks,
+	link: {
+		...defaultLink,
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown types a mark spec's close as a string or a function.
+		close: (state: any, mark: any, parent: any, index: number) => (defaultLink.close as any)(state, mark.type.create({ ...mark.attrs, href: entitySafeHref(String(mark.attrs.href ?? '')) }), parent, index),
+	},
+};
+
 /** The Lattice markdown serializer — ProseMirror doc → Lattice markdown. */
-export const latticeMarkdownSerializer = new MarkdownSerializer(latticeNodes, defaultMarkdownSerializer.marks);
+export const latticeMarkdownSerializer = new MarkdownSerializer(latticeNodes, latticeMarks);
 
 /** Parse one slide's prose (markdown) into a ProseMirror document. */
 export function parseSlideProse(md: string): PMNode {

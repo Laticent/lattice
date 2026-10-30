@@ -1059,6 +1059,33 @@ describe('avatars and icons are objects too', () => {
 				expect(docToDeck(view.state.doc)).toContain(`Alpha ${'x'.repeat(41)}yz \`@check{pass}\` gamma`);
 			});
 
+			it('a pill never deletes a selection it cannot use as its label either', () => {
+				for (const [line, start, end, kept] of [
+					['delta `{X}` epsilon', 'delta', 'epsilon', 'delta `{X}` epsilon `{Status}`'],
+					['run `npm i` now ok', 'run', 'now', 'run `npm i` now `{Status}` ok'],
+					['ab\\\ncd rest', 'ab', 'cd', 'ab\\\ncd `{Status}` rest'],
+				] as const) {
+					const view = mount(deckOf(line));
+					select(view, start, end);
+					expect(insert(view, 'pill'), line).toBe(true);
+					expect(docToDeck(view.state.doc), line).toContain(kept);
+				}
+			});
+
+			it('a kept selection that ends mid-word at a mark boundary goes after the whole word', () => {
+				const view = mount(deckOf(`${'x'.repeat(41)} **bold**er tail`));
+				select(view, 'x', 'bol');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain('**bold**er `@check{pass}` tail');
+			});
+
+			it('a spark over a selection that took a trailing space goes after that word, not the next', () => {
+				const view = mount(deckOf('Alpha beta gamma'));
+				select(view, 'beta', 'beta ');
+				expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(true);
+				expect(docToDeck(view.state.doc)).toMatch(/Alpha beta `~\{[^}]*\}` ?gamma/);
+			});
+
 			it('a selection that holds another object keeps it, and the new object goes after', () => {
 				const view = mount(deckOf('delta `{X}` epsilon'));
 				select(view, 'delta', 'delta');

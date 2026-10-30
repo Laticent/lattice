@@ -58,8 +58,8 @@ export function normalizeHref(input: string): { href: string } | { error: string
 		// No scheme: a path, an anchor or a bare host. A dot and a top-level name before the first slash name a host.
 		if (!scheme && !/^[./#?]/.test(href) && /^[^/?#\s\\]*\.[a-z]{2,}\.?(?:[/?#]|$)/i.test(href)) href = `https://${href}`;
 	}
-	// An `&` that still starts an entity is encoded, or the next parse would decode it into another address.
-	href = md.normalizeLink(href).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/&(?=#\d+;|#x[0-9a-f]+;|[a-z][a-z0-9]*;)/gi, '%26');
+	// An `&` that starts an entity stays as it is here: the serializer writes it as `&amp;` (deck-markdown.ts `entitySafeHref`).
+	href = md.normalizeLink(href).replace(/\(/g, '%28').replace(/\)/g, '%29');
 	if (!md.validateLink(href)) return { error: 'A slide cannot link to this address. Use a web address (https://…) or an email (mailto:…).' };
 	return { href };
 }
