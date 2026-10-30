@@ -1925,6 +1925,178 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return a.box;
 		};
 		const effectless = (el: Element) => !effected(el);
+		/**
+		 * An inline `<svg>` of plain shapes as standalone SVG markup in `box` (slide px), or null when it holds anything
+		 * this does not carry exactly (text, images, masks, filters, gradients, `<use>`): that picture stays a PNG. Each
+		 * shape is written under its full screen transform, folded into slide px, so no viewBox, nested viewport or CSS is
+		 * left for the reading application to interpret; colors and widths come from the computed style. A stroke that
+		 * does not scale (`vector-effect: non-scaling-stroke`, a spark stretched to its box) is baked into slide px, so a
+		 * non-uniform stretch does not warp it.
+		 */
+		const svgOf = (svg: Element, box: Rect, boxes: Element[] = []): string | null => {
+			const SHAPES = new Set(['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon']);
+			const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+			const num = (v: number) => String(Math.round(v * 1000) / 1000);
+			const out: string[] = [];
+			for (const el of Array.from(svg.querySelectorAll('*'))) {
+				const tag = String(el.localName).toLowerCase();
+				if (tag === 'title' || tag === 'desc') continue;
+				if (tag === 'g') continue;
+				if (!SHAPES.has(tag)) return null;
+				const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
+				if (cs.visibility !== 'visible') continue;
+				// `display` is not inherited: a shape in a hidden group computes `inline` and still draws nothing.
+				let opacity = 1;
+				let hidden = false;
+				for (let e: Element | null = el; e && e !== svg.parentElement; e = e.parentElement) {
+					const c = win.getComputedStyle(e) as CSSStyleDeclaration & Record<string, string>;
+					if (c.display === 'none') hidden = true;
+					if ((c.mask && c.mask !== 'none') || (c.filter && c.filter !== 'none') || (c.clipPath && c.clipPath !== 'none')) return null;
+					// A group's opacity fades its shapes together; one shape alone can carry it, two that overlap cannot.
+					if (e !== el && e !== svg && Number(c.opacity) < 0.999 && e.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon').length > 1) return null;
+					// The <svg>'s own opacity and its page ancestors' wrap the whole drawing (below), exact even where shapes overlap.
+					opacity *= e === svg ? 1 : Number(c.opacity);
+				}
+				if (hidden) continue;
+				// SVG 1.1 colors only: `#rrggbb` and an opacity. A CSS `color(srgb …)` or `oklch()` is read by no office reader
+				// (LibreOffice drew a 16% wash as solid black).
+				const paint = (v: string): { color: string; alpha: number } | 'none' | null => {
+					if (!v || v === 'none') return 'none';
+					if (/url\(/.test(v)) return null;
+					return paintOf(v, 1) || 'none';
+				};
+				const fillP = paint(cs.fill), strokeP = paint(cs.stroke);
+				if (fillP === null || strokeP === null) return null;
+				const fill = fillP === 'none' ? 'none' : fillP.color, stroke = strokeP === 'none' ? 'none' : strokeP.color;
+				const M = (el as SVGGraphicsElement).getScreenCTM?.();
+				if (!M) return null;
+				const T = [M.a / scale, M.b / scale, M.c / scale, M.d / scale, (M.e - origin.left) / scale - box.x, (M.f - origin.top) / scale - box.y];
+				const attrs: string[] = [`fill="${esc(fill)}"`, `stroke="${esc(stroke)}"`];
+				const fillA = fillP === 'none' ? 1 : fillP.alpha * Number(cs.fillOpacity);
+				if (fill !== 'none' && fillA < 0.999) attrs.push(`fill-opacity="${num(fillA)}"`);
+				if (cs.fillRule === 'evenodd') attrs.push('fill-rule="evenodd"');
+				if (opacity < 0.999) attrs.push(`opacity="${num(opacity)}"`);
+				const fixed = cs.vectorEffect === 'non-scaling-stroke';
+				if (stroke !== 'none') {
+					attrs.push(`stroke-width="${num(Number.parseFloat(cs.strokeWidth) || 0)}"`);
+					const strokeA = strokeP === 'none' ? 1 : strokeP.alpha * Number(cs.strokeOpacity);
+					if (strokeA < 0.999) attrs.push(`stroke-opacity="${num(strokeA)}"`);
+					if (cs.strokeLinecap && cs.strokeLinecap !== 'butt') attrs.push(`stroke-linecap="${esc(cs.strokeLinecap)}"`);
+					if (cs.strokeLinejoin && cs.strokeLinejoin !== 'miter') attrs.push(`stroke-linejoin="${esc(cs.strokeLinejoin)}"`);
+					if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+						// A share of the viewport would resolve against the crop's, not the drawing's.
+						if (/%/.test(cs.strokeDasharray)) return null;
+						attrs.push(`stroke-dasharray="${esc(cs.strokeDasharray.replace(/px/g, ''))}"`);
+						const off = Number.parseFloat(cs.strokeDashoffset) || 0;
+						if (/%/.test(cs.strokeDashoffset)) return null;
+						if (off) attrs.push(`stroke-dashoffset="${num(off)}"`);
+					}
+					const miter = Number.parseFloat(cs.strokeMiterlimit);
+					if (Number.isFinite(miter) && miter !== 4) attrs.push(`stroke-miterlimit="${num(miter)}"`);
+				}
+				if (fixed && stroke !== 'none') {
+					// Baked into slide px: only straight absolute segments, which map point by point.
+					let pts: number[][] | null = null;
+					let closed = false;
+					if (tag === 'line') pts = [[+(el.getAttribute('x1') || 0), +(el.getAttribute('y1') || 0)], [+(el.getAttribute('x2') || 0), +(el.getAttribute('y2') || 0)]];
+					else if (tag === 'polyline' || tag === 'polygon') {
+						const n = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
+						pts = [];
+						for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+						closed = tag === 'polygon';
+					} else if (tag === 'path') {
+						// Absolute straight segments only (M, L, H, V, Z), one subpath: a spark's line, a bullet's target.
+						const d = el.getAttribute('d') || '';
+						if (!/^[\sMLHVZz\d.,eE+-]*$/.test(d) || (d.match(/M/g) || []).length !== 1) return null;
+						pts = [];
+						let cx = 0, cy = 0;
+						for (const [, cmd, args] of d.matchAll(/([MLHVZz])([^MLHVZz]*)/g)) {
+							const n = args.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+							if (cmd === 'M' || cmd === 'L') for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; pts.push([cx, cy]); }
+							else if (cmd === 'H') for (const v of n) { cx = v; pts.push([cx, cy]); }
+							else if (cmd === 'V') for (const v of n) { cy = v; pts.push([cx, cy]); }
+							else closed = true;
+						}
+					}
+					if (!pts || pts.length < 2 || pts.flat().some((v) => !Number.isFinite(v))) return null;
+					const mapped = pts.map(([x, y]) => [T[0] * x + T[2] * y + T[4], T[1] * x + T[3] * y + T[5]]);
+					out.push(`<path d="M${mapped.map(([x, y]) => `${num(x)} ${num(y)}`).join('L')}${closed ? 'Z' : ''}" ${attrs.join(' ')}/>`);
+					continue;
+				}
+				// Geometry as the browser resolved it, in user units: a rect's or circle's from its computed CSS (which a
+				// `style="r:2"` sets too), a line's from plain numbers. A percentage resolves against the viewport, which the
+				// crop changes, so it keeps the PNG alone.
+				const geom: string[] = [];
+				for (const a of ['d', 'points']) if (el.hasAttribute(a)) geom.push(`${a}="${esc(el.getAttribute(a) || '')}"`);
+				for (const a of tag === 'rect' ? ['x', 'y', 'width', 'height', 'rx', 'ry'] : tag === 'circle' ? ['cx', 'cy', 'r'] : tag === 'ellipse' ? ['cx', 'cy', 'rx', 'ry'] : []) {
+					const v = String(cs[a] || '').trim();
+					if (!v || v === 'auto') continue;
+					if (!/^-?[\d.]+(?:e[+-]?\d+)?px$/i.test(v) && v !== '0') return null;
+					geom.push(`${a}="${num(Number.parseFloat(v))}"`);
+				}
+				if (tag === 'line') {
+					for (const a of ['x1', 'y1', 'x2', 'y2']) {
+						const v = (el.getAttribute(a) || '0').trim();
+						if (!/^-?[\d.]+(?:e[+-]?\d+)?$/i.test(v)) return null;
+						geom.push(`${a}="${num(Number(v))}"`);
+					}
+				}
+				out.push(`<${tag} ${geom.join(' ')} transform="matrix(${T.map(num).join(' ')})" ${attrs.join(' ')}/>`);
+			}
+			if (!out.length) return null;
+			// The clips the browser drew it under: the <svg>'s own viewport, and the nearest box that clips its overflow
+			// (an avatar's round tile), with its corners. Without them a face spilled past its tile.
+			const clipRects: string[] = [];
+			const rr = (r: Rect, rad: number[]) => {
+				const [tl, tr, br, bl] = rad.map((v) => Math.min(v, r.w / 2, r.h / 2));
+				const { x, y, w, h } = r;
+				return `M${num(x + tl)} ${num(y)}H${num(x + w - tr)}A${num(tr)} ${num(tr)} 0 0 1 ${num(x + w)} ${num(y + tr)}V${num(y + h - br)}A${num(br)} ${num(br)} 0 0 1 ${num(x + w - br)} ${num(y + h)}H${num(x + bl)}A${num(bl)} ${num(bl)} 0 0 1 ${num(x)} ${num(y + h - bl)}V${num(y + tl)}A${num(tl)} ${num(tl)} 0 0 1 ${num(x + tl)} ${num(y)}Z`;
+			};
+			const local = (r: DOMRect): Rect => { const q = relRect(r); return { x: q.x - box.x, y: q.y - box.y, w: q.w, h: q.h }; };
+			// The viewport clips only when the <svg> clips its overflow (its default; a pill's icon sets it visible).
+			const own = win.getComputedStyle(svg) as CSSStyleDeclaration & Record<string, string>;
+			clipRects.push(own.overflow === 'visible' ? '' : rr(local(svg.getBoundingClientRect()), [0, 0, 0, 0]));
+			for (let a = svg.parentElement; a && a !== section; a = a.parentElement) {
+				const c = win.getComputedStyle(a) as CSSStyleDeclaration & Record<string, string>;
+				if (c.overflow === 'visible') continue;
+				const r = local(a.getBoundingClientRect());
+				const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => {
+					const v = String(c[`border${k}Radius`] || '0').trim();
+					if (/\s/.test(v)) return Number.NaN;
+					// In slide px: a share of the (slide px) box, or CSS px over the slide's scale.
+					return v.endsWith('%') ? (Number.parseFloat(v) / 100) * Math.min(r.w, r.h) : (Number.parseFloat(v) || 0) / scale;
+				});
+				if (rad.some(Number.isNaN)) return null;
+				clipRects.push(rr(r, rad));
+				break;
+			}
+			// Plain boxes painted over the drawing in the same picture (a spark's end dot): each a filled rounded box, in
+			// paint order after the SVG, outside its viewport and inside the box that clips both.
+			const extra: string[] = [];
+			for (const b of boxes) {
+				const c = win.getComputedStyle(b) as CSSStyleDeclaration & Record<string, string>;
+				const fill = paintOf(c.backgroundColor, opacityOf(b));
+				if (!fill || (c.backgroundImage && c.backgroundImage !== 'none') || (c.boxShadow && c.boxShadow !== 'none') || c.filter !== 'none') return null;
+				if (['Top', 'Right', 'Bottom', 'Left'].some((k) => Number.parseFloat(c[`border${k}Width`]) > 0 && c[`border${k}Style`] !== 'none')) return null;
+				if (b.children.length || (b.textContent || '').trim()) return null;
+				const r = local(b.getBoundingClientRect());
+				const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => {
+					const v = String(c[`border${k}Radius`] || '0').trim();
+					return v.endsWith('%') ? (Number.parseFloat(v) / 100) * Math.min(r.w, r.h) : (Number.parseFloat(v) || 0) / scale;
+				});
+				extra.push(`<path d="${rr(r, rad)}" fill="${fill.color}"${fill.alpha < 0.999 ? ` fill-opacity="${num(fill.alpha)}"` : ''}/>`);
+			}
+			const defs = clipRects.map((d, i) => (d ? `<clipPath id="c${i}"><path d="${d}"/></clipPath>` : '')).join('');
+			const fade = opacityOf(svg);
+			const shapes = fade < 0.999 ? `<g opacity="${num(fade)}">${out.join('')}</g>` : out.join('');
+			let body = `${clipRects[0] ? `<g clip-path="url(#c0)">${shapes}</g>` : shapes}${extra.join('')}`;
+			for (let i = clipRects.length - 1; i >= 1; i--) body = `<g clip-path="url(#c${i})">${body}</g>`;
+			const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(box.w)}" height="${num(box.h)}" viewBox="0 0 ${num(box.w)} ${num(box.h)}"><defs>${defs}</defs>${body}</svg>`;
+			// A character XML forbids (an author's `&#1;` in a path) makes the file unreadable, and LibreOffice then draws
+			// neither it nor the PNG beside it: such a drawing keeps the PNG alone.
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: finding them is the point.
+			return /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/.test(doc) ? null : doc;
+		};
 
 		const DRAWN = new Set(['svg', 'math', 'img', 'canvas', 'video', 'iframe', 'object', 'embed', 'input', 'select', 'textarea', 'button', 'picture']);
 		const walk = (el: Element) => {
@@ -2232,6 +2404,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const alt = [...new Set(k.items.map((it) => it.alt).filter(Boolean))].join('. ');
 				if (alt) pic.alt = alt;
 				if (k.items.some((it) => /^drawn:(img|video|canvas|picture)$/.test(it.kind || ''))) pic.photo = true;
+				// One inline SVG alone in its picture: the drawing as SVG too, so an office reader draws it sharp.
+				const drawn = k.items.filter((it) => it.kind === 'drawn:svg');
+				const plain = k.items.filter((it) => it.kind === 'refused-box' && !it.pseudo && it.node instanceof win.Element);
+				if (drawn.length === 1 && drawn.length + plain.length === k.items.length) {
+					const svg = svgOf(drawn[0].node as Element, k.box, plain.map((it) => it.node as Element));
+					if (svg) pic.svg = svg;
+				}
 				// The boxes whose own paint this picture holds: the text inside them paints over it.
 				const painted = k.items.flatMap((it) => (it.paintOf && !it.pseudo ? [it.paintOf] : []));
 				if (painted.length) paintedBy.set(shapes.length, painted);

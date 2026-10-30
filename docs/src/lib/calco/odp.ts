@@ -347,13 +347,22 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 				.join('')
 		: '<style:master-page style:name="Default" style:page-layout-name="PM1" draw:style-name="Mdp1"/>';
 	// Pictures the shapes carry (a photo, an icon, a chart), written beside the slide pictures.
-	const spriteParts: Array<[string, Uint8Array]> = [];
+	const spriteParts: Array<[string, Uint8Array, string?]> = [];
 	const pictureXml = (shape: Shape, name: string, slideIndex: number, shapeIndex: number): string => {
 		if (!shape.image?.length) return '';
 		const path = `Pictures/slide${pad3(slideIndex)}-${shapeIndex + 1}.${imageExt(shape.image)}`;
 		spriteParts.push([path, shape.image]);
+		// A drawing that is also SVG (`Shape.svg`): the SVG first, the PNG after it. A frame's images are alternatives
+		// (ODF 1.3, 10.4.2), so a reader draws the first one it can: LibreOffice the SVG, sharp at any size.
+		let svg = '';
+		if (shape.svg) {
+			const svgPath = `Pictures/slide${pad3(slideIndex)}-${shapeIndex + 1}.svg`;
+			spriteParts.push([svgPath, new TextEncoder().encode(shape.svg), 'image/svg+xml']);
+			svg = `<draw:image xlink:href="${svgPath}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad" draw:mime-type="image/svg+xml"/>`;
+		}
 		return (
 			`<draw:frame draw:style-name="gr1" draw:name="${xmlEscape(name)}" svg:x="${cm(shape.x)}" svg:y="${cm(shape.y)}" svg:width="${cm(shape.w)}" svg:height="${cm(shape.h)}">` +
+			svg +
 			`<draw:image xlink:href="${path}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 			`<svg:title>${xmlEscape(name)}</svg:title><svg:desc>${xmlEscape(shape.alt || '')}</svg:desc></draw:frame>`
 		);
@@ -457,7 +466,7 @@ ${masterXml}
 		['meta.xml', 'text/xml'],
 		['settings.xml', 'text/xml'],
 		...deck.slides.flatMap((s, i): Array<[string, string]> => (s.image?.length ? [[`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]] : [])),
-		...spriteParts.map(([path, bytes]): [string, string] => [path, imageMime(bytes)]),
+		...spriteParts.map(([path, bytes, mime]): [string, string] => [path, mime || imageMime(bytes)]),
 		...(deck.backgrounds || []).flatMap((b, bi): Array<[string, string]> => (b.image && masters?.layouts.some((l) => l.background === bi) ? [[bgPath(bi, b.image), imageMime(b.image)]] : [])),
 		...used.map((_f, i): [string, string] => [fontPath(i), 'application/x-font-ttf']),
 	];

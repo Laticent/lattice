@@ -247,6 +247,15 @@ pinner. Two modes:
   per weight.
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
+  **A picture that is one inline SVG is also SVG** (an icon, an avatar's face, a spark and its end dot). The
+  reader writes the drawing as SVG markup in the picture's box (`svgOf`, `reader.ts`): plain shapes under their
+  screen transform folded into slide px, computed colors as SVG 1.1 `#rrggbb` plus an opacity (no office
+  reader reads `color(srgb …)`), the clips the browser drew it under, and a non-scaling stroke baked into slide
+  px. `placePictures` cuts it to the crop's box. The `.pptx` stores it as PowerPoint does, an `asvg:svgBlip`
+  extension on the PNG's blip (`addSvgPictures`, after PptxGenJS, which writes a broken fallback under Node);
+  the `.odp` puts the SVG before the PNG in one frame. The PNG stays the fallback for a reader without SVG.
+  Text, images, masks, filters, gradients, `<use>` and a character XML forbids keep the PNG alone; the fade of the `<svg>` and its page ancestors wraps the drawing. `calco-svg-pictures.test.js` holds
+  each SVG to its PNG (the same ink, in the same place).
   **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
   browser broke them (no wrap), and each word is placed from the browser's
   measure, so the file matches the slide only when the reader draws the same face.
@@ -325,7 +334,9 @@ that keeps text or a raster image in it. That covers:
 
 - rotated text, a text shadow, and text or an image that something paints over;
 - a masked or filtered shape;
-- a character the deck's fonts lack (an emoji, a system-font fallback);
+- a character the deck's fonts lack (a system-font fallback). An emoji is the exception: it is drawn as a
+  glyph of a Type 3 font whose procedure paints the emoji's picture, so it and the words beside it stay
+  real text (`emojiArt` in `read-slide.mjs`, `embedEmoji` in `write-pdf.mjs`; Chrome's own print does the same);
 - pseudo-element text (page numbers, bullets).
 - a text decoration (an underline, a strikethrough). The word itself is drawn as text; the line
   stays in the photo, where the browser placed it. `hideDrawn` pins each declaring element's
@@ -371,6 +382,18 @@ something that paints over it, or when its disc or mask is drawn some way this d
 writer also honors `stroke-linejoin` now: pdf-lib sets the cap but not the join, so a round-joined
 tick or chart line used to print with mitred corners. `test/integration/export/pdf-check-vectors.test.js`
 pins every answer in every style and container, light and dark.
+
+**An avatar's tile, a spark's end dot and a masked mark are drawn too.** Their SVG parts (an avatar's face, a
+spark's line and bars) were already vectors; the pieces around them were not. `tileOf` draws an avatar's
+rounded ground before its face and its ring after it (the ground leaves the photo by its fill, the ring by
+`data-pc-mark`). `dotOf` draws a sparkline's end dot over its line, and tells the overlay model the dot is
+drawn above (`drawnOver`), so the line is no longer refused as covered by it. `maskedMarkOf` draws any
+absolutely placed `::before`/`::after` painted through a `--shape-*` or `--mark-*` mask (the recommended
+card's spark) with `markOf`, its opacity on the one shape. A mark the mask reader does not model stays in
+the photo: an in-flow pseudo silently, as before, and otherwise named `mark-<reason>` in the report (a mask
+placed `left center / 1em`, a `translate`/`rotate`/`scale` property, a negative z-index under its host, a
+see-through ancestor, a cover over it). A spark's dot stays with its line when something covers it.
+`pdf-small-drawings.test.js` pins each.
 
 **A chip goes back to the photo with its words.** The reader draws an inline chip's fill when all
 its words are drawn, but the font check runs after it and can send those words back to the photo (a
@@ -554,11 +577,33 @@ hack worked around html-to-image's border-image bug.
   `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
   `full-emoji` all 11, `system-emoji` none, in every format. An emoji a pseudo-element draws (`::before{content:"🎉"}`, or the escape `"\1F389"`) counts too: the Studio's picker and the camera read the computed `content` (`pseudoContentText`, `lib/core/slide-camera.mjs`), because `textContent` never holds it. In the CLI the slice picker runs before any page exists, so it reads the deck's HTML and the author's own CSS (the front matter's `style:`, and a `--css` stylesheet that is not the shipped one), and `slicesFor` reads a CSS escape as the emoji it spells. The shipped stylesheet stays out: its own escapes would pull two slices into every deck. A PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
   (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
-  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
-  text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
-  emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
+  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use. So the PDF
+  writer draws each emoji from a picture of its glyph (160 px an em, cached once per emoji), as a glyph of a Type 3 font with a
+  ToUnicode map: the emoji and its paragraph are real text, selectable and searchable, and the picture stays sharp to about 400%
+  on body text (`pdf-emoji-text.test.js`). An emoji typed into PowerPoint later uses that machine's own emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
   `lint:deck` steer authors to drawn shapes for the glyphs that
   do a drawing's job (a check mark, an arrow).
+
+## 4a4. Small drawings in each format
+
+A slide holds small things that are drawings, not words: a check, an emoji, an icon, an avatar, a
+spark, a mark a pseudo-element paints through a `--shape-*` or `--mark-*` mask. Each format keeps
+each one as sharp, selectable or editable as it can, and the rest stays in the slide's picture. This
+table says what each format does with each, and names the test that holds it. "Photo" is the PDF's
+1x background photo (§ 4a0); "picture" is an office slide's cropped picture (§ 4).
+
+| Drawing | PDF (CLI and Studio, § 4a0) | PowerPoint / ODP, editable (§ 4) | HTML player |
+|---|---|---|---|
+| Check (`.lat-state`, `.state`, `li.state`) | Vector: rings, disc and mark path (`checkOf`). Photo when it is under a transform, an effect, a cover or a see-through group. `pdf-check-vectors.test.js` | Native shapes: the disc a box, the mark a freeform path, grouped with its pill. `calco-pseudo.test.js` | The page itself: CSS mask, any size |
+| Emoji | Real text: a Type 3 glyph that paints the emoji's picture, with a ToUnicode map, so it selects and searches (`emojiArt`, `embedEmoji`). `pdf-emoji-text.test.js` | Real text in its run, drawn by the reader's own emoji font. No emoji font is embedded: LibreOffice draws nothing for a COLR v1 face. `emoji-font-cut.test.js` | Real text in the embedded emoji font, cut to the deck's own emoji. `emoji-font-cut.test.js` |
+| Icon (inline `<svg>`) | Vector: the SVG's own paths. Photo when masked, filtered or covered | SVG picture with a PNG fallback (`svgOf`, `addSvgPictures`). `calco-svg-pictures.test.js` | The page itself: inline SVG |
+| Avatar | Vector: the tile, then the face, then the ring (`tileOf`). `pdf-small-drawings.test.js` | A group: the tile a native rounded shape, the face an SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
+| Spark | Vector: the line or bars, and the end dot over them (`dotOf`). The dot stays in the photo, with its line, when something covers it. `pdf-small-drawings.test.js` | A group: its frame a native shape, the line and dot one SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
+| Masked mark (an absolutely placed `::before`/`::after`, such as a recommended card's star) | Vector: the mask's path (`maskedMarkOf`). Photo when in flow, transformed, below its host, see-through or covered, named `mark-<reason>`. `pdf-small-drawings.test.js` | Native freeform path when the mask is one path centered in its box; picture otherwise. `calco-pseudo.test.js` | The page itself |
+
+The plain `.pptx` and picture-mode `.odp` keep every one of these in the slide's picture, and the
+Studio's worker-lane PDF keeps them in its page image (§ 4). `pipeline-drawings-table.test.js`
+fails when a test this table names is renamed or removed.
 
 ## 4a. CLI PDF output is byte-reproducible
 

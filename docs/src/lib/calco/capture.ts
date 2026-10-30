@@ -357,6 +357,12 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
   return { residual, images };
 }
 
+/** An SVG drawn in a picture's box, cut to the part of it at (`x`, `y`) of size `w` x `h` (all slide px). */
+export function svgInBox(svg: string, x: number, y: number, w: number, h: number): string {
+  const r = (v: number) => String(Math.round(v * 1000) / 1000);
+  return svg.replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `<svg $1width="${r(w)}" height="${r(h)}" viewBox="${r(x)} ${r(y)} ${r(w)} ${r(h)}"`);
+}
+
 /**
  * Put the cropped pictures into the slide's shapes. Each picture takes the box of its ink and becomes one
  * picture per piece (a photo, and the thin rule beside it); a box with no ink is no picture. Ink that no
@@ -385,6 +391,12 @@ export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pi
       // The description belongs to the first piece; the strips beside a photo are the same picture.
       const piece = { ...sh, x: img.x, y: img.y, w: img.w, h: img.h, image: fromBase64(img.data) };
       if (k > 0) delete piece.alt;
+      // A picture's SVG was drawn in the box the reader gave it; the crop is its ink, inside that box. The SVG keeps
+      // only that part (its viewBox), so it fills the same frame as the PNG. A picture split in pieces keeps none.
+      if (piece.svg) {
+        if (list.length > 1) delete piece.svg;
+        else piece.svg = svgInBox(piece.svg, img.x - sh.x, img.y - sh.y, img.w, img.h);
+      }
       next.push(piece);
     }
     if (list.length) lastPiece.set(i, next.length - 1);
