@@ -5,7 +5,7 @@
   "form": "split",
   "substance": "prose",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "heading",
       "claim",

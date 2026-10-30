@@ -475,3 +475,30 @@ section.topic:not(:has(> ul.tile-track)) {
   background-image: none;
   padding-bottom: calc(var(--sp-xl) - var(--_bar-b, 0px));
 }
+
+/* ── NARROW ROOM (the text-room rule, base.elements.css) ─────────────────────
+   The pinned eyebrow is absolute, so the section's top padding reserves it ONE line. Under ~47
+   characters a line its tracked capitals wrap ("SECTION 02 · UNIT / ECONOMICS" at square and
+   story at hall), and on a `fact` slide the second line printed over the topic name
+   (followups.d/2962-p5-…). In flow, shifted up by the same `--sp-xl` it was pinned at, it draws
+   where it did, and the name now starts below it. The section's top padding still reserves the
+   pinned eyebrow its line, so the name drops by the eyebrow's whole height (one line, or two when
+   it wraps), on every `fact` slide under ~47 characters a line; checked on the rendered pages at
+   square, portrait and story at hall. The eyebrow still holds its position as the content below
+   grows. `fact` only: the default topic's name already clears a two-line eyebrow,
+   and in flow the extra height pushed a nine-topic slide's claim into its track at portrait@hall
+   (measured: a new clip). */
+@container lattice (width < 23em) {
+  section.topic.fact > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
+    position: relative;
+    top: calc(-1 * var(--sp-xl));
+    inset-inline: auto;
+  }
+}
+/* TIGHT ROOM: the `fact` claim is set at `--fs-h1`, and under ~35 characters a line that is seven
+   lines of three words ("Fourteen / months / blended, …"), which pushed the basis line off a
+   story page at hall once the eyebrow took its true height. One display step down holds the
+   claim to about half the lines and keeps it the largest type on the slide. */
+@container lattice (width < 17em) {
+  section.topic.fact > h2 + p { font-size: var(--fs-h2); }
+}

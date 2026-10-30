@@ -184,3 +184,25 @@ section.checklist > .cell-stage > ol > li em {
   font-weight:400;
   color:var(--text-secondary);
 }
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line, the 2em mark gutter and the side padding left the row's text
+   about ten characters a line ("Done rows / take a solid / check"). The mark moves ABOVE the
+   text, the row becomes a column so a trailing pill drops under the text rather than beside
+   it, and the text takes the row's full width. The mark keeps its absolute position (both
+   pseudo-elements share it), now anchored to the top padding, which grows by the mark's own
+   height plus a step so the text clears it. The text packs from the top, under its mark: a
+   row alone on a split page fills the page, and centered text sat far below its mark. */
+@container lattice (width < 17em) {
+  section.checklist > .cell-stage > :is(ul, ol) > li {
+    flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: var(--sp-xs);
+    padding: calc(var(--sp-sm) + 1.15em * var(--state-disc-scale, 1) + var(--sp-xs)) var(--sp-md) var(--sp-sm);
+  }
+  /* The base rule right-anchors the pill with `margin-inline-start: auto`, and in a column an
+     auto margin on the cross axis takes the free space before `align-self` can: it is reset. */
+  section.checklist > .cell-stage > :is(ul, ol) > li > .lat-pill { margin-inline-start: 0; align-self: flex-start; }
+  section.checklist > .cell-stage > :is(ul, ol) > li.state::before,
+  section.checklist > .cell-stage > :is(ul, ol) > li.state::after {
+    top: var(--sp-sm); transform: none;
+  }
+}

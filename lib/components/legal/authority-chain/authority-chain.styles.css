@@ -146,14 +146,15 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:firs
  *
  * Only the variants whose rows carry the side rail. pyramid rows have different widths, so
  * their citations cannot share an x anyway; branching and the tall/strip reflow put the
- * label on its own line; trail is columns. Those keep the flex row above. */
-section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) {
+ * label on its own line; trail is columns. Those keep the flex row above. Below the NARROW
+ * text-room threshold the grid gives way to that flex row too (the collapse block below). */
+section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) {
   display:grid;
   grid-template-columns:min-content minmax(0, 1fr);
   grid-auto-rows:1fr;
   align-content:safe center;
 }
-section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) > li {
   display:grid;
   grid-column:1 / -1;
   grid-template-columns:subgrid;
@@ -162,11 +163,11 @@ section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-fami
  * items) the label's own paragraph, which the lift leaves as a <p>. Everything after it is
  * body, so a loose tier's trailing paragraph stacks under the gloss instead of auto-placing
  * into the next rail cell and wrapping a word a line. */
-section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :first-child {
+section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) > li > :first-child {
   grid-column:1;
   min-width:14cqi;
 }
-section.authority-chain:not(.trail):not(.pyramid):not(.branching):not([data-family="tall"]):not([data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :not(:first-child) {
+section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) > li > :not(:first-child) {
   grid-column:2;
 }
 
@@ -315,6 +316,11 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
    tall/strip box the 14cqi rail squeezes the label, so collapse each row
    to a single column — tier label over body.
 
+   NARROW ROOM (the text-room rule, base.elements.css). This block keyed off the deck's
+   `data-family` (tall and strip) until 2026-10-29; it is now keyed on text room, so a box
+   under ~47 characters a line collapses the rail whatever its shape. That adds square@hall
+   (21em), which has the room of a portrait box at laptop, and leaves square at laptop (32em)
+   on the rail, as the history below asks.
    TALL AND STRIP ONLY — square keeps the rail. This block was authored to
    include square, on the reasoning above, but square never matched (#1218) so
    the result was never seen: collapsing the rail makes every row taller, and the
@@ -329,14 +335,23 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
    class + the variant guards win on specificity. */
 /* Collapse the tier-label rail: the label fills row 1 (flex-basis:100%) so the body wraps
    onto its own line below — tier label over body. */
-section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
-  row-gap: var(--sp-xs);
-  align-items: start;
-  align-content: start;
-}
-section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > strong:first-child,
-section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
-  flex: 0 0 100%;
+@container lattice (width < 23em) {
+  /* The tier label's fixed 14cqi basis is narrower than a tracked uppercase label at a large
+     venue ("STATUTE" at square@hall), and on `bracket`, which keeps its row here, the label ran
+     into the citation beside it. It sizes to its content, 14cqi at the least. */
+  section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child { flex: 0 0 auto; min-width: 14cqi; }
+  /* The side-rail grid (above) gives way to the base flex row, so the label can take a line. */
+  section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) { display: flex; }
+  section.authority-chain:not(.trail):not(.pyramid):not(.branching) > .cell-stage > :is(ol, ul) > li { display: flex; }
+  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li {
+    row-gap: var(--sp-xs);
+    align-items: start;
+    align-content: start;
+  }
+  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li > strong:first-child,
+  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
+    flex: 0 0 100%;
+  }
 }
 
 
@@ -348,4 +363,15 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li {
 }
 section.authority-chain > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line, the tier label's fixed 14cqi column ("STATUTE", tracked wide)
+   left the citation and prose about fourteen characters a line ("Congress, / 1998. Binds /
+   nationwide."). The row already wraps, so the label takes the whole first line and the
+   citation and prose take the full width under it. The default (non-pyramid) grid form is
+   wide-family only, so this reaches every variant that sets the label beside its text. */
+@container lattice (width < 17em) {
+  section.authority-chain > .cell-stage > :is(ol, ul) > li { row-gap: var(--sp-2xs); }
+  section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child { flex-basis: 100%; }
 }

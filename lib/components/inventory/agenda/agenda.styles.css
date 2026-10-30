@@ -321,3 +321,41 @@ section.agenda.checks.progress-6 ol > li:nth-child(6)::after {
 section.agenda.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
   align-items: center;
 }
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line (portrait or story at conference and hall), the ledger's
+   ordinal on the left and its page reference on the right leave the title about a third of
+   the frame: "One line per stop, ten words max" set three lines of eleven characters. So the
+   row turns to a column: the ordinal (or the "you are here" arrow) sits above the title, the
+   page reference below it, and the title takes the full width. `cards` and `rail` do the same
+   (below). `circles` and `checks` keep their row: their marker is small enough that the title
+   keeps room at every box the harness measures.
+   Repeating the class reaches (0,6,3), past the ledger's `:not()` chain (0,5,3), and the
+   lone-member rule's `align-items: center` is restated as `justify-content`, its axis once
+   the row is a column. */
+@container lattice (width < 17em) {
+  section.agenda.agenda.agenda.agenda.agenda.agenda:not(.circles):not(.rail):not(.checks) ol > li {
+    flex-direction: column; align-items: flex-start; row-gap: var(--sp-2xs);
+  }
+  section.agenda.agenda.agenda.agenda.agenda.agenda:not(.circles):not(.rail):not(.checks) ol > li code {
+    flex: none; text-align: start; padding: 0;
+  }
+  section.agenda.lat-split-native.lat-split-native.lat-split-native:not(.circles):not(.rail):not(.checks) > .cell-stage > ol > li:only-child {
+    align-items: flex-start; justify-content: center;
+  }
+  /* the current row's arrow centered itself on the row's cross axis, which is now across */
+  section.agenda.agenda.agenda.agenda.agenda.agenda:not(.circles):not(.rail):not(.checks) ol > li::before {
+    align-self: flex-start;
+  }
+  /* `rail` stacks too. A smaller ring in its row (2.2em to 1.6em, gap halved) was measured
+     first and still set "This variant / swaps the / marker" at story@hall: the gutter costs a
+     fifth of a 14em frame whatever the ring's size. Stacked, the ring heads its title and the
+     journey line goes, since it would run through the text under each ring. */
+  section.agenda.rail ol::before { content: none; }
+  section.agenda.agenda.agenda.agenda.agenda.agenda.rail ol > li {
+    flex-direction: column; align-items: flex-start; row-gap: var(--sp-2xs); padding-inline-start: 0;
+  }
+  section.agenda.lat-split-native.lat-split-native.lat-split-native.rail > .cell-stage > ol > li:only-child {
+    align-items: flex-start; justify-content: center;
+  }
+}
