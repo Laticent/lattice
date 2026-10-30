@@ -410,6 +410,45 @@ describe('fix', () => {
 		expect(res.skipped.map((s) => s.reason)).toContain('cycle');
 	});
 
+	it('lists a fix refused as broke-structure once, never again as out of passes', () => {
+		// The out-of-passes sweep used to add `max-passes` for every finding still fixable, a blocked one
+		// included, which told the author to press Fix all again for a fix that can never land.
+		const sep: Producer = {
+			id: 'sep',
+			produce(s) {
+				const at = s.text.indexOf('===');
+				return at < 0 ? [] : [{ rule: 'legacy/sep', severity: 'error', span: { from: at, to: at + 3 }, message: 'a separator', fixes: [editsFix('Delete it.', { op: 'deleteLine', span: { from: at, to: at + 3 } })] }];
+			},
+		};
+		const res = fix(rules, src('TODO\n===\nTODO\n'), { producers: [sep], maxPasses: 1 });
+		expect(res.skipped.filter((s) => s.rule === 'legacy/sep').map((s) => s.reason)).toEqual(['broke-structure']);
+	});
+
+	it('drops a broke-structure refusal whose finding a later fix resolved', () => {
+		// `Z` asks for the separator after it to go, which would merge two units: refused. Another rule
+		// lowers the `Z` in the same pass, so the finding is gone, and "not applied" would mislead.
+		const zsep: Producer = {
+			id: 'zsep',
+			produce(s) {
+				const z = s.text.indexOf('Z');
+				const at = s.text.indexOf('===');
+				return z < 0 || at < 0 ? [] : [{ rule: 'legacy/zsep', severity: 'error', span: { from: at, to: at + 3 }, message: 'Z wants no separator', fixes: [editsFix('Delete it.', { op: 'deleteLine', span: { from: at, to: at + 3 } })] }];
+			},
+		};
+		const lower: Producer = {
+			id: 'lower',
+			produce(s) {
+				const z = s.text.indexOf('Z');
+				return z < 0 ? [] : [{ rule: 'legacy/z', severity: 'warning', span: { from: z, to: z + 1 }, message: 'a capital Z', fixes: [editsFix('Lower it.', { op: 'replace', span: { from: z, to: z + 1 }, text: 'z' })] }];
+			},
+		};
+		const res = fix(rules, src('Z\n===\nb\n'), { producers: [zsep, lower] });
+		expect(res.text).toBe('z\n===\nb\n');
+		expect(res.skipped).toEqual([]);
+		// Without the lowering rule the refusal stands.
+		expect(fix(rules, src('Z\n===\nb\n'), { producers: [zsep] }).skipped.map((s) => s.reason)).toEqual(['broke-structure']);
+	});
+
 	it('reports what was still fixable when it runs out of passes', () => {
 		const chain: Producer = {
 			id: 'chain',

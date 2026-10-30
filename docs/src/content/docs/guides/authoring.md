@@ -242,7 +242,9 @@ your cursor is. This runs in **both** the [Studio](/studio/) and the
 Applying them differs by surface. In the Studio, the deck drawer's **Fix all
 issues** applies every mechanical fix at once. In the Playground, **F8** /
 **Shift-F8** jump between findings, **Ctrl-Shift-M** opens the lint panel, and
-**Alt-Shift-F** applies every mechanical fix in the deck.
+**Alt-Shift-F** applies every mechanical fix in the deck. Both say what they
+fixed when they finish, and name any fix they did not apply, by slide and
+reason, so an underline that stays comes with an explanation.
 
 Validation is **on by default**. To turn it off for a deck, flip **Inline
 validation** off in the Deck setup drawer (or write `validate: off` in front

@@ -1486,7 +1486,18 @@ does not carry it (`lintCoreGz`, parent note §10.4).
   `applyFix` now calls). That walk skips lines inside code fences: a fix used to land on an identical fenced copy
   above the live line for every rule matched on line text (eleven rules, measured by the fix diff's fourth corpus),
   and a finding only a fence matches has no fix at all. The card, ledger, split and number-slot rules also read
-  their slide with fences blanked and record the line's `chunkLine`.
+  their slide with fences blanked and record the line's `chunkLine`. On 2026-10-29 nine more rules followed (the five
+  gantt task rules, `unknown-map-region`, `statement-ol-bold`, `check-label-code`, `video-bullet`), found by moving
+  every reported line of the lint tests' inputs into a fence one at a time and relinting. Those nine read no fences
+  before, so they use a stricter reader, `certainFencedLines` (lib/core/shape-glyphs.js): the maker-checker review
+  showed `fencedLines` reads more as code than markdown-it does (an unclosed fence runs to the end of the text; a
+  stray ``` in a list item, an HTML block or a speaker note pairs with a later fence), which silenced live lines when
+  these rules adopted it. `certainFencedLines` marks only a closed fence opened at column 0 outside any HTML block, and
+  stops marking at anything it cannot read exactly. Fuzzed against markdown-it on 1.2 million random documents (up to 60 line shapes),
+  it marked no line the renderer draws, while catching about a sixth of all code lines. So these rules skip a top-level
+  fenced example and still report one inside a list item, as they did before. `fencedLines` itself, and every rule
+  that already used it, is unchanged. `test/unit/authoring/lint-fenced-lines.test.js` pins both directions, and
+  lint-core's `withoutFencedFixes` stays as the backstop for a rule that regresses.
 - **`lattice-line` runs `applyFix` itself** and lowers its result to the one smallest edit, anchored at the start of
   the line the fix names (a head matched past it would slide a deletion onto the next line when the two share a
   prefix). So every unmigrated rule keeps its exact rewrite, PR #2947's `dropEmptiedFrontMatter` included, and the
@@ -1503,8 +1514,13 @@ does not carry it (`lintCoreGz`, parent note §10.4).
 - **The legacy-shape adapter is not needed yet.** "Fix all" returns text, so no consumer reads a Squadra finding
   before M1b; the adapter lands with the first migrated rule.
 - **`lint:deck --fix` prints every refusal** with its rule, slide and reason, so a refused fix never reads as
-  "nothing to fix". The Studio's "Fix all" still shows only the result; surfacing `skipped` there is a Studio change
-  of its own.
+  "nothing to fix". The Studio's "Fix all" and the Playground's Alt-Shift-F say the same in a notice (2026-10-29):
+  the count applied, then each refusal by slide, rule and reason in plain words (`docs/src/lib/fix-all-notice.ts`,
+  shared by both apps). The one refusal a real deck reaches is the pass cap: 501 inline-title cards on one slide. Showing
+  refusals to authors made two driver edges visible, both fixed in `fix.ts` the same day: the out-of-passes sweep
+  no longer lists a fix already refused as `broke-structure` a second time (with a "press Fix all again" that could
+  never work), and a `broke-structure` refusal whose rule reports nothing in the final text is dropped, because a
+  later pass resolved that finding another way.
 
 ### 15.5 Milestones as they touch Lattice
 

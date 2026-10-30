@@ -680,10 +680,14 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			const cur = view.state.doc.toString();
 			if (!readFrontMatter(cur).validate) return;
 			followAdmission(cur);
-			const out = lintCoreMod.applyAllFixes(cur, buildVocabSets(vocab));
-			if (out != null && out !== cur) {
-				view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: out } });
+			const res = lintCoreMod.fixAllDetailed(cur, buildVocabSets(vocab));
+			if (res.text !== cur) {
+				view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: res.text } });
 			}
+			// Name each fix the driver refused, as the Studio's Fix all does: a refused fix keeps its underline.
+			// Loaded here, not imported: a static import added this chunk to the Playground island's
+			// preload list, which is first-paint JS (docs/route-budget.json, playground eagerJsGz).
+			(await import('../lib/fix-all-notice')).announceFixAllByEvent({ applied: res.applied.length, skipped: res.skipped });
 		})();
 		return true;
 	};

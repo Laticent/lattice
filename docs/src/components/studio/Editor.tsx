@@ -11,6 +11,7 @@ import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
+import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
@@ -687,8 +688,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 					await core.loadFixDriver();
 					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
 					const cur = v.state.doc.toString();
-					const out = core.applyAllFixes(cur, vocabSets);
-					if (out != null && out !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
+					const res = core.fixAllDetailed(cur, vocabSets);
+					if (res.text !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: res.text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
+					// Say what it did, naming each fix the driver refused (a refused fix keeps its underline).
+					// The wording loads here, after the click: the Studio's first paint is at its route-budget
+					// ceiling (docs/route-budget.json, eagerJsGz), and a static import put it there.
+					(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied.length, skipped: res.skipped }, notify);
 				})();
 				return;
 			}

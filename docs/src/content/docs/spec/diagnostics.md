@@ -453,9 +453,13 @@ apply it without prompting the author. The reference implementation exposes:
 - `applyFix(source, finding)` — applies an autofixable finding to the document,
   scoped to the finding's slide so an identical line elsewhere is untouched. The
   rewrite is computed from the located source line, so its indentation is kept.
-- `applyAllFixes(source, vocab)` — applies every autofixable finding in one pass
-  loop (re-linting between fixes, since each shifts line numbers), returning the
-  fully-fixed source. Backs the Studio's "Fix all issues" and an editor command.
+- `fixAllDetailed(source, vocab)` — applies every autofixable finding through
+  Squadra's fix driver, which batches non-overlapping fixes, re-lints between
+  passes and refuses a fix that would change the slide count, edit a code fence
+  or leave its finding in place. Returns `{ text, applied, skipped, passes }`;
+  each `skipped` entry names the rule, slide and reason. Backs the Studio's
+  "Fix all issues", which reports the refusals, and an editor command.
+- `applyAllFixes(source, vocab)` — `fixAllDetailed(source, vocab).text`.
 
 A conformant L2 tool MAY implement its own fixer; it MUST NOT mark a finding
 `autofixable` unless the rewrite is deterministic and unique.

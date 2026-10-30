@@ -193,6 +193,11 @@ in M1a reads YAML, so it moves to M1b, where `lattice-deck`'s front-matter islan
 and directive islands (P3). As of 2026-10-28, `main` has the pipeline's census harness (P0) and native-run code
 generation (G6), not `deckModel`. M1a does not need the pipeline and can start now.
 
+**Still waiting (2026-10-29).** `main` at `09d6b11` has no `deckModel`, and the one open Segno PR (#2980) does not
+build it, so M1b did not start. The reference YAML language waits with it: its first reader is the front-matter
+island, which is pipeline P3. What the swimlane could do without the pipeline it did: no lint rule reports a fenced
+line, and "Fix all" names every fix it refused (design §15.4).
+
 ## 7. Proving it is generic
 
 "General-purpose" is a claim about Lattice's own shapes until something else uses it. Lattice already supplies three
