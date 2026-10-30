@@ -585,4 +585,54 @@ rendered at hd, at laptop and at hall, with `main`'s stylesheet and this one, ar
 not built, so the opt-in fluid viewer, whose slide follows the window, can cross a threshold on a
 raw resize. Every export and every preset box is fixed and cannot. Tier 2 (text components that
 clip) and the general table form (label/value cards from a column-label stamp, which tables
-outside statute-stack need) are the next tier; charts are tier 3 (§14).
+outside statute-stack need) are the next tier; charts are tier 3 (§15).
+
+
+## 14. The carousel template: the presentation half (2026-10-30)
+
+The owner's rulings for a split run (followups.d/2962-p6-carousel-template.md) come in two halves.
+The PRESENTATION half is built: the title and eyebrow appear on the cover only; a content page
+carries no running header, repeated heading, "(cont.)", pointer pill, progress rail or page number;
+the ending page drops the title; and every content page starts on one line at the top of its stage,
+its member at natural height, where the lone-member rules had centered it in a page-tall box. It is
+CSS on the role stamp every split page carries (`data-split-role`, split-envelope.js `withRole`),
+so the envelope's markup and its conservation are unchanged, and a 16:9 deck, which never splits,
+is untouched. A deck's `meta:` line (a date, an owner, a "Confidential" marking) stays on every
+page: it docks in the masthead's bay, which the cover does not carry, so only the masthead's
+heading half is hidden.
+
+**Checked.** An independent checker found the first cut covering only the shared envelope's pages:
+on the read-across strategies (compare-prose, split-panel, list-tabular, decision) the heading
+repeated as a `.split-runhead`, the pointer pill sat straight under the section where a descendant
+selector could not reach it, the page centered its content, and the k-of-N rail survived at section
+level on a deck with `paginate: false`; a lone table row (glossary) stayed centered by a heavier
+rule; and hiding the whole masthead dropped the `meta:` line from the run. Each is fixed and
+checked on a real render (glossary, compare-prose and checklist at story with `meta:` and
+`paginate: false`). compare-code's runhead is kept: it is the code block's own label.
+`test/unit/css/split-signal-scope.test.js` now pins that every page shape hides the signal, and
+still pins its chrome styling on a cover-stamped copy of each shape.
+
+The DENSITY half is not: a slide that fits whole stays a normal slide, no member is left alone on a
+page, pages are 60 to 85% full, a paired unit never splits, one type scale runs through a carousel.
+Each needs a measured decision, and today's split is structural, one member a page (`planSlide`,
+docs/src/lib/fluido/plan.ts). A measured cut in the CLI alone would make the CLI and the Studio split
+one deck differently (HARD RULE #1); the measured plan is Fluid's P2.
+
+**Measured** (the nightly's six cells, 94 galleries, against the §13 baseline): clipped
+slide-cells 1,084 to 848, unreadable 0 to 0, lost 246 to 246, and no count rose. The space the
+repeated heading took is what most of the 236 recovered. Getting there took four fixes the corpus
+run found and no unit test would have: a lone card in a row collection held at its max-content width
+(its text ran off every narrow page), a lone matrix-2x2 quadrant cut to its title (`overflow:
+hidden` drops a flex item's minimum height to 0), a lone kpi tile one track wide in its grid, and
+pages that used to clip and now fit but read crammed (regulatory-update `diff-bands` rows, pricing's
+"MOST POPULAR" ribbon printing over a long tier name), each fixed in its component at the narrow
+threshold.
+
+**Judged.** An independent judge scored contact sheets of two decks (a six-slide demo,
+`examples/carousel-split.md`, and `examples/auto-split.md`) in indaco, indaco-dark and cuoio, at
+portrait and story, against today's split: 3.5 to 4.5 and 2.5 to 3.5 out of 10, "better by about one
+point", a modest net gain to ship. Its three costs: pages mostly empty (one member a page, unchanged),
+a start line that moved with each member's length (fixed since: the top-anchored start), and
+`examples/auto-split.md` describing the old split (corrected). It put the ceiling without packing at
+5 to 5.5, and with packing and fit-whole at 8 to 8.5; 9 needs a judgment of real packed pages. It also
+named one real loss: the page counter is gone, which a 14-member run feels.
