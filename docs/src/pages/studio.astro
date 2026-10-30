@@ -387,7 +387,7 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 :root[data-ssr-read] #studio-ssr-shell .ssr-panehdr{display:none;}
 /* The footer is two stacked bands: the slide navigator, then the deck status strip. At Read
    it is one undivided affordance band (footerRead), so the inner rows are dropped. */
-#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;min-height:var(--sh-ftr,0px);border-top:1px solid var(--border,rgba(127,127,127,.16));}
+#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;min-height:var(--sh-ftr,0px);border-top:1px solid var(--border,rgba(127,127,127,.16));container-type:inline-size;}
 /* The footer's internal split is a CONSTANT, not the natural height of the placeholder text:
    statusH is what the app measures, and the oracle compares this band to it. Pin the status
    row to it and let the navigator take the remainder, so the two rows land on the app's own

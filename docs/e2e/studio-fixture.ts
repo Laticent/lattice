@@ -152,8 +152,8 @@ export const CHROME = {
 	assetVersions: 'Earlier versions of',
 	/**
 	 * The add-slide gallery's door, "New slide" (2026-10-27-slide-structure-strip.md §5): ONE visible door
-	 * at a time, under one name. Desktop and tablet draw it at the end of the slide strip, and in the editor
-	 * header only while the preview is collapsed; a phone draws a round door in both panes, so two controls
+	 * at a time, under one name. It leads the slide strip (the owner's call, 2026-10-30), and the editor header
+	 * draws one only while the preview is collapsed; a phone also floats one over the edit pane, so two controls
 	 * carry the name there and only the current pane's is visible. The command palette's entry reads
 	 * "New slide…", and the Compose divider keeps its own "Add slide below". Match it `exact: true`
 	 * (as `openAddSlide` does): a bare name would also match the palette's entry while the palette is open.

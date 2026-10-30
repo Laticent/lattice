@@ -4,10 +4,13 @@
 // (SlidePicker), under ONE accessible name, "New slide", so a lesson, a tour or a spec finds the door by name wherever
 // it sits:
 //
-//   · `fab`    — the owner's call: a floating "+ New slide" pill over the preview, like Gmail's Compose, so it
-//                stands out at every width; noticeable, not huge (40px tall, 44px on a coarse pointer, the touch
-//                floor). The host places it (bottom-right of the stage, above the strip); on a phone the edit
-//                pane floats one too.
+//   · `strip`  — the owner's call (2026-10-30, replacing the floating door over the preview, which covered the
+//                bottom-right of tall slides): the first thing in the slide strip, ahead of the pills or the map.
+//                It is the pills' height (32px) and reaches the 44px touch floor through its ::after, so the strip
+//                keeps its height; its label shows only when the preview pane is 30rem wide or more. The split and
+//                the confirmation float ABOVE it instead of replacing it, so nothing in the strip moves.
+//   · `fab`    — a floating "+ New slide" pill: now only the phone's edit pane, where no strip is on screen
+//                (40px tall, 44px on a coarse pointer, the touch floor).
 //   · `header` — the editor's toolbar, drawn only while the preview (and so the floating door) is collapsed away.
 //
 // WHERE IT GOES IS ASKED HERE, not after. A tap splits the pill in place into "Before this slide | After this slide"
@@ -31,13 +34,19 @@ const QUIET = 'border border-[var(--accent)] bg-card text-[var(--accent)] hover:
 // so it reads as a message and not as the door (the owner's calls from their iPhone, 2026-10-28).
 const NOTE = 'border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] text-[var(--text-heading)] backdrop-blur';
 
-export function NewSlideButton({ variant, onChoose, confirmation = null, className }: { variant: 'fab' | 'header'; onChoose: (side: NewSlideSide) => void; confirmation?: string | null; className?: string }) {
+export function NewSlideButton({ variant, onChoose, confirmation = null, className }: { variant: 'fab' | 'strip' | 'header'; onChoose: (side: NewSlideSide) => void; confirmation?: string | null; className?: string }) {
 	const [split, setSplit] = React.useState(false);
 	const groupRef = React.useRef<HTMLFieldSetElement>(null);
 	const fab = variant === 'fab';
-	// Sizes per variant: the fab is the 40px pill (44px on touch), the header door the toolbar's small chip.
-	const size = fab ? 'h-10 gap-1.5 rounded-xl px-3 text-[13px] [@media(pointer:coarse)]:h-11' : 'gap-1.5 rounded-lg px-2.5 py-1 text-[12px]';
-	const icon = fab ? 'size-[18px]' : 'size-3.5';
+	const strip = variant === 'strip';
+	// Sizes per variant: the fab is the 40px pill (44px on touch), the strip door the pills' 32px with a 44px hit area
+	// on touch, the header door the toolbar's small chip.
+	const size = fab
+		? 'h-10 gap-1.5 rounded-xl px-3 text-[13px] [@media(pointer:coarse)]:h-11'
+		: strip
+			? "relative h-8 justify-center gap-1.5 rounded-lg px-2.5 text-[12px] [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:-inset-y-1.5 [@media(pointer:coarse)]:after:content-['']"
+			: 'gap-1.5 rounded-lg px-2.5 py-1 text-[12px]';
+	const icon = fab ? 'size-[18px]' : strip ? 'size-4' : 'size-3.5';
 	const base = cn('inline-flex shrink-0 items-center font-sans font-semibold normal-case tracking-normal transition-colors', fab ? 'shadow-md' : 'shadow-sm', size);
 
 	// How the split was opened. Only a mouse or the keyboard moves focus to After: a touch screen keeps focus where it
@@ -80,14 +89,13 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 		choose(side);
 	};
 
-	if (split) {
-		return (
+	const splitGroup = (
 			<fieldset
 				ref={groupRef}
 				aria-label={NEW_SLIDE}
 				data-new-slide={variant}
 				data-split=""
-				className={cn('m-0 inline-flex min-w-0 items-center gap-1 border-0 p-0', className)}
+				className={cn('m-0 inline-flex min-w-0 items-center gap-1 border-0 p-0', strip && 'absolute bottom-[calc(100%+8px)] left-0 z-30 w-max rounded-xl border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] p-1 shadow-md backdrop-blur', strip ? undefined : className)}
 				onKeyDown={(e) => {
 					if (e.key === 'Escape') {
 						e.stopPropagation();
@@ -110,8 +118,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 					After this slide
 				</button>
 			</fieldset>
-		);
-	}
+	);
 
 	// The announcement lives outside both forms, so it is in the page before the text arrives and a screen reader hears it.
 	const live = (
@@ -122,17 +129,12 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 
 	// While it reports what it just did, the door is a MESSAGE, not a button: a tap on it does nothing (the owner's call:
 	// "for it to add a new slide is astonishing"). The door comes back when the host clears `confirmation`.
-	if (confirmation) {
-		return (
-			<>
-				<div data-new-slide={variant} data-confirming="" className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', className)}>
+	const note = (
+				<div data-new-slide={variant} data-confirming="" className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', strip ? 'absolute bottom-[calc(100%+8px)] left-0 z-30 h-8 w-max whitespace-nowrap' : className)}>
 					<Check className={cn(icon, 'text-[var(--accent)]')} aria-hidden />
 					<span className="truncate">{confirmation}</span>
 				</div>
-				{live}
-			</>
-		);
-	}
+	);
 
 	const pill = (
 		<button
@@ -142,7 +144,9 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 			onTouchStart={() => {
 				lastTouch.current = Date.now();
 			}}
+			aria-disabled={confirmation ? true : undefined}
 			onClick={(e) => {
+				if (confirmation) return;
 				// Who opened it: a finger (a touch just before this click), the keyboard (a click with no pointer: Enter,
 				// Space), or a mouse.
 				openedBy.current = Date.now() - lastTouch.current < 800 ? 'touch' : e.detail === 0 ? 'keyboard' : 'mouse';
@@ -151,9 +155,30 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 			className={cn(base, FILL, 'max-w-[min(22rem,calc(100vw-2rem))]', className)}
 		>
 			<Plus className={icon} aria-hidden />
-			<span className="truncate">{NEW_SLIDE}</span>
+			<span className={cn('truncate', strip && 'hidden @[30rem]:inline')}>{NEW_SLIDE}</span>
 		</button>
 	);
+	// In the strip the door never leaves its place: the split and the message float above it, so the pills or the map
+	// beside it do not move.
+	if (strip) {
+		return (
+			<span className={cn('relative inline-flex shrink-0', className)}>
+				<Tip label="New slide, before or after this one">{pill}</Tip>
+				{split && splitGroup}
+				{confirmation && !split && note}
+				{live}
+			</span>
+		);
+	}
+	if (split) return splitGroup;
+	if (confirmation) {
+		return (
+			<>
+				{note}
+				{live}
+			</>
+		);
+	}
 	return (
 		<>
 			{fab ? pill : <Tip label="New slide, before or after this one">{pill}</Tip>}

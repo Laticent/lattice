@@ -505,11 +505,11 @@ describe('Studio — every top-bar control responds', () => {
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
 		const start = railCount();
 		// Open the add-slide gallery. ONE visible door at a time (2026-10-27-slide-structure-strip.md §5):
-		// with the preview open it is the "New slide" floating over the preview, and the editor header draws none.
-		// Five doors under two names was the defect this pins.
+		// with the preview open it is the "New slide" at the head of the slide strip (the owner's call, 2026-10-30), and
+		// the editor header draws none. Five doors under two names was the defect this pins.
 		const launchers = screen.getAllByRole('button', { name: 'New slide' });
 		expect(launchers.length).toBe(1);
-		expect(launchers[0].getAttribute('data-new-slide')).toBe('fab');
+		expect(launchers[0].getAttribute('data-new-slide')).toBe('strip');
 		await user.click(launchers[0]);
 		await user.click(screen.getByRole('button', { name: 'New slide after' }));
 		const dialog = await screen.findByRole('dialog', { name: 'New slide' });
