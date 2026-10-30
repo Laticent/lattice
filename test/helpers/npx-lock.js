@@ -21,7 +21,9 @@ const LOCK = path.join(os.tmpdir(), 'lattice-npx-fetch.lock');
 // So the fetching call gets at least this long. Retrying instead would restart into the cache a
 // killed download can leave half-written, which is the corruption the lock below exists to prevent.
 const FETCH_TIMEOUT_MS = 5 * 60 * 1000;
-const WAIT_MS = 5 * 60 * 1000;
+// Longer than one fetch, so a process waiting behind a fetch that runs to its cap still gets the
+// lock instead of giving up and running unlocked into the half-written cache.
+const WAIT_MS = FETCH_TIMEOUT_MS + 2 * 60 * 1000;
 const STALE_MS = 10 * 60 * 1000;
 let warmed = false;
 
@@ -57,4 +59,4 @@ function npxSync(args, opts) {
   }
 }
 
-module.exports = { npxSync };
+module.exports = { npxSync, FETCH_TIMEOUT_MS, WAIT_MS };
