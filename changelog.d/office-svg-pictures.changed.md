@@ -1,0 +1,1 @@
+- In an editable PowerPoint or ODP export, icons, avatars and sparks are stored as SVG beside their picture, so PowerPoint (2016 and later) and LibreOffice draw them sharp at any size. Older readers still show the picture.

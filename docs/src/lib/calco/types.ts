@@ -179,6 +179,12 @@ export interface Shape {
 	alt?: string;
 	/** A picture that holds a raster image (an `<img>`, a video poster, a canvas): lossy JPEG is fine for it. */
 	photo?: boolean;
+	/**
+	 * A picture that is one inline `<svg>` of plain shapes (an icon, an avatar's face, a spark): the same drawing as SVG
+	 * markup in the picture's own box, in slide px. A writer stores it beside `image`, which stays the fallback for a
+	 * reader that cannot draw SVG; PowerPoint and LibreOffice draw this one, sharp at any size.
+	 */
+	svg?: string;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */

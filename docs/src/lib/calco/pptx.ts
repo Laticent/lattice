@@ -66,6 +66,8 @@ const GRAD_TAG = 'calco-grad-';
 const gradTag = (g: Gradient | undefined) => (g ? `${GRAD_TAG}${g.angle}~${g.stops.map((st) => `${st.pos}:${st.color.replace('#', '')}:${st.alpha}`).join('~')}|` : '');
 /** The name prefix that marks a slide's content picture until tidyPptx locks it. */
 const LOCK_TAG = 'calco-lock|';
+/** A picture that also has an SVG (`Shape.svg`): `calco-svg-<index into the deck's list>|`, read and removed by `addSvgPictures`. */
+const SVG_TAG = 'calco-svg-';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
 const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
 /** The layout's title placeholder: PptxGenJS numbers a layout's first placeholder 100. */
@@ -149,6 +151,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const points = (px: number) => Math.round(px * ptScale * 100) / 100;
 
 	const pptx = new PptxGenJS();
+	// The SVG of each picture that has one, in the order the pictures are written; `addSvgPictures` adds them.
+	const svgs: string[] = [];
+	(pptx as unknown as { calcoSvgs: string[] }).calcoSvgs = svgs;
 	// PptxGenJS escapes markup in the document properties, but not control characters.
 	pptx.title = xmlSafe(deck.title || '').trim() || 'deck';
 	if (deck.subject) pptx.subject = xmlSafe(deck.subject);
@@ -310,7 +315,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				if (item.shape.kind === 'picture') {
 					const pic = item.shape;
 					if (pic.image?.length) {
-						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}Picture ${n}.${item.index + 1}` });
+						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}${pic.svg ? `${SVG_TAG}${svgs.push(pic.svg) - 1}|` : ''}Picture ${n}.${item.index + 1}` });
 					}
 					continue;
 				}
@@ -762,17 +767,58 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 }
 
 /**
+ * Give each tagged picture its SVG (`Shape.svg`): the drawing as `ppt/media/calco-svg-N.svg`, related from the slide, and
+ * an `asvg:svgBlip` extension in the picture's `a:blip`, the way PowerPoint itself stores an SVG. The PNG that PptxGenJS
+ * wrote stays the blip's own image: the fallback a reader without SVG (PowerPoint before 2016) draws. PptxGenJS can write
+ * an SVG itself, but under Node it writes a broken placeholder for that fallback, so Calco adds the SVG after.
+ */
+async function addSvgPictures(zip: ZipLike, svgs: string[]): Promise<void> {
+	if (!svgs.length) return;
+	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
+	const SVG_EXT = '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
+	let used = false;
+	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))) {
+		let xml = await text(name);
+		if (!xml.includes(SVG_TAG)) continue;
+		const relsName = name.replace('slides/', 'slides/_rels/').replace(/\.xml$/, '.xml.rels');
+		let rels = await text(relsName);
+		xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) => {
+			const m = pic.match(/calco-svg-(\d+)\|/);
+			if (!m) return pic;
+			const svg = svgs[Number(m[1])];
+			const out = pic.replace(m[0], '');
+			if (!svg) return out;
+			const media = `calco-svg-${m[1]}.svg`;
+			const rid = `rIdCalcoSvg${m[1]}`;
+			zip.file(`ppt/media/${media}`, svg);
+			rels = rels.replace('</Relationships>', `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${media}"/></Relationships>`);
+			used = true;
+			const ext = `<a:extLst><a:ext uri="${SVG_EXT}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${rid}"/></a:ext></a:extLst>`;
+			// The blip PptxGenJS wrote: self-closing, or with children of its own.
+			return out.replace(/<a:blip ([^>]*?)\/>/, `<a:blip $1>${ext}</a:blip>`).replace(/<a:blip ([^>]*[^/])>(?![\s\S]*svgBlip)/, `<a:blip $1>${ext}`);
+		});
+		zip.file(name, xml);
+		zip.file(relsName, rels);
+	}
+	if (used) {
+		const types = await text('[Content_Types].xml');
+		if (!types.includes('Extension="svg"')) zip.file('[Content_Types].xml', types.replace('<Default ', '<Default Extension="svg" ContentType="image/svg+xml"/><Default '));
+	}
+}
+
+/**
  * Add the embedded faces to a written package: `ppt/fonts/calco-fontN.fntdata` (EOT), a font
  * relationship from the presentation part, the `fntdata` content type, and
  * `p:embeddedFontLst` right after `p:notesSz` (where the schema puts it), with
  * `embedTrueTypeFonts="1"` on the presentation. The package is tidied first (`tidyPptx`),
  * so an empty `faces` only tidies.
  */
-export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: Array<{ face: EmbeddedFont; name: string; slot?: FaceSlot }>, outputType = 'uint8array'): Promise<T> {
+export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: Array<{ face: EmbeddedFont; name: string; slot?: FaceSlot }>, outputType = 'uint8array', svgs: string[] = []): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
 	// PptxGenJS's `STREAM` is a Node buffer; JSZip has no stream output on every platform.
 	if (outputType === 'STREAM') outputType = 'nodebuffer';
 	await tidyPptx(zip);
+	await addSvgPictures(zip, svgs);
 	if (!faces.length) return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 	const read = async (name: string) => {
 		const f = zip.file(name);
@@ -849,6 +895,7 @@ export async function tidyPptxPackage<T = Uint8Array>(JSZip: JSZipClass, bytes: 
 export async function writePptx<T = Uint8Array>(PptxGenJS: PptxGenJSClass, deck: Deck, outputType = 'uint8array', JSZip?: JSZipClass): Promise<T> {
 	if (!JSZip) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
 	const plan = planEmbedding(deck);
-	const raw = (await buildPptx(PptxGenJS, deck, { ...(plan.faces.length ? { embedded: plan } : {}), groups: true }).write({ outputType: 'uint8array' })) as Uint8Array;
-	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType);
+	const built = buildPptx(PptxGenJS, deck, { ...(plan.faces.length ? { embedded: plan } : {}), groups: true });
+	const raw = (await built.write({ outputType: 'uint8array' })) as Uint8Array;
+	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType, (built as unknown as { calcoSvgs?: string[] }).calcoSvgs || []);
 }

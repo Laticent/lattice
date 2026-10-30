@@ -247,6 +247,15 @@ pinner. Two modes:
   per weight.
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
+  **A picture that is one inline SVG is also SVG** (an icon, an avatar's face, a spark and its end dot). The
+  reader writes the drawing as SVG markup in the picture's box (`svgOf`, `reader.ts`): plain shapes under their
+  screen transform folded into slide px, computed colors as SVG 1.1 `#rrggbb` plus an opacity (no office
+  reader reads `color(srgb …)`), the clips the browser drew it under, and a non-scaling stroke baked into slide
+  px. `placePictures` cuts it to the crop's box. The `.pptx` stores it as PowerPoint does, an `asvg:svgBlip`
+  extension on the PNG's blip (`addSvgPictures`, after PptxGenJS, which writes a broken fallback under Node);
+  the `.odp` puts the SVG before the PNG in one frame. The PNG stays the fallback for a reader without SVG.
+  Text, images, masks, filters, gradients and `<use>` keep the PNG alone. `calco-svg-pictures.test.js` holds
+  each SVG to its PNG (the same ink, in the same place).
   **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
   browser broke them (no wrap), and each word is placed from the browser's
   measure, so the file matches the slide only when the reader draws the same face.
