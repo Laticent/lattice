@@ -113,6 +113,13 @@ export default function LinkPanel({ view, edit, onClose }: LinkPanelProps) {
 					e.preventDefault();
 					if (edit.focus) inputRef.current?.focus();
 				}}
+				// A tap on a link in the text is not "outside". On a touch screen Radix judges the tap by its `click`, which arrives
+				// after this panel opened on the same tap, so without this the panel closed as it opened (seen on WebKit at phone
+				// size). A tap on another link opens the panel there through the click plugin.
+				onInteractOutside={(e) => {
+					const t = e.target;
+					if (t instanceof Element && t.closest('a') && view.dom.contains(t)) e.preventDefault();
+				}}
 				// Escape and Done return to the text; a click elsewhere keeps its own focus.
 				onEscapeKeyDown={(e) => {
 					e.preventDefault();

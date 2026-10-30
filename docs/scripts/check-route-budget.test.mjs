@@ -198,6 +198,14 @@ describe('the lazy metrics', () => {
 		return dist;
 	}
 
+	it('never reads a stylesheet whose hash starts with "js" as a script', () => {
+		const dist = fixture();
+		const html = path.join(dist, 'studio/index.html');
+		fs.writeFileSync(html, `<link rel="stylesheet" href="/_astro/landing.jss7kTPN.css">${fs.readFileSync(html, 'utf8')}`);
+		fs.writeFileSync(path.join(dist, '_astro/landing.jss7kTPN.css'), 'body{}');
+		expect(() => measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist)).not.toThrow();
+	});
+
 	it('counts the largest kernel and the lint core beyond what the route already loaded', () => {
 		const dist = fixture();
 		const m = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);

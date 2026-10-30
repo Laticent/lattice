@@ -46,7 +46,18 @@ export function MarkerPicker({ view, edit, onClose }: { view: EditorView; edit: 
 	return (
 		<Popover open onOpenChange={(o) => !o && onClose()}>
 			<PopoverAnchor virtualRef={anchorRef} />
-			<PopoverContent align="start" collisionPadding={8} hideWhenDetached className="w-48 p-1" onCloseAutoFocus={(e) => e.preventDefault()}>
+			<PopoverContent
+				align="start"
+				collisionPadding={8}
+				hideWhenDetached
+				className="w-48 p-1"
+				onCloseAutoFocus={(e) => e.preventDefault()}
+				// The tap on the chip that opened the picker is not "outside": on a touch screen its `click` arrives after the open.
+				onInteractOutside={(e) => {
+					const t = e.target;
+					if (t instanceof Element && t.closest('[data-listmark]') && view.dom.contains(t)) e.preventDefault();
+				}}
+			>
 				<div role="menu" aria-label="Item state" className="flex flex-col">
 					{MARKERS.map(({ token, Icon, label, cls }) => (
 						<button
