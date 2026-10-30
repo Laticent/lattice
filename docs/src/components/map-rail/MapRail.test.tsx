@@ -38,6 +38,10 @@ describe('geometryFor', () => {
 		const h = geometryFor(10, 115, 16 / 9, 'horizontal', 28);
 		expect(h.cross).toBe(99);
 		expect(h.main).toBeCloseTo(71 * (16 / 9));
+		// A story deck keeps a 16:9 tile, so the caption keeps its room; its picture sits centered inside.
+		expect(geometryFor(10, 115, 9 / 16, 'horizontal', 28).main).toBeCloseTo(71 * (16 / 9));
+		// Without a caption the tile follows the slide's shape, as before.
+		expect(geometryFor(10, 115, 9 / 16, 'horizontal').main).toBeCloseTo(99 * (9 / 16));
 		// A column: the caption adds to the tile's length instead.
 		const v = geometryFor(10, 148, 16 / 9, 'vertical', 28);
 		expect(v.main).toBeCloseTo(132 / (16 / 9) + 28);

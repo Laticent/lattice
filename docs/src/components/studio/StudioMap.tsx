@@ -24,7 +24,7 @@
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
 import * as React from 'react';
-import { type AdornPlace, MapRail, type RailStep } from '@/components/map-rail/MapRail';
+import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
@@ -311,19 +311,13 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		const it = items[i];
 		return it ? `${index.units[it.unit]?.id ?? it.unit}:${it.section}` : i;
 	}, [items, index]);
-	// On a wide tile the ⋯ is the caption pill's right-hand segment, as it is on the current pill (SlideRail.tsx), in the
-	// pill's own INSET shape. On a narrow tile (square, portrait, story, the phone shape) it sits in the picture's top-right
-	// corner. On touch it is 44px wide in the caption, or 28px in the corner, and its ::after lifts either hit area to 44px.
+	// The ⋯ is the caption pill's right-hand segment, as it is on the current pill (SlideRail.tsx), so it reuses the pill's
+	// INSET shape. Every captioned tile is at least 16:9 wide (MapRail geometryFor), so it always has the room. On touch it
+	// is 44px wide and its ::after lifts the hit area to 44px tall over the 22px caption.
 	const adorn = React.useCallback(
-		(i: number, place: AdornPlace) => {
+		(i: number) => {
 			const it = items[i];
-			if (!actions || !it) return null;
-			const at = { unit: it.unit, part: it.section };
-			return place === 'caption' ? (
-				<SlideMenuButton inset actions={actions} at={at} className="absolute bottom-px right-px z-20 h-5 rounded-r-[5px] [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-3 [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:content-['']" />
-			) : (
-				<SlideMenuButton actions={actions} at={at} className="absolute top-1 right-1 z-20 size-6 bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] [@media(pointer:coarse)]:size-7 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2 [@media(pointer:coarse)]:after:content-['']" />
-			);
+			return actions && it ? <SlideMenuButton inset actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute bottom-px right-px z-20 h-5 rounded-r-[5px] [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-3 [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:content-['']" /> : null;
 		},
 		[items, actions],
 	);

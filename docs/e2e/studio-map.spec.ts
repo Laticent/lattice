@@ -173,9 +173,9 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 	expect(small).toEqual([]);
 });
 
-// A story deck's picture is 40px wide: too narrow for a name and the ⋯ in the caption. The tile keeps the number, the ⋯
-// moves to the picture's top-right corner, and nothing hangs past the tile (MapRail NAMED_MIN, MENU_IN_CAPTION_MIN).
-test('@parity on a narrow story tile the ⋯ sits in the picture corner and the caption stays inside the tile', async ({ page }) => {
+// A story deck's picture is 40px wide, but its tile keeps the 16:9 width (the owner's call, 2026-10-30): the picture sits
+// centered with room either side, and the caption keeps its number, name and ⋯, so nothing is laid over the slide.
+test('@parity a story deck keeps 16:9 tiles: the picture is centered and the caption keeps its name and ⋯', async ({ page }) => {
 	await gotoStudio(page);
 	await typeDeck(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
 	await mapOn(page);
@@ -186,27 +186,19 @@ test('@parity on a narrow story tile the ⋯ sits in the picture corner and the 
 	const geo = await page.evaluate((rail) => {
 		const tile = document.querySelector<HTMLElement>(`${rail} button[aria-current="true"]`);
 		const m = document.querySelector<HTMLElement>(`${rail} button[aria-label="Slide actions"]`);
-		if (!tile || !m) return null;
+		const pic = tile?.firstElementChild?.getBoundingClientRect();
+		if (!tile || !m || !pic) return null;
 		const t = tile.getBoundingClientRect();
 		const r = m.getBoundingClientRect();
-		const caption = tile.lastElementChild?.getBoundingClientRect();
-		return { tileW: t.width, menuTop: r.top - t.top, menuRight: t.right - r.right, captionOver: caption ? caption.right - t.right : 0, captionText: tile.lastElementChild?.textContent };
+		return { tileW: t.width, picW: pic.width, leftRoom: pic.left - t.left, rightRoom: t.right - pic.right, menuBelowPic: r.top >= pic.bottom - 0.5, menuInside: r.right <= t.right + 0.5, caption: tile.lastElementChild?.textContent };
 	}, RAIL);
 	expect(geo).not.toBeNull();
-	expect(geo?.tileW).toBeLessThan(88);
-	expect(geo?.menuTop).toBeLessThan(10);
-	expect(geo?.menuRight).toBeGreaterThanOrEqual(0);
-	expect(geo?.captionOver).toBeLessThanOrEqual(0.5);
-	expect(geo?.captionText).toBe('2');
-	if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
-		const hit = await menu.evaluate((b) => {
-			const r = b.getBoundingClientRect();
-			const a = getComputedStyle(b, '::after');
-			const grow = (v: string) => (a.position === 'absolute' && a.content !== 'none' ? Math.max(0, -parseFloat(v) || 0) : 0);
-			return Math.min(r.width + grow(a.left) + grow(a.right), r.height + grow(a.top) + grow(a.bottom));
-		});
-		expect(hit).toBeGreaterThanOrEqual(44);
-	}
+	expect(geo?.tileW).toBeGreaterThan(110);
+	expect(geo?.picW).toBeLessThan(50);
+	expect(Math.abs((geo?.leftRoom ?? 0) - (geo?.rightRoom ?? 1))).toBeLessThanOrEqual(1);
+	expect(geo?.menuBelowPic).toBe(true);
+	expect(geo?.menuInside).toBe(true);
+	expect(geo?.caption).toBe('2cards-grid');
 });
 
 test('the arrow keys walk the rail slide by slide and keyboard focus stays on it', async ({ page }) => {
