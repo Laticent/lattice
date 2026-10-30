@@ -1,0 +1,10 @@
+{
+  "name": "lattice",
+  "description": "Author boardroom-quality slide decks in Markdown with the Lattice layout catalog.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lattice"
+  },
+  "homepage": "https://lattice.style",
+  "license": "AGPL-3.0-only"
+}
