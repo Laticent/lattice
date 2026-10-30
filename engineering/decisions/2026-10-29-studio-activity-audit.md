@@ -83,6 +83,10 @@ quiet: the 2026-10-19 frame-loop fix holds.
 
 ### Export: the capture runs on the page, slide by slide
 
+> **Corrected 2026-10-30 (§7).** The export's LONGEST tasks are not the per-slide capture below: they are the vector
+> PDF writer reading every slide in one task and then writing the file on the page. The costs below are real but
+> spread across many shorter tasks.
+
 The CPU profile of the 1x PDF export puts 2.1 s in `deck-export`, 0.95 s in the Compose chunk, 0.64 s in the runtime
 and 7.3 s of native time the profiler could not attribute (its `(program)` bucket, which holds style, layout,
 image decode and raster among other things). The largest named costs are:
@@ -228,14 +232,16 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
 
 1. **Make export stop freezing the page and stop peaking at 1.6 GB.**
    - (a) Yield between slides, so input and paint get a turn. *Bounded:* the longest task falls from 4.0 s to
-     one slide's capture; the total is unchanged.
+     one slide's capture; the total is unchanged. **Done 2026-10-30, re-aimed (§7):** the capture loop already
+     yielded; the yield and a worker went into the vector writer instead. Longest task 4,326 ms to 1,673 ms.
    - (b) Do the per-export work once: parse the stylesheet's font faces once per export, so only the check
      against each slide's text runs per slide, and strip illegal XML characters from the shared stylesheet once
      instead of from every slide's serialized copy. *Measured ceiling:* 0.46 s of regex at 1x, about 1.8 s at 4x.
    - (c) Prune the stylesheet each slide's SVG carries to the rules that slide can match, so each `foreignObject`
      image is not megabytes. *Estimated:* most of the base64, decode and GC cost (1.8 s at 1x).
    - (d) Release rasters, data URIs and the capture frame when the export finishes. *Measured:* 897-905 MB
-     resident about 18 s after export, against 640-678 MB before.
+     resident about 18 s after export, against 640-678 MB before. **Investigated 2026-10-30 (§7):** no
+     application reference holds the capture frame; the excess is mostly native and partly reclaimable. Not built.
 
    **Owner's call:** this is the export pipeline. CLAUDE.md requires the owner to sign off on dark and light
    renders if the exported bytes change. (a) and (d) should not change them.
@@ -269,6 +275,41 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
 
 **Not recommended:** an engine worker (about 4 ms a key, with real obstacles); more precaching to speed the
 warm start (the warm load is CPU-bound).
+
+## 7. Follow-up, 2026-10-30: what the first fixes found
+
+The owner approved items 1-3 and a nightly bench on PR #2984. Working them corrected three things above.
+
+**The bench's server broke diagrams.** `docs/scripts/serve-h2.mjs` sent no `access-control-allow-origin`, so the
+sandboxed Mermaid draw frame (origin `null`) could not load its modules and every diagram errored under it. Every
+HTTP/2 number in this note, and in `2026-10-23-startup-bake-off.md`, was taken that way. The server now sends `*`, as
+GitHub Pages does. Re-measured with it: the PDF export's longest task at 4x was 4,326 ms, close to the 4,027 ms in §1.
+
+**Item 1(a) was aimed at the wrong loop.** The capture loop already yields between slides
+(`deck-export.js`, the `setTimeout` after each capture). A CPU profile of the 4x export split by unbroken busy runs
+found the three longest elsewhere:
+
+| Run | Where |
+|---|---|
+| 5.5 s | `readSlide` over every slide in one task (`lib/core/pdf-compose/compose.mjs`, the read loop; hit-testing with `elementsFromPoint` and `getBoundingClientRect`) |
+| 4.0 s | the capture frame's runtime booting and fitting all 40 sections (item 3's per-section geometry pass) |
+| 3.8 s | `writeDeckPdf`: pdf-lib laying out every word with fontkit, on the page |
+
+`composeDeckPdf` now takes `host.betweenSlides` (the Studio yields after each read) and `host.writePdf` (the Studio
+writes in `pdf-write-worker.js`; the CLI passes neither). Measured, before against after on one machine, 4x CPU:
+longest task 4,326 ms to 1,673 ms; total main-thread time unchanged (63 s against 66 s, inside the run-to-run
+spread). A frozen-clock Studio export and the CLI's gallery PDF are byte-identical before and after.
+
+**Item 1(d) found no application leak.** After an export, Chrome counts one more document than before, and the
+renderer stays about 300 MB higher. A heap snapshot traced two retainers: a font-gate promise left on the live
+preview's host, and a `ResizeObserver` callback that shares a scope with the reveal poll's previous-document local.
+Fixing the first (a `WeakRef`) moved nothing measurable, so it was not shipped. The held document is small; the
+heap after GC grows only 15 MB across an export. Simulated critical memory pressure gives back about 100 MB, and
+the rest is native (decoded images, Blink's caches, the allocator) plus the Mermaid draw frame, which is kept for
+reuse by design. Not a leak to fix in this code.
+
+**Measured and not changed:** the activity table's other rows, before against after, sit inside the spread of one
+run each (§1).
 
 ## What was not measured
 
