@@ -93,3 +93,31 @@ describe('pdf-inline-chip', () => {
     }
   });
 });
+
+// A chip whose words go back to the photo (a glyph the deck's fonts lack, like an emoji) goes back
+// with them. The reader counted the words as drawn and drew the chip's fill over the photo; the font
+// check then sent the words to the photo, under that fill, and `{Launch 🚀}` printed as an empty pill.
+// FALSIFIABLE: without compose.mjs dropping the chip with its words, the pill's middle is blank.
+describe('pdf-inline-chip: a chip whose words stay in the photo', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chip-emoji-'));
+	fs.writeFileSync(path.join(dir, 'deck.md'), ['---', 'theme: indaco', '---', '', '## Emoji', '', 'Before `{Launchpad 🚀}` after', ''].join('\n'));
+	const pdf = path.join(dir, 'deck.pdf');
+	const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), pdf], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+	after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+	test("the pill's words are on the page", () => {
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const xml = execFileSync('pdftotext', ['-bbox', pdf, '-'], { encoding: 'utf8' });
+		const pageW = Number(xml.match(/<page width="([\d.]+)"/)[1]);
+		const word = (t) => xml.match(new RegExp(`<word xMin="([\\d.]+)" yMin="([\\d.]+)" xMax="([\\d.]+)" yMax="([\\d.]+)">${t}</word>`)).slice(1, 5).map(Number);
+		const [, y0, bx1, y1] = word('Before');
+		const [ax0] = word('after');
+		execFileSync('pdftoppm', ['-gray', '-r', '96', '-f', '1', '-l', '1', pdf, path.join(dir, 'p')]);
+		const page = readPnm(path.join(dir, fs.readdirSync(dir).find((n) => n.startsWith('p') && n.endsWith('.pgm'))));
+		const k = page.w / pageW;
+		// The middle half of the pill, clear of its capsule ends: only its words ink it.
+		const gap = ax0 - bx1;
+		const ink = inked(page, Math.round((bx1 + gap * 0.25) * k), Math.round((y0 + (y1 - y0) * 0.3) * k), Math.round((ax0 - gap * 0.25) * k), Math.round((y1 - (y1 - y0) * 0.3) * k));
+		assert.ok(ink > 20, `the pill printed empty (${ink} inked pixels)`);
+	});
+});

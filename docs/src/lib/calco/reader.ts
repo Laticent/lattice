@@ -1789,6 +1789,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			return out;
 		};
+		// The PDF writer reads the same masks with the same placement rules (lib/core/pdf-compose/read-slide.mjs
+		// `markOf`); this reader imports nothing, so the two are kept in step by hand.
 		const markOf = (ps: CSSStyleDeclaration & Record<string, string>, r: Rect, op: number): Shape | null => {
 			const mask = ps.maskImage && ps.maskImage !== 'none' ? ps.maskImage : ps.webkitMaskImage;
 			const color = paintOf(ps.backgroundColor, op);

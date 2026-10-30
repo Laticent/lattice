@@ -346,7 +346,9 @@ describe('Studio — every top-bar control responds', () => {
 	// (2026-10-27-slide-structure-strip.md §12 item 11).
 	const stripAction = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
 		await user.click(within(document.querySelector('nav[aria-label="Slide navigator"]') as HTMLElement).getByRole('button', { name: 'Slide actions' }));
-		await user.click(await screen.findByRole('menuitem', { name }));
+		// An explicit budget: on a loaded runner the menu took longer than Testing Library's 1000 ms default and ejected
+		// #2978 from the merge queue (engineering/gotchas/ci.md, the cold-boundary waits).
+		await user.click(await screen.findByRole('menuitem', { name }, { timeout: 5000 }));
 	};
 
 	it('the strip adds (via the gallery), duplicates, and deletes slides', async () => {
