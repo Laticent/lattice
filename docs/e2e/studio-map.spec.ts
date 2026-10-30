@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { gotoStudio, railButtons, setEditorContent } from './studio-fixture';
+import { gotoStudio, railButtons, setEditorContent, typeDeck } from './studio-fixture';
 
 /**
  * The Studio's slide map: the deck's slides as thumbnails in the slide strip under the preview, in
@@ -177,7 +177,7 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 // moves to the picture's top-right corner, and nothing hangs past the tile (MapRail NAMED_MIN, MENU_IN_CAPTION_MIN).
 test('@parity on a narrow story tile the ⋯ sits in the picture corner and the caption stays inside the tile', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
+	await typeDeck(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
 	await mapOn(page);
 	await page.locator(`${RAIL} button[data-unit="1"]`).click();
 	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '1');
