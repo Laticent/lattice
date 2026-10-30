@@ -322,6 +322,9 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
+/** How many editor emissions the shell remembers while its `source` trails the editor (setSourceFromEditor). A
+ *  transition trails by a few keystrokes at most; the cap only bounds a pathological backlog. */
+const EDITOR_ECHO_CAP = 32;
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -514,6 +517,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const filoPersist = React.useMemo(() => import('./studio-filo-persist').then((m) => m.studioPersistence((msg) => notify(msg, { duration: 8000 }))), []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
+	// The texts the editor has emitted that the shell's `source` may still trail (see setSourceFromEditor). Any
+	// other writer clears them: from then on a value equal to one of them is that writer's, not an echo.
+	const editorEchoesRef = React.useRef<string[]>([]);
+	/** Filo's commit, set once it exists further down (the editor's typing commits through it at once). */
+	const filoCommitRef = React.useRef<(text: string) => void>(() => {});
+	const clearEditorEchoes = React.useCallback(() => {
+		editorEchoesRef.current = [];
+	}, []);
+	/** A `source` the editor has already moved past: one of its own emissions, not the newest. */
+	const isStaleEditorEcho = React.useCallback((text: string) => {
+		const e = editorEchoesRef.current;
+		return e.length > 0 && text !== e[e.length - 1] && e.includes(text);
+	}, []);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
 		intentRef.current = { ...intent, text, seq: ++intentSeqRef.current };
 	}, []);
@@ -521,6 +537,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 *  the epoch (above). The intent names the change in the undo history. */
 	const setSource = React.useCallback(
 		(next: string | ((s: string) => string), intent: SourceIntent) => {
+			clearEditorEchoes();
 			setSourceEpoch((e) => e + 1);
 			// The intent is stamped with the text the update produces. An updater may run twice under
 			// StrictMode; stamping the same text twice is harmless.
@@ -530,7 +547,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				return text;
 			});
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. It
 	 *  carries the editor's own account of the change, so typing is recorded exactly. */
@@ -540,29 +557,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// run before this shell's commit effect, so a fresh stamp here would relabel that writer's
 			// change ("Rename → …") as typing. Keep the writer's intent when it already names this text.
 			if (change || intentRef.current?.text !== text) stampIntent({ label: change?.label ?? 'Typing', origin: change?.origin ?? 'markdown', ...(change ? { edits: change.edits, before: change.before, after: change.after } : {}) }, text);
-			setSourceRaw(text);
+			if (!change) {
+				setSourceRaw(text);
+				return;
+			}
+			// An author's edit reaches the shell as a TRANSITION: React renders the shell in slices that yield to the
+			// next keystroke, and a render the next keystroke overtakes is dropped for the newer text. The editor
+			// already shows the text, so nothing on screen waits for this. While a transition is in flight the
+			// shell's `source` trails the editor's document; `isEditorEcho` lets the editor and the hub tell such a
+			// trailing value from a real write (engineering/decisions/2026-10-29-studio-activity-audit.md §2).
+			const echoes = editorEchoesRef.current;
+			echoes.push(text);
+			if (echoes.length > EDITOR_ECHO_CAP) echoes.shift();
+			// The undo history takes the edit NOW, with the editor's exact account of it. Left to the commit
+			// effect, two edits a transition merges into one render (a paste, then typing elsewhere) would reach
+			// Filo as one change and undo as one step.
+			filoCommitRef.current(text);
+			React.startTransition(() => setSourceRaw(text));
 		},
 		[stampIntent],
 	);
 	/** Compose's emit. Compose keeps no undo of its own; its typing coalesces like the editor's. */
 	const setSourceFromCompose = React.useCallback(
 		(text: string, label = 'Typing') => {
+			clearEditorEchoes();
 			stampIntent({ label, origin: 'compose' }, text);
 			setSourceRaw(text);
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** A change that is not this author's: a collaborator's edit in a live session. No intent, so the
 	 *  commit effect reports it to Filo as an outside change rather than as the author's typing. */
-	const setSourceRemote = React.useCallback((text: string) => setSourceRaw(text), []);
+	const setSourceRemote = React.useCallback(
+		(text: string) => {
+			clearEditorEchoes();
+			setSourceRaw(text);
+		},
+		[clearEditorEchoes],
+	);
 	/** Filo's own undo or redo landing: Filo already holds the text, so nothing is recorded. */
 	const setSourceFromHistory = React.useCallback(
 		(text: string, label: string) => {
+			clearEditorEchoes();
 			stampIntent({ label, origin: 'history', kind: 'history' }, text);
 			setSourceEpoch((e) => e + 1);
 			setSourceRaw(text);
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** Filo's undo and redo, and its forgetting of a deleted deck, set further down once the hub and
 	 *  the live session exist; earlier code (the settings toast, deck delete) calls through these. */
@@ -1803,9 +1844,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pluginDefaultsTick is the re-read signal, not an input.
 	const deckIndex = React.useMemo(() => {
 		followDeckAdmission(source);
-		hub.update(source, { by: 'shell', duringRender: true });
+		// A render of text the editor has already typed past (a transition trailing the keyboard) must not move
+		// the hub BACK: the editor fed it the newer text with its own account of the edit. That render reads the
+		// newer index; the transition carrying the newest text follows.
+		if (!isStaleEditorEcho(source)) hub.update(source, { by: 'shell', duringRender: true });
 		return hub.outline() as DeckIndex;
-	}, [hub, source, pluginDefaultsTick]);
+	}, [hub, source, pluginDefaultsTick, isStaleEditorEcho]);
 	// The authored slides — exactly `splitSlides(body)`, read off the index rather than parsed again.
 	const slides = React.useMemo(() => deckIndex.units.map((_, i) => unitText(deckIndex, i)), [deckIndex]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
@@ -4476,10 +4520,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[filo, filoPersist],
 	);
+	filoCommitRef.current = filoCommit;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS a trigger — a tour's practice deck switches documents with no source change of its own.
 	React.useEffect(() => {
-		filoCommit(source);
-	}, [source, filoDoc, filoCommit]);
+		// A render of text the editor has typed past was committed when it was typed; committing it again
+		// here would record a step backwards.
+		if (!isStaleEditorEcho(source)) filoCommit(source);
+		// Caught up with the editor's newest emission: nothing trails any more.
+		const echoes = editorEchoesRef.current;
+		if (echoes.length && echoes[echoes.length - 1] === source) editorEchoesRef.current = [];
+	}, [source, filoDoc, filoCommit, isStaleEditorEcho]);
 	// A deck deleted takes its history with it (§6.4). "Clear all" reloads the Studio, which empties
 	// every in-memory history.
 	const filoDropDeck = React.useCallback(
@@ -6609,7 +6659,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too

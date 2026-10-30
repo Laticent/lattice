@@ -175,8 +175,13 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`Filo stays under 16 ms per
 	await page.locator('header').getByRole('button', { name: /^How to Think About Systems/ }).first().click();
 	await page.getByRole('menuitem', { name: /^Rename/ }).click();
 	await expect.poll(() => editorDoc(page)).toContain('Budget deck');
-	// A broad change: the whole deck replaced, then the replace undone.
-	await setEditorContent(page, '# Replaced\n');
+	// A broad change: the whole deck replaced, then the replace undone. ONE action, typed over the selection: the
+	// shared helper deletes first and then inserts, two edits that join one step only inside Filo's 500 ms window,
+	// and on a loaded runner the two keys can land further apart than that (the Studio commits each edit to Filo
+	// when it is typed, engineering/decisions/2026-10-29-studio-activity-audit.md).
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.insertText('# Replaced\n');
 	await expect.poll(() => editorDoc(page)).toBe('# Replaced\n');
 	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 	await chord(page, 'undo');
