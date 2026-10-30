@@ -311,6 +311,17 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
     grid-template-columns: var(--fluid-cols);
   }
 }
+/* `diff-bands` carries no counter (its rows sit under a colored band heading), so its row was
+   left out of the stack above and kept its fields side by side: at story@laptop the change text
+   set a dozen characters a line. At the NARROW threshold the row becomes a column (name, cite,
+   change), a flex column rather than a re-placed grid, so no field's grid placement can hold it
+   beside another. Not at MEDIUM: at square@laptop the side-by-side row reads well, and stacking it
+   there made a four-band slide clip. */
+@container lattice (width < 23em) {
+  section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul) > li {
+    display: flex; flex-direction: column; align-items: flex-start; row-gap: var(--sp-2xs);
+  }
+}
 /* TIGHT, under ~35 characters a line: the counter's gutter itself is too dear (a `priority`
    "TIER 1" pill left the prose fourteen characters a line at story@hall), so the counter heads
    the column and every field takes the card's full width. */

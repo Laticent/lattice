@@ -185,3 +185,16 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
   flex-grow: var(--cards-grow);
 }
 
+
+/* ── NARROW ROOM (the text-room rule, base.elements.css) ─────────────────────
+   The ribbon is pinned to the card's top-right corner, which is safe only while the tier name
+   is shorter than the card: under ~47 characters a line "MOST POPULAR" printed over "Vendor
+   West". It joins the card's flow as its first item, right-aligned, so the name starts under it.
+   The ribbon keeps its own type and fill, and its corner rounds all round now that it no longer
+   sits in the card's corner. */
+@container lattice (width < 23em) {
+  section.pricing > .cell-stage > ul > li > em {
+    position: static; order: -1; align-self: flex-end;
+    border-radius: var(--radius-md);
+  }
+}
