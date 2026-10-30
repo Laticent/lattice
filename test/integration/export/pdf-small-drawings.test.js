@@ -97,3 +97,28 @@ describe('pdf-small-drawings', () => {
 		assert.ok(band(page) > 0, 'the page lost the recommended card\'s spark');
 	});
 });
+
+// The checker's findings (2026-10-30): a dot under a cover, a mark moved by `translate`, and a mark below its host
+// (`z-index: -1`) stay in the photo, where the browser placed and stacked them.
+describe('pdf-small-drawings: what stays in the photo', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-small-refused-'));
+	after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const css = ['<style>',
+		".m::after { content:''; position:absolute; top:0; left:0; width:40px; height:40px; background:#0a5; -webkit-mask:var(--shape-spark) center / contain no-repeat; mask:var(--shape-spark) center / contain no-repeat; }",
+		'.m { position:relative; width:60px; height:60px; background:#dde; }', '.m.tr::after { translate: 120px 0; }', '.m.zn::after { z-index:-1; }',
+		'.cv { position:absolute; inset:0; background:white; z-index:5; }', '</style>'].join('\n');
+	const deck = ['---', 'theme: indaco', '---', '', css, '', '## Refused', '',
+		'<div style="position:relative">', '', 'Echo `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` Foxtrot', '', '<div class="cv"></div></div>', '',
+		'<div class="m tr"></div>', '', '<div class="m zn"></div>', ''].join('\n');
+	const md = path.join(dir, 'deck.md'), report = path.join(dir, 'report.json');
+	fs.writeFileSync(md, deck);
+	const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'deck.pdf')], { cwd: ROOT, encoding: 'utf8', timeout: 120000, env: { ...process.env, LATTICE_PDF_REPORT: report } });
+
+	test('a covered dot, a translated mark and a mark below its host are refused', () => {
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const refused = JSON.parse(fs.readFileSync(report, 'utf8')).refusedShapes || {};
+		assert.equal(refused['dot-covered'], 1, JSON.stringify(refused));
+		assert.equal(refused['mark-transform'], 1, JSON.stringify(refused));
+		assert.equal(refused['mark-below'], 1, JSON.stringify(refused));
+	});
+});

@@ -8,7 +8,7 @@
  * write-pdf.mjs embedEmoji), the way Chrome's own print does; the words beside it stay ordinary text.
  *
  * The oracles: the text layer holds every emoji and its neighbors (pdftotext), the page carries a Type 3 font
- * (pdffonts), and the emoji is off the photo and on the page beside its word (as pdf-inline-chip does).
+ * (pdffonts), and the report leaves no text in the photo.
  * FALSIFIABLE: without the emoji glyphs, the paragraph is back in the photo and `pdftotext` finds none of it.
  * Needs Chromium and poppler.
  */
@@ -54,5 +54,49 @@ describe('pdf-emoji-text', () => {
 
 	test('the emoji are glyphs of a Type 3 font', () => {
 		assert.match(execFileSync('pdffonts', [pdf], { encoding: 'utf8' }), /Type 3/);
+	});
+});
+
+// The checker's two findings (2026-10-30): a symbol's picture carries its ink, so its color is part of the cache key;
+// and `capitalize` reaches the first letter even after a leading emoji.
+describe('pdf-emoji-text: ink and case', () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-emoji-ink-'));
+	const deck = ['---', 'theme: indaco', '---', '', '## Ink', '',
+		'<p><span style="color:#c00000">☀︎</span> red <span style="color:#00a000">☀︎</span> green</p>', '',
+		'<p style="text-transform:capitalize">🚀launch day</p>', ''].join('\n');
+	fs.writeFileSync(path.join(dir, 'deck.md'), deck);
+	const pdf = path.join(dir, 'deck.pdf');
+	const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), pdf], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+	after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+	test('each symbol keeps its own color', () => {
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const xml = execFileSync('pdftotext', ['-bbox', pdf, '-'], { encoding: 'utf8' });
+		const pageW = Number(xml.match(/<page width="([\d.]+)"/)[1]);
+		const box = (t) => xml.match(new RegExp(`<word xMin="([\\d.]+)" yMin="([\\d.]+)" xMax="([\\d.]+)" yMax="([\\d.]+)">${t}</word>`)).slice(1, 5).map(Number);
+		execFileSync('pdftoppm', ['-r', '192', '-f', '1', '-l', '1', pdf, path.join(dir, 'p')]);
+		const file = fs.readdirSync(dir).find((n) => n.startsWith('p') && n.endsWith('.ppm'));
+		const buf = fs.readFileSync(path.join(dir, file));
+		const head = buf.toString('latin1', 0, 64).match(/^P6\s+(\d+)\s+(\d+)\s+(\d+)\s/);
+		const w = Number(head[1]), px = buf.subarray(head[0].length), k = w / pageW;
+		// The dominant hue left of each word: count reddish and greenish pixels.
+		const hue = (word) => {
+			const [x0, y0, , y1] = box(word);
+			let red = 0, green = 0;
+			for (let y = Math.round(y0 * k); y < Math.round(y1 * k); y++) for (let x = Math.round((x0 - (y1 - y0)) * k); x < Math.round((x0 - 1) * k); x++) {
+				const i = (y * w + x) * 3;
+				if (px[i] > 150 && px[i + 1] < 90) red++;
+				if (px[i + 1] > 120 && px[i] < 90) green++;
+			}
+			return { red, green };
+		};
+		const a = hue('red'), b = hue('green');
+		assert.ok(a.red > a.green, `the first symbol is not red: ${JSON.stringify(a)}`);
+		assert.ok(b.green > b.red, `the second symbol is not green: ${JSON.stringify(b)}`);
+	});
+
+	test('capitalize reaches the first letter after a leading emoji', () => {
+		const text = execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' });
+		assert.match(text, /Launch Day/, text);
 	});
 });

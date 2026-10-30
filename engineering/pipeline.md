@@ -380,8 +380,10 @@ rounded ground before its face and its ring after it (the ground leaves the phot
 `data-pc-mark`). `dotOf` draws a sparkline's end dot over its line, and tells the overlay model the dot is
 drawn above (`drawnOver`), so the line is no longer refused as covered by it. `maskedMarkOf` draws any
 absolutely placed `::before`/`::after` painted through a `--shape-*` or `--mark-*` mask (the recommended
-card's spark) with `markOf`, its opacity on the one shape; a mark placed some way the mask reader does not
-model (`left center / 1em`, an in-flow pseudo) stays in the photo, named `mark-<reason>` in the report.
+card's spark) with `markOf`, its opacity on the one shape. A mark the mask reader does not model stays in
+the photo: an in-flow pseudo silently, as before, and otherwise named `mark-<reason>` in the report (a mask
+placed `left center / 1em`, a `translate`/`rotate`/`scale` property, a negative z-index under its host, a
+see-through ancestor, a cover over it). A spark's dot stays with its line when something covers it.
 `pdf-small-drawings.test.js` pins each.
 
 **A chip goes back to the photo with its words.** The reader draws an inline chip's fill when all
