@@ -372,6 +372,12 @@ writer also honors `stroke-linejoin` now: pdf-lib sets the cap but not the join,
 tick or chart line used to print with mitred corners. `test/integration/export/pdf-check-vectors.test.js`
 pins every answer in every style and container, light and dark.
 
+**A chip goes back to the photo with its words.** The reader draws an inline chip's fill when all
+its words are drawn, but the font check runs after it and can send those words back to the photo (a
+glyph the deck's fonts lack, such as an emoji). The chip's fill, its border and a check whose host
+holds the words then go back too (`compose.mjs`); drawn over the photo, the fill buried its own words,
+and `{Launch 🚀}` printed as an empty pill (`pdf-inline-chip.test.js`).
+
 **A border on a rounded box is not covered by the box that holds it.** `borderCovered` samples
 points down the middle of each drawn side; on a pill's capsule end those points fall outside the
 pill, onto the cell or row behind it, and read as a cover, which kept every pill's outline in the
