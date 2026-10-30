@@ -2,7 +2,7 @@
 status: in-progress
 summary: >
   CI is slow because of runner contention, not test speed: about 200 CI runs a day, each asking for ~10 jobs at once,
-  against the Free plan's 20 concurrent jobs. Proposal: five named stages (local, PR, queue, nightly, weekly) with one
+  against 20 concurrent jobs (the Free plan's limit; the organization's plan is being confirmed). Proposal: five named stages (local, PR, queue, nightly, weekly) with one
   job each; a thin PR stage (static checks, unit, site build when the site changes) and the merge queue as the only
   full gate; a test taxonomy defined by what a test may touch; one naming scheme; and a rule that a nightly that is
   red for a week is fixed or deleted. Decisions for the owner at the end.
@@ -14,7 +14,7 @@ summary: >
 
 - **Capacity.** On 2026-10-29 the repository started 149 PR runs and 53 merge-queue runs of `ci.yml` for 21 merged
   PRs. That is about 10 CI runs per merged change, each asking for about 10 jobs at once and using about 90
-  runner-minutes. The Free plan runs 20 jobs at a time. At the morning peak, jobs waited a median 11–22 minutes for a
+  runner-minutes. The Free plan runs 20 jobs at a time, and the queue waits looked like that limit. At the morning peak, jobs waited a median 11–22 minutes for a
   runner, so a queue run that needs about 20 minutes took about 65, and the queue's 60-minute timer ejected PRs that
   had only been waiting.
 - **Staging.** The PR run and the queue run do nearly the same work. The PR run is meant to give the author fast
@@ -28,7 +28,7 @@ merge queue as the only place the full suite has to pass. Four decisions are the
 
 | Measure | Value | Source |
 |---|---|---|
-| Concurrent jobs allowed | 20 (Free plan, owner confirmed) | GitHub plan |
+| Concurrent jobs allowed | 20 on the Free plan, 60 on Team (GitHub's published limits). The owner believes the org is on Free and is checking the billing page (D1) | GitHub plan |
 | PR runs per day | 99–156 on most days from 10-15 to 10-29 (74 on 10-15; 14–86 over the 10-22 to 10-26 lull) | Actions API |
 | Queue runs per day | 9–34 from 10-15 to 10-27; **36 on 10-28, 53 on 10-29** | Actions API |
 | Merged PRs per day | 4–28; 28 on 10-19 and 10-28, 21 on 10-29 | Actions API |
@@ -239,6 +239,23 @@ The scheme:
 | `golden-diff` | `golden` |
 | `Integration nightly (render-regression tier)` and eight other nightly workflows | jobs in `Nightly`: `render`, `studio e2e`, `golden bless`, `overflow`, `fit`, `perf`, `preview`, `modulepreload`, `webkit baselines` |
 | `PR closing-keyword lint`, `PR auto-close linked issues`, `Sync labels`, `Issue triage gate`, `Definition of Ready gate` | `Repo: …` |
+
+## 7a. The render tier's flakes, measured (the precondition for D2)
+
+All 916 `ci.yml` runs from 2026-10-22 to 2026-10-30T03Z, every attempt of the 137 that failed or were re-run: 48
+failed integration legs, all logs read (one expired). 16 were build-step breaks before any test ran (Dependabot
+peer conflicts, the #2971/#2961 ownership clash), 30 were real catches, 16 were flakes, 2 unknown. Of the 32
+test-level failures, 16 were flakes (50%), which matches #2971's 51%.
+
+| Flake source | Legs | Status |
+|---|---|---|
+| marp-cli fetched through `npx -y` (`marp-admission`, `marp-bundle-author-script`, `marp-bundle-shell-grammar`, `marp-video-link`) | 10 | #2971 caches `~/.npm/_npx`; the registry metadata call and a PR's cold first run remain. Fix: install marp-cli with `npm ci` and drop `npx -y` |
+| `mermaid-worker-confine` read SVG order | 4 | fixed in #2971, with an arm that fails without the fix; not seen since |
+| `export-formats` 60 s test limit, below the CLI's 90 s Chrome launch wait plus one retry (`lattice.js` `LAUNCH_TIMEOUT_MS`) | 1 | open; #2971 made it likelier. Fix: raise the test limit above the launch budget |
+| `apt-get` in the integration job, no timeout of its own, hung on the mirror for 25 min | 1 | open; a CI step change. Fix: a short step timeout and one retry, or cache the two packages |
+
+None of the 16 came after #2971 landed (2026-10-29T13:10Z), but that is 1.6 days of runs, too few to call any of them
+fixed. The plan: land the three open fixes, then watch a week of runs before the render tier leaves the PR stage.
 
 ## 8. Risks, and what would make this wrong
 
