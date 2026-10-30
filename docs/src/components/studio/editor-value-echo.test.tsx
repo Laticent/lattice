@@ -60,4 +60,28 @@ describe('the editor value-sync', () => {
 		expect(seen, 'the shell state lost the newer write to a stale sync echo').toBe(B);
 		expect(viewOf(container.querySelector('.cm-content'))?.state.doc.toString(), 'the editor does not hold the last keystroke').toBe(B);
 	});
+
+	// THE STUDIO COMMITS TYPING AS A TRANSITION (StudioShell.tsx setSourceFromEditor), so `value` can trail the
+	// document: the author typed A then B, and a render carrying A commits after the editor already shows B.
+	// Syncing A back would delete what the author just typed. The shell marks such a value with `isStaleEcho`.
+	it('a trailing value the shell marks as a stale echo does not roll the document back', () => {
+		const A = `${DECK}x`;
+		const B = `${DECK}xy`;
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={(v) => v === A} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ changes: { from: DECK.length, insert: 'xy' }, userEvent: 'input.type' }));
+		expect(view.state.doc.toString()).toBe(B);
+		rerender(<Editor value={A} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={(v) => v === A} />);
+		expect(view.state.doc.toString(), 'the trailing value undid the last keystroke').toBe(B);
+	});
+
+	it('the same value WITHOUT the mark is a real write and is synced', () => {
+		const A = `${DECK}x`;
+		const B = `${DECK}xy`;
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={() => false} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ changes: { from: DECK.length, insert: 'xy' }, userEvent: 'input.type' }));
+		rerender(<Editor value={A} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={() => false} />);
+		expect(view.state.doc.toString(), 'a real write (an undo, say) must land').toBe(A);
+	});
 });
