@@ -243,9 +243,9 @@ The scheme:
 ## 7a. The render tier's flakes, measured (the precondition for D2)
 
 All 916 `ci.yml` runs from 2026-10-22 to 2026-10-30T03Z, every attempt of the 137 that failed or were re-run: 48
-failed integration legs, all logs read (one expired). 16 were build-step breaks before any test ran (Dependabot
-peer conflicts, the #2971/#2961 ownership clash), 30 were real catches, 16 were flakes, 2 unknown. Of the 32
-test-level failures, 16 were flakes (50%), which matches #2971's 51%.
+failed integration legs; 47 logs read, one expired. They split four ways, summing to 48: 16 failed at the build step
+before any test ran (Dependabot peer conflicts, the #2971/#2961 ownership clash), 14 were real test catches, 16 were
+flakes and 2 are unknown. Of the 32 test-level failures, 16 were flakes (50%), which matches #2971's 51%.
 
 | Flake source | Legs | Status |
 |---|---|---|
