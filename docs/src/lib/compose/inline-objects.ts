@@ -794,14 +794,15 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 			const node = objectType().create({ src });
 			// A spark and an icon go after the word the caret is in, never through it.
 			const rest = plan.afterWord && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
-			const at0 = plan.afterWord ? $to.pos + rest : plan === INSERT_PLANS.avatar && !empty && !label ? to : from;
-			// An avatar never deletes a selection it cannot use as the name (long, or over a line break): it goes in after it, as a spark does.
-			const keepSelection = plan === INSERT_PLANS.avatar && !empty && !label;
+			const at0 = plan.afterWord ? $to.pos + rest : plan !== INSERT_PLANS.pill && !empty && !(usesLabel && label) ? to : from;
+			// An avatar, a check or a plugin's kind never deletes a selection it cannot use as the name or label (long, over a line
+			// break, or a kind that takes none): it goes in after it, as a spark does.
+			const keepSelection = plan !== INSERT_PLANS.pill && !plan.afterWord && !empty && !(usesLabel && label);
 			const end0 = plan.afterWord || keepSelection ? at0 : to;
 			const $at = plan.afterWord || keepSelection ? state.doc.resolve(at0) : $from;
 			const before = $at.nodeBefore;
 			const after = plan.afterWord || keepSelection ? $at.nodeAfter : $to.nodeAfter;
-			const needsGap = plan.afterWord && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
+			const needsGap = (plan.afterWord || keepSelection) && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
 			const lead = needsGap || Boolean(before && touchesAsCode(before, node));
 			const trail = Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');

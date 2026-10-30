@@ -399,6 +399,8 @@ function stateMarkerPlugin(onMarker?: (pos: number, marker: string) => void) {
 				const $pos = view.state.doc.resolve(pos);
 				const para = $pos.parent;
 				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText) return false;
+				// A locked slide is edited in Markdown: its chip opens nothing, rather than a picker whose every pick is refused.
+				if ($pos.node(1)?.attrs.locked) return false;
 				if (!listMarkerDrawn($pos.node(1), listDepthAt($pos))) return false;
 				const start = $pos.start();
 				const m = readEditMarker(para.firstChild.text ?? '');

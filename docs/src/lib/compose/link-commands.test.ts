@@ -36,21 +36,36 @@ function run(state: EditorState, cmd: (s: EditorState, d?: (tr: import('prosemir
 
 describe('normalizeHref', () => {
 	it('keeps web, mail, phone, relative and anchor addresses', () => {
-		for (const h of ['https://example.com/a?b=1#c', 'http://x.io', 'mailto:ada@example.com', 'tel:+15550100', '/docs/a', './b.md', '#top', '?q=1']) expect(normalizeHref(h)).toEqual({ href: h });
+		for (const h of ['https://example.com/a?b=1#c', 'http://x.io', 'mailto:ada@example.com', 'tel:+15550100', '/docs/a', './b.md', '#top', '?q=1', "https://en.wikipedia.org/wiki/Ender's_Game"]) expect(normalizeHref(h)).toEqual({ href: h });
 	});
-	it('adds https to a bare host and keeps a port', () => {
+	it('adds the missing scheme to a bare host, a host with a port and an email', () => {
 		expect(normalizeHref(' example.com/path ')).toEqual({ href: 'https://example.com/path' });
 		expect(normalizeHref('www.example.co.uk')).toEqual({ href: 'https://www.example.co.uk' });
-		expect(normalizeHref('localhost:3000/x')).toEqual({ href: 'localhost:3000/x' });
+		expect(normalizeHref('example.com.')).toEqual({ href: 'https://example.com.' });
+		expect(normalizeHref('localhost:3000/x')).toEqual({ href: 'http://localhost:3000/x' });
+		expect(normalizeHref('a.b.c:1')).toEqual({ href: 'https://a.b.c:1' });
+		expect(normalizeHref('user@example.com')).toEqual({ href: 'mailto:user@example.com' });
 	});
-	it('encodes the characters that would end the destination', () => {
+	it('writes what the parser would read back, with the characters that would end the destination encoded', () => {
 		expect(normalizeHref('https://en.wikipedia.org/wiki/Mercury_(planet)')).toEqual({ href: 'https://en.wikipedia.org/wiki/Mercury_%28planet%29' });
 		expect(normalizeHref('/a b')).toEqual({ href: '/a%20b' });
+		expect(normalizeHref('https://ex.com/é')).toEqual({ href: 'https://ex.com/%C3%A9' });
+		expect(normalizeHref('https://x.io/50%off')).toEqual({ href: 'https://x.io/50%25off' });
+		expect(normalizeHref('https://x.io/[x]')).toEqual({ href: 'https://x.io/%5Bx%5D' });
+		expect(normalizeHref('https://x.io/"q"<b>`')).toEqual({ href: 'https://x.io/%22q%22%3Cb%3E%60' });
 	});
-	it('refuses an empty address, an unsafe scheme and an unwritable character', () => {
+	it('refuses an empty address, an unsafe scheme (a digit after the colon is not a port) and a control character', () => {
 		expect(normalizeHref('  ')).toHaveProperty('error');
-		for (const h of ['javascript:alert(1)', 'JavaScript:x', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd']) expect(normalizeHref(h)).toHaveProperty('error');
-		for (const h of ['https://x.io/<b>', 'https://x.io/"q"', 'https://x.io/a\\b', 'https://x.io/\na']) expect(normalizeHref(h)).toHaveProperty('error');
+		for (const h of ['javascript:alert(1)', 'JavaScript:x', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd', 'javascript:1/alert%28document.domain%29', 'javascript:0,alert(1)', 'JAVASCRIPT:9//x', 'data:1,x']) expect(normalizeHref(h), h).toHaveProperty('error');
+		expect(normalizeHref('https://x.io/\na')).toHaveProperty('error');
+	});
+	it('every address it writes reads back as the same bytes', () => {
+		for (const h of ['https://ex.com/é', 'https://x.io/50%off', 'https://x.io/[x]', "https://x.io/Ender's", 'example.com/a b', 'https://x.io/(a)']) {
+			const first = normalizeHref(h);
+			if (!('href' in first)) throw new Error(h);
+			const deck = docToDeck(deckToDoc(`<!-- _class: content -->\n\n## L\n\n[t](${first.href})`));
+			expect(deck, h).toContain(`[t](${first.href})`);
+		}
 	});
 });
 

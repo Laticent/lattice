@@ -6,7 +6,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
-import { type InlineKernels, inlineObjectsPlugin, normalizeDeck, setPluginKindProvider } from '@/lib/compose/inline-objects';
+import { type InlineKernels, inlineObjectsPlugin, normalizeDeck, type PluginKindEntry, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { InsertControls } from './InsertControls';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
@@ -174,11 +174,42 @@ describe('InsertControls — the inline objects', () => {
 		expect(docToDeck(view.state.doc)).toMatch(/`@check\{pass, [^`]*Lead[^`]*\}` of the project\./);
 	});
 
+	it('Check and a plugin kind never delete a selection they cannot use as a label: they go in after it', async () => {
+		const selectAll = (view: EditorView, text: string) => {
+			let at = -1;
+			view.state.doc.descendants((n, p) => {
+				if (at < 0 && n.isText && n.text?.includes(text)) at = p + n.text.indexOf(text);
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at, at + text.length)));
+		};
+		const long = 'Lead of the project.';
+		const deck = CONTENT.replace(long, `${long} ${'x'.repeat(40)}`);
+		const view = mount(deck);
+		selectAll(view, `of the project. ${'x'.repeat(40)}`);
+		render(<InsertControls view={view} getKernels={() => kernels} getSource={() => deck} getFences={() => undefined} />);
+		const user = userEvent.setup();
+		await user.click(screen.getByRole('button', { name: 'Insert' }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Check/ }));
+		expect(docToDeck(view.state.doc)).toContain(`Lead of the project. ${'x'.repeat(40)} \`@check{pass}\``);
+		cleanup();
+		setPluginKindProvider(() => [{ plugin: 'chips', name: 'tag-chip', title: 'Tag chip', slot: { positional: [{ name: 'label', type: 'text' }], params: {} } }]);
+		try {
+			const v2 = mount(CONTENT);
+			selectAll(v2, 'Lead');
+			render(<InsertControls view={v2} getKernels={() => kernels} getSource={() => CONTENT} getFences={() => undefined} />);
+			await user.click(screen.getByRole('button', { name: 'Insert' }));
+			await user.click(await screen.findByRole('menuitem', { name: /^Tag chip/ }));
+			expect(docToDeck(v2.state.doc)).toMatch(/Lead ?`@tag-chip\{Tag chip\}` ?of the project\./);
+		} finally {
+			setPluginKindProvider(() => []);
+		}
+	});
+
 	it('lists an installed plugin’s kind and starts one from its slot; a kind it cannot start says so', async () => {
 		setPluginKindProvider(() => [
 			{ plugin: 'chips', name: 'tag-chip', title: 'Tag chip', slot: { positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } } },
 			{ plugin: 'chips', name: 'odd-chip', title: 'Odd chip', slot: { positional: [{ name: 'when', type: 'date' }], params: {} } },
-		]);
+		] as PluginKindEntry[]);
 		try {
 			const { view, user, open } = setup(CONTENT, 'Lead');
 			await open();

@@ -1018,7 +1018,7 @@ describe('avatars and icons are objects too', () => {
 			});
 			long.dispatch(long.state.tr.setSelection(TextSelection.create(long.state.doc, s0, s0 + 60)));
 			expect(insertObject(() => kernels, { kind: 'avatar' })(long.state, long.dispatch)).toBe(true);
-			expect(docToDeck(long.state.doc)).toContain(`${longSelection}\`!{Alex Rivera}\``);
+			expect(docToDeck(long.state.doc)).toContain(`${longSelection} \`!{Alex Rivera}\``);
 		});
 
 		it('+ Icon leaves a SELECTED word where it is', () => {

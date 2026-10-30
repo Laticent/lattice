@@ -50,13 +50,17 @@ The write half is `docs/src/lib/compose/link-commands.ts` and the panel is `Link
 - **No ⌘K.** ⌘K opens the Studio's command palette everywhere, Compose included. A link shortcut would take that away while
   typing, so there is none.
 - **The address is normalized, never trusted.** `normalizeHref` allows `http`, `https`, `mailto`, `tel`, relative paths and
-  `#anchors`. It refuses any other scheme (markdown-it draws `javascript:` and `data:` links as text), and refuses a quote, an
-  angle bracket, a backslash and a control character. It percent-encodes spaces and parentheses, because the serializer
-  writes the destination bare and either would end it, and it adds `https://` to a bare host (`example.com/x`). A refusal is
-  shown under the field and nothing is written.
-- **Insert → Link with nothing selected** writes the word `link`, selected, and opens the panel on it. The word is not a link
-  until an address is given, so closing the panel leaves a plain word to type over. With a selection, the selection becomes
-  the link.
+  `#anchors`, and refuses any other scheme (markdown-it draws `javascript:` and `data:` links as text) and a control
+  character. It adds the scheme an author leaves off: `mailto:` to a bare email, `https://` to a bare host (`example.com/x`),
+  and `http://` or `https://` to a host with a port (`localhost:3000`). Only a host counts as one (`localhost`, a dotted name
+  or a bracketed IPv6 address), so `javascript:1/…` is a scheme and is refused. The address is then written as markdown-it's
+  own `normalizeLink` would write it, with parentheses also encoded because the serializer writes the destination bare, so the
+  next parse reads back the same bytes (`é` → `%C3%A9`, `50%off` → `50%25off`), and markdown-it's `validateLink` has the last
+  word. A refusal is shown under the field and nothing is written. Done on an unchanged address only closes the panel: an
+  address the deck already holds is never re-judged.
+- **Insert → Link with nothing selected** writes the word `link`, selected in the text, and opens the panel on it with focus in
+  the address field. The word is not a link until an address is given, so Escape leaves a plain word to type over or delete.
+  With a selection, the selection becomes the link.
 - **Open** is offered only for a web or mail address, in a new tab with `noopener`. A relative path would resolve against
   the Studio.
 - A locked slide's links open nothing; a fence holds no marks.
@@ -67,7 +71,8 @@ The chip's click handler (`stateMarkerPlugin`) used to write `[ ]` for `[x]` and
 that uses all six answers, one click on `[!]` (no) turned it into a yes with no warning. The click now opens `MarkerPicker`,
 the six from the check registry in its order, using the same list as the table's Cell state picker (`table-controls.tsx`
 `MARKERS`), so the two surfaces cannot disagree. A pick goes through `setListMarker`, which re-reads the marker at write time
-and refuses if it has moved. It replaces only the three marker bytes, in one undo step. Any document change closes the picker.
+and refuses if it has moved; a refusal is said in the status pill. It replaces only the three marker bytes, in one undo step.
+Any document change closes the picker, and a chip on a locked slide opens nothing.
 
 **The cost:** done ↔ open is now two clicks instead of one. Taken because the one-click form destroyed four of the six
 answers, and every other object in Compose opens a panel on a click.
@@ -76,6 +81,8 @@ answers, and every other object in Compose opens a panel on a click.
 
 - **Check** writes `@check{pass}` at the caret, and a short selected word becomes its label. The check's own panel then
   opens, as the pill's does. Shown only when the kernels carry the checks plugin.
+- **A selection the item cannot use stays.** Check (over a long selection) and a plugin's kind (which takes no label) go in
+  after the selection, set off by a space, as the avatar already did; the avatar now gets the same space.
 - **Each installed plugin's kind** with a slot gets an item, "From the <plugin> plugin". `pluginStarter` builds the first
   record from the slot's positional values: a text gets the kind's title, a choice its first word, a number 1. It offers the
   record only if the kind reads it back. A kind whose positional values have no obvious first value stays in the list,
@@ -98,6 +105,14 @@ items are a scroll away; the menu was measured at that width in light and dark.
 - **Not verified:** a real iPad or phone. The selection bar does not show on a touch screen (the OS menu owns
   formatting), so on touch a link is added through Insert → Link; that path ran only under Playwright's emulation.
 
+## 5b. Independent review, and what it changed
+
+A checker read the first commit and confirmed eight findings. Fixed in the second commit: `javascript:1/…` and `data:1,x`
+slipped past the port test; an address with `'` (`Ender's_Game`) was refused, so Done failed on an unchanged link; Check
+and a plugin kind deleted a selection they could not use; `localhost:3000`, `user@example.com` and `example.com.` were
+written as broken links; `é`, `%` and `[` re-encoded on the next parse; and the marker picker opened on a locked slide with
+every pick refused silently. Each has a unit test.
+
 ## 6. Still typed, and where each is planned
 
 | Gap | Reach | Where it is planned |
@@ -112,5 +127,5 @@ items are a scroll away; the menu was measured at that width in light and dark.
 1. A chip click opens the picker rather than toggling (§3). Undo: restore the toggle in `stateMarkerPlugin` (it is still the
    fallback when no picker host is passed).
 2. No link shortcut (§2).
-3. Insert → Link writes a placeholder word rather than asking for the text in the panel. Fewer fields; the word is selected,
-   so typing replaces it.
+3. Insert → Link writes a placeholder word rather than asking for the text in the panel. One field instead of two; the word
+   is selected in the text, so after the address the author double-clicks it, or types over it, to change it.

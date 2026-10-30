@@ -9,6 +9,7 @@ import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { setListMarker } from '@/lib/compose/marker-commands';
+import { notify } from '@/lib/notify';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { MARKERS } from './table-controls';
@@ -37,7 +38,8 @@ export function MarkerPicker({ view, edit, onClose }: { view: EditorView; edit: 
 	});
 	const current = `[${edit.marker}]`;
 	const pick = (token: string) => {
-		if (token !== current) setListMarker(edit.pos, token)(view.state, view.dispatch);
+		// A refusal (the marker moved, or the slide is locked) is said, never swallowed.
+		if (token !== current && !setListMarker(edit.pos, token)(view.state, view.dispatch)) notify('This answer could not be written here. Edit this slide in Markdown.');
 		onClose();
 		if (hasFinePointer()) view.focus();
 	};

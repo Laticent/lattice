@@ -1,8 +1,9 @@
 // THE LINK PANEL — a link's address, edited by pointing at it.
 //
 // Opens three ways, all through ComposeView's one `linkEdit` state: a click on a link in the text (the panel shows the address
-// and leaves the caret where the click put it, so the words stay editable in place), the selection bar's Link button or Mod-K
-// (the address field takes focus), and Insert → Link (a placeholder word is written and selected; the field takes focus).
+// and leaves the caret where the click put it, so the words stay editable in place), the selection bar's Link button (the
+// address field takes focus), and Insert → Link (a placeholder word is written and selected; the field takes focus). There is
+// no Mod-K: the Studio's command palette owns it.
 // Every write goes through lib/compose/link-commands.ts, which refuses an address a slide cannot carry and says why.
 //
 // Lazy: ComposeView loads this with React.lazy, as it does the inline object editor, so none of it is in the Studio's startup
@@ -74,6 +75,8 @@ export default function LinkPanel({ view, edit, onClose }: LinkPanelProps) {
 	};
 
 	const apply = () => {
+		// Done on an unchanged address closes: an address the deck already holds is never re-judged (it may predate these rules).
+		if (existing && draft.trim() === existing.href) return back();
 		const norm = normalizeHref(draft);
 		if ('error' in norm) return setRefused(norm.error);
 		const { doc } = view.state;

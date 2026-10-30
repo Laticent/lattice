@@ -3,11 +3,12 @@
 //
 //   · A link is prosemirror-markdown's `link` mark ({ href, title }), written back as `[text](href "title")` or `<href>`.
 //   · An address goes through `normalizeHref` before it reaches the document, so the serializer never writes a destination that
-//     ends the link early (a space, a parenthesis) or one the engine refuses to draw (`javascript:`, `data:`; markdown-it's own
-//     `validateLink`). A refusal is a sentence the panel shows, never a silent drop.
+//     ends the link early (a space, a parenthesis), one the engine refuses to draw (`javascript:`, `data:`; markdown-it's own
+//     `validateLink`), or one the next parse would re-encode. A refusal is a sentence the panel shows, never a silent drop.
 //   · A locked slide takes no link change, and a fenced block holds no marks.
 //   · Each change is one transaction, so it is one undo step.
 
+import MarkdownIt from 'markdown-it';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import { deckSchema } from './deck-doc';
@@ -28,27 +29,35 @@ export const LINK_PLACEHOLDER = 'link';
 /** The schemes a slide may link to. Everything else with a scheme is refused (markdown-it draws `javascript:` and `data:` as text). */
 const SAFE_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
 
+/** markdown-it's own link rules: the address is written as the parser would normalize it, and refused where it would refuse it. */
+const md = new MarkdownIt();
+
 /**
  * An address as the author typed it, made safe to write as a Markdown link destination, or the reason it cannot be.
- * Spaces and parentheses are percent-encoded (they would end the destination); a bare host (`example.com/x`) gains
- * `https://`; a relative path or `#anchor` stays as it is. Refused: an empty address, a scheme other than http, https,
- * mailto and tel, and a character no destination can hold (`<`, `>`, a quote, a backtick, a backslash, a control).
+ * A bare email gains `mailto:`, a bare host (`example.com/x`) `https://`, and a host with a port (`localhost:3000`) `http://`
+ * for a local host and `https://` otherwise; a relative path or `#anchor` stays as it is. The result is then written as
+ * markdown-it normalizes it (`normalizeLink`), so the next parse reads back the same bytes, with parentheses percent-encoded
+ * because the serializer writes the destination bare. Refused: an empty address, a scheme other than http, https, mailto and
+ * tel, a control character, and anything markdown-it's `validateLink` refuses.
  */
 export function normalizeHref(input: string): { href: string } | { error: string } {
 	let href = input.trim();
 	if (!href) return { error: 'Type an address for the link.' };
-	const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(href)?.[1]?.toLowerCase();
-	if (scheme && !SAFE_SCHEMES.has(scheme)) {
-		// `localhost:3000/x` reads as a scheme to the pattern; a number after the colon is a port, not a scheme.
-		if (!/^[a-z][a-z0-9+.-]*:\d/i.test(href)) return { error: `A slide cannot link to a ${scheme}: address. Use a web address (https://…) or an email (mailto:…).` };
-	}
-	if (!scheme || /^[a-z][a-z0-9+.-]*:\d/i.test(href)) {
-		// No scheme: a path, an anchor or a bare host. A dot before the first slash names a host.
-		if (!/^[./#?]/.test(href) && /^[^/]*\.[a-z]{2,}(?:[:/?#]|$)/i.test(href)) href = `https://${href}`;
-	}
-	href = href.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: a control character is exactly what is being refused.
-	if (/[\s<>"'`\\\u0000-\u001f\u007f]/.test(href)) return { error: 'The address holds a character a link cannot carry (a quote, an angle bracket, a backslash or a line break).' };
+	if (/[\u0000-\u001f\u007f]/.test(href)) return { error: 'The address holds a line break or another character a link cannot carry.' };
+	if (/^[^\s@/:?#]+@[^\s@/:?#]+\.[a-z]{2,}$/i.test(href)) href = `mailto:${href}`;
+	else if (/^(?:localhost|[^:/?#\s]*\.[^:/?#\s]+|\[[0-9a-f:]+\]):\d+(?:[/?#]|$)/i.test(href)) {
+		// `host:port`, where the host is `localhost`, holds a dot or is a bracketed IPv6 address. Without a scheme a browser reads
+		// `localhost:` as one. A dotless word before the colon is a scheme (`javascript:1/…`) and goes to the check below.
+		href = `${/^(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/i.test(href) ? 'http' : 'https'}://${href}`;
+	} else {
+		const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(href)?.[1]?.toLowerCase();
+		if (scheme && !SAFE_SCHEMES.has(scheme)) return { error: `A slide cannot link to a ${scheme}: address. Use a web address (https://…) or an email (mailto:…).` };
+		// No scheme: a path, an anchor or a bare host. A dot and a top-level name before the first slash name a host.
+		if (!scheme && !/^[./#?]/.test(href) && /^[^/?#\s]*\.[a-z]{2,}\.?(?:[/?#]|$)/i.test(href)) href = `https://${href}`;
+	}
+	href = md.normalizeLink(href).replace(/\(/g, '%28').replace(/\)/g, '%29');
+	if (!md.validateLink(href)) return { error: 'A slide cannot link to this address. Use a web address (https://…) or an email (mailto:…).' };
 	return { href };
 }
 
