@@ -139,7 +139,10 @@ function splitEnrollment() {
 }
 const BLESS = process.argv.includes('--bless');
 
-/** Every component whose stylesheet carries a `[data-family]` reflow rule. */
+/** Every component whose stylesheet carries a box-reflow rule: a `[data-family]` selector, or a
+ *  text-room `@container lattice (width < …)` query (base.elements.css), which is where a
+ *  component's family rules moved to on 2026-10-29. Without the second, a component that moved
+ *  would silently leave this roster. */
 function familyReflowingComponents() {
   const out = new Set();
   const walk = (d) => {
@@ -148,7 +151,7 @@ function familyReflowingComponents() {
       if (e.isDirectory()) { walk(p); continue; }
       if (!p.endsWith('.css')) continue;
       // Comment-stripped: a `[data-family]` quoted in prose is not a rule.
-      if (/\[data-family/.test(fs.readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''))) {
+      if (/\[data-family|@container\s+lattice\s*\(\s*width\s*</.test(fs.readFileSync(p, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''))) {
         out.add(path.basename(path.dirname(p)));
       }
     }

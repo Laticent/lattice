@@ -74,8 +74,29 @@ test('every math variant keeps a FAMILY reflow, or declares why it needs none', 
   // that never needed one. Found by a red team reading the matcher. `square` counts too:
   // `feature` measures 242px over there, so a variant may legitimately reflow at square
   // and not at tall, but a rule that keys ONLY `wide` is not a reflow.
-  const formFamily = selectors.filter((sel) => sel.includes('.cell-stage')
-    && /\[data-family=["'](tall|strip|square)["']\]/.test(sel));
+  // …OR KEY TEXT ROOM. A rule inside `@container lattice (width < Nem)` (the text-room rule,
+  // lib/base/base.elements.css) reflows the same boxes by the characters a line holds, and is
+  // where `decompose`'s family rule moved on 2026-10-29. Splitting on `}` reads an at-rule's
+  // prelude as the selector, so the nested rules are collected from the blocks themselves.
+  const textRoom = [];
+  for (const m of positive.matchAll(/@container\s+lattice\s*\(\s*width\s*<\s*[\d.]+em\s*\)\s*\{/g)) {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    const start = i;
+    for (; i < positive.length && depth; i++) {
+      if (positive[i] === '{') depth++;
+      else if (positive[i] === '}') depth--;
+    }
+    for (const block of positive.slice(start, i - 1).split('}')) {
+      if (!block.includes('{')) continue;
+      const sel = block.slice(0, block.indexOf('{'));
+      textRoom.push(sel.slice(sel.lastIndexOf('*/') + 2));
+    }
+  }
+  const formFamily = [
+    ...selectors.filter((sel) => /\[data-family=["'](tall|strip|square)["']\]/.test(sel)),
+    ...textRoom.filter((sel) => sel.includes('section.math')),
+  ].filter((sel) => sel.includes('.cell-stage'));
 
   // WHICH VARIANT DOES A SELECTOR ACTUALLY DECLARE? Not "every variant token it
   // mentions" — `decompose` is authored as the COMPOUND `math matrix decompose`, so its

@@ -3114,6 +3114,22 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
+/* TIGHT ROOM (the text-room rule, base.elements.css): as a flex sibling the arrow takes its
+   own column, so a lead-in that wraps wraps in the box beside it, and at portrait@hall "What
+   each jurisdiction requires" set three short lines. Inline, the arrow follows the last word
+   and the text keeps the frame's full width. The 0.4em the flex gap gave is folded into the
+   mark's own box, right-anchored, so nothing sits outside a box (HARD RULE #20). The lead-in
+   also steps down to the body size: at `--fs-emphasis` a story box at hall holds eleven
+   characters a line ("A monotonic / pipeline that / narrows"), and the lead-in is a line about
+   what comes next, not a second headline. */
+@container lattice (width < 17em) {
+  .split-cover-lead { display: block; font-size: var(--fs-body); }
+  .split-cover-lead::after {
+    display: inline-block; vertical-align: -0.12em; width: 1.4em;
+    -webkit-mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+            mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+  }
+}
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
    different "where am I" signals (sub-sequence progress vs. deck position), so they get
@@ -3511,6 +3527,16 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   font-size: var(--fs-emphasis);
   line-height: var(--lh-snug);
   text-wrap: pretty;
+}
+/* TIGHT ROOM (the text-room rule, base.elements.css): the step up costs a third of the line.
+   Under ~35 characters a line of body text, a lone member at `--fs-emphasis` inside a padded row
+   set eleven characters a line (a mustard checklist row at story@hall, "Per-team / weighting UI,
+   / descoped to next / half"), and a page holding one thing is no use if that thing cannot be
+   read. It stays at the body size there; everywhere else it steps up as above. */
+@container lattice (width < 17em) {
+  section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
+    font-size: var(--fs-body);
+  }
 }
 
 /* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────────

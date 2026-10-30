@@ -52,10 +52,28 @@ function install(cfg) {
    *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
    *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
   const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
+  // The block a text run belongs to: its nearest ancestor that is not inline. A paragraph broken
+  // up by inline `code` or `strong` is ONE run for the cram check. Measured per text node, a
+  // fragment that starts at the end of one line and ends at the start of the next counted as three
+  // lines of a dozen characters inside a paragraph thirty characters wide (flowchart's and
+  // pricing's "When NOT to" cards at story/hall, §13).
+  // Only plain `inline` (and `contents`, which draws no box) pools with its parent: an
+  // inline-block or inline-flex chip is its own box with its own lines, and pooled with the
+  // paragraph around it a crammed chip would hide behind the paragraph's long lines.
+  const blockOf = (el, s) => { for (let a = el; a && a !== s; a = a.parentElement) if (!/^(inline|contents)$/.test(getComputedStyle(a).display)) return a; return s; };
+  // Lines are clusters of rects by vertical center, not distinct tops: an inline code chip's box
+  // is taller than the text beside it and starts a few pixels higher on the same line.
+  const lineCount = (rects) => {
+    const cs = rects.map((x) => [(x.top + x.bottom) / 2, x.height]).sort((a, b) => a[0] - b[0]);
+    let n = 0, last = -Infinity, h = 0;
+    for (const [c, ht] of cs) { if (c - last > Math.min(h || ht, ht) * 0.5) { n++; last = c; h = ht; } }
+    return n;
+  };
   function readable(s) {
     const body = parseFloat(getComputedStyle(s).fontSize) || 16;
     const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
     const drawn = [];
+    const blocks = new Map();
     let n;
     while ((n = w.nextNode())) {
       const el = n.parentElement;
@@ -70,14 +88,58 @@ function install(cfg) {
         const box = a.getBoundingClientRect();
         if (rects.some((x) => x.right > box.right + 2 || x.left < box.left - 2)) return false;
       }
-      // Measure each text run against its OWN lines: a card's short bold title on its own line
+      // Measure each block's text against its OWN lines: a card's short bold title in its own block
       // must not drag its body's average down (that flagged readable list-steps cards).
+      // A block holding inline material the check leaves out (KaTeX, an inline svg) is measured
+      // a text node at a time, as before the block grouping: the left-out material takes width on the line but no
+      // characters, so the block's average would read short (math's inline-formula prose).
+      const blk0 = blockOf(el, s);
+      // So is a block broken by `<br>` (the engine sets `breaks: true`, so every soft newline in a
+      // source paragraph is one): its short lines are the author's, not a cram, and pooled they
+      // read as one run of a dozen characters a line.
+      // Code gets no cram check at all: a `<pre>` block's line breaks are its author's, so a run
+      // that ends one line, crosses a blank one and starts the next is not a cram (compare-code's
+      // `pd` / `signals =` at story@laptop). It is still checked for cuts and overprints above and
+      // below.
+      if (el.closest('pre')) continue;
+      const blk = blk0.querySelector(`${NOT_PROSE}, br`) ? n : blk0;
+      // Body-size text only: display type and captions are left out. A block is body text when
+      // MOST of its characters are body size, so a smaller inline run inside a paragraph (a code
+      // chip) still counts its characters, and a block that is all label (an eyebrow set as
+      // inline code) is still left out.
       const fs = parseFloat(getComputedStyle(el).fontSize);
-      if (fs > body * 1.6 || fs < body * 0.85) continue;
-      const text = n.textContent.replace(/\s+/g, ' ').trim();
-      if (text.length < 24) continue;
-      const lines = new Set(rects.map((x) => Math.round(x.top))).size;
-      if (lines > 2 && text.length / lines < 12) return false;
+      const bodySize = !(fs > body * 1.6 || fs < body * 0.85);
+      const g = blocks.get(blk) || { text: '', rects: [], node: blk === n, bodyChars: 0 };
+      g.text += n.textContent;
+      if (bodySize) g.bodyChars += n.textContent.trim().length;
+      g.rects.push(...rects);
+      blocks.set(blk, g);
+      // An inline-block chip is its own block (above), but it also sits ON its parent's lines:
+      // its characters count toward the parent's average too, or a row of chips and words reads
+      // as short lines ("`list` — declared statements — the `principles` variant"). Characters
+      // only; the parent's lines come from its own text.
+      if (blk === blk0 && /^inline-/.test(getComputedStyle(blk0).display) && blk0 !== s) {
+        const host = blockOf(blk0.parentElement, s);
+        const h = blocks.get(host) || { text: '', rects: [], node: false, bodyChars: 0 };
+        h.text += n.textContent;
+        blocks.set(host, h);
+      }
+    }
+    for (const { text: raw, rects, node, bodyChars } of blocks.values()) {
+      const text = raw.replace(/\s+/g, ' ').trim();
+      if (text.length < 24 || bodyChars * 2 < text.replace(/\s/g, '').length) continue;
+      const lines = lineCount(rects);
+      if (lines <= 2) continue;
+      if (!node) { if (text.length / lines < 12) return false; continue; }
+      // A lone text node usually starts and ends mid-line (after an inline formula, before
+      // another), so its first and last lines are partial. Its INTERIOR lines are whole: size
+      // them in characters from their width and the run's own average advance.
+      const width = rects.reduce((a, x) => a + x.width, 0);
+      const top = Math.min(...rects.map((x) => x.top));
+      const bottom = Math.max(...rects.map((x) => x.bottom));
+      const inner = rects.filter((x) => x.top > top + 1 && x.bottom < bottom - 1);
+      const advance = width / text.length;
+      if (inner.length && advance > 0 && Math.max(...inner.map((x) => x.width)) / advance < 12) return false;
     }
     // Text drawn over other text reads as garbage however long its lines are: redline's split NEW
     // column at story/hall (§12). Two line boxes of DIFFERENT runs overlap when they share more

@@ -220,6 +220,18 @@
    * engineering/decisions/2026-08-04-measure-body-floor.md */
   --measure-body: 36em;             /* ~80 characters at the body tier — see above */
 
+  /* The NARROWEST a text column may get: 24 characters of body text. `ch` is the
+   * width of "0", wider than the average letter, so 24 characters is about 19ch.
+   * Unregistered, so `ch` resolves at the element that uses it: the column's own
+   * type, which follows the venue. `--col-max` is the most columns a layout was
+   * designed for; `--fluid-cols` (base.elements.css) fits as many columns as keep
+   * `--col-min` each, never more than `--col-max`; its `--col-gap` default is set beside it,
+   * per element, since `--sp-md` is slide-relative. The text-room rule and its three
+   * container-query thresholds are documented beside `container-name: lattice`
+   * in base.elements.css. engineering/decisions/2026-10-28-fit-everywhere-model.md §13 */
+  --col-min: 19ch;
+  --col-max: 1;
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */

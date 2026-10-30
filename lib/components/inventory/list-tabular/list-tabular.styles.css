@@ -215,11 +215,13 @@ section.list-tabular.spec.stacked ol > li > .lat-pill[data-shape] {
   grid-column:3; grid-row:1;
   justify-self:end;
 }
-/* In block flow (tall / strip families) the row is not a grid, so drop the placement
+/* In block flow (narrow text room, below) the row is not a grid, so drop the placement
  * and let the pill sit in the text run like the meta shapes above it. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > .lat-pill[data-shape] {
-  grid-column:auto; grid-row:auto;
-  justify-self:start;
+@container lattice (width < 23em) {
+  section.list-tabular.list-tabular ol > li > .lat-pill[data-shape] {
+    grid-column:auto; grid-row:auto;
+    justify-self:start;
+  }
 }
 
 /* ── Variant: def (editorial) ─────────────────────────────────────────── */
@@ -501,38 +503,52 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    name, and the description drops to its own line beneath. (Block flow, not a grid
    re-track, because the name is a bare text node the grid can place only by source
    order — a block flow lays them out in that order without fighting it.) Keyed on
-   the deck's `data-family` stamp; the doubled class `.list-tabular.list-
-   tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol {
-  display: block;
-  grid-template-columns: none;
+   TEXT ROOM, the NARROW threshold (base.elements.css), since 2026-10-29; it keyed on the tall
+   and strip families before, which all measure under 23em, and square@hall (21.4em) now joins
+   them. The doubled class `.list-tabular.list-tabular` reaches the variants' (0,2,N) weight
+   and source order keeps it last. */
+@container lattice (width < 23em) {
+  section.list-tabular.list-tabular ol {
+    display: block;
+    grid-template-columns: none;
+  }
+  section.list-tabular.list-tabular ol > li {
+    display: block;
+    grid-template-columns: none;
+  }
+  section.list-tabular.list-tabular ol > li::before {
+    padding-right: var(--sp-sm);
+  }
+  /* meta code → inline after the name (no longer a right-aligned column). */
+  section.list-tabular.list-tabular ol > li > code {
+    display: inline-block;
+    padding-left: var(--sp-sm);
+    text-align: left;
+  }
+  /* description (nested list) → its own line below the name. */
+  section.list-tabular.list-tabular ol > li > ul { display: block; }
+  section.list-tabular.list-tabular ol > li > ul > li:first-child {
+    display: block;
+    padding-top: var(--sp-2xs);
+  }
+  /* the 3-line authoring contract carries meta as a second nested li (not inline
+     `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
+     it right-aligned, so left-align it onto its own line like the inline-code meta. */
+  section.list-tabular.list-tabular ol > li > ul > li:nth-child(2) {
+    display: block;
+    text-align: left;
+    padding-top: var(--sp-2xs);
+  }
+  /* TIGHT, under ~35 characters a line: the meta stops riding after the name and takes its own
+     line. Inline after "Scope", a mono meta of four words set three characters a line wide of it
+     ("Retail and / commercial / deposits, twelve / markets" at story@hall, `flex-meta`). */
 }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li {
-  display: block;
-  grid-template-columns: none;
-}
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li::before {
-  padding-right: var(--sp-sm);
-}
-/* meta code → inline after the name (no longer a right-aligned column). */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > code {
-  display: inline-block;
-  padding-left: var(--sp-sm);
-  text-align: left;
-}
-/* description (nested list) → its own line below the name. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul { display: block; }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:first-child {
-  display: block;
-  padding-top: var(--sp-2xs);
-}
-/* the 3-line authoring contract carries meta as a second nested li (not inline
-   `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
-   it right-aligned, so left-align it onto its own line like the inline-code meta. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
-  display: block;
-  text-align: left;
-  padding-top: var(--sp-2xs);
+@container lattice (width < 17em) {
+  section.list-tabular.list-tabular ol > li > code {
+    display: block;
+    padding-inline-start: 0;
+    padding-top: var(--sp-2xs);
+  }
 }
 
 

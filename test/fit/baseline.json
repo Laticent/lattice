@@ -140,7 +140,7 @@
     },
     "square@hall": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -150,7 +150,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -310,7 +310,7 @@
     },
     "story@hall": {
       "clip": 1,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -822,7 +822,7 @@
     },
     "story@hall": {
       "clip": 6,
-      "unreadable": 2,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -1046,7 +1046,7 @@
     },
     "story@hall": {
       "clip": 1,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -1185,7 +1185,7 @@
   },
   "lib/components/comparison/compare-prose/compare-prose.gallery.md": {
     "portrait@hall": {
-      "clip": 9,
+      "clip": 10,
       "unreadable": 0,
       "lost": 0
     },
@@ -1334,7 +1334,7 @@
     },
     "story@hall": {
       "clip": 2,
-      "unreadable": 2,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -1804,7 +1804,7 @@
     },
     "square@hall": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -1868,7 +1868,7 @@
     },
     "square@hall": {
       "clip": 1,
-      "unreadable": 4,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -1878,7 +1878,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -1921,8 +1921,8 @@
   },
   "lib/components/inventory/agenda/agenda.gallery.md": {
     "portrait@hall": {
-      "clip": 14,
-      "unreadable": 2,
+      "clip": 3,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -1942,7 +1942,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 13,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2018,7 +2018,7 @@
   "lib/components/inventory/checklist/checklist.gallery.md": {
     "portrait@hall": {
       "clip": 2,
-      "unreadable": 5,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -2038,7 +2038,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 5,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2050,7 +2050,7 @@
   "lib/components/inventory/glossary/glossary.gallery.md": {
     "portrait@hall": {
       "clip": 3,
-      "unreadable": 3,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -2069,8 +2069,8 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 2,
-      "unreadable": 3,
+      "clip": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2081,8 +2081,8 @@
   },
   "lib/components/inventory/inventory.gallery.md": {
     "portrait@hall": {
-      "clip": 4,
-      "unreadable": 2,
+      "clip": 3,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -2102,7 +2102,7 @@
     },
     "story@hall": {
       "clip": 1,
-      "unreadable": 3,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2113,7 +2113,7 @@
   },
   "lib/components/inventory/inventory/inventory.gallery.md": {
     "portrait@hall": {
-      "clip": 9,
+      "clip": 6,
       "unreadable": 0,
       "lost": 0
     },
@@ -2123,7 +2123,7 @@
       "lost": 0
     },
     "square@hall": {
-      "clip": 1,
+      "clip": 0,
       "unreadable": 0,
       "lost": 0
     },
@@ -2146,7 +2146,7 @@
   "lib/components/inventory/list-tabular/list-tabular.gallery.md": {
     "portrait@hall": {
       "clip": 2,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -2166,7 +2166,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2177,8 +2177,8 @@
   },
   "lib/components/inventory/list/list.gallery.md": {
     "portrait@hall": {
-      "clip": 5,
-      "unreadable": 3,
+      "clip": 3,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
@@ -2198,7 +2198,7 @@
     },
     "story@hall": {
       "clip": 0,
-      "unreadable": 4,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2293,8 +2293,8 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 3,
-      "unreadable": 1,
+      "clip": 2,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
@@ -2401,7 +2401,7 @@
   },
   "lib/components/legal/authority-chain/authority-chain.gallery.md": {
     "portrait@hall": {
-      "clip": 10,
+      "clip": 9,
       "unreadable": 0,
       "lost": 0
     },
@@ -2411,7 +2411,7 @@
       "lost": 0
     },
     "square@hall": {
-      "clip": 6,
+      "clip": 2,
       "unreadable": 0,
       "lost": 0
     },
@@ -2421,7 +2421,7 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 7,
+      "clip": 6,
       "unreadable": 0,
       "lost": 0
     },
@@ -2465,33 +2465,33 @@
   },
   "lib/components/legal/legal.gallery.md": {
     "portrait@hall": {
-      "clip": 28,
+      "clip": 25,
       "unreadable": 0,
       "lost": 4
     },
     "portrait@laptop": {
-      "clip": 11,
-      "unreadable": 2,
+      "clip": 10,
+      "unreadable": 0,
       "lost": 4
     },
     "square@hall": {
-      "clip": 20,
+      "clip": 16,
       "unreadable": 0,
       "lost": 4
     },
     "square@laptop": {
-      "clip": 2,
-      "unreadable": 2,
+      "clip": 1,
+      "unreadable": 0,
       "lost": 4
     },
     "story@hall": {
-      "clip": 22,
-      "unreadable": 3,
+      "clip": 17,
+      "unreadable": 0,
       "lost": 4
     },
     "story@laptop": {
-      "clip": 4,
-      "unreadable": 2,
+      "clip": 3,
+      "unreadable": 0,
       "lost": 4
     }
   },
@@ -2561,50 +2561,50 @@
   },
   "lib/components/legal/regulatory-update/regulatory-update.gallery.md": {
     "portrait@hall": {
-      "clip": 10,
+      "clip": 9,
       "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
       "clip": 2,
-      "unreadable": 2,
+      "unreadable": 0,
       "lost": 0
     },
     "square@hall": {
-      "clip": 8,
-      "unreadable": 1,
+      "clip": 4,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@hall": {
-      "clip": 4,
-      "unreadable": 1,
+      "clip": 2,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
       "clip": 1,
-      "unreadable": 2,
+      "unreadable": 0,
       "lost": 0
     }
   },
   "lib/components/legal/statute-stack/statute-stack.gallery.md": {
     "portrait@hall": {
       "clip": 7,
-      "unreadable": 4,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
-      "clip": 1,
+      "clip": 0,
       "unreadable": 0,
       "lost": 0
     },
     "square@hall": {
-      "clip": 1,
-      "unreadable": 3,
+      "clip": 0,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -2613,12 +2613,12 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 6,
-      "unreadable": 4,
+      "clip": 5,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
-      "clip": 1,
+      "clip": 0,
       "unreadable": 0,
       "lost": 0
     }
@@ -2658,16 +2658,16 @@
   "lib/components/math/math/math.gallery.md": {
     "portrait@hall": {
       "clip": 15,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@hall": {
-      "clip": 5,
+      "clip": 4,
       "unreadable": 0,
       "lost": 0
     },
@@ -2677,13 +2677,13 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 11,
-      "unreadable": 1,
+      "clip": 10,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     }
   },
@@ -2722,17 +2722,17 @@
   "lib/components/progression/list-steps/list-steps.gallery.md": {
     "portrait@hall": {
       "clip": 3,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@hall": {
       "clip": 1,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -2742,12 +2742,12 @@
     },
     "story@hall": {
       "clip": 1,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     }
   },
@@ -2849,18 +2849,18 @@
   },
   "lib/components/statement/premise/premise.gallery.md": {
     "portrait@hall": {
-      "clip": 8,
+      "clip": 7,
       "unreadable": 0,
       "lost": 0
     },
     "portrait@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@hall": {
       "clip": 1,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "square@laptop": {
@@ -2869,13 +2869,13 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 5,
-      "unreadable": 1,
+      "clip": 1,
+      "unreadable": 0,
       "lost": 0
     },
     "story@laptop": {
       "clip": 0,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 0
     }
   },
@@ -2913,7 +2913,7 @@
   },
   "lib/components/statement/split-panel/split-panel.gallery.md": {
     "portrait@hall": {
-      "clip": 14,
+      "clip": 12,
       "unreadable": 0,
       "lost": 0
     },
@@ -2933,7 +2933,7 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 9,
+      "clip": 7,
       "unreadable": 0,
       "lost": 0
     },
@@ -2965,7 +2965,7 @@
       "lost": 0
     },
     "story@hall": {
-      "clip": 3,
+      "clip": 2,
       "unreadable": 0,
       "lost": 0
     },
@@ -2977,17 +2977,17 @@
   },
   "test/integration/baseline-decks/gallery.md": {
     "portrait@hall": {
-      "clip": 91,
+      "clip": 83,
       "unreadable": 0,
       "lost": 7
     },
     "portrait@laptop": {
       "clip": 11,
-      "unreadable": 1,
+      "unreadable": 0,
       "lost": 7
     },
     "square@hall": {
-      "clip": 39,
+      "clip": 38,
       "unreadable": 0,
       "lost": 7
     },
@@ -2997,13 +2997,13 @@
       "lost": 7
     },
     "story@hall": {
-      "clip": 44,
-      "unreadable": 5,
+      "clip": 39,
+      "unreadable": 0,
       "lost": 7
     },
     "story@laptop": {
       "clip": 1,
-      "unreadable": 2,
+      "unreadable": 0,
       "lost": 7
     }
   }

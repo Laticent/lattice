@@ -6,7 +6,7 @@
     "default": "center"
   },
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "title",
       "items"
