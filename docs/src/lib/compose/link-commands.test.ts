@@ -58,9 +58,17 @@ describe('normalizeHref', () => {
 		expect(normalizeHref('  ')).toHaveProperty('error');
 		for (const h of ['javascript:alert(1)', 'JavaScript:x', 'data:text/html,x', 'vbscript:x', 'file:///etc/passwd', 'javascript:1/alert%28document.domain%29', 'javascript:0,alert(1)', 'JAVASCRIPT:9//x', 'data:1,x']) expect(normalizeHref(h), h).toHaveProperty('error');
 		expect(normalizeHref('https://x.io/\na')).toHaveProperty('error');
+		// Written with entities, the scheme is still the scheme: the parser decodes them before it judges the link.
+		for (const h of ['javascript&colon;alert(1)', '&#106;avascript:alert(1)', '&#x6A;avascript:x', 'https://x.io/&#10;a']) expect(normalizeHref(h), h).toHaveProperty('error');
+	});
+	it('never makes a URL no browser accepts out of an IPv6 host or a Windows path', () => {
+		for (const h of ['[::1]:3000', '\\\\evil.com']) {
+			const r = normalizeHref(h);
+			expect('href' in r && r.href.startsWith('http'), h).toBe(false);
+		}
 	});
 	it('every address it writes reads back as the same bytes', () => {
-		for (const h of ['https://ex.com/é', 'https://x.io/50%off', 'https://x.io/[x]', "https://x.io/Ender's", 'example.com/a b', 'https://x.io/(a)']) {
+		for (const h of ['https://ex.com/é', 'https://x.io/50%off', 'https://x.io/[x]', "https://x.io/Ender's", 'example.com/a b', 'https://x.io/(a)', 'https://x.io/a&amp;b', 'https://x.io/?a=1&b=2', 'https://x.io/a%26amp;b']) {
 			const first = normalizeHref(h);
 			if (!('href' in first)) throw new Error(h);
 			const deck = docToDeck(deckToDoc(`<!-- _class: content -->\n\n## L\n\n[t](${first.href})`));

@@ -783,28 +783,50 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 		const kernels = getKernels();
 		const plan = opts.plan ?? INSERT_PLANS[opts.kind ?? 'pill'];
 		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, plan.noun) || !kernels) return false;
-		const { $from, $to, from, to, empty } = state.selection;
-		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
-		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : null;
-		// An icon and a spark have no use for a selected word, so it is left where it is.
+		const { empty } = state.selection;
+		let { from, to } = state.selection;
+		// What the selection reads as. A line break reads as one and any other leaf as U+FFFC (the object replacement
+		// character), so a selection over either is never a label; one that holds a code span or another object is not one
+		// either (the label would swallow it).
+		const raw = empty ? '' : state.doc.textBetween(from, to, ' ', (n) => (n.type.name === 'hard_break' ? '\n' : '\uFFFC'));
+		let holdsCode = false;
+		if (!empty)
+			state.doc.nodesBetween(from, to, (n) => {
+				if (n.type === objectType() || (n.isText && isCodeish(n))) holdsCode = true;
+			});
+		const picked = raw.trim();
+		const label = picked && !holdsCode && picked.length <= 40 && !/[\n\uFFFC]/.test(picked) ? picked : null;
+		// A label replaces the words only: a space the selection took with it (a double-click on Windows does) stays in the text.
+		// The selection is one run of text here, so its characters and its positions line up.
 		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar || plan === INSERT_PLANS.check;
+		if (label && usesLabel) {
+			from += raw.length - raw.trimStart().length;
+			to -= raw.length - raw.trimEnd().length;
+		}
+		const $from = state.doc.resolve(from);
+		const $to = state.doc.resolve(to);
+		// An icon and a spark have no use for a selected word, so it is left where it is.
 		const src = plan.sample(kernels, usesLabel ? (label ?? (opts.sample ?? null)) : null);
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
 			const node = objectType().create({ src });
-			// A spark and an icon go after the word the caret is in, never through it.
-			const rest = plan.afterWord && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
-			const at0 = plan.afterWord ? $to.pos + rest : plan !== INSERT_PLANS.pill && !empty && !(usesLabel && label) ? to : from;
 			// An avatar, a check or a plugin's kind never deletes a selection it cannot use as the name or label (long, over a line
-			// break, or a kind that takes none): it goes in after it, as a spark does.
+			// break, holding code, or a kind that takes none): it goes in after it, as a spark does.
 			const keepSelection = plan !== INSERT_PLANS.pill && !plan.afterWord && !empty && !(usesLabel && label);
+			// A spark and an icon go after the word the caret is in, never through it; so does an object after a kept selection that
+			// ends inside a word.
+			const toWordEnd = plan.afterWord || (keepSelection && !/\s$/.test(raw));
+			const rest = toWordEnd && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
+			const at0 = plan.afterWord || keepSelection ? $to.pos + rest : from;
 			const end0 = plan.afterWord || keepSelection ? at0 : to;
 			const $at = plan.afterWord || keepSelection ? state.doc.resolve(at0) : $from;
 			const before = $at.nodeBefore;
 			const after = plan.afterWord || keepSelection ? $at.nodeAfter : $to.nodeAfter;
 			const needsGap = (plan.afterWord || keepSelection) && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
 			const lead = needsGap || Boolean(before && touchesAsCode(before, node));
-			const trail = Boolean(after && touchesAsCode(node, after));
+			// After a kept selection the object is set off from the next word too.
+			const trailGap = keepSelection && Boolean(after?.isText && !isCodeish(after) && /^\S/.test(after.text ?? ''));
+			const trail = trailGap || Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');
 			const tr = state.tr.replaceWith(at0, end0, [...(lead ? [space()] : []), node, ...(trail ? [space()] : [])]);
 			const at = at0 + (lead ? 1 : 0);

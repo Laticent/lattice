@@ -41,22 +41,25 @@ const md = new MarkdownIt();
  * tel, a control character, and anything markdown-it's `validateLink` refuses.
  */
 export function normalizeHref(input: string): { href: string } | { error: string } {
-	let href = input.trim();
+	// Entities and backslash escapes are decoded first, as the parser will decode them: `&#106;avascript:` is `javascript:`.
+	let href = md.utils.unescapeAll(input.trim());
 	if (!href) return { error: 'Type an address for the link.' };
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: a control character is exactly what is being refused.
 	if (/[\u0000-\u001f\u007f]/.test(href)) return { error: 'The address holds a line break or another character a link cannot carry.' };
 	if (/^[^\s@/:?#]+@[^\s@/:?#]+\.[a-z]{2,}$/i.test(href)) href = `mailto:${href}`;
-	else if (/^(?:localhost|[^:/?#\s]*\.[^:/?#\s]+|\[[0-9a-f:]+\]):\d+(?:[/?#]|$)/i.test(href)) {
-		// `host:port`, where the host is `localhost`, holds a dot or is a bracketed IPv6 address. Without a scheme a browser reads
-		// `localhost:` as one. A dotless word before the colon is a scheme (`javascript:1/…`) and goes to the check below.
-		href = `${/^(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/i.test(href) ? 'http' : 'https'}://${href}`;
+	else if (/^(?:localhost|[^:/?#\s\\]*\.[^:/?#\s\\]+):\d+(?:[/?#]|$)/i.test(href)) {
+		// `host:port`, where the host is `localhost` or holds a dot. Without a scheme a browser reads `localhost:` as one. A dotless
+		// word before the colon is a scheme (`javascript:1/…`) and goes to the check below. A bracketed IPv6 host is not offered:
+		// markdown-it percent-encodes the brackets, which no browser accepts.
+		href = `${/^(?:localhost|127\.0\.0\.1)(?::|$)/i.test(href) ? 'http' : 'https'}://${href}`;
 	} else {
 		const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(href)?.[1]?.toLowerCase();
 		if (scheme && !SAFE_SCHEMES.has(scheme)) return { error: `A slide cannot link to a ${scheme}: address. Use a web address (https://…) or an email (mailto:…).` };
 		// No scheme: a path, an anchor or a bare host. A dot and a top-level name before the first slash name a host.
-		if (!scheme && !/^[./#?]/.test(href) && /^[^/?#\s]*\.[a-z]{2,}\.?(?:[/?#]|$)/i.test(href)) href = `https://${href}`;
+		if (!scheme && !/^[./#?]/.test(href) && /^[^/?#\s\\]*\.[a-z]{2,}\.?(?:[/?#]|$)/i.test(href)) href = `https://${href}`;
 	}
-	href = md.normalizeLink(href).replace(/\(/g, '%28').replace(/\)/g, '%29');
+	// An `&` that still starts an entity is encoded, or the next parse would decode it into another address.
+	href = md.normalizeLink(href).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/&(?=#\d+;|#x[0-9a-f]+;|[a-z][a-z0-9]*;)/gi, '%26');
 	if (!md.validateLink(href)) return { error: 'A slide cannot link to this address. Use a web address (https://…) or an email (mailto:…).' };
 	return { href };
 }

@@ -1021,6 +1021,56 @@ describe('avatars and icons are objects too', () => {
 			expect(docToDeck(long.state.doc)).toContain(`${longSelection} \`!{Alex Rivera}\``);
 		});
 
+		describe('a selection the label cannot be', () => {
+			const deckOf = (line: string) => ['<!-- _class: content -->', '', '## T', '', line].join('\n');
+			/** Select the text between the first `start` and the end of the first `end` that follows it. */
+			function select(view: EditorView, start: string, end: string) {
+				const flat: { pos: number; ch: string }[] = [];
+				view.state.doc.descendants((node, pos) => {
+					if (node.isText) for (let i = 0; i < (node.text ?? '').length; i++) flat.push({ pos: pos + i, ch: (node.text ?? '')[i] });
+				});
+				const text = flat.map((c) => c.ch).join('');
+				const a = text.indexOf(start);
+				const b = text.indexOf(end, a) + end.length - 1;
+				view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, flat[a].pos, flat[b].pos + 1)));
+			}
+			const insert = (view: EditorView, kind: 'check' | 'avatar' | 'pill') => insertObject(() => kernels, { kind })(view.state, view.dispatch);
+
+			it('a selection over a line break is no label: the break stays and the object goes after it', () => {
+				const view = mount(deckOf('ab\\\ncd rest'));
+				select(view, 'ab', 'cd');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain('ab\\\ncd `@check{pass}` rest');
+			});
+
+			it('a trailing space the selection took stays in the text', () => {
+				for (const [kind, src] of [['check', '@check{pass, label=beta}'], ['avatar', '!{beta}'], ['pill', '{beta}']] as const) {
+					const view = mount(deckOf('Alpha beta gamma'));
+					select(view, 'beta', 'beta ');
+					expect(insert(view, kind), kind).toBe(true);
+					expect(docToDeck(view.state.doc), kind).toContain(`Alpha \`${src}\` gamma`);
+				}
+			});
+
+			it('a kept selection that ends inside a word puts the object after the word, set off on both sides', () => {
+				const view = mount(deckOf(`Alpha ${'x'.repeat(41)}yz gamma`));
+				select(view, 'Alpha', 'xy');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain(`Alpha ${'x'.repeat(41)}yz \`@check{pass}\` gamma`);
+			});
+
+			it('a selection that holds another object keeps it, and the new object goes after', () => {
+				const view = mount(deckOf('delta `{X}` epsilon'));
+				select(view, 'delta', 'delta');
+				view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.selection.from, view.state.selection.to + 2)));
+				expect(insert(view, 'check')).toBe(true);
+				const out = docToDeck(view.state.doc);
+				expect(out).toContain('`{X}`');
+				expect(out).toContain('`@check{pass}`');
+				expect(out).not.toMatch(/label=/);
+			});
+		});
+
 		it('+ Icon leaves a SELECTED word where it is', () => {
 			const view = mount(DECK_AI);
 			let from = -1;

@@ -52,8 +52,10 @@ The write half is `docs/src/lib/compose/link-commands.ts` and the panel is `Link
 - **The address is normalized, never trusted.** `normalizeHref` allows `http`, `https`, `mailto`, `tel`, relative paths and
   `#anchors`, and refuses any other scheme (markdown-it draws `javascript:` and `data:` links as text) and a control
   character. It adds the scheme an author leaves off: `mailto:` to a bare email, `https://` to a bare host (`example.com/x`),
-  and `http://` or `https://` to a host with a port (`localhost:3000`). Only a host counts as one (`localhost`, a dotted name
-  or a bracketed IPv6 address), so `javascript:1/…` is a scheme and is refused. The address is then written as markdown-it's
+  and `http://` or `https://` to a host with a port (`localhost:3000`). Only a host counts as one (`localhost` or a dotted
+  name), so `javascript:1/…` is a scheme and is refused. A bracketed IPv6 host is not offered: markdown-it percent-encodes
+  the brackets, which no browser accepts. Entities and backslash escapes are decoded first, as the parser decodes them, so
+  `&#106;avascript:` is judged as `javascript:`, and an `&` that would still start an entity is written as `%26`. The address is then written as markdown-it's
   own `normalizeLink` would write it, with parentheses also encoded because the serializer writes the destination bare, so the
   next parse reads back the same bytes (`é` → `%C3%A9`, `50%off` → `50%25off`), and markdown-it's `validateLink` has the last
   word. A refusal is shown under the field and nothing is written. Done on an unchanged address only closes the panel: an
@@ -112,6 +114,15 @@ slipped past the port test; an address with `'` (`Ender's_Game`) was refused, so
 and a plugin kind deleted a selection they could not use; `localhost:3000`, `user@example.com` and `example.com.` were
 written as broken links; `é`, `%` and `[` re-encoded on the next parse; and the marker picker opened on a locked slide with
 every pick refused silently. Each has a unit test.
+
+A second checker re-read that fix commit. Fixed in the third: an address written with entities (`&#106;avascript:`,
+`javascript&colon;`) passed the check and its link vanished on the next parse; the advertised bracketed-IPv6 host came out
+as an address no browser accepts; a leading `\\` was read as a host. On the insert side, a selection used as a label
+fused the two lines of a line break, dropped a trailing space the selection had taken, and swallowed a pill inside it; a
+kept selection that ended mid-word split the word. These predate this PR for pills and avatars, and this PR adds Check to
+the same path, so they are fixed for all three. Left as they are, by design: with an empty caret, an avatar, a check or a
+plugin's kind goes in exactly at the caret, as a pill does; and a bare file name like `notes.md` reads as a host, as it
+did before.
 
 ## 6. Still typed, and where each is planned
 
