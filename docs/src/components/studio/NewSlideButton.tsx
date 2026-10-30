@@ -8,17 +8,18 @@
 //                bottom-right of tall slides): the first thing in the slide strip, ahead of the pills or the map.
 //                It is the pills' height (32px) and reaches the 44px touch floor through its ::after, so the strip
 //                keeps its height; its label shows only when the preview pane is 30rem wide or more. The split and
-//                the confirmation float ABOVE it instead of replacing it, so nothing in the strip moves.
+//                the confirmation float above the strip row's top edge instead of replacing the door, so nothing in
+//                the strip moves; opening the split calls `onOpen`, so the host can clear its own strip note there.
 //   · `fab`    — a floating "+ New slide" pill: now only the phone's edit pane, where no strip is on screen
 //                (40px tall, 44px on a coarse pointer, the touch floor).
-//   · `header` — the editor's toolbar, drawn only while the preview (and so the floating door) is collapsed away.
+//   · `header` — the editor's toolbar, drawn only while the preview (and so the strip door) is collapsed away.
 //
 // WHERE IT GOES IS ASKED HERE, not after. A tap splits the pill in place into "Before this slide | After this slide"
 // (words, not arrows, which read as previous/next), After focused, so
 // the choice sits where the thumb already is (the owner's call, 2026-10-28, replacing a "Move before" button on a
 // toast). Nothing happens on its own: Enter or a tap on After means after; Escape, or a tap anywhere else, puts the
 // pill back. When the host has added the slide the pill becomes a message saying so (`confirmation`), which does
-// nothing when tapped, then the pill returns.
+// nothing when tapped, then the pill returns. In the strip the message floats and the door stays usable beside it.
 
 import { Check, Plus } from 'lucide-react';
 import * as React from 'react';
@@ -33,10 +34,10 @@ const QUIET = 'border border-[var(--accent)] bg-card text-[var(--accent)] hover:
 // While the door reports what it just did, it is a message in the strip note's notice surface, not the button's fill,
 // so it reads as a message and not as the door (the owner's calls from their iPhone, 2026-10-28).
 // The strip door's split and message float above it, so nothing beside it moves.
-const FLOAT = 'absolute bottom-[calc(100%+8px)] left-0 z-30 w-max';
+const FLOAT = 'absolute bottom-[calc(100%+8px)] left-3 z-30 w-max';
 const NOTE = 'border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] text-[var(--text-heading)] backdrop-blur';
 
-export function NewSlideButton({ variant, onChoose, confirmation = null, className }: { variant: 'fab' | 'strip' | 'header'; onChoose: (side: NewSlideSide) => void; confirmation?: string | null; className?: string }) {
+export function NewSlideButton({ variant, onChoose, onOpen, confirmation = null, className }: { variant: 'fab' | 'strip' | 'header'; onChoose: (side: NewSlideSide) => void; onOpen?: () => void; confirmation?: string | null; className?: string }) {
 	const [split, setSplit] = React.useState(false);
 	const groupRef = React.useRef<HTMLFieldSetElement>(null);
 	const fab = variant === 'fab';
@@ -56,6 +57,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 	const openedBy = React.useRef<'touch' | 'keyboard' | 'mouse'>('mouse');
 	const lastTouch = React.useRef(Number.NEGATIVE_INFINITY);
 	const afterRef = React.useRef<HTMLButtonElement>(null);
+	const pillRef = React.useRef<HTMLButtonElement>(null);
 	React.useEffect(() => {
 		if (split && openedBy.current !== 'touch') afterRef.current?.focus();
 	}, [split]);
@@ -102,6 +104,8 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 					if (e.key === 'Escape') {
 						e.stopPropagation();
 						setSplit(false);
+						// Back to the door, not to the page: the pill is mounted again (or still) by the next frame.
+						requestAnimationFrame(() => pillRef.current?.focus());
 					}
 				}}
 				onBlur={(e) => {
@@ -113,10 +117,10 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 					if (to && !e.currentTarget.contains(to)) setSplit(false);
 				}}
 			>
-				<button type="button" aria-label="New slide before" onClick={() => choose('before')} onTouchEnd={onTouchEnd('before')} className={cn(base, QUIET, 'touch-manipulation')}>
+				<button type="button" aria-label="New slide before" onClick={() => choose('before')} onTouchEnd={onTouchEnd('before')} className={cn(base, QUIET, 'touch-manipulation', strip && 'pointer-coarse:h-11')}>
 					Before this slide
 				</button>
-				<button ref={afterRef} type="button" aria-label="New slide after" onClick={() => choose('after')} onTouchEnd={onTouchEnd('after')} className={cn(base, FILL, 'touch-manipulation')}>
+				<button ref={afterRef} type="button" aria-label="New slide after" onClick={() => choose('after')} onTouchEnd={onTouchEnd('after')} className={cn(base, FILL, 'touch-manipulation', strip && 'pointer-coarse:h-11')}>
 					After this slide
 				</button>
 			</fieldset>
@@ -146,26 +150,27 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 			onTouchStart={() => {
 				lastTouch.current = Date.now();
 			}}
-			aria-disabled={confirmation ? true : undefined}
+			ref={pillRef}
 			onClick={(e) => {
-				if (confirmation) return;
 				// Who opened it: a finger (a touch just before this click), the keyboard (a click with no pointer: Enter,
 				// Space), or a mouse.
 				openedBy.current = Date.now() - lastTouch.current < 800 ? 'touch' : e.detail === 0 ? 'keyboard' : 'mouse';
 				setSplit(true);
+				onOpen?.();
 			}}
-			className={cn(base, FILL, 'max-w-[min(22rem,calc(100vw-2rem))]', className)}
+			className={cn(base, FILL, 'max-w-[min(22rem,calc(100vw-2rem))]', strip ? undefined : className)}
 		>
 			<Plus className={icon} aria-hidden />
 			<span className={cn('truncate', strip && 'hidden @[30rem]:inline')}>{NEW_SLIDE}</span>
 		</button>
 	);
-	// In the strip the door never leaves its place: the split and the message float above it, so the pills or the map
-	// beside it do not move. Elsewhere they take the door's place.
+	// In the strip the door never leaves its place: the split and the message float above the strip row (the wrapper
+	// is not positioned, so FLOAT anchors to the row), and the pills or the map beside it do not move. Elsewhere they
+	// take the door's place.
 	const door = fab ? pill : <Tip label="New slide, before or after this one">{pill}</Tip>;
 	const over = split ? splitGroup : confirmation ? note : null;
 	return strip ? (
-		<span className={cn('relative inline-flex shrink-0', className)}>
+		<span className={cn('inline-flex shrink-0', className)}>
 			{door}
 			{over}
 			{live}

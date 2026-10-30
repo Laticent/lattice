@@ -6825,9 +6825,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* The one add door leads the strip at Write and Craft, ahead of the pills or the map: the owner's call
 			    (2026-10-30), replacing the floating door over the preview that covered the bottom-right of tall
 			    slides (2026-10-27-slide-structure-strip.md §5). The pills' height, so the strip keeps its own. */}
-			{newSlideShown && (!mobile || effPane === 'preview') && (
+			{/* Not on an empty deck, where the strip's own "+ Add your first slide" is the one door. Opening it clears the
+			    strip note, which would sit under its split. */}
+			{newSlideShown && deckIndex.units.length > 0 && (!mobile || effPane === 'preview') && (
 				<>
-					<NewSlideButton variant="strip" onChoose={opAddSlide} confirmation={addedNote} />
+					<NewSlideButton variant="strip" onChoose={opAddSlide} onOpen={() => setStripNote(null)} confirmation={addedNote} />
 					<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 				</>
 			)}

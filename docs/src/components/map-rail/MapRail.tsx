@@ -179,7 +179,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	const band = caption ? CAPTION_BAND : 0;
 	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation, band), [count, viewCross, aspect, orientation, band]);
 	// A strip picture narrower than its tile (a deck taller than 16:9) is centered, with this much room either side.
-	const side = band && !vertical ? Math.max(0, (geo.main - (geo.cross - band) * (aspect > 0 ? aspect : 16 / 9)) / 2) : 0;
+	const side = band && !vertical ? Math.max(0, (geo.main - Math.max(1, geo.cross - band) * (aspect > 0 ? aspect : 16 / 9)) / 2) : 0;
 	const liveOn = !!live;
 	const stageOn = !!stage;
 	const posterOn = !!poster;

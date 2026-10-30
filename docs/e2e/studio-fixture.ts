@@ -940,7 +940,8 @@ function addSlideReady(page: Page): Promise<void> {
 
 /**
  * Open the add-slide gallery (`SlidePicker`) through the visible "New slide" door, and wait for it
- * to be usable. On a phone the round door is in both panes, so no pane switch is needed; `compact`
+ * to be usable. A phone has a door in each pane (the strip's, and a floating one over the editor), so no
+ * pane switch is needed; `compact`
  * is accepted so call sites read the same at every width, and changes nothing.
  */
 export async function openAddSlide(page: Page, _compact = false, side: 'before' | 'after' = 'after'): Promise<void> {

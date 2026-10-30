@@ -114,7 +114,9 @@ behavior.
   opens, so a focus move while it is open cannot change where the slide lands. The title names it by slide title:
   "New slide after 'Market size'", falling back to the number. The last-used layout comes first.
 - **A slide menu** on every strip slide, from a `⋯` that is the current pill's right-hand segment (44px wide on touch; on
-  a map tile it sits over the corner). *(Owner's call, 2026-10-29, on the first build's separate `⋯` beside the pill: "they
+  a map tile it is the right-hand segment of the tile's caption pill, amended 2026-10-30, #2982: every map tile
+  carries a caption pill under its picture, and a captioned tile is never narrower than 16:9, so a taller deck's
+  picture sits centered and the caption keeps its number, name and `⋯` without anything laid over the slide). *(Owner's call, 2026-10-29, on the first build's separate `⋯` beside the pill: "they
   are not the same size and they are disjoint." The pill is now the list item around two sibling buttons, so the `⋯` is
   inside the pill without being a button inside a button. The same review named the moves Move left and Move right, as a
   horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical. And it
@@ -332,7 +334,7 @@ outliner that carries the ids, and fails on the earlier code.)
 | Surface | Change |
 |---|---|
 | Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it (done, item 11) |
-| Preview | + New slide floats over its bottom-right corner, above the strip, at every width |
+| Preview | + New slide leads the slide strip, ahead of the pills or the map, at every width (amended 2026-10-30, §5) |
 | Editor header `+ Add` | Becomes a labeled "New slide", shown while the preview is collapsed |
 | Phone drawer "Add slide" | Removed: the phone's edit pane has its own round door |
 | Icon row's `+` | Removed in phase 1; the rest of the row waits for phase 3 |
