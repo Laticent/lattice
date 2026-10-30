@@ -2,7 +2,7 @@
 origin: 2982
 priority: P2
 recorded: 2026-10-30
-area: studio
+area: website
 severity: low
 swimlane: engineering/decisions/2026-10-27-slide-structure-strip.md
 deferred: off-path — a pill-strip e2e that fails on main too; #2982 changes the map strip, not the pills
