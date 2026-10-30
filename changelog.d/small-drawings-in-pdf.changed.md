@@ -1,0 +1,1 @@
+- In a CLI or Studio PDF, an avatar's colored tile and ring, a sparkline's line and end dot, and the recommended card's spark are drawn as vectors, sharp at any zoom, like the face, bars and checks beside them.

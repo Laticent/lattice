@@ -374,6 +374,16 @@ writer also honors `stroke-linejoin` now: pdf-lib sets the cap but not the join,
 tick or chart line used to print with mitred corners. `test/integration/export/pdf-check-vectors.test.js`
 pins every answer in every style and container, light and dark.
 
+**An avatar's tile, a spark's end dot and a masked mark are drawn too.** Their SVG parts (an avatar's face, a
+spark's line and bars) were already vectors; the pieces around them were not. `tileOf` draws an avatar's
+rounded ground before its face and its ring after it (the ground leaves the photo by its fill, the ring by
+`data-pc-mark`). `dotOf` draws a sparkline's end dot over its line, and tells the overlay model the dot is
+drawn above (`drawnOver`), so the line is no longer refused as covered by it. `maskedMarkOf` draws any
+absolutely placed `::before`/`::after` painted through a `--shape-*` or `--mark-*` mask (the recommended
+card's spark) with `markOf`, its opacity on the one shape; a mark placed some way the mask reader does not
+model (`left center / 1em`, an in-flow pseudo) stays in the photo, named `mark-<reason>` in the report.
+`pdf-small-drawings.test.js` pins each.
+
 **A chip goes back to the photo with its words.** The reader draws an inline chip's fill when all
 its words are drawn, but the font check runs after it and can send those words back to the photo (a
 glyph the deck's fonts lack, such as an emoji). The chip's fill, its border and a check whose host
