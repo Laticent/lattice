@@ -636,3 +636,12 @@ a start line that moved with each member's length (fixed since: the top-anchored
 `examples/auto-split.md` describing the old split (corrected). It put the ceiling without packing at
 5 to 5.5, and with packing and fit-whole at 8 to 8.5; 9 needs a judgment of real packed pages. It also
 named one real loss: the page counter is gone, which a 14-member run feels.
+
+## 15. Charts and diagrams: the design round (2026-10-30)
+
+The chart and diagram galleries clip 272 slide-cells after §13, and 129 of them are text slides in
+those galleries (the shared "See also" closing slide alone is 79), which belong to tier 2. The rest
+fall into five families that reflow differently: list-shaped charts, grids, time axes, Mermaid
+diagrams, and plotted charts, which clip almost nothing but shrink their labels below reading size, a
+failure the fit probe does not yet measure. Options per family, mockups and a recommended order:
+`2026-10-30-chart-reflow-narrow-boxes.md`, waiting on the owner's pick.
