@@ -32,6 +32,8 @@ const FILL = 'bg-[var(--accent)] text-[var(--on-accent)] hover:bg-[color-mix(in_
 const QUIET = 'border border-[var(--accent)] bg-card text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg))]';
 // While the door reports what it just did, it is a message in the strip note's notice surface, not the button's fill,
 // so it reads as a message and not as the door (the owner's calls from their iPhone, 2026-10-28).
+// The strip door's split and message float above it, so nothing beside it moves.
+const FLOAT = 'absolute bottom-[calc(100%+8px)] left-0 z-30 w-max';
 const NOTE = 'border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] text-[var(--text-heading)] backdrop-blur';
 
 export function NewSlideButton({ variant, onChoose, confirmation = null, className }: { variant: 'fab' | 'strip' | 'header'; onChoose: (side: NewSlideSide) => void; confirmation?: string | null; className?: string }) {
@@ -44,7 +46,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 	const size = fab
 		? 'h-10 gap-1.5 rounded-xl px-3 text-[13px] [@media(pointer:coarse)]:h-11'
 		: strip
-			? "relative h-8 justify-center gap-1.5 rounded-lg px-2.5 text-[12px] [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:-inset-y-1.5 [@media(pointer:coarse)]:after:content-['']"
+			? 'h-8 justify-center gap-1.5 rounded-lg px-2.5 text-[12px] pointer-coarse:min-w-11 relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0 pointer-coarse:after:content-[""]'
 			: 'gap-1.5 rounded-lg px-2.5 py-1 text-[12px]';
 	const icon = fab ? 'size-[18px]' : strip ? 'size-4' : 'size-3.5';
 	const base = cn('inline-flex shrink-0 items-center font-sans font-semibold normal-case tracking-normal transition-colors', fab ? 'shadow-md' : 'shadow-sm', size);
@@ -95,7 +97,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 				aria-label={NEW_SLIDE}
 				data-new-slide={variant}
 				data-split=""
-				className={cn('m-0 inline-flex min-w-0 items-center gap-1 border-0 p-0', strip && 'absolute bottom-[calc(100%+8px)] left-0 z-30 w-max rounded-xl border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] p-1 shadow-md backdrop-blur', strip ? undefined : className)}
+				className={cn('m-0 inline-flex min-w-0 items-center gap-1 border-0 p-0', strip ? cn(FLOAT, NOTE, 'rounded-xl p-1 shadow-md') : className)}
 				onKeyDown={(e) => {
 					if (e.key === 'Escape') {
 						e.stopPropagation();
@@ -130,7 +132,7 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 	// While it reports what it just did, the door is a MESSAGE, not a button: a tap on it does nothing (the owner's call:
 	// "for it to add a new slide is astonishing"). The door comes back when the host clears `confirmation`.
 	const note = (
-				<div data-new-slide={variant} data-confirming="" className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', strip ? 'absolute bottom-[calc(100%+8px)] left-0 z-30 h-8 w-max whitespace-nowrap' : className)}>
+				<div data-new-slide={variant} data-confirming="" className={cn(base, NOTE, 'max-w-[min(22rem,calc(100vw-2rem))] cursor-default select-none', strip ? cn(FLOAT, 'h-8 whitespace-nowrap') : className)}>
 					<Check className={cn(icon, 'text-[var(--accent)]')} aria-hidden />
 					<span className="truncate">{confirmation}</span>
 				</div>
@@ -159,29 +161,18 @@ export function NewSlideButton({ variant, onChoose, confirmation = null, classNa
 		</button>
 	);
 	// In the strip the door never leaves its place: the split and the message float above it, so the pills or the map
-	// beside it do not move.
-	if (strip) {
-		return (
-			<span className={cn('relative inline-flex shrink-0', className)}>
-				<Tip label="New slide, before or after this one">{pill}</Tip>
-				{split && splitGroup}
-				{confirmation && !split && note}
-				{live}
-			</span>
-		);
-	}
-	if (split) return splitGroup;
-	if (confirmation) {
-		return (
-			<>
-				{note}
-				{live}
-			</>
-		);
-	}
-	return (
+	// beside it do not move. Elsewhere they take the door's place.
+	const door = fab ? pill : <Tip label="New slide, before or after this one">{pill}</Tip>;
+	const over = split ? splitGroup : confirmation ? note : null;
+	return strip ? (
+		<span className={cn('relative inline-flex shrink-0', className)}>
+			{door}
+			{over}
+			{live}
+		</span>
+	) : (
 		<>
-			{fab ? pill : <Tip label="New slide, before or after this one">{pill}</Tip>}
+			{over ?? door}
 			{live}
 		</>
 	);
