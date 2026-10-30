@@ -63,7 +63,8 @@ export interface MapRailProps {
 	 *  when the stage is not priced. */
 	stage?: { cost: number };
 	/** A short visible caption beside a tile's number (the Studio's component class, which the pill navigator showed
-	 *  and no slide renders). Called only for mounted tiles. Return '' for none. */
+	 *  and no slide renders). Called only for mounted tiles. Return '' for none. Passing it moves the number and the
+	 *  caption off the picture into a pill-shaped row under it (CAPTION_BAND), which adds to each tile's length. */
 	caption?: (unit: number) => string;
 	/** A small decoration for a tile's top corner (the Studio's Live presence dots), called only for mounted tiles.
 	 *  Decorative: the host lists the same facts in words elsewhere. Return null for none. */
@@ -73,8 +74,9 @@ export interface MapRailProps {
 	/** A stable React key for a unit (the Studio's slide id), so a tile follows its slide when slides are inserted or
 	 *  moved before it rather than being rewritten in place. Default: the unit's index. */
 	keyOf?: (unit: number) => React.Key;
-	/** Something to sit beside the FOCUSED tile, over its top corner and outside its button (the Studio's slide menu ⋯).
-	 *  Called only for the focused unit. The rail knows nothing about what it does. */
+	/** Something to sit beside the FOCUSED tile, outside its button (the Studio's slide menu ⋯). With a caption, it sits
+	 *  at the caption's right end, which keeps room for it. Called only for the focused unit. The rail knows nothing about
+	 *  what it does. */
 	adorn?: (unit: number) => React.ReactNode | null;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
@@ -84,6 +86,8 @@ export interface MapRailProps {
 /** Space round the tiles and between them, in px. */
 const PAD = 8;
 const GAP = 8;
+/** The caption row under a captioned tile's picture: a 22px pill and the 6px above it. */
+export const CAPTION_BAND = 28;
 
 export interface Geometry {
 	/** A tile's size along the scroll axis, and across it. */
@@ -95,11 +99,15 @@ export interface Geometry {
 	total: number;
 }
 
-/** Tile geometry for a rail whose scroll axis is `viewCross` px thick. Pure, so a test can pin it. */
-export function geometryFor(count: number, viewCross: number, aspect: number, orientation: 'vertical' | 'horizontal'): Geometry {
+/** Tile geometry for a rail whose scroll axis is `viewCross` px thick. `band` is the caption row each tile carries
+ *  under its picture, so the picture keeps the slide's aspect and the row adds to the tile. A captioned strip tile is
+ *  never narrower than a 16:9 one, whatever the deck's shape: a portrait, square, story or phone-shape picture sits in
+ *  the middle with room either side, so the caption keeps its number, name and ⋯ (the owner's call, 2026-10-30).
+ *  Pure, so a test can pin it. */
+export function geometryFor(count: number, viewCross: number, aspect: number, orientation: 'vertical' | 'horizontal', band = 0): Geometry {
 	const a = aspect > 0 ? aspect : 16 / 9;
 	const cross = Math.max(1, viewCross - PAD * 2);
-	const main = orientation === 'vertical' ? cross / a : cross * a;
+	const main = orientation === 'vertical' ? cross / a + band : Math.max(1, cross - band) * (band ? Math.max(a, 16 / 9) : a);
 	const pitch = main + GAP;
 	return { main, cross, pitch, total: PAD * 2 + Math.max(0, count) * pitch - (count > 0 ? GAP : 0) };
 }
@@ -168,7 +176,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	const keyNav = React.useRef(false);
 	const keyNavTimer = React.useRef(0);
 	React.useEffect(() => () => window.clearTimeout(keyNavTimer.current), []);
-	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation), [count, viewCross, aspect, orientation]);
+	const band = caption ? CAPTION_BAND : 0;
+	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation, band), [count, viewCross, aspect, orientation, band]);
+	// A strip picture narrower than its tile (a deck taller than 16:9) is centered, with this much room either side.
+	const side = band && !vertical ? Math.max(0, (geo.main - Math.max(1, geo.cross - band) * (aspect > 0 ? aspect : 16 / 9)) / 2) : 0;
 	const liveOn = !!live;
 	const stageOn = !!stage;
 	const posterOn = !!poster;
@@ -362,21 +373,40 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							tabIndex={i === tabStop ? 0 : -1}
 							data-tier={tier}
 							data-unit={i}
-							className={cn('group relative block size-full select-none text-left outline [-webkit-touch-callout:none] outline-2 outline-offset-[3px] transition-[outline-color]', on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]')}
+							className={cn(
+								'group relative block size-full select-none text-left outline [-webkit-touch-callout:none] outline-2 outline-offset-[3px] transition-[outline-color]',
+								band ? 'outline-transparent focus-visible:outline-[var(--accent)]' : on ? 'outline-[var(--accent)]' : 'outline-transparent hover:outline-[color-mix(in_srgb,var(--accent)_45%,var(--border))] focus-visible:outline-[var(--accent)]',
+							)}
 						>
-							{/* The sketch is the floor: it is there before a picture and under one. */}
-							{tier !== 'placeholder' && (
-								<span className="absolute inset-0 block bg-card">
-									<Sketch wire={wire(i)} aspect={aspect} />
+							{/* With a caption the picture is a box above it and carries the ring; without one it fills the tile. */}
+							<span
+								className={cn('absolute top-0 block', band ? 'transition-shadow' : 'inset-x-0 bottom-0', band && (on ? 'shadow-[0_0_0_2px_var(--accent)]' : 'group-hover:shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_45%,var(--border))]'))}
+								style={band ? { bottom: band, left: side, right: side } : undefined}
+							>
+								{/* The sketch is the floor: it is there before a picture and under one. */}
+								{tier !== 'placeholder' && (
+									<span className="absolute inset-0 block bg-card">
+										<Sketch wire={wire(i)} aspect={aspect} />
+									</span>
+								)}
+								{poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
+								{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
+								{mark ? <span aria-hidden className={cn('pointer-events-none absolute top-1 z-10 flex', band ? 'left-1' : 'right-1')}>{mark(i)}</span> : null}
+							</span>
+							{band ? (
+								// THE CAPTION IS THE PILL: the same number badge, name and current-slide fill as the pill strip
+								// (SlideRail.tsx), so the two strips differ only by the picture. It hugs its text, like a pill; on the
+								// current tile with an adornment (the ⋯, outside this button) it runs to the tile's right edge and leaves
+								// the ⋯ room there.
+								<span className={cn('absolute bottom-0 left-0 flex h-[22px] min-w-0 items-center gap-1.5 rounded-md border pl-[3px] pr-1.5 transition-colors', on && adorn ? 'right-0' : 'max-w-full', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-transparent group-hover:border-border', on && adorn && 'pr-7 [@media(pointer:coarse)]:pr-11')}>
+									<span className={cn('grid h-4 min-w-4 shrink-0 place-items-center rounded px-0.5 font-mono text-[10px] font-bold tabular-nums', on ? 'bg-primary text-primary-foreground' : 'bg-[color-mix(in_srgb,var(--border)_22%,transparent)] text-muted-foreground')}>{i + 1}</span>
+									{caption?.(i) ? <span aria-hidden className={cn('min-w-0 truncate font-mono text-[11px] leading-4', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{caption(i)}</span> : null}
+								</span>
+							) : (
+								<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
+									<span className="shrink-0 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
 								</span>
 							)}
-							{poster && (tier === 'poster' || (tier === 'live' && posterFloor)) ? <span className="pointer-events-none absolute inset-0 block">{poster(i)}</span> : null}
-							{tier === 'live' && live ? <span className="pointer-events-none absolute inset-0 block">{live(i)}</span> : null}
-							{mark ? <span aria-hidden className="pointer-events-none absolute right-1 top-1 z-10 flex">{mark(i)}</span> : null}
-							<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
-									<span className="shrink-0 rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] font-bold leading-4 text-[var(--text-heading)]">{i + 1}</span>
-									{caption?.(i) ? <span aria-hidden className="min-w-0 truncate rounded-sm bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1 font-mono text-[10px] leading-4 text-muted-foreground">{caption(i)}</span> : null}
-								</span>
 						</button>
 						{on && adorn ? adorn(i) : null}
 					</li>
