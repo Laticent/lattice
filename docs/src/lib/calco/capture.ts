@@ -357,6 +357,12 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
   return { residual, images };
 }
 
+/** An SVG drawn in a picture's box, cut to the part of it at (`x`, `y`) of size `w` x `h` (all slide px). */
+export function svgInBox(svg: string, x: number, y: number, w: number, h: number): string {
+  const r = (v: number) => String(Math.round(v * 1000) / 1000);
+  return svg.replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `<svg $1width="${r(w)}" height="${r(h)}" viewBox="${r(x)} ${r(y)} ${r(w)} ${r(h)}"`);
+}
+
 /**
  * Put the cropped pictures into the slide's shapes. Each picture takes the box of its ink and becomes one
  * picture per piece (a photo, and the thin rule beside it); a box with no ink is no picture. Ink that no
@@ -364,12 +370,6 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
  * whole-slide picture sat. Shapes refer to each other by index (`group`, `sub`, and a frame's `group` and `above`), so
  * every index is moved to where its shape went.
  */
-/** An SVG drawn in a picture's box, cut to the part of it at (`x`, `y`) of size `w` x `h` (all slide px). */
-export function svgInBox(svg: string, x: number, y: number, w: number, h: number): string {
-  const r = (v: number) => String(Math.round(v * 1000) / 1000);
-  return svg.replace(/^<svg ([^>]*?)width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `<svg $1width="${r(w)}" height="${r(h)}" viewBox="${r(x)} ${r(y)} ${r(w)} ${r(h)}"`);
-}
-
 export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pics: Shape[], got: CropResult): void {
   const pieces = new Map(pics.map((sh, k) => [sh, got.images[k] || []]));
   const next: Shape[] = [];

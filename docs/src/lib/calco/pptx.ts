@@ -315,7 +315,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				if (item.shape.kind === 'picture') {
 					const pic = item.shape;
 					if (pic.image?.length) {
-						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}${pic.svg ? `${SVG_TAG}${svgs.push(pic.svg) - 1}|` : ''}Picture ${n}.${item.index + 1}` });
+						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}${pic.svg && options?.groups ? `${SVG_TAG}${svgs.push(pic.svg) - 1}|` : ''}Picture ${n}.${item.index + 1}` });
 					}
 					continue;
 				}
@@ -783,10 +783,11 @@ async function addSvgPictures(zip: ZipLike, svgs: string[]): Promise<void> {
 		const relsName = name.replace('slides/', 'slides/_rels/').replace(/\.xml$/, '.xml.rels');
 		let rels = await text(relsName);
 		xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) => {
-			const m = pic.match(/calco-svg-(\d+)\|/);
+			// The tag is in the picture's name, never its alt text (`descr`), which an author writes.
+			const m = pic.match(/<p:cNvPr [^>]*?name="[^"]*?calco-svg-(\d+)\|/);
 			if (!m) return pic;
 			const svg = svgs[Number(m[1])];
-			const out = pic.replace(m[0], '');
+			const out = pic.replace(m[0], m[0].replace(`${SVG_TAG}${m[1]}|`, ''));
 			if (!svg) return out;
 			const media = `calco-svg-${m[1]}.svg`;
 			const rid = `rIdCalcoSvg${m[1]}`;
@@ -794,8 +795,8 @@ async function addSvgPictures(zip: ZipLike, svgs: string[]): Promise<void> {
 			rels = rels.replace('</Relationships>', `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${media}"/></Relationships>`);
 			used = true;
 			const ext = `<a:extLst><a:ext uri="${SVG_EXT}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${rid}"/></a:ext></a:extLst>`;
-			// The blip PptxGenJS wrote: self-closing, or with children of its own.
-			return out.replace(/<a:blip ([^>]*?)\/>/, `<a:blip $1>${ext}</a:blip>`).replace(/<a:blip ([^>]*[^/])>(?![\s\S]*svgBlip)/, `<a:blip $1>${ext}`);
+			// The blip PptxGenJS wrote: self-closing, or with children of its own, where `extLst` goes last (CT_Blip).
+			return /<a:blip [^>]*?\/>/.test(out) ? out.replace(/<a:blip ([^>]*?)\/>/, `<a:blip $1>${ext}</a:blip>`) : out.replace('</a:blip>', `${ext}</a:blip>`);
 		});
 		zip.file(name, xml);
 		zip.file(relsName, rels);

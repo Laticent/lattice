@@ -31,11 +31,22 @@ const DECK = ['---', 'theme: indaco', '---', '',
 	'---', '', '## Avatars', '', 'Our sponsor `!{Ada Okafor}` with `!{Ben Liu, lg}` and `!{Cy Diaz, rounded}`.', '',
 	'---', '', '## Sparks', '', 'Revenue `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` against `~{1.9/1.6, bullet}`.', ''].join('\n');
 
+// A deck author's own inline SVG, at the edges svgOf must get right or refuse (the checker's findings on 42c46b9): a fade
+// set on an ancestor, a shape in a hidden group, geometry set in CSS, a share of the viewport, a character XML forbids.
+const EDGES = ['---', 'theme: indaco', '---', '', '## Raw', '',
+	'<span style="opacity:0.4;display:inline-block"><svg width="40" height="40" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="red"/></svg></span>', '',
+	'<svg width="40" height="40" viewBox="0 0 10 10"><rect x="1" y="1" width="4" height="4" fill="blue"/><g style="display:none"><rect x="5" y="5" width="4" height="4" fill="#ff00ff"/></g></svg>', '',
+	'<svg width="40" height="40" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" style="r:2" fill="blue"/></svg>', '',
+	'<svg width="40" height="40" viewBox="0 0 10 10" style="overflow:visible"><rect x="2" y="2" width="50%" height="50%" fill="blue"/></svg>', '',
+	'<svg width="40" height="40" viewBox="0 0 10 10"><path d="M1 1L9 1L9 9&#1;Z" fill="green"/></svg>', ''].join('\n');
+
 describe('calco-svg-pictures', () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-calco-svg-'));
 	const md = path.join(dir, 'deck.md');
 	fs.writeFileSync(md, DECK);
 	const run = (out) => spawnSync(process.execPath, [EMULATOR, md, path.join(dir, out), '--editable'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+	fs.writeFileSync(path.join(dir, 'edges.md'), EDGES);
+	const edges = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'edges.md'), path.join(dir, 'edges.pptx'), '--editable'], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
 	const pptx = run('deck.pptx');
 	const odp = run('deck.odp');
 	let browser;
@@ -97,6 +108,25 @@ describe('calco-svg-pictures', () => {
 		// Two icons, three avatars, two sparks.
 		assert.equal(pairs, 7);
 		assert.match(await zip.file('[Content_Types].xml').async('string'), /Extension="svg" ContentType="image\/svg\+xml"/);
+	});
+
+	test("an author's SVG keeps its ancestors' fade, drops a hidden group and resolves a viewport share; a character XML forbids keeps the PNG alone", async () => {
+		assert.equal(edges.status, 0, `emulator failed: ${edges.stderr}`);
+		const zip = await JSZip.loadAsync(fs.readFileSync(path.join(dir, 'edges.pptx')));
+		const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+		const rels = await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string');
+		const target = (id) => rels.match(new RegExp(`Id="${id}"[^>]*Target="\\.\\./media/([^"]+)"`))?.[1];
+		assert.equal((xml.match(/<p:pic>/g) || []).length, 5, 'five pictures');
+		assert.doesNotMatch(xml, /calco-svg-/, 'a tag left in a name');
+		const svgs = [...xml.matchAll(/<a:blip r:embed="([^"]+)"><a:extLst><a:ext uri="[^"]+"><asvg:svgBlip [^>]*r:embed="([^"]+)"/g)];
+		// The fade, the hidden group, the CSS radius and the 50% rect (as the browser resolved it: 5 units, not 50% of
+		// the crop); not the &#1; path.
+		assert.equal(svgs.length, 4);
+		for (const [, pngId, svgId] of svgs) {
+			const svg = await zip.file(`ppt/media/${target(svgId)}`).async('string');
+			assert.doesNotMatch(svg, /#ff00ff/i, 'a shape in a display:none group was written');
+			same(target(svgId), await compare(await zip.file(`ppt/media/${target(pngId)}`).async('uint8array'), svg));
+		}
 	});
 
 	test('the .odp puts each SVG before its PNG in one frame, and lists it in the manifest', async () => {

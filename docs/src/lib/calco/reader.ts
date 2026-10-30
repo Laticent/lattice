@@ -1944,15 +1944,20 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (tag === 'g') continue;
 				if (!SHAPES.has(tag)) return null;
 				const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
-				if (cs.display === 'none' || cs.visibility !== 'visible') continue;
+				if (cs.visibility !== 'visible') continue;
+				// `display` is not inherited: a shape in a hidden group computes `inline` and still draws nothing.
 				let opacity = 1;
+				let hidden = false;
 				for (let e: Element | null = el; e && e !== svg.parentElement; e = e.parentElement) {
 					const c = win.getComputedStyle(e) as CSSStyleDeclaration & Record<string, string>;
+					if (c.display === 'none') hidden = true;
 					if ((c.mask && c.mask !== 'none') || (c.filter && c.filter !== 'none') || (c.clipPath && c.clipPath !== 'none')) return null;
 					// A group's opacity fades its shapes together; one shape alone can carry it, two that overlap cannot.
 					if (e !== el && e !== svg && Number(c.opacity) < 0.999 && e.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon').length > 1) return null;
+					// The <svg>'s own opacity and its page ancestors' wrap the whole drawing (below), exact even where shapes overlap.
 					opacity *= e === svg ? 1 : Number(c.opacity);
 				}
+				if (hidden) continue;
 				// SVG 1.1 colors only: `#rrggbb` and an opacity. A CSS `color(srgb …)` or `oklch()` is read by no office reader
 				// (LibreOffice drew a 16% wash as solid black).
 				const paint = (v: string): { color: string; alpha: number } | 'none' | null => {
@@ -1978,7 +1983,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					if (strokeA < 0.999) attrs.push(`stroke-opacity="${num(strokeA)}"`);
 					if (cs.strokeLinecap && cs.strokeLinecap !== 'butt') attrs.push(`stroke-linecap="${esc(cs.strokeLinecap)}"`);
 					if (cs.strokeLinejoin && cs.strokeLinejoin !== 'miter') attrs.push(`stroke-linejoin="${esc(cs.strokeLinejoin)}"`);
-					if (cs.strokeDasharray && cs.strokeDasharray !== 'none') attrs.push(`stroke-dasharray="${esc(cs.strokeDasharray.replace(/px/g, ''))}"`);
+					if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+						// A share of the viewport would resolve against the crop's, not the drawing's.
+						if (/%/.test(cs.strokeDasharray)) return null;
+						attrs.push(`stroke-dasharray="${esc(cs.strokeDasharray.replace(/px/g, ''))}"`);
+						const off = Number.parseFloat(cs.strokeDashoffset) || 0;
+						if (/%/.test(cs.strokeDashoffset)) return null;
+						if (off) attrs.push(`stroke-dashoffset="${num(off)}"`);
+					}
+					const miter = Number.parseFloat(cs.strokeMiterlimit);
+					if (Number.isFinite(miter) && miter !== 4) attrs.push(`stroke-miterlimit="${num(miter)}"`);
 				}
 				if (fixed && stroke !== 'none') {
 					// Baked into slide px: only straight absolute segments, which map point by point.
@@ -2009,8 +2023,24 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					out.push(`<path d="M${mapped.map(([x, y]) => `${num(x)} ${num(y)}`).join('L')}${closed ? 'Z' : ''}" ${attrs.join(' ')}/>`);
 					continue;
 				}
-				const geom = ['d', 'x', 'y', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'x1', 'y1', 'x2', 'y2', 'points']
-					.filter((a) => el.hasAttribute(a)).map((a) => `${a}="${esc(el.getAttribute(a) || '')}"`);
+				// Geometry as the browser resolved it, in user units: a rect's or circle's from its computed CSS (which a
+				// `style="r:2"` sets too), a line's from plain numbers. A percentage resolves against the viewport, which the
+				// crop changes, so it keeps the PNG alone.
+				const geom: string[] = [];
+				for (const a of ['d', 'points']) if (el.hasAttribute(a)) geom.push(`${a}="${esc(el.getAttribute(a) || '')}"`);
+				for (const a of tag === 'rect' ? ['x', 'y', 'width', 'height', 'rx', 'ry'] : tag === 'circle' ? ['cx', 'cy', 'r'] : tag === 'ellipse' ? ['cx', 'cy', 'rx', 'ry'] : []) {
+					const v = String(cs[a] || '').trim();
+					if (!v || v === 'auto') continue;
+					if (!/^-?[\d.]+(?:e[+-]?\d+)?px$/i.test(v) && v !== '0') return null;
+					geom.push(`${a}="${num(Number.parseFloat(v))}"`);
+				}
+				if (tag === 'line') {
+					for (const a of ['x1', 'y1', 'x2', 'y2']) {
+						const v = (el.getAttribute(a) || '0').trim();
+						if (!/^-?[\d.]+(?:e[+-]?\d+)?$/i.test(v)) return null;
+						geom.push(`${a}="${num(Number(v))}"`);
+					}
+				}
 				out.push(`<${tag} ${geom.join(' ')} transform="matrix(${T.map(num).join(' ')})" ${attrs.join(' ')}/>`);
 			}
 			if (!out.length) return null;
@@ -2057,9 +2087,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				extra.push(`<path d="${rr(r, rad)}" fill="${fill.color}"${fill.alpha < 0.999 ? ` fill-opacity="${num(fill.alpha)}"` : ''}/>`);
 			}
 			const defs = clipRects.map((d, i) => (d ? `<clipPath id="c${i}"><path d="${d}"/></clipPath>` : '')).join('');
-			let body = `${clipRects[0] ? `<g clip-path="url(#c0)">${out.join('')}</g>` : out.join('')}${extra.join('')}`;
+			const fade = opacityOf(svg);
+			const shapes = fade < 0.999 ? `<g opacity="${num(fade)}">${out.join('')}</g>` : out.join('');
+			let body = `${clipRects[0] ? `<g clip-path="url(#c0)">${shapes}</g>` : shapes}${extra.join('')}`;
 			for (let i = clipRects.length - 1; i >= 1; i--) body = `<g clip-path="url(#c${i})">${body}</g>`;
-			return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(box.w)}" height="${num(box.h)}" viewBox="0 0 ${num(box.w)} ${num(box.h)}"><defs>${defs}</defs>${body}</svg>`;
+			const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(box.w)}" height="${num(box.h)}" viewBox="0 0 ${num(box.w)} ${num(box.h)}"><defs>${defs}</defs>${body}</svg>`;
+			// A character XML forbids (an author's `&#1;` in a path) makes the file unreadable, and LibreOffice then draws
+			// neither it nor the PNG beside it: such a drawing keeps the PNG alone.
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: finding them is the point.
+			return /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/.test(doc) ? null : doc;
 		};
 
 		const DRAWN = new Set(['svg', 'math', 'img', 'canvas', 'video', 'iframe', 'object', 'embed', 'input', 'select', 'textarea', 'button', 'picture']);

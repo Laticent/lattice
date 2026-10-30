@@ -254,7 +254,7 @@ pinner. Two modes:
   px. `placePictures` cuts it to the crop's box. The `.pptx` stores it as PowerPoint does, an `asvg:svgBlip`
   extension on the PNG's blip (`addSvgPictures`, after PptxGenJS, which writes a broken fallback under Node);
   the `.odp` puts the SVG before the PNG in one frame. The PNG stays the fallback for a reader without SVG.
-  Text, images, masks, filters, gradients and `<use>` keep the PNG alone. `calco-svg-pictures.test.js` holds
+  Text, images, masks, filters, gradients, `<use>` and a character XML forbids keep the PNG alone; the fade of the `<svg>` and its page ancestors wraps the drawing. `calco-svg-pictures.test.js` holds
   each SVG to its PNG (the same ink, in the same place).
   **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
   browser broke them (no wrap), and each word is placed from the browser's
