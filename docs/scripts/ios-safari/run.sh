@@ -3,7 +3,8 @@
 # Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
-# page (it needs an http origin, not the site). Run from the repo root after `npm ci` and `npm run build` (the
+# page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
+# simulators and then in the Mac's own Safari. Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
 #
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
@@ -163,6 +164,14 @@ for family in $families; do
   xcrun simctl shutdown "$udid" || true
   left=$((left - 1))
 done
+
+# The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
+if [ "$PROBE" = undo ]; then
+  xcrun simctl shutdown all || true
+  if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
+    status=1
+  fi
+fi
 
 {
   echo

@@ -113,6 +113,22 @@
       "on_pull_request": false
     },
     {
+      "name": "ios-safari-undo",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/*",
+        "docs/src/lib/filo/*",
+        "docs/src/components/studio/studio-filo-persist.ts",
+        "docs/src/components/studio/filo-narrow.worker.ts",
+        "docs/src/components/studio/StudioShell.tsx",
+        "docs/src/components/studio/StudioChromeSkeleton.tsx"
+      ],
+      "run": "PROBE=undo bash docs/scripts/ios-safari/run.sh",
+      "why": "Filo's undo in real Safari: Mobile Safari in an iPad and an iPhone iOS Simulator, then the Mac's own Safari. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3)."
+    },
+    {
       "name": "ios-safari-photo",
       "os": [
         "macos-latest"

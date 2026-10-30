@@ -129,6 +129,8 @@ export interface HistoryState {
 	readonly redoLabel: string | null;
 	readonly steps: number;
 	readonly stale: boolean;
+	/** Bumped on every change this history reports: what a persistence layer subscribes to. */
+	readonly revision: number;
 }
 
 type Listener = () => void;
@@ -152,6 +154,7 @@ export class History<M = unknown> {
 	private readonly now: () => number;
 	private readonly listeners = new Set<Listener>();
 	private bytes = 0;
+	private revision = 0;
 
 	constructor(doc: string, text: string, opts: HistoryOptions = {}) {
 		this.doc = doc;
@@ -191,6 +194,7 @@ export class History<M = unknown> {
 			redoLabel: this.outside === null ? (r?.label ?? null) : null,
 			steps: this.done.length,
 			stale: this.outside !== null,
+			revision: this.revision,
 		};
 	}
 
@@ -569,6 +573,7 @@ export class History<M = unknown> {
 	}
 
 	private emit(): void {
+		this.revision++;
 		for (const fn of this.listeners) fn();
 	}
 

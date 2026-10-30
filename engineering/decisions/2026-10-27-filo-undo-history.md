@@ -299,8 +299,21 @@ key events from inside it, so the same typing is never undone twice.
 swipe, the iPad shortcut bar and Android keyboard keys arrive as `beforeinput` with `inputType`
 `historyUndo` / `historyRedo`. Both history plugins handle those today, so dropping them without a
 replacement would let the browser change the editor's DOM behind its model. The Filo glue installs
-the same handler on both editors, sends it to Filo and calls `preventDefault`. On a phone the shell
-shows Undo and Redo buttons for every pane. The Tauri app sends its Edit menu's two items to the
+the same handler on both editors, sends it to Filo and calls `preventDefault`. On a phone, and on a
+touch-first tablet (the CSS query `(hover: none) and (pointer: coarse)`, so an iPad with no keyboard),
+the shell shows Undo and Redo buttons for every pane. The tablet needs them as much as the phone:
+WebKit offers its own undo (the Edit menu, the shake, the keyboard bar's key) only while its own
+undo list holds something, so after a reload it has nothing to send, and the stored history is
+reachable only through the shell (measured in Mobile Safari 26.5 by `ios-safari-undo`; added
+2026-10-29 at the owner's call). macOS Safari 26.6 answers one undo command with two `historyUndo`
+events (measured by `ios-safari-undo` through `execCommand`), so the shell refuses both but runs one:
+two requests created within 50 ms are one. From a real menu click React can render between the two
+events (12-19 ms measured in Chromium), which is why the window is 50 ms and not 16; a person's separate
+presses, Undo then Redo included, are further apart, and a held ⌘Z comes through keydown, not this path.
+A real menu click is UNVERIFIED: no runner here drives the macOS menu. Tried and dropped: a 100 ms window
+(it swallowed a fast Redo in Compose) and a same-task flag (it could swallow a press queued behind a long
+undo). On a Mac after a reload, ⌘Z reaches it and WebKit's undo command, sent through `execCommand`,
+does not; the menu is presumed the same, untested (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md). The Tauri app sends its Edit menu's two items to the
 same calls.
 
 The preview iframe takes no keys today (the Studio box is `pointer-events: none`). When the pill
@@ -422,7 +435,8 @@ stored source behind the Studio's back.
    no `storage` listener), so each tab holds its own text and their entries cannot chain. The
    first tab to open a deck holds a Web Lock on its history for the session. A second tab gets a
    memory-only stack and a one-line notice that its undo will not survive reload. `load`
-   verifies the entry hash chain.
+   verifies the entry hash chain. (As built in slice 5: a full replay of every stored step against
+   the text it was recorded on, in the worker; see "Slice 5 as built".)
 2. **Live collaboration** (owner's call: wrap `Y.UndoManager`). During a session the keys, buttons
    and `beforeinput` go through Filo's adapter to the session's `Y.UndoManager`, so undo stays
    per-person. The Studio's own writes to the shared text use the null origin
@@ -598,7 +612,17 @@ Where it differs from the plan above, and why:
   body: on 2026-10-28 its own edit went, the guest's stayed on both sides, and Ctrl+Shift+Z brought
   it back. The same run then typed in Compose and pressed Ctrl+Z with focus there: the edit went on
   both sides, the guest's stayed, and focus stayed in Compose. The pill's Undo and settings writes
-  in a session are still untested (P4).
+  in a session are pinned in CI by `docs/e2e/filo-live.spec.ts` (added 2026-10-28; nightly, in
+  Chromium, Firefox and WebKit): two browser contexts in one real session, real WebRTC between
+  them, and `docs/e2e/live-relay.ts`, a Nostr relay inside the test process that
+  `routeWebSocket` puts in place of the public relays. The host renames the deck (a settings
+  write), the guest then types, and ⌘Z with focus on the Studio chrome takes back the rename while
+  the guest's newer line stays on both sides; in Compose each person's pill Undo takes back that
+  person's edit past a newer edit of the other's. A mutation that lets the undo manager track the
+  other person's edits too (`trackedOrigins: [null, REMOTE]`) fails both tests. Not covered: AI
+  applies and rail moves in a session (the same null-origin path), and the settings toast's Undo,
+  which can still merge a write made within 500 ms with the typing before it
+  (`followups.d/2940-p7-live-undo-toast-and-ai.md`).
 - **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
   pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
   paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
@@ -691,6 +715,94 @@ nothing left to undo.
 
 **5. Persistence.** The IndexedDB store, the sidecar and the reload path, tombstones, the two-tab
 lock, the LRU, and the worker that narrows broad patches.
+
+**Slice 5 as built** (2026-10-28). The library half is `docs/src/lib/filo`: `snapshot.ts` (`toSnapshot`,
+`restoreSnapshot` in place so every writer's head and every subscriber stay valid,
+`compactHistory`, `replaySnapshot`), `narrow.ts` and `store.ts`. The storage half is functions
+outside the `History` class, so a bundler can drop it where only the in-memory history is used, and
+the Studio loads it and its glue after the first paint, importing the source modules rather than
+the package entry. The first cut imported the package entry from the lazy glue too; the package is
+one built module, so the store and the diff stayed in the eager chunk, 2.1 KB past the Studio's
+route-budget ceiling (`check:route-budget`). Now 540.8 KB against a 542.3 KB ceiling. The Studio half is
+`docs/src/components/studio/studio-filo-persist.ts` and its worker, `filo-narrow.worker.ts`. Where
+it differs from the plan above, and why:
+
+- **The sidecar is written only by the Studio's own save of the open deck** (`saveSourceGuarded`,
+  beside the source, key `lattice-studio-filo-sum-<id>`), never by the Library's rename, a backup
+  restore, an import or a save for another deck (`onRetire`). Those writes did not go through the
+  history, so on the next open they read as changed outside the Studio, which is what they are.
+  During a live session the sidecar is removed, so the session's text also comes back as one
+  outside change, as rule 5 says. Another Studio tab's save of the same deck does write the
+  sidecar, so its text comes back as "Unsaved changes" rather than a gap. That is safe: in every
+  case the stored stack first replays to its own text and the step bridges from there to the
+  source, so the case chooses the label and whether the undo stops, never which text a patch
+  meets.
+- **A deck changed before storage answers keeps its undo in memory.** The stored history arrives a
+  moment after the Studio paints (an IndexedDB read, then the worker's replay). The first cut
+  refused the stored past when the author had already changed the deck, and the next write
+  overwrote it (the checker reproduced it). The second cut merged the stored past under the early
+  steps; that raced the author's own undo, and main's `studio.controls.test.tsx` strip test (two
+  slide ops, two ⌘Z) failed on loaded CI runners at a rate no local delay sweep or interleaving
+  test reproduced. As built, the Studio records the history's revision when it asks to open the
+  deck, and if the revision moved before storage answered and something is stored, that session
+  does not merge and does not write: its undo stays in memory, and the stored past is left intact
+  for the next load (`createFiloPersistence` reports `touched`). A deck with nothing stored is
+  owned as usual. `adoptStored` keeps its early-step handling for a caller that wants it.
+- **A failed write is retried** by the next idle write or the `pagehide` flush, a generation read that failed is read again at the next write (a store that ran Clear all refuses its own writes outright, so the retry cannot let its flush through), a worker request that gets no answer falls back after 15 s, and a deck deleted
+  in one tab leaves a tombstone, so a tab that still shows it (and holds its lock) cannot write it
+  back. A tab holds the lock of every deck it opened for the session, and a tab that started
+  memory-only stays so.
+- **A restore is verified in the worker.** The new bench tier found that replaying a 100-step
+  history on the 134 KB deck costs 16-34 ms in Node (19.5 ms median, 64 ms worst in the bless run),
+  over the 16 ms budget of §4.3. The worker replays it (`replaySnapshot`, every step checked against
+  the text it was recorded on) and the main thread restores it with `verified`, which costs 0.35 ms.
+  With no worker the restore replays in place.
+- **Broad steps are narrowed only for storage.** Before an idle write the worker splits each change
+  of 1,024 characters or more into the lines that differ (a bounded Myers line diff that checks its
+  own result). In memory the step keeps its trimmed replace; every step the worker has seen is
+  remembered by identity, narrowed or not, so each step crosses to the worker once. On the bench's 100-step history the stored size
+  falls from 2.18 M characters to 280 K. A write on `pagehide` does not wait for the worker.
+- **The generation is store-wide**, not per document: Clear all empties every document at once, so
+  one number does the same job. The tab that cleared keeps its old number, so its own `pagehide`
+  flush on the reload is refused; governance awaits the clear before it reloads, and a clear that
+  did not reach storage is reported as "decks" failing.
+- **An empty history is not stored.** The first cut wrote one for every deck opened, at every boot.
+  The Chromium real-quota test in `checkpoint-storage.spec.ts` caught it: the extra write moved the
+  measured usage it sets its quota from, and the checkpoint it expects to be refused was saved.
+- **Measured cost, and what it leaves out.** The main-thread restore (0.35 ms) does not count the
+  IndexedDB read's deserialize or the copy to the worker, which grow with the stored size; narrowing
+  is what keeps that size small (280 K characters instead of 2.18 M on the bench's history).
+- **Not built:** the gzip of the floor (stored as text; the budget counts it at that size), and
+  reporting a dropped history's marks to the author (the store calls `onEvict` with the count; the
+  Studio does not use Filo marks until slice 6).
+
+Evidence. `docs/e2e/filo-reload.spec.ts` runs the three tests of §5 and the two-tab rule in Chromium,
+Firefox and WebKit (24 of 24 over two repeats). Two mutations fail it: never adopting the stored
+history fails all three reload tests, and ignoring the sidecar fails the killed-page test.
+Under load (four workers, ten repeats, three engines) the first cut of the spec failed 28 of 120
+runs, and every failure was the test's: a retry of ⌘Z fired before the previous press had resolved
+and undid one step too many; ` MARK` typed key by key split into several steps whenever a loaded
+Firefox paused past the 500 ms grouping window (Filo grouping correctly); the second tab could
+claim the lock before the first tab's storage module loaded; and the second-tab notice closed
+before a slow assertion looked. The spec now waits for each press to resolve, inserts each edit as
+one step, waits for the first tab's claim, and samples the status pill from before the boot; the
+notice itself now dwells 8 s, since it arrives while the tab is still loading. After the fixes:
+120 of 120 under the same load, and `filo-live.spec.ts` 30 of 30. The one unexplained failure the
+first pre-merge card reported is the first of these (the double ⌘Z).
+`npm run bench` has a Filo tier, blessed in `test/benchmark/baseline.json` (`filoDatasets`):
+
+The 100-step rows commit 100 steps; the 2 MB byte cap keeps 90 of them, which is the `steps: 90`
+the baseline records.
+
+| Row (134 KB deck, Node, median) | Before (main, be19565) | After |
+|---|---|---|
+| Type 200 characters, per keystroke | 0.171 ms | 0.17 ms |
+| An AI apply (two distant slides) | 0.042 ms | 0.03 ms |
+| Its undo and redo | 0.473 ms | 0.31 ms |
+| Snapshot, 100 steps | — | 0.57 ms |
+| Restore after a reload, main thread | — | 0.35 ms |
+| Verify, in the worker | — | 21.7 ms |
+| Narrow the broad steps, in the worker | — | 29.0 ms, 2.18 M to 280 K characters |
 
 **6. Checkpoints become marks.** Migrate the slice-0 checkpoint store into marks; restores use the
 rename mapping of §2.3. Retires #5.

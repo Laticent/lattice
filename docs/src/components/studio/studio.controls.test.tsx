@@ -466,6 +466,44 @@ describe('Studio — every top-bar control responds', () => {
 		expect(document.querySelector('[data-strip-note] button')).toBeNull();
 	});
 
+	it('one Edit-menu Undo that Safari sends as two historyUndo events takes back one step', async () => {
+		// macOS Safari 26.6 answers one undo command with two historyUndo events created together (ios-safari-undo).
+		// Both are refused so the browser does not edit the DOM, but only the first runs.
+		const user = await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
+		const start = railCount();
+		await stripAction(user, /^Duplicate/);
+		await stripAction(user, /^Duplicate/);
+		expect(railCount()).toBe(start + 2);
+		// The current slide's pill, looked up each time: an undo re-renders the strip.
+		const rail = () => document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement;
+		const ask = (inputType = 'historyUndo') => {
+			const e = new InputEvent('beforeinput', { inputType, cancelable: true, bubbles: true });
+			rail().dispatchEvent(e);
+			return e.defaultPrevented;
+		};
+		// The pair, with a render's worth of work between them in one task (a real menu click lets React render
+		// between the two events): still one request. A 16 ms window takes two steps here.
+		const t0 = Date.now();
+		const first = ask();
+		while (Date.now() - t0 < 25) {
+			// busy: the second event is created 25 ms after the first
+		}
+		const second = ask();
+		// Redo 60 ms after the Undo, faster than most people: a request of its own, so it runs. A 100 ms window
+		// drops it.
+		await new Promise((r) => setTimeout(r, Math.max(0, 60 - (Date.now() - t0))));
+		expect([first, second, ask('historyRedo')]).toEqual([true, true, true]);
+		await waitFor(() => expect(railCount()).toBe(start + 2));
+		// And two more Undos, each its own request.
+		await new Promise((r) => setTimeout(r, 60));
+		expect(ask()).toBe(true);
+		await waitFor(() => expect(railCount()).toBe(start + 1));
+		await new Promise((r) => setTimeout(r, 60));
+		expect(ask()).toBe(true);
+		await waitFor(() => expect(railCount()).toBe(start));
+	});
+
 	it('⌘Z with focus in the strip undoes the newest slide op', async () => {
 		const user = await setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]').length ?? 0;
@@ -873,6 +911,18 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
 
+	// The toast's Undo, not the top bar's touch-first pair: jsdom applies no CSS, so that `hidden` pair is in its tree.
+	const toastUndo = () => {
+		const b = screen.queryAllByRole('button', { name: 'Undo' }).find((e) => !e.className.includes('pointer:coarse'));
+		return b ?? undefined;
+	};
+	const findToastUndo = () =>
+		waitFor(() => {
+			const b = toastUndo();
+			if (!b) throw new Error('no Undo toast yet');
+			return b;
+		});
+
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
@@ -881,14 +931,14 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(sw);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
 		// The change surfaces a one-click Undo, labeled by what changed.
-		const undo = await screen.findByRole('button', { name: 'Undo' });
+		const undo = await findToastUndo();
 		expect(screen.getByText('Page numbers off')).toBeInTheDocument();
 		// One click reverts the source to before the change and dismisses the toast.
 		await user.click(undo);
 		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));
 		// Sonner dismisses the toast through an exit animation, so the button leaves the
 		// DOM a beat after the click (the hand-rolled pill removed it synchronously).
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		await waitFor(() => expect(toastUndo()).toBeUndefined());
 	});
 
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
@@ -896,13 +946,13 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
-		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
+		expect(await findToastUndo()).toBeInTheDocument();
 		// Edit the source AFTER the settings change — the pending Undo must bow out so it
 		// can never revert (clobber) this edit. A whole-document restore would lose it.
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- keep-me-marker -->\n\n');
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument());
+		await waitFor(() => expect(toastUndo()).toBeUndefined());
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/keep-me-marker/);
 	});
 

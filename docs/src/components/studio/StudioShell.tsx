@@ -54,6 +54,7 @@ import type { StripActions, StripVia } from '@/lib/strip-actions';
 import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { hashString } from '@/playground/deck-preview';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
@@ -161,7 +162,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
@@ -505,6 +506,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// source to Filo once React settles. `setSourceRaw` is used nowhere outside this block; the
 	// `checkFiloCommitPath` gate (tools/check-ownership.js) holds that.
 	const filo = React.useMemo(() => createFilo({ boundary: slideBoundary }), []);
+	// The history survives a reload (Filo slice 5, studio-filo-persist.ts): one IndexedDB store,
+	// the Studio's own sidecar hash beside each saved source, broad steps narrowed in a worker.
+	// Loaded after the first paint, off the Studio's eager bundle (route budget): nothing is stored
+	// before a history changes, opens and drops queue on the load in the order they were asked, and
+	// the module flushes the histories on page hide, after the source flush.
+	const filoPersist = React.useMemo(() => import('./studio-filo-persist').then((m) => m.studioPersistence((msg) => notify(msg, { duration: 8000 }))), []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
@@ -2039,6 +2046,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// A practice deck is never saved: the deck keeps the shared text.
 		if (practiceRef.current) src = practiceRef.current.real;
 		saveSource(id, src);
+		// Filo's reload sidecar, in the same synchronous write: the Studio wrote this text through the
+		// open deck's history. Not for another deck (a retired-plugin rewrite, `onRetire`), and not
+		// during a live session: the history did not record those, so they read as outside changes.
+		saveSourceSum(id, liveSharedRef.current || id !== deckIdRef.current ? null : hashString(src));
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
 		// rather than passed in: this is the deck's real title as the deck states it —
 		// its `title:` override, else its heading — never its creation label (which stays
@@ -4444,7 +4455,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// A document switch is a load, never a commit (§3.2 rule 3). A practice deck left behind
 				// is forgotten.
 				if (h?.doc.startsWith('practice:')) filo.drop(h.doc);
-				filo.load(doc, text);
+				const opened = filo.load(doc, text);
+				// Its stored past, if any, goes under it once storage answers (§5). A practice deck is memory only.
+				if (!doc.startsWith('practice:')) {
+					// The revision now: a change made while the module loads is the author's (studio-filo-persist.ts).
+					const revision = opened.state().revision;
+					void filoPersist.then((p) => p.open(opened, text, revision));
+				}
 				return;
 			}
 			if (liveSharedRef.current) {
@@ -4457,7 +4474,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}
 			timed('filo:commit', () => commitSource(h, text, intent));
 		},
-		[filo],
+		[filo, filoPersist],
 	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS a trigger — a tour's practice deck switches documents with no source change of its own.
 	React.useEffect(() => {
@@ -4465,7 +4482,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [source, filoDoc, filoCommit]);
 	// A deck deleted takes its history with it (§6.4). "Clear all" reloads the Studio, which empties
 	// every in-memory history.
-	const filoDropDeck = React.useCallback((id: string) => filo.drop(id), [filo]);
+	const filoDropDeck = React.useCallback(
+		(id: string) => {
+			filo.drop(id);
+			void filoPersist.then((p) => p.drop(id));
+		},
+		[filo, filoPersist],
+	);
 	filoDropRef.current = filoDropDeck;
 
 	// What the last undo or redo did, for assistive tech (`Announce`). A sighted author sees it: the
@@ -4576,11 +4599,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// The Edit menu, iOS shake and three-finger swipe, the iPad shortcut bar and Android keyboard
 		// keys ask through `beforeinput`. Unanswered in the deck editor, the browser would change the
 		// editor's DOM behind its model.
+		// macOS Safari answers one undo command with TWO historyUndo events (ios-safari-undo, Safari 26.6, through
+		// execCommand): the second is still refused but not run, or one Undo would take back two steps. Judged by
+		// when each event was created: two within 50 ms are one request. From a real menu click React may render
+		// between them (12-19 ms measured), so the window has room for that; a person's separate presses, Undo then
+		// Redo included, are further apart. A held ⌘Z comes through keydown (onKey), not this.
+		let last = 0;
 		const onBeforeInput = (e: InputEvent) => {
 			if (e.isComposing) return;
 			const verb = historyInput(e.inputType);
 			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
 			e.preventDefault();
+			if (e.timeStamp - last < 50) return;
+			last = e.timeStamp;
 			runHistoryRef.current(verb);
 		};
 		window.addEventListener('keydown', onKey);
@@ -7009,6 +7040,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</div>
 	);
 
+	// Undo and Redo for a screen with no ⌘Z: in the phone's tail, and before Present on a touch-first
+	// tablet (an iPad with no keyboard), where a reload leaves the system's own undo (shake, the
+	// keyboard bar's undo key) nothing to send: WebKit offers it only while its own undo list holds
+	// something (docs/scripts/ios-safari/undo-probe.js, measured in Mobile Safari 26.5).
+	// The tablet pair shows by CSS alone (`(hover: none) and (pointer: coarse)`), the same class the pre-paint skeleton
+	// uses (StudioChromeSkeleton TOUCH_FIRST), so the two rows match at hand-off and no media hook rides the eager
+	// bundle. Elsewhere it is display:none, which keeps it out of the accessibility tree as well.
+	const historyButtons = (className: string) => (
+		<>
+			<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className={className} disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+			<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className={className} disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+		</>
+	);
 	const feedbackButton = (
 		<Tip label="Send feedback">
 			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
@@ -7619,6 +7663,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LivePill) => <LivePill view={live.view} onOpen={openLive} onToggleMic={live.actions.toggleMic} />}
 					</PanelLoader>
 				)}
+				{!mobile && historyButtons('hidden [@media(hover:none)_and_(pointer:coarse)]:inline-flex')}
 				{!mobile && <Tip label="Present"><Button size="sm" data-demo="present" onClick={openPresent} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button variant="outline" size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
@@ -7655,12 +7700,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    in every pane, Compose included, because the pre-paint skeleton (StudioChromeSkeleton)
 				    draws them before it can know the stored pane, and the two must match at hand-off. Below 360 px
 				    both drop them, or the deck title has no room left (studio-instant-shell's 320 px case). */}
-				{mobile && (
-					<>
-						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-						<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
-					</>
-				)}
+				{mobile && historyButtons('max-[359px]:hidden')}
 				{mobile && (
 					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}

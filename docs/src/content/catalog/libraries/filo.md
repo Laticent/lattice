@@ -131,11 +131,13 @@ In the Studio, Lattice's editor in the browser, every way a deck changes goes th
 | A keystroke, an undo, a redo, a settings write | 1.1 ms | 1.0 ms | 3.0 ms |
 | An undo applied to Compose (only the slides it touched) | 3–9 ms | 3–9 ms | 6–11 ms |
 
+The history survives a reload: ⌘Z after reopening the Studio undoes the edit made before it. If the Studio saved text Filo had not stored yet, that text comes back as one step, "Unsaved changes"; if the deck changed outside the Studio (a restored backup, an import), the change is one step of its own, and the older steps apply only after it. A second tab on the same deck keeps its undo in memory and says so.
+
 Each engine ran alone in Playwright, with `performance.measure` around the history work; the decision note's "Slice 3 as built" and "Slice 4 as built" hold the method. One frame of the screen is about 16 ms. A three-slide rewrite of that deck is a patch about 33 times smaller than a copy of it. The Lattice engine and its command-line tool don't use Filo.
 
 ## What it doesn't do
 
-- **It doesn't save anything yet.** The history lives in memory, so it lasts for the session; surviving a reload (in IndexedDB) and a byte budget across documents are the next step.
+- **It doesn't pick where it runs.** Storage (`store.ts`) is IndexedDB with one writer per document, and the heavy work (narrowing a broad change to the lines that differ, checking a stored history after a reload) is plain functions your app runs in a worker. The Studio's worker is one short file.
 - **It only handles text.** A document that isn't text, such as a JSON tree or a canvas, would need a second patch format, which Filo doesn't ship yet.
 - **It doesn't catch the keys for you.** Routing ⌘Z to the right history, and leaving a text field's own undo alone, is your app's job; the Studio's glue is one small file you can copy.
 - **It doesn't merge two people's edits.** Undo is "undo my edits"; in a live session, the collaboration layer's own undo does that job.
