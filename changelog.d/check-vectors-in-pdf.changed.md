@@ -1,0 +1,1 @@
+- Checks in a CLI or Studio PDF are drawn as vector paths (the disc, its rings and its mark), so they stay crisp at any zoom and in print. They used to be part of the slide's 96 ppi background photo. A pill's outline around a check is now a vector too, and a stroked chart line keeps its round corners.
