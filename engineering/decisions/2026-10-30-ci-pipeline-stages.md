@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   CI is slow because of runner contention, not test speed: about 200 CI runs a day, each asking for ~10 jobs at once,
   against the Free plan's 20 concurrent jobs. Proposal: five named stages (local, PR, queue, nightly, weekly) with one
@@ -257,6 +257,10 @@ The scheme:
   The catch rates are the best data the repository has; they are not stable constants.
 
 ## 9. Decisions for the owner
+
+**Owner's answers (2026-10-30):** D2, D3 and D4 adopted as recommended. D1 is open: the owner is checking which plan
+the organization is on (the billing page's "Current plan"). Until it is known, the queue stays at the live
+`max_entries_to_build: 5`; set it to 2 on Free, 3 on Team.
 
 - **D1. Capacity.** Move the organization to GitHub Team for 60 concurrent jobs (GitHub's published limits: Free 20,
   Team 60; the price is per member per month, so check it on the billing page) and set `max_entries_to_build` to 3.
