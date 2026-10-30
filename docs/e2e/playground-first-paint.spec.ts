@@ -337,7 +337,9 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	// `npm run build`, whose modulepreload brings hydration forward), so the count below raced it
 	// and the width read could measure a pane whose preview had come back. Same block as the walk
 	// bar's cut case below.
-	await page.route(/\/_astro\/.*\.js/, (route) => route.abort());
+	// Scripts only: the pattern ends at `.js`. A stylesheet's content hash can start with `js` (`landing.jss7kTPN.css`),
+	// and the old `/\/_astro\/.*\.js/` blocked it, so the cut page laid out with no CSS at all (PR 2985).
+	await page.route(/\/_astro\/.*\.js($|\?)/, (route) => route.abort());
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
@@ -583,7 +585,7 @@ test.describe('on a phone', () => {
 			expect(html.indexOf('id="pg-split"'), 'the pane no longer follows the walk bar in the markup').toBeGreaterThan(at);
 			await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: cut ? html.slice(0, at) : html });
 		});
-		await page.route(/\/_astro\/.*\.js/, (route) => route.abort());
+		await page.route(/\/_astro\/.*\.js($|\?)/, (route) => route.abort());
 		const walkBox = () =>
 			page.evaluate(() => {
 				const r = document.querySelector('#pg-walk')?.getBoundingClientRect();
