@@ -46,7 +46,7 @@ test.describe('links in Compose', () => {
 		await expect(panel(page)).toHaveCount(0);
 	});
 
-	test('@crosswidth @gecko @webkit-tablet a click on a link shows its address; a new one changes only the address, and Remove keeps the words', async ({ page }) => {
+	test('@crosswidth @gecko @webkit-tablet @webkit-phone a click on a link shows its address; a new one changes only the address, and Remove keeps the words', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await page.locator('.cs-host .ProseMirror a').first().click();
 		await expect(address(page)).toHaveValue('https://example.com/notes');
@@ -72,7 +72,7 @@ test.describe('links in Compose', () => {
 		expect(await savedDeck(page)).toBe(DECK);
 	});
 
-	test('@crosswidth Insert → Link at an empty caret writes a word to type over and links it', async ({ page }) => {
+	test('@crosswidth @webkit-phone Insert → Link at an empty caret writes a word to type over and links it', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await page.locator('.cs-host .ProseMirror p').filter({ hasText: 'The plan is ready.' }).click();
 		await page.keyboard.press('End');

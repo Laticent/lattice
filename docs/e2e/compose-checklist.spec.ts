@@ -35,7 +35,7 @@ test('@crosswidth @gecko @webkit-tablet a checklist slide is editable and each m
 	expect(source).not.toMatch(/\\\[/);
 });
 
-test('@crosswidth @gecko @webkit-tablet a click on the chip opens the six answers, and a pick changes only those bytes', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet @webkit-phone a click on the chip opens the six answers, and a pick changes only those bytes', async ({ page }) => {
 	await openChecklist(page);
 	const picker = page.getByRole('menu', { name: 'Item state' });
 	// `[!]` (no) used to become `[x]` on one click. Now the click opens the picker on its current answer and writes nothing.
