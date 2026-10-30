@@ -1,0 +1,3 @@
+studio: +137
+home: +137
+The Studio's slide frame now waits for a new engine sheet to load before it writes the slide, and the newest render owns the frame (single-slide-render.js: the render-turn token, one ownership record, the shared wait when a second render swaps to a sheet that is still loading, and the signature cleared while a swap is pending). The frame keeps its existing pane signature, so the pane catalog's names do not ride in the bundle. No ceiling moves: main's Studio eagerJsGz ceiling (562200, raised for #2980) leaves about 500 bytes, and this needs 137. Measured with measure-route-base.sh against origin/main.

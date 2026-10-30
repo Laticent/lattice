@@ -35,7 +35,7 @@ A bridge from one total to another through signed contributions, each bar starti
 ---
 
 <!-- _class: waterfall zoom -->
-<!-- _footer: "zoom · waterfall zoom — Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest." -->
+<!-- _footer: "zoom · waterfall zoom — Re-bases the axis on the walk; the tear marks the clipped anchors." -->
 
 `FY26 · cash`
 
@@ -52,7 +52,7 @@ A bridge from one total to another through signed contributions, each bar starti
 ---
 
 <!-- _class: waterfall lower-is-better -->
-<!-- _footer: "lower-is-better · waterfall lower-is-better — Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down." -->
+<!-- _footer: "lower-is-better · waterfall lower-is-better — For walks where a rise is bad news: a rise wears the fail hue." -->
 
 `Combined ratio · %`
 

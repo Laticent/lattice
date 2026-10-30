@@ -22,7 +22,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { __resetLiveRenderersForTest, clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
+import { __resetLiveRenderersForTest, __swapSharedSheetForTest, clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const base = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 const HTML = '<article class="lattice"><section class="form" id="1"><div class="cell-stage"><h1>One</h1></div></section></article>';
@@ -173,5 +173,124 @@ describe('the engine sheet is shared across frames, not inlined per frame (#1538
 		const docB = await tileDoc(b);
 		expect(minted.length, 'two different sheets shared one url').toBe(2);
 		expect(docB).toContain(`href="${minted[1]}"`);
+	});
+});
+
+// The restyle path writes the new body only after the new sheet has loaded, so no frame paints a
+// new slide under the previous slide's sheet (a pane slide's table sat at the wrong height until
+// the sheet arrived, on iPhone WebKit where a ~1.5 MB sheet takes long to parse). That ordering
+// needs the promise `swapSharedSheet` returns to settle at the right moments.
+describe('swapSharedSheet settles when the new sheet is ready', () => {
+	const frameDoc = (href: string) => {
+		const doc = document.implementation.createHTMLDocument('f');
+		doc.head.innerHTML = `<link id="lattice-sheet" rel="stylesheet" href="${href}">`;
+		return doc;
+	};
+
+	it('returns null when the frame already holds that sheet', () => {
+		expect(__swapSharedSheetForTest(frameDoc('blob:a'), 'blob:a')).toBeNull();
+	});
+
+	it('stays pending, with the old sheet attached, until the new one loads', async () => {
+		const doc = frameDoc('blob:a');
+		const done = __swapSharedSheetForTest(doc, 'blob:b') as Promise<void>;
+		let settled = false;
+		void done.then(() => { settled = true; });
+		await Promise.resolve();
+		expect(settled, 'settled before the new sheet loaded').toBe(false);
+		expect(doc.querySelectorAll('link[rel=stylesheet]').length, 'old and new overlap while loading').toBe(2);
+		doc.getElementById('lattice-sheet')!.dispatchEvent(new Event('load'));
+		await done;
+		expect(settled, 'did not settle after the load').toBe(true);
+		const links = [...doc.querySelectorAll('link[rel=stylesheet]')];
+		expect(links.map((l) => l.getAttribute('href'))).toEqual(['blob:b']);
+	});
+
+	it('shares the wait when a second render swaps to the sheet that is already loading', async () => {
+		// The landing demo's palette picker does not queue its renders: a second one can start while the
+		// first waits. It must wait for the SAME load, not return at once and write its body ahead of the sheet.
+		const doc = frameDoc('blob:a');
+		const first = __swapSharedSheetForTest(doc, 'blob:b') as Promise<void>;
+		const second = __swapSharedSheetForTest(doc, 'blob:b');
+		expect(second, 'a swap to the sheet already loading returned no wait').not.toBeNull();
+		let settled = false;
+		void (second as Promise<void>).then(() => { settled = true; });
+		await Promise.resolve();
+		expect(settled, 'the second render did not wait for the load').toBe(false);
+		doc.getElementById('lattice-sheet')!.dispatchEvent(new Event('load'));
+		await Promise.all([first, second]);
+		expect(settled).toBe(true);
+		// Loaded: nothing left to wait for.
+		expect(__swapSharedSheetForTest(doc, 'blob:b')).toBeNull();
+	});
+
+	it('settles on an error too, so a failed fetch cannot hold the render forever', async () => {
+		const doc = frameDoc('blob:a');
+		const done = __swapSharedSheetForTest(doc, 'blob:c') as Promise<void>;
+		doc.getElementById('lattice-sheet')!.dispatchEvent(new Event('error'));
+		await done;
+		expect([...doc.querySelectorAll('link[rel=stylesheet]')].map((l) => l.getAttribute('href'))).toEqual(['blob:c']);
+	});
+
+	it('settles after 2 s when neither event fires (a frame torn down mid-swap)', async () => {
+		vi.useFakeTimers();
+		try {
+			const doc = frameDoc('blob:a');
+			const done = __swapSharedSheetForTest(doc, 'blob:d') as Promise<void>;
+			vi.advanceTimersByTime(2000);
+			await done;
+			expect(doc.querySelectorAll('link[rel=stylesheet]').length).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe('two overlapping restyle renders on one frame', () => {
+	it('an older render that finishes late does not swap the sheet out from under a newer one that is waiting', async () => {
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		const host = document.createElement('figure');
+		document.body.appendChild(host);
+		const r = createSingleSlideRenderer(base);
+		// Render 0 puts the frame up with sheet A.
+		const sheetA = uniqueSheet();
+		mock.mockImplementation(async () => ({ html: HTML, css: sheetA }));
+		await r.renderInto(host, 'race 0', false);
+		const frame = host.querySelector('iframe') as HTMLIFrameElement;
+		// jsdom does not load a srcdoc, so do what the browser does: parse the document the renderer wrote into the frame.
+		const doc = frame.contentDocument as Document;
+		doc.open();
+		doc.write(frame.getAttribute('srcdoc') ?? '');
+		doc.close();
+		expect(doc.getElementById('lattice-sheet'), 'the frame did not come up with a linked sheet').toBeTruthy();
+		frame.dispatchEvent(new Event('load'));
+		await vi.waitFor(() => expect((host as unknown as { __latticePendingLoad?: boolean }).__latticePendingLoad).toBe(false));
+
+		// Render 1 (older) is slow in the engine; render 2 (newer) is fast and swaps first.
+		const sheetOld = uniqueSheet();
+		const sheetNew = uniqueSheet();
+		let releaseOld!: () => void;
+		const oldGate = new Promise<void>((res) => { releaseOld = res; });
+		mock.mockImplementationOnce(async () => {
+			await oldGate;
+			return { html: HTML, css: sheetOld };
+		});
+		mock.mockImplementationOnce(async () => ({ html: HTML, css: sheetNew }));
+		const older = r.renderInto(host, 'race 1', false, undefined, undefined, 'dark');
+		const newer = r.renderInto(host, 'race 2', false, undefined, undefined, 'dark');
+		await vi.waitFor(() => expect(doc.querySelectorAll('link[rel=stylesheet]').length, 'the newer render did not start its swap').toBe(2));
+		const newLink = doc.getElementById('lattice-sheet') as HTMLLinkElement;
+		const newHref = newLink.getAttribute('href');
+
+		// The older render now reaches the swap. It must stand down: no third sheet, the newer link untouched.
+		releaseOld();
+		await older;
+		expect(doc.querySelectorAll('link[rel=stylesheet]').length, 'the older render swapped under the newer one').toBe(2);
+		expect(doc.getElementById('lattice-sheet')).toBe(newLink);
+
+		// The newer sheet loads: the newer render completes on it, and it is the only sheet left.
+		newLink.dispatchEvent(new Event('load'));
+		await newer;
+		expect([...doc.querySelectorAll('link[rel=stylesheet]')].map((l) => l.getAttribute('href'))).toEqual([newHref]);
 	});
 });

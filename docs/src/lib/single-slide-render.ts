@@ -233,7 +233,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -963,6 +963,9 @@ function sharedSheetHref(css: string): string | null {
 	}
 }
 
+/** The load a `<link id="lattice-sheet">` is still waiting on, so a second swap to the same sheet can share it. */
+const sheetLoads = new WeakMap<Element, Promise<void>>();
+
 /**
  * Point a live frame's shared-sheet `<link>` at `url` without a flash.
  *
@@ -971,23 +974,43 @@ function sharedSheetHref(css: string): string | null {
  * exact path (a theme toggle) this file already went to some trouble to make seamless. Adding
  * the new link AFTER the old one and removing the old on load keeps a styled document at every
  * instant: while both are attached the later one wins the cascade, which is the new one.
+ *
+ * Returns a promise that settles once the new sheet has loaded (or failed, or 2 s have passed), or
+ * `null` when the frame already holds that sheet. The restyle path waits on it before it patches
+ * the body: patching first painted the NEW slide under the OLD sheet, and a pane slide's table
+ * jumped to its centered place when the new sheet arrived (seen on iPhone WebKit, where parsing
+ * a ~1.5 MB sheet takes long enough to see).
  */
-function swapSharedSheet(doc: Document, url: string): void {
+function swapSharedSheet(doc: Document, url: string): Promise<void> | null {
 	const current = doc.getElementById('lattice-sheet') as HTMLLinkElement | null;
-	if (!current || current.getAttribute('href') === url) return;
+	if (!current) return null;
+	// Already the sheet we want. If it is still LOADING (an earlier render swapped to it and is waiting),
+	// share that wait, so a second render never writes its body ahead of the sheet it needs.
+	if (current.getAttribute('href') === url) return sheetLoads.get(current) ?? null;
 	const next = doc.createElement('link');
 	next.rel = 'stylesheet';
 	next.setAttribute('href', url);
 	next.id = 'lattice-sheet';
 	current.id = 'lattice-sheet-outgoing';
-	const drop = () => current.remove();
-	next.addEventListener('load', drop, { once: true });
-	next.addEventListener('error', drop, { once: true });
-	current.after(next);
-	// A frame torn down mid-swap fires neither event; without this the outgoing sheet would stay
-	// attached and keep winning nothing — harmless, but it would accumulate one per toggle.
-	setTimeout(drop, 2000);
+	const loaded = new Promise<void>((resolve) => {
+		const drop = () => {
+			sheetLoads.delete(next);
+			current.remove();
+			resolve();
+		};
+		next.addEventListener('load', drop, { once: true });
+		next.addEventListener('error', drop, { once: true });
+		current.after(next);
+		// A frame torn down mid-swap fires neither event; without this the outgoing sheet would stay
+		// attached and keep winning nothing — harmless, but it would accumulate one per toggle.
+		setTimeout(drop, 2000);
+	});
+	sheetLoads.set(next, loaded);
+	return loaded;
 }
+
+/** Test seam: the sheet swap alone, so its settle-on-load contract is pinned without a live iframe. */
+export const __swapSharedSheetForTest = swapSharedSheet;
 
 /**
  * Build a single-slide renderer bound to a theme source + runtime URL. Returns:
@@ -1466,6 +1489,20 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// render. Reset to 1 so a follow-up palette/rising-edge render (which doesn't
 		// go through the debounce) correctly reports "no coalescing".
 		const liveHost = host as LiveHost;
+		// This render's turn on the host. The restyle path waits for a sheet to load; a newer render that
+		// starts meanwhile must win, so the older one checks this after its wait and stands down.
+		const renderGen = (liveHost.__latticeRenderGen = (liveHost.__latticeRenderGen ?? 0) + 1);
+		// A render stands down only once a NEWER one OWNS the frame, never merely because a newer one has started:
+		// that one may still fail (bad Markdown mid-typing, an engine error) before it does anything, and an older
+		// render that had already swapped the sheet would then leave the new sheet under the old body. A render
+		// takes ownership when it asks for a sheet and when it writes. The first stops an older render swapping the
+		// sheet out from under a newer one that is waiting on its own (the swap would drop the newer render's link,
+		// which then never loads, and the slide would write under the wrong sheet); the second stops it overwriting
+		// a slide that already landed.
+		const newerOwns = () => (liveHost.__latticeOwnerGen ?? 0) > renderGen;
+		const claim = () => {
+			liveHost.__latticeOwnerGen = Math.max(liveHost.__latticeOwnerGen ?? 0, renderGen);
+		};
 		const coalesced = liveHost.__latticeCoalesce ?? 1;
 		liveHost.__latticeCoalesce = 1;
 		// The perf overlay's SOURCE-BYTES figure means "how much markdown produced the slide on
@@ -1602,7 +1639,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, samplesUrl: samplesBase, stats: hasRenderListeners(), page: slicePage, codeStatus: true, stablePaneSheet: true, ...(slicePlugins ? { pluginDefaults: slicePlugins } : {}) });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -1978,10 +2015,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// subdomain reference takes that host's wildcard away, and the resident <head> can only
 				// change on a full write (lib/core/subresource-csp.mjs `webPolicySig`).
 				const webSig = webPolicySig(allow, webBlocked);
-				// The classes on the slide's panes: the engine's sheet carries pane rules for exactly
-				// those (playground/pane-sheet-sig.js), so a change in them misses the patch path and
-				// takes the restyle one, which swaps the sheet. Not in `restyleSig`: nothing about the
-				// frame box changes.
+				// What decides the pane sheet: the pane classes on the slide (playground/pane-sheet-sig.js). The
+				// frame asks the engine for a STABLE sheet (`stablePaneSheet` below), so two pane slides usually
+				// compose the same sheet; a change in the classes still takes the restyle path, which swaps the
+				// sheet only when its bytes differ (`swapSharedSheet` returns null for the same href) and
+				// otherwise just rewrites the style and body in one task. Not in `restyleSig`: nothing about
+				// the frame box changes.
 				const paneSig = paneComponentsSig([out.html]);
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${drawn ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}|W:${webSig}|P:${paneSig}`;
 				// IS THIS RENDER THE SAME SLIDE AS THE LAST ONE, EDITED? The one fact the frame
@@ -2032,6 +2071,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const tFrame = performance.now();
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						claim();
 						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
@@ -2090,7 +2130,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const safe = sanitizeOnce(out.html);
 					const restyleSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
-					// Swap the styles in place FIRST, then the body — the new palette applies
+					// Swap the styles in place, then the body, in ONE task — the new palette applies
 					// atomically with the new section, so a viewer never sees the old theme on the new
 					// body (or vice-versa) for a frame.
 					//
@@ -2098,15 +2138,34 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// `color-scheme` lives here), the engine sheet, and the author's CSS. The sheet is
 					// the one that cannot be a synchronous textContent write — it is a `<link>` now —
 					// so `swapSharedSheet` overlaps the old and new sheets rather than blanking the
-					// document between them. The other two stay synchronous, so the atomicity this
-					// path was built for still holds for everything except the sheet, whose old copy
-					// keeps applying until the new one is ready.
+					// document between them, and this path WAITS for the new one to load before it
+					// writes the other two and the body. Until then the old slide stays under the old
+					// sheet, which is a frame the viewer has already seen.
 					const doc = live.contentDocument as Document;
+					const nextSheet = sharedSheetHref(out.css);
+					// The sheet first, and the rest only once it has LOADED: the frame style, the author CSS
+					// and the body then land in one task, so no frame paints the new slide under the old
+					// sheet. (Doing the body first showed a pane slide's table at the wrong height until the
+					// new sheet arrived.)
+					// A newer render has already written its slide: do not swap the sheet under it.
+					if (newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+					if (nextSheet) claim();
+					const sheetLoaded = nextSheet ? swapSharedSheet(doc, nextSheet) : null;
+					if (sheetLoaded) {
+						// While the frame waits, its stored signature describes a sheet it no longer holds. Clear it, so a
+						// render that starts now (the landing demo's palette picker does not queue its renders) misses the
+						// patch path and goes through this one, where it waits on the same sheet instead of writing its
+						// body into a document that is mid-swap and keeping a stale signature after.
+						(host as LiveHost).__latticeFrameSig = undefined;
+						await sheetLoaded;
+						// The renderer may have been torn down, the frame's document replaced, or a newer render
+						// written its slide, while the sheet loaded; either way this render has nothing left to patch
+						// (DeckPreview reads this sentinel as no failure).
+						if (disposed || !host.isConnected || live.contentDocument !== doc || newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+					}
 					const frameEl = doc.getElementById('lattice-frame');
 					if (frameEl) frameEl.textContent = styleElementText(frameStyleContent(mode, geom));
-					const nextSheet = sharedSheetHref(out.css);
-					if (nextSheet) swapSharedSheet(doc, nextSheet);
-					else {
+					if (!nextSheet) {
 						// Fallback delivery — the sheet is an inline <style> in this document too.
 						const inlineSheet = doc.getElementById('lattice-sheet');
 						if (inlineSheet) inlineSheet.textContent = styleElementText(out.css);
@@ -2114,6 +2173,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					themeStyleEl.textContent = styleElementText(authorStyleContent(extraCss));
 					const inPlace = swapKind();
 					if (patchSlideBody(live, safe, inPlace)) {
+						claim();
 						prefetchImages(live);
 						// Stamp only once the write LANDED. Stamping first meant a failed patch fell
 						// through to the restyle path, which asks again — against an identity it had
@@ -2362,6 +2422,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Record the sig this full document was built for, so the NEXT render can
 				// take the patch fast path above when nothing outside the section changed.
 				(host as LiveHost).__latticeFrameSig = sig;
+				claim();
 				(host as LiveHost).__latticeFrameCss = frameCss;
 				// Record the frame box + mermaid this srcdoc was built for, so the NEXT theme/mode/
 				// palette change can take the RESTYLE fast path above (swap the <style> in place)

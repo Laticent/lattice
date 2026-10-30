@@ -41,6 +41,8 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 - **The story is how a number MOVED.** A waterfall earns its shape when the audience already knows the opening and closing figures and needs to see which contributions got you from one to the other. Budget to actual, an EBITDA walk, price/volume/mix, headcount in to headcount out. If the bars do not sum to anything, you want `bar`.
 - **Four to nine bars.** Two anchors plus two to seven drivers. Three bars is a subtraction with extra steps; past nine the category names crowd and the smaller drivers stop being separable — consolidate the tail into one 'Other' step, which is also the more honest read of a long tail nobody will discuss.
 - **The drivers reconcile.** The signed steps between the opening and closing levels should sum to the difference between them. That is the promise the geometry makes; when it is broken the connector visibly misses the closing bar's corner, which is the chart telling on your data.
+- **A compressed bridge: add `zoom`.** A 12.0M to 9.8M walk moved by steps of a few hundred thousand: the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. `zoom` re-bases the axis on the walk itself and tears the anchors it clips. It is opt-in because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.
+- **A walk where a rise is bad news: add `lower-is-better`.** A loss ratio, claims, cost, churn. It swaps the meaning hues so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down.
 
 ## When NOT to use
 
@@ -86,7 +88,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 
 ### `zoom`
 
-Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.
+Re-bases the axis on the walk; the tear marks the clipped anchors.
 
 ```markdown
 <!-- _class: waterfall zoom -->
@@ -105,7 +107,7 @@ Re-bases the axis on the walk itself and tears the anchors it clips. For a compr
 
 ### `lower-is-better`
 
-Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down.
+For walks where a rise is bad news: a rise wears the fail hue.
 
 ```markdown
 <!-- _class: waterfall lower-is-better -->
