@@ -325,7 +325,9 @@ that keeps text or a raster image in it. That covers:
 
 - rotated text, a text shadow, and text or an image that something paints over;
 - a masked or filtered shape;
-- a character the deck's fonts lack (an emoji, a system-font fallback);
+- a character the deck's fonts lack (a system-font fallback). An emoji is the exception: it is drawn as a
+  glyph of a Type 3 font whose procedure paints the emoji's picture, so it and the words beside it stay
+  real text (`emojiArt` in `read-slide.mjs`, `embedEmoji` in `write-pdf.mjs`; Chrome's own print does the same);
 - pseudo-element text (page numbers, bullets).
 - a text decoration (an underline, a strikethrough). The word itself is drawn as text; the line
   stays in the photo, where the browser placed it. `hideDrawn` pins each declaring element's
@@ -554,9 +556,10 @@ hack worked around html-to-image's border-image bug.
   `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
   `full-emoji` all 11, `system-emoji` none, in every format. An emoji a pseudo-element draws (`::before{content:"🎉"}`, or the escape `"\1F389"`) counts too: the Studio's picker and the camera read the computed `content` (`pseudoContentText`, `lib/core/slide-camera.mjs`), because `textContent` never holds it. In the CLI the slice picker runs before any page exists, so it reads the deck's HTML and the author's own CSS (the front matter's `style:`, and a `--css` stylesheet that is not the shipped one), and `slicesFor` reads a CSS escape as the emoji it spells. The shipped stylesheet stays out: its own escapes would pull two slices into every deck. A PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
   (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
-  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
-  text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
-  emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
+  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use. So the PDF
+  writer draws each emoji from a picture of its glyph (160 px an em, cached once per emoji), as a glyph of a Type 3 font with a
+  ToUnicode map: the emoji and its paragraph are real text, selectable and searchable, and the picture stays sharp to about 400%
+  on body text (`pdf-emoji-text.test.js`). An emoji typed into PowerPoint later uses that machine's own emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
   `lint:deck` steer authors to drawn shapes for the glyphs that
   do a drawing's job (a check mark, an arrow).
 
