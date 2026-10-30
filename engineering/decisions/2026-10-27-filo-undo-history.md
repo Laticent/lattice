@@ -312,8 +312,8 @@ events (12-19 ms measured in Chromium), which is why the window is 50 ms and not
 presses, Undo then Redo included, are further apart, and a held ⌘Z comes through keydown, not this path.
 A real menu click is UNVERIFIED: no runner here drives the macOS menu. Tried and dropped: a 100 ms window
 (it swallowed a fast Redo in Compose) and a same-task flag (it could swallow a press queued behind a long
-undo). On a Mac after a reload, ⌘Z reaches it and the Edit menu does
-not (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md). The Tauri app sends its Edit menu's two items to the
+undo). On a Mac after a reload, ⌘Z reaches it and WebKit's undo command, sent through `execCommand`,
+does not; the menu is presumed the same, untested (followups.d/2959-p3-mac-edit-menu-undo-after-reload.md). The Tauri app sends its Edit menu's two items to the
 same calls.
 
 The preview iframe takes no keys today (the Studio box is `pointer-events: none`). When the pill
