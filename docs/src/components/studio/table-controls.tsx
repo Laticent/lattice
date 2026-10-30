@@ -15,7 +15,7 @@ import stateMarks from '../../../../lib/plugins/checks/shared/registry.js';
 // so the picker itself needs no pressed-state. The labels are the registry's universal words,
 // not a layout's words. Only the icon is the picker's own: it is Studio chrome, not the drawing.
 const ICONS: Record<string, typeof Check> = { pass: Check, warn: Minus, fail: X, unknown: CircleHelp, todo: Circle, skip: Slash };
-const MARKERS = (stateMarks.CHECKS as ReadonlyArray<{ id: string; marker: string; word: string }>).map((c) => ({
+export const MARKERS = (stateMarks.CHECKS as ReadonlyArray<{ id: string; marker: string; word: string }>).map((c) => ({
 	token: `[${c.marker}]`,
 	Icon: ICONS[c.id],
 	label: c.word[0].toUpperCase() + c.word.slice(1),

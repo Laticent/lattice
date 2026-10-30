@@ -1,6 +1,7 @@
+import { savedDeck } from './compose-insert';
 import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
-// A checklist (`- [x] done`) edits in Compose and a click on its marker chip toggles it.
+// A checklist (`- [x] done`) edits in Compose and a click on its marker chip opens the six answers (MarkerPicker.tsx).
 // followups.d/2846-p1; engineering/decisions/2026-10-21-compose-point-and-click.md §7.
 // Before: any list item led by one of the six markers locked the whole slide read-only.
 
@@ -34,14 +35,31 @@ test('@crosswidth @gecko @webkit-tablet a checklist slide is editable and each m
 	expect(source).not.toMatch(/\\\[/);
 });
 
-test('@crosswidth @gecko @webkit-tablet a click on the chip flips [ ] and [x] and changes only those bytes', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet @webkit-phone a click on the chip opens the six answers, and a pick changes only those bytes', async ({ page }) => {
 	await openChecklist(page);
-	await page.locator('.cs-host li .cs-cellmark').nth(1).click(); // `[ ]` → `[x]`
+	const picker = page.getByRole('menu', { name: 'Item state' });
+	// `[!]` (no) used to become `[x]` on one click. Now the click opens the picker on its current answer and writes nothing.
+	await page.locator('.cs-host li .cs-cellmark').nth(2).click();
+	await expect(picker.getByRole('menuitemradio', { checked: true })).toContainText('No');
+	expect(await persistedSource(page)).toContain('- [!] Pricing');
+	await picker.getByRole('menuitemradio', { name: /Partly/ }).click();
+	await expect.poll(() => persistedSource(page)).toContain('- [-] Pricing');
+	await expect(picker).toHaveCount(0);
+	// `[ ]` to `[x]` and back, by the picker.
+	await page.locator('.cs-host li .cs-cellmark').nth(1).click();
+	await picker.getByRole('menuitemradio', { name: /Yes/ }).click();
 	await expect.poll(() => persistedSource(page)).toContain('- [x] Legal sign-off');
-	await page.locator('.cs-host li .cs-cellmark').nth(0).click(); // `[x]` → `[ ]`
+	await page.locator('.cs-host li .cs-cellmark').nth(0).click();
+	await picker.getByRole('menuitemradio', { name: /Open/ }).click();
 	await expect.poll(() => persistedSource(page)).toContain('- [ ] Security review');
-	const source = await persistedSource(page);
-	for (const line of ['- [!] Pricing', '- [?] Date', '- [-] Docs', '- [/] Translations']) expect(source).toContain(line);
+	const source = await savedDeck(page);
+	expect(source.trimEnd()).toBe(DECK.replace('- [x] Security review', '- [ ] Security review').replace('- [ ] Legal sign-off', '- [x] Legal sign-off').replace('- [!] Pricing', '- [-] Pricing').trimEnd());
+	// Escape closes the picker and writes nothing.
+	await page.locator('.cs-host li .cs-cellmark').nth(3).click();
+	await expect(picker).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(picker).toHaveCount(0);
+	expect(await savedDeck(page)).toBe(source);
 });
 
 const MIXED = [

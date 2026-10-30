@@ -220,7 +220,9 @@ export function grewFiles(actualFiles, baseFiles, n = 5) {
  */
 export function measure(route, routeHtml, dist = DIST) {
 	const html = fs.readFileSync(path.join(dist, routeHtml), 'utf8');
-	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice(1)))];
+	// The lookahead ends the name at `.js`: a content hash may itself start with `js` (`landing.jss7kTPN.css`), and without
+	// it that stylesheet read as a missing `landing.js` and failed the build (PR 2985).
+	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js(?![\w.-])/g) || []).map((r) => r.slice(1)))];
 	const eager = closure(direct, dist, new Set(), routeHtml);
 	const engine = measureEngine(html, dist);
 	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size, eagerFiles: eager.files };

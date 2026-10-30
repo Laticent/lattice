@@ -1018,7 +1018,84 @@ describe('avatars and icons are objects too', () => {
 			});
 			long.dispatch(long.state.tr.setSelection(TextSelection.create(long.state.doc, s0, s0 + 60)));
 			expect(insertObject(() => kernels, { kind: 'avatar' })(long.state, long.dispatch)).toBe(true);
-			expect(docToDeck(long.state.doc)).toContain(`${longSelection}\`!{Alex Rivera}\``);
+			expect(docToDeck(long.state.doc)).toContain(`${longSelection} \`!{Alex Rivera}\``);
+		});
+
+		describe('a selection the label cannot be', () => {
+			const deckOf = (line: string) => ['<!-- _class: content -->', '', '## T', '', line].join('\n');
+			/** Select the text between the first `start` and the end of the first `end` that follows it. */
+			function select(view: EditorView, start: string, end: string) {
+				const flat: { pos: number; ch: string }[] = [];
+				view.state.doc.descendants((node, pos) => {
+					if (node.isText) for (let i = 0; i < (node.text ?? '').length; i++) flat.push({ pos: pos + i, ch: (node.text ?? '')[i] });
+				});
+				const text = flat.map((c) => c.ch).join('');
+				const a = text.indexOf(start);
+				const b = text.indexOf(end, a) + end.length - 1;
+				view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, flat[a].pos, flat[b].pos + 1)));
+			}
+			const insert = (view: EditorView, kind: 'check' | 'avatar' | 'pill') => insertObject(() => kernels, { kind })(view.state, view.dispatch);
+
+			it('a selection over a line break is no label: the break stays and the object goes after it', () => {
+				const view = mount(deckOf('ab\\\ncd rest'));
+				select(view, 'ab', 'cd');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain('ab\\\ncd `@check{pass}` rest');
+			});
+
+			it('a trailing space the selection took stays in the text', () => {
+				for (const [kind, src] of [['check', '@check{pass, label=beta}'], ['avatar', '!{beta}'], ['pill', '{beta}']] as const) {
+					const view = mount(deckOf('Alpha beta gamma'));
+					select(view, 'beta', 'beta ');
+					expect(insert(view, kind), kind).toBe(true);
+					expect(docToDeck(view.state.doc), kind).toContain(`Alpha \`${src}\` gamma`);
+				}
+			});
+
+			it('a kept selection that ends inside a word puts the object after the word, set off on both sides', () => {
+				const view = mount(deckOf(`Alpha ${'x'.repeat(41)}yz gamma`));
+				select(view, 'Alpha', 'xy');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain(`Alpha ${'x'.repeat(41)}yz \`@check{pass}\` gamma`);
+			});
+
+			it('a pill never deletes a selection it cannot use as its label either', () => {
+				for (const [line, start, end, kept] of [
+					['delta `{X}` epsilon', 'delta', 'epsilon', 'delta `{X}` epsilon `{Status}`'],
+					['run `npm i` now ok', 'run', 'now', 'run `npm i` now `{Status}` ok'],
+					['ab\\\ncd rest', 'ab', 'cd', 'ab\\\ncd `{Status}` rest'],
+				] as const) {
+					const view = mount(deckOf(line));
+					select(view, start, end);
+					expect(insert(view, 'pill'), line).toBe(true);
+					expect(docToDeck(view.state.doc), line).toContain(kept);
+				}
+			});
+
+			it('a kept selection that ends mid-word at a mark boundary goes after the whole word', () => {
+				const view = mount(deckOf(`${'x'.repeat(41)} **bold**er tail`));
+				select(view, 'x', 'bol');
+				expect(insert(view, 'check')).toBe(true);
+				expect(docToDeck(view.state.doc)).toContain('**bold**er `@check{pass}` tail');
+			});
+
+			it('a spark over a selection that took a trailing space goes after that word, not the next', () => {
+				const view = mount(deckOf('Alpha beta gamma'));
+				select(view, 'beta', 'beta ');
+				expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(true);
+				expect(docToDeck(view.state.doc)).toMatch(/Alpha beta `~\{[^}]*\}` ?gamma/);
+			});
+
+			it('a selection that holds another object keeps it, and the new object goes after', () => {
+				const view = mount(deckOf('delta `{X}` epsilon'));
+				select(view, 'delta', 'delta');
+				view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.selection.from, view.state.selection.to + 2)));
+				expect(insert(view, 'check')).toBe(true);
+				const out = docToDeck(view.state.doc);
+				expect(out).toContain('`{X}`');
+				expect(out).toContain('`@check{pass}`');
+				expect(out).not.toMatch(/label=/);
+			});
 		});
 
 		it('+ Icon leaves a SELECTED word where it is', () => {

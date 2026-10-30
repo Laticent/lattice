@@ -6,7 +6,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
-import { type InlineKernels, inlineObjectsPlugin, normalizeDeck } from '@/lib/compose/inline-objects';
+import { type InlineKernels, inlineObjectsPlugin, normalizeDeck, type PluginKindEntry, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { InsertControls } from './InsertControls';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
@@ -30,10 +30,10 @@ function caretIn(view: EditorView, needle: string, after = false) {
 	view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
 }
 
-function setup(source: string, caret: string, opts: { image?: () => void; motion?: () => void } = {}) {
+function setup(source: string, caret: string, opts: { image?: () => void; motion?: () => void; link?: () => void } = {}) {
 	const view = mount(source);
 	caretIn(view, caret, true);
-	render(<InsertControls view={view} getKernels={() => kernels} getSource={() => source} getFences={() => undefined} onInsertImage={opts.image} onInsertMotion={opts.motion} />);
+	render(<InsertControls view={view} getKernels={() => kernels} getSource={() => source} getFences={() => undefined} onInsertImage={opts.image} onInsertMotion={opts.motion} onInsertLink={opts.link} />);
 	const user = userEvent.setup();
 	const open = async () => {
 		await user.click(screen.getByRole('button', { name: 'Insert' }));
@@ -52,7 +52,7 @@ describe('InsertControls — what it offers', () => {
 		const { open } = setup(CONTENT, 'Lead');
 		await open();
 		const names = screen.getAllByRole('menuitem').map((e) => (e.textContent ?? '').replace(/\s+/g, ' '));
-		const labels = ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Pill', 'Spark', 'Avatar', 'Icon'];
+		const labels = ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Pill', 'Spark', 'Avatar', 'Icon', 'Check'];
 		expect(names).toHaveLength(labels.length);
 		labels.forEach((label, i) => {
 			expect(names[i].startsWith(label), names[i]).toBe(true);
@@ -70,6 +70,20 @@ describe('InsertControls — what it offers', () => {
 		const second = setup(CONTENT, 'Lead', { image: () => {} });
 		await second.open();
 		expect(screen.getByRole('menuitem', { name: /^Image/ })).toBeTruthy();
+	});
+
+	it('offers the Link door only when the editor hosts the link panel, and hands off to it', async () => {
+		const first = setup(CONTENT, 'Lead');
+		await first.open();
+		expect(screen.queryByRole('menuitem', { name: /^Link/ })).toBeNull();
+		cleanup();
+		const link = vi.fn();
+		const second = setup(CONTENT, 'Lead', { link });
+		const before = docToDeck(second.view.state.doc);
+		await second.open();
+		await second.user.click(item('Link'));
+		expect(link).toHaveBeenCalledTimes(1);
+		expect(docToDeck(second.view.state.doc)).toBe(before);
 	});
 
 	it('is one button, named Insert', () => {
@@ -140,6 +154,74 @@ describe('InsertControls — the inline objects', () => {
 			cleanup();
 		}
 	});
+
+	it('Check puts the first answer at the caret, and a selected word becomes its label', async () => {
+		const bare = setup(CONTENT, 'Lead');
+		await bare.open();
+		await bare.user.click(item('Check'));
+		expect(docToDeck(bare.view.state.doc)).toContain('`@check{pass}`');
+		cleanup();
+		const view = mount(CONTENT);
+		let at = -1;
+		view.state.doc.descendants((n, p) => {
+			if (at < 0 && n.isText && n.text?.includes('Lead')) at = p + n.text.indexOf('Lead');
+		});
+		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at, at + 4)));
+		render(<InsertControls view={view} getKernels={() => kernels} getSource={() => CONTENT} getFences={() => undefined} />);
+		const user = userEvent.setup();
+		await user.click(screen.getByRole('button', { name: 'Insert' }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Check/ }));
+		expect(docToDeck(view.state.doc)).toMatch(/`@check\{pass, [^`]*Lead[^`]*\}` of the project\./);
+	});
+
+	it('Check and a plugin kind never delete a selection they cannot use as a label: they go in after it', async () => {
+		const selectAll = (view: EditorView, text: string) => {
+			let at = -1;
+			view.state.doc.descendants((n, p) => {
+				if (at < 0 && n.isText && n.text?.includes(text)) at = p + n.text.indexOf(text);
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at, at + text.length)));
+		};
+		const long = 'Lead of the project.';
+		const deck = CONTENT.replace(long, `${long} ${'x'.repeat(40)}`);
+		const view = mount(deck);
+		selectAll(view, `of the project. ${'x'.repeat(40)}`);
+		render(<InsertControls view={view} getKernels={() => kernels} getSource={() => deck} getFences={() => undefined} />);
+		const user = userEvent.setup();
+		await user.click(screen.getByRole('button', { name: 'Insert' }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Check/ }));
+		expect(docToDeck(view.state.doc)).toContain(`Lead of the project. ${'x'.repeat(40)} \`@check{pass}\``);
+		cleanup();
+		setPluginKindProvider(() => [{ plugin: 'chips', name: 'tag-chip', title: 'Tag chip', slot: { positional: [{ name: 'label', type: 'text' }], params: {} } }]);
+		try {
+			const v2 = mount(CONTENT);
+			selectAll(v2, 'Lead');
+			render(<InsertControls view={v2} getKernels={() => kernels} getSource={() => CONTENT} getFences={() => undefined} />);
+			await user.click(screen.getByRole('button', { name: 'Insert' }));
+			await user.click(await screen.findByRole('menuitem', { name: /^Tag chip/ }));
+			expect(docToDeck(v2.state.doc)).toMatch(/Lead ?`@tag-chip\{Tag chip\}` ?of the project\./);
+		} finally {
+			setPluginKindProvider(() => []);
+		}
+	});
+
+	it('lists an installed plugin’s kind and starts one from its slot; a kind it cannot start says so', async () => {
+		setPluginKindProvider(() => [
+			{ plugin: 'chips', name: 'tag-chip', title: 'Tag chip', slot: { positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } } },
+			{ plugin: 'chips', name: 'odd-chip', title: 'Odd chip', slot: { positional: [{ name: 'when', type: 'date' }], params: {} } },
+		] as PluginKindEntry[]);
+		try {
+			const { view, user, open } = setup(CONTENT, 'Lead');
+			await open();
+			expect(item('Tag chip').textContent).toMatch(/chips plugin/);
+			expect(disabled('Odd chip')).toBe(true);
+			expect(item('Odd chip').textContent).toMatch(/Type it in Markdown/);
+			await user.click(item('Tag chip'));
+			expect(docToDeck(view.state.doc)).toContain('`@tag-chip{Tag chip}`');
+		} finally {
+			setPluginKindProvider(() => []);
+		}
+	});
 });
 
 describe('InsertControls — what is unavailable, and why', () => {
@@ -152,10 +234,10 @@ describe('InsertControls — what is unavailable, and why', () => {
 	});
 
 	it('every item is unavailable on a locked slide, says the slide is edited in Markdown, and choosing one writes nothing', async () => {
-		const { view, user, open } = setup(LOCKED, 'Has', { image: () => {} });
+		const { view, user, open } = setup(LOCKED, 'Has', { image: () => {}, link: () => {} });
 		await open();
 		const before = docToDeck(view.state.doc);
-		for (const name of ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Image', 'Pill', 'Spark', 'Avatar', 'Icon']) {
+		for (const name of ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Image', 'Pill', 'Spark', 'Avatar', 'Icon', 'Check', 'Link']) {
 			expect(disabled(name), name).toBe(true);
 			expect(item(name).getAttribute('aria-disabled'), name).toBe('true');
 			expect(item(name).textContent, name).toMatch(/edited in Markdown/);

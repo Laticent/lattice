@@ -12,7 +12,8 @@ summary: >
 
 # Compose: point and click for every plugin (2026-10-21)
 
-Status: the first slice is built and driven on the real Studio (§8). Parents: `2026-10-13-compose-inline-notation-editors.md`
+Status: the first slice is built and driven on the real Studio (§8). Links, the six checklist answers and the Check and
+plugin-kind Insert doors followed in `2026-10-29-compose-links-markers-insert.md`, which also re-runs this audit. Parents: `2026-10-13-compose-inline-notation-editors.md`
 (the pill and spark editors this extends), `2026-09-21-compose-fenced-code.md` (the code fence), `2026-10-14-plugin-inline-door.md`
 (the `@kind{…}` grammar), `2026-10-16-media-plugins.md` (images).
 

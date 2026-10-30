@@ -7,7 +7,8 @@
 // mouse-first author what exists. One menu names every one of them, with what it is for, and says WHY an item is
 // unavailable where it is (a locked slide, a layout a table does not suit) instead of doing nothing.
 //
-// Design: engineering/decisions/2026-10-21-compose-point-and-click.md §5.
+// Design: engineering/decisions/2026-10-21-compose-point-and-click.md §5. Check, Link and installed-plugin kinds joined on
+// 2026-10-29 (engineering/decisions/2026-10-29-compose-links-markers-insert.md §4).
 //
 //   · It is a React island, mounted by ComposeView into the active slide's bar slot (as TableControls and the
 //     code picker are), so it is the real shadcn DropdownMenu: arrow keys, typeahead, Escape, focus return.
@@ -15,7 +16,7 @@
 //     so there is one write path. The blockers are read when the menu opens, from the live editor state.
 //   · The two doors that open a surface of their own (an image from the Library) are handed in as callbacks.
 
-import { Atom, Braces, ChartLine, Clapperboard, GitFork, Grid2x2Plus, Image as ImageIcon, LineChart, Shapes, SquareCode, Tag, UserRound } from 'lucide-react';
+import { Atom, Braces, ChartLine, CircleCheck, Clapperboard, GitFork, Grid2x2Plus, Image as ImageIcon, LineChart, Link2, Puzzle, Shapes, SquareCode, Tag, UserRound } from 'lucide-react';
 import { isInTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -23,7 +24,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { defaultFenceTag, insertFence, isInCode, type SlideFences, slideTakesCode } from '@/lib/compose/code-commands';
 import { deckFenceTags, LATTICE_FENCES } from '@/lib/compose/fence-catalog';
 import { insertImageBlocker } from '@/lib/compose/image-objects';
-import { type InlineKernels, type InsertKind, insertBlocker, insertObject } from '@/lib/compose/inline-objects';
+import { type InlineKernels, type InsertKind, insertBlocker, insertObject, installedPluginKinds, pluginInsertPlan, pluginStarter } from '@/lib/compose/inline-objects';
+import { linkBlocker } from '@/lib/compose/link-commands';
 import { slideTakesTable } from '@/lib/compose/registers';
 import { insertStarterTable } from '@/lib/compose/table-commands';
 import { notify } from '@/lib/notify';
@@ -56,6 +58,7 @@ export function InsertControls({
 	getFences,
 	onInsertImage,
 	onInsertMotion,
+	onInsertLink,
 }: {
 	view: EditorView;
 	getKernels: () => InlineKernels | null;
@@ -65,6 +68,8 @@ export function InsertControls({
 	onInsertImage?: () => void;
 	/** Open the Library on its Motion scenes; a pick there adds the scene as a slide after this one. Absent when the Library is not available. */
 	onInsertMotion?: () => void;
+	/** Open the link panel on the selection, or on a new placeholder word at the caret. */
+	onInsertLink?: () => void;
 }) {
 	const [open, setOpen] = React.useState(false);
 
@@ -150,8 +155,41 @@ export function InsertControls({
 			inline('spark', 'Spark', 'A word-sized chart', ChartLine),
 			inline('avatar', 'Avatar', 'A person, drawn from their name', UserRound),
 			inline('icon', 'Icon', 'A small picture from the icon set', Braces),
+			...(kernels?.check ? [inline('check', 'Check', 'A yes, no or partly answer', CircleCheck)] : []),
+			...(onInsertLink
+				? [
+						{
+							id: 'link',
+							group: 'Inline' as const,
+							label: 'Link',
+							hint: 'A web or email address',
+							Icon: Link2,
+							blocked: linkBlocker(view.state),
+							run: () => onInsertLink(),
+						},
+					]
+				: []),
+			// Each inline kind an installed plugin declares with a slot: its starter comes from that slot (`pluginStarter`).
+			...installedPluginKinds().map((entry): Entry => {
+				const title = entry.title ?? entry.name;
+				const plan = pluginInsertPlan(entry);
+				const blocker = () => insertBlocker(view.state, kernels, literal, plan.noun) ?? (kernels && !pluginStarter(entry, kernels) ? `Compose cannot start a ${plan.noun} from its fields. Type it in Markdown.` : null);
+				return {
+					id: `plugin:${entry.plugin}:${entry.name}`,
+					group: 'Inline',
+					label: title,
+					hint: `From the ${entry.plugin} plugin`,
+					Icon: Puzzle,
+					blocked: blocker(),
+					run: () => {
+						const why = blocker();
+						if (why) notify(why);
+						else insertObject(() => kernels, { getDeckLiteral: () => literal, plan })(view.state, view.dispatch);
+					},
+				};
+			}),
 		];
-	}, [view, getKernels, getSource, getFences, onInsertImage, onInsertMotion]);
+	}, [view, getKernels, getSource, getFences, onInsertImage, onInsertMotion, onInsertLink]);
 
 	// Read from the editor as it stands when the menu OPENS, in the same render that mounts the items, so the first arrow key
 	// finds them all. (Built in an effect after the open, the first keys landed while the list was still being filled.)

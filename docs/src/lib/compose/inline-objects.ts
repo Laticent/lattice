@@ -19,7 +19,7 @@
 //     (lib/authoring/inline-editors.js → lib/plugins/pills/pills.inline.js), never a second parser
 //     (HARD RULES #1, #7).
 
-import { Mark, type Node as PMNode } from 'prosemirror-model';
+import { Mark, type Node as PMNode, type ResolvedPos } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
@@ -722,7 +722,7 @@ export function insertBlocker(state: EditorState, kernels: InlineKernels | null,
 }
 
 /** How each kind goes in at the caret: its noun for the messages, whether it follows the caret's word, and its sample. */
-interface InsertPlan {
+export interface InsertPlan {
 	noun: string;
 	/** A pill is flush with its text. The rest sit beside words, so they follow the word the caret is in and are set off by a space. */
 	afterWord: boolean;
@@ -730,7 +730,7 @@ interface InsertPlan {
 	sample(kernels: InlineKernels, label: string | null): string | null;
 }
 
-export type InsertKind = 'pill' | 'spark' | 'avatar' | 'icon';
+export type InsertKind = 'pill' | 'spark' | 'avatar' | 'icon' | 'check';
 
 const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
 	pill: { noun: 'pill', afterWord: false, sample: (k, label) => k.pill.edit('{X}', { label: label ?? 'Status' }) },
@@ -738,7 +738,38 @@ const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
 	// A selected word is the person's name ("make this an avatar"); with nothing selected the sample name draws a face to start from.
 	avatar: { noun: 'avatar', afterWord: false, sample: (k, label) => k.avatar.edit('!{X}', { name: label ?? AVATAR_NAME }) },
 	icon: { noun: 'icon', afterWord: true, sample: (k) => (k.icon.read(ICON_SAMPLE) ? ICON_SAMPLE : null) },
+	// A selected word is the check's label ("mark this as passed"); with nothing selected it is the bare answer.
+	check: { noun: 'check', afterWord: false, sample: (k, label) => (k.check?.read(CHECK_SAMPLE) ? ((label && k.check.edit(CHECK_SAMPLE, { label })) || CHECK_SAMPLE) : null) },
 };
+
+/** What "Insert → Check" writes: the first answer, which the panel then changes. */
+export const CHECK_SAMPLE = '@check{pass}';
+
+/** The inline kinds the Studio's installed plugins declare, as Insert lists them. */
+export const installedPluginKinds = (): readonly PluginKindEntry[] => pluginKindProvider();
+
+/**
+ * A starting record for an installed plugin's kind, built from its slot: each positional value gets a first value of its type
+ * (a text gets the kind's title, a choice its first word, a number 1). Null when a positional is of a type with no obvious
+ * first value, or when the result does not read back as the kind: Insert then says it cannot start one.
+ */
+export function pluginStarter(entry: PluginKindEntry, kernels: InlineKernels): string | null {
+	const values: string[] = [];
+	for (const p of entry.slot.positional ?? []) {
+		const t = (typeof p.type === 'string' ? { type: p.type } : p.type) as { type?: string; values?: readonly string[] } | null;
+		if (t?.type === 'text') values.push((entry.title ?? entry.name).replace(/[{},\n]/g, ' ').trim() || 'Label');
+		else if (t?.type === 'oneOf' && t.values?.length) values.push(t.values[0]);
+		else if (t?.type === 'number') values.push('1');
+		else return null;
+	}
+	const src = `@${entry.name}{${values.join(', ')}}`;
+	return pluginKind.read(src, kernels) ? src : null;
+}
+
+/** The plan Insert uses for an installed plugin's kind. */
+export function pluginInsertPlan(entry: PluginKindEntry): InsertPlan {
+	return { noun: (entry.title ?? entry.name).toLowerCase(), afterWord: false, sample: (k) => pluginStarter(entry, k) };
+}
 
 /**
  * The "+ Pill", "+ Spark", "+ Avatar" and "+ Icon" doors: put a new object at the caret and open its
@@ -747,32 +778,55 @@ const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
  * span's edge, or beside another object, a space keeps the two code spans apart (`{A}``{B}` is one span
  * in Markdown).
  */
-export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: InsertKind } = {}): Command {
+export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: InsertKind; plan?: InsertPlan } = {}): Command {
 	return (state, dispatch) => {
 		const kernels = getKernels();
-		const plan = INSERT_PLANS[opts.kind ?? 'pill'];
+		const plan = opts.plan ?? INSERT_PLANS[opts.kind ?? 'pill'];
 		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, plan.noun) || !kernels) return false;
-		const { $from, $to, from, to, empty } = state.selection;
-		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
-		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : null;
+		const { empty } = state.selection;
+		let { from, to } = state.selection;
+		// What the selection reads as. A line break reads as one and any other leaf as U+FFFC (the object replacement
+		// character), so a selection over either is never a label; one that holds a code span or another object is not one
+		// either (the label would swallow it).
+		const raw = empty ? '' : state.doc.textBetween(from, to, ' ', (n) => (n.type.name === 'hard_break' ? '\n' : '\uFFFC'));
+		let holdsCode = false;
+		if (!empty)
+			state.doc.nodesBetween(from, to, (n) => {
+				if (n.type === objectType() || (n.isText && isCodeish(n))) holdsCode = true;
+			});
+		const picked = raw.trim();
+		const label = picked && !holdsCode && picked.length <= 40 && !/[\n\uFFFC]/.test(picked) ? picked : null;
+		// A label replaces the words only: a space the selection took with it (a double-click on Windows does) stays in the text.
+		// The selection is one run of text here, so its characters and its positions line up.
+		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar || plan === INSERT_PLANS.check;
+		if (label && usesLabel) {
+			from += raw.length - raw.trimStart().length;
+			to -= raw.length - raw.trimEnd().length;
+		}
+		const $from = state.doc.resolve(from);
+		const $to = state.doc.resolve(to);
 		// An icon and a spark have no use for a selected word, so it is left where it is.
-		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar;
 		const src = plan.sample(kernels, usesLabel ? (label ?? (opts.sample ?? null)) : null);
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
 			const node = objectType().create({ src });
-			// A spark and an icon go after the word the caret is in, never through it.
-			const rest = plan.afterWord && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
-			const at0 = plan.afterWord ? $to.pos + rest : plan === INSERT_PLANS.avatar && !empty && !label ? to : from;
-			// An avatar never deletes a selection it cannot use as the name (long, or over a line break): it goes in after it, as a spark does.
-			const keepSelection = plan === INSERT_PLANS.avatar && !empty && !label;
+			// No kind deletes a selection it cannot use as the name or label (long, over a line break, holding code, or a kind that
+			// takes none): it goes in after it, as a spark does.
+			const keepSelection = !plan.afterWord && !empty && !(usesLabel && label);
+			// A spark and an icon go after the word the caret is in, never through it; so does an object after a kept selection that
+			// ends inside a word. A selection that ends in a space has already reached the end of its word.
+			const toWordEnd = (plan.afterWord || keepSelection) && !(!empty && /\s$/.test(raw));
+			const rest = toWordEnd ? restOfWord($to) : 0;
+			const at0 = plan.afterWord || keepSelection ? $to.pos + rest : from;
 			const end0 = plan.afterWord || keepSelection ? at0 : to;
 			const $at = plan.afterWord || keepSelection ? state.doc.resolve(at0) : $from;
 			const before = $at.nodeBefore;
 			const after = plan.afterWord || keepSelection ? $at.nodeAfter : $to.nodeAfter;
-			const needsGap = plan.afterWord && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
+			const needsGap = (plan.afterWord || keepSelection) && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
 			const lead = needsGap || Boolean(before && touchesAsCode(before, node));
-			const trail = Boolean(after && touchesAsCode(node, after));
+			// After a kept selection the object is set off from the next word too.
+			const trailGap = keepSelection && Boolean(after?.isText && !isCodeish(after) && /^\S/.test(after.text ?? ''));
+			const trail = trailGap || Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');
 			const tr = state.tr.replaceWith(at0, end0, [...(lead ? [space()] : []), node, ...(trail ? [space()] : [])]);
 			const at = at0 + (lead ? 1 : 0);
@@ -781,6 +835,27 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 		}
 		return true;
 	};
+}
+
+/** How many characters of the word at `$pos` follow it, across text nodes in other marks (`**bold**er`), up to a space, a code span or an object. */
+function restOfWord($pos: ResolvedPos): number {
+	const parent = $pos.parent;
+	const offset = $pos.parentOffset;
+	let n = 0;
+	let start = 0;
+	for (let i = 0; i < parent.childCount; i++) {
+		const child = parent.child(i);
+		const end = start + child.nodeSize;
+		if (end > offset) {
+			if (!child.isText || isCodeish(child)) break;
+			const text = (child.text ?? '').slice(Math.max(0, offset - start));
+			const run = /^\S*/.exec(text)?.[0].length ?? 0;
+			n += run;
+			if (run < text.length) break;
+		}
+		start = end;
+	}
+	return n;
 }
 
 /** What "+ Spark" inserts: a short rising line, readable on a slide the moment it lands. */
