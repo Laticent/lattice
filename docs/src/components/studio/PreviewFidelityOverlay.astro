@@ -9,7 +9,8 @@
 // findings store). Renders NOTHING until the shared pref is on (fidelity-overlay-prefs.ts:
 // the Studio "Preview fidelity" switch + the `?fidelity` param), so a normal view pays
 // nothing. A module-level singleton claim makes a double include a no-op.
-import PreviewFidelityOverlay from './PreviewFidelityOverlay.tsx';
+// The lazy entry: the overlay's own module loads only once its pref is on (lazy-overlay.tsx).
+import PreviewFidelityOverlay from './PreviewFidelityOverlay.lazy.tsx';
 ---
 
 <PreviewFidelityOverlay client:only="react" />
