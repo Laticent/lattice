@@ -15,6 +15,12 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const LOCK = path.join(os.tmpdir(), 'lattice-npx-fetch.lock');
+// The first call downloads marp-cli and its dependencies from the npm registry. Every marp flake in
+// the 2026-10-22..30 census (10 of the render tier's 16 flaky legs) was this download killed at the
+// callers' 90 s probe limit ("could not fetch marp-cli (exit null)"): a slow registry, not an error.
+// So the fetching call gets at least this long. Retrying instead would restart into the cache a
+// killed download can leave half-written, which is the corruption the lock below exists to prevent.
+const FETCH_TIMEOUT_MS = 5 * 60 * 1000;
 const WAIT_MS = 5 * 60 * 1000;
 const STALE_MS = 10 * 60 * 1000;
 let warmed = false;
@@ -38,12 +44,13 @@ function acquire() {
   }
 }
 
-/** `spawnSync('npx', args, opts)`, with the first call of this process holding the fetch lock. */
+/** `spawnSync('npx', args, opts)`, with the first call of this process holding the fetch lock and at least `FETCH_TIMEOUT_MS`. */
 function npxSync(args, opts) {
   if (warmed) return spawnSync('npx', args, opts);
   const held = acquire();
   try {
-    return spawnSync('npx', args, opts);
+    const timeout = opts?.timeout ? Math.max(opts.timeout, FETCH_TIMEOUT_MS) : undefined;
+    return spawnSync('npx', args, { ...opts, timeout });
   } finally {
     warmed = true;
     if (held) try { fs.rmdirSync(LOCK); } catch { /* already gone */ }
