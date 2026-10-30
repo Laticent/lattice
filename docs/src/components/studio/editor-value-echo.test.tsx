@@ -77,7 +77,6 @@ describe('the editor value-sync', () => {
 
 	it('the same value WITHOUT the mark is a real write and is synced', () => {
 		const A = `${DECK}x`;
-		const B = `${DECK}xy`;
 		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={() => false} />);
 		const view = viewOf(container.querySelector('.cm-content'));
 		act(() => view.dispatch({ changes: { from: DECK.length, insert: 'xy' }, userEvent: 'input.type' }));

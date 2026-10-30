@@ -2,6 +2,7 @@ import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Ch
 	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
 import './asset-render-hook';
 
@@ -322,9 +323,6 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
-/** How many editor emissions the shell remembers while its `source` trails the editor (setSourceFromEditor). A
- *  transition trails by a few keystrokes at most; the cap only bounds a pathological backlog. */
-const EDITOR_ECHO_CAP = 32;
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -488,6 +486,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const first = loadBootDeck();
 		return loadSource(first.id) ?? deckSource(first);
 	});
+	// THE LATEST TEXT, which `source` may trail: the editor's typing reaches `source` as a transition (see
+	// setSourceFromEditor), so a click handler, a timer or a save that read `source` could act on text the author has
+	// already typed past. Every writer below sets this BEFORE it queues the state change, and nothing assigns it in a
+	// render, so it is always the newest text. Read it, not `source`, wherever a handler derives the next text.
+	const sourceRef = React.useRef(source);
 	// THE SOURCE EPOCH — "this text is a different document, not an edit of the last one."
 	//
 	// The preview holds a rendered diagram across a swap it believes is an edit, and it
@@ -530,6 +533,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const e = editorEchoesRef.current;
 		return e.length > 0 && text !== e[e.length - 1] && e.includes(text);
 	}, []);
+	/** Commit the editor's newest text NOW, if a transition still carries it. Run before anything that is not typing
+	 *  can act: a handler reads `source` from the last committed render, so without this a click on Duplicate, a
+	 *  shortcut or a settings row could act on text missing the last keystrokes. */
+	const catchUpEditor = React.useCallback(() => {
+		const e = editorEchoesRef.current;
+		if (!e.length) return;
+		const newest = e[e.length - 1];
+		editorEchoesRef.current = [];
+		flushSync(() => setSourceRaw(newest));
+	}, []);
+	// Any pointer press, and any key that is not plain typing in the editor (outside it, or with a modifier: a
+	// shortcut), catches up first. Capture phase on the document, so it runs before React dispatches the event and
+	// the handler that event reaches reads the caught-up render. Plain typing in the editor stays a transition.
+	React.useEffect(() => {
+		const onPointer = () => catchUpEditor();
+		const onKey = (e: KeyboardEvent) => {
+			const inEditor = e.target instanceof Element && !!e.target.closest('.cm-editor');
+			if (!inEditor || e.metaKey || e.ctrlKey || e.altKey) catchUpEditor();
+		};
+		document.addEventListener('pointerdown', onPointer, true);
+		document.addEventListener('keydown', onKey, true);
+		return () => {
+			document.removeEventListener('pointerdown', onPointer, true);
+			document.removeEventListener('keydown', onKey, true);
+		};
+	}, [catchUpEditor]);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
 		intentRef.current = { ...intent, text, seq: ++intentSeqRef.current };
 	}, []);
@@ -539,13 +568,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		(next: string | ((s: string) => string), intent: SourceIntent) => {
 			clearEditorEchoes();
 			setSourceEpoch((e) => e + 1);
-			// The intent is stamped with the text the update produces. An updater may run twice under
-			// StrictMode; stamping the same text twice is harmless.
-			setSourceRaw((prev) => {
-				const text = typeof next === 'function' ? next(prev) : next;
-				stampIntent(intent, text);
-				return text;
-			});
+			// An updater runs on the LATEST text, never on a `source` a pending transition has not caught up with:
+			// React would commit `updater(stale)` first, a text the author never saw, and then rebase.
+			const text = typeof next === 'function' ? next(sourceRef.current) : next;
+			sourceRef.current = text;
+			stampIntent(intent, text);
+			setSourceRaw(text);
 		},
 		[stampIntent, clearEditorEchoes],
 	);
@@ -557,6 +585,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// run before this shell's commit effect, so a fresh stamp here would relabel that writer's
 			// change ("Rename → …") as typing. Keep the writer's intent when it already names this text.
 			if (change || intentRef.current?.text !== text) stampIntent({ label: change?.label ?? 'Typing', origin: change?.origin ?? 'markdown', ...(change ? { edits: change.edits, before: change.before, after: change.after } : {}) }, text);
+			sourceRef.current = text;
 			if (!change) {
 				setSourceRaw(text);
 				return;
@@ -566,9 +595,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// already shows the text, so nothing on screen waits for this. While a transition is in flight the
 			// shell's `source` trails the editor's document; `isEditorEcho` lets the editor and the hub tell such a
 			// trailing value from a real write (engineering/decisions/2026-10-29-studio-activity-audit.md §2).
-			const echoes = editorEchoesRef.current;
-			echoes.push(text);
-			if (echoes.length > EDITOR_ECHO_CAP) echoes.shift();
+			// No cap: the list empties whenever `source` catches up, on any other writer, and on `catchUpEditor`. A
+			// cap would un-mark the oldest echo, and a render of it would then roll the editor back.
+			editorEchoesRef.current.push(text);
 			// The undo history takes the edit NOW, with the editor's exact account of it. Left to the commit
 			// effect, two edits a transition merges into one render (a paste, then typing elsewhere) would reach
 			// Filo as one change and undo as one step.
@@ -581,6 +610,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setSourceFromCompose = React.useCallback(
 		(text: string, label = 'Typing') => {
 			clearEditorEchoes();
+			sourceRef.current = text;
 			stampIntent({ label, origin: 'compose' }, text);
 			setSourceRaw(text);
 		},
@@ -591,6 +621,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setSourceRemote = React.useCallback(
 		(text: string) => {
 			clearEditorEchoes();
+			sourceRef.current = text;
 			setSourceRaw(text);
 		},
 		[clearEditorEchoes],
@@ -599,6 +630,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setSourceFromHistory = React.useCallback(
 		(text: string, label: string) => {
 			clearEditorEchoes();
+			sourceRef.current = text;
 			stampIntent({ label, origin: 'history', kind: 'history' }, text);
 			setSourceEpoch((e) => e + 1);
 			setSourceRaw(text);
@@ -642,10 +674,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [deck.id]);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
-	// Always-current mirror of `source`, so a settings write can snapshot the exact
-	// pre-change text for one-click Undo without threading it through every setter.
-	const sourceRef = React.useRef(source);
-	sourceRef.current = source;
 	// WHERE THE AUTHOR IS — the slide, its page, the caret — lives in ONE focus hub
 	// (docs/src/lib/fuoco), not in this shell. The editors report their caret to it, the rail, the
 	// keys, swipes and the ‹ › buttons ask it to move, and the preview reports the pages it can
@@ -2245,8 +2273,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 * `shouldNudgeBackup`.
 	 */
 	const flushActiveDeck = React.useCallback(() => {
-		if (dirty.current) saveSourceGuarded(deck.id, source);
-	}, [deck.id, source, saveSourceGuarded]);
+		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
+		const latest = sourceRef.current;
+		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) saveSourceGuarded(deck.id, latest);
+	}, [deck.id, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the

@@ -63,7 +63,12 @@ export function onFidelityOverlayEnabledChange(fn: Listener): () => void {
 }
 
 /** Honor a `?fidelity` URL param once at load — a phone can enable without the drawer. */
+// Once per page: the overlay's lazy entry applies it to decide whether to load the overlay, and the overlay's own gate
+// applies it again on mount. A second `?fidelity=0` would switch off what the drawer had just switched on.
+let urlParamApplied = false;
 export function applyFidelityOverlayUrlParam(): void {
+	if (urlParamApplied) return;
+	urlParamApplied = true;
 	try {
 		const p = new URLSearchParams(location.search);
 		if (p.has('fidelity')) setFidelityOverlayEnabled(p.get('fidelity') !== '0' && p.get('fidelity') !== 'off');
