@@ -74,10 +74,10 @@ export interface MapRailProps {
 	/** A stable React key for a unit (the Studio's slide id), so a tile follows its slide when slides are inserted or
 	 *  moved before it rather than being rewritten in place. Default: the unit's index. */
 	keyOf?: (unit: number) => React.Key;
-	/** Something to sit beside the FOCUSED tile, outside its button (the Studio's slide menu ⋯). With a caption, the
-	 *  caption's right end keeps room for it.
+	/** Something to sit beside the FOCUSED tile, outside its button (the Studio's slide menu ⋯). `place` says where: the
+	 *  caption's right end, which keeps room for it, on a wide captioned tile; the picture's top-right corner otherwise.
 	 *  Called only for the focused unit. The rail knows nothing about what it does. */
-	adorn?: (unit: number) => React.ReactNode | null;
+	adorn?: (unit: number, place: AdornPlace) => React.ReactNode | null;
 	/** Draw first, previous, next and last and the position (default). A host that already has its own stepping beside the rail (a walk bar) turns them off. */
 	controls?: boolean;
 	className?: string;
@@ -88,6 +88,13 @@ const PAD = 8;
 const GAP = 8;
 /** The caption row under a captioned tile's picture: a 22px pill and the 6px above it. */
 export const CAPTION_BAND = 28;
+/** The narrowest picture whose caption still names its component, and the narrowest that also holds the ⋯ in its
+ *  caption. A 16:9 tile is 126px; 4:3 is 95px and keeps a shortened name; square, portrait, story and the phone shape
+ *  (33-71px) keep the number alone and take the ⋯ in the picture's corner. */
+const NAMED_MIN = 88;
+const MENU_IN_CAPTION_MIN = 112;
+/** Where the host's adornment goes: the caption's right end, or the picture's top-right corner when the tile is narrow. */
+export type AdornPlace = 'caption' | 'corner';
 
 export interface Geometry {
 	/** A tile's size along the scroll axis, and across it. */
@@ -175,6 +182,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	React.useEffect(() => () => window.clearTimeout(keyNavTimer.current), []);
 	const band = caption ? CAPTION_BAND : 0;
 	const geo = React.useMemo(() => geometryFor(count, viewCross, aspect, orientation, band), [count, viewCross, aspect, orientation, band]);
+	// The picture's width decides what the caption can hold (NAMED_MIN, MENU_IN_CAPTION_MIN).
+	const picWidth = vertical ? geo.cross : geo.main;
+	const named = picWidth >= NAMED_MIN;
+	const place: AdornPlace = band && picWidth >= MENU_IN_CAPTION_MIN ? 'caption' : 'corner';
 	const liveOn = !!live;
 	const stageOn = !!stage;
 	const posterOn = !!poster;
@@ -390,12 +401,12 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 							</span>
 							{band ? (
 								// THE CAPTION IS THE PILL: the same number badge, name and current-slide fill as the pill strip
-								// (SlideRail.tsx), so the two strips differ only by the picture. It hugs its text, like a pill; on the
+								// (SlideRail.tsx), so the two strips differ only by the picture. It hugs its text, like a pill. On a wide
 								// current tile with an adornment (the ⋯, outside this button) it runs to the tile's right edge and leaves
-								// the ⋯ room there.
-								<span className={cn('absolute bottom-0 left-0 flex h-[22px] min-w-0 items-center gap-1.5 rounded-md border pl-[3px] pr-1.5 transition-colors', on && adorn ? 'right-0' : 'max-w-full', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-transparent group-hover:border-border', on && adorn && 'pr-7 [@media(pointer:coarse)]:pr-11')}>
+								// the ⋯ room there; a narrow tile drops the name and puts the ⋯ in the picture's corner.
+								<span className={cn('absolute bottom-0 left-0 flex h-[22px] min-w-0 items-center gap-1.5 rounded-md border pl-[3px] pr-1.5 transition-colors', on && adorn && place === 'caption' ? 'right-0' : 'max-w-full', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-transparent group-hover:border-border', on && adorn && place === 'caption' && 'pr-7 [@media(pointer:coarse)]:pr-11')}>
 									<span className={cn('grid h-4 min-w-4 shrink-0 place-items-center rounded px-0.5 font-mono text-[10px] font-bold tabular-nums', on ? 'bg-primary text-primary-foreground' : 'bg-[color-mix(in_srgb,var(--border)_22%,transparent)] text-muted-foreground')}>{i + 1}</span>
-									{caption?.(i) ? <span aria-hidden className={cn('min-w-0 truncate font-mono text-[11px] leading-4', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{caption(i)}</span> : null}
+									{named && caption?.(i) ? <span aria-hidden className={cn('min-w-0 truncate font-mono text-[11px] leading-4', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{caption(i)}</span> : null}
 								</span>
 							) : (
 								<span className="absolute bottom-1 left-1 right-1 z-10 flex min-w-0 items-end gap-1">
@@ -403,7 +414,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 								</span>
 							)}
 						</button>
-						{on && adorn ? adorn(i) : null}
+						{on && adorn ? adorn(i, place) : null}
 					</li>
 				);
 			})}

@@ -173,6 +173,42 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 	expect(small).toEqual([]);
 });
 
+// A story deck's picture is 40px wide: too narrow for a name and the ⋯ in the caption. The tile keeps the number, the ⋯
+// moves to the picture's top-right corner, and nothing hangs past the tile (MapRail NAMED_MIN, MENU_IN_CAPTION_MIN).
+test('@parity on a narrow story tile the ⋯ sits in the picture corner and the caption stays inside the tile', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
+	await mapOn(page);
+	await page.locator(`${RAIL} button[data-unit="1"]`).click();
+	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '1');
+	const menu = page.locator(RAIL).getByRole('button', { name: 'Slide actions' });
+	await expect(menu).toBeVisible();
+	const geo = await page.evaluate((rail) => {
+		const tile = document.querySelector<HTMLElement>(`${rail} button[aria-current="true"]`);
+		const m = document.querySelector<HTMLElement>(`${rail} button[aria-label="Slide actions"]`);
+		if (!tile || !m) return null;
+		const t = tile.getBoundingClientRect();
+		const r = m.getBoundingClientRect();
+		const caption = tile.lastElementChild?.getBoundingClientRect();
+		return { tileW: t.width, menuTop: r.top - t.top, menuRight: t.right - r.right, captionOver: caption ? caption.right - t.right : 0, captionText: tile.lastElementChild?.textContent };
+	}, RAIL);
+	expect(geo).not.toBeNull();
+	expect(geo?.tileW).toBeLessThan(88);
+	expect(geo?.menuTop).toBeLessThan(10);
+	expect(geo?.menuRight).toBeGreaterThanOrEqual(0);
+	expect(geo?.captionOver).toBeLessThanOrEqual(0.5);
+	expect(geo?.captionText).toBe('2');
+	if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
+		const hit = await menu.evaluate((b) => {
+			const r = b.getBoundingClientRect();
+			const a = getComputedStyle(b, '::after');
+			const grow = (v: string) => (a.position === 'absolute' && a.content !== 'none' ? Math.max(0, -parseFloat(v) || 0) : 0);
+			return Math.min(r.width + grow(a.left) + grow(a.right), r.height + grow(a.top) + grow(a.bottom));
+		});
+		expect(hit).toBeGreaterThanOrEqual(44);
+	}
+});
+
 test('the arrow keys walk the rail slide by slide and keyboard focus stays on it', async ({ page }) => {
 	await gotoStudio(page);
 	const total = await pillsBefore(page);
