@@ -1127,28 +1127,35 @@
    * The decoder emits `state {pass|warn|fail|unknown|todo|skip}
    * {state-full|state-half|state-empty|state-unknown|state-todo|state-slashed}`,
    * the same classes on every render path. */
-  --mark-check: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 12.6l4 4 8-9' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  --mark-dash:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12h10' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'/></svg>");
-  --mark-x:     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 8l8 8M16 8l-8 8' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'/></svg>");
-  --mark-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'/></svg>");
   /* `[?]` unknown: a DRAWN question mark (HARD RULE #29 — never a typed `?`, whose
    * glyph would come from the deck's type family at the text's weight and baseline).
-   * Same 24-unit box and stroke weight as its siblings; the dot is a zero-length
-   * round-capped segment so it scales with the stroke. */
-  --mark-question: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.3a2.7 2.7 0 1 1 3.9 2.4c-.9.45-1.3 1.05-1.3 2v.5M12 17.4v.1' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+   * Like every mark in the generated block below, it is Tabler's (`question-mark`,
+   * engineering/decisions/2026-10-18-checks.md §20): the same 24-unit box and stroke
+   * weight as its siblings, and its dot a zero-length round-capped segment, so it
+   * scales with the stroke. */
   /* No --mark-todo: the neutral `[ ]` (todo / pending) does NOT use a masked
    * mark — it renders as a TRUE hollow ring (empty disc + an edge ring) so the
    * center stays empty and reads "not started", instead of the "selected"
    * bullseye a ring-stroke mask on a filled disc produces. See `.state.todo`
    * in base.modifiers.css and roadmap's `state-planned`. */
-  /* Heavier-stroked set for the `checks-bold` variant (a mask's stroke
+  /* ── BEGIN GENERATED STATUS MARKS — tools/build-icons-data.js writes this from
+   * lib/plugins/_icons-source/marks.json and the pinned Tabler Icons (MIT, https://tabler.io/icons),
+   * each fit baked into its path (engineering/decisions/2026-10-18-checks.md §20). DO NOT EDIT: change
+   * marks.json and rebuild; `--check` fails on a hand edit. ── */
+  --mark-check: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 12.1L10 16.1L18 8.1' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-dash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12L17 12' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-x: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16 8L8 16M8 8L16 16' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14.857 8L9.143 16' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-question: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.348A2.361 2.024 0 0 1 11.761 7.324L12.436 7.324A2.361 2.024 0 0 1 14.797 9.348A2.024 2.024 0 0 1 13.448 11.372A2.024 2.698 0 0 0 12.099 14.07M12.099 16.769L12.099 16.776' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  /* Heavier-stroked set for the `checks-bold` variant and the chart family (a mask's stroke
    * can't be tuned by CSS var, so bold swaps the token). */
-  --mark-check-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 12.6l4 4 8-9' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  --mark-dash-bold:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12h10' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round'/></svg>");
-  --mark-x-bold:     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 8l8 8M16 8l-8 8' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round'/></svg>");
-  --mark-slash-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round'/></svg>");
-  --mark-dot-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 12h.01' fill='none' stroke='black' stroke-width='7' stroke-linecap='round'/></svg>");
-  --mark-question-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.3a2.7 2.7 0 1 1 3.9 2.4c-.9.45-1.3 1.05-1.3 2v.5M12 17.4v.1' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-check-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M6 12.1L10 16.1L18 8.1' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-dash-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 12L17 12' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-x-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M16 8L8 16M8 8L16 16' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-slash-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14.857 8L9.143 16' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-question-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9.4 9.348A2.361 2.024 0 0 1 11.761 7.324L12.436 7.324A2.361 2.024 0 0 1 14.797 9.348A2.024 2.024 0 0 1 13.448 11.372A2.024 2.698 0 0 0 12.099 14.07M12.099 16.769L12.099 16.776' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mark-dot-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 8.5A3.5 3.5 0 1 1 8.504 12.152L8.5 12L8.504 11.848A3.5 3.5 0 0 1 12 8.5Z' fill='black'/></svg>");
+  /* ── END GENERATED STATUS MARKS ── */
 
   /* ── ICON masks — the CHROME set (HARD RULE #29) ──────────────────────
    * Same idiom as --mark-* above, different job. A --mark-* is a STATUS

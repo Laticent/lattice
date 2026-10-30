@@ -13,6 +13,17 @@ your browser before it is stored or written into an exported deck.
 
 Lattice links to LAME as a separate module and does not modify it.
 
+Tabler Icons
+------------
+The icons plugin's drawings (`^{name}`) and the six status marks every check
+draws (the `--mark-*` masks in the engine stylesheet) are drawn from Tabler
+Icons. Lattice resizes and repositions each mark to fit its disc and draws it
+at its own stroke weight; the shapes are Tabler's.
+
+  Package : @tabler/icons
+  License : MIT  (https://github.com/tabler/tabler-icons/blob/main/LICENSE)
+  Copyright (c) 2020-2026 Paweł Kuna
+
 The remaining third-party license texts vendored by this project live in
 assets/licenses/ in the source repository; those cover the `dist/marp-kit`
 redistribution rather than this site.

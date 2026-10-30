@@ -66,6 +66,7 @@
     "--state-ring-outer-w",
     "--state-ring-signal-w",
     "--state-signal",
+    "--state-size-k",
     "--state-warn-hue",
     "--warn",
     "--warn-signal-mark"
