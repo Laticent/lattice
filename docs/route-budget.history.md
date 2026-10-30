@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-30 — ceiling raised by hand, measured against main for PR 2982
+
+Owner OK 2026-10-30 (asked in the PR 2982 session: "Raise the ceiling slightly", chosen over deferring a debug overlay or loading the strip's New slide door late). `main` measures 562,063 bytes of Studio eager JS against its 562,200 ceiling, 137 bytes to spare (`measure-route-base.sh origin/main`, 2026-10-30). PR 2982 moves "+ New slide" from a floating pill over the preview into the head of the slide strip. The door's `strip` form (the pills' height, a 44px touch hit area, a Before | After split and an "added" note that float above it so the strip never shifts) adds 180 bytes to StudioIsland, measured against that PR's merge base after it gave 13 back; everything else in it loads with the lazy slide map. The ceiling moves 512 bytes, from 562200 to 562712, so that PR lands near 562,250 with about 460 to spare. The soft target is untouched.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 562712 |
+
 ### 2026-10-29 — measured on the built tree at b482093
 
 Owner's D1 A on #2980 (2026-10-29): the web-reference scanner reads CSS through a generated parser (lib/core/css-ref.generated.js, read by lib/core/css-ref-reader.js), which adds about 2.7 KB gzip to the Studio's eager JS. Only the studio eagerJsGz CEILING moves, from 559719 to 562200 (measured 548.6 KB, about 561,700 bytes); no soft target moves and no other route changes.
