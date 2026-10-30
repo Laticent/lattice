@@ -584,6 +584,27 @@ hack worked around html-to-image's border-image bug.
   `lint:deck` steer authors to drawn shapes for the glyphs that
   do a drawing's job (a check mark, an arrow).
 
+## 4a4. Small drawings in each format
+
+A slide holds small things that are drawings, not words: a check, an emoji, an icon, an avatar, a
+spark, a mark a pseudo-element paints through a `--shape-*` or `--mark-*` mask. Each format keeps
+each one as sharp, selectable or editable as it can, and the rest stays in the slide's picture. This
+table says what each format does with each, and names the test that holds it. "Photo" is the PDF's
+1x background photo (§ 4a0); "picture" is an office slide's cropped picture (§ 4).
+
+| Drawing | PDF (CLI and Studio, § 4a0) | PowerPoint / ODP, editable (§ 4) | HTML player |
+|---|---|---|---|
+| Check (`.lat-state`, `.state`, `li.state`) | Vector: rings, disc and mark path (`checkOf`). Photo when it is under a transform, an effect, a cover or a see-through group. `pdf-check-vectors.test.js` | Native shapes: the disc a box, the mark a freeform path, grouped with its pill. `calco-pseudo.test.js` | The page itself: CSS mask, any size |
+| Emoji | Real text: a Type 3 glyph that paints the emoji's picture, with a ToUnicode map, so it selects and searches (`emojiArt`, `embedEmoji`). `pdf-emoji-text.test.js` | Real text in its run, drawn by the reader's own emoji font. No emoji font is embedded: LibreOffice draws nothing for a COLR v1 face. `emoji-font-cut.test.js` | Real text in the embedded emoji font, cut to the deck's own emoji. `emoji-font-cut.test.js` |
+| Icon (inline `<svg>`) | Vector: the SVG's own paths. Photo when masked, filtered or covered | SVG picture with a PNG fallback (`svgOf`, `addSvgPictures`). `calco-svg-pictures.test.js` | The page itself: inline SVG |
+| Avatar | Vector: the tile, then the face, then the ring (`tileOf`). `pdf-small-drawings.test.js` | A group: the tile a native rounded shape, the face an SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
+| Spark | Vector: the line or bars, and the end dot over them (`dotOf`). The dot stays in the photo, with its line, when something covers it. `pdf-small-drawings.test.js` | A group: its frame a native shape, the line and dot one SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
+| Masked mark (an absolutely placed `::before`/`::after`, such as a recommended card's star) | Vector: the mask's path (`maskedMarkOf`). Photo when in flow, transformed, below its host, see-through or covered, named `mark-<reason>`. `pdf-small-drawings.test.js` | Native freeform path when the mask is one path centered in its box; picture otherwise. `calco-pseudo.test.js` | The page itself |
+
+The plain `.pptx` and picture-mode `.odp` keep every one of these in the slide's picture, and the
+Studio's worker-lane PDF keeps them in its page image (§ 4). `pipeline-drawings-table.test.js`
+fails when a test this table names is renamed or removed.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes, with one measured
