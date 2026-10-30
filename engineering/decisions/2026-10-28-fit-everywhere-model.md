@@ -637,6 +637,14 @@ a start line that moved with each member's length (fixed since: the top-anchored
 5 to 5.5, and with packing and fit-whole at 8 to 8.5; 9 needs a judgment of real packed pages. It also
 named one real loss: the page counter is gone, which a 14-member run feels.
 
+**Blessed on a runner** (2026-10-30). The counts above were scored in a sandbox. At the owner's
+call, `fit-nightly.yml` ran on this branch (run 41045849942, ubuntu-latest, the nightly's own
+flags): no count rose, and one fell, the mixed baseline gallery at square@hall from 30 clipped
+slides to 29, the same one-slide cross-machine flap §10 describes. `test/fit/baseline.json` is
+that run's `baseline.json`, so the clipped total the nightly starts from is 847. The first run on
+`main` (run 40996342102, before this branch) rose by one in two cells of the same kind and filed
+#2989; a runner-blessed baseline is the remedy §10 names.
+
 ## 15. Charts and diagrams: the design round (2026-10-30)
 
 The chart and diagram galleries clip 272 slide-cells after §13, and 129 of them are text slides in
