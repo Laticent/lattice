@@ -16,7 +16,7 @@ async function throttled(page: Page): Promise<void> {
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
 }
 
-test.describe('typing in flight @gecko', () => {
+test.describe('typing in flight', () => {
 	test('a slide action right after typing keeps the last keystrokes', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'CPU throttling is a Chromium DevTools feature');
 		await gotoStudio(page);

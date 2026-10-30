@@ -540,8 +540,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const e = editorEchoesRef.current;
 		if (!e.length) return;
 		const newest = e[e.length - 1];
-		editorEchoesRef.current = [];
 		flushSync(() => setSourceRaw(newest));
+		// Cleared after the flush, not before: a flushSync that could not flush (called from inside a React commit)
+		// must leave the echoes marked, or a later render of one would sync stale text back into the editor.
+		editorEchoesRef.current = [];
 	}, []);
 	// Any pointer press, and any key that is not plain typing in the editor (outside it, or with a modifier: a
 	// shortcut), catches up first. Capture phase on the document, so it runs before React dispatches the event and
@@ -550,7 +552,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const onPointer = () => catchUpEditor();
 		const onKey = (e: KeyboardEvent) => {
 			const inEditor = e.target instanceof Element && !!e.target.closest('.cm-editor');
-			if (!inEditor || e.metaKey || e.ctrlKey || e.altKey) catchUpEditor();
+			if (!inEditor) return catchUpEditor();
+			// In the editor only a SHORTCUT catches up. AltGr (reported as Ctrl+Alt on Windows and Linux) and Option on a
+			// Mac are how many layouts type `[ ] { } @ |`: that is typing, and a sync render per bracket would undo the gain.
+			if (e.getModifierState?.('AltGraph')) return;
+			if (e.metaKey || e.ctrlKey) catchUpEditor();
 		};
 		document.addEventListener('pointerdown', onPointer, true);
 		document.addEventListener('keydown', onKey, true);
@@ -3986,14 +3992,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// that no-op and tell the truth instead of banking a phantom checkpoint and claiming
 			// "Fix applied" over a deck that didn't change (trio red team / Munger). Leave the
 			// proposal up so the author can Discard and re-draft.
-			const next = applyDeckEdit(source, st.edit);
-			if (next === source) {
+			// The LATEST text, not the rendered `source`, which can trail typing in flight (setSourceFromEditor).
+			const cur = sourceRef.current;
+			const next = applyDeckEdit(cur, st.edit);
+			if (next === cur) {
 				notify(`Couldn’t apply this rewrite — it would split slide ${st.slide ?? ''}. Discard and re-draft, or edit by hand.`);
 				return false;
 			}
-			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
+			setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI fix', Date.now()));
 			setSource(next, { label: `AI fix${st.slide != null ? `: slide ${st.slide}` : ''}`, origin: 'ai' });
-			noteAiEdit(source, next);
+			noteAiEdit(cur, next);
 			discardFix(key);
 			notify(`Fix applied — ⌘Z or restore from History to undo.`);
 			return true;
@@ -4035,8 +4043,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.map(([k, v]) => ({ key: k, st: v as Extract<FindingFixState, { phase: 'proposed' }> }))
 			.sort((a, b) => (b.st.slide ?? 0) - (a.st.slide ?? 0));
 		if (!proposed.length) return;
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fixes', Date.now()));
-		let next = source;
+		// The LATEST text, not the rendered `source`, which can trail typing in flight (setSourceFromEditor).
+		const cur = sourceRef.current;
+		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI fixes', Date.now()));
+		let next = cur;
 		const appliedSlides = new Set<number>();
 		const stale: { key: string; slide?: number }[] = [];
 		let applied = 0;
@@ -4061,11 +4071,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 		if (applied) {
 			setSource(next, { label: `Fix all (${applied})`, origin: 'ai' });
-			noteAiEdit(source, next);
+			noteAiEdit(cur, next);
 		}
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, discardFix, setSource, noteAiEdit]);
+	}, [fixStates, deck.id, discardFix, setSource, noteAiEdit]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -5149,10 +5159,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const renderedSlides = deckIndex.units.reduce((n, u) => n + u.parts.length, 0);
 	const atFirstSlide = hereAt.unit <= 0 && hereAt.part <= 0;
 	const atLastSlide = hereAt.unit >= deckIndex.units.length - 1 && hereAt.part >= (deckIndex.units[hereAt.unit]?.parts.length ?? 1) - 1;
-	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened).
-	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(source, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
-	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
-	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(source, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened). It
+	// reads the LATEST text (`sourceRef`), never the rendered `source`, which can trail typing in flight: a click that
+	// fires no pointerdown (a tour's `el.click()`, a screen reader's activation) gets no catch-up.
+	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(sourceRef.current, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
+	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(sourceRef.current, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5267,7 +5279,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return !othersLive;
 	};
 	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
-	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(sourceRef.current, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
 	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
 	const stripStateKey = JSON.stringify(stripMenuState);
@@ -5414,9 +5426,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
 	const applyChatEdit = (next: string) => {
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
+		const cur = sourceRef.current;
+		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
 		setSource(next, { label: 'AI chat edit', origin: 'ai' });
-		noteAiEdit(source, next);
+		noteAiEdit(cur, next);
 		goToChunk(0, { after: next });
 		// The AI edit jumps the preview to the top — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
@@ -7852,7 +7865,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -8041,7 +8054,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -8237,7 +8250,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-							onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })}
+							onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
