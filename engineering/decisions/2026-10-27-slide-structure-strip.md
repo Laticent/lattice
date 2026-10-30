@@ -90,17 +90,7 @@ shows a `+` between pages. None makes "before" a peer of "after".
 **The strip is the deck's one place for structure.** Pills and thumbnails stay as two sizes of one strip, with one
 behavior.
 
-- **+ New slide, amended 2026-10-30 (#2982).** The door now leads the slide strip at Write and Craft, ahead of the
-  pills or the map, with a divider after it. The floating pill below covered the bottom-right of tall slides: at
-  390px it sat 75×38px inside a `size: story` slide and over its page dots, and over the corner of portrait and
-  phone-shape slides at tablet width too. The owner weighed four options (into the strip, keep it floating with a
-  56px reserved band, a 44px round +, leave it) and chose the strip. It is the pills' 32px tall and reaches 44px on
-  touch through its `::after`, so the strip keeps its height. Its label shows when the preview pane is 30rem wide
-  or more, and only the + below that. The Before | After split and the "added" message float above it rather than
-  widening it, so the pills and the map do not move. The phone's edit pane keeps its floating pill, since no strip
-  is on screen there, and the editor-header door is unchanged. The paragraph below is the 2026-10-27 call it
-  replaces.
-- **+ New slide (2026-10-27, superseded above).** A labeled, accent-filled "+ New slide" pill floats over the preview's bottom-right corner, just
+- **+ New slide.** A labeled, accent-filled "+ New slide" pill floats over the preview's bottom-right corner, just
   above the strip, at every width: the owner's call on seeing the built strip-end button, "an overlay in the preview
   itself so it stands out", like Gmail's Compose. Then "noticeable, not huge": it is 40px tall (44px on a touch
   screen, the repo's touch floor), 106px wide. Four sizes were scored in the real Studio (today's 140×56 pill 4.20,
@@ -334,7 +324,7 @@ outliner that carries the ids, and fails on the earlier code.)
 | Surface | Change |
 |---|---|
 | Icon row leading the strip (`slideOps`) | Removed **in phase 3**, when the menu and drag replace it (done, item 11) |
-| Preview | + New slide leads the slide strip, ahead of the pills or the map, at every width (amended 2026-10-30, §5) |
+| Preview | + New slide floats over its bottom-right corner, above the strip, at every width |
 | Editor header `+ Add` | Becomes a labeled "New slide", shown while the preview is collapsed |
 | Phone drawer "Add slide" | Removed: the phone's edit pane has its own round door |
 | Icon row's `+` | Removed in phase 1; the rest of the row waits for phase 3 |
@@ -460,9 +450,6 @@ Each is a file in `followups.d/2927-p<n>-…`.
     menu ready for it.
 
 ## 13. Decisions
-
-Taken by the owner, 2026-10-30 (#2982): **+ New slide leads the slide strip**, replacing the floating pill
-over the preview (§5).
 
 Taken by the owner, 2026-10-27:
 

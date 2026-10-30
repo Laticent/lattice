@@ -87,32 +87,3 @@ describe('NewSlideButton — the Before | After split', () => {
 		expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
 	});
 });
-
-// The strip form (the owner's call, 2026-10-30): the door leads the slide strip, and its split and message float above
-// it, so the door itself never leaves and nothing beside it moves.
-describe('NewSlideButton — the strip door', () => {
-	it('keeps the door mounted under the split, tells the host it opened, and Escape hands focus back to it', async () => {
-		const onOpen = vi.fn();
-		render(<NewSlideButton variant="strip" onChoose={() => {}} onOpen={onOpen} />);
-		const door = screen.getByRole('button', { name: 'New slide' });
-		fireEvent.click(door, { detail: 1 });
-		expect(onOpen).toHaveBeenCalledTimes(1);
-		expect(screen.getByRole('button', { name: 'New slide' })).toBe(door);
-		const after = screen.getByRole('button', { name: 'New slide after' });
-		expect(after.closest('fieldset')?.className).toContain('absolute');
-		fireEvent.keyDown(after, { key: 'Escape' });
-		expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
-		await new Promise((r) => requestAnimationFrame(() => r(null)));
-		expect(document.activeElement).toBe(door);
-	});
-
-	it('floats the "added" message beside a door that still opens the split', () => {
-		render(<NewSlideButton variant="strip" onChoose={() => {}} confirmation="Slide added after slide 3" />);
-		const note = document.querySelector('[data-new-slide][data-confirming]');
-		expect(note?.className).toContain('absolute');
-		const door = screen.getByRole('button', { name: 'New slide' });
-		expect(door.getAttribute('aria-disabled')).toBeNull();
-		fireEvent.click(door, { detail: 1 });
-		expect(screen.getByRole('button', { name: 'New slide after' })).toBeTruthy();
-	});
-});

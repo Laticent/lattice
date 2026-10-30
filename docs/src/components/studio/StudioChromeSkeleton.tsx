@@ -1,5 +1,5 @@
 import {
-	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Undo2,
+	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -318,8 +318,8 @@ export function StudioActivityRailSkeleton() {
  *
  * NOT drawn, because they are genuinely unknowable and start ABSENT in the app too: the issue
  * count pill (`issues > 0`, nothing is linted yet), `Refine selection` (`hasSelection`), and
- * `New slide`, which the app draws here only while the preview is collapsed (the door at the head of the slide
- * strip is the one on screen otherwise; 2026-10-27-slide-structure-strip.md §5).
+ * `New slide`, which the app draws here only while the preview is collapsed (the floating door over the preview
+ * is the one on screen otherwise; 2026-10-27-slide-structure-strip.md §5).
  * Both appear later on their own; neither is present at hand-off.
  */
 export function StudioEditorPaneSkeleton() {
@@ -450,10 +450,9 @@ export function StudioPreviewBarSkeleton() {
 export function StudioPreviewFooterSkeleton() {
 	return (
 		<>
-			{/* The app's navigator row: `px-3 py-2`, then the "New slide" door and its divider, then the slide pills,
-			    the current one followed by its menu button. The door leads the strip in the app (NewSlideButton's
-			    `strip` form), so it is drawn here at its size: drawing it late would push every pill sideways at
-			    hand-off. Its label follows the same 30rem query, on the band's own container (studio.astro). Both rows below carry the app's own text
+			{/* The app's navigator row: `px-3 py-2`, then the slide pills, the current one followed by its
+			    menu button. The floating "New slide" door
+			    is not drawn: it arrives with the app, over the preview, and changes no band. Both rows below carry the app's own text
 			    classes for the reason in StudioPreviewBarSkeleton's note — the strut is what
 			    tracks a raised browser minimum font size, and a skeleton without text has none. */}
 			{/* No border-t here: the .ssr-paneftr band already draws the footer's top hairline, so
@@ -463,8 +462,6 @@ export function StudioPreviewFooterSkeleton() {
 				{/* The slides themselves are the user's deck — structure only, never a name. The
 				    numbered chip IS fixed chrome (slide N is always slide N), so it is drawn; the
 				    label beside it is the deck's content, so it stays a neutral bar. */}
-				<span className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--accent)] px-2.5 font-sans text-[12px] font-semibold text-[var(--on-accent)] shadow-sm [@media(pointer:coarse)]:min-w-11"><Plus className="size-4" aria-hidden /><span className="hidden @[30rem]:inline">New slide</span></span>
-				<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 				{/* The current pill, with its menu ⋯ as the pill's right-hand segment (lib/strip-actions), fixed chrome. */}
 				<span className="flex shrink-0 items-stretch rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px]"><span className="flex items-center gap-1.5 px-2.5 py-1.5"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span><span className="grid w-7 shrink-0 place-items-center border-l border-[color-mix(in_srgb,var(--accent)_35%,transparent)] text-[var(--accent)] [@media(pointer:coarse)]:w-11"><MoreHorizontal className="size-4" /></span></span>
 				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">2</span><ContentBar className="w-20" /></span>

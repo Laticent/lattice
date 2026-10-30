@@ -6822,17 +6822,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 					</>
 				)}
-			{/* The one add door leads the strip at Write and Craft, ahead of the pills or the map: the owner's call
-			    (2026-10-30), replacing the floating door over the preview that covered the bottom-right of tall
-			    slides (2026-10-27-slide-structure-strip.md §5). The pills' height, so the strip keeps its own. */}
-			{/* Not on an empty deck, where the strip's own "+ Add your first slide" is the one door. Opening it clears the
-			    strip note, which would sit under its split. */}
-			{newSlideShown && deckIndex.units.length > 0 && (!mobile || effPane === 'preview') && (
-				<>
-					<NewSlideButton variant="strip" onChoose={opAddSlide} onOpen={() => setStripNote(null)} confirmation={addedNote} />
-					<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
-				</>
-			)}
 			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} actions={stripActions} onAddFirst={stripEditable ? addFirstSlide : undefined} />}
 			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
 			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
@@ -6845,6 +6834,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Frozen>
 				</div>
 			)}
+				{/* The one add door, floating over the preview's bottom-right corner just above the strip, like Gmail's
+				    Compose: the owner's call, so it stands out at every width (2026-10-27-slide-structure-strip.md §5).
+				    Anchored to this row, so it rides with the strip whatever height the strip takes. */}
+				{newSlideShown && (!mobile || effPane === 'preview') && <NewSlideButton variant="fab" onChoose={opAddSlide} confirmation={addedNote} className="absolute right-4 bottom-[calc(100%+16px)] z-20" />}
 				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
 				    it at the strip's end. */}
 				{previewChromeless && (
