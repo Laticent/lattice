@@ -103,7 +103,7 @@
         "docs/scripts/ios-safari/studio-probe.js",
         "docs/scripts/ios-safari/panes-probe.js",
         "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/lib/single-slide-render.ts",
+        "docs/src/playground/single-slide-render.ts",
         "lib/core/pane-css.js",
         "docs/src/lib/sanitize-slide-html.js",
         "lib/core/sanitize-slide-html.mjs",

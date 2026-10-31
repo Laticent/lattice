@@ -77,7 +77,7 @@
         },
         "returns": {
           "type": "object",
-          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/packages/code-shape.mjs).",
+          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/core/code-shape.mjs).",
           "additionalProperties": false,
           "required": ["fields"],
           "properties": {

@@ -503,7 +503,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm/_npx
-          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/core/marp-bundle.js') }}-${{ steps.week.outputs.week }}
+          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/export/marp-bundle.js') }}-${{ steps.week.outputs.week }}
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as
