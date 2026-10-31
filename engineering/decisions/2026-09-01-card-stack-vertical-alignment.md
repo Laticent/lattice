@@ -1220,7 +1220,10 @@ page, so it shows only on an unsplit page.)
   and that rule grows it with `flex` and `align-content: stretch`, which a capped track ignores.
   An independent checker caught it: at square/tall/strip every list splits one member per page,
   and each lone row sat 139px tall atop an 860px stage (main: filled). The list lifts its own
-  ceiling for a lone split member.
+  ceiling for a lone split member. *Superseded 2026-10-30:* the carousel template
+  (`2026-10-28-fit-everywhere-model.md` §14) sets every lone member at its own height on the
+  stage's top line, so each content page of a run starts on one line;
+  `test/integration/parity/list-row-fit.test.js` pins the new form.
 - A capped track is not an `auto` track, so `align-content: stretch` does not grow it.
   `--cards-grow` (1 under `stretch`, else 0) is set by the same eight `[data-cards]` rules in
   `base.tokens.css` and lifts the ceiling, so `stretch` fills the stage.

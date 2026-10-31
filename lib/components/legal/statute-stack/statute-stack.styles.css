@@ -385,7 +385,11 @@ section.statute-stack.lane td:last-child {
    distributed to fill. Scoped off the named variants (hierarchy/bands/preemption/
    lane), which already author their own single-column / table portrait shape.
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
-   the old [data-orientation] stamp played; keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. */
+   the old [data-orientation] stamp played. It was keyed on the deck's `data-family` stamp
+   (square, tall, strip) and is now keyed on TEXT ROOM, the MEDIUM threshold of the
+   text-room rule (base.elements.css): every square, tall and strip preset measures under
+   34em of body text, and hd measures 36em even at hall, so the presets render as they did,
+   and a box decides by the characters a line holds rather than by its shape. */
 /* SQUARE COLLAPSES TOO — and this is the second time that call has been made on
  * a number that measured the wrong thing, so here is the whole ledger.
  *
@@ -403,21 +407,23 @@ section.statute-stack.lane td:last-child {
  * surface loses (HARD RULE #23), so square stays stacked and the number stays
  * out of the argument until `density` is honest (see the capacity section of
  * 2026-07-27-family-stamp-replaces-container-queries.md). */
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
-  /* portrait → single column of content-height cards, evenly distributed (flex mirror
-     of `grid-auto-rows:auto; align-content:space-evenly`). */
-  flex-direction: column; flex-wrap: nowrap;
-  justify-content: var(--cards-align);
-}
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
-  flex: var(--cards-grow) 0 auto;
-}
-/* Header-pill authoring already carries the citation + status on the label row, so the
-   portrait card needs no pill-lift — just breathing room between that row and the gloss. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
-  padding-top:var(--sp-md);
+@container lattice (width < 34em) {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul,
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol {
+    /* portrait → single column of content-height cards, evenly distributed (flex mirror
+       of `grid-auto-rows:auto; align-content:space-evenly`). */
+    flex-direction: column; flex-wrap: nowrap;
+    justify-content: var(--cards-align);
+  }
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li,
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li {
+    flex: var(--cards-grow) 0 auto;
+  }
+  /* Header-pill authoring already carries the citation + status on the label row, so the
+     portrait card needs no pill-lift — just breathing room between that row and the gloss. */
+  section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+    padding-top:var(--sp-md);
+  }
 }
 
 
@@ -430,4 +436,56 @@ section.statute-stack > .cell-stage > ol > li {
 }
 section.statute-stack > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── TEXT ROOM (the text-room rule, base.elements.css) ───────────────────────
+   NARROW, under ~47 characters a line. hierarchy, bands and preemption pin the status pill
+   absolutely to the right of the jurisdiction label, which is safe only while the label is
+   short of the row: at square@hall and below, "FEDERAL" tracked at 0.16em ran under "In effect
+   since 2000" and the two printed over each other (followups.d/2962-p5-…). The pill returns to
+   the label's flow and wraps under it when the two do not share a line. */
+@container lattice (width < 23em) {
+  section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child {
+    flex-wrap: wrap; row-gap: var(--sp-2xs);
+  }
+  section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
+    position: static; transform: none;
+  }
+}
+/* TIGHT, under ~35 characters a line. Wrapping costs the card a line, and at portrait@hall a
+   card alone on its page then clipped its last line of prose. The label and its citation pill
+   missed sharing a line by under 10px (measured: 222 + 26 gap + 13 + 618 = 879px of an 888px
+   row), so the label's pills trim their side padding from the theme's 0.75em to 0.4em, and the
+   citation rides beside the label again. */
+@container lattice (width < 17em) {
+  section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill {
+    --pill-pad-x: 0.4em;
+  }
+}
+/* MEDIUM, under ~70 characters a line. `lane` is a four-column table (jurisdiction, citation,
+   obligation, status) whose label, citation and status columns are `nowrap`, so in a square
+   box the obligation column was left a dozen characters a line. Each row becomes a card: the
+   jurisdiction and citation share its first line, the obligation takes the card's full width,
+   and the status closes it, left-aligned. The header row stays as one wrapped line of column
+   names above the cards, so no text leaves the page. The columns are typed by their styling
+   (a tracked label, a mono citation, body prose, a muted status), so a card needs no per-cell
+   label. A table of any other component is tier 2 of the fit work. */
+@container lattice (width < 34em) {
+  section.statute-stack.lane table,
+  section.statute-stack.lane :is(thead, tbody) { display: block; }
+  section.statute-stack.lane thead tr {
+    display: flex; flex-wrap: wrap; column-gap: var(--sp-lg); padding-bottom: var(--sp-2xs);
+  }
+  section.statute-stack.lane thead th { padding: 0; }
+  section.statute-stack.lane tbody tr {
+    display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-sm);
+    border-inline-start: 3px solid var(--lane-jur, var(--accent));
+    border-bottom: 1px solid var(--border);
+    padding-block: var(--sp-sm);
+    padding-inline: var(--sp-md) var(--sp-sm);
+  }
+  section.statute-stack.lane tbody tr > td,
+  section.statute-stack.lane tbody tr > td:first-child { display: block; border: none; padding: 0; }
+  section.statute-stack.lane tbody tr > td:nth-child(n+3) { flex: 1 0 100%; padding-top: var(--sp-2xs); }
+  section.statute-stack.lane tbody tr > td:last-child { text-align: start; }
 }

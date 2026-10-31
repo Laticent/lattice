@@ -3114,6 +3114,22 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
+/* TIGHT ROOM (the text-room rule, base.elements.css): as a flex sibling the arrow takes its
+   own column, so a lead-in that wraps wraps in the box beside it, and at portrait@hall "What
+   each jurisdiction requires" set three short lines. Inline, the arrow follows the last word
+   and the text keeps the frame's full width. The 0.4em the flex gap gave is folded into the
+   mark's own box, right-anchored, so nothing sits outside a box (HARD RULE #20). The lead-in
+   also steps down to the body size: at `--fs-emphasis` a story box at hall holds eleven
+   characters a line ("A monotonic / pipeline that / narrows"), and the lead-in is a line about
+   what comes next, not a second headline. */
+@container lattice (width < 17em) {
+  .split-cover-lead { display: block; font-size: var(--fs-body); }
+  .split-cover-lead::after {
+    display: inline-block; vertical-align: -0.12em; width: 1.4em;
+    -webkit-mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+            mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+  }
+}
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
    different "where am I" signals (sub-sequence progress vs. deck position), so they get
@@ -3372,6 +3388,40 @@ section.lat-split-cover.split-cover-table .split-feat-h::after {
   background: var(--spectrum-structure);
 }
 
+/* ── The CAROUSEL: content pages carry the content and nothing else ────────────────
+   The owner's ruling for a split run (followups.d/2962-p6-carousel-template.md): the title and
+   eyebrow appear on the COVER only; a content page carries no running header, no repeated
+   heading or "(cont.)", no pointer pill and no rail or page number; the ending page carries the
+   key insight or below-note, again without the title. A split run is read as one swipe, so the
+   cover's lead-in arrow is its one navigation cue. Measured on the first carousel render, the
+   repeated title took up to half of a portrait page and words hid under the pointer pill.
+   Keyed on the role stamp every split page carries (split-envelope.js `withRole`), so it reaches
+   the shared envelope's pages and the read-across strategies' alike, and never an unsplit slide.
+   A split happens only on square, tall and strip boxes (`paginates` in @laticent/fluido), so a
+   16:9 deck is untouched. The elements stay in the markup and conservation holds: the heading
+   is on the cover once. The attribute is doubled to clear the Form cells' own display rules. */
+/* Which page elements are repetition and which are content. The masthead's HEADING half
+   (`.masthead-lede`) and the read-across runhead (`.split-runhead`, carousel.js) repeat the
+   cover's title; compare-code's runhead is the code block's own label, which is content, so it
+   stays. The masthead BAY stays when it holds a tile: a deck's `meta:` line (a date, an owner, a
+   "Confidential" marking) docks there and the cover does not carry it, so hiding the whole
+   masthead dropped it from every page of the run. The pointer pill and the k-of-N rail sit in the
+   stage, in the footer cell, or straight under the section when there is no footer cell (a
+   read-across page has no `.cell-stage`; `paginate: false` leaves no footer cell for the rail),
+   so each takes both arms. */
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > :is(header, .cell-footer, .lat-split-rail),
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead:not(:has(> .masthead-bay > *)),
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead > .masthead-lede,
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role]:not(.compare-code-split) .split-runhead,
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-stage > .lat-split-rel {
+  display: none;
+}
+/* The pill's own placement rules (below) reach (0,4,1) and come later in the file, so the
+   direct-child arm carries the role stamp four times to clear them. */
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role][data-split-role][data-split-role] > .lat-split-rel {
+  display: none;
+}
+
 /* ── Split BODY pages — a member looks the same on every page of the run ──────────
    A collection normally DISTRIBUTES its members to fill the bounded stage: checklist
    spreads its rows (`checklist.styles.css` — "rows distribute to fill the bounded
@@ -3512,6 +3562,16 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   line-height: var(--lh-snug);
   text-wrap: pretty;
 }
+/* TIGHT ROOM (the text-room rule, base.elements.css): the step up costs a third of the line.
+   Under ~35 characters a line of body text, a lone member at `--fs-emphasis` inside a padded row
+   set eleven characters a line (a mustard checklist row at story@hall, "Per-team / weighting UI,
+   / descoped to next / half"), and a page holding one thing is no use if that thing cannot be
+   read. It stays at the body size there; everywhere else it steps up as above. */
+@container lattice (width < 17em) {
+  section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
+    font-size: var(--fs-body);
+  }
+}
 
 /* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────────
    The lone-member rules above reach a LIST member (`> .cell-stage > ul|ol > li:only-child`).
@@ -3531,6 +3591,50 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
    page whose table holds exactly one row. */
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage:has(> table > tbody > tr:only-child) {
   justify-content: center;
+}
+
+/* ── …AND ON A CAROUSEL CONTENT PAGE, ONE START LINE ───────────────────────────────────
+   The lone-member rules above center a member and stretch it to the page. Without the repeated
+   heading (the carousel rule, above), that put the first line of each page at a different
+   height (a one-line checklist row against a two-line one) and turned a lone card or row into a
+   full-height box about a tenth full. An independent judge of the first carousel render named
+   both: the text jumps as the reader swipes, and the empty frames read as intentional. A content
+   page therefore starts at the top of the stage, and its member keeps its natural height, so
+   every page of a run starts on the same line. Five classes and the role stamp clear the
+   (0,6,2) lone-member weight, and the second selector restates the lone-table-row rule's
+   `:has()` so it outweighs that rule's centering at (0,7,4); only ever a split content page. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage,
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage:has(> table > tbody > tr:only-child) {
+  justify-content: flex-start;
+}
+/* A read-across strategy's page (compare-prose, split-panel, list-tabular, decision) has no
+   `.cell-stage`: its content sits straight under the section, which centers it, so its start
+   line moved with each point's length too. */
+section[data-split-role="body"][data-split-role][data-split-role][data-split-role][data-split-role]:not(:has(> .cell-stage)) {
+  justify-content: flex-start;
+}
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage > :is(ul, ol):has(> li:only-child) {
+  flex: 0 0 auto;
+  align-content: flex-start;
+  /* A GRID collection (list) sizes its row to `minmax(min-content, --list-row-max)`, and the
+     lone member lifts that ceiling: unbounded by the stage, the row grew to 10,148px and its text
+     was drawn off the page. Content height here; a flex collection ignores the property. */
+  grid-auto-rows: auto;
+}
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage > :is(ul, ol) > li:only-child {
+  /* No GROW (in a column collection it would stretch the member down the page) but a full-width
+     basis that may SHRINK: in a row collection (a cards-grid tile) `flex: 0 0 auto` held the card
+     at its max-content width and ran its text off the page at every narrow box. */
+  flex: 0 1 auto;
+  width: 100%;
+  box-sizing: border-box;
+  /* …but never below its content. A member that clips its own overflow (a matrix-2x2 quadrant
+     is `overflow: hidden`) has an automatic minimum height of 0, so the shrink cut a quadrant to
+     its title and dropped its body. */
+  min-height: max-content;
+  /* In a GRID collection (kpi tiles) the width above fills one track; alone on the page the
+     member spans them all. A flex collection ignores it. */
+  grid-column: 1 / -1;
 }
 
 /* ── Split COVER chrome — readable on the accent field ─────────────────────────────

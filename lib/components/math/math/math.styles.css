@@ -1070,7 +1070,8 @@ section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
   border-left: none;
   padding-top: var(--sp-md);
 }
-/* FAMILY REFLOW — tall/strip. The lead equation is the whole factorization on one line,
+/* TEXT-ROOM REFLOW — NARROW (base.elements.css; it keyed on the tall and strip families until
+ * 2026-10-29, and square@hall now joins them). The lead equation is the whole factorization on one line,
  * so it is the widest thing math ships, and 2.1em of it does not fit a 972px stage:
  * measured 204px past the edge at portrait, story and mobile, `cut`. It was over on the
  * sovereign frame too (the overrun painted into the section's padding instead of being
@@ -1079,8 +1080,21 @@ section.math.form.matrix.decompose > .cell-stage > :is(ul, ol) {
  * There is no reflow available other than scale: a factorization is one expression and
  * KaTeX will not break or shrink it. 1.55em is the measured fit for the committed sample
  * with headroom; the 3-up row and the legend are unchanged, because neither was over. */
-section.math.math.form.matrix.decompose:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
-  font-size: 1.55em;
+@container lattice (width < 23em) {
+  section.math.math.form.matrix.decompose > .cell-stage > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
+    font-size: 1.55em;
+  }
+  /* The legend's 5em hanging label column ("USE", tracked mono) left its gloss twelve
+     characters a line at portrait@laptop ("— solve Ax = b by / forward then back /
+     substitution"). The indent goes: the label runs in at the start of the line and the gloss
+     wraps under it at the legend's full width. */
+  section.math.form.matrix > .cell-stage > :is(ul, ol) > li { padding-inline-start: 0; text-indent: 0; }
+}
+/* TIGHT, under ~35 characters a line: a run-in label that is a formula (a decompose legend's
+   matrix) takes most of the first line, and the gloss after it set eleven characters a line at
+   story@hall. The label takes its own line above the gloss. */
+@container lattice (width < 17em) {
+  section.math.form.matrix > .cell-stage > :is(ul, ol) > li > strong { display: block; padding-inline-end: 0; }
 }
 
 /* ── math.stats ──

@@ -15,6 +15,15 @@
  * So this asks the browser, on every page shape, for the properties that make the signal read as
  * chrome rather than as content.
  *
+ * THE CAROUSEL HIDES IT (2026-10-30). The owner's carousel ruling (base.modifiers.css "The
+ * CAROUSEL"; followups.d/2962-p6-carousel-template.md) takes the pointer off every content page:
+ * a split run reads as one swipe and the cover's lead-in is its one cue. The markup still ships
+ * (relationship.js stamps it, and conservation counts it), so this suite now pins TWO things on
+ * every page shape: that a content page HIDES the signal, which the first cut of the carousel rule
+ * missed on every shape with no `.cell-stage` (a descendant `section > .lat-split-rel` arm cannot
+ * match a section's own child), and that the signal's chrome styling still holds wherever a page
+ * does show it, measured on a copy of each shape stamped as a cover.
+ *
  * TWO OF THOSE PROPERTIES CHANGED on 2026-09-02, in the owner's redesign of the split furniture,
  * and this suite was pinning the mechanism rather than the behavior:
  *   · The signal is a PILL, and the mark was STRANDED before it became one. The old rule was a
@@ -133,24 +142,27 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
     // relationship.js and auto-split.js's closing pointer call, so a fixture built from it cannot
     // describe markup that does not ship.
     const { signalMarkup } = require('../../../lib/core/relationship');
-    const sections = PAGES.map((p, i) =>
+    const build = (role, prefix) => PAGES.map((p, i) =>
       // A REAL WIDTH, because the shrink-wrap assertion is a ratio and a zero-width harness makes
       // it degenerate: with no width the section collapses to its content, the stage collapses to
       // the pill, and "the pill is as wide as its stage" reads as a stretched bar when it is
       // actually shrink-wrapped. The non-Form `premise` shape failed exactly that way — it is the
       // one page whose section is not a Form and so takes no width of its own here.
-      `<section class="${p.cls}" data-split-role="${p.role}" data-split-run="1" data-lattice-slide="${i + 1}"`
+      `<section class="${p.cls}" data-split-role="${role || p.role}" data-split-run="1" data-lattice-slide="${prefix}${i + 1}"`
       + ` style="width:960px;display:flex;flex-direction:column">`
       + (p.stage === false ? '' : `<div class="cell-stage" style="display:flex;flex-direction:column">`)
       + `<ul><li>member</li></ul>`
-      + signalMarkup('Something', 'next').replace('class="lat-split-rel"', `class="lat-split-rel" id="sig${i}"`)
+      + signalMarkup('Something', 'next').replace('class="lat-split-rel"', `class="lat-split-rel" id="${prefix}sig${i}"`)
       + (p.stage === false ? '' : `</div>`)
       + `</section>`).join('');
+    // `cover`: the styling copies (no carousel rule applies to a cover). The shapes' own role:
+    // the production pages, where the carousel hides the signal.
+    const sections = build('cover', '') + build(null, 'hidden-');
     // The LONG-LABEL shape, on the plain envelope. `comparison` is the one relationship whose
     // label has no length budget — `relationship.js` joins every criterion badge with no
     // `LABEL_MAX` — so this is the string a split `verdict-grid` really produces, minus the
     // component.
-    const long = `<section class="content form lat-split-native" data-split-role="body" data-split-run="9"`
+    const long = `<section class="content form lat-split-native" data-split-role="cover" data-split-run="9"`
       + ` data-lattice-slide="99" style="width:960px;display:flex;flex-direction:column">`
       + `<div class="cell-stage" style="display:flex;flex-direction:column">`
       + `<ul><li>member</li></ul>`
@@ -236,6 +248,14 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       // And the mark itself has a box.
       assert.notEqual(got.markWidth, 'auto', 'the drawn mark has no box');
       assert.notEqual(parseFloat(got.markWidth), 0, 'the drawn mark collapsed to zero width');
+    });
+  }
+
+  for (const [i, shape] of PAGES.entries()) {
+    test(`${shape.name} — a carousel content page hides the signal`, async (t) => {
+      if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+      const display = await page.evaluate((id) => getComputedStyle(document.getElementById(id)).display, `hidden-sig${i}`);
+      assert.equal(display, 'none', `the pointer still shows on a ${shape.role} page of this shape`);
     });
   }
 

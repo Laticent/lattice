@@ -268,37 +268,74 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
 
-/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
-   A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid
-   (counter · name · cite · prose · pill) — five tracks crush in a tall/strip
-   box. Collapse each row to a hanging counter + a single stacked content
-   column (name → cite → prose → pill), keeping the leading-zero number in the
-   gutter.
+/* ── TEXT-ROOM reflow (the text-room rule, base.elements.css) ─────────────────
+   The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid (counter · name ·
+   cite · prose · pill), and five tracks crush under ~70 characters a line: at square@laptop the
+   prose column of a `priority` row set a dozen characters a line. At the MEDIUM threshold each
+   row collapses to a hanging counter and a single stacked content column (name, cite, prose,
+   pill), keeping the counter in the gutter. `priority` and `cards` take the same row (cards
+   inside their box), and `cards` goes from two fixed columns to `--fluid-cols`, so a box too
+   narrow for two cards of 24 characters holds one. `timeline` (a horizontal spine) and
+   `diff-bands` (no counter) keep their own shape.
 
-   TALL AND STRIP ONLY — square keeps the five-track row. This block was authored
-   to include square, but square never matched (#1218), so the result was never
-   seen: stacking four fields per row roughly triples each row's height, and the
-   gallery's three changes then push the third card and its "Effective" pill off
-   the frame. Verified by render: gallery `regulatory-update` at `size: square`
-   overflows with square in this set, fits without it. Scoped off the named variants — the excluded variants (timeline is the
-   horizontal spine; cards/diff-bands/priority) keep their landscape shape for
-   now; portrait handling for the variants is out of Batch A1 scope (tracked
-   follow-up). The nested list uses `display:contents`, so its <li> children are
-   direct grid items — re-anchor each to column 2 and let them auto-flow down the
-   rows. */
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
-  grid-template-columns: auto 1fr;
-  grid-template-rows: none;
-  grid-auto-flow: row;
-  row-gap: var(--sp-xs);
-  align-items: baseline;
+   This block used to key off the deck's `data-family` (tall and strip only) and to leave
+   square out: stacking four fields per row roughly triples each row's height, and the
+   gallery's three changes then pushed the third card off a square frame. The split now pages
+   that height (followups.d/2962-p3-…), and text room is the owner's rule for when a layout
+   reflows (engineering/decisions/2026-10-28-fit-everywhere-model.md §13).
+
+   The nested list is `display:contents`, so its <li> children are direct grid items; each is
+   re-anchored to column 2 and auto-flows down the rows. A prose item that is LAST (a row with
+   no pill) matched none of the wide row's three placements and auto-placed itself into the
+   next free track, the narrow one; the fourth selector covers it. */
+@container lattice (width < 34em) {
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    row-gap: var(--sp-xs);
+    align-items: baseline;
+  }
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li::before,
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > strong:first-child { grid-row: 1; }
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:not(:has(> .lat-pill:only-child)) {
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
+  }
+  section.regulatory-update.regulatory-update.cards > .cell-stage > :is(ol, ul) {
+    --col-max: 2; --col-gap: var(--sp-md);
+    grid-template-columns: var(--fluid-cols);
+  }
 }
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])) {
-  grid-column: 2;
-  grid-row: auto;
-  justify-self: start;
+/* `diff-bands` carries no counter (its rows sit under a colored band heading), so its row was
+   left out of the stack above and kept its fields side by side: at story@laptop the change text
+   set a dozen characters a line. At the NARROW threshold the row becomes a column (name, cite,
+   change), a flex column rather than a re-placed grid, so no field's grid placement can hold it
+   beside another. Not at MEDIUM: at square@laptop the side-by-side row reads well, and stacking it
+   there made a four-band slide clip. */
+@container lattice (width < 23em) {
+  section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, ul) > li {
+    display: flex; flex-direction: column; align-items: flex-start; row-gap: var(--sp-2xs);
+  }
+}
+/* TIGHT, under ~35 characters a line: the counter's gutter itself is too dear (a `priority`
+   "TIER 1" pill left the prose fourteen characters a line at story@hall), so the counter heads
+   the column and every field takes the card's full width. */
+@container lattice (width < 17em) {
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li { grid-template-columns: minmax(0, 1fr); }
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li::before { justify-self: start; }
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > strong:first-child,
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child):not(:where([data-prose])),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> .lat-pill:only-child):not(:where([data-prose])),
+  section.regulatory-update.regulatory-update:is(:not(.timeline):not(.diff-bands)) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:not(:has(> .lat-pill:only-child)) {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 

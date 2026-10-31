@@ -83,7 +83,7 @@ test('checkAdaptDeclarations rejects a reflow declaration with no mechanism', ()
   const errors = [];
   checkAdaptDeclarations([{ name: '__x', bucket: 'evidence', adapt: { mode: 'reflow' } }], errors);
   assert.strictEqual(errors.length, 1, 'expected exactly one error for a bare reflow claim');
-  assert.match(errors[0], /ships NONE of the four mechanisms/);
+  assert.match(errors[0], /ships NONE of the reflow mechanisms/);
 });
 
 // The solver-intent gate is COMPLETE across the real tree: every component

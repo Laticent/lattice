@@ -504,3 +504,24 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
    row-anchored and stranded ~370px above its own text. Centering the ordinal's BOX only
    traded one misplacement for another — it put the numeral on the BODY's baseline, 199px
    (render px, 2x) below the title it indexes. See the ordinal rule above. */
+
+/* ── TEXT ROOM (the text-room rule, base.elements.css) ───────────────────────
+   TIGHT, under ~35 characters a line: the ordinal hangs in a gutter 1.2 times `--fs-h3` wide,
+   and at story@hall it left a row's body eleven characters a line ("Each signal / scored on /
+   confidence, …"). The gutter goes and the ordinal runs in before the title (or, on a row
+   with no title, before the text), so the body takes the row's full width. */
+@container lattice (width < 17em) {
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li { padding-inline-start: 0; }
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before,
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
+    position: static; display: inline-block; width: auto; padding-inline-end: var(--inv-ord-gap);
+  }
+}
+/* NARROW, under ~47 characters: `cards` holds two fixed columns, so a card got ~20 characters.
+   `--fluid-cols` gives it two where each keeps 24 characters, and one where they would not. */
+@container lattice (width < 23em) {
+  section.inventory.cards > .cell-stage > ul {
+    --col-max: 2; --col-gap: var(--sp-md);
+    grid-template-columns: var(--fluid-cols);
+  }
+}

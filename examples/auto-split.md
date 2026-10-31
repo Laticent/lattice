@@ -33,7 +33,7 @@ When a slide holds more than it can show, it becomes several — automatically, 
 - A slide holding **more than one** structural element becomes one slide per element
 - The trigger is **structure**, read from the markup — the cut is the same on every machine
 - Every run opens on a **cover** and closes on the **note and key insight**
-- Each page **points at the next one**, so the run reads as one thing
+- Every page after the cover carries **the content and nothing else**, so the run reads as one swipe
 - **Read-across** content (columns, code) is **never split**
 
 ---
@@ -63,8 +63,8 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ## What you just saw
 
-- The fourteen-item checklist became a **cover, fourteen pages and a closing** — one check each
-- The heading carried onto every page, marked `(cont.)`, and each page named **the next check**
+- The fourteen-item checklist became a **cover and fourteen pages**, one check each
+- The heading stayed on the cover; each page after it carried **one check and nothing else**
 - The author wrote one slide; the structure decided the rest
 - Nothing was measured to get there, so the same deck cuts the same way on any machine
 

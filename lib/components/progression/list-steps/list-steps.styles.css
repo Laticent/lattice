@@ -338,6 +338,15 @@ section.list-steps.chevron ol > li > ul {
   padding:1cqi 2.2cqi;
 }
 section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
+/* NARROW ROOM (the text-room rule, base.elements.css): the 16cqi tab is a fixed share of the
+ * slide, and under ~47 characters a line its uppercase label no longer fits it, so the
+ * chevron's clip-path cut the word ("PROBLEM" read "ROBLE"). The tab becomes a full-width band
+ * over its card, its point aiming down into the description, and the card takes the full
+ * width too. The band's bottom padding is the chevron's point. */
+@container lattice (width < 23em) {
+  section.list-steps.chevron ol > li { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  section.list-steps.chevron ol > li > strong { padding: 1cqi 2.2cqi 3cqi; }
+}
 
 /* converge — every band is full-width, clipped to a trapezoid whose edges sit on
  * two continuous converging diagonals; stacked at gap:0 the clips read as ONE
@@ -395,21 +404,27 @@ section.list-steps.ghost ol > li > ul > li {
    The default strip is a horizontal flex row of step cards with right-pointing
    connectors; in a tall box those columns crush. Apply the existing `vertical`
    treatment automatically — stack the cards down the frame, content-height, with a
-   down-pointing connector on the bottom edge. Keyed on the deck's `data-family` stamp (any tall or strip deck). `:not(.timeline)`
+   down-pointing connector on the bottom edge. Keyed on TEXT ROOM, the NARROW threshold of the
+   text-room rule (base.elements.css): under ~47 characters a line the row's cards crush, whatever
+   the box's shape. It keyed on the deck's `data-family` (tall, strip) until 2026-10-29; text room
+   adds square@hall (21em), which has a portrait box's room, and keeps square at laptop (32em) on
+   the row, as the history below records. `:not(.timeline)`
    spares the dots-on-a-spine variant (its own layout); the `:not()` also lifts the
    selector to (0,3,2) so it clears the equal-weight variant rules cleanly. Boundary
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol {
-  flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
-}
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li { flex: 0 0 auto; }
-section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li:not(:last-child)::after {
-  right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
-  transform: translate(50%, 50%);
-  border-top: 10px solid var(--border); border-bottom: none;
-  border-left: 10px solid transparent; border-right: 10px solid transparent;
+@container lattice (width < 23em) {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
+    flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
+  }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li { flex: 0 0 auto; }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li:not(:last-child)::after {
+    right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
+    transform: translate(50%, 50%);
+    border-top: 10px solid var(--border); border-bottom: none;
+    border-left: 10px solid transparent; border-right: 10px solid transparent;
+  }
 }
 
 
@@ -444,16 +459,25 @@ section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child 
 /* ── `cards:` register (#2317) ── the ROW form only. A single-line flex row ignores
  * `align-content`, so the row wraps (the cards still fit on one line; they flex from a zero
  * basis) and the register decides whether that line stretches to the stage or sits at its
- * text height. Column variants and tall/strip frames stack vertically and are left alone;
+ * text height. Column variants and narrow boxes stack vertically and are left alone (the
+ * narrow block at the end of this file undoes these two rules);
  * `capsule` is already content height (`flex: 0 1 auto`), so the register has nothing to move.
  * A split page (`lat-split-native`) is left to the generic lone-member rule, whose lone card
  * fills the stage; this rule outweighs it, so it must step aside. */
-section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol {
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native) > .cell-stage > ol {
   flex-wrap: wrap; align-content: var(--cards-align);
 }
 /* `min-width: 0` so a long word or a wide badge can never force a step onto a second line;
  * the row stays one line exactly as it was before it could wrap. `max-height: 100%` keeps
  * that line inside the stage when a dense step outgrows it, as the one-line row did. */
-section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li {
+section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native) > .cell-stage > ol > li {
   min-width: 0; max-height: 100%; box-sizing: border-box;
+}
+
+/* NARROW ROOM, the stacked column's half of the `cards:` register: the row form above wraps the
+   row and caps each card at the stage's height, and a stacked column (the narrow block in the
+   family-reflow section) does neither. After the register rules, at their weight, so it wins. */
+@container lattice (width < 23em) {
+  section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native) > .cell-stage > ol { flex-wrap: nowrap; align-content: normal; }
+  section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native) > .cell-stage > ol > li { max-height: none; }
 }

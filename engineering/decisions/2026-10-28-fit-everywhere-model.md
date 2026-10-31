@@ -468,3 +468,188 @@ adapt to a narrow box at a large venue. A split policy cannot fix a layout that 
 that is the Fluid family-reflow work (2026-10-27-fluid-layout-library.md), and the ratchet now
 counts it per component (§10).
 
+
+## 13. Responsive by text room: the shared rule and tier 1 (2026-10-29)
+
+**The rule.** A component reflows by the characters a line holds, not by the box's shape (owner,
+2026-10-29). The slide is the `lattice` size container, its font size is `--fs-body`, and `em` in a
+container query resolves against the container's own font size, which already carries the
+venue's `--fs-scale`. So `@container lattice (width < Nem)` reads "under about 2N characters of body
+text a line" at any box and venue (body text averages about 0.49em a character). Measured content
+boxes, in `em` of the section's font:
+
+| Box | laptop | conference | hall |
+|---|---|---|---|
+| hd, standard, 4K (any landscape) | 53.9 | 41.5 | 35.9 |
+| square | 32.1 | 24.7 | 21.4 |
+| portrait, story, mobile | 20.7 | 15.9 | 13.8 |
+
+Three shared thresholds, and no others (pinned by `test/unit/css/text-room-thresholds.test.js`):
+
+- **medium, `width < 34em`** (~70 characters): square at laptop and conference. Only a row of four
+  or more fields side by side reflows here (regulatory-update's changelog row, statute-stack's
+  four-column lane table, statute-stack's three rails).
+- **narrow, `width < 23em`** (~47 characters): square@hall and portrait or story at laptop. A row
+  of three fields stacks, a fixed-width tab becomes a band (list-steps chevron), a two-column
+  form goes to one (authority-chain's side rail, list-steps' horizontal row).
+- **tight, `width < 17em`** (~35 characters): portrait and story at conference and hall. A row's
+  marker gutter (an ordinal, a check, a label column, a page reference, the split cover's arrow)
+  moves above, below or inline with its text, so the text keeps the full width.
+
+No threshold reaches a landscape box: hd measures 35.9em even at hall, so every 16:9 deck renders
+as it did. `--col-min` (19ch, 24 characters), `--col-max` and `--fluid-cols` are the shared grid
+half of the rule (`base.tokens.css`, `base.elements.css`): as many columns as keep 24 characters
+each, never more than designed. `--fluid-cols` is declared on every element under a slide, because
+an unregistered custom property substitutes its `var()`s where it is declared.
+
+**What each tier-1 layout does below its threshold.** agenda (tight): the ordinal or "you are here"
+arrow heads the title and the page reference drops under it; `rail` stacks too and drops its
+journey line, since a smaller ring in its row still left four lines of eleven characters.
+checklist (tight): the mark heads its row and a trailing pill drops under the text. list and
+inventory (tight): the ordinal runs in at the start of the text; stacking it above was measured
+first and clipped a lettered page at portrait@hall that fit before. premise (tight): ordinal and
+label share the first line, the gloss takes the row. list-steps (narrow): the chevron tab becomes
+a full-width band over its card ("PROBLEM" was cut to "ROBLE"), and the horizontal row stacks.
+statute-stack: the status pill returns to the label's flow and wraps (narrow; it printed over
+"FEDERAL", the p5 follow-up), the label's pills trim their side padding at tight so the citation
+still shares the label's line, the `lane` table's rows become cards under one line of column names
+(medium), and the three rails go to one column (medium). regulatory-update (medium): the
+five-field row stacks beside its counter, `priority` and `cards` included, and at tight the
+counter heads the column; `cards` takes `--fluid-cols` with at most two. authority-chain (narrow):
+the side-rail grid gives way to the wrapping row and the tier label takes the first line; the
+label sizes to its content, since a tracked "STATUTE" at hall outgrew its fixed 14cqi basis and
+ran into the citation on `bracket`. glossary (narrow): each entry stacks, the term over its
+definition, with the header kept as one line of column names (hidden text would count as lost).
+list-tabular (narrow, then tight): the row's block flow, and at tight the meta on its own line.
+math `matrix` (narrow, then tight): the legend's 5em hanging indent goes, and at tight a formula
+label takes its own line. video (narrow): poster over copy. topic `fact` (narrow, then tight):
+the eyebrow joins the flow at the position it was pinned to, so a second line pushes the name down
+instead of printing over it, and the claim steps from `--fs-h1` to `--fs-h2`. The split cover's
+lead-in (tight) sets its arrow inline after the last word and steps down to the body size. A
+lone member on a split page keeps the body size at tight instead of stepping up to
+`--fs-emphasis`, which left a padded checklist row eleven characters a line.
+
+**Family rules retired.** As the owner's conditions ask, a component that moved to text room
+no longer keys a column rule on `data-family`: regulatory-update (medium), statute-stack's three
+rails (medium; every square and tall preset measures under 34em, so the presets render as
+before), authority-chain, list-steps, video, list-tabular and math `decompose` (narrow), glossary
+(narrow; it keyed on `strip` alone, and `mobile` has exactly `portrait`'s room). Text room adds
+square@hall (21.4em) to the narrow ones, which has the room of a portrait box at laptop. Two
+exceptions stay on the stamp: premise's section-level block, because a container query cannot
+style its own container, and list's strip-only `gap`, which is spacing, not a column rule.
+math's other variants keep theirs (followups.d/2962-p3-…). The adaptive-manifest gate
+(`checkAdaptDeclarations`) and the family-tier roster (`check-family-tiers.js`) now count a
+text-room rule as reflow, and agenda, checklist and topic declare `adapt.mode: reflow`.
+
+**The probe, corrected.** The readability probe measured each TEXT NODE against its own lines. A
+paragraph broken up by inline `code` became fragments that start and end mid-line, so "with
+Mermaid); work across dates is" read as three lines of twelve in a paragraph thirty characters
+wide (flowchart's and pricing's "When NOT to" cards at story@hall). It now measures each BLOCK
+against its own lines, with lines clustered by vertical center so an inline chip's taller box is
+not a line of its own. The checker found two holes in the first version, and the full corpus run
+found three more; each is closed and each has a case:
+
+- an `inline-block` or `inline-flex` chip is its own block (a crammed chip is still caught), and
+  its characters also count on its parent's lines ("`list` — declared statements — the
+  `principles` variant" read as short lines when the chips' characters were dropped);
+- a block is body text when most of its characters are body size, so a code chip in a paragraph
+  counts and an eyebrow set as inline code does not (a divider's "GROUP 02 · EXPERIMENTAL
+  DIAGRAMS");
+- a block broken by `<br>` (the engine sets `breaks: true`) or holding KaTeX is measured a node at
+  a time, by its interior lines, which are whole; that fallback passes formula prose of 17
+  characters a line that the old probe failed;
+- code in a `<pre>` gets no cram check, since its line breaks are the author's; it is still
+  checked for cuts and overprints.
+
+Checked against the original crams (agenda, checklist and list pages still fail) and against
+synthetic pages (an 80px inline-flex chip and a 70px inline-block chip fail; `<br>`-separated stat
+lines pass).
+
+**Measured** (`--edits none`, 94 galleries at square, portrait and story, laptop and hall, the
+nightly's own command; `main`'s stylesheet scored again with this probe to split the two causes):
+
+| Stylesheet + probe | Unreadable | Clipped | Lost |
+|---|---|---|---|
+| `main` + the old probe (the committed baseline) | 108 | 1,161 | 246 |
+| `main` + this probe | 101 | 1,160 | 246 |
+| **this branch + this probe** | **0** | **1,084** | **246** |
+
+The probe correction accounts for 7 of the 108 (the false positives above) and 1 clip; the
+layouts account for the other 101, every tier-1 gallery to 0, and 76 fewer clipped slide-cells.
+No count rose except compare-prose at portrait@hall (clip 9 to 10), and that is the cross-machine
+flap §10 describes: scored in this sandbox, `main` and this branch give the same verdict on every
+compare-prose page at that cell. A landscape box is untouched: 444 slides of the touched galleries
+rendered at hd, at laptop and at hall, with `main`'s stylesheet and this one, are pixel-identical.
+
+**Not yet.** On a live surface, Fluid's bucket watcher (2026-10-27-fluid-layout-library.md §4.4) is
+not built, so the opt-in fluid viewer, whose slide follows the window, can cross a threshold on a
+raw resize. Every export and every preset box is fixed and cannot. Tier 2 (text components that
+clip) and the general table form (label/value cards from a column-label stamp, which tables
+outside statute-stack need) are the next tier; charts are tier 3 (§15).
+
+
+## 14. The carousel template: the presentation half (2026-10-30)
+
+The owner's rulings for a split run (followups.d/2962-p6-carousel-template.md) come in two halves.
+The PRESENTATION half is built: the title and eyebrow appear on the cover only; a content page
+carries no running header, repeated heading, "(cont.)", pointer pill, progress rail or page number;
+the ending page drops the title; and every content page starts on one line at the top of its stage,
+its member at natural height, where the lone-member rules had centered it in a page-tall box. It is
+CSS on the role stamp every split page carries (`data-split-role`, split-envelope.js `withRole`),
+so the envelope's markup and its conservation are unchanged, and a 16:9 deck, which never splits,
+is untouched. A deck's `meta:` line (a date, an owner, a "Confidential" marking) stays on every
+page: it docks in the masthead's bay, which the cover does not carry, so only the masthead's
+heading half is hidden.
+
+**Checked.** An independent checker found the first cut covering only the shared envelope's pages:
+on the read-across strategies (compare-prose, split-panel, list-tabular, decision) the heading
+repeated as a `.split-runhead`, the pointer pill sat straight under the section where a descendant
+selector could not reach it, the page centered its content, and the k-of-N rail survived at section
+level on a deck with `paginate: false`; a lone table row (glossary) stayed centered by a heavier
+rule; and hiding the whole masthead dropped the `meta:` line from the run. Each is fixed and
+checked on a real render (glossary, compare-prose and checklist at story with `meta:` and
+`paginate: false`). compare-code's runhead is kept: it is the code block's own label.
+`test/unit/css/split-signal-scope.test.js` now pins that every page shape hides the signal, and
+still pins its chrome styling on a cover-stamped copy of each shape.
+
+The DENSITY half is not: a slide that fits whole stays a normal slide, no member is left alone on a
+page, pages are 60 to 85% full, a paired unit never splits, one type scale runs through a carousel.
+Each needs a measured decision, and today's split is structural, one member a page (`planSlide`,
+docs/src/lib/fluido/plan.ts). A measured cut in the CLI alone would make the CLI and the Studio split
+one deck differently (HARD RULE #1); the measured plan is Fluid's P2.
+
+**Measured** (the nightly's six cells, 94 galleries, against the §13 baseline): clipped
+slide-cells 1,084 to 848, unreadable 0 to 0, lost 246 to 246, and no count rose. The space the
+repeated heading took is what most of the 236 recovered. Getting there took four fixes the corpus
+run found and no unit test would have: a lone card in a row collection held at its max-content width
+(its text ran off every narrow page), a lone matrix-2x2 quadrant cut to its title (`overflow:
+hidden` drops a flex item's minimum height to 0), a lone kpi tile one track wide in its grid, and
+pages that used to clip and now fit but read crammed (regulatory-update `diff-bands` rows, pricing's
+"MOST POPULAR" ribbon printing over a long tier name), each fixed in its component at the narrow
+threshold.
+
+**Judged.** An independent judge scored contact sheets of two decks (a six-slide demo,
+`examples/carousel-split.md`, and `examples/auto-split.md`) in indaco, indaco-dark and cuoio, at
+portrait and story, against today's split: 3.5 to 4.5 and 2.5 to 3.5 out of 10, "better by about one
+point", a modest net gain to ship. Its three costs: pages mostly empty (one member a page, unchanged),
+a start line that moved with each member's length (fixed since: the top-anchored start), and
+`examples/auto-split.md` describing the old split (corrected). It put the ceiling without packing at
+5 to 5.5, and with packing and fit-whole at 8 to 8.5; 9 needs a judgment of real packed pages. It also
+named one real loss: the page counter is gone, which a 14-member run feels.
+
+**Blessed on a runner** (2026-10-30). The counts above were scored in a sandbox. At the owner's
+call, `fit-nightly.yml` ran on this branch (run 41045849942, ubuntu-latest, the nightly's own
+flags): no count rose, and one fell, the mixed baseline gallery at square@hall from 30 clipped
+slides to 29, the same one-slide cross-machine flap §10 describes. `test/fit/baseline.json` is
+that run's `baseline.json`, so the clipped total the nightly starts from is 847. The first run on
+`main` (run 40996342102, before this branch) rose by one in two cells of the same kind and filed
+#2989; a runner-blessed baseline is the remedy §10 names.
+
+## 15. Charts and diagrams: the design round (2026-10-30)
+
+The chart and diagram galleries clip 272 slide-cells after §13, and 129 of them are text slides in
+those galleries (the shared "See also" closing slide alone is 79), which belong to tier 2. The rest
+fall into five families that reflow differently: list-shaped charts, grids, time axes, Mermaid
+diagrams, and plotted charts, which clip almost nothing but shrink their labels below reading size, a
+failure the fit probe does not yet measure. Options per family, mockups and a recommended order:
+`2026-10-30-chart-reflow-narrow-boxes.md`, waiting on the owner's pick.

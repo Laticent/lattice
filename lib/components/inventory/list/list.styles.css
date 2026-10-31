@@ -240,3 +240,23 @@ section.list > .cell-stage > ol > li {
 section.list > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line, the ordinal gutter (1.25 times an ordinal set 1.4 times the row
+   type, twice that for roman) left a principles row about ten characters a line ("State each
+   rule / as an / imperative."). The ordinal RUNS IN: it sits inline at the start of the text,
+   and the text wraps under it at the row's full width. Stacking the ordinal above the text was
+   measured first and cost a line of height, enough to clip a lettered page at portrait@hall
+   that fit before. The row turns `block`, so the ordinal's flex gutter no longer applies; its
+   trailing gap rides inside its own box (HARD RULE #20). The takeaway list with nested rows
+   hangs its ordinal absolutely and is left as it is. */
+@container lattice (width < 17em) {
+  section.list > .cell-stage > ol > li,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) > li {
+    display: block;
+  }
+  section.list > .cell-stage > ol > li::before,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) > li::before {
+    display: inline-block; padding-inline-end: var(--sp-sm);
+  }
+}
