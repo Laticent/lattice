@@ -37,8 +37,20 @@ const { spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
 const SNAPSHOT = path.join(ROOT, 'test', 'quality', 'structure.json');
 
-// The workspace libraries in docs/src/lib/ that publish on their own (CLAUDE.md, the npm release).
-const LIBRARIES = ['anima', 'cadenza', 'calco', 'lente', 'ltt', 'segno', 'suono', 'tavola', 'trama', 'vetrina'];
+// The workspace libraries in docs/src/lib/ that publish on their own (CLAUDE.md, the npm release):
+// every folder there with its own `@laticent/*` package.json. Read from disk, not listed, so a new
+// workspace lands on layer 0 the day it is added instead of failing as an upward import from lib/.
+const LIBRARIES = fs.readdirSync(path.join(ROOT, 'docs', 'src', 'lib'), { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .filter((d) => {
+    try {
+      return /^@laticent\//.test(JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'src', 'lib', d.name, 'package.json'), 'utf8')).name);
+    } catch {
+      return false;
+    }
+  })
+  .map((d) => d.name)
+  .sort();
 
 /**
  * Every part, bottom layer first. `match` is a path prefix (or a function); the first match wins.
@@ -55,6 +67,10 @@ const PARTS = [
   { part: 'lib/motion', layer: 0, match: 'lib/motion/' },
   // A JSON Schema is a contract both sides read (the component, theme, plugin and package
   // formats), and imports nothing: its own part, at the bottom, wherever its folder is.
+  // The treatment vocabulary (`tint-*`, `mark-*`) as data: pure, require-free, read by the linter.
+  { part: 'lib/base', layer: 0, match: 'lib/base/' },
+  // The root manifest, read as data (a build stamps its version into the player core).
+  { part: 'package.json', layer: 0, match: (f) => f === 'package.json' },
   { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
   { part: 'lib/plugin-kit', layer: 3, match: 'lib/plugin-kit/' },
@@ -93,6 +109,9 @@ const PARTS = [
   // Pages, layouts, content collections and the site's build plugins; a NEW folder under docs/src/
   // matches nothing, so it fails until it is placed on a layer here.
   { part: 'site/pages', layer: 16, match: (f) => /^docs\/src\/(?:pages|layouts|content|plugins)\/|^docs\/src\/[^/]+$/.test(f) },
+  // The conformance contracts: a harness over the engine that reads tools/ (the component-docs and
+  // schema builders) and is run only by tools/. Each side imports the other, so it is part of tools.
+  { part: 'tools', layer: 20, match: 'lib/conformance/' },
   { part: 'tools', layer: 20, match: 'tools/' },
 ];
 // site/studio must win over site/components: order by specificity, not by layer.
@@ -181,6 +200,18 @@ function cruise() {
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)['"]((?:\.{1,2}|@)\/[^'"]+)['"]/g;
 const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1').replace(/`[^`]*`/g, '``');
 
+// A relative specifier counts toward the unread-file rule only when it names a file dependency-cruiser
+// scans: one that exists (a string that merely LOOKS like an import, such as esbuild's `stdin` source,
+// names none) and is not in a tree the cruise config excludes (tests, examples), whose edges it drops.
+const CRUISE_EXCLUDE = require('./structure.cruise.cjs').options.exclude.path.map((re) => new RegExp(re));
+const SPEC_EXTS = ['', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.json', '/index.js', '/index.ts'];
+function scannedTarget(from, spec) {
+  if (spec.startsWith('@/')) return true;
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
+  const hit = SPEC_EXTS.map((e) => base + e).find((f) => fs.existsSync(path.join(ROOT, f)) && fs.statSync(path.join(ROOT, f)).isFile());
+  return !!hit && !CRUISE_EXCLUDE.some((re) => re.test(hit));
+}
+
 /**
  * Modules dependency-cruiser listed with no local imports although their source has some. It exits
  * 0 on a parse error and reports the file with no dependencies, which would hide every edge the
@@ -197,7 +228,7 @@ function unreadModules(graph) {
     } catch {
       continue;
     }
-    const specs = [...stripComments(src).matchAll(SPECIFIER)].map((x) => x[1]).filter((spec) => !spec.includes('node_modules'));
+    const specs = [...stripComments(src).matchAll(SPECIFIER)].map((x) => x[1]).filter((spec) => !spec.includes('node_modules') && scannedTarget(m.source, spec));
     if (specs.length) out.push(m.source);
   }
   return out;
