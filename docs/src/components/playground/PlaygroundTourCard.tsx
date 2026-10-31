@@ -31,7 +31,7 @@ export function PlaygroundTourCard() {
 		// Inside the click: build the narrator now so this very gesture unlocks audio.
 		if (sound) voice.current?.prepareTourVoice(PLAYGROUND_VOICE_DIR);
 		setOpen(false);
-		import('@/playground/playground-tour.js').then((m) => m.startPlaygroundTour({ sound }));
+		import('@/components/playground/playground-tour.js').then((m) => m.startPlaygroundTour({ sound }));
 	};
 
 	if (!open) return null;

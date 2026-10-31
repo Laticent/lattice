@@ -38,7 +38,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ENGINE_FILE } from './engine-file.mjs';
+import { ENGINE_FILE } from '../lib/engine-file.mjs';
 
 // Candidate `v/` roots, most-reliable first: the cwd-anchored project root
 // (correct even after Vite relocates this module), then the legacy

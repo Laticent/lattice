@@ -14,8 +14,9 @@
 // The shared helper (guided-tour.js) owns the Tour button, the first-visit offer and the global
 // on/off. The offer is a card in PlaygroundApp (the shared WelcomeCard): audio only plays after a
 // click, so the card is also where the visitor tests their sound before anything speaks.
-import { PLAYGROUND_LINES as L, PLAYGROUND_VOICE_DIR } from '../components/studio/tours/lines';
-import { initGuidedTour } from './guided-tour.js';
+
+import { initGuidedTour } from '../../playground/guided-tour.js';
+import { PLAYGROUND_LINES as L, PLAYGROUND_VOICE_DIR } from '../studio/tours/lines';
 
 export { PLAYGROUND_VOICE_DIR as VOICE_DIR };
 
@@ -59,7 +60,7 @@ export function beats(startView = currentView()) {
  * @param {{ sound?: boolean }} [opts]
  */
 export async function startPlaygroundTour({ sound = true } = {}) {
-	const [{ run, storyboard }, voice] = await Promise.all([import('../lib/vetrina/index.js'), import('../components/studio/tours/tour-voice')]);
+	const [{ run, storyboard }, voice] = await Promise.all([import('../../lib/vetrina/index.js'), import('../studio/tours/tour-voice')]);
 	const startView = currentView();
 	const play = storyboard('', beats(startView));
 	try {

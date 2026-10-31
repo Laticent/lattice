@@ -10,6 +10,8 @@ import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { setSpendDeck } from '@/components/studio/ai/spend.js';
+import type { StripActions, StripVia } from '@/components/studio/strip-actions';
+import type { StripActionId, StripMenuState, StripShortcut } from '@/components/studio/strip-actions/model';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -50,8 +52,6 @@ import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import type { StripActions, StripVia } from '@/lib/strip-actions';
-import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { hashString } from '@/playground/deck-preview';
@@ -4009,7 +4009,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				e.preventDefault();
 				setCmdOpen((v) => !v);
 			} else if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented && !presentOpenRef.current && !isTypingTarget(document.activeElement)) {
-				// The one list of keyboard shortcuts (lib/strip-actions/shortcuts.tsx). Never from a text field, where "?" is a letter.
+				// The one list of keyboard shortcuts (components/studio/strip-actions/shortcuts.tsx). Never from a text field, where "?" is a letter.
 				e.preventDefault();
 				setShortcutsOpen(true);
 			} else if ((e.metaKey || e.ctrlKey) && e.key === '.') {
@@ -5124,7 +5124,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const othersLive = live.view.people.some((p) => !p.me);
 
 
-	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; lib/strip-actions) ──
+	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; components/studio/strip-actions) ──
 	// On the full view only, where a strip's place is the deck's place: never under a reader lens (a filtered, possibly
 	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
 	// for a read-only Live member.
@@ -5191,7 +5191,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		requestDelete(at);
 		return !othersLive;
 	};
-	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
+	// A drag's drop (components/studio/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
 	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
 	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
@@ -8276,10 +8276,10 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
-// The slide menu's icons that the palette rows below load anyway (lib/strip-actions `icons`); the menu brings its own two
+// The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
 const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
-const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
+const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
 	if (!hit) return null;

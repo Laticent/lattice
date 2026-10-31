@@ -13,18 +13,18 @@ import {
 	parseMarks,
 } from '../../../../lib/core/resolve-marks.js';
 import {
-	activeMarks,
-	DEFAULT_MARKS,
-	MARKS_FINISHES,
-} from './marks-catalog';
-import { marksValue, parseMarksValue } from './marks-value';
-import {
 	DEFAULT_MARKS_INTENSITY,
 	MARKS_AXES,
 	MARKS_INTENSITIES,
 	MARKS_TOKENS,
 	MARKS_NAMES as WORD_NAMES,
-} from './marks-words';
+} from '../../lib/marks-words';
+import {
+	activeMarks,
+	DEFAULT_MARKS,
+	MARKS_FINISHES,
+} from './marks-catalog';
+import { marksValue, parseMarksValue } from './marks-value';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but

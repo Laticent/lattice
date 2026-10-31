@@ -106,6 +106,10 @@ const PARTS = [
   { part: 'site/studio', layer: 14, match: 'docs/src/components/studio/' },
   // The Craft lab is a page-sized tool built on Studio pieces (the code field), so it sits above.
   { part: 'site/craft', layer: 15, match: 'docs/src/components/craft/' },
+  // So is the Playground's UI (its deck setup reuses the Studio's catalogs, pickers and slide pool),
+  // and the prototype bake-offs, which stage Studio pieces side by side. Nothing below imports them.
+  { part: 'site/playground-ui', layer: 15, match: 'docs/src/components/playground/' },
+  { part: 'site/proto', layer: 15, match: 'docs/src/components/proto/' },
   // Pages, layouts, content collections and the site's build plugins; a NEW folder under docs/src/
   // matches nothing, so it fails until it is placed on a layer here.
   { part: 'site/pages', layer: 16, match: (f) => /^docs\/src\/(?:pages|layouts|content|plugins)\/|^docs\/src\/[^/]+$/.test(f) },

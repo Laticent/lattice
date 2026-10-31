@@ -28,11 +28,11 @@ import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
+import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/lib/strip-actions';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { slideClass } from '../../lib/deck-lint';
 import { liveColor } from './live/live-model';
@@ -64,7 +64,7 @@ export interface StudioMapProps {
 	classLabels?: boolean;
 	/** Called once the map has mounted, so the shell hides the pills only when there is a map to replace them. */
 	onReady?: () => void;
-	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the map only navigates. */
+	/** The slide menu and its doors (components/studio/strip-actions), on the full view only; absent, the map only navigates. */
 	actions?: StripActions;
 	/** An empty deck's one tile, "+ Add your first slide", where the map edits. */
 	onAddFirst?: () => void;
@@ -288,7 +288,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	onReadyRef.current = onReady;
 	React.useEffect(() => onReadyRef.current?.(), []);
 
-	// ── THE SLIDE MENU (lib/strip-actions) ── on the rail's container, so MapRail, which the Playground shares, stays a
+	// ── THE SLIDE MENU (components/studio/strip-actions) ── on the rail's container, so MapRail, which the Playground shares, stays a
 	// pure navigator: the menu's doors are native listeners here, and its ⋯ goes in the rail's one slot by the focus.
 	const wrapRef = React.useRef<HTMLDivElement>(null);
 	const slideOf = React.useCallback((el: Element) => {

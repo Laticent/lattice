@@ -2,7 +2,7 @@
 // drawer use it, and nothing on the playground does, so it lives apart from marks-words.ts, which the
 // playground's snapshot cache loads eagerly. Rot-guard: marks-catalog.test.ts pins the parser to the engine's.
 
-import { DEFAULT_MARKS, DEFAULT_MARKS_INTENSITY, MARKS_INTENSITIES, MARKS_NAMES } from './marks-words';
+import { DEFAULT_MARKS, DEFAULT_MARKS_INTENSITY, MARKS_INTENSITIES, MARKS_NAMES } from '../../lib/marks-words';
 
 /** What a deck's own `marks:` value says, one word per axis, read the way the engine reads it
  *  (lib/core/resolve-marks.js `parseMarks`: the first recognized word on an axis wins; brackets and

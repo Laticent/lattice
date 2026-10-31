@@ -6,11 +6,11 @@
 // and pages/plugins/[slug]/learn.astro.
 //
 // Props:  entry — the catalog entry;  siblings — every entry of the same kind, in order
-import CatalogLayout from '../../layouts/CatalogLayout.astro';
-import CatalogTabs from './CatalogTabs.astro';
-import CatalogMark from './CatalogMark.astro';
-import { joinBase } from '../../lib/base-url.mjs';
-import { KIND, hrefsFor, inlineCode, plainText, renderCatalogMarkdown } from '../../lib/catalog.mjs';
+import CatalogLayout from './CatalogLayout.astro';
+import CatalogTabs from '../components/catalog/CatalogTabs.astro';
+import CatalogMark from '../components/catalog/CatalogMark.astro';
+import { joinBase } from '../lib/base-url.mjs';
+import { KIND, hrefsFor, inlineCode, plainText, renderCatalogMarkdown } from '../lib/catalog.mjs';
 
 const { entry, siblings } = Astro.props;
 const d = entry.data;

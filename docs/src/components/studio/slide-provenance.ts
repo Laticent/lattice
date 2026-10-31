@@ -11,10 +11,10 @@
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
 import { getFrontMatter } from '../../lib/front-matter';
+import { DEFAULT_MARKS, MARKS_NAMES } from '../../lib/marks-words';
 import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
 import { registerValue } from './deck-preset';
 import { parseMarksValue } from './marks-value';
-import { DEFAULT_MARKS, MARKS_NAMES } from './marks-words';
 
 export type AxisState = 'inherited' | 'on' | 'off';
 export type Provenance = {

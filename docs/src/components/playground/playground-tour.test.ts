@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { PLAYGROUND_LINES } from '../components/studio/tours/lines';
+import { PLAYGROUND_LINES } from '../studio/tours/lines';
 import { beats, STEPS } from './playground-tour.js';
 
 // The Playground tour speaks from clips recorded ahead of time, found by exact text, and it flips
