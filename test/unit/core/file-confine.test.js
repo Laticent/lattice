@@ -7,9 +7,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { createFileConfiner } = require('../../../lib/export/file-confine.js');
+const { createFileConfiner } = require('../../../lib/core/file-confine.js');
 const { buildPlayerHtml } = require('../../../lib/export/html-player.js');
-const { bake } = require('./bake-helper.js');
+const { bake } = require('../export/bake-helper.js');
 
 const photo = path.join(__dirname, '../../../lib/samples/photo-wide.jpg');
 const SECRET = Buffer.from('not-a-picture-but-secret-bytes');
@@ -91,7 +91,7 @@ test('buildPlayerHtml confines a deck-relative symlink and a typed file address 
 });
 
 test('a host-qualified file address names no local file and is refused before any file-system call', () => {
-  const { localPathOfFileUrl } = require('../../../lib/export/file-confine.js');
+  const { localPathOfFileUrl } = require('../../../lib/core/file-confine.js');
   assert.equal(localPathOfFileUrl('file://evilhost/share/x.png'), null);
   assert.equal(createFileConfiner([os.tmpdir()]).allows('file://evilhost/share/x.png'), false);
   assert.notEqual(localPathOfFileUrl('file://localhost' + pathToFileURL(os.tmpdir()).pathname), null, 'file://localhost is this machine');

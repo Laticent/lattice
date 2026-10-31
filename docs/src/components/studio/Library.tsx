@@ -9,7 +9,7 @@ import { notify } from '@/lib/notify';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
-import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
+import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';

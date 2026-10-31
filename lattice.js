@@ -667,8 +667,8 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
 const mdFile = positional[0];
 // Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
-// symlink in the deck folder and a typed `file:///etc/x` are refused (lib/export/file-confine.js; media note §4.11).
-const DECK_CONFINE = require('./lib/export/file-confine.js').createFileConfiner([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
+// symlink in the deck folder and a typed `file:///etc/x` are refused (lib/core/file-confine.js; media note §4.11).
+const DECK_CONFINE = require('./lib/core/file-confine.js').createFileConfiner([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
 let cssFile, outFile, paletteArg;
 // Did the CALLER supply the layout stylesheet, or did we construct the default? On
 // the default path the sheet is `dist/lattice.css` and its name is unambiguously
@@ -1787,7 +1787,7 @@ let DECK_PLUGIN_CSS = '';
 /** Exit, naming each package, if any of these code packages lacks the user's approval. */
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
-  const { untrustedCodePackages } = require('./lib/packages/code-door.js');
+  const { untrustedCodePackages } = require('./lib/cli/code-door.js');
   const { printableLine } = require('./lib/cli/package-gate.js');
   const untrusted = untrustedCodePackages(pkgs);
   if (!untrusted.length) return;
@@ -1842,7 +1842,7 @@ function withInstalledPlugins(source) {
  * is. The door admits the bytes against the pin again and refuses them where the OS layer reads OFF.
  */
 function withNpmPlugins(source, installed, approvals, shippedNames) {
-  const { deckPluginList } = require('./lib/plugins/deck-plugins.mjs');
+  const { deckPluginList } = require('./lib/core/deck-plugins.mjs');
   const asked = deckPluginList(source);
   // A deck that lists no plugin never reads a list: a file someone planted in a parent folder costs it nothing.
   if (!asked.length) return [];
@@ -2198,7 +2198,7 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
-const collageStamp       = require('./lib/core/collage-stamp');
+const collageStamp       = require('./lib/transformers/collage-stamp');
 const logoWallPack       = require('./lib/core/logo-wall-pack');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
@@ -2297,11 +2297,11 @@ function engineSlides(deckSource = rawMd) {
   const deckMd = deckSource;
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
-  // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
+  // sandbox runs them, a second render puts their sanitized output in (lib/cli/code-door.js).
   // A deck no installed code package claims renders once, as before.
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
-    const { renderWithCodePackages } = require('./lib/packages/code-door.js');
+    const { renderWithCodePackages } = require('./lib/cli/code-door.js');
     const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
@@ -3417,7 +3417,7 @@ async function renderBody(browser, g, closeBrowser) {
     const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
     // The command line names two more places the caller trusts by construction: the layout stylesheet and the
     // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
-    const { createFileConfiner, localPathOfFileUrl } = require('./lib/export/file-confine.js');
+    const { createFileConfiner, localPathOfFileUrl } = require('./lib/core/file-confine.js');
     const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
     const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
     // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
@@ -5417,7 +5417,7 @@ async function slideCameraFor(page) {
     let cam = null;
     try {
       // The same places the page itself may read: the deck, Lattice's install, and the folders of the stylesheet and palettes the command line names.
-      const camConfine = require('./lib/export/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
+      const camConfine = require('./lib/core/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
       cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: camConfine, allowRemote: !!flags['allow-remote'], warn: (m) => { if (!QUIET) console.error(m); } });
     } catch (e) {
       if (!QUIET) console.error(`  ⚠ slide camera unavailable (${e?.message || e}); using Chrome's screenshot`);

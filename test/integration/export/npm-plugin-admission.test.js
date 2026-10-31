@@ -29,7 +29,7 @@ const TIMEOUT = 300000;
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-npm-admission-'));
 process.env.LATTICE_HOME = home;
 const engine = require('../../../lib/engine');
-const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
+const { renderWithCodePackages } = require('../../../lib/cli/code-door.js');
 const { pluginDigest, grantTrust } = require('../../../lib/packages/trust.js');
 const { npmLayerRefusal } = require('../../../lib/core/os-sandbox.js');
 

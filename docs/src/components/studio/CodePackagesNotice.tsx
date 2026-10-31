@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { approveCodePackage, approvePlugin, type CodePackagesStatus, isPluginApproved, offeredIn, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
 import { returnsConsent } from '../../../../lib/core/code-shape.mjs';
-import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
+import { deckPluginList, writeDeckPlugins } from '../../../../lib/core/deck-plugins.mjs';
 
 const isPlugin = (p: { name: string }): p is StudioPlugin => 'fence' in p;
 /** What a plugin draws, in the words the strip uses: its fence and its `@kind{…}` spans (2026-10-14-plugin-inline-door.md). */

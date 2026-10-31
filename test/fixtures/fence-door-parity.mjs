@@ -1,7 +1,7 @@
 /**
  * ONE FIXTURE FOR BOTH FENCE DOORS (HARD RULE #1; plugin-system §9 decisions 10 to 15).
  *
- * The CLI's door (lib/packages/code-door.js, run through a real Chromium in
+ * The CLI's door (lib/cli/code-door.js, run through a real Chromium in
  * test/integration/export/plugin-fence-door.test.js) and the Studio's door
  * (docs/src/lib/code-packages/door-run.ts, run in docs/src/lib/code-packages/door.fence.test.ts)
  * each render THIS deck with THIS plugin and must satisfy the same CHECKS on the finished HTML.

@@ -2,12 +2,12 @@
  * What loads a plugin (engineering/decisions/2026-09-27-plugin-system.md §9 decision 6): the
  * default set, the deck's front-matter `plugins:` import list, and the plugins a slide class the
  * deck uses requires — and nothing else. lib/plugins/host-grammar.mjs `admitPlugins` decides it;
- * lib/plugins/deck-plugins.mjs reads and writes the list.
+ * lib/core/deck-plugins.mjs reads and writes the list.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { admitPlugins, activePlugins, withoutEmbedded, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
-const { deckPluginList, writeDeckPlugins, deckClassTokens } = require('../../../lib/plugins/deck-plugins.mjs');
+const { deckPluginList, writeDeckPlugins, deckClassTokens } = require('../../../lib/core/deck-plugins.mjs');
 const { createEngine } = require('../../../lib/engine');
 const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 

@@ -1,7 +1,7 @@
 /**
  * The door for code packages, the parts that need no browser: the registry slot and its hook
  * (lib/transformers/code-packages.js), the shared kernel (lib/core/code-door-core.mjs), the
- * CLI's capture and substitute hooks (lib/packages/code-door.js), consent (lib/packages/trust.js),
+ * CLI's capture and substitute hooks (lib/cli/code-door.js), consent (lib/packages/trust.js),
  * the gate (lib/cli/package-gate.js refuseCode), the attribute rule (lib/core/door-attr.mjs
  * doorFilterAttr) and the OS layer's user (lib/core/os-sandbox.js). The door run through the real
  * CLI, with a network log, is test/integration/export/code-package-door.test.js.
@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { claimedSlides, spliced, withFailureNote, printableLine, engineClaimsOf, slideInput } = require('../../../lib/core/code-door-core.mjs');
-const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/packages/code-door.js');
+const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = require('../../../lib/cli/code-door.js');
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile, trustOf, MAX_PINS } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/cli/package-gate.js');
 const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
@@ -350,7 +350,7 @@ describe('the OS layer', () => {
   });
 
   test('the render’s notice: OFF warns with the reason’s remedy; a layer nobody could measure warns too; on is a plain line', () => {
-    const { sandboxNotice } = require('../../../lib/packages/code-door.js');
+    const { sandboxNotice } = require('../../../lib/cli/code-door.js');
     const off = sandboxNotice(['tally'], { os: 'off', summary: 'OFF: the renderer runs as runner without Chromium’s OS sandbox', tried: ['with the OS sandbox: Failed to launch the browser process!'], reason: 'apparmor-userns' });
     assert.equal(off.warn, true);
     assert.match(off.text, /^warning: code packages: tally — OS sandbox OFF: .*\(with the OS sandbox: Failed to launch the browser process!\)\. To put it on, let this browser create user namespaces/);

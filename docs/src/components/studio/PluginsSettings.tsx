@@ -3,7 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { isPluginApproved, studioPlugins } from '@/lib/code-packages/door';
 import { cn } from '@/lib/utils';
-import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
+import { deckPluginList, writeDeckPlugins } from '../../../../lib/core/deck-plugins.mjs';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { admitPlugins } from '../../../../lib/plugins/host-grammar.mjs';
 

@@ -13,7 +13,7 @@ const path = require('node:path');
 const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, inlineSpans, inlineInput, inlineMarkup, inlinePlaceholder, MAX_INLINE_CHARS, fenceId, fenceNamespace, pluginNameConflicts, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
 const { rebuiltAlternatives, rebuiltBy, GENERIC } = require('../../../lib/transformers/rebuilt-classes.js');
 const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsentText, FENCE_NAME_RE } = require('../../../lib/core/code-shape.mjs');
-const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/packages/code-door.js');
+const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/cli/code-door.js');
 const { codeDigest, pluginDigest, isTrusted, grantTrust } = require('../../../lib/packages/trust.js');
 const crypto = require('node:crypto');
 const engine = require('../../../lib/engine');
@@ -558,7 +558,7 @@ describe('the worker for a fence renderer', () => {
 
 describe('the CLI door refuses a plugin whose fence is a code language', () => {
   test('a `python` plugin is not run and the door says why', () => {
-    const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
+    const { renderWithCodePackages } = require('../../../lib/cli/code-door.js');
     const warn = [];
     const e = engine.createEngine();
     const md = '---\ntheme: indaco\n---\n\n## P\n\n```python\nprint(1)\n```\n';

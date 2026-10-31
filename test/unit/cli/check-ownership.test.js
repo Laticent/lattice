@@ -1545,7 +1545,7 @@ describe('check-ownership', () => {
     test('failing arm: a path that names a deleted file is stale (a glob is not checked)', () => {
       const e = probe({ suites: [{ ...good, paths: ['lib/export/no-such-file.js'] }] });
       assert.match(e.join(), /stale platform suite 'ok-suite'.*no-such-file/);
-      assert.deepEqual(probe({ suites: [{ ...good, paths: ['lib/**/*.js', 'lib/export/file-confine.js'] }] }), []);
+      assert.deepEqual(probe({ suites: [{ ...good, paths: ['lib/**/*.js', 'lib/core/file-confine.js'] }] }), []);
     });
 
     test('failing arm: a run that names a deleted test file is stale', () => {

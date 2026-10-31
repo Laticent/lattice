@@ -1,5 +1,5 @@
 /**
- * KaTeX behind the wall (lib/core/katex-wall.js): QuickJS in WebAssembly, in this process, no browser.
+ * KaTeX behind the wall (lib/plugins/math/shared/katex-wall.js): QuickJS in WebAssembly, in this process, no browser.
  *
  *   PARITY    every shipped formula, in all three output modes, typesets byte for byte as KaTeX in Node does, and every
  *             result passes the output check as it is (so no export moves)
@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const wall = require('../../../lib/core/katex-wall.js');
+const wall = require('../../../lib/plugins/math/shared/katex-wall.js');
 
 const ROOT = path.join(__dirname, '../../..');
 

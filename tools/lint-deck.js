@@ -254,7 +254,7 @@ async function main(argv) {
     {
       const { buildAssetUrls, assetRefs, ASSET_FOLDER } = require('../lib/export/deck-assets');
       const deckDir = path.dirname(path.resolve(file));
-      const have = buildAssetUrls(deckDir, require('../lib/export/file-confine').createFileConfiner([deckDir])).urls;
+      const have = buildAssetUrls(deckDir, require('../lib/core/file-confine').createFileConfiner([deckDir])).urls;
       const seen = new Set();
       for (const ref of assetRefs(source)) {
         if (Object.hasOwn(have, ref.name) || seen.has(ref.name)) continue;

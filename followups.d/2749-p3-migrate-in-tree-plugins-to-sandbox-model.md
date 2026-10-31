@@ -42,7 +42,7 @@ Mermaid cost, measured 2026-10-18 on this container with the current bake path (
 Math feasibility, measured 2026-10-19 (the npm-plugin-safety PR): the vendored `katex.min.js` (272 KB, under the door's
 1 MB cap) runs as a fence renderer in the LOCKED sandbox page (`openPackageSandbox`, `runPackage`) and renders all 80
 formulas in the math docs, fixtures, gallery and examples, plus a malformed one, **byte-identical** to `renderTex` in
-Node (81 in all). That parity is now pinned by `test/unit/core/katex-wall.test.js` (below).
+Node (81 in all). That parity is now pinned by `test/unit/plugins/katex-wall.test.js` (below).
 Cost: 447 ms to open the sandbox once, then about 4.4 ms per formula against 0.9 ms in Node (the memo would cut repeats
 in both). So moving math changes no export bytes. Dark and light renders of `examples/math-form-frame.md` went to the
 owner for sign-off; **math moves after that sign-off, not before.** Mermaid and function-plot are not measured yet.
@@ -69,9 +69,9 @@ capture page with `window.functionPlot` undefined while the kept `.html` still h
 changed. Still open: function-plot in the previews (decision 15), and math.
 
 math in the CLI and the library API, moved 2026-10-20: KaTeX runs behind a wall, QuickJS compiled to WebAssembly
-in the same process (`lib/core/katex-wall.js`), with a 128 MB memory, a 5 s time and a 256 KB stack limit, and each
+in the same process (`lib/plugins/math/shared/katex-wall.js`), with a 128 MB memory, a 5 s time and a 256 KB stack limit, and each
 result is checked against what KaTeX emits before it leaves. It replaced the 2026-10-19 cut (KaTeX in the locked
 browser page, +1.3 s per math deck) after the owner ruled out starting a browser for it. The wall is synchronous, so
 D-A closed: there is no in-process fallback. Evidence: 91 formulas × 3 output modes byte-identical
-(`test/unit/core/katex-wall.test.js`), and the CLI never `require`s KaTeX (`test/integration/export/math-walled.test.js`).
+(`test/unit/plugins/katex-wall.test.js`), and the CLI never `require`s KaTeX (`test/integration/export/math-walled.test.js`).
 Still open: the previews (decision 15).

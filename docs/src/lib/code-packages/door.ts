@@ -1,6 +1,6 @@
 // THE STUDIO'S DOOR FOR CODE PACKAGES (portable-packages phase 6, step 4; contract note §9).
 //
-// The same door as the CLI's (lib/packages/code-door.js), on the Studio's surfaces. Every Studio
+// The same door as the CLI's (lib/cli/code-door.js), on the Studio's surfaces. Every Studio
 // render goes through `renderMarkdown` (render-engine.ts), and it comes through here:
 //   CONSENT FIRST. A package runs only once the user approved its code at its SHA-256, in THIS
 //     browser (`approveCodePackage`); the approval lives in this browser's storage, never in a
@@ -24,10 +24,10 @@
 
 import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/core/code-shape.mjs';
 import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
-import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 
 /** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
