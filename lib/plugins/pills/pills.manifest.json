@@ -32,7 +32,9 @@
       }
     },
     "services": [
-      "reads"
+      "reads",
+      "pillHtml",
+      "pillElement"
     ],
     "styles": true
   },

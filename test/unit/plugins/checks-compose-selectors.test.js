@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { composeHtml, composeElement } = require('../../../lib/plugins/checks/shared/compose.js');
-const { CHECKS } = require('../../../lib/plugins/checks/shared/registry.js');
+const { CHECKS } = require('../../../lib/core/checks-registry.js');
 
 const css = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
 const { document } = new JSDOM('<body></body>').window;

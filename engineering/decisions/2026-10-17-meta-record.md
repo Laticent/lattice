@@ -389,7 +389,7 @@ entry cannot rewrite what it reads.
 
 | File | Read | If missed |
 |---|---|---|
-| `lib/plugins/deck-plugins.mjs` | `commentBodies` loop: a `pane` key adds the component's plugin to the deck's set (`:171`) | On the default plugin set nothing changes, because `DEFAULT_PLUGINS` is every plugin (`host-grammar.mjs:33`) and the scan is skipped. It matters only when a host narrows the defaults: then a `{pane="bar"}` deck does not admit the bar chart's plugin. The engine path reports it through `componentPluginDiagnostics` (`engine/index.js:841`); the Studio settings panel would not list it |
+| `lib/core/deck-plugins.mjs` | `commentBodies` loop: a `pane` key adds the component's plugin to the deck's set (`:171`) | On the default plugin set nothing changes, because `DEFAULT_PLUGINS` is every plugin (`host-grammar.mjs:33`) and the scan is skipped. It matters only when a host narrows the defaults: then a `{pane="bar"}` deck does not admit the bar chart's plugin. The engine path reports it through `componentPluginDiagnostics` (`engine/index.js:841`); the Studio settings panel would not list it |
 | `lib/diagnostics/slice-equivalence-core.mjs` | `/<!--\s*_?pane\s*:/g` in `positionIsTrustworthy` | When no `paneCounts` map is supplied, a record-form panes deck is trusted as one rendered slide per source slide. Whether a Studio slice ever runs without `paneCounts` is **not verified** |
 | `docs/src/lib/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | The editor treats a record-form marker as a speaker note (`directiveKey('{pane="bar"}')` returns `''`) |
 | `docs/src/lib/deck-lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | The rail labels a record-form panes slide `text` |

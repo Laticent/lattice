@@ -15,7 +15,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '../../..');
 const table = require('../../../lib/core/inline-code-directives.js');
-const { stateHtml, stateElement, parseInlineState } = require('../../../lib/plugins/checks/shared/registry.js');
+const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/checks-registry.js');
 const pills = require('../../../lib/plugins/pills/pills.inline.js');
 const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 const icons = require('../../../lib/plugins/icons/icons.inline.js');

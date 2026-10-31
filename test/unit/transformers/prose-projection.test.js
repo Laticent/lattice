@@ -1033,8 +1033,8 @@ test('a pill lead is its own word wherever no layout reads it', () => {
 
 test('state-cells words equal the kernel\'s universal labels', async () => {
 	// prose-projection imports no kernel (it ships as a standalone bundle), so this pin is
-	// what keeps its copy of the words from drifting from lib/plugins/checks/shared/registry.js.
-	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/plugins/checks/shared/registry.js');
+	// what keeps its copy of the words from drifting from lib/core/checks-registry.js.
+	const { MARKER_LABELS, stateClassesFor } = require('../../../lib/core/checks-registry.js');
 	const [t] = renderSpeech('<!-- _class: table state-cells -->\n\n## K\n\n| A | B |\n| --- | --- |\n'
 		+ Object.keys(MARKER_LABELS).map((m) => `| r${stateClassesFor(m).sem} | [${m}] |`).join('\n') + '\n');
 	for (const [m, word] of Object.entries(MARKER_LABELS)) {

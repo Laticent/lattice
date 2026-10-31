@@ -34,7 +34,7 @@ const INCUMBENT = [
   ['lib/core/gantt-time.js', ['parseTimePoint', 'parseSpanToken']],
   ['lib/core/chart-values.js', ['NUMERIC_PILL', 'isValuePill']],
   ['lib/core/inline-pills.js', ['parse']],
-  ['lib/plugins/checks/shared/registry.js', ['parseInlineState']],
+  ['lib/core/checks-registry.js', ['parseInlineState']],
 ];
 
 export function locRows() {

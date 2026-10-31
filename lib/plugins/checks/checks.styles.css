@@ -61,7 +61,7 @@ section .state.unknown { --state-mark-pct: 100%; }
 
 /* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
  * The six state markers inside SINGLE-backtick inline code decode to the same disc
- * `checklist` draws, via the registry (`lib/plugins/checks/shared/registry.js`). Same six markers an author already
+ * `checklist` draws, via the registry (`lib/core/checks-registry.js`). Same six markers an author already
  * writes bare at a bullet's start, so the vocabulary is one thing in two positions
  * rather than two things — which is the whole reason the inline form uses `[…]` and not
  * a new spelling.

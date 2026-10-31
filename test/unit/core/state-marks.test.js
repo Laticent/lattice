@@ -10,8 +10,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const marks = require('../../../lib/plugins/checks/shared/registry.js');
-const leading = require('../../../lib/plugins/checks/shared/leading.js');
+const marks = require('../../../lib/core/checks-registry.js');
+const leading = require('../../../lib/core/checks-leading.js');
 
 describe('state-marks — the six markers', () => {
   const EXPECTED = {
@@ -273,7 +273,7 @@ describe('state-marks — one kernel, no duplicate decision', () => {
     assert.ok(!PRIVATE.test('const r = /[x\\- ]/;'), 'matrix-grid\'s three positional markers are not the class');
     // tools/segno-legacy/list-text.js is the FROZEN copy of the regex readers the list-text
     // grammar replaced (Segno phase 3): the oracle's source, which nothing in lib/ reads.
-    const EXEMPT = new Set(['lib/plugins/checks/shared/registry.js', 'lib/core/matrix-grid-cells.js', 'tools/segno-legacy/list-text.js']);
+    const EXEMPT = new Set(['lib/core/checks-registry.js', 'lib/core/matrix-grid-cells.js', 'tools/segno-legacy/list-text.js']);
     const offenders = [];
     const walk = (dir) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -288,7 +288,7 @@ describe('state-marks — one kernel, no duplicate decision', () => {
       }
     };
     for (const top of ['lib', 'tools', 'docs/src']) walk(path.join(ROOT, top));
-    assert.deepEqual(offenders, [], `retyped marker class — build it from MARKER_CLASS in lib/plugins/checks/shared/registry.js:\n  ${offenders.join('\n  ')}`);
+    assert.deepEqual(offenders, [], `retyped marker class — build it from MARKER_CLASS in lib/core/checks-registry.js:\n  ${offenders.join('\n  ')}`);
   });
 
   test('neither render path carries its own copy of stateClassesFor any more', () => {
@@ -301,9 +301,9 @@ describe('state-marks — one kernel, no duplicate decision', () => {
       assert.doesNotMatch(
         src,
         /function stateClassesFor\s*\(/,
-        `${rel} defines its own stateClassesFor — import it from lib/plugins/checks/shared/registry.js`,
+        `${rel} defines its own stateClassesFor — import it from lib/core/checks-registry.js`,
       );
-      assert.match(src, /plugins\/checks\/shared\/registry/, `${rel} should import the kernel`);
+      assert.match(src, /core\/checks-registry/, `${rel} should import the kernel`);
     }
   });
 });
