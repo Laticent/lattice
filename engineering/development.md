@@ -463,7 +463,9 @@ run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
 Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 25 -> 45 on
 2026-10-05, cut to 25 with the four-way shard on 2026-10-09; `ci.yml` has both) · `golden-diff` 25 ·
-`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
+`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5. One step carries its own cap too: the
+`apt-get` install in `integration` and `golden-diff` (4 minutes, normally 6-17 s), because a stalled mirror once
+held it for the whole 25-minute job. The cap ends such a hang early; it does not make the step pass.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
 `unit` catches three of those four; the 11m04s one finishes underneath it and still

@@ -69,7 +69,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { npxSync, FETCH_TIMEOUT_MS, WAIT_MS } = require('../../helpers/npx-lock');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
@@ -81,6 +81,9 @@ const SOURCE_DECK = path.join(ROOT, 'kit', DECK);
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const MARP_PKG = `@marp-team/marp-cli@${MARP_CLI_RANGE}`;
 const TIMEOUT = 300000;
+// The `before()` hook runs ensureMarp() (a wait for the fetch lock, the fetch, two short retries)
+// and then the export and render, so its budget covers all of them.
+const PREFLIGHT_MS = WAIT_MS + FETCH_TIMEOUT_MS + 2 * 60000;
 
 /**
  * Renders land in `.scratch/` — gitignored, the repo's sanctioned home for
@@ -207,11 +210,13 @@ async function ensureMarp() {
 	if (preflight) return preflight;
 	let last = null;
 	for (let attempt = 1; attempt <= 3; attempt++) {
-		// A SHORT per-attempt budget, not the hook's whole 300s. Three attempts
+		// A SHORT per-attempt budget, not the hook's whole budget. Three attempts
 		// against a silently-dropping network (SYN timeouts — the realistic CI
 		// failure, not the fast ECONNREFUSED that is easy to test) must still fit
 		// inside `before()`, or the diagnosis below is replaced by an opaque hook
-		// timeout.
+		// timeout. The first attempt is the process's first npx call, so npxSync
+		// raises it to FETCH_TIMEOUT_MS and may first wait up to WAIT_MS for
+		// another file's fetch; PREFLIGHT_MS below budgets the hook for both.
 		const probe = runMarp(['--version'], ROOT, 60000);
 		if (probe.status === 0) {
 			preflight = { ok: true, version: String(probe.stdout || '').trim() };
@@ -334,7 +339,7 @@ for (const fixture of FIXTURES) {
 				() => document.querySelector('[data-lattice-hydrate="mermaid"][data-lattice-settle="rendered"]') !== null,
 				{ timeout: 30000 },
 			);
-		}, { timeout: TIMEOUT });
+		}, { timeout: PREFLIGHT_MS + TIMEOUT });
 
 		after(async () => {
 			if (browser) await browser.close();

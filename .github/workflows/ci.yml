@@ -510,6 +510,9 @@ jobs:
         # plain text, not twemoji <img>). The webfont @import in lattice.css is
         # a portable bonus, but Chromium honors an installed emoji font far more
         # reliably than an @font-face one. See engineering/gotchas.md.
+        # Normally 6-17 s. A stalled mirror (azure.archive.ubuntu.com, 2026-10) held this step for the whole
+        # 25-minute job; the cap ends that at 4 minutes. It turns the hang into an early, clear failure, not a pass.
+        timeout-minutes: 4
         run: sudo apt-get update && sudo apt-get install -y poppler-utils fonts-noto-color-emoji
       - run: npm ci
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
@@ -649,6 +652,9 @@ jobs:
       - name: Install poppler-utils + ImageMagick + color emoji font
         # The emoji font for the same reason as the integration job: the renders must
         # match the ones that blessed the goldens.
+        # Normally 6-17 s. A stalled mirror (azure.archive.ubuntu.com, 2026-10) held this step for the whole
+        # 25-minute job; the cap ends that at 4 minutes. It turns the hang into an early, clear failure, not a pass.
+        timeout-minutes: 4
         run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
