@@ -150,6 +150,35 @@ engine, each now go through a mechanism that already existed, or one small gener
 | `lattice.js` → Mermaid's `motion-roles.js` | the bake publishes `state.motionTagger`; the player capture runs every published tagger |
 | `mermaid.bake.js` → `engine/index.js` | a generic `paneOrientations` bake service, which `lattice.js` supplies |
 
+### 5.1 After rebasing on main (#2631 to #2995)
+
+Main grew while this PR was open, and the gate named 120 problems in the code it added. The
+`checks` plugin (#2972) kept the six-state vocabulary in its own folder while core read it, which
+made `lib/` one loop again; the editors, the linter and the Marp export read the new plugins' code.
+Three rules were added, each with a test in `test/unit/tools/structure.test.js`:
+
+- **A plugin may import the workspace libraries** (`@laticent/segno`, …): on npm it would depend on
+  them like any package. The library list is read from disk (every `docs/src/lib/*` with its own
+  `@laticent/*` package.json), so a new workspace lands on layer 0.
+- **A plugin may import a plugin its manifest `requires`**, and no other: `checks` composes its pill
+  through `pills`. The host only admits a plugin with what it requires.
+- **`hostApi`, a bridge that only shrinks.** An in-tree plugin may list files that host tools ABOVE the
+  plugin layer import (the linter, the inline editors, the Marp export, the Studio). Code at the plugin
+  layer or below never may, a listed file nothing imports fails as stale, and a package that arrives as
+  data is refused for holding the key. The owner's one-model decision says host tools should read
+  every plugin, first-party or third-party, through its manifest and the sandbox; each entry is a file
+  to turn into manifest data, generic host code or a sandboxed call
+  (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).
+
+What moved instead of being allowed: the check vocabulary (`lib/core/checks-registry.js`,
+`checks-leading.js`), reached by the plugin through `lib/plugin-kit/checks.js`; the KaTeX wall into
+the math plugin (`math/shared/katex-wall.js`); `code-door.js` to `lib/cli`; `file-confine.js` and
+`deck-plugins.mjs` to core; `collage-stamp.js` to `lib/transformers`. Engine code below the plugins
+draws a pill or a check through services (`pills.pillHtml`/`pillElement`,
+`checks.composeHtml`/`composeElement`), and three callers read the existing hydrator, dispatch and
+grammar tables. The kit gained one small module per concern (`services`, `video`, `video-migrate`,
+`code-text`, `highlight`, `sandbox`, `media`, `sanitize`, `checks`).
+
 ## 6. The site
 
 - `single-slide-render.ts` lived in `docs/src/lib` but imported nine playground modules. It moved

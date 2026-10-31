@@ -16,6 +16,11 @@
       {"ink": "line", "d": "M76 52L94 34M76 74L94 94", "width": 6}
     ]
   },
+  "hostApi": [
+    "shared/baked-figure-tag.js",
+    "shared/init-directive.js",
+    "shared/label-length.js"
+  ],
   "contributes": {
     "fences": {
       "mermaid": { "body": "mermaid", "as": "code" }

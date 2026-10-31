@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const { analyze, partOf, isSeam, structureProblems } = require('../../../tools/structure.js');
 
 // Synthetic graphs carry none of the live tree's sanctions, so a run starts with an empty list.
-const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, ...opts });
+const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, requires: new Map(), hostApi: new Map(), ...opts });
 
 /** A graph from `[from, [to…]]` pairs, in dependency-cruiser's JSON shape. */
 const graph = (pairs) => ({
@@ -179,4 +179,33 @@ test('a plugin may import a plugin its manifest requires, and no other', () => {
 test('the live manifests: checks requires pills, and the reader maps names to parts', () => {
   const { pluginRequires } = require('../../../tools/structure.js');
   assert.ok(pluginRequires().get('lib/plugins/checks').has('lib/plugins/pills'));
+});
+
+test('hostApi: a host tool above the plugins may import a listed file; an unlisted file, or code below, may not', () => {
+  const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/pills.inline.js'])]]);
+  const r = run(graph([
+    ['lib/authoring/lint-core.js', ['lib/plugins/pills/pills.inline.js', 'lib/plugins/pills/shared/x.js']],
+    ['lib/core/glossary-slide.js', ['lib/plugins/pills/pills.inline.js']],
+    ['lib/plugins/pills/pills.inline.js', []],
+    ['lib/plugins/pills/shared/x.js', []],
+  ]), { hostApi });
+  assert.deepEqual(r.pluginIn.sort(), [
+    'lib/authoring/lint-core.js -> lib/plugins/pills/shared/x.js',
+    'lib/core/glossary-slide.js -> lib/plugins/pills/pills.inline.js',
+  ]);
+  assert.deepEqual(r.staleHostApi, []);
+});
+
+test('hostApi only shrinks: an entry nothing outside imports is stale', () => {
+  const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/pills.inline.js'])]]);
+  const r = run(graph([['lib/plugins/pills/pills.inline.js', []]]), { hostApi });
+  assert.deepEqual(r.staleHostApi, ['lib/plugins/pills/pills.inline.js']);
+  assert.ok(structureProblems(r).some((p) => /stale hostApi entry/.test(p)));
+});
+
+test('the live manifests: every hostApi entry is a file in its plugin folder', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { pluginManifests } = require('../../../tools/structure.js');
+  for (const files of pluginManifests().hostApi.values()) for (const f of files) assert.ok(fs.existsSync(path.join(__dirname, '../../..', f)), `${f} is listed in hostApi but does not exist`);
 });

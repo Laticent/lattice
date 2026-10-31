@@ -334,26 +334,42 @@ function tarjan(nodes, adj) {
 
 /** The whole analysis, from a dependency-cruiser graph (exported so the unit test can feed one). */
 /**
- * Each plugin's declared dependencies, by part: `requires` in its manifest. A plugin may import a
- * plugin it requires (the host only ever admits it with them, and on npm it is a declared package
- * dependency), and no other; `checks` composes its pill through `pills` that way.
+ * What each plugin's manifest says about its edges, by part:
+ *
+ *   requires — the plugins it depends on. A plugin may import a plugin it requires (the host only
+ *              ever admits it with them, and on npm it is a declared package dependency), and no
+ *              other; `checks` composes its pill through `pills` that way.
+ *   hostApi  — IN-TREE ONLY, and a bridge: the plugin's own files that host tools ABOVE the plugin
+ *              layer (the linter, the inline editors, the Marp export, the Studio) may import, because
+ *              they still call a first-party plugin's code to author a deck. Each entry is a file to
+ *              turn into manifest data, generic host code or a sandboxed call (the one-model decision,
+ *              followups.d/2630-p2-host-tools-read-plugins-as-data.md); the list only shrinks.
  */
-function pluginRequires(dir = path.join(ROOT, 'lib', 'plugins')) {
-  const out = new Map();
+function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
+  const requires = new Map();
+  const hostApi = new Map();
   const nameToPart = new Map();
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (!e.isDirectory()) continue;
     const file = fs.readdirSync(path.join(dir, e.name)).find((f) => f.endsWith('.manifest.json'));
     if (!file) continue;
     const m = JSON.parse(fs.readFileSync(path.join(dir, e.name, file), 'utf8'));
-    nameToPart.set(m.name, `lib/plugins/${e.name}`);
-    out.set(`lib/plugins/${e.name}`, m.requires || []);
+    const part = `lib/plugins/${e.name}`;
+    nameToPart.set(m.name, part);
+    requires.set(part, m.requires || []);
+    hostApi.set(part, new Set((m.hostApi || []).map((f) => `${part}/${f}`)));
   }
-  for (const [part, names] of out) out.set(part, new Set(names.map((n) => nameToPart.get(n)).filter(Boolean)));
-  return out;
+  for (const [part, names] of requires) requires.set(part, new Set(names.map((n) => nameToPart.get(n)).filter(Boolean)));
+  return { requires, hostApi };
 }
+const pluginRequires = (dir) => pluginManifests(dir).requires;
 
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires = pluginRequires() } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi } = {}) {
+  if (!requires || !hostApi) {
+    const m = pluginManifests();
+    requires ??= m.requires;
+    hostApi ??= m.hostApi;
+  }
   const { edges, files } = edgesOf(graph);
   const parts = new Map();
   const get = (p) => parts.get(p.name) || parts.set(p.name, { ...p, files: 0, lines: 0, internal: 0, out: new Map(), inc: new Set() }).get(p.name);
@@ -398,7 +414,13 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
   const usedReach = new Set(pluginReach.map(reachKey));
   const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
-  const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e));
+  // A host tool above the plugin layer importing a file the plugin lists in `hostApi` (the bridge, see
+  // pluginManifests). From the plugin layer or below it stays a break: code below asks for a service.
+  const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer > e.b.layer && !!hostApi.get(e.b.name)?.has(e.to);
+  const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
+  // A listed file nothing outside imports is stale: the list only shrinks, so the entry goes.
+  const hostApiUsed = new Set(edges.filter(viaHostApi).map((e) => e.to));
+  const staleHostApi = [...hostApi.values()].flatMap((set) => [...set]).filter((f) => !hostApiUsed.has(f)).sort();
 
   const inside = insideParts(edges, files);
 
@@ -438,6 +460,7 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     inside,
     pluginOut: pluginOut.map((e) => `${e.from} -> ${e.to}`),
     pluginIn: pluginIn.map((e) => `${e.from} -> ${e.to}`),
+    staleHostApi,
     unmapped: graph.modules.filter((m) => !m.coreModule && !m.couldNotResolve && !/node_modules/.test(m.source) && !partOf(m.source)).map((m) => m.source),
   };
 }
@@ -505,6 +528,7 @@ function structureProblems(result) {
   for (const s of result.staleSanctions) problems.push(`stale SANCTIONED_UPWARD entry (no import matches it any more): ${s}`);
   for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
+  for (const f of result.staleHostApi || []) problems.push(`stale hostApi entry (nothing outside the plugin imports it, or the file is gone; remove it from the manifest): ${f}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
   for (const u of result.unresolved || []) problems.push(`import resolves to no file (moved or misspelled): ${u}`);
   for (const f of result.unread) problems.push(`dependency-cruiser read no imports from a file that has some (a parse error hides its edges): ${f}`);
@@ -519,7 +543,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

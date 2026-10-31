@@ -25,6 +25,9 @@
       }
     ]
   },
+  "hostApi": [
+    "sparks.inline.js"
+  ],
   "contributes": {
     "inline": {
       "spark": {

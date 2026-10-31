@@ -134,6 +134,13 @@ such a line (`docs/src/lib/deck-outline/deck-outline.ts`). The build refuses a b
 that `renderers` holds nothing the manifest does not declare. Named rule exports let a bundler
 keep only the rules a consumer imports — the boundary parser takes the block rules alone.
 
+**What reaches a plugin from outside, and what it reaches** (`tools/structure.js`, run by
+`build:check`): a plugin imports its own folder, `lib/plugin-kit/`, the workspace libraries and the
+plugins it `requires`. Code outside reaches it through the generated tables and its `services`. A
+`queries` export on the syntax module (beside `detect`) offers other pure detectors through the grammar
+table. An in-tree plugin may also list files in `hostApi` for the linter, editors, Marp export and
+Studio, a bridge that only shrinks (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).
+
 A renderer is `(token, ctx, env) → string`. `ctx` is frozen: `ctx.name`, `ctx.options` (this
 plugin's `createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box
 family). Keep no state in closures — the engine reuses its parser across renders.

@@ -438,6 +438,10 @@ describe('the gate for a plugin’s one script', () => {
     assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'inline', 'styles', 'diagnostics', 'returns']);
   });
 
+  test('refuses `hostApi`: a plugin that arrives as data names no files for the engine to import', () => {
+    assert.match(refusePluginCode(plugin({}, { hostApi: ['x.inline.js'] })), /declares `hostApi`, which only a plugin in this repository may hold/);
+  });
+
   test('refuses `embedded`: a plugin that arrives as data never loads on every render with no off switch', () => {
     assert.match(refusePluginCode(plugin({}, { embedded: true })), /declares `embedded`, which only a plugin in this repository may hold/);
     assert.match(refusePluginCode(plugin({}, { embedded: false })), /declares `embedded`/, 'even false: the key is the repository\'s alone');

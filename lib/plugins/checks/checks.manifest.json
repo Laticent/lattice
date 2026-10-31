@@ -25,6 +25,9 @@
   "requires": [
     "pills"
   ],
+  "hostApi": [
+    "checks.inline.js"
+  ],
   "contributes": {
     "inline": {
       "state": {

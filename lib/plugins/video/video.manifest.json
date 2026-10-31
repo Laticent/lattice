@@ -30,6 +30,10 @@
       }
     ]
   },
+  "hostApi": [
+    "video.inline.js",
+    "shared/video-marp-export.js"
+  ],
   "contributes": {
     "inline": {
       "video": {

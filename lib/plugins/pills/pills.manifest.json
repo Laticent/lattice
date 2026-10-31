@@ -25,6 +25,9 @@
   "optional": [
     "icons"
   ],
+  "hostApi": [
+    "pills.inline.js"
+  ],
   "contributes": {
     "inline": {
       "pill": {

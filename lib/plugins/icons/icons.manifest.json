@@ -17,6 +17,9 @@
       {"ink": "line", "d": "M24 86V100A12 5 0 0 0 48 100V86", "width": 5}
     ]
   },
+  "hostApi": [
+    "icons.inline.js"
+  ],
   "contributes": {
     "inline": {
       "icon": {
