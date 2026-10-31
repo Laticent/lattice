@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-31 — ceiling raised by hand, measured against main for PR 2630
+
+Owner OK 2026-10-31 (asked in the PR 2630 session: "raise the ceiling", chosen over converting `lib/core/list-shapes.js` to an ES module for about 50 bytes). `main` at 089fd230e measures 125,999 bytes of Studio lint core against its 126,224 ceiling, 225 bytes to spare (docs build on both trees). PR 2630's plugin boundary adds about 272 bytes to `esm/lint.js`, spread thin: the list-shape detectors the catalog shares with the linter now live in their own core module, so their names cross a module boundary instead of minifying; the shared services table carries the two services engine code now draws pills and checks through; and the plugin kit's per-concern wrapper modules. The ceiling moves 512 bytes, from 126224 to 126736, so that PR lands near 126,271 with about 465 to spare. The soft target is untouched.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 126736 |
+
 ### 2026-10-30 — ceiling raised by hand, measured against main for PR 2982
 
 Owner OK 2026-10-30 (asked in the PR 2982 session: "Raise the ceiling slightly", chosen over deferring a debug overlay or loading the strip's New slide door late). `main` measures 562,063 bytes of Studio eager JS against its 562,200 ceiling, 137 bytes to spare (`measure-route-base.sh origin/main`, 2026-10-30). PR 2982 moves "+ New slide" from a floating pill over the preview into the head of the slide strip. The door's `strip` form (the pills' height, a 44px touch hit area, a Before | After split and an "added" note that float above it so the strip never shifts) adds 180 bytes to StudioIsland, measured against that PR's merge base after it gave 13 back; everything else in it loads with the lazy slide map. The ceiling moves 512 bytes, from 562200 to 562712, so that PR lands near 562,250 with about 460 to spare. The soft target is untouched.
