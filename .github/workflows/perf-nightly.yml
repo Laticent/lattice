@@ -533,3 +533,78 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+  # What each Studio ACTIVITY costs the main thread and memory: typing, navigation, panels, Present, the reading
+  # view, PDF and PowerPoint export, renderer memory per stage and a leak probe (docs/scripts/activity-bench.mjs;
+  # engineering/decisions/2026-10-29-studio-activity-audit.md is its first run). The owner asked for it nightly on
+  # 2026-10-29, on PR #2984.
+  #
+  # REPORT-ONLY for now: it builds main, measures it at 4x CPU, and publishes the table in the job summary plus the
+  # JSON as an artifact. It files nothing and fails only when the harness itself breaks (an activity that errors,
+  # exit 1). A regression check needs a same-runner base build and a few nights of spread to size its band, the
+  # same B-injob shape `watch` uses; that comes once the nights show what the noise is.
+  studio-activities:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Install root deps and build the generated bundles
+        run: |
+          npm ci
+          npm run build
+      - name: Install docs deps and build the site (production shape)
+        working-directory: docs
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          npm ci
+          npm run build
+      - name: Bench the Studio's activities (4x CPU, HTTP/2)
+        working-directory: docs
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          OUT: ${{ github.workspace }}/studio-activities.json
+        run: |
+          set -euo pipefail
+          node scripts/serve-h2.mjs dist 4430 > "$RUNNER_TEMP/serve-h2.log" 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -skf -o /dev/null https://localhost:4430/studio/ && break
+            sleep 1
+          done
+          curl -skf -o /dev/null https://localhost:4430/studio/ || { cat "$RUNNER_TEMP/serve-h2.log"; exit 1; }
+          node scripts/activity-bench.mjs
+      - name: Job summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const f = process.env.GITHUB_WORKSPACE + "/studio-activities.json";
+            if (!fs.existsSync(f)) { console.log("## Studio activities\n\nNo record: the bench did not finish."); process.exit(0); }
+            const r = JSON.parse(fs.readFileSync(f, "utf8"));
+            const out = [`## Studio activities (${r.cpu}x CPU, ${r.slides}-slide gallery deck)`, "", "| Activity | Main thread ms | Long tasks | Longest ms | TBT ms | Heap MB | Requests |", "|---|---|---|---|---|---|---|"];
+            for (const x of r.rows) out.push(`| ${x.activity}${x.error ? " (ERROR)" : ""} | ${x.busyMs} | ${x.longTasks} | ${x.longestMs} | ${x.tbtMs} | ${x.heapMB} | ${x.requests} |`);
+            if (r.memory.length) { out.push("", "| Memory stage | Renderer PSS MB |", "|---|---|"); for (const m of r.memory) out.push(`| ${m.stage} | ${m.rendererPssMB} |`); }
+            if (r.leak.length) { out.push("", "| Leak probe | Heap MB after GC | Documents | Listeners |", "|---|---|---|---|"); for (const l of r.leak) out.push(`| ${l.label} | ${l.heapMB} | ${l.documents} | ${l.listeners} |`); }
+            console.log(out.join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-activities-${{ github.run_id }}
+          path: studio-activities.json
+          if-no-files-found: ignore
+          retention-days: 30

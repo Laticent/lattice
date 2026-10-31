@@ -110,9 +110,13 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		Promise.all([
+			// Only THIS worker's stale caches: the `lattice-` prefix, minus the current set. The origin's Cache
+			// Storage also holds caches other code owns, chiefly the on-device models (`transformers-cache` for the
+			// ~80 MB voice, `webllm/model-cache`), and deleting "everything not current" wiped them on every worker
+			// update (engineering/decisions/2026-10-29-studio-activity-audit.md §5).
 			caches
 				.keys()
-				.then((keys) => Promise.all(keys.filter((k) => !ALL_CACHES.includes(k)).map((k) => caches.delete(k)))),
+				.then((keys) => Promise.all(keys.filter((k) => k.startsWith('lattice-') && !ALL_CACHES.includes(k)).map((k) => caches.delete(k)))),
 			// Re-stash the offline fallback: install runs once per worker VERSION,
 			// but storage pressure can evict the entry in between. Best-effort —
 			// an activate while offline must not reject the whole event.

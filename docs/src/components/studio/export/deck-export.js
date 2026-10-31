@@ -2069,6 +2069,48 @@ export function deckImageSetting(source) {
 	return applyImagesOverride(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images')));
 }
 
+/** A ceiling on one worker write: 20 s plus 2 s a slide, far past the ~4 s a 40-slide gallery takes at 4x CPU. */
+const pdfWriteDeadlineMs = (slides) => 20_000 + 2_000 * slides;
+
+/**
+ * `composeDeckPdf`'s write step in `pdf-write-worker.js`: the same `writeDeckPdf`, so the same bytes, off the main thread.
+ * The input is copied, not transferred, and `writeDeckPdf` does not mutate it, so when the WORKER fails (it cannot
+ * start, a DataCloneError, a crash, an unreadable reply, no answer by the deadline) this thread writes the same input
+ * and the PDF still comes out. An error the WRITER itself raised is not a worker failure: it is rethrown, because
+ * writing again here would fail the same way after twice the time.
+ */
+async function writePdfOffThread(input) {
+	let worker = null;
+	let timer = 0;
+	let writerError = null;
+	try {
+		worker = new Worker(new URL('./pdf-write-worker.js', import.meta.url), { type: 'module' });
+		const out = await new Promise((resolve, reject) => {
+			worker.onmessage = (e) => {
+				if (e.data?.type === 'done') resolve(e.data);
+				else {
+					writerError = new Error(e.data?.message || 'PDF write failed');
+					reject(writerError);
+				}
+			};
+			worker.onerror = (e) => reject(new Error(e.message || 'PDF write worker crashed'));
+			worker.onmessageerror = () => reject(new Error('PDF write worker sent a reply that could not be read'));
+			const ms = pdfWriteDeadlineMs(input.slides?.length || 0);
+			timer = setTimeout(() => reject(new Error(`PDF write worker gave no answer in ${ms / 1000} s`)), ms);
+			worker.postMessage(input);
+		});
+		return { bytes: out.bytes, drift: out.drift };
+	} catch (e) {
+		if (writerError && e === writerError) throw e;
+		console.warn('[deck-export] PDF write worker failed, writing on the main thread:', e?.message || e);
+		const { writeDeckPdf } = await import('../../../../../lib/core/pdf-compose/write-pdf.mjs');
+		return writeDeckPdf(input);
+	} finally {
+		clearTimeout(timer);
+		worker?.terminate();
+	}
+}
+
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images, fonts) {
 	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
@@ -2153,7 +2195,10 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1 });
+	// `betweenSlides` gives input and paint a turn after each slide is read, and `writePdf` writes the file in a worker:
+	// at 4x CPU the read was one 5.5 s task and the write one 3.8 s task (2026-10-29-studio-activity-audit.md).
+	const betweenSlides = () => new Promise((r) => setTimeout(r));
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1, betweenSlides, writePdf: writePdfOffThread });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
