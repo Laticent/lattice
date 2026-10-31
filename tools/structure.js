@@ -58,7 +58,7 @@ const LIBRARIES = fs.readdirSync(path.join(ROOT, 'docs', 'src', 'lib'), { withFi
  * plugins · 5 the engine · 6 what uses the engine · 10+ the docs site · 20 tools.
  */
 const PARTS = [
-  ...LIBRARIES.map((name) => ({ part: `@laticent/${name}`, layer: 0, match: `docs/src/lib/${name}/` })),
+  ...LIBRARIES.map((name) => ({ part: `@laticent/${name}`, layer: 0, library: true, match: `docs/src/lib/${name}/` })),
   { part: 'lib/adaptive', layer: 0, match: 'lib/adaptive/' },
   { part: 'lib/fonts', layer: 0, match: 'lib/fonts/' },
   { part: 'lib/finishes', layer: 0, match: 'lib/finishes/' },
@@ -169,7 +169,7 @@ const SANCTIONED_UPWARD = {};
 function partOf(file) {
   for (const p of MATCH_ORDER) {
     const hit = typeof p.match === 'function' ? p.match(file) : file.startsWith(p.match);
-    if (hit) return { name: typeof p.part === 'function' ? p.part(file) : p.part, layer: p.layer, plugin: !!p.plugin };
+    if (hit) return { name: typeof p.part === 'function' ? p.part(file) : p.part, layer: p.layer, plugin: !!p.plugin, library: !!p.library };
   }
   return null;
 }
@@ -329,7 +329,27 @@ function tarjan(nodes, adj) {
 }
 
 /** The whole analysis, from a dependency-cruiser graph (exported so the unit test can feed one). */
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH } = {}) {
+/**
+ * Each plugin's declared dependencies, by part: `requires` in its manifest. A plugin may import a
+ * plugin it requires (the host only ever admits it with them, and on npm it is a declared package
+ * dependency), and no other; `checks` composes its pill through `pills` that way.
+ */
+function pluginRequires(dir = path.join(ROOT, 'lib', 'plugins')) {
+  const out = new Map();
+  const nameToPart = new Map();
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    const file = fs.readdirSync(path.join(dir, e.name)).find((f) => f.endsWith('.manifest.json'));
+    if (!file) continue;
+    const m = JSON.parse(fs.readFileSync(path.join(dir, e.name, file), 'utf8'));
+    nameToPart.set(m.name, `lib/plugins/${e.name}`);
+    out.set(`lib/plugins/${e.name}`, m.requires || []);
+  }
+  for (const [part, names] of out) out.set(part, new Set(names.map((n) => nameToPart.get(n)).filter(Boolean)));
+  return out;
+}
+
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires = pluginRequires() } = {}) {
   const { edges, files } = edgesOf(graph);
   const parts = new Map();
   const get = (p) => parts.get(p.name) || parts.set(p.name, { ...p, files: 0, lines: 0, internal: 0, out: new Map(), inc: new Set() }).get(p.name);
@@ -367,11 +387,14 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   const staleSanctions = Object.keys(sanctioned).filter((k) => !usedSanctions.has(k));
 
   const reachKey = (e) => `${e.a.name} -> ${e.b.name}`;
-  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !/\/dist\//.test(e.to));
+  // A workspace library (`@laticent/segno`, …) publishes on its own: a plugin on npm would depend on it
+  // from npm, as it would on any package, so reaching it is not reaching past the kit.
+  const declared = (e) => e.b.plugin && !!requires.get(e.a.name)?.has(e.b.name);
+  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !e.b.library && !declared(e) && !/\/dist\//.test(e.to));
   const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
   const usedReach = new Set(pluginReach.map(reachKey));
   const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
-  const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools');
+  const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e));
 
   const inside = insideParts(edges, files);
 
@@ -492,7 +515,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

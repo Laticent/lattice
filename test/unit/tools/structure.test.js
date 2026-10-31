@@ -151,3 +151,32 @@ test('an import that resolves to no file is a problem: a module moved and its im
   const dep = { modules: [{ source: 'tools/v.mjs', dependencies: [{ module: '../docs/node_modules/x/index.mjs', resolved: '', couldNotResolve: true }] }] };
   assert.deepEqual(run(dep).unresolved, []);
 });
+
+test('a plugin may import a workspace library, as it would any package; core-only code is still past the kit', () => {
+  const r = run(graph([
+    ['lib/plugins/pills/pills.inline.js', ['docs/src/lib/segno/read.ts', 'lib/core/segno-spec.js']],
+    ['docs/src/lib/segno/read.ts', []],
+    ['lib/core/segno-spec.js', []],
+  ]), { requires: new Map() });
+  assert.equal(partOf('docs/src/lib/segno/read.ts').library, true);
+  assert.deepEqual(r.pluginOut.map((e) => e.split(' ')[0]), ['lib/plugins/pills/pills.inline.js']);
+  assert.match(r.pluginOut[0], /lib\/core\/segno-spec\.js/);
+});
+
+test('a plugin may import a plugin its manifest requires, and no other', () => {
+  const g = graph([
+    ['lib/plugins/checks/checks.inline.js', ['lib/plugins/pills/pills.inline.js']],
+    ['lib/plugins/video/video.inline.js', ['lib/plugins/pills/pills.inline.js']],
+    ['lib/plugins/pills/pills.inline.js', []],
+  ]);
+  const r = run(g, { requires: new Map([['lib/plugins/checks', new Set(['lib/plugins/pills'])]]) });
+  assert.equal(r.pluginOut.length, 1);
+  assert.match(r.pluginOut[0], /^lib\/plugins\/video\/video\.inline\.js/);
+  assert.equal(r.pluginIn.length, 1);
+  assert.match(r.pluginIn[0], /^lib\/plugins\/video\/video\.inline\.js/);
+});
+
+test('the live manifests: checks requires pills, and the reader maps names to parts', () => {
+  const { pluginRequires } = require('../../../tools/structure.js');
+  assert.ok(pluginRequires().get('lib/plugins/checks').has('lib/plugins/pills'));
+});
