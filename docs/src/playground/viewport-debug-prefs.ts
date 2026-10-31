@@ -54,7 +54,12 @@ export function onViewportDebugEnabledChange(fn: Listener): () => void {
 }
 
 /** Honor a `?vvdebug` URL param once at load — a phone can enable without the drawer. */
+// Once per page: the overlay's lazy entry applies it to decide whether to load the overlay, and the overlay's own gate
+// applies it again on mount. A second `?vvdebug=0` would switch off what the drawer had just switched on.
+let urlParamApplied = false;
 export function applyViewportDebugUrlParam(): void {
+	if (urlParamApplied) return;
+	urlParamApplied = true;
 	try {
 		const p = new URLSearchParams(location.search);
 		if (p.has('vvdebug')) setViewportDebugEnabled(p.get('vvdebug') !== '0' && p.get('vvdebug') !== 'off');

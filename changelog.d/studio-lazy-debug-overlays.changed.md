@@ -1,0 +1,1 @@
+- **The Studio loads 8 KB less script up front.** The preview-fidelity, viewport-debug and diagram-diagnostics overlays render nothing until you turn them on, yet every visit downloaded them. Each now loads only when its switch (or its URL parameter) turns it on.

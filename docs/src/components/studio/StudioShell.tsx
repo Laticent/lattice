@@ -2,6 +2,7 @@ import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Ch
 	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
+import { flushSync } from 'react-dom';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
 import './asset-render-hook';
 
@@ -485,6 +486,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const first = loadBootDeck();
 		return loadSource(first.id) ?? deckSource(first);
 	});
+	// THE LATEST TEXT, which `source` may trail: the editor's typing reaches `source` as a transition (see
+	// setSourceFromEditor), so a click handler, a timer or a save that read `source` could act on text the author has
+	// already typed past. Every writer below sets this BEFORE it queues the state change, and nothing assigns it in a
+	// render, so it is always the newest text. Read it, not `source`, wherever a handler derives the next text.
+	const sourceRef = React.useRef(source);
 	// THE SOURCE EPOCH — "this text is a different document, not an edit of the last one."
 	//
 	// The preview holds a rendered diagram across a swap it believes is an edit, and it
@@ -514,6 +520,51 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const filoPersist = React.useMemo(() => import('./studio-filo-persist').then((m) => m.studioPersistence((msg) => notify(msg, { duration: 8000 }))), []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
+	// The texts the editor has emitted that the shell's `source` may still trail (see setSourceFromEditor). Any
+	// other writer clears them: from then on a value equal to one of them is that writer's, not an echo.
+	const editorEchoesRef = React.useRef<string[]>([]);
+	/** Filo's commit, set once it exists further down (the editor's typing commits through it at once). */
+	const filoCommitRef = React.useRef<(text: string) => void>(() => {});
+	const clearEditorEchoes = React.useCallback(() => {
+		editorEchoesRef.current = [];
+	}, []);
+	/** A `source` the editor has already moved past: one of its own emissions, not the newest. */
+	const isStaleEditorEcho = React.useCallback((text: string) => {
+		const e = editorEchoesRef.current;
+		return e.length > 0 && text !== e[e.length - 1] && e.includes(text);
+	}, []);
+	/** Commit the editor's newest text NOW, if a transition still carries it. Run before anything that is not typing
+	 *  can act: a handler reads `source` from the last committed render, so without this a click on Duplicate, a
+	 *  shortcut or a settings row could act on text missing the last keystrokes. */
+	const catchUpEditor = React.useCallback(() => {
+		const e = editorEchoesRef.current;
+		if (!e.length) return;
+		const newest = e[e.length - 1];
+		flushSync(() => setSourceRaw(newest));
+		// Cleared after the flush, not before: a flushSync that could not flush (called from inside a React commit)
+		// must leave the echoes marked, or a later render of one would sync stale text back into the editor.
+		editorEchoesRef.current = [];
+	}, []);
+	// Any pointer press, and any key that is not plain typing in the editor (outside it, or with a modifier: a
+	// shortcut), catches up first. Capture phase on the document, so it runs before React dispatches the event and
+	// the handler that event reaches reads the caught-up render. Plain typing in the editor stays a transition.
+	React.useEffect(() => {
+		const onPointer = () => catchUpEditor();
+		const onKey = (e: KeyboardEvent) => {
+			const inEditor = e.target instanceof Element && !!e.target.closest('.cm-editor');
+			if (!inEditor) return catchUpEditor();
+			// In the editor only a SHORTCUT catches up. AltGr (reported as Ctrl+Alt on Windows and Linux) and Option on a
+			// Mac are how many layouts type `[ ] { } @ |`: that is typing, and a sync render per bracket would undo the gain.
+			if (e.getModifierState?.('AltGraph')) return;
+			if (e.metaKey || e.ctrlKey) catchUpEditor();
+		};
+		document.addEventListener('pointerdown', onPointer, true);
+		document.addEventListener('keydown', onKey, true);
+		return () => {
+			document.removeEventListener('pointerdown', onPointer, true);
+			document.removeEventListener('keydown', onKey, true);
+		};
+	}, [catchUpEditor]);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
 		intentRef.current = { ...intent, text, seq: ++intentSeqRef.current };
 	}, []);
@@ -521,16 +572,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 *  the epoch (above). The intent names the change in the undo history. */
 	const setSource = React.useCallback(
 		(next: string | ((s: string) => string), intent: SourceIntent) => {
+			clearEditorEchoes();
 			setSourceEpoch((e) => e + 1);
-			// The intent is stamped with the text the update produces. An updater may run twice under
-			// StrictMode; stamping the same text twice is harmless.
-			setSourceRaw((prev) => {
-				const text = typeof next === 'function' ? next(prev) : next;
-				stampIntent(intent, text);
-				return text;
-			});
+			// An updater runs on the LATEST text, never on a `source` a pending transition has not caught up with:
+			// React would commit `updater(stale)` first, a text the author never saw, and then rebase.
+			const text = typeof next === 'function' ? next(sourceRef.current) : next;
+			sourceRef.current = text;
+			stampIntent(intent, text);
+			setSourceRaw(text);
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. It
 	 *  carries the editor's own account of the change, so typing is recorded exactly. */
@@ -540,29 +591,57 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// run before this shell's commit effect, so a fresh stamp here would relabel that writer's
 			// change ("Rename → …") as typing. Keep the writer's intent when it already names this text.
 			if (change || intentRef.current?.text !== text) stampIntent({ label: change?.label ?? 'Typing', origin: change?.origin ?? 'markdown', ...(change ? { edits: change.edits, before: change.before, after: change.after } : {}) }, text);
-			setSourceRaw(text);
+			sourceRef.current = text;
+			if (!change) {
+				setSourceRaw(text);
+				return;
+			}
+			// An author's edit reaches the shell as a TRANSITION: React renders the shell in slices that yield to the
+			// next keystroke, and a render the next keystroke overtakes is dropped for the newer text. The editor
+			// already shows the text, so nothing on screen waits for this. While a transition is in flight the
+			// shell's `source` trails the editor's document; `isEditorEcho` lets the editor and the hub tell such a
+			// trailing value from a real write (engineering/decisions/2026-10-29-studio-activity-audit.md §2).
+			// No cap: the list empties whenever `source` catches up, on any other writer, and on `catchUpEditor`. A
+			// cap would un-mark the oldest echo, and a render of it would then roll the editor back.
+			editorEchoesRef.current.push(text);
+			// The undo history takes the edit NOW, with the editor's exact account of it. Left to the commit
+			// effect, two edits a transition merges into one render (a paste, then typing elsewhere) would reach
+			// Filo as one change and undo as one step.
+			filoCommitRef.current(text);
+			React.startTransition(() => setSourceRaw(text));
 		},
 		[stampIntent],
 	);
 	/** Compose's emit. Compose keeps no undo of its own; its typing coalesces like the editor's. */
 	const setSourceFromCompose = React.useCallback(
 		(text: string, label = 'Typing') => {
+			clearEditorEchoes();
+			sourceRef.current = text;
 			stampIntent({ label, origin: 'compose' }, text);
 			setSourceRaw(text);
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** A change that is not this author's: a collaborator's edit in a live session. No intent, so the
 	 *  commit effect reports it to Filo as an outside change rather than as the author's typing. */
-	const setSourceRemote = React.useCallback((text: string) => setSourceRaw(text), []);
+	const setSourceRemote = React.useCallback(
+		(text: string) => {
+			clearEditorEchoes();
+			sourceRef.current = text;
+			setSourceRaw(text);
+		},
+		[clearEditorEchoes],
+	);
 	/** Filo's own undo or redo landing: Filo already holds the text, so nothing is recorded. */
 	const setSourceFromHistory = React.useCallback(
 		(text: string, label: string) => {
+			clearEditorEchoes();
+			sourceRef.current = text;
 			stampIntent({ label, origin: 'history', kind: 'history' }, text);
 			setSourceEpoch((e) => e + 1);
 			setSourceRaw(text);
 		},
-		[stampIntent],
+		[stampIntent, clearEditorEchoes],
 	);
 	/** Filo's undo and redo, and its forgetting of a deleted deck, set further down once the hub and
 	 *  the live session exist; earlier code (the settings toast, deck delete) calls through these. */
@@ -601,10 +680,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [deck.id]);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
-	// Always-current mirror of `source`, so a settings write can snapshot the exact
-	// pre-change text for one-click Undo without threading it through every setter.
-	const sourceRef = React.useRef(source);
-	sourceRef.current = source;
 	// WHERE THE AUTHOR IS — the slide, its page, the caret — lives in ONE focus hub
 	// (docs/src/lib/fuoco), not in this shell. The editors report their caret to it, the rail, the
 	// keys, swipes and the ‹ › buttons ask it to move, and the preview reports the pages it can
@@ -1803,9 +1878,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pluginDefaultsTick is the re-read signal, not an input.
 	const deckIndex = React.useMemo(() => {
 		followDeckAdmission(source);
-		hub.update(source, { by: 'shell', duringRender: true });
+		// A render of text the editor has already typed past (a transition trailing the keyboard) must not move
+		// the hub BACK: the editor fed it the newer text with its own account of the edit. That render reads the
+		// newer index; the transition carrying the newest text follows.
+		if (!isStaleEditorEcho(source)) hub.update(source, { by: 'shell', duringRender: true });
 		return hub.outline() as DeckIndex;
-	}, [hub, source, pluginDefaultsTick]);
+	}, [hub, source, pluginDefaultsTick, isStaleEditorEcho]);
 	// The authored slides — exactly `splitSlides(body)`, read off the index rather than parsed again.
 	const slides = React.useMemo(() => deckIndex.units.map((_, i) => unitText(deckIndex, i)), [deckIndex]);
 	// The deck's reader-lens registry (front-matter `lenses:` block). Empty (just the implicit
@@ -2201,8 +2279,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 * `shouldNudgeBackup`.
 	 */
 	const flushActiveDeck = React.useCallback(() => {
-		if (dirty.current) saveSourceGuarded(deck.id, source);
-	}, [deck.id, source, saveSourceGuarded]);
+		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
+		const latest = sourceRef.current;
+		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) saveSourceGuarded(deck.id, latest);
+	}, [deck.id, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
@@ -3912,14 +3992,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// that no-op and tell the truth instead of banking a phantom checkpoint and claiming
 			// "Fix applied" over a deck that didn't change (trio red team / Munger). Leave the
 			// proposal up so the author can Discard and re-draft.
-			const next = applyDeckEdit(source, st.edit);
-			if (next === source) {
+			// The LATEST text, not the rendered `source`, which can trail typing in flight (setSourceFromEditor).
+			const cur = sourceRef.current;
+			const next = applyDeckEdit(cur, st.edit);
+			if (next === cur) {
 				notify(`Couldn’t apply this rewrite — it would split slide ${st.slide ?? ''}. Discard and re-draft, or edit by hand.`);
 				return false;
 			}
-			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
+			setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI fix', Date.now()));
 			setSource(next, { label: `AI fix${st.slide != null ? `: slide ${st.slide}` : ''}`, origin: 'ai' });
-			noteAiEdit(source, next);
+			noteAiEdit(cur, next);
 			discardFix(key);
 			notify(`Fix applied — ⌘Z or restore from History to undo.`);
 			return true;
@@ -3961,8 +4043,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			.map(([k, v]) => ({ key: k, st: v as Extract<FindingFixState, { phase: 'proposed' }> }))
 			.sort((a, b) => (b.st.slide ?? 0) - (a.st.slide ?? 0));
 		if (!proposed.length) return;
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fixes', Date.now()));
-		let next = source;
+		// The LATEST text, not the rendered `source`, which can trail typing in flight (setSourceFromEditor).
+		const cur = sourceRef.current;
+		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI fixes', Date.now()));
+		let next = cur;
 		const appliedSlides = new Set<number>();
 		const stale: { key: string; slide?: number }[] = [];
 		let applied = 0;
@@ -3987,11 +4071,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 		if (applied) {
 			setSource(next, { label: `Fix all (${applied})`, origin: 'ai' });
-			noteAiEdit(source, next);
+			noteAiEdit(cur, next);
 		}
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, discardFix, setSource, noteAiEdit]);
+	}, [fixStates, deck.id, discardFix, setSource, noteAiEdit]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -4476,10 +4560,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[filo, filoPersist],
 	);
+	filoCommitRef.current = filoCommit;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS a trigger — a tour's practice deck switches documents with no source change of its own.
 	React.useEffect(() => {
-		filoCommit(source);
-	}, [source, filoDoc, filoCommit]);
+		// A render of text the editor has typed past was committed when it was typed; committing it again
+		// here would record a step backwards.
+		if (!isStaleEditorEcho(source)) filoCommit(source);
+		// Caught up with the editor's newest emission: nothing trails any more.
+		const echoes = editorEchoesRef.current;
+		if (echoes.length && echoes[echoes.length - 1] === source) editorEchoesRef.current = [];
+	}, [source, filoDoc, filoCommit, isStaleEditorEcho]);
 	// A deck deleted takes its history with it (§6.4). "Clear all" reloads the Studio, which empties
 	// every in-memory history.
 	const filoDropDeck = React.useCallback(
@@ -5069,10 +5159,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const renderedSlides = deckIndex.units.reduce((n, u) => n + u.parts.length, 0);
 	const atFirstSlide = hereAt.unit <= 0 && hereAt.part <= 0;
 	const atLastSlide = hereAt.unit >= deckIndex.units.length - 1 && hereAt.part >= (deckIndex.units[hereAt.unit]?.parts.length ?? 1) - 1;
-	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened).
-	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(source, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
-	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
-	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(source, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened). It
+	// reads the LATEST text (`sourceRef`), never the rendered `source`, which can trail typing in flight: a click that
+	// fires no pointerdown (a tour's `el.click()`, a screen reader's activation) gets no catch-up.
+	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(sourceRef.current, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
+	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(sourceRef.current, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5187,7 +5279,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return !othersLive;
 	};
 	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
-	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(sourceRef.current, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
 	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
 	const stripStateKey = JSON.stringify(stripMenuState);
@@ -5334,9 +5426,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
 	const applyChatEdit = (next: string) => {
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
+		const cur = sourceRef.current;
+		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
 		setSource(next, { label: 'AI chat edit', origin: 'ai' });
-		noteAiEdit(source, next);
+		noteAiEdit(cur, next);
 		goToChunk(0, { after: next });
 		// The AI edit jumps the preview to the top — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
@@ -6609,7 +6702,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
@@ -7772,7 +7865,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -7961,7 +8054,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -8157,7 +8250,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-							onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })}
+							onInsert={(skeleton) => applyDeckOp(addAfterAt(sourceRef.current, hereAt, skeleton), { label: 'Insert slide' })}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}

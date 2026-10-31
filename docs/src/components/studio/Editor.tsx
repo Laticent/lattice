@@ -335,6 +335,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	focusHub?: FocusHub | null;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
+	/** True for a `value` this editor emitted and has since typed past. The Studio commits typing as a React
+	 *  transition, so `value` can trail the document by a keystroke or two; syncing such a value back would undo
+	 *  what the author just typed. Every other `value` is a real write and is synced as before. */
+	isStaleEcho?: (value: string) => boolean;
 	/** Identity of the deck this editor is showing. A different key builds a new view, so nothing
 	 *  of one deck's editor state (its caret, its selection) is ever shown on another. The undo
 	 *  history is not the editor's: the Studio keeps it in Filo, one history per deck. */
@@ -369,7 +373,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -389,6 +393,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const syncedValueRef = React.useRef<string | null>(null);
 	const hubRef = React.useRef(focusHub);
 	hubRef.current = focusHub;
+	const isStaleEchoRef = React.useRef(isStaleEcho);
+	isStaleEchoRef.current = isStaleEcho;
 	// The index revision the editor's text was last fed as, so a caret report names the text
 	// it was computed against (the hub drops a report against older text).
 	const revRef = React.useRef<number | undefined>(undefined);
@@ -1048,6 +1054,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// Bound to a live session: the binding carries every change (see `collab`).
 		if (collabRef.current) return;
 		if (!v || value === v.state.doc.toString()) return;
+		// A trailing echo of the author's own typing, not a write (see `isStaleEcho`).
+		if (isStaleEchoRef.current?.(value)) return;
 		const old = v.state.doc.toString();
 		// Minimal diff — the common prefix/suffix the two docs share.
 		const minLen = Math.min(old.length, value.length);
