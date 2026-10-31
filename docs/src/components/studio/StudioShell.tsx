@@ -60,7 +60,7 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/playground/sin
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
-import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
+import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
 import { activeMode, MODES } from '../../lib/mode-catalog';
@@ -176,10 +176,9 @@ import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
-// The math plugin's own detectors (math.syntax.mjs), through the generated grammar table, never by
+// The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
 // importing the plugin's folder (tools/structure.js holds that line).
-const MATH = PLUGIN_GRAMMAR.find((p) => p.name === 'math');
-const sourceHasMathOutsideCode = MATH?.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
+const sourceHasMathOutsideCode = MATH.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest

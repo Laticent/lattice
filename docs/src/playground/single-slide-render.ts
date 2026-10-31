@@ -41,9 +41,9 @@ import {
 	sectionsOf,
 	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { math as MATH } from '../../../lib/plugins/detect.generated.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
-import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
 import { pluginDataMissing } from '../lib/ensure-plugin-data';
 import { ensureEngine } from '../lib/load-engine';
 import { renderMarkdown } from '../lib/render-engine';
@@ -60,11 +60,10 @@ import { previewCspMeta } from '../playground/preview-csp.js';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 
-// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated grammar
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
 // table, never by importing the plugin's folder (tools/structure.js holds that line).
-const MATH = PLUGIN_GRAMMAR.find((p) => p.name === 'math');
-const sourceHasMath = MATH?.detect as (src: string) => boolean;
-const sourceHasMathOutsideCode = MATH?.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
+const sourceHasMath = MATH.detect as (src: string) => boolean;
+const sourceHasMathOutsideCode = MATH.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
 
 // NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
 // behind the Mermaid URL option as its default; see deck-preview.js's note for why it was
