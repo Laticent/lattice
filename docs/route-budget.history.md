@@ -6,9 +6,9 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-10-31 — ceiling raised by hand, measured against main for PR 2630
+### 2026-10-31 — ceiling raised by hand, measured against main for PR 2997
 
-Owner OK 2026-10-31 (asked in the PR 2630 session: "raise the ceiling", chosen over converting `lib/core/list-shapes.js` to an ES module for about 50 bytes). `main` at 089fd230e measures 125,999 bytes of Studio lint core against its 126,224 ceiling, 225 bytes to spare (docs build on both trees). PR 2630's plugin boundary adds about 272 bytes to `esm/lint.js`, spread thin: the list-shape detectors the catalog shares with the linter now live in their own core module, so their names cross a module boundary instead of minifying; the shared services table carries the two services engine code now draws pills and checks through; and the plugin kit's per-concern wrapper modules. The ceiling moves 512 bytes, from 126224 to 126736, so that PR lands near 126,271 with about 465 to spare. The soft target is untouched.
+Owner OK 2026-10-31 (asked in the PR 2997 session: "raise the ceiling", chosen over converting `lib/core/list-shapes.js` to an ES module for about 50 bytes). `main` at 089fd230e measures 125,999 bytes of Studio lint core against its 126,224 ceiling, 225 bytes to spare (docs build on both trees). PR 2997's plugin boundary adds about 272 bytes to `esm/lint.js`, spread thin: the list-shape detectors the catalog shares with the linter now live in their own core module, so their names cross a module boundary instead of minifying; the shared services table carries the two services engine code now draws pills and checks through; and the plugin kit's per-concern wrapper modules. The ceiling moves 512 bytes, from 126224 to 126736, so that PR lands near 126,271 with about 465 to spare. The soft target is untouched.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
