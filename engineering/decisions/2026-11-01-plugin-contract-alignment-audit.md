@@ -62,12 +62,12 @@ Each row is a function the engine hands a plugin through `ctx` today.
 | `exportCtxFor` → `vocabulary.video.fenceStep` (Marp export) | The old `video` fence's rewrite | 3: video's syntax | §2 `video-migrate`, §2a: moves into the plugin; the fix driver calls a declared `fixes` hook | Move `video-migrate.js` into the plugin; add the `fixes` hook; delete `host-export.js` |
 | `vocabulary.checks` (base): the whole module, data **and** `stateHtml`, `stateElement`, `parseInlineState` | Status data plus drawing | Data: 1. Drawing: see §3, Q2 | §2 `checks`: "reaches the checks plugin as frozen data … Drawing a state stays the plugin's" | Pass only the data (`CHECKS`, `STATUSES`, `MARKERS`, classes). Drawing: Q2 |
 
-**The spec lags the contract.** `spec/LPM.md` §5 documents the role-module ctx as `api: 1`, and the note (§4,
-"Versions") makes the changed role-module contract `api: 2`, with `KNOWN_API` accepting both. The branch changed the
-contract (the state facade, ctx factories, frozen token views, no `ctx.escape`) without the bump:
-`lib/plugins/resolve.js` still knows only `[1]`, every in-tree manifest says `api: 1`, and LPM still describes the old
-ctx. The fix is the note's: in-tree manifests move to `api: 2`, `KNOWN_API` becomes `[1, 2]` (the zip and door contract
-stays `api: 1`), and LPM gains an `api: 2` section.
+**The spec lags the contract.** `spec/LPM.md` §5 documents the old ctx as `api: 1`. The branch changed the contract
+(the state facade, ctx factories, frozen token views, no `ctx.escape`) without saying so anywhere: `lib/plugins/resolve.js`
+knows only `[1]` and LPM still describes the old ctx. The Hollywood note planned a dual `api: 1`/`api: 2` host so the
+zip and door plugins in users' libraries kept working; the owner has since ruled that out ("we are not GA, so we don't
+need to be backwards compatible"). So there is **one** contract: every plugin, in-tree, zip or door, moves to it in
+this PR; `api` becomes 2 and `KNOWN_API` is `[2]`; LPM is rewritten to describe only it; the scaffold writes it.
 
 `lib/core/segno-spec.js`, a one-line re-export of `@laticent/segno/read`, goes too: its callers require the
 package.
