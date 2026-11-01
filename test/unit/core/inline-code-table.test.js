@@ -250,8 +250,8 @@ describe('the inline-code table — the lead table and the probe flags', () => {
    *  options together (a frame with a look, a skin with a beard) is reached by construction. */
   function pairs() {
     // Valid heads, and the empty or blank ones a kind refuses (a blank name, an empty label).
-    const kinds = [['^{database', icons.SPEC], ['!{Ada Okafor', avatars.SPEC], ['{BETA', CORE.pill], ['~{1 2 3', CORE.spark],
-      ['!{""', avatars.SPEC], ['!{ ', avatars.SPEC], ['!{c3', avatars.SPEC], ['{""', CORE.pill], ['{ ', CORE.pill], ['^{', icons.SPEC], ['~{', CORE.spark]];
+    const kinds = [['^{database', icons.SPEC], ['!{Ada Okafor', avatars.SPEC], ['{BETA', CORE.pill], ['~{1 2 3', require('../../../lib/plugins/sparks/sparks.inline.js').SPEC],
+      ['!{""', avatars.SPEC], ['!{ ', avatars.SPEC], ['!{c3', avatars.SPEC], ['{""', CORE.pill], ['{ ', CORE.pill], ['^{', icons.SPEC], ['~{', require('../../../lib/plugins/sparks/sparks.inline.js').SPEC]];
     const out = [];
     for (const [head, spec] of kinds) {
       const words = [];

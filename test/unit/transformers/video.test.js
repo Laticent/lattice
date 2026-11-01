@@ -22,7 +22,8 @@ const { findTopLevelH2 } = require('../../../lib/core/top-level-h2');
 const { resolveOembed, videoUrlsFromDeck } = require('../../../tools/fetch-video-oembed');
 
 /** The figure the plugin draws from one record, as the markdown-it pass would emit it. */
-const fig = (record) => plugin.inline.video.blockHtml(record);
+// The kind as the host builds it, with the video plugin's ctx (lib/core/plugin-ctx.js).
+const fig = (record) => plugin.inline(require('../../../lib/core/plugin-ctx.js').ctxFor('video')).video.blockHtml(record);
 const YT = '{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}';
 const section = (body, cls = 'video') => `<section class="${cls}">${body}</section>`;
 

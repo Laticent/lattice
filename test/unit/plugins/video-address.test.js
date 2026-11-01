@@ -153,7 +153,8 @@ describe('what the red team found', () => {
 
 describe('what the checker found', () => {
   test('Export-to-Marp rewrites a lone record to a plain link, and leaves a fenced or unreadable one alone', () => {
-    const { withVideoLinks } = require('../../../lib/plugins/video/shared/video-marp-export.js');
+    // The Marp rewrite as the host calls it: with the video plugin's ctx (lib/core/plugin-ctx.js).
+    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/core/plugin-ctx.js').ctxFor('video'));
     const out = withVideoLinks(`a\n\n\`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}\`\n\n- \`@video{"https://attacker.example/x"}\`\n\n\`\`\`\n\`${SPAN}\`\n\`\`\`\n`);
     assert.match(out, /^\[Tour\]\(https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ\)$/m);
     assert.match(out, /`@video\{"https:\/\/attacker\.example\/x"\}`/);
@@ -169,7 +170,8 @@ describe('what the checker found', () => {
 });
 
 describe('what the second checker found', () => {
-  const { withVideoLinks } = require('../../../lib/plugins/video/shared/video-marp-export.js');
+  // The Marp rewrite as the host calls it: with the video plugin's ctx (lib/core/plugin-ctx.js).
+    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/core/plugin-ctx.js').ctxFor('video'));
   const REC = (u, extra = '') => `\`@video{"${u}"${extra}}\``;
 
   test('Marp: a link destination cannot end early, so one record never adds a second link', () => {

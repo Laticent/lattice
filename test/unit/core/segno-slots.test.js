@@ -16,6 +16,9 @@ const code = (slot, text) => {
   return r.ok ? 'ok' : r.diagnostics[0].code;
 };
 
+// The spark's record shape is the sparks plugin's own now (lib/plugins/sparks/sparks.inline.js `SPEC`).
+const sparkSlot = () => require('@laticent/segno/read').compileSlot(require('../../../lib/plugins/sparks/sparks.inline.js').SPEC, 'core.spark');
+
 describe('segno-spec: JSON → Segno slot', () => {
   test('every type compiles', () => {
     const slot = compileSlot({
@@ -83,9 +86,9 @@ describe('core slots', () => {
     assert.notEqual(code(coreSlot('pill'), '{A, c13}'), 'ok');
   });
   test('a spark needs its tag; a pill refuses one', () => {
-    assert.equal(code(coreSlot('spark'), '{1 2 3}'), 'missing-tag');
+    assert.equal(code(sparkSlot(), '{1 2 3}'), 'missing-tag');
     assert.equal(code(coreSlot('pill'), '~{BETA}'), 'unexpected-tag');
-    assert.deepEqual(value(coreSlot('spark'), '~{3 5 -2 4, bar, c3, lg}'), { data: '3 5 -2 4', type: 'bar', color: 3, size: 'lg' });
+    assert.deepEqual(value(sparkSlot(), '~{3 5 -2 4, bar, c3, lg}'), { data: '3 5 -2 4', type: 'bar', color: 3, size: 'lg' });
   });
   test('slots are compiled once', () => {
     assert.equal(coreSlot('pill'), coreSlot('pill'));

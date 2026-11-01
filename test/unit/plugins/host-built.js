@@ -22,6 +22,7 @@ const pills = Object.freeze({
   attempt: (text, off, explain) => pillsModule.attempt(text, pillCtx(off), explain),
   iconProblem: (text, off) => pillsModule.iconProblem(text, pillCtx(off)),
   iconSpelling: (text, off) => pillsModule.iconSpelling(text, pillCtx(off)),
+  reservedLabel: (text) => pillsModule.reservedLabel(text, pillCtx(null)),
   pillHtml: (text, off, lead) => pillsModule.pillHtml(text, pillCtx(off), lead),
   pillElement: (doc, text, off, lead) => pillsModule.pillElement(doc, text, pillCtx(off), lead),
   pillHtmlFrom: (parts, off, lead) => pillsModule.pillHtmlFrom(parts, pillCtx(off), lead),
