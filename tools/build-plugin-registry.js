@@ -440,7 +440,9 @@ function renderGrammar(ordered, exportsByName, components, fills) {
         `anchor: Object.freeze(${JSON.stringify(rule.anchor)})`,
         `triggers: Object.freeze(${JSON.stringify(rule.triggers)})`,
         `opaque: ${rule.opaque === true}`,
-        `run: ${mod}__${token}`,
+        // Through the state facade, here where the table is built, so no reader of the table can run a rule raw
+        // (lib/plugins/state-facade.mjs; 2026-11-01-plugin-contract-hollywood.md §4).
+        `run: guardedRule(${mod}__${token}, ${JSON.stringify(m.name)}, new Set(${JSON.stringify(Object.keys(m.contributes.syntax))}))`,
       ];
       return `      ${token}: Object.freeze({ ${fields.join(', ')} }),`;
     });
@@ -467,7 +469,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
     ].join('\n');
   });
   return `${HEADER('The plugins\' GRAMMAR, in dependency order: manifest data + syntax rules + detect. No renderer library is reachable from here.')}
-${byModule(imports).join('\n')}
+${byModule([...imports, ...(ordered.some((p) => Object.keys(p.manifest.contributes.syntax || {}).length) ? [`import { guardedRule } from './state-facade.mjs';`] : [])]).join('\n')}
 
 export const PLUGIN_GRAMMAR = Object.freeze([
 ${entries.join('\n')}

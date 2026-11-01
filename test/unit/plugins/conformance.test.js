@@ -237,7 +237,7 @@ describe('plugin rules fire only on their declared triggers', () => {
   for (const { plugin, token, rule } of rules) {
     test(`${plugin.name}: ${token} declines every character but ${rule.triggers.join(' ')}`, () => {
       // The rule as the host installs it: run with the state facade, never markdown-it's live state (host-grammar.mjs).
-      const guarded = (r) => requireGrammarHost().guardedRule(r.run, plugin.name, new Set(Object.keys(plugin.syntax)));
+      const guarded = (r) => (r.run.rule ? r.run : requireGrammarHost().guardedRule(r.run, plugin.name, new Set(Object.keys(plugin.syntax))));
       const claimed = [];
       for (const ch of chars) {
         if (rule.triggers.includes(ch)) continue;
