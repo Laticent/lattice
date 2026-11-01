@@ -45,7 +45,8 @@ The owner set the shape on 2026-10-11, in one round:
   exempt from the layer and loop rules. The file name alone does not make a seam, or any file called
   `x.generated.js` would bypass every rule (the red team built exactly that). A generated JSON file
   is pure data and imports nothing, so it is a seam. A generated JS file is one only if its header
-  names a `tools/` script that exists and whose source names the file. Through the registries the
+  names a `tools/` script that exists and whose source names the file's whole repo path, not just its
+  base name: a borrowed or partial name passed as a seam until #2997's red team. Through the registries the
   engine is still wired to its plugins at runtime, by design: the gate holds source-level
   dependencies, not runtime reachability.
 
@@ -162,10 +163,11 @@ Three rules were added, each with a test in `test/unit/tools/structure.test.js`:
   `@laticent/*` package.json), so a new workspace lands on layer 0.
 - **A plugin may import a plugin its manifest `requires`**, and no other: `checks` composes its pill
   through `pills`. The host only admits a plugin with what it requires.
-- **`hostApi`, a bridge that only shrinks.** An in-tree plugin may list files that host tools ABOVE the
-  plugin layer import (the linter, the inline editors, the Marp export, the Studio). Code at the plugin
-  layer or below never may, a listed file nothing imports fails as stale, and a package that arrives as
-  data is refused for holding the key. The owner's one-model decision says host tools should read
+- **`hostApi`, a bridge that only shrinks.** An in-tree plugin may list files that host tools on
+  layer 6 or above import (the linter, the inline editors, the Marp export, the Studio). The engine and
+  code below it never may: they reach a plugin through tables and services. A listed file nothing imports
+  fails as stale, the lists together may not hold more than `HOST_API_CEILING` files (a ratchet: emptying
+  an entry lowers it), and a package that arrives as data is refused for holding the key. The owner's one-model decision says host tools should read
   every plugin, first-party or third-party, through its manifest and the sandbox; each entry is a file
   to turn into manifest data, generic host code or a sandboxed call
   (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).

@@ -119,6 +119,31 @@ test('a file NAMED generated is not a seam: no generator writes it, so it bypass
 test('a generated JSON file is a seam (pure data), and a real generated module names its generator', () => {
   assert.equal(isSeam('lib/plugins/extension-points.generated.json'), true);
   assert.equal(isSeam('lib/plugins/dispatch.generated.js'), true);
+  // Named through a folder constant: `path.join(PLUGINS_DIR, 'bake.generated.js')`.
+  assert.equal(isSeam('lib/plugins/bake.generated.js'), true);
+  // Named as `path.join(ROOT, 'lib', 'packages', 'chrome.generated.js')`.
+  assert.equal(isSeam('lib/packages/chrome.generated.js'), true);
+});
+
+test('a seam is proved by its whole path: a borrowed base name, or a substring of one, is not a seam (#2997)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '../../..');
+  const planted = {
+    // The plugin registry's tool writes lib/plugins/dispatch.generated.js, not this one.
+    'lib/core/rt-borrow/dispatch.generated.js': '// tools/build-plugin-registry.js\n',
+    // `registry.generated.js` is a substring of `chart-registry.generated.js`.
+    'lib/core/rt-borrow/registry.generated.js': '// tools/build-chart-registry.js\n',
+  };
+  try {
+    for (const [f, src] of Object.entries(planted)) {
+      fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+      fs.writeFileSync(path.join(root, f), src);
+      assert.equal(isSeam(f), false, f);
+    }
+  } finally {
+    fs.rmSync(path.join(root, 'lib/core/rt-borrow'), { recursive: true, force: true });
+  }
 });
 
 test('a seam inside a plugin folder does not exempt the plugin: its reach needs a sanction', () => {
@@ -194,6 +219,39 @@ test('hostApi: a host tool above the plugins may import a listed file; an unlist
     'lib/core/glossary-slide.js -> lib/plugins/pills/pills.inline.js',
   ]);
   assert.deepEqual(r.staleHostApi, []);
+});
+
+test('hostApi is for host tools: the engine, one layer above the plugins, may not use it (#2997)', () => {
+  const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/pills.inline.js'])]]);
+  const r = run(graph([
+    ['lib/engine/index.js', ['lib/plugins/pills/pills.inline.js']],
+    ['lib/plugins/pills/pills.inline.js', []],
+  ]), { hostApi });
+  assert.deepEqual(r.pluginIn, ['lib/engine/index.js -> lib/plugins/pills/pills.inline.js']);
+});
+
+test('hostApi only shrinks: more files than the ceiling fail, and fewer ask for the ceiling to come down', () => {
+  const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/a.js', 'lib/plugins/pills/b.js'])]]);
+  const g = graph([
+    ['lib/authoring/lint-core.js', ['lib/plugins/pills/a.js', 'lib/plugins/pills/b.js']],
+    ['lib/plugins/pills/a.js', []],
+    ['lib/plugins/pills/b.js', []],
+  ]);
+  assert.deepEqual(structureProblems(run(g, { hostApi, hostApiCeiling: 2 })), []);
+  assert.match(structureProblems(run(g, { hostApi, hostApiCeiling: 1 })).join('\n'), /hostApi grew: .* 2 files, over HOST_API_CEILING \(1\)/);
+  assert.match(structureProblems(run(g, { hostApi, hostApiCeiling: 3 })).join('\n'), /lower HOST_API_CEILING .* from 3 to 2/);
+});
+
+test('the live manifests: the hostApi ceiling matches the lists', () => {
+  const { pluginManifests, HOST_API_CEILING } = require('../../../tools/structure.js');
+  const count = [...pluginManifests().hostApi.values()].reduce((n, set) => n + set.size, 0);
+  assert.equal(count, HOST_API_CEILING);
+});
+
+test('an import into an excluded tree (tests, examples) is a problem below tools/, which may use test helpers (#2997)', () => {
+  const g = graph([['lib/core/a.js', []]]);
+  g.excludedImports = ['lib/core/a.js -> test/helpers/x.js'];
+  assert.match(structureProblems(run(g)).join('\n'), /imports a file the gate does not read \(.*\): lib\/core\/a\.js -> test\/helpers\/x\.js/);
 });
 
 test('hostApi only shrinks: an entry nothing outside imports is stale', () => {

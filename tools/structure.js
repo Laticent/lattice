@@ -132,9 +132,12 @@ function specificity(p) {
  *
  * The name alone does not make a seam, or any file called `x.generated.js` would bypass every rule.
  * A generated JSON file is pure data and imports nothing, so it is one. A generated JS file is one
- * only when its header names a `tools/` script that exists AND whose source names the file: proof
- * that a build step writes it. Note what the exemption costs: through the registries the engine is
- * still WIRED to its plugins at runtime, by design; the gate holds the source-level dependencies.
+ * only when its header names a `tools/` script that exists AND whose source names the file's whole
+ * repo path: proof that a build step writes THIS file. The base name is not enough: a hand-written
+ * `lib/core/dispatch.generated.js` would borrow the plugin registry's tool, and a substring match let
+ * `registry.generated.js` borrow `chart-registry.generated.js`'s (the red team, #2997). Note what the
+ * exemption costs: through the registries the engine is still WIRED to its plugins at runtime, by
+ * design; the gate holds the source-level dependencies.
  */
 const seamCache = new Map();
 function isSeam(file) {
@@ -145,12 +148,26 @@ function isSeam(file) {
   try {
     const head = fs.readFileSync(path.join(ROOT, file), 'utf8').slice(0, 600);
     const tool = /tools\/[\w./-]+\.(?:c|m)?js/.exec(head)?.[0];
-    if (tool && fs.existsSync(path.join(ROOT, tool))) ok = fs.readFileSync(path.join(ROOT, tool), 'utf8').includes(path.basename(file));
+    if (tool && fs.existsSync(path.join(ROOT, tool))) ok = namesPath(fs.readFileSync(path.join(ROOT, tool), 'utf8'), file);
   } catch {
     ok = false;
   }
   seamCache.set(file, ok);
   return ok;
+}
+
+/**
+ * Whether a tool's source names `file` (a repo path) as a whole path: written out
+ * (`lib/plugins/dispatch.generated.js`), or as `path.join` segments from the root
+ * (`path.join(ROOT, 'lib', 'core', 'x.generated.js')`), directly or through a folder constant
+ * (`const DIR = path.join(ROOT, 'lib', 'plugins')` … `path.join(DIR, 'x.generated.js')`).
+ */
+function namesPath(src, file) {
+  let s = src.replace(/(['"])\s*,\s*['"]/g, '/');
+  const dirs = [...s.matchAll(/\b([A-Z_][A-Z0-9_]*)\s*=\s*path\.(?:join|resolve)\(\s*ROOT\s*,\s*['"]([^'"]+)['"]\s*\)/g)];
+  for (const [, name, dir] of dirs) s = s.replace(new RegExp(`\\b${name}\\s*,\\s*['"]`, 'g'), `'${dir}/`);
+  const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^\\w./-])${esc}(?![\\w.-])`).test(s);
 }
 
 /**
@@ -169,6 +186,16 @@ const SANCTIONED_PLUGIN_REACH = {
  * the check fails on an entry that no longer matches any import, so the list cannot rot.
  */
 const SANCTIONED_UPWARD = {};
+
+/** The lowest layer a host tool sits on (lib/authoring, lib/cli, lib/export, …): see `viaHostApi`. */
+const HOST_TOOL_LAYER = 6;
+
+/**
+ * How many files the plugins' `hostApi` lists hold together. Lower it in the commit that empties an
+ * entry (followups.d/2630-p2-host-tools-read-plugins-as-data.md); raising it is a design change for the
+ * owner, not a fix for a failing gate.
+ */
+const HOST_API_CEILING = 14;
 
 function partOf(file) {
   for (const p of MATCH_ORDER) {
@@ -195,6 +222,7 @@ function cruise() {
   if (!r.stdout) throw new Error(`dependency-cruiser produced no output:\n${r.stderr}`);
   const graph = JSON.parse(r.stdout);
   graph.unread = unreadModules(graph);
+  graph.excludedImports = excludedImports(graph);
   graph.modules.push(...astroModules());
   return graph;
 }
@@ -234,6 +262,34 @@ function unreadModules(graph) {
     }
     const specs = [...stripComments(src).matchAll(SPECIFIER)].map((x) => x[1]).filter((spec) => !spec.includes('node_modules') && scannedTarget(m.source, spec));
     if (specs.length) out.push(m.source);
+  }
+  return out;
+}
+
+/**
+ * Imports from a part into a tree the cruise config excludes (`test/`, `examples/`, …). dependency-cruiser
+ * drops those edges, so `lib/core -> test/x.js -> lib/authoring` would pass every rule unseen (the red
+ * team, #2997). Shipping code has no reason to import a test or an example; `tools/` (the top layer,
+ * where an extra edge cannot hide an upward import or a loop) may, for its test helpers.
+ */
+function excludedImports(graph) {
+  const out = [];
+  for (const m of graph.modules) {
+    if (m.coreModule || m.couldNotResolve || /node_modules|\/dist\//.test(m.source)) continue;
+    const part = partOf(m.source);
+    if (!part || part.name === 'tools') continue;
+    let src;
+    try {
+      src = fs.readFileSync(path.join(ROOT, m.source), 'utf8');
+    } catch {
+      continue;
+    }
+    for (const [, spec] of stripComments(src).matchAll(SPECIFIER)) {
+      if (!/^\.{1,2}\//.test(spec) || spec.includes('node_modules')) continue;
+      const base = path.posix.normalize(path.posix.join(path.posix.dirname(m.source), spec));
+      const hit = SPEC_EXTS.map((e) => base + e).find((f) => fs.existsSync(path.join(ROOT, f)) && fs.statSync(path.join(ROOT, f)).isFile());
+      if (hit && CRUISE_EXCLUDE.some((re) => re.test(hit))) out.push(`${m.source} -> ${hit}`);
+    }
   }
   return out;
 }
@@ -364,10 +420,12 @@ function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
 }
 const pluginRequires = (dir) => pluginManifests(dir).requires;
 
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi, hostApiCeiling } = {}) {
   if (!requires || !hostApi) {
     const m = pluginManifests();
     requires ??= m.requires;
+    // The ratchet holds the live manifests; a synthetic graph passes its own hostApi and ceiling.
+    if (!hostApi) hostApiCeiling ??= HOST_API_CEILING;
     hostApi ??= m.hostApi;
   }
   const { edges, files } = edgesOf(graph);
@@ -414,13 +472,17 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
   const usedReach = new Set(pluginReach.map(reachKey));
   const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
-  // A host tool above the plugin layer importing a file the plugin lists in `hostApi` (the bridge, see
-  // pluginManifests). From the plugin layer or below it stays a break: code below asks for a service.
-  const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer > e.b.layer && !!hostApi.get(e.b.name)?.has(e.to);
+  // A host tool importing a file the plugin lists in `hostApi` (the bridge, see pluginManifests). Host
+  // tools sit on HOST_TOOL_LAYER or above: the linter, the exports, the CLI, the site. The engine (layer
+  // 5) renders every plugin through tables and services, so it asks for a service like code below it.
+  const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer >= HOST_TOOL_LAYER && !!hostApi.get(e.b.name)?.has(e.to);
   const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
   // A listed file nothing outside imports is stale: the list only shrinks, so the entry goes.
   const hostApiUsed = new Set(edges.filter(viaHostApi).map((e) => e.to));
   const staleHostApi = [...hostApi.values()].flatMap((set) => [...set]).filter((f) => !hostApiUsed.has(f)).sort();
+  // "Only shrinks", held by a ratchet like the route budget's: more entries than HOST_API_CEILING fail,
+  // and so do fewer, until the ceiling is lowered to match, so a removed entry cannot quietly come back.
+  const hostApiCount = [...hostApi.values()].reduce((n, set) => n + set.size, 0);
 
   const inside = insideParts(edges, files);
 
@@ -461,6 +523,9 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     pluginOut: pluginOut.map((e) => `${e.from} -> ${e.to}`),
     pluginIn: pluginIn.map((e) => `${e.from} -> ${e.to}`),
     staleHostApi,
+    hostApiCount,
+    hostApiCeiling,
+    excludedImports: graph.excludedImports || [],
     unmapped: graph.modules.filter((m) => !m.coreModule && !m.couldNotResolve && !/node_modules/.test(m.source) && !partOf(m.source)).map((m) => m.source),
   };
 }
@@ -529,6 +594,9 @@ function structureProblems(result) {
   for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
   for (const f of result.staleHostApi || []) problems.push(`stale hostApi entry (nothing outside the plugin imports it, or the file is gone; remove it from the manifest): ${f}`);
+  if (result.hostApiCeiling != null && result.hostApiCount > result.hostApiCeiling) problems.push(`hostApi grew: the manifests list ${result.hostApiCount} files, over HOST_API_CEILING (${result.hostApiCeiling}); the bridge only shrinks, so read the plugin through a service or its manifest instead`);
+  if (result.hostApiCeiling != null && result.hostApiCount < result.hostApiCeiling) problems.push(`hostApi shrank to ${result.hostApiCount} files: lower HOST_API_CEILING in tools/structure.js from ${result.hostApiCeiling} to ${result.hostApiCount}, so it cannot grow back`);
+  for (const e of result.excludedImports || []) problems.push(`imports a file the gate does not read (tests, examples and other excluded trees hide their edges; only tools/ may): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
   for (const u of result.unresolved || []) problems.push(`import resolves to no file (moved or misspelled): ${u}`);
   for (const f of result.unread) problems.push(`dependency-cruiser read no imports from a file that has some (a parse error hides its edges): ${f}`);
@@ -543,7 +611,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, HOST_TOOL_LAYER, HOST_API_CEILING, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

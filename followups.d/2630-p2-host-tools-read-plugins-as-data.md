@@ -19,13 +19,14 @@ why now   — the owner's one-model decision (2026-10-17, followups.d/2749-…) 
             review-core, bare-row-pill and code-format call their kernels, the Marp export calls the
             code and video plugins, and the Studio's export calls Mermaid's helpers. #2630 lets that
             through only for files a manifest lists in `hostApi` (tools/structure.js), and the gate
-            fails on any import outside the list and on any entry nothing imports.
+            fails on any import outside the list, on any entry nothing imports, and on the lists
+            holding more files than `HOST_API_CEILING` (lower it with each entry emptied).
 where     — the `hostApi` lists in lib/plugins/{pills,checks,sparks,avatars,icons,video,code,mermaid}/
             *.manifest.json; their importers (`npm run structure` names each one); the inline door's
             slot reading (lib/cli/code-door.js `inlineFields`, docs/src/lib/code-packages/door-run.ts),
             which already treats a third-party kind as data.
 done when — no manifest has `hostApi`, the field is deleted from plugin.schema.json, and the gate's
-            `viaHostApi` rule is gone. Each member a host tool uses today becomes one of:
+            `viaHostApi` rule and `HOST_API_CEILING` are gone. Each member a host tool uses today becomes one of:
             · manifest DATA: vocabularies and constants (pill SHAPES/COLORS/SIZES, spark TYPES and
               SERIES_TYPES, avatar TRAIT_ORDER, check SPEC, code INDENTS and deck defaults);
             · GENERIC host code driven by the declared slot: read, edit, the element an editor shows
