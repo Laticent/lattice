@@ -96,6 +96,7 @@ const {
   checkFuocoBoundary,
   checkVedutaBoundary,
   checkFiloBoundary,
+  checkMarkupBoundary,
   checkFiloCommitPath,
   checkMosaicoBoundary,
   checkFluidoBoundary,
@@ -2300,6 +2301,34 @@ describe('check-ownership', () => {
     test('a triple-slash reference is an ambient dependency, and is caught', () => {
       assert.equal(run({ 'hub.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
       assert.deepEqual(run({ 'hub.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
+    });
+  });
+
+  // Markup: a shared package the engine and plugins both take, so it depends on nothing
+  // (2026-11-01-plugin-contract-hollywood.md §5).
+  describe('Markup import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'markup-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkMarkupBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkMarkupBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; nothing from Lattice, a plugin or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { splitCodeLines } from './code-lines.js';", 'code-lines.ts': 'export const splitCodeLines = () => [];' }), []);
+      for (const src of ["import x from '../../../../lib/core/collections.js';", "import { readIndexList } from '@laticent/segno';", "import fs from 'node:fs';"]) {
+        assert.equal(run({ 'code-lines.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'code-lines.test.ts': "import hljs from 'highlight.js';\nimport { it } from 'vitest';" }), []);
     });
   });
 

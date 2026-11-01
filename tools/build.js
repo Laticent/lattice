@@ -94,6 +94,9 @@ const STEPS = [
   // verifies it is fresh and writes nothing outside dist/.
   { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
   { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
+  // Markup, balanced-HTML string walking: the engine's transformers and the code plugin require it for the
+  // code-line split, so it builds before anything that bundles lib/.
+  { label: 'Markup library dist (ESM + CJS + .d.ts)', script: 'build-markup-lib.js', uncommitted: true },
   // Mosaico, the box-packing library (2026-10-16-mosaico-layout-library.md). FOREGROUND and this
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.

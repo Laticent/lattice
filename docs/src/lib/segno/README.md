@@ -320,6 +320,15 @@ item cannot start with `>` (`DESCRIBE` in `notation-grammar.ts`). Later items ke
 | `time()` | dates as people write them: `2026-03-15` `2026 Q1` `Q3` `Jan` |
 | `range(of)` | `a..b` over another type |
 
+A slot can also be written as plain data and compiled: `compileSlot({ positional: [{ name: 'url', type: 'text' }], params: { poster: { type: 'text', named: true } } })`
+builds the same record as the constructors, and throws, naming where, on a spec Segno refuses. Lattice's plugins declare
+their records this way, so a manifest or a test can hold the spec as JSON.
+
+`readIndexList('3-5 9')` reads an index list (space-separated 1-based indices and `a-b` ranges) into the set of
+indices it names, `{3, 4, 5, 9}`. A token it cannot read, or a range wider than `MAX_INDEX_SPAN` (10,000), is skipped
+and, when you pass an array, collected in it. Lattice's `_focus: line 3-5`, `@code{focus=3-5}` and its linter read
+ranges with it, so the three agree.
+
 ### Aliases, shortcuts, sigils — and one spelling per document
 
 ```ts

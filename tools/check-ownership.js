@@ -9689,6 +9689,22 @@ function checkFiloBoundary(errors, dir = FILO_DIR) {
   }
 }
 
+// ── Markup (docs/src/lib/markup) — balanced-HTML string walking ─────────────
+// A shared package holds only what reads the string it is given, so the engine and a plugin can both depend on it
+// without either depending on the other (engineering/decisions/2026-11-01-plugin-contract-hollywood.md §5). It
+// imports nothing outside its folder, not even `node:`. Tests may import their runner and a highlighter.
+const MARKUP_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'markup');
+function checkMarkupBoundary(errors, dir = MARKUP_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Markup folder. @laticent/markup reads only the string it is ` +
+      `given and depends on nothing, so the engine and the plugins can share it; every import must resolve inside ` +
+      `docs/src/lib/markup/ (2026-11-01-plugin-contract-hollywood.md §5).`,
+  });
+}
+
 // ── Filo's commit path and the one undo history (HARD RULE-adjacent; §3.2 rule 6) ──
 // engineering/decisions/2026-10-27-filo-undo-history.md §3.2 rule 6: every write to the deck source
 // goes through the commit path, and no Studio surface keeps an undo stack of its own beside Filo's.
@@ -14392,6 +14408,7 @@ function run() {
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
   checkFiloBoundary(errors);
+  checkMarkupBoundary(errors);
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
   checkFluidoBoundary(errors);
@@ -14466,6 +14483,7 @@ module.exports = {
   checkFuocoBoundary,
   checkVedutaBoundary,
   checkFiloBoundary,
+  checkMarkupBoundary,
   checkFiloCommitPath,
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,

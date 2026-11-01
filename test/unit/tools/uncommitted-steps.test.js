@@ -98,6 +98,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
   'build-segno-lib.js',
+  // Its whole write set is docs/src/lib/markup/dist/, covered by docs/.gitignore's `dist/`.
+  'build-markup-lib.js',
   'build-suono-lib.js',
   // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
   'build-tavola-lib.js',

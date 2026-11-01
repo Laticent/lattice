@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { spansFromHighlightHtml, plainLength } = require('../../../lib/core/highlight-spans');
+const { spansFromHighlightHtml, plainLength } = require('../../../lib/plugins/code/shared/highlight-spans.js');
 const engine = require('../../../lib/engine/index.js');
 
 // The kernel that lets a non-HTML surface paint the RENDERER's tokenization —

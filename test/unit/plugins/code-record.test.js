@@ -9,6 +9,9 @@ const assert = require('node:assert/strict');
 
 const { createEngine } = require('../../../lib/engine/index.js');
 const record = { ...require('../../../lib/plugins/code/shared/record.js'), ...require('../../../lib/plugins/code/shared/record-edit.js') };
+// The host reads the top-level `code:` value (ctx.deck.frontMatter); the plugin reads that value into options.
+const { topLevelFrontMatterValue } = require('../../../lib/core/front-matter-key.js');
+const deckDefaults = (frontMatter) => record.deckDefaultsFromValue(topLevelFrontMatterValue(frontMatter, 'code'));
 const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
 
 const render = (md) => createEngine().render(md).html;
@@ -43,7 +46,7 @@ describe('the record reader', () => {
     assert.deepEqual(record.readBody('{indent=2, quotes=double}').value, { indent: '2', quotes: 'double' });
     assert.match(record.readBody('{indent=3}').problems[0], /"3" is not one of 2, 4, tab/);
     assert.match(record.readBody('{quotes=back}').problems[0], /"back" is not one of single, double/);
-    assert.deepEqual(record.deckDefaults('code: indent=4, quotes=single\n'), { indent: '4', quotes: 'single' });
+    assert.deepEqual(deckDefaults('code: indent=4, quotes=single\n'), { indent: '4', quotes: 'single' });
     // A tab is as wide as the indent; `tab` draws four columns, and unset is the caller's (CSS's 8).
     assert.deepEqual(['2', '4', 'tab'].map(record.tabColumns), [2, 4, 4]);
   });
@@ -55,8 +58,8 @@ describe('the record reader', () => {
   });
 
   test('the deck default reads from top-level `code:` in the front matter', () => {
-    assert.deepEqual(record.deckDefaults('theme: indaco\ncode: numbers, wrap\n'), { numbers: true, wrap: true });
-    assert.deepEqual(record.deckDefaults('style:\n  code: numbers\n'), {});
+    assert.deepEqual(deckDefaults('theme: indaco\ncode: numbers, wrap\n'), { numbers: true, wrap: true });
+    assert.deepEqual(deckDefaults('style:\n  code: numbers\n'), {});
   });
 });
 

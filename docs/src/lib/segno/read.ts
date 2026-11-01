@@ -14,6 +14,7 @@
  */
 export type { Inconsistency, Use } from './consistency.js';
 export { consistency } from './consistency.js';
+export { MAX_INDEX_SPAN, readIndexList } from './index-list.js';
 export type { DescValue, Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, parse } from './notation.js';
 export type { Bound, Positional, RecordOf, RecordSpec, Slot, Spelling } from './schema.js';
