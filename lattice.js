@@ -111,8 +111,8 @@ const pkgVersion = () => {
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
-// The math plugin's own copy of the sheet (lib/plugin-kit/payload-path.js), its fonts beside it.
-try { katexCssAbsPath = require('./lib/plugin-kit/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
+// The math plugin's own copy of the sheet (lib/core/payload-path.js), its fonts beside it.
+try { katexCssAbsPath = require('./lib/core/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
 
 // ── Plugins with a browser half (function-plot, …) ───────────────────────
 // A plugin that draws in the browser (lib/plugins/<name>/<name>.hydrate.js) reaches this page as
@@ -2835,7 +2835,7 @@ const hasHydratedPlugins = pagePlugins.length > 0;
 // A used plugin whose library is missing draws NOTHING: the host settles every placeholder
 // `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
 // So say it here, once per plugin, rather than ship a page of JSON silently. Every first-party
-// plugin owns its copy (lib/plugin-kit/payload-path.js), so this fires only for a damaged install.
+// plugin owns its copy (lib/core/payload-path.js), so this fires only for a damaged install.
 for (const h of pagePlugins) {
   if (h.payload && !payloadPath(h) && !QUIET) {
     console.warn(`  ⚠ ${h.name}: its library (${h.payload.file}) is missing from the package — its figures export showing their source. Reinstall Lattice to restore it.`);

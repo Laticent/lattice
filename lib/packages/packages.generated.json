@@ -1524,6 +1524,7 @@
         "highlight.js",
         "hydrate.js",
         "manifest.json",
+        "page.js",
         "services.js",
         "styles.css"
       ],

@@ -8,7 +8,7 @@
       ],
       "paths": [
         "lib/core/file-confine.js",
-        "lib/plugin-kit/sandbox.js",
+        "lib/plugins/host-page-worker.js",
         "lib/export/html-player.js",
         "lib/export/player-core.mjs",
         "test/integration/export/confine-cli.test.js",
@@ -31,7 +31,7 @@
       ],
       "paths": [
         "lib/core/file-confine.js",
-        "lib/plugin-kit/sandbox.js",
+        "lib/plugins/host-page-worker.js",
         "lib/export/html-player.js",
         "lib/export/player-core.mjs",
         "test/integration/export/confine-cli.test.js",
@@ -84,7 +84,7 @@
       ],
       "paths": [
         "lib/core/os-sandbox.js",
-        "lib/plugin-kit/sandbox.js",
+        "lib/plugins/host-page-worker.js",
         "lib/core/code-sandbox.js",
         "lib/cli/code-door.js",
         "lib/packages/code-door-worker.js",

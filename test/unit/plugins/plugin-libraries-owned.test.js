@@ -82,10 +82,11 @@ test('every surface reads the plugin\'s copy', () => {
   const { STATIC_ASSETS } = require('../../../lib/export/marp-bundle.js');
   assert.equal(STATIC_ASSETS.find((a) => a.to === 'mermaid-v11-min.js')?.from, 'lib/plugins/mermaid/vendor/mermaid.min.js');
   // The CLI bake: Mermaid, ZenUML and mermaid-cli's render page.
-  const { resolveBundles } = require('../../../lib/plugins/mermaid/shared/render-worker.js');
-  const b = resolveBundles();
-  assert.equal(b.mermaidIife, payloadPath('mermaid'));
-  assert.equal(b.zenumlIife, vendorPath('mermaid', 'zenuml'));
+  // Mermaid names its page's files by key; the host's page resolves them (lib/plugins/host-page-worker.js).
+  const { resolveAssets } = require('../../../lib/plugins/host-page-worker.js');
+  const b = resolveAssets('mermaid', require('../../../lib/plugins/mermaid/mermaid.page.js').assets());
+  assert.equal(b.scripts['mermaid.min.js'], payloadPath('mermaid'));
+  assert.equal(b.scripts['mermaid-zenuml.min.js'], vendorPath('mermaid', 'zenuml'));
   assert.equal(b.indexHtml, path.join(vendorPath('mermaid', 'render-page'), 'index.html'));
   // The CLI export page's hydrators (function-plot) resolve through payload-path.js.
   assert.match(read('lib/plugins/hydrate-script.js'), /const abs = libraryPath\(h\.name\);/);
@@ -130,7 +131,7 @@ test('a bundle that inlines the reader still finds every copy (the installed CLI
   // without their library — while every source-entry test passed (tier 1 checker). Bundle it one
   // directory deep, exactly as dist/ is, and require it from there.
   const out = path.join(ROOT, '.scratch', 'payload-path.bundle.js'); // one level deep, as dist/ is
-  require('esbuild').buildSync({ entryPoints: [path.join(ROOT, 'lib', 'plugin-kit', 'payload-path.js')], bundle: true, platform: 'node', format: 'cjs', outfile: out, logLevel: 'silent' });
+  require('esbuild').buildSync({ entryPoints: [path.join(ROOT, 'lib', 'core', 'payload-path.js')], bundle: true, platform: 'node', format: 'cjs', outfile: out, logLevel: 'silent' });
   const bundled = require(out);
   for (const { plugin, key, entry } of COPIES) {
     const abs = payloadOf(plugin)?.vendored?.file === entry.file ? bundled.payloadPath(plugin) : bundled.vendorPath(plugin, key);

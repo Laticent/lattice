@@ -55,7 +55,7 @@ import { collectGalleryAssets, loadExampleDecks, loadGalleries } from '../src/pl
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
-// Where a plugin's library lives: its own committed copy when it vendors one (lib/plugin-kit/payload-path.js).
+// Where a plugin's library lives: its own committed copy when it vendors one (lib/core/payload-path.js).
 const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugin-kit', 'payload-path.js')).payloadPath(name, repoRoot);
 // Per-palette themes: the MINIFIED dist build (same bytes the Export-to-Marp
 // bundle ships), staged under the readable <name>.css dest.

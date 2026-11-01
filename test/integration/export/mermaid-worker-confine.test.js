@@ -1,4 +1,4 @@
-// The Mermaid worker's own Chromium page (lib/plugins/mermaid/shared/render-worker.js) follows the same rule as the
+// The host's locked page for Mermaid's bake (lib/plugins/host-page-worker.js) follows the same rule as the
 // CLI's main page: a `file:` picture whose REAL path is outside the deck folder is answered with the stand-in and
 // named on stderr (media note §4.11). The diagram is a flowchart image node, the one way a fence makes Chrome open a file.
 const { test } = require('node:test');
@@ -10,7 +10,9 @@ const { pathToFileURL } = require('node:url');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '../../..');
-const WORKER = path.join(ROOT, 'lib/plugins/mermaid/shared/render-worker.js');
+// The HOST's locked page runs Mermaid's page role (lib/plugins/host-page-worker.js, mermaid.page.js); a job names both.
+const WORKER = path.join(ROOT, 'lib', 'plugins', 'host-page-worker.js');
+const PAGE_JOB = { plugin: 'mermaid', module: path.join(ROOT, 'lib', 'plugins', 'mermaid', 'mermaid.page.js') };
 
 test('a flowchart image node naming a file outside the deck is refused; one inside the deck is not', () => {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-confine-'));
@@ -27,7 +29,7 @@ test('a flowchart image node naming a file outside the deck is refused; one insi
     const definition = `flowchart LR\n ${node('A', path.join(outside, 'secret.svg'))}\n ${node('B', path.join(deck, 'inside.svg'))}\n A --> B`;
     const outFile = path.join(base, 'out.json');
     const jobFile = path.join(base, 'job.json');
-    fs.writeFileSync(jobFile, JSON.stringify({ pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
+    fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
     assert.equal(r.status, 0, r.stderr);
     const result = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
@@ -66,7 +68,7 @@ test('a picture in a folder with parentheses and an apostrophe loads, and its lo
     const definition = `flowchart LR\n A@{ img: "${pathToFileURL(path.join(deck, "it's.svg")).href}", label: "A", pos: "b", w: 80, h: 60, constraint: "on" }\n A --> B`;
     const outFile = path.join(base, 'out.json');
     const jobFile = path.join(base, 'job.json');
-    fs.writeFileSync(jobFile, JSON.stringify({ pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
+    fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
     assert.equal(r.status, 0, r.stderr);
     const { svg } = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
@@ -97,7 +99,7 @@ test('a diagram that names a web picture reaches no listener from the locked pag
     const outFile = path.join(base, 'out.json');
     const jobFile = path.join(base, 'job.json');
     const definition = `flowchart LR\n A@{ img: "${at}/locked.svg", label: "A", pos: "b", w: 80, h: 60 }\n A --> B`;
-    fs.writeFileSync(jobFile, JSON.stringify({ pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [base], diagrams: [{ definition, config: {} }] }));
+    fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [base], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
     assert.equal(r.status, 0, r.stderr);
     // Whether Mermaid draws a node whose picture never loads is its own business (the export swaps a web picture for
