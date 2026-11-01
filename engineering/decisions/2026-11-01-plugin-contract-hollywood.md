@@ -53,8 +53,8 @@ dependency arrow the wrong way:
   `plugin-kit/sandbox.js` and launches its own sandbox; `math/shared/katex-wall.js` requires
   `plugin-kit/sanitize.js` and sanitizes its own output. A plugin should not choose its own confinement or
   certify its own output. The threat model (`2026-10-16-npm-plugin-threat-model.md` §4) says a plugin
-  "takes data in and returns markup out"; the host sandboxes the call and sanitizes the fragment.
-- **The host also pulls.** 23 imports across 14 files (`hostApi` on 8 manifests) let the linter, inline
+  "takes data in and returns markup out"; the host should sandbox the call and sanitize what comes back.
+- **The host also pulls.** 24 imports, from 12 host files into 14 plugin files (`hostApi` on 8 manifests), let the linter, inline
   editors, code formatting and the exports call first-party plugin code directly. A third-party plugin can
   never be read that way (`npm-plugin-loader.js` G5), so first-party plugins got lint, completion and
   editors that a third-party plugin cannot.
@@ -70,7 +70,7 @@ From #2997's branch at `cf61608` (`git grep plugin-kit/ lib/plugins lib/componen
 | Kit module | Used by | Channel | The new shape |
 |---|---|---|---|
 | `sandbox` | mermaid (`render-worker.js`) | **host** | The manifest declares `exec.bake: "subprocess"` (already a contribution, plugin-system §4.3); the host launches and confines the worker. The plugin's bake receives its inputs and returns outputs. |
-| `sanitize` | math (`katex-wall.js`) | **host** | The host sanitizes every returned fragment (threat model §6.1, "the returns surface"). The plugin stops sanitizing itself. If math needs a stricter pass than the host's, it declares a profile name in the manifest. |
+| `sanitize` | math (`katex-wall.js`) | **host** | **New host work, with a cost.** Today only the third-party code door sanitizes plugin output on every path (threat model §6.1, "sanitizes the html as any fence output"); for in-tree plugins, some surfaces sanitize the whole document (the browser previews, the `--player` export in `lib/export/html-player.js`, drawings in `lib/export/locked-figures.js`), but no host step sanitizes each plugin's fragment as it renders (`lib/plugins/host.js` has none), which is why math cleans its own. The host takes this over for every plugin's fragments, and the plugin stops sanitizing itself. Cost: one sanitizer pass per plugin fragment on every render path, measured with `npm run bench` in step 1. If math needs a stricter pass than the host's, it declares a profile name in the manifest. |
 | `plugin-data` | avatars, icons, pills | **`ctx`** | `ctx.data()` returns the plugin's own data or null while pending; `ctx.dataPending()`. The loader map moves into the host, per surface, so there is one copy. |
 | `services` | pills | **`ctx`** | `ctx.service(plugin, name)` (null when that plugin is off). The manifest's `requires`/`optional` list bounds which plugins it may name. |
 | `payload-path` | math, mermaid, `hydrate-script.js` | **`ctx`** | `ctx.payloadPath(rel)` / `ctx.vendorPath(lib, rel)`: the host resolves the plugin's own committed files from its install location. No repo layout in plugin code. |
@@ -84,7 +84,7 @@ From #2997's branch at `cf61608` (`git grep plugin-kit/ lib/plugins lib/componen
 | `video` | video | **owned dep** | `detectProvider` is pure. The provider table moves into the video plugin; per plugin-system §4.3, `providers` becomes a declared table later. |
 | `code-text` | code | **owned dep** | `splitCodeLines`, `parseIndexList`: pure. Move into the code plugin. `topLevelFrontMatterValue` is deck state, so it becomes `ctx.deck.frontMatter(key)`. |
 | `highlight` | code | **owned dep** | `fenceLanguages`, `spansFromHighlightHtml`: pure. Move into the code plugin. The host's highlighter also uses them; step 2 settles whether it depends on `@laticent/plugin-code` or the code plugin takes the highlighter over. |
-| `html` | chart-family | **owned dep** | Pure HTML-rewriting helpers (`html-lists`, `find-matching-close`, `section-walk`, `prose-code`, `coda`). They become `@laticent/markup`, which about 28 engine files also use. `setRenderSection` writes host ids, so it becomes `ctx.section.mark(…)`. |
+| `html` | chart-family | **owned dep** | Pure HTML-rewriting helpers (`html-lists`, `find-matching-close`, `section-walk`, `prose-code`, `coda`). They become `@laticent/markup`. About 54 files outside the plugins and the tests also import them (24 outside `lib/components`; `section-walk` alone has 28), counted from a dependency-cruiser graph of #2997's `cf61608`. `setRenderSection` writes host ids, so it becomes `ctx.section.mark(…)`. |
 | `charts` | chart-family | **stays in-tree** | chart-family is the chart bucket's dispatcher and is already the one plugin excepted by name. It is the last plugin to move and is out of scope for phase G's first cut. |
 
 **The rule that sorts a member** (apply it to anything not on the list):
@@ -131,9 +131,9 @@ Every unit below is its own npm package. Each changes for one reason, and depend
 | the engine (`@laticent/lattice`) | The host: builds `ctx`, owns the sandbox, the sanitizer and the data loaders | `plugin-api`, `markup`, `segno`, and the plugins it ships | `lib/` |
 
 **Why the contract package carries no helpers.** The owner first floated "an API package and a plugin-core
-with utilities". The usage data argued against a utilities bag: four of the five pure helper groups on
-#2997's branch have one plugin user, and the one widely shared group (HTML rewriting) is mostly used by the
-engine. A `plugin-core` would make the engine depend on a "plugin" package, tie unrelated helpers to one
+with utilities". The usage data argued against a utilities bag: each of the five pure helper groups on
+#2997's branch (`html`, `code-text`, `highlight`, `video`, `video-migrate`) has exactly one plugin user, and
+the one widely shared group (HTML rewriting) is shared with the engine, about 54 files, not with other plugins. A `plugin-core` would make the engine depend on a "plugin" package, tie unrelated helpers to one
 version, and attract whatever the next plugin needs, which is how `lib/plugin-kit/` grew to 17 modules.
 Packages named for their job stay cohesive; the engine and the plugins depend on them as equals.
 
@@ -168,7 +168,7 @@ Recommended order (each a PR that stands on `main` alone, HARD RULE #17):
 4. **Re-land #2997's structure work** on the new contract, with the gate's plugin rule as above and no kit.
    Its layering and site moves rebase mostly as-is.
 
-Steps 1–3 shrink what #2997 must carry, which also shrinks its 46-file conflict surface with other branches.
+Steps 1–3 shrink what #2997 must carry, which also shrinks the 46 module moves (its path map) that conflict with other branches.
 
 ## 7. Open questions for the owner
 
