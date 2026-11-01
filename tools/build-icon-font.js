@@ -1,0 +1,167 @@
+#!/usr/bin/env node
+/**
+ * Build the Lattice Icons font from the curated icon drawings
+ * (engineering/decisions/2026-11-01-icon-font.md § 6 step 1). Run it by hand when the icon list changes:
+ *
+ *   npm run icons:font            assign codepoints to new icons, build the three woff2, write the manifest
+ *   npm run icons:font -- --check exit 1 when the font is stale (the same test `fonts:check` runs in build)
+ *
+ * Three outputs, all committed:
+ *   lib/plugins/_icons-source/codepoints.json   one private-use codepoint per icon, NEVER moved or reused. A new icon
+ *                                               takes `next`; a removed one moves to `retired`, keeping its slot, so a
+ *                                               file exported with an older font still shows the icon it meant.
+ *   assets/fonts/lattice-icons-{300,400,500}.woff2  the glyphs at line weights 1.5, 2 and 2.25 (the only values
+ *                                               `--icon-stroke` takes), outlined by tools/icon-font/build.py.
+ *   lib/fonts/icon-faces.js                     the manifest: family, faces, codepoints, and the STAMP.
+ *
+ * The stamp is a hash of everything the font is made from: the drawings, the codepoints, the faces and the builder
+ * script itself. `fonts:check` recomputes it, so a changed icon list without a rebuilt font fails the build, and CI
+ * never needs Python: only this script does (`pip install -r tools/icon-font/requirements.txt`; set
+ * ICON_FONT_PYTHON to use a particular interpreter).
+ */
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { spawnSync } = require('node:child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const CODEPOINTS = path.join(ROOT, 'lib', 'plugins', '_icons-source', 'codepoints.json');
+const MANIFEST = path.join(ROOT, 'lib', 'fonts', 'icon-faces.js');
+const BUILDER = path.join(__dirname, 'icon-font', 'build.py');
+const OUT = path.join(ROOT, 'assets', 'fonts');
+
+const FAMILY = 'Lattice Icons';
+const VERSION = '1.000';
+/** One face per line weight `--icon-stroke` takes, named by the CSS weight that selects it. */
+const FACES = Object.freeze([
+  { weight: 300, stroke: 1.5, file: 'lattice-icons-300' },
+  { weight: 400, stroke: 2, file: 'lattice-icons-400' },
+  { weight: 500, stroke: 2.25, file: 'lattice-icons-500' },
+]);
+const FIRST = 0xe000;
+const LAST = 0xf8ff;
+
+const hex = (n) => n.toString(16).toUpperCase().padStart(4, '0');
+
+/** The curated drawings, name → [[tag, attrs], …], as the icons plugin ships them. */
+function drawings() {
+  return require('../lib/plugins/icons/icons.data.generated.js').icons;
+}
+
+/** One drawing as a standalone SVG on the 24-unit grid, drawn the way the plugin's CSS draws it. */
+function svgOf(nodes) {
+  const body = nodes.map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ')}/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+
+/**
+ * The codepoint map with every current icon assigned: a new icon takes `next`, a removed one is retired with its
+ * slot. Pure: returns the map and whether it changed.
+ */
+function assignCodepoints(current, names) {
+  const map = { format: 1, next: current?.next || hex(FIRST), icons: { ...(current?.icons || {}) }, retired: { ...(current?.retired || {}) } };
+  let changed = !current;
+  for (const name of Object.keys(map.icons)) {
+    if (names.includes(name)) continue;
+    map.retired[name] = map.icons[name];
+    delete map.icons[name];
+    changed = true;
+  }
+  for (const name of [...names].sort()) {
+    if (map.icons[name]) continue;
+    // An icon that comes back takes its old slot.
+    if (map.retired[name]) {
+      map.icons[name] = map.retired[name];
+      delete map.retired[name];
+    } else {
+      const n = Number.parseInt(map.next, 16);
+      if (n > LAST) throw new Error('icon-font: the private-use area is full');
+      map.icons[name] = hex(n);
+      map.next = hex(n + 1);
+    }
+    changed = true;
+  }
+  map.icons = Object.fromEntries(Object.entries(map.icons).sort(([a], [b]) => (a < b ? -1 : 1)));
+  map.retired = Object.fromEntries(Object.entries(map.retired).sort(([a], [b]) => (a < b ? -1 : 1)));
+  return { map, changed };
+}
+
+/** The hash of everything the font is made from. `fonts:check` compares it with the manifest's. */
+function iconFontStamp(icons, codepoints) {
+  const h = crypto.createHash('sha256');
+  h.update(JSON.stringify({ version: VERSION, faces: FACES, codepoints }));
+  for (const name of Object.keys(icons).sort()) h.update(`\n${name}\n${svgOf(icons[name])}`);
+  h.update(fs.readFileSync(BUILDER));
+  return h.digest('hex').slice(0, 32);
+}
+
+function manifestText(codepoints, stamp) {
+  return `// GENERATED by tools/build-icon-font.js (npm run icons:font) — do not edit.
+// The Lattice Icons font: the curated icon drawings as glyphs, one face per line weight. The woff2 live in
+// assets/fonts/ like the text faces. Design: engineering/decisions/2026-11-01-icon-font.md.
+// Requires nothing, so the docs dev server's CommonJS shim can serve it.
+
+const ICON_FAMILY = ${JSON.stringify(FAMILY)};
+
+/** One face per \`--icon-stroke\` value, selected by CSS font-weight. */
+const ICON_FACES = Object.freeze(${JSON.stringify(FACES.map((f) => ({ family: FAMILY, style: 'normal', ...f })), null, 2)});
+
+/** Icon name → its private-use codepoint (hex). Never moved or reused: see lib/plugins/_icons-source/codepoints.json. */
+const ICON_CODEPOINTS = Object.freeze(${JSON.stringify(codepoints.icons, null, 2)});
+
+/** The hash of the drawings, codepoints, faces and builder this font was made from (\`fonts:check\` recomputes it). */
+const ICON_FONT_STAMP = ${JSON.stringify(stamp)};
+
+module.exports = { ICON_FAMILY, ICON_FACES, ICON_CODEPOINTS, ICON_FONT_STAMP };
+`;
+}
+
+/** What is stale about the committed font, or [] when it matches the drawings (`--check`, and `fonts:check`). */
+function staleIconFont() {
+  const icons = drawings();
+  const current = fs.existsSync(CODEPOINTS) ? JSON.parse(fs.readFileSync(CODEPOINTS, 'utf8')) : null;
+  const { map, changed } = assignCodepoints(current, Object.keys(icons));
+  const text = manifestText(map, iconFontStamp(icons, map.icons));
+  const stale = [];
+  if (changed) stale.push('lib/plugins/_icons-source/codepoints.json lacks an icon or keeps a removed one');
+  if (!fs.existsSync(MANIFEST) || fs.readFileSync(MANIFEST, 'utf8') !== text) stale.push('lib/fonts/icon-faces.js does not match the drawings');
+  for (const f of FACES) if (!fs.existsSync(path.join(OUT, `${f.file}.woff2`))) stale.push(`assets/fonts/${f.file}.woff2 is missing`);
+  return stale;
+}
+
+function main() {
+  if (process.argv.includes('--check')) {
+    const stale = staleIconFont();
+    if (stale.length) {
+      console.error(`icon-font: stale. ${stale.join('; ')}. Run \`npm run icons:font\`.`);
+      process.exit(1);
+    }
+    console.log(`icon-font OK — ${Object.keys(drawings()).length} icons, ${FACES.length} faces`);
+    return;
+  }
+  const icons = drawings();
+  const names = Object.keys(icons);
+  const current = fs.existsSync(CODEPOINTS) ? JSON.parse(fs.readFileSync(CODEPOINTS, 'utf8')) : null;
+  const { map } = assignCodepoints(current, names);
+  const stamp = iconFontStamp(icons, map.icons);
+  const text = manifestText(map, stamp);
+  const job = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'icon-font-')), 'job.json');
+  fs.writeFileSync(job, JSON.stringify({ icons: Object.fromEntries(names.map((n) => [n, svgOf(icons[n])])), codepoints: map.icons, faces: FACES, out: OUT, version: VERSION }));
+  const python = process.env.ICON_FONT_PYTHON || 'python3';
+  const r = spawnSync(python, ['-I', BUILDER, job], { encoding: 'utf8' });
+  fs.rmSync(path.dirname(job), { recursive: true, force: true });
+  if (r.status !== 0) {
+    console.error(r.stderr || r.error?.message);
+    console.error('icon-font: the builder failed. It needs Python 3.10+ with `pip install -r tools/icon-font/requirements.txt` (or set ICON_FONT_PYTHON).');
+    process.exit(1);
+  }
+  fs.writeFileSync(CODEPOINTS, `${JSON.stringify(map, null, 2)}\n`);
+  fs.writeFileSync(MANIFEST, text);
+  for (const f of FACES) console.log(`icon-font: assets/fonts/${f.file}.woff2 · ${(fs.statSync(path.join(OUT, `${f.file}.woff2`)).size / 1024).toFixed(1)} KB`);
+  console.log(`icon-font: ${names.length} icons, stamp ${stamp}`);
+}
+
+if (require.main === module) main();
+
+module.exports = { FACES, FAMILY, assignCodepoints, iconFontStamp, staleIconFont, svgOf };

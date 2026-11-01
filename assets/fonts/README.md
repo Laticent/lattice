@@ -18,12 +18,18 @@ what an in-repo (pre-build) emulator run falls back to.
 | JetBrains Mono | code / mono | `jetbrains-{400,500,600}.woff2` | SIL OFL 1.1 |
 | Caveat | `sketch` headings | `caveat-{400,700}.woff2` | SIL OFL 1.1 |
 | Shantell Sans | `sketch` body / labels | `shantell-{400,500,700}.woff2` | SIL OFL 1.1 |
+| Lattice Icons | the curated icons as glyphs, one face per line weight (1.5, 2, 2.25) | `lattice-icons-{300,400,500}.woff2` | MIT (drawings: Tabler Icons) |
 
 Latin-subset woff2, pulled from the Google Fonts CSS API. The canonical face list
 lives in **`lib/fonts/text-faces.js`** (`TEXT_FACES`) — the single source of truth
 shared by the build emitter, the emulator (`SELF_HOSTED_FACES`), and the parity
 gate. To bundle another weight/family: drop the woff2 here, add a row there, and
 run `npm run build`.
+
+**Lattice Icons is ours, built here** rather than pulled: `npm run icons:font` (tools/build-icon-font.js)
+outlines the icons plugin's curated drawings, with each icon at a private-use codepoint that never moves
+(`lib/plugins/_icons-source/codepoints.json`). Its manifest is `lib/fonts/icon-faces.js`, and `fonts:check` fails
+when the font no longer matches the drawings. Design: `engineering/decisions/2026-11-01-icon-font.md`.
 
 KaTeX's math glyphs are self-hosted too — the build copies the `katex` package's
 woff2 into `dist/fonts/` and rewrites its CSS to reference them locally. Math
