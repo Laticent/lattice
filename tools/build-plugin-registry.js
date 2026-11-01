@@ -210,15 +210,17 @@ async function readExports(folder, name, manifest) {
   if (fs.existsSync(inlinePath)) {
     // `inline` is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js); read with a
     // probe ctx that offers nothing, which is all a key listing needs.
-    const exported = require(inlinePath).inline || {};
-    const inline = typeof exported === 'function' ? exported(PROBE_CTX) : exported;
+    const exported = require(inlinePath).inline;
+    if (typeof exported !== 'function') throw new Error(`${name}.inline.js: \`inline\` must be a factory of the plugin's ctx, \`(ctx) => ({ … })\``);
+    const inline = exported(PROBE_CTX);
     out.inline = Object.keys(inline);
     out.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row || {}).filter((f) => typeof row[f] === 'function')]));
   }
   const servicesPath = path.join(dir, `${name}.services.js`);
   if (fs.existsSync(servicesPath)) {
-    const exported = require(servicesPath).services || {};
-    out.services = Object.keys(typeof exported === 'function' ? exported(PROBE_CTX) : exported);
+    const exported = require(servicesPath).services;
+    if (typeof exported !== 'function') throw new Error(`${name}.services.js: \`services\` must be a factory of the plugin's ctx, \`(ctx) => ({ … })\``);
+    out.services = Object.keys(exported(PROBE_CTX));
   }
   out.hasData = fs.existsSync(path.join(dir, `${name}.data.generated.js`));
   // The highlight grammar is a pure function of highlight.js's API; read for its export.
@@ -859,14 +861,12 @@ function renderInline(ordered) {
     // A SHORTCUT kind (`[x]`, a check) is not a record: the manifest's one opening character is the row's `lead`.
     const tag = decl.untagged ? `sigil: null, untagged: true` : decl.shortcut ? `sigil: null, shortcut: true, lead: ${decl.shortcut.charCodeAt(0)}` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
     const embedded = m.embedded === true ? ', embedded: true' : '';
-    return `  inlineRow(${JSON.stringify(m.name)}, ${JSON.stringify(kind)}, factory(require('./${p.folder}/${m.name}.inline.js').inline), { name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag} }),`;
+    return `  inlineRow(${JSON.stringify(m.name)}, ${JSON.stringify(kind)}, require('./${p.folder}/${m.name}.inline.js').inline, { name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag} }),`;
   }));
   return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
 const { inlineRow } = require('../core/plugin-ctx.js');
 
 // A plugin's \`inline\` export is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js).
-const factory = (exported) => (typeof exported === 'function' ? exported : () => exported);
-
 const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
 
 module.exports = { INLINE };

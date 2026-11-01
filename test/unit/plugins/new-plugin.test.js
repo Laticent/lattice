@@ -59,7 +59,7 @@ describe('the plugin scaffold', () => {
     const pluginFile = (name, role) => path.join(__dirname, `../../../lib/plugins/${name}/${name}.${role}`);
     for (const s of shipped) {
       const name = s.manifest.name;
-      const built = (exported) => (typeof exported === 'function' ? exported(require('../../../lib/core/plugin-ctx.js').ctxFor(name)) : exported);
+      const built = (exported) => exported(require('../../../lib/core/plugin-ctx.js').ctxFor(name));
       if (fs.existsSync(pluginFile(name, 'inline.js'))) {
         // A plugin exports its kinds and services as factories the host calls with its ctx (lib/core/plugin-ctx.js).
         const { inline } = { inline: built(require(pluginFile(name, 'inline.js')).inline) };
