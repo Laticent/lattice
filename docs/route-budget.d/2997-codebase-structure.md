@@ -5,3 +5,5 @@ The plugin boundary (#2630). Site code that asks "does this deck use math" reads
 
 The plugin contract on top (2026-11-01-plugin-contract-hollywood.md) adds the state facade every plugin syntax rule now runs through (`lib/plugins/state-facade.mjs`, imported by the boundary parser's block installer and the generated grammar), so a rule never touches markdown-it's live state. Measured by CI against main at b7b80b7 on 7c48490: studio +390 B gz, playground +435, home +449, nearly all of it `slide-boundaries` (+369, the facade) and `math.syntax` (+43); declared with headroom for gzip spread.
 
+
+The engine bundle (`engineJsGz`, ledger-checked against its ceiling): the base plugin ctx carries only the vocabulary every render reads (status marks, record shapes, the video provider table). The diagram vocabulary reaches the Mermaid bake and pass through their own ctx, and the old video fence step reaches the Marp export through `lib/plugins/host-export.js`, so none of them rides into the engine. Measured locally on `esm/engine.js`'s static closure (gzip -9): 301.8 KB on main at b7b80b7, 308.3 KB before this scoping, 304.8 KB after it.
