@@ -6,8 +6,9 @@ summary: >
   The `ctx.vocabulary` channel does not: it hands plugins engine FUNCTIONS (the diagram theme, slide lookups,
   record compilers, the video matcher, check drawing), which is the core handing out utilities through a
   different door, against owner decision 1 ("pure helpers become owned dependencies, not ctx members"). Eight
-  of those deviations already have an answer in the note and get realigned; three need the owner: where the
-  render ctx's escape helpers go, where check drawing lives when the engine draws marks too, and charts.
+  of those deviations already have an answer in the note and get realigned; the owner settled the other three:
+  escape helpers go to `@laticent/markup`, the engine keeps drawing check marks, and charts are designed as one
+  plugin before #2997 lands.
 ---
 
 # Plugin contract: an alignment audit of what shipped on #2997 (2026-11-01)
@@ -78,6 +79,15 @@ package.
 - **Q3. Charts.** Chart-family imports 28 chart component transforms, which is the plugin-reaches-into-the-engine
   case in its purest form. §7 Q2 is still open, and the owner has since asked whether charts should be one
   component that behaves like Mermaid (one plugin, many kinds).
+
+### Owner decisions (2026-11-01)
+
+- **Q1:** `escape` and `escapeAttr` move to `@laticent/markup`; plugins and the engine import them. `encodeConfig`
+  stays in `ctx` (the host's marker format).
+- **Q2:** the engine keeps the drawing of a check mark. The checks plugin gets the status data and a host
+  capability to draw a state, not the drawing functions.
+- **Q3:** design charts as one plugin with many kinds first, and hold #2997 until it is built: chart-family is not
+  moved into the engine as an interim step.
 
 ## 4. Why it drifted
 
