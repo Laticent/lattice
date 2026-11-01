@@ -96,7 +96,7 @@ const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
 
 /** The ctx the build hands a plugin's inline and services factories to list their keys: it offers nothing. */
-const PROBE_CTX = Object.freeze({ name: '', service: () => null, data: () => null, dataPending: () => false, vocabulary: Object.freeze({ checks: require('../lib/core/checks-registry.js') }) });
+const PROBE_CTX = Object.freeze({ name: '', service: () => null, data: () => null, dataPending: () => false, vocabulary: Object.freeze({ checks: require('../lib/core/checks-registry.js') }), marks: Object.freeze({ read: () => null, html: () => '', element: () => null }) });
 const DISPATCH_FILE = path.join(PLUGINS_DIR, 'dispatch.generated.js');
 const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
 const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
