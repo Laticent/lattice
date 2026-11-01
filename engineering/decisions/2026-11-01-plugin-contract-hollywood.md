@@ -102,7 +102,7 @@ folder, comments excluded, plus every existing `ctx` member above):
 | Kit module | Plugin users | Goes to | The new shape |
 |---|---|---|---|
 | `sandbox` | mermaid (`render-worker.js`) | **host** | The host launches and confines the bake's page: the locked origin, request refusal, strict CSP and the OS sandbox, from the kernel `main` already has (`draw-frame-core.mjs`, `fileConfine`, `browser`). Mermaid keeps what its page draws. Lands with the work in `followups.d/2800-p3-mermaid-bake-one-browser.md` and `2749-p3-migrate-in-tree-plugins-to-sandbox-model.md`, which this note does not duplicate. |
-| `sanitize` | math (`katex-wall.js`) | **host** | **Profiles are the host's and only narrow.** The host owns the slide profile (`sanitize-slide-html.mjs`), the diagram profile (`sanitize-diagram-svg.mjs`) and the KaTeX wall's vocabulary check. A plugin declares its output kind in the manifest; the host maps the kind to a profile. A new or looser profile is a `SANCTIONED_*` entry with its justification (the HARD RULE #22 pattern), never a manifest string. A refused strict check **fails closed**: today `finish()` in `lib/core/katex-wall.js:237` falls back to the slide sanitizer, which keeps `position:fixed` that `checkTypeset` refused (the red team ran it); that pre-existing gap is on this path and is fixed here (#18). The host sanitizes where output is token-balanced (a whole fence or draw result, as the draw host's `finish` does), **not per renderer call**: the red team measured a per-call pass emptying Mermaid's SVG, deleting paired tokens' halves and rewriting `<path/>` as `<path></path>` in every export. The KaTeX wall stays host code in `lib/core/`, and #2997's move of it into math is dropped. Measured cost of a slide-profile pass in Node: 424 ms to load, 0.33 ms per fragment (red team, `createSlideSanitizer` + jsdom). The bar is byte-identical exports across every deck; any byte change goes to the owner for the QUALITY BAR export sign-off. |
+| `sanitize` | math (`katex-wall.js`) | **host** | **Profiles are the host's and only narrow.** The host owns the slide profile (`sanitize-slide-html.mjs`), the diagram profile (`sanitize-diagram-svg.mjs`) and the KaTeX wall's vocabulary check. A plugin declares its output kind in the manifest; the host maps the kind to a profile. A new or looser profile is a `SANCTIONED_*` entry with its justification (the HARD RULE #22 pattern), never a manifest string. A refused strict check **fails closed**: today `finish()` in `lib/core/katex-wall.js:237` falls back to the slide sanitizer, which keeps `position:fixed` that `checkTypeset` refused (the red team ran it); that pre-existing gap is on this path and is fixed here (#18). The host sanitizes where output is token-balanced (a whole fence or draw result, as the draw host's `finish` does), **not per renderer call**: a per-call pass empties Mermaid's SVG, deletes paired tokens' halves and rewrites `<path/>` as `<path></path>` in every export (§8, evidence 1). The KaTeX wall stays host code in `lib/core/`, and #2997's move of it into math is dropped. Measured cost of a slide-profile pass in Node: about 446 ms to load and 0.36 ms per fragment (§8, evidence 1). The bar is byte-identical exports across every deck; any byte change goes to the owner for the QUALITY BAR export sign-off. |
 | `plugin-data` | avatars, icons (host: `lib/engine/index.js`, `lib/runtime/index.js`) | **`ctx`** | `ctx.data()` (null while pending) and `ctx.dataPending()`, both getters read per call. The loader map moves into the host, one per surface. |
 | `services` | pills | **`ctx`** | `ctx.service(plugin, name)`, null when that plugin is off, bounded by the caller's `requires`/`optional`. **The host binds the owning plugin's `ctx`** when it runs a service, so `icons.drawHtml` called from inside a pills service still has icons' `data()`. checks stops importing pills: `pillHtml`/`pillElement` become pills services and `SIZES` becomes pills manifest data. A `package.json` never lists another plugin. |
 | `payload-path` | mermaid, `hydrate-script.js` (host: the `--player` and locked-figure exports, four build tools) | **`ctx`** | `ctx.payload(key)` / `ctx.vendor(lib, key)`, **keyed, not path-taking**, refusing undeclared keys as `payload-path.js` does today, so no `../` traversal. The host resolves from the plugin's install location. |
@@ -111,7 +111,7 @@ folder, comments excluded, plus every existing `ctx` member above):
 | `diagram-theme` | mermaid (bake and hydrate) | **Mermaid** | `diagram-look` and `mermaid-theme-map` have no code importer outside Mermaid, the kit and two audit tools, so they move into the plugin. Mermaid reads tokens through the existing `readToken`/`paletteReader` (bake) and `token` (hydrate). This keeps phase D's decision (`2026-09-27-plugin-system.md:1160-1164`: theme assembly moved into the bake) and `spec/LPM.md` §4.5 ("what a plugin builds from a palette is the plugin's"). |
 | `deck-walk` | mermaid | **split** | The bake stays **whole-deck** (`bake(source, ctx) → string`, LPM §4.5); Mermaid renders the batch in one page. Slide position comes from `ctx.slideAt(offset)` → `{ index, class, band }`, replacing `slideClassSpans`/`slideClassAt`/`slideIndexAt`/`resolveDiagramBand`. `matchMermaidFences` moves into Mermaid (§2a). |
 | `slots` | avatars, checks, code, icons, pills, sparks, video | **manifest + hook** | An inline kind declares its `slot`; the host compiles it and passes parsed fields. A kind that post-processes keeps a `resolve(fields, raw, ctx)` hook: pills re-reads with an icon-only slot and checks for a quoted label (`pills.inline.js:122-178`). checks' `[x]` is a `shortcut` kind, which has no slot. The slot compiler (`segno-spec`, `segno-spec-core`) moves into `@laticent/segno`; the catalog `segno-slots.js` reads component manifests (`segno-slots.generated.js`), so it stays in the engine. |
-| `checks` | checks | **`ctx`** | The status vocabulary (`STATUSES`, `MARKERS`, `stateClassesFor`) is the engine's: the shared kernel reads it (`lib/integrations/markdown-it/plugins.js:29`, HARD RULE #1), as do `lib/runtime/index.js:261`, `label-set-key.js:45`, `status-marks.js:21`, `chart-status.js:24` and `list-text-grammar.js:58`. It stays in `lib/core/checks-registry.js` and reaches the checks plugin as frozen data, `ctx.vocabulary.checks`. Status marks keep working with the plugin off. Drawing a state stays the plugin's. |
+| `checks` | checks | **`ctx`** | The status vocabulary (`STATUSES`, `MARKERS`, `stateClassesFor`) is the engine's: the shared kernel reads it (`lib/integrations/markdown-it/plugins.js:29`, HARD RULE #1), as do `lib/runtime/index.js:261`, `label-set-key.js:45`, `status-marks.js:21`, `chart-status.js:24` and `list-text-grammar.js:58`. On `main` it lives inside the plugin (`lib/plugins/checks/shared/registry.js`) and the kernel imports it from there (`lib/integrations/markdown-it/plugins.js:29`), an engine-into-plugin import; #2997 moves it to `lib/core/checks-registry.js`. It belongs in `lib/core/` (moved there in the PR if it starts from `main`) and reaches the checks plugin as frozen data, `ctx.vocabulary.checks`. Status marks keep working with the plugin off. Drawing a state stays the plugin's. |
 | `video-migrate` | video | **video plugin** | Moves into the plugin. The linter keeps the rule that spots the old form (HARD RULE #7); the **fix driver**, which already loads outside `lint-core` through an `import()`, asks the plugin for the rewrite through a declared `fixes` hook. That adds a contribution point; it does not make a lint rule one, so plugin-system §4.3's "never a contribution point: lint rules" still holds. |
 | `video` | video | **video plugin, as data** | The provider table becomes declared manifest data (`providers`, plugin-system §4.3: templates and validated-id patterns, never functions). The host owns one matcher over the declared table (§2a). |
 | `code-text` | code | **split** | `splitCodeLines` joins `@laticent/markup` (extracted from `collections.js`, which also requires `overflow-probe`). `parseIndexList` becomes a Segno value type. The host parses the `@code{…}` record and the `code:` front-matter default and passes resolved options, so the plugin holds no copy of the range grammar (today `record.js:67-122` parses both). `topLevelFrontMatterValue` becomes `ctx.deck.frontMatter(key)`. |
@@ -129,11 +129,11 @@ matcher.
 
 | Helper | Engine call site | Whose work | Where it goes |
 |---|---|---|---|
-| Video provider table | `video.transform.js:60-66` re-validates the figure's URL before drawing a QR ("never trusted as written") | The host's: it is a security check | The host keeps the check, over the plugin's **declared** table. A stamped attribute is not trusted: the red team showed a forged figure would otherwise get a QR labeled "watch on YouTube" that encodes an attacker's URL |
+| Video provider table | `video.transform.js:60-66` re-validates the figure's URL before drawing a QR ("never trusted as written") | The host's: it is a security check | The host keeps the check, over the plugin's **declared** table. A stamped attribute is not trusted: `data-lattice-media*` is not a host marker (`author-markup.js:43`), so author HTML can forge the figure, and a layout that trusted the stamp would draw a QR labeled "watch on YouTube" for an attacker's URL. Reasoned, not demonstrated: the stamped design was never built, and today's re-validation refuses the forgery |
 | | `docs/src/playground/video-overlay.js` builds the embed | The host's: the player is parent-hosted by design (the slide sanitizer strips iframes, and iOS mishandles nested scaled iframes) | Stays host-side; reads the declared table |
 | | `tools/fetch-video-oembed.js` | The video plugin's maintenance tool | Moves into the plugin's folder |
 | Old-video-form fix | `lint-core.js` | Split: spotting the form is a lint rule; writing `@video{…}` is the plugin's syntax | The rule stays (#7); the fix driver calls the plugin's `fixes` hook |
-| Mermaid fence matcher | `lib/packages/gallery-gate.js:63`, the Studio's `gallery-gate.ts` (remote links in a gallery's diagrams, a HARD RULE #22 check) | Mermaid's | A Mermaid service, and **the gate fails closed** when the service is missing: the red team showed a null service turns 3 findings into 0 and admits the gallery. The bake and the gate use the same matcher |
+| Mermaid fence matcher | `lib/packages/gallery-gate.js:63`, the Studio's `gallery-gate.ts` (remote links in a gallery's diagrams, a HARD RULE #22 check) | Mermaid's | A Mermaid service, and **the gate fails closed** when the service is missing: for a fence inside an HTML block, which only the source matcher sees, a null matcher turns 3 findings into 0 and admits the gallery (§8, evidence 3). The bake and the gate use the same matcher |
 | | `lib/core/chart-narration.js` narrates a diagram | Mermaid's | The same service; with Mermaid off the fence renders as code and there is nothing to narrate |
 | Fence walk (`scanFences`, `normalizeInfo`) | the linter, the Studio's fence catalog, off-fences and code commands, the preview's grammar loading | **The engine's**: CommonMark fences are markdown | Stays in the engine |
 | `shellFenceFindings` | the linter | A lint rule | Stays in `lint-core` (#7) |
@@ -170,13 +170,13 @@ trio added:
 **Shape rules for every point:**
 
 - `ctx` is frozen. Per-render members (`deck.*`, `data()`, `slideAt`) are getters that read the current
-  render, because `ctx` is built once per memoized parser (`host.js:96`) and a captured value would go stale
+  render, because `ctx` is built once per memoized parser (`host.js:97`, `ctxFor`) and a captured value would go stale
   (the bug recorded at `lib/engine/index.js:634-640`).
 - `ctx` never carries a live host object. A syntax rule gets a host facade over markdown-it's `state` with no
   `.md` and no `.env`, and the host refuses a pushed token whose type the manifest does not declare (no
-  `html_*`). Renderers get the token's content and attributes, not `tokens`, `idx` or `self`. The red team
-  showed the old shape lets a rule inject `<img onerror>` past any fragment sanitizer and hijack the
-  memoized parser's `code_inline` renderer across renders.
+  `html_*`). Renderers get the token's content and attributes, not `tokens`, `idx` or `self`. The old shape
+  lets a rule inject `<img onerror>` past any fragment sanitizer and hijack the memoized parser's
+  `code_inline` renderer across renders (§8, evidence 2).
 - Each member is either **serializable** (data, or a function the host can proxy) or **in-process only**.
   A sandboxed plugin (a frame, the locked page, QuickJS) receives the serializable part as data; the draw
   frame's `env` on `main` (`lib`, `box`, `faces`, `px`, `token`, `hydrate`) is that projection.
@@ -302,6 +302,81 @@ finding is either folded in above or listed in §7.
 | Services had no `ctx` | red team, checker | host binds the owner's `ctx` (§2, §4) |
 | Hydrate `toString()` loses module scope | red team | hydrates are dependency-free (§4) |
 | License exception and load-time integrity for published packages | red team | §5 |
+
+### Evidence (reproduced by the maker, 2026-11-01, on `main` at `089fd23`)
+
+The red team's measurements, rerun with one script so anyone can repeat them. Save it as
+`.scratch/hollywood/evidence.mjs` and run `node .scratch/hollywood/evidence.mjs` from the repo root.
+
+```js
+import { createRequire } from 'node:module';
+import { performance } from 'node:perf_hooks';
+const require = createRequire(import.meta.url);
+const root = process.cwd();
+
+// 1. A slide-profile pass applied per fragment.
+let t = performance.now();
+const { JSDOM } = require('jsdom');
+const DOMPurify = require('dompurify');
+const { createSlideSanitizer } = await import(`${root}/lib/core/sanitize-slide-html.mjs`);
+const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
+const load = performance.now() - t;
+const cases = {
+  mermaid: '<svg viewBox="0 0 10 10"><style>.n{fill:red}</style><foreignObject width="9" height="9"><div><p>Label</p></div></foreignObject></svg>',
+  openHalf: '<div class="callout">',
+  closeHalf: '</div>',
+  selfClosing: '<svg><path d="M0 0L9 9"/></svg>',
+};
+console.log(`1. load ${load.toFixed(0)} ms`);
+for (const [k, v] of Object.entries(cases)) console.log(`   ${k}: ${JSON.stringify(v)} -> ${JSON.stringify(sanitize(v))}`);
+const N = 2000; t = performance.now();
+for (let i = 0; i < N; i++) sanitize(cases.mermaid + i);
+console.log(`   per fragment ${((performance.now() - t) / N).toFixed(3)} ms (n=${N})`);
+
+// 2. A syntax rule installed raw (host-grammar.mjs: ruler.before/after(..., rule.run)) gets markdown-it's live state.
+const MarkdownIt = require('markdown-it');
+const md = new MarkdownIt({ html: false });
+md.inline.ruler.before('text', 'evil', (state, silent) => {
+  if (state.src.charCodeAt(state.pos) !== 0x40 /* @ */) return false;
+  if (!silent) {
+    const tok = state.push('html_inline', '', 0);
+    tok.content = '<img src=x onerror="alert(1)">';
+    state.md.renderer.rules.code_inline = () => 'HIJACKED';
+  }
+  state.pos += 1;
+  return true;
+});
+console.log(`2. html:false render of "@": ${JSON.stringify(md.render('@').trim())}`);
+console.log(`   next, unrelated render of "\`x\`": ${JSON.stringify(md.render('`x`').trim())}`);
+
+// 3. The gallery gate with Mermaid's matcher returning nothing (what a null service yields). A fence inside an
+// HTML block renders as plain text in the page but is still drawn by the export, so only the source matcher sees it.
+const gallery = '# G\n\n<div>\n```mermaid\nflowchart LR\n  A@{ img: "https://evil.example/h.png" }\n```\n</div>\n';
+const gate = require(`${root}/lib/packages/gallery-gate.js`);
+const before = gate.galleryRemoteRefs(gallery);
+require(require.resolve(`${root}/lib/core/mermaid-fences.js`)).matchMermaidFences = () => [];
+delete require.cache[require.resolve(`${root}/lib/packages/gallery-gate.js`)];
+const after = require(`${root}/lib/packages/gallery-gate.js`).galleryRemoteRefs(gallery);
+console.log(`3. fence in an HTML block: real matcher ${before.length} ${JSON.stringify(before)}, null matcher ${after.length}`);
+```
+
+Output, in a 4-core sandbox:
+
+```
+1. load 446 ms
+   mermaid: "<svg …><style>.n{fill:red}</style><foreignObject …><div><p>Label</p></div></foreignObject></svg>" -> "<svg viewBox=\"0 0 10 10\"></svg>"
+   openHalf: "<div class=\"callout\">" -> "<div class=\"callout\"></div>"
+   closeHalf: "</div>" -> ""
+   selfClosing: "<svg><path d=\"M0 0L9 9\"/></svg>" -> "<svg><path d=\"M0 0L9 9\"></path></svg>"
+   per fragment 0.358 ms (n=2000)
+2. html:false render of "@": "<p><img src=x onerror=\"alert(1)\"></p>"
+   next, unrelated render of "`x`": "<p>HIJACKED</p>"
+3. fence in an HTML block: real matcher 3 ["policy:an image shape (`img:`)","policy:a protocol-relative or UNC path","https://evil.example/h.png"], null matcher 0
+```
+
+A plain top-level fence still yields 3 refs with a null matcher, because the gate's rendered-HTML reader
+catches it; the HTML-block case is the one only the matcher sees. Evidence 2 shows markdown-it's own behavior
+when a rule holds `state`, which is what `lib/plugins/host-grammar.mjs:181-184` hands a plugin today.
 
 ## References
 
