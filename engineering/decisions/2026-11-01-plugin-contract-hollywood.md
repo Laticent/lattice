@@ -89,8 +89,8 @@ From #2997's branch at `cf61608` (`git grep plugin-kit/ lib/plugins lib/componen
 
 ### 2a. Audit: helpers the engine also uses
 
-The fact-check found that four groups with one plugin user also have engine users (15 files on #2997's
-branch). The owner's test (2026-11-01): **a helper is shared only if it has utility beyond the plugin.** So
+The fact-check found that four groups with one plugin user also have engine users (9 files on #2997's
+branch, counted by symbol, tests excluded; the Mermaid matcher below adds 3 more). The owner's test (2026-11-01): **a helper is shared only if it has utility beyond the plugin.** So
 each engine call site was read and asked one question: is this the engine's own work, or plugin work that
 leaked into the engine? A leak is routed back to the plugin; it is not a reason to share.
 
@@ -102,10 +102,10 @@ leaked into the engine? A leak is routed back to the plugin; it is not a reason 
 | Old-video-form fix (`video-migrate`) | `lint-core.js` fixes an old `video` slide into `@video{…}` | Split: detecting the old form is a lint rule (HARD RULE #7 keeps it in `lint-core`); writing `@video{…}` is the plugin's syntax | The rule stays; the fix text comes from the plugin as a declared, sandboxed call, the bucket `followups.d/2630-p2-…` already uses for the code plugin's Marp rewrite |
 | Mermaid fence matcher (`matchMermaidFences`, `firstMermaidFenceBody`) | `lib/cli/gallery-gate.js` and the Studio's `gallery-gate.ts` check a gallery's Mermaid for remote links | Mermaid's | Mermaid publishes it as a service (`contributes.services`); both gates call `service('mermaid', …)` |
 | | `lib/core/chart-narration.js` narrates a Mermaid diagram | Mermaid's | The same service |
-| Fence walk (`fence-languages`: `scanFences`, `normalizeInfo`) | the linter, the Studio's fence catalog and off-fences, the preview's grammar loading | **The engine's**: reading CommonMark fences is markdown, which the engine owns | Stays in the engine. The code plugin gets the answer as `ctx.deck.fenceLanguages`, not the walker |
+| Fence walk (`fence-languages`: `scanFences`, `normalizeInfo`) | the linter, the Studio's fence catalog, off-fences and code commands (`code-commands.ts`), the preview's grammar loading | **The engine's**: reading CommonMark fences is markdown, which the engine owns | Stays in the engine. The code plugin gets the answer as `ctx.deck.fenceLanguages`, not the walker |
 | `shellFenceFindings` | the linter | A lint rule | Stays in `lint-core` (#7) |
 | `splitCodeLines` | the `build` and `focus` transformers reveal and highlight code lines | **The engine's**: section transforms are engine-owned (plugin-system §4.3) | Shared, so it joins `@laticent/markup`; it rewrites highlighted HTML |
-| `parseIndexList` | `focus.js` reads `_focus: 3-5 9` | **The engine's**, and it must read the same as the code plugin's `@code{focus=…}` | A Segno value type in `@laticent/segno`; the host compiles the plugin's slot and passes the parsed lines |
+| `parseIndexList` | `focus.js` reads `_focus: 3-5 9`; `lint-core.js` checks the same ranges | **The engine's**, and the directive, the linter and the code plugin's `@code{focus=…}` must all read a range the same way | A Segno value type in `@laticent/segno`; the host compiles the plugin's slot and passes the parsed lines |
 
 **Result: no new package.** Video and the Mermaid matcher belong to their plugins. What the engine genuinely
 shares already fits the two planned packages: HTML rewriting in `@laticent/markup`, author syntax in
