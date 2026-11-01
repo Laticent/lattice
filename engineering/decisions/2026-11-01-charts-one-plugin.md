@@ -84,11 +84,11 @@ docs-site importers, `structure.js`, `component-manifest.test.js` and the hand r
 Lattice is pre-GA. Nothing in this design keeps an old spelling, an old path or an old contract alive: a moved file
 is moved, not re-exported; a renamed thing is renamed everywhere in the same change.
 
-## 7. The decision this needs from the owner
+## 7. A plugin may contribute lint rules (owner decision, 2026-11-01)
 
 **A plugin may contribute lint rules.** HARD RULE #7 says lint rules live only in `lib/authoring/lint-core.js`, and
 plugin-system §4.3 says a lint rule is never a contribution point. A charts plugin that owns its lint needs both to
-change. What #7 protects stays: one pure, fs-free linter shared by the CLI, `validate()` and the browser. It would
+change; the owner approved amending both (HARD RULE #7 now reads "every lint rule runs through `lint-core.js`"). What #7 protects stays: one pure, fs-free linter shared by the CLI, `validate()` and the browser. It would
 gather plugin rules through a generated table, as it already gathers inline kinds' `diagnose`, and the rules stay
 pure and synchronous, on the `lintCoreGz` budget.
 

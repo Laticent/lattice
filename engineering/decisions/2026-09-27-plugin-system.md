@@ -323,10 +323,13 @@ about the whole plugin's CSS, not one render path.
   is semantic (2026-09-13 §Axis 1), and an `after: [...]` list would hide that behind a field that
   looks checked.
 - **Deck-wide passes (T3)** — the progress rail, auto-split, pagination — stay engine-owned.
-- **Lint rules.** HARD RULE #7 keeps every rule in `lib/authoring/lint-core.js`. `lint-core` must
-  stay pure and bundle into the browser, so it cannot `require` the code registry. The build
-  writes a **data-only vocabulary projection** (fence names, trigger characters, slide classes,
-  diagnostic IDs — the way `grammar.json` works) and `lint-core` reads that.
+- ~~**Lint rules.**~~ **Amended 2026-11-01** (owner decision, `2026-11-01-charts-one-plugin.md` §7): a plugin
+  MAY contribute lint rules through a declared `lint` role. The rules stay pure and synchronous and run through
+  `lib/authoring/lint-core.js`, which gathers them from a generated table, as it already runs inline kinds'
+  `diagnose` (so the premise below, that `lint-core` cannot require plugin code, no longer held). HARD RULE #7
+  was amended to match. *Was:* HARD RULE #7 keeps every rule in `lib/authoring/lint-core.js`; `lint-core`
+  cannot `require` the code registry, so the build writes a data-only vocabulary projection and `lint-core`
+  reads that.
 
 This table replaces LPM's five one-per-plugin `kind`s. A real plugin has several surfaces — math has
 inline syntax and block syntax — so the surface belongs to each *contribution*. (LPM's `component`

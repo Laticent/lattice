@@ -322,8 +322,10 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   `lib/components/<bucket>/X/X.docs.md` AND grep
   `test/integration/baseline-decks/gallery.md` for a live example (base
   modifiers → `lib/base/base.docs.md`).
-- **#7 — Edit lint rules in `lib/authoring/lint-core.js` only** — pure, fs-free,
-  shared by CLI / `validate()` / browser. Never duplicate.
+- **#7 — Every lint rule runs through `lib/authoring/lint-core.js`** — pure, fs-free,
+  synchronous, shared by CLI / `validate()` / browser. Never duplicate. A plugin's rules live in
+  the plugin and reach `lint-core` only through its declared `lint` role and a generated table
+  (amended 2026-11-01, `engineering/decisions/2026-11-01-charts-one-plugin.md` §7).
 - **#8 — Isolate feature/fix content from the six long-running galleries** —
   layouts graduate in a separate post-review commit. See `engineering/workflow.md`.
 - **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck**
