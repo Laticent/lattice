@@ -25,7 +25,12 @@ describe('export-formats', () => {
   // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
   // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
   const CHART_DIAGRAM_FIXTURE = path.join(ROOT, 'test', 'fixtures', 'chart-diagram-deck.md');
-  const TIMEOUT  = 60000;
+  // The CLI waits up to RENDER_WATCHDOG_MS (90 s) for Chrome to launch and retries a launch that
+  // timed out once, so a slow runner can need two launch budgets before the render starts. A 60 s
+  // limit turned that slow-but-working launch into a test timeout (one flaky leg in the 10-22..30
+  // census). Two launch budgets plus a minute for the render.
+  const WATCHDOG = Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000;
+  const TIMEOUT  = 2 * WATCHDOG + 60000;
 
   function tmpDir() {
     return fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-export-'));
@@ -301,8 +306,8 @@ describe('export-formats', () => {
   // assembled from the pre-browser static render, which no overflow watcher had ever
   // touched, so `--player` was permanently equal to `off` whatever the flag said. That
   // is invisible from the PDF assertions above, hence its own test.
-  // THREE full player renders, so it gets three times the budget. At the shared
-  // per-test TIMEOUT this measured 59.2s of 60s — a runner 10% slower than this box
+  // THREE full player renders, so it gets three times the budget. At the old shared
+  // per-test limit of 60 s this measured 59.2s of 60s — a runner 10% slower than this box
   // red-lines, and the failure is misleading: spawnSync carries the same timeout, so
   // a slow render returns status null and the assertion reports "render failed" with
   // an empty stderr, which reads as a render bug rather than a clock.
