@@ -103,6 +103,7 @@ const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
 const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
 const META_FILE = path.join(PLUGINS_DIR, 'meta.generated.mjs');
 const DETECT_FILE = path.join(PLUGINS_DIR, 'detect.generated.mjs');
+const PROVIDERS_FILE = path.join(PLUGINS_DIR, 'providers.generated.mjs');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -397,6 +398,19 @@ const ident = (name) => `p_${name.replace(/-/g, '_')}`;
  * table answers too, but it carries every plugin's manifest data and syntax rules; a named export per
  * plugin lets a bundler keep only the detectors a caller imports (route budget, #2630).
  */
+/**
+ * The media PROVIDERS plugins declare (`contributes.providers`), as plain data keyed by plugin: the host's one matcher
+ * (lib/core/video-providers.mjs) reads them, so it never imports a plugin's folder and a plugin never ships the matcher.
+ * ESM, data only: Node requires it (require(esm)) and the docs site imports it.
+ */
+function renderProviders(ordered) {
+  const rows = ordered.filter((p) => (p.manifest.contributes.providers || []).length)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: ${JSON.stringify(p.manifest.contributes.providers)},`);
+  return `${HEADER('The plugins\' declared media PROVIDERS, keyed by plugin name: data the host\'s matcher reads.')}
+export const PROVIDER_TABLES = Object.freeze({${rows.length ? `\n${rows.join('\n')}\n` : ''}});
+`;
+}
+
 function renderDetect(ordered, exportsByName) {
   const withDetect = ordered.filter((p) => {
     const exp = exportsByName.get(p.manifest.name);
@@ -1069,6 +1083,7 @@ async function build(opts = {}) {
       [DATA_PROBE_FILE, renderDataProbe(ordered, exportsByName)],
       [META_FILE, renderMeta(ordered)],
       [DETECT_FILE, renderDetect(ordered, exportsByName)],
+      [PROVIDERS_FILE, renderProviders(ordered)],
     ],
   };
 }
@@ -1089,7 +1104,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers}.generated.*\n`);
 }
 
 if (require.main === module) {

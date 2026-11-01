@@ -200,6 +200,42 @@
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}
         },
+        "providers": {
+          "type": "array",
+          "description": "Media providers declared as DATA (2026-11-01-plugin-contract-hollywood.md §2 `video` row): which hosts a provider owns, how a video id is read from the PARSED url, and the templates its links are built from. The host owns the one matcher over this table (lib/core/video-providers.mjs), because matching an address is a trust check: it matches the parsed host, never a substring, and builds a player src only from a validated id. In-tree only.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "label", "hosts", "id", "watch", "oembed", "embed", "shape"],
+            "properties": {
+              "key": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Stable; becomes `data-provider` on the figure."},
+              "label": {"type": "string", "description": "The human name: \"Watch on {label}\"."},
+              "hosts": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z0-9.-]+$"}, "description": "Hostnames the provider owns, matched against the parsed host (exact, or a subdomain)."},
+              "id": {
+                "type": "array",
+                "minItems": 1,
+                "description": "How to read the video id, tried in order; the first rule that applies and matches wins, and none gives ''. `query` + `pattern`: a search parameter whose whole value matches. `path`: a pattern over the pathname whose first group is the id. `host` / `notHost` limit a rule to (or away from) one host, `www.` ignored.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {"type": "string"},
+                    "pattern": {"type": "string"},
+                    "path": {"type": "string"},
+                    "host": {"type": "string"},
+                    "notHost": {"type": "string"}
+                  }
+                }
+              },
+              "watch": {"type": "string", "pattern": "^(?:\\{url\\}|https://[^{}]*\\{id\\}[^{}]*)$", "description": "The watch and QR target: an https template holding `{id}`, or exactly `{url}` (the author's address, re-serialized by the parser that validated it)."},
+              "oembed": {"type": ["string", "null"], "pattern": "^https://[^{}]*\\{watch\\}[^{}]*$", "description": "The oEmbed endpoint, `{watch}` URL-encoded; null when there is no public one."},
+              "embed": {"type": ["string", "null"], "pattern": "^https://[^{}]*\\{id\\}[^{}]*$", "description": "A player src built from the validated id and nothing else; null when the provider cannot be framed."},
+              "shape": {"enum": ["landscape", "portrait"]},
+              "asyncResolve": {"type": "boolean", "description": "A link form exists whose id is not in the address (TikTok short links), so the player resolves it out of band."}
+            }
+          }
+        },
         "registers": {
           "type": "object",
           "description": "Front-matter registers declared as DATA, keyed by the register's key and class prefix (`icon` → `icon: bare etch` and the `icon-bare` slide classes). The host's register factory (lib/core/register-factory.js) builds each one exactly as it builds `spark:`: one word per axis, a slide's word evicting the deck's on that axis only. A prefix a first-party register owns, or a word two axes share, fails the build.",

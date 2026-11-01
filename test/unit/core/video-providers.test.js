@@ -130,7 +130,9 @@ describe('the registry is one table, and every row is whole', () => {
 				}
 				if (!CODE.test(e.name)) continue;
 				const rel = path.relative(REPO, full);
-				if (rel === path.join('lib', 'core', 'video-providers.mjs')) continue;
+				// The ONE table is the video plugin's declared `providers` (its manifest, not code); the registry build copies it
+				// into this generated data module, which the host's matcher (lib/core/video-providers.mjs) reads.
+				if (rel === path.join('lib', 'plugins', 'providers.generated.mjs')) continue;
 				if (/\.test\.(js|mjs|cjs|jsx|ts|tsx)$/.test(e.name)) continue;
 				// A generated playground bundle (`authoring-core.generated.js`) is the kernel COPIED in by the bundler, not a second table.
 				if (/\.generated\.js$/.test(e.name) && rel.startsWith(path.join('docs', 'src', 'playground'))) continue;
