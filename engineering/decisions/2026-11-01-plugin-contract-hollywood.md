@@ -71,29 +71,54 @@ From #2997's branch at `cf61608` (`git grep plugin-kit/ lib/plugins lib/componen
 |---|---|---|---|
 | `sandbox` | mermaid (`render-worker.js`) | **host** | The manifest declares `exec.bake: "subprocess"` (already a contribution, plugin-system §4.3); the host launches and confines the worker. The plugin's bake receives its inputs and returns outputs. |
 | `sanitize` | math (`katex-wall.js`) | **host** | **New host work, with a cost.** Today only the third-party code door sanitizes plugin output on every path (threat model §6.1, "sanitizes the html as any fence output"); for in-tree plugins, some surfaces sanitize the whole document (the browser previews, the `--player` export in `lib/export/html-player.js`, drawings in `lib/export/locked-figures.js`), but no host step sanitizes each plugin's fragment as it renders (`lib/plugins/host.js` has none), which is why math cleans its own. The host takes this over for every plugin's fragments, and the plugin stops sanitizing itself. Cost: one sanitizer pass per plugin fragment on every render path, measured with `npm run bench` in step 1. If math needs a stricter pass than the host's, it declares a profile name in the manifest. |
-| `plugin-data` | avatars, icons, pills | **`ctx`** | `ctx.data()` returns the plugin's own data or null while pending; `ctx.dataPending()`. The loader map moves into the host, per surface, so there is one copy. |
+| `plugin-data` | avatars, icons (host: `lib/engine/index.js`, `lib/runtime/index.js`) | **`ctx`** | `ctx.data()` returns the plugin's own data or null while pending; `ctx.dataPending()`. The loader map moves into the host, per surface, so there is one copy. |
 | `services` | pills | **`ctx`** | `ctx.service(plugin, name)` (null when that plugin is off). The manifest's `requires`/`optional` list bounds which plugins it may name. |
-| `payload-path` | math, mermaid, `hydrate-script.js` | **`ctx`** | `ctx.payloadPath(rel)` / `ctx.vendorPath(lib, rel)`: the host resolves the plugin's own committed files from its install location. No repo layout in plugin code. |
+| `payload-path` | mermaid, `hydrate-script.js` (host: the `--player` and locked-figure exports, four build tools) | **`ctx`** | `ctx.payloadPath(rel)` / `ctx.vendorPath(lib, rel)`: the host resolves the plugin's own committed files from its install location. No repo layout in plugin code. |
 | `fonts` | mermaid | **`ctx`** | `ctx.fonts.faces` and `ctx.fonts.faceCss(face)`: the deck's resolved text faces. |
 | `diagram-theme` | mermaid | **`ctx`** | `ctx.theme.diagram({ look, hand })` returns the resolved look and the built theme; `ctx.token(el, name)` stays for hydrate (plugin-system §4.6). |
-| `deck-walk` | mermaid | **`ctx`** | The host already walks the deck. A bake receives per-fence context (`slideIndex`, `slideClass`, `band`) instead of re-parsing slide classes and fences itself. `matchMermaidFences` is the plugin's own grammar and stays in the plugin. |
+| `deck-walk` | mermaid | **`ctx`** | The host already walks the deck. A bake receives per-fence context (`slideIndex`, `slideClass`, `band`) instead of re-parsing slide classes and fences itself. `matchMermaidFences` lives in `lib/core/mermaid-fences.js` today and has three non-plugin callers (`lib/cli/gallery-gate.js`, `lib/core/chart-narration.js`, the Studio's `gallery-gate.ts`), so it is a shared helper; see §2a. |
 | `media` | mermaid | **`ctx`** | `ctx.media.webImagePlaceholder`: a host constant about the surface. |
 | `slots` | avatars, checks, code, icons, pills, sparks, video | **manifest** | An inline kind declares its `slot` (already the data shape a third-party kind uses). The host compiles it and calls the kind with parsed fields. Plugins stop calling `compileSlot`/`coreSlot`. The slot compiler (`segno-spec`, `segno-slots`) moves into `@laticent/segno`, which already parses the spans. |
 | `checks` | checks | **manifest** (+ owned dep) | The check vocabulary is data in the manifest. Drawing a state (`stateHtml`/`stateElement`) is the checks plugin's own code; other callers reach it as a service. |
-| `video-migrate` | video | **owned dep** | Pure text step. Moves into the video plugin, which is its only user. |
-| `video` | video | **owned dep** | `detectProvider` is pure. The provider table moves into the video plugin; per plugin-system §4.3, `providers` becomes a declared table later. |
-| `code-text` | code | **owned dep** | `splitCodeLines`, `parseIndexList`: pure. Move into the code plugin. `topLevelFrontMatterValue` is deck state, so it becomes `ctx.deck.frontMatter(key)`. |
-| `highlight` | code | **owned dep** | `fenceLanguages`, `spansFromHighlightHtml`: pure. Move into the code plugin. The host's highlighter also uses them; step 2 settles whether it depends on `@laticent/plugin-code` or the code plugin takes the highlighter over. |
-| `html` | chart-family | **owned dep** | Pure HTML-rewriting helpers (`html-lists`, `find-matching-close`, `section-walk`, `prose-code`, `coda`). They become `@laticent/markup`. About 54 files outside the plugins and the tests also import them (24 outside `lib/components`; `section-walk` alone has 28), counted from a dependency-cruiser graph of #2997's `cf61608`. `setRenderSection` writes host ids, so it becomes `ctx.section.mark(…)`. |
+| `video-migrate` | video | **video plugin** | Pure text step; moves into the video plugin. Its one engine user, the linter's old-video-form fix, keeps its rule in `lint-core` (HARD RULE #7) and gets the fix text from the plugin as a declared, sandboxed call (§2a). |
+| `video` | video | **video plugin** | `detectProvider` and the provider table move into the video plugin; per plugin-system §4.3, `providers` becomes a declared table later. Every engine user is video work, so none makes it shared (§2a). |
+| `code-text` | code | **split** | `splitCodeLines` splits highlighted HTML into balanced per-line fragments: HTML rewriting, so it joins `@laticent/markup` (the `build` and `focus` transformers use it too). `parseIndexList` reads the author's line-range syntax (`3-5 9`); it becomes a Segno value type, so the host compiles the code plugin's slot and hands it the parsed lines. `topLevelFrontMatterValue` is deck state, so it becomes `ctx.deck.frontMatter(key)`. |
+| `highlight` | code | **split** | `spansFromHighlightHtml` has no user outside the kit: it moves into the code plugin, which already owns the highlighter (`lib/plugins/code/shared/highlighter.js`). `fenceLanguages` is the engine's CommonMark fence walk (the linter, the Studio's fence catalog, the preview's grammar loading), so it stays in the engine and the plugin receives its answer as `ctx.deck.fenceLanguages` (§2a). |
+| `html` | chart-family | **owned dep** | Pure HTML-rewriting helpers (`html-lists`, `find-matching-close`, `section-walk`, `prose-code`, `coda`). They become `@laticent/markup`. About 54 files outside the plugins and the tests also import them (24 outside `lib/components`; `section-walk` alone has 26 by the same count), counted from a dependency-cruiser graph of #2997's `cf61608`. `setRenderSection` writes host ids, so it becomes `ctx.section.mark(…)`. |
 | `charts` | chart-family | **stays in-tree** | chart-family is the chart bucket's dispatcher and is already the one plugin excepted by name. It is the last plugin to move and is out of scope for phase G's first cut. |
+
+### 2a. Audit: helpers the engine also uses
+
+The fact-check found that four groups with one plugin user also have engine users (15 files on #2997's
+branch). The owner's test (2026-11-01): **a helper is shared only if it has utility beyond the plugin.** So
+each engine call site was read and asked one question: is this the engine's own work, or plugin work that
+leaked into the engine? A leak is routed back to the plugin; it is not a reason to share.
+
+| Helper | Engine call site | Whose work is it? | Where it goes |
+|---|---|---|---|
+| Video provider table (`video-providers`) | `video.transform.js` (the `video` slide) reads the provider to shape the layout | The video plugin's: it already renders the figure | The plugin stamps the provider on the figure it renders (`data-…` attribute); the layout reads the attribute. Data, not an import |
+| | `docs/src/playground/video-overlay.js` builds the embed | The video plugin's browser half | Moves into the plugin's hydrate |
+| | `tools/fetch-video-oembed.js` | The video plugin's maintenance tool | Moves into the plugin's folder |
+| Old-video-form fix (`video-migrate`) | `lint-core.js` fixes an old `video` slide into `@video{…}` | Split: detecting the old form is a lint rule (HARD RULE #7 keeps it in `lint-core`); writing `@video{…}` is the plugin's syntax | The rule stays; the fix text comes from the plugin as a declared, sandboxed call, the bucket `followups.d/2630-p2-…` already uses for the code plugin's Marp rewrite |
+| Mermaid fence matcher (`matchMermaidFences`, `firstMermaidFenceBody`) | `lib/cli/gallery-gate.js` and the Studio's `gallery-gate.ts` check a gallery's Mermaid for remote links | Mermaid's | Mermaid publishes it as a service (`contributes.services`); both gates call `service('mermaid', …)` |
+| | `lib/core/chart-narration.js` narrates a Mermaid diagram | Mermaid's | The same service |
+| Fence walk (`fence-languages`: `scanFences`, `normalizeInfo`) | the linter, the Studio's fence catalog and off-fences, the preview's grammar loading | **The engine's**: reading CommonMark fences is markdown, which the engine owns | Stays in the engine. The code plugin gets the answer as `ctx.deck.fenceLanguages`, not the walker |
+| `shellFenceFindings` | the linter | A lint rule | Stays in `lint-core` (#7) |
+| `splitCodeLines` | the `build` and `focus` transformers reveal and highlight code lines | **The engine's**: section transforms are engine-owned (plugin-system §4.3) | Shared, so it joins `@laticent/markup`; it rewrites highlighted HTML |
+| `parseIndexList` | `focus.js` reads `_focus: 3-5 9` | **The engine's**, and it must read the same as the code plugin's `@code{focus=…}` | A Segno value type in `@laticent/segno`; the host compiles the plugin's slot and passes the parsed lines |
+
+**Result: no new package.** Video and the Mermaid matcher belong to their plugins. What the engine genuinely
+shares already fits the two planned packages: HTML rewriting in `@laticent/markup`, author syntax in
+`@laticent/segno`. The fence walk stays in the engine and reaches the code plugin as deck state through `ctx`.
 
 **The rule that sorts a member** (apply it to anything not on the list):
 
 1. Does its answer depend on the deck, the surface, the theme, the install location, or other plugins? **`ctx`.**
 2. Is it a value a host tool must know without running the plugin (a vocabulary, a slot, a spec)? **Manifest.**
-3. Otherwise it is pure. **Owned dependency.** If only the plugin uses it, it moves into the plugin. If two
-   or more parts use it, it goes in a versioned `@laticent/*` package **named for its job**, never for who
-   uses it (§5).
+3. Otherwise it is pure. **Owned dependency.** If only the plugin uses it, it moves into the plugin. An
+   engine caller doing the plugin's work does not count: route it back through a declared hook or service
+   (§2a). Only a helper with real utility beyond the plugin goes in a versioned `@laticent/*` package,
+   **named for its job**, never for who uses it (§5).
 
 ## 3. The reverse direction: emptying `hostApi`
 
@@ -125,15 +150,16 @@ Every unit below is its own npm package. Each changes for one reason, and depend
 | Package | Holds | Depends on | Lives in |
 |---|---|---|---|
 | `@laticent/plugin-api` | The contract only: the `ctx` shape per contribution point (§4), the manifest schema (`plugin.schema.json`), the `api` version, and the fixtures harness a plugin author tests with | nothing | `packages/plugin-api/` |
-| `@laticent/markup` | Reading and rewriting rendered HTML strings: matching close tags, walking lists and `<section>`s, marking prose code | nothing | `packages/markup/` |
-| `@laticent/segno` | Already a package. Gains the slot compiler, since slots are Segno's job | nothing new | moves from `docs/src/lib/segno/` to `packages/segno/` |
+| `@laticent/markup` | Reading and rewriting rendered HTML strings: matching close tags, walking lists and `<section>`s, marking prose code, splitting highlighted code into balanced lines | nothing | `packages/markup/` |
+| `@laticent/segno` | Already a package. Gains the slot compiler and the line-range value type (`3-5 9`), since author syntax is Segno's job | nothing new | moves from `docs/src/lib/segno/` to `packages/segno/` |
 | `@laticent/plugin-<name>` | One plugin: its role files, its own helpers, its data and vendored libraries | `plugin-api`, plus whichever of the above it uses, plus `requires`'d plugins | in place, `lib/plugins/<name>/` gets a `package.json` |
 | the engine (`@laticent/lattice`) | The host: builds `ctx`, owns the sandbox, the sanitizer and the data loaders | `plugin-api`, `markup`, `segno`, and the plugins it ships | `lib/` |
 
 **Why the contract package carries no helpers.** The owner first floated "an API package and a plugin-core
 with utilities". The usage data argued against a utilities bag: each of the five pure helper groups on
 #2997's branch (`html`, `code-text`, `highlight`, `video`, `video-migrate`) has exactly one plugin user, and
-the one widely shared group (HTML rewriting) is shared with the engine, about 54 files, not with other plugins. A `plugin-core` would make the engine depend on a "plugin" package, tie unrelated helpers to one
+the one widely shared group (HTML rewriting) is shared with the engine, about 54 files, not with other plugins.
+The §2a audit then showed the other groups' engine users are mostly plugin work that leaked into the engine. A `plugin-core` would make the engine depend on a "plugin" package, tie unrelated helpers to one
 version, and attract whatever the next plugin needs, which is how `lib/plugin-kit/` grew to 17 modules.
 Packages named for their job stay cohesive; the engine and the plugins depend on them as equals.
 
@@ -179,6 +205,6 @@ Steps 1–3 shrink what #2997 must carry, which also shrinks the 46 module moves
 
 - `engineering/decisions/2026-09-27-plugin-system.md` §4.3, §4.6, §4.12, §7 phase G
 - `engineering/decisions/2026-10-16-npm-plugin-threat-model.md` §4, §6.1
-- `engineering/decisions/2026-10-11-codebase-structure.md` §5
+- `engineering/decisions/2026-10-11-codebase-structure.md` §5 (on #2997's branch only)
 - `followups.d/2630-p1-plugin-api-ctx-or-kit.md` (settled by this note) and `followups.d/2630-p2-host-tools-read-plugins-as-data.md` (adopted). Both exist only on #2997's branch; they land with step 4 or are deleted there.
 - PR #2997 (`claude/codebase-structure-v2`), superseding PR #2630
