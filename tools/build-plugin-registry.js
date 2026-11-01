@@ -313,6 +313,11 @@ async function shippedFenceClaims() {
  * regenerated once broken. For the same reason the rules are installed here directly rather
  * than through lib/plugins/host-grammar.mjs, which imports the generated grammar.
  */
+/** The state facade, loaded from its source (it imports nothing generated, so a broken registry can still rebuild). */
+function requireStateFacade() {
+  return require(path.join(ROOT, 'lib', 'plugins', 'state-facade.mjs'));
+}
+
 function componentsWithPlugins(listed, exportsByName) {
   const MarkdownIt = require('markdown-it');
   const { discoverPackages } = require(path.join(ROOT, 'lib', 'packages', 'fs.js'));
@@ -326,7 +331,8 @@ function componentsWithPlugins(listed, exportsByName) {
         if (typeof mod[token] !== 'function') continue; // the resolver reports the missing rule
         const ruler = rule.kind === 'inline' ? md.inline.ruler : md.block.ruler;
         const [side, anchor] = Object.entries(rule.anchor)[0];
-        ruler[side](anchor, token, mod[token]);
+        // As the host installs it: through the state facade (lib/plugins/state-facade.mjs).
+        ruler[side](anchor, token, requireStateFacade().guardedRule(mod[token], p.manifest.name, new Set(Object.keys(syntax))));
       }
       return { name: p.manifest.name, md, tokens: new Set(Object.keys(syntax)) };
     });
@@ -520,9 +526,12 @@ function renderBlocks(ordered) {
   const byPlugin = new Map();
   for (const { plugin, token } of entries) byPlugin.set(plugin, [...(byPlugin.get(plugin) || []), token]);
   const imports = [...byPlugin].map(([plugin, tokens]) => `import { ${tokens.sort().join(', ')} } from './${plugin.folder}/${plugin.manifest.name}.syntax.mjs';`);
+  if (entries.length) imports.push(`import { guardedRule } from './state-facade.mjs';`);
+  // Each rule through the state facade, with its plugin's declared token types, as host-grammar.mjs installs it.
+  const guard = (e) => `guardedRule(${e.token}, ${JSON.stringify(e.plugin.manifest.name)}, new Set(${JSON.stringify(Object.keys(e.plugin.manifest.contributes.syntax))}))`;
   const calls = [
-    ...entries.filter((e) => e.rule.anchor.before).map((e) => `  md.block.ruler.before(${JSON.stringify(e.rule.anchor.before)}, ${JSON.stringify(e.token)}, ${e.token});`),
-    ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${e.token});`),
+    ...entries.filter((e) => e.rule.anchor.before).map((e) => `  md.block.ruler.before(${JSON.stringify(e.rule.anchor.before)}, ${JSON.stringify(e.token)}, ${guard(e)});`),
+    ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${guard(e)});`),
   ];
   const opaque = entries.filter((e) => e.rule.opaque).map((e) => e.token);
   const ahead = entries.filter((e) => typeof e.rule.scansAhead === 'string').map((e) => `${JSON.stringify(e.token)}: ${JSON.stringify(e.rule.scansAhead)}`);

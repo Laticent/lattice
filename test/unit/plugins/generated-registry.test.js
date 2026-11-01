@@ -48,6 +48,8 @@ describe('the generated registries on a multi-plugin tree', () => {
     fs.copyFileSync(path.join(ROOT, 'lib/components/manifest.schema.json'), path.join(root, 'lib/components/manifest.schema.json'));
     fs.mkdirSync(path.join(root, 'lib/plugins'), { recursive: true });
     fs.copyFileSync(path.join(ROOT, 'lib/plugins/host-grammar.mjs'), path.join(root, 'lib/plugins/host-grammar.mjs'));
+    // The state facade every installer wraps a plugin's syntax rule in (host-grammar.mjs, blocks.generated.mjs).
+    fs.copyFileSync(path.join(ROOT, 'lib/plugins/state-facade.mjs'), path.join(root, 'lib/plugins/state-facade.mjs'));
     // host-grammar.mjs reads the deck's `plugins:` list and slide classes through this (admitPlugins).
     fs.mkdirSync(path.join(root, 'lib/core'), { recursive: true });
     fs.copyFileSync(path.join(ROOT, 'lib/core/deck-plugins.mjs'), path.join(root, 'lib/core/deck-plugins.mjs'));
@@ -81,7 +83,8 @@ describe('the generated registries on a multi-plugin tree', () => {
     host.installGrammar(viaHost, { kinds: ['block'] });
     const viaGenerated = new MarkdownIt('commonmark');
     blocks.installPluginBlocks(viaGenerated);
-    const rules = (md) => md.block.ruler.__rules__.map((r) => [r.name, r.fn]);
+    // Both installers wrap each rule in the state facade; compare the plugin's own rule under it.
+    const rules = (md) => md.block.ruler.__rules__.map((r) => [r.name, r.fn.rule || r.fn]);
     assert.deepEqual(rules(viaGenerated), rules(viaHost));
     // And the order is the promised one: dependency order around each anchor.
     const names = viaHost.block.ruler.__rules__.map((r) => r.name);

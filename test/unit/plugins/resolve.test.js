@@ -256,7 +256,7 @@ describe('host-grammar — install order and disabling', () => {
   // Grammar entries in the generated shape: dependency order, each rule's `run` a real rule.
   const rule = (name) => (state, silent) => {
     if (state.src[state.pos] !== '%') return false;
-    if (!silent) state.push(name, '', 0);
+    if (!silent) state.push(`${name}_tok`, '', 0);
     state.pos += 1;
     return true;
   };
@@ -272,7 +272,7 @@ describe('host-grammar — install order and disabling', () => {
     assert.deepEqual(names.slice(names.indexOf('escape'), names.indexOf('escape') + 3), ['escape', 'base_tok', 'dependent_tok']);
     // …so the dependency's rule is the one that claims the input.
     const tokens = md.parseInline('%', {})[0].children;
-    assert.equal(tokens[0].type, 'base');
+    assert.equal(tokens[0].type, 'base_tok');
   });
   test('rules anchored BEFORE one host rule keep dependency order', () => {
     const md = new MarkdownIt('commonmark');
@@ -302,7 +302,8 @@ describe('the boundary parser\'s generated block installer agrees with the host'
     grammarHost().installGrammar(viaHost, { kinds: ['block'] });
     const viaGenerated = new MarkdownIt('commonmark');
     blocks.installPluginBlocks(viaGenerated);
-    const rules = (md) => md.block.ruler.__rules__.map((r) => [r.name, r.fn]);
+    // Both installers wrap each rule in the state facade; compare the plugin's own rule under it.
+    const rules = (md) => md.block.ruler.__rules__.map((r) => [r.name, r.fn.rule || r.fn]);
     assert.deepEqual(rules(viaGenerated), rules(viaHost));
     const { PLUGIN_GRAMMAR } = await import('../../../lib/plugins/grammar.generated.mjs');
     const opaque = PLUGIN_GRAMMAR.flatMap((p) => Object.entries(p.syntax).filter(([, r]) => r.kind === 'block' && r.opaque).map(([t]) => t));
