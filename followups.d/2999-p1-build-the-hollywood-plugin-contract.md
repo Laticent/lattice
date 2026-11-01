@@ -5,13 +5,14 @@ recorded: 2026-11-01
 area: engine
 severity: high
 swimlane: engineering/decisions/2026-11-01-plugin-contract-hollywood.md §6
-deferred: blocked — waits on the owner naming who builds it (#2997's branch belongs to another session, HARD RULE #31); and large — a contract change across every plugin, the host and the structure gate
+deferred: large — a contract change across every plugin, the host and the structure gate
 source: https://github.com/Laticent/lattice/pull/2999
 ---
 
-# Build the Hollywood plugin contract as one complete PR
+# Build the Hollywood plugin contract on #2997 as one complete PR
 
-why now   — #2999 settled the design and the owner held #2997 for it, so the structure gate that stops
+why now   — the owner chose (2026-11-01) to build it on #2997's branch, taken over from session
+            …F1z by session …1PY. #2999 settled the design and the owner held #2997 for it, so the structure gate that stops
             plugin-coupling drift reaches `main` only when this lands (drift went 8 → 49 imports while
             #2997 waited).
 where     — engineering/decisions/2026-11-01-plugin-contract-hollywood.md §2 (mapping), §4 (contract
