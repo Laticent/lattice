@@ -63,7 +63,7 @@ describe('core slots', () => {
     // The core `state` slot spelled the six as done/partial/fail/unknown/todo/skip, a third vocabulary nothing read;
     // it retired when the checks plugin took the grammar (engineering/decisions/2026-10-18-checks.md §18).
     assert.ok(!('state' in CORE));
-    const check = compileSlot(require('../../../lib/plugins/checks/checks.inline.js').SPEC);
+    const check = compileSlot(require('../plugins/host-built.js').checks.SPEC);
     const pairs = { '[x]': 'pass', '[-]': 'warn', '[!]': 'fail', '[?]': 'unknown', '[ ]': 'todo', '[/]': 'skip' };
     for (const [token, id] of Object.entries(pairs)) {
       assert.equal(value(check, token).answer, id, token);

@@ -130,7 +130,7 @@ async function renderRuntime(markup, frontMatter, pluginData = []) {
     ? () => Promise.resolve({ ok: true, text: () => Promise.resolve(frontMatter) })
     : () => Promise.reject(new Error('no network in this test'));
   // A browser surface gets a plugin's drawings from a data script that sets this global
-  // (lib/plugin-kit/plugin-data.js). A probe whose claim is about a DRAWN chip names the data it
+  // (lib/core/plugin-data.js). A probe whose claim is about a DRAWN chip names the data it
   // needs; without it the runtime leaves the span as the `<code>` the author wrote.
   if (pluginData.length) {
     dom.window.__latticePluginData = Object.fromEntries(

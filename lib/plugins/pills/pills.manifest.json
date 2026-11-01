@@ -35,9 +35,12 @@
       }
     },
     "services": [
+      "sizes",
       "reads",
       "pillHtml",
-      "pillElement"
+      "pillElement",
+      "pillHtmlFrom",
+      "pillElementFrom"
     ],
     "styles": true
   },

@@ -59,12 +59,14 @@ describe('the plugin scaffold', () => {
     const pluginFile = (name, role) => path.join(__dirname, `../../../lib/plugins/${name}/${name}.${role}`);
     for (const s of shipped) {
       const name = s.manifest.name;
+      const built = (exported) => (typeof exported === 'function' ? exported(require('../../../lib/core/plugin-ctx.js').ctxFor(name)) : exported);
       if (fs.existsSync(pluginFile(name, 'inline.js'))) {
-        const { inline } = require(pluginFile(name, 'inline.js'));
+        // A plugin exports its kinds and services as factories the host calls with its ctx (lib/core/plugin-ctx.js).
+        const { inline } = { inline: built(require(pluginFile(name, 'inline.js')).inline) };
         s.exports.inline = Object.keys(inline);
         s.exports.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row).filter((f) => typeof row[f] === 'function')]));
       }
-      if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(require(pluginFile(name, 'services.js')).services);
+      if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(built(require(pluginFile(name, 'services.js')).services));
       s.exports.hasData = fs.existsSync(pluginFile(name, 'data.generated.js'));
       // The draw role files (manifest `draw`), read the way tools/build-plugin-registry.js reads them; the two `.mjs` halves by presence.
       if (fs.existsSync(pluginFile(name, 'draw-frame.js'))) {

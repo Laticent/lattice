@@ -42,7 +42,7 @@
  *   lib/plugins/registers.generated.js  CommonJS, data only. Each plugin's front-matter registers, for
  *                                        lib/core/register-factory.js.
  *   lib/plugins/data.generated.js       CommonJS. Each plugin's data as a LAZY loader, which the
- *                                        engine registers with lib/plugin-kit/plugin-data.js.
+ *                                        engine registers with lib/core/plugin-data.js.
  *   lib/plugins/data-probe.generated.mjs  ESM. Each data plugin's `detect` and on-demand file, for a
  *                                        browser surface that fetches the data before rendering.
  *   lib/plugins/meta.generated.mjs      ESM, data only. The slide-metadata vocabulary: the `meta` plugin's
@@ -94,6 +94,9 @@ const DRAW_WARM_FILE = path.join(PLUGINS_DIR, 'draw-warm.generated.mjs');
 const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
 const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
+
+/** The ctx the build hands a plugin's inline and services factories to list their keys: it offers nothing. */
+const PROBE_CTX = Object.freeze({ name: '', service: () => null, data: () => null, dataPending: () => false, vocabulary: Object.freeze({ checks: require('../lib/core/checks-registry.js') }) });
 const DISPATCH_FILE = path.join(PLUGINS_DIR, 'dispatch.generated.js');
 const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
 const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
@@ -205,12 +208,18 @@ async function readExports(folder, name, manifest) {
   // keys (and each kind's four functions) so the one-to-one check can compare them.
   const inlinePath = path.join(dir, `${name}.inline.js`);
   if (fs.existsSync(inlinePath)) {
-    const { inline = {} } = require(inlinePath);
+    // `inline` is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js); read with a
+    // probe ctx that offers nothing, which is all a key listing needs.
+    const exported = require(inlinePath).inline || {};
+    const inline = typeof exported === 'function' ? exported(PROBE_CTX) : exported;
     out.inline = Object.keys(inline);
     out.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row || {}).filter((f) => typeof row[f] === 'function')]));
   }
   const servicesPath = path.join(dir, `${name}.services.js`);
-  if (fs.existsSync(servicesPath)) out.services = Object.keys(require(servicesPath).services || {});
+  if (fs.existsSync(servicesPath)) {
+    const exported = require(servicesPath).services || {};
+    out.services = Object.keys(typeof exported === 'function' ? exported(PROBE_CTX) : exported);
+  }
   out.hasData = fs.existsSync(path.join(dir, `${name}.data.generated.js`));
   // The highlight grammar is a pure function of highlight.js's API; read for its export.
   const highlightPath = path.join(dir, `${name}.highlight.js`);
@@ -836,9 +845,14 @@ function renderInline(ordered) {
     // A SHORTCUT kind (`[x]`, a check) is not a record: the manifest's one opening character is the row's `lead`.
     const tag = decl.untagged ? `sigil: null, untagged: true` : decl.shortcut ? `sigil: null, shortcut: true, lead: ${decl.shortcut.charCodeAt(0)}` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
     const embedded = m.embedded === true ? ', embedded: true' : '';
-    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
+    return `  inlineRow(${JSON.stringify(m.name)}, ${JSON.stringify(kind)}, factory(require('./${p.folder}/${m.name}.inline.js').inline), { name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag} }),`;
   }));
   return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
+const { inlineRow } = require('../core/plugin-ctx.js');
+
+// A plugin's \`inline\` export is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js).
+const factory = (exported) => (typeof exported === 'function' ? exported : () => exported);
+
 const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
 
 module.exports = { INLINE };
@@ -894,7 +908,7 @@ module.exports = { PLUGIN_REGISTERS };
 }
 
 /**
- * Each plugin's DATA, as a lazy loader the engine registers with lib/plugin-kit/plugin-data.js, so a
+ * Each plugin's DATA, as a lazy loader the engine registers with lib/core/plugin-data.js, so a
  * Node render loads it on first use and never otherwise. A browser bundle that carries the engine
  * aliases THIS file to lib/plugins/data-browser-stub.js, and the data arrives as its own script.
  */
