@@ -56,7 +56,7 @@ import { collectGalleryAssets, loadExampleDecks, loadGalleries } from '../src/pl
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
 // Where a plugin's library lives: its own committed copy when it vendors one (lib/core/payload-path.js).
-const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugin-kit', 'payload-path.js')).payloadPath(name, repoRoot);
+const libraryPath = (name) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'core', 'payload-path.js')).payloadPath(name, repoRoot);
 // Per-palette themes: the MINIFIED dist build (same bytes the Export-to-Marp
 // bundle ships), staged under the readable <name>.css dest.
 const distThemesDir = join(repoRoot, 'dist', 'themes');
@@ -234,7 +234,7 @@ if (bundledLatticeCss) {
 // `url(fonts/…)` resolves against the co-located katex/fonts/. Sourced from the
 // math plugin's OWN copy (lib/plugins/math/vendor/katex/, its manifest's `vendor`),
 // the one the engine renders with, so the site and the CLI cannot drift apart.
-const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'plugin-kit', 'payload-path.js')).vendorPath(name, key, repoRoot);
+const vendorPath = (name, key) => createRequire(import.meta.url)(join(repoRoot, 'lib', 'core', 'payload-path.js')).vendorPath(name, key, repoRoot);
 const katexFonts = vendorPath('math', 'katex-fonts');
 assets.push(['katex/katex.min.css', vendorPath('math', 'katex-css')]);
 for (const file of readdirSync(katexFonts)) {
