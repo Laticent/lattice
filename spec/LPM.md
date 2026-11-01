@@ -233,7 +233,7 @@ name). Each is `(token, ctx, env) → string`, where `token.content` is the toke
 fence's body.
 
 - A renderer MUST NOT keep state in closures; the engine reuses its parser across renders.
-- A renderer MUST escape author text it writes into markup (`ctx.escape`, `ctx.escapeAttr`).
+- A renderer MUST escape author text it writes into markup (`escapeHtml`, `escapeAttr` from `@laticent/markup`).
 - A fence whose figure is drawn in the browser returns a placeholder built with
   `ctx.hydrateAttrs(token.content)` (§6).
 - A sandboxed renderer (the code-package door) that declares `contributes.returns` (§3.3) MAY
@@ -336,7 +336,6 @@ A language highlight.js already knows by that name is left alone.
 | `ctx.name` | the plugin's name |
 | `ctx.options` | this plugin's install options (`createEngine({ plugins: { options: { <name>: … } } })`), frozen |
 | `ctx.family` | the deck's box family: `wide`, `square`, `tall` or `strip` |
-| `ctx.escape(s)`, `ctx.escapeAttr(s)` | HTML escaping for text and attribute values |
 | `ctx.encodeConfig(text)` | a text payload packed for an attribute (base64 of UTF-8) |
 | `ctx.hydrateAttrs(text)` | the placeholder attributes (§6) |
 

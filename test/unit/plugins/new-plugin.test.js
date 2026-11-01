@@ -25,7 +25,8 @@ const manifest = JSON.parse(files[`${NAME}.manifest.json`]);
 
 /** The scaffold's render module, loaded from its own text. */
 function renderModule() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-new-plugin-'));
+  // Inside the repo, so the scaffold's `require('@laticent/markup')` resolves as it does from lib/plugins/<name>/.
+  const dir = fs.mkdtempSync(path.join(__dirname, '.tmp-new-plugin-'));
   try {
     const file = path.join(dir, `${NAME}.render.js`);
     fs.writeFileSync(file, files[`${NAME}.render.js`]);

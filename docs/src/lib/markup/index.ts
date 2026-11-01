@@ -3,3 +3,4 @@
  * and that read only the string they are given. No DOM, no Node, no dependencies.
  */
 export { splitCodeLines } from './code-lines.js';
+export { escapeAttr, escapeHtml } from './escape.js';

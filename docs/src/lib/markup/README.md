@@ -1,6 +1,6 @@
 # @laticent/markup
 
-**Balanced-HTML string walking.** The pieces of markup handling that more than one consumer needs and that read
+**Balanced-HTML string walking and escaping.** The pieces of markup handling that more than one consumer needs and that read
 only the string they are given: no DOM, no Node, no dependencies.
 
 Lattice's code plugin numbers, focuses and marks the lines of a highlighted fence, and the engine's `_focus: line`
@@ -11,6 +11,7 @@ lives, so the plugin and the engine agree without the plugin importing the engin
 | Function | What it does |
 |---|---|
 | `splitCodeLines(html)` | Highlighted code (highlight.js output) as one balanced HTML fragment per source line. A span open at a newline is closed at the end of its line and re-opened on the next; the final newline ends the last line rather than starting an empty one; a sub-language span closed after the last newline is not a line |
+| `escapeHtml(s)` · `escapeAttr(s)` | Author text made safe for element text (`&`, `<`, `>`) or a double-quoted attribute (the same and `"`), in one pass |
 
 ```js
 import { splitCodeLines } from '@laticent/markup';
