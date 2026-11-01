@@ -197,6 +197,18 @@ const HOST_TOOL_LAYER = 6;
  */
 const HOST_API_CEILING = 14;
 
+/**
+ * How many lib/core files serve exactly one other part and no file in core: each is a candidate to
+ * move beside its one user. Same-layer imports are free, so core is the gate's easiest way out
+ * (decision note §5, the "two consumers" rule); this holds that rule as a ceiling. It fails on growth
+ * only, since an honest change elsewhere can give a core file its second consumer; lower it when
+ * `npm run structure` shows fewer.
+ */
+const CORE_SINGLE_CONSUMER_CEILING = 50;
+
+/** The repository's own package name: a self-import by name resolves at runtime but not in the graph. */
+const SELF_NAME = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).name;
+
 function partOf(file) {
   for (const p of MATCH_ORDER) {
     const hit = typeof p.match === 'function' ? p.match(file) : file.startsWith(p.match);
@@ -420,12 +432,15 @@ function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
 }
 const pluginRequires = (dir) => pluginManifests(dir).requires;
 
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi, hostApiCeiling } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling } = {}) {
   if (!requires || !hostApi) {
     const m = pluginManifests();
     requires ??= m.requires;
     // The ratchet holds the live manifests; a synthetic graph passes its own hostApi and ceiling.
-    if (!hostApi) hostApiCeiling ??= HOST_API_CEILING;
+    if (!hostApi) {
+      hostApiCeiling ??= HOST_API_CEILING;
+      coreSingleConsumerCeiling ??= CORE_SINGLE_CONSUMER_CEILING;
+    }
     hostApi ??= m.hostApi;
   }
   const { edges, files } = edgesOf(graph);
@@ -468,7 +483,7 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   // A workspace library (`@laticent/segno`, …) publishes on its own: a plugin on npm would depend on it
   // from npm, as it would on any package, so reaching it is not reaching past the kit.
   const declared = (e) => e.b.plugin && !!requires.get(e.a.name)?.has(e.b.name);
-  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !e.b.library && !declared(e) && !/\/dist\//.test(e.to));
+  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !e.b.library && !declared(e));
   const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
   const usedReach = new Set(pluginReach.map(reachKey));
   const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
@@ -526,6 +541,14 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     hostApiCount,
     hostApiCeiling,
     excludedImports: graph.excludedImports || [],
+    coreSingleConsumer: inside['lib/core']?.singleConsumer.length ?? 0,
+    coreSingleConsumerCeiling,
+    // `require('@laticent/lattice')` from inside the repo is Node's self-reference: it loads the engine
+    // (package.json `exports`), but dependency-cruiser cannot resolve it, so the edge is invisible and
+    // core could reach the engine unseen (the red team, #2997). Inside the repo, import by path.
+    selfImports: graph.modules.flatMap((m) =>
+      partOf(m.source) ? m.dependencies.filter((d) => d.module === SELF_NAME || String(d.module || '').startsWith(`${SELF_NAME}/`)).map((d) => `${m.source} -> ${d.module}`) : [],
+    ),
     unmapped: graph.modules.filter((m) => !m.coreModule && !m.couldNotResolve && !/node_modules/.test(m.source) && !partOf(m.source)).map((m) => m.source),
   };
 }
@@ -596,6 +619,8 @@ function structureProblems(result) {
   for (const f of result.staleHostApi || []) problems.push(`stale hostApi entry (nothing outside the plugin imports it, or the file is gone; remove it from the manifest): ${f}`);
   if (result.hostApiCeiling != null && result.hostApiCount > result.hostApiCeiling) problems.push(`hostApi grew: the manifests list ${result.hostApiCount} files, over HOST_API_CEILING (${result.hostApiCeiling}); the bridge only shrinks, so read the plugin through a service or its manifest instead`);
   if (result.hostApiCeiling != null && result.hostApiCount < result.hostApiCeiling) problems.push(`hostApi shrank to ${result.hostApiCount} files: lower HOST_API_CEILING in tools/structure.js from ${result.hostApiCeiling} to ${result.hostApiCount}, so it cannot grow back`);
+  if (result.coreSingleConsumerCeiling != null && result.coreSingleConsumer > result.coreSingleConsumerCeiling) problems.push(`lib/core grew a single-consumer file: ${result.coreSingleConsumer} files there serve exactly one other part, over CORE_SINGLE_CONSUMER_CEILING (${result.coreSingleConsumerCeiling}); keep a file beside its one user, and move it down when a second part needs it (\`npm run structure\` lists them)`);
+  for (const e of result.selfImports || []) problems.push(`imports the repository by its package name, which the gate cannot follow; import it by path: ${e}`);
   for (const e of result.excludedImports || []) problems.push(`imports a file the gate does not read (tests, examples and other excluded trees hide their edges; only tools/ may): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
   for (const u of result.unresolved || []) problems.push(`import resolves to no file (moved or misspelled): ${u}`);
@@ -611,7 +636,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, HOST_TOOL_LAYER, HOST_API_CEILING, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, HOST_TOOL_LAYER, HOST_API_CEILING, CORE_SINGLE_CONSUMER_CEILING, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

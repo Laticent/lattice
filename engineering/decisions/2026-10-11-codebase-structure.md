@@ -231,8 +231,10 @@ These are measured, not guessed, and none of them blocks anything:
   islands** (groups of files with no import between them; the largest is 136 files, and 49 files
   stand alone), and **34 files have exactly one importer, in one other part**. `npm run structure`
   now prints both numbers for every part of 50 files or more. The rule from here: a file moves down
-  only when two or more parts use it; otherwise it goes beside its one user, as `qr.js` did. The
-  core split, and moving the 34, are follow-ups. `site/lib` shows the same pattern early: 57
+  only when two or more parts use it; otherwise it goes beside its one user, as `qr.js` did. After
+  the rebase onto main the count was 50 (76 islands), and the gate now holds it as a ceiling,
+  `CORE_SINGLE_CONSUMER_CEILING` in `tools/structure.js`: it fails when core gains one, and is lowered
+  as they move out (#2997, from the inversion lens). The core split, and moving the 50, are follow-ups. `site/lib` shows the same pattern early: 57
   islands across 95 files.
 - **Some parts are glue, not parts**: `lib/integrations` and `lib/plugin-kit` (cohesion 0.00, by
   design for the kit), `lib/runtime` (0.03) and `lib/cli` (0.07) are thin shells over the parts

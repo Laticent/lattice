@@ -254,6 +254,25 @@ test('an import into an excluded tree (tests, examples) is a problem below tools
   assert.match(structureProblems(run(g)).join('\n'), /imports a file the gate does not read \(.*\): lib\/core\/a\.js -> test\/helpers\/x\.js/);
 });
 
+test('importing the repository by its own package name is a problem: Node resolves it, the graph does not (#2997)', () => {
+  const g = { modules: [{ source: 'lib/core/a.js', dependencies: [{ module: '@laticent/lattice', resolved: '@laticent/lattice', couldNotResolve: true }] }] };
+  assert.match(structureProblems(run(g)).join('\n'), /by its package name.*lib\/core\/a\.js -> @laticent\/lattice/);
+  const sub = { modules: [{ source: 'lib/core/a.js', dependencies: [{ module: '@laticent/lattice/runtime', resolved: '', couldNotResolve: true }] }] };
+  assert.equal(run(sub).selfImports.length, 1);
+});
+
+test('lib/core may not grow a single-consumer file past its ceiling; fewer pass', () => {
+  // lib/core needs 50+ files to be measured: 50 used inside core, plus one file only the engine uses.
+  const pairs = [['lib/core/hub.js', Array.from({ length: 50 }, (_, i) => `lib/core/f${i}.js`)]];
+  for (let i = 0; i < 50; i++) pairs.push([`lib/core/f${i}.js`, []]);
+  pairs.push(['lib/core/single.js', []], ['lib/engine/index.js', ['lib/core/single.js']]);
+  const g = graph(pairs);
+  assert.equal(run(g).coreSingleConsumer, 1);
+  assert.deepEqual(structureProblems(run(g, { coreSingleConsumerCeiling: 1 })), []);
+  assert.deepEqual(structureProblems(run(g, { coreSingleConsumerCeiling: 5 })), []);
+  assert.match(structureProblems(run(g, { coreSingleConsumerCeiling: 0 })).join('\n'), /lib\/core grew a single-consumer file: 1 files .* CORE_SINGLE_CONSUMER_CEILING \(0\)/);
+});
+
 test('hostApi only shrinks: an entry nothing outside imports is stale', () => {
   const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/pills.inline.js'])]]);
   const r = run(graph([['lib/plugins/pills/pills.inline.js', []]]), { hostApi });
