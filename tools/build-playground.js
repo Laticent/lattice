@@ -16,7 +16,7 @@
  *
  * KaTeX is deliberately EXCLUDED (~78.5KB gzip / see
  * engineering/decisions/2026-07-10-landing-perf-katex-defer.md §4): the
- * math plugin's KaTeX, which Node runs behind a wall (lib/plugins/math/shared/katex-wall.js,
+ * math plugin's KaTeX, which Node runs behind a wall (lib/plugins/host-katex-wall.js,
  * required by math.render.js), is swapped for lib/engine/katex-browser-stub.js
  * for THIS build only (katexStubPlugin), so neither KaTeX nor the wall's
  * WebAssembly reaches the bundle — a Node/CLI build of the same renderer
@@ -105,8 +105,8 @@ const oneMarkdownItPlugin = {
 const PLUGIN_DATA = path.join(ROOT, 'lib', 'plugins', 'data.generated.js');
 const PLUGIN_DATA_STUB = path.join(ROOT, 'lib', 'plugins', 'data-browser-stub.js');
 // The math plugin's walled KaTeX → the stub (see the header). Matched by the RESOLVED path, so the
-// relative `require('./shared/katex-wall.js')` in math.render.js is what it catches.
-const KATEX_WALL = path.join(ROOT, 'lib', 'plugins', 'math', 'shared', 'katex-wall.js');
+// literal `require('./host-katex-wall.js')` in lib/plugins/host.js (the host's wall for math) is what it catches.
+const KATEX_WALL = path.join(ROOT, 'lib', 'plugins', 'host-katex-wall.js');
 const katexStubPlugin = {
   name: 'katex-browser-stub',
   setup(build) {

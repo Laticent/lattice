@@ -1,5 +1,5 @@
 /**
- * Integration: the CLI typesets math behind the wall (lib/plugins/math/shared/katex-wall.js: KaTeX in QuickJS, in WebAssembly, in the
+ * Integration: the CLI typesets math behind the wall (lib/plugins/host-katex-wall.js: KaTeX in QuickJS, in WebAssembly, in the
  * CLI's own process), never with KaTeX loaded into that process, and starts no browser of its own for it.
  *
  *   PARITY   the real CLI's `.html` holds each formula exactly as KaTeX in Node typesets it, the error form included
@@ -41,7 +41,7 @@ function exportHtml(markdown) {
 }
 
 const typeset = (src, displayMode) =>
-  require('../../../lib/plugins/math/shared/katex-wall.js').renderToString(src, { displayMode, throwOnError: false, output: 'htmlAndMathml', errorColor: 'var(--warn)' });
+  require('../../../lib/plugins/host-katex-wall.js').renderToString(src, { displayMode, throwOnError: false, output: 'htmlAndMathml', errorColor: 'var(--warn)' });
 
 test('PARITY and OUT: the CLI typesets behind the wall, byte for byte as KaTeX in Node, and never loads KaTeX itself', { timeout: TIMEOUT }, () => {
   const { r, html } = exportHtml("---\ntheme: indaco\n---\n\n## Math\n\nInline $f'(x) = 2x$ and display:\n\n$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$\n\nBroken: $\\frac{1}{$\n");

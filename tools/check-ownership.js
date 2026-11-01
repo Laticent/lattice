@@ -1512,7 +1512,7 @@ function checkComponentCss(manifests, errors) {
 // Recursively list every .css file under a directory.
 /**
  * A plugin's `vendor/` folder: a third-party library the plugin OWNS a committed copy of
- * (`payload.vendored`, lib/plugin-kit/payload-path.js — Mermaid's minified build). It is not our
+ * (`payload.vendored`, lib/core/payload-path.js — Mermaid's minified build). It is not our
  * source, so no source gate reads it, exactly as none read the repo-root copy it replaced: its
  * integrity is held instead by the SHA-256 the plugin resolver checks against the manifest.
  */

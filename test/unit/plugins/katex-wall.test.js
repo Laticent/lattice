@@ -1,5 +1,5 @@
 /**
- * KaTeX behind the wall (lib/plugins/math/shared/katex-wall.js): QuickJS in WebAssembly, in this process, no browser.
+ * KaTeX behind the wall (lib/plugins/host-katex-wall.js): QuickJS in WebAssembly, in this process, no browser.
  *
  *   PARITY    every shipped formula, in all three output modes, typesets byte for byte as KaTeX in Node does, and every
  *             result passes the output check as it is (so no export moves)
@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const wall = require('../../../lib/plugins/math/shared/katex-wall.js');
+const wall = require('../../../lib/plugins/host-katex-wall.js');
 
 const ROOT = path.join(__dirname, '../../..');
 
@@ -137,7 +137,7 @@ test('LIMITS: a runaway loop, unbounded memory and runaway recursion stop inside
   }
 });
 
-test('CHECK: refuses what KaTeX never emits; a refused result is sanitized instead', () => {
+test('CHECK: refuses what KaTeX never emits; a refused result FAILS CLOSED', () => {
   const ok = wall.renderToString("f'(x) = \\frac{a}{b}", { throwOnError: false, output: 'htmlAndMathml' });
   assert.ok(wall.checkTypeset(ok));
   for (const bad of [
@@ -163,21 +163,22 @@ test('CHECK: refuses what KaTeX never emits; a refused result is sanitized inste
   const bmod = wall.renderToString('a \\bmod b', { throwOnError: false, output: 'mathml' });
   assert.match(bmod, /<mo[^>]*><mrow><mi mathvariant="normal">m<\/mi>/);
   assert.equal(wall.finish(ok), ok, 'a clean typeset keeps its bytes');
-  const cleaned = wall.finish(`${ok}<img src=x onerror=alert(1)><script>alert(2)</script>`);
-  assert.doesNotMatch(cleaned, /onerror|<script|alert/);
-  assert.match(cleaned, /class="katex"/);
+  // A refused result is not handed to the looser slide sanitizer and shipped: it throws, and math.render.js shows the
+  // source (2026-11-01-plugin-contract-hollywood.md §2). The red team's case: the slide sanitizer KEEPS position:fixed,
+  // which the strict check refuses, so a fallback to it alone let a full-page overlay through.
+  assert.throws(() => wall.finish(`${ok}<img src=x onerror=alert(1)><script>alert(2)</script>`), /refused by the strict check/);
+  assert.throws(() => wall.finish('<span style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:red">a</span>'), /refused by the strict check/);
 });
 
-test('ENGINE: the math plugin typesets through the wall, and KaTeX is never required into the process', () => {
+test('ENGINE: the math plugin typesets through the HOST\'s wall, and KaTeX is never required into the process', () => {
   // A fresh process, so nothing this file required can stand in for what the engine loads.
-  const probe = `const { renderTex } = require(${JSON.stringify(path.join(ROOT, 'lib/plugins/math/math.render.js'))});
-const html = renderTex('\\\\int_0^1 x^2\\\\,dx', true);
-const mod = require.cache[require.resolve(${JSON.stringify(path.join(ROOT, 'lib/plugins/math/math.render.js'))})];
-process.stdout.write(JSON.stringify({ html, katexLoaded: Object.keys(require.cache).some((p) => p.endsWith('katex.min.js')), children: mod.children.map((c) => path.basename(c.id)) }));`;
+  const probe = `const { render } = require(${JSON.stringify(path.join(ROOT, 'lib/engine'))});
+const { html } = render('# x\\n\\n$$\\n\\\\int_0^1 x^2\\\\,dx\\n$$\\n');
+process.stdout.write(JSON.stringify({ html, katexLoaded: Object.keys(require.cache).some((p) => p.endsWith('katex.min.js')), wallLoaded: Object.keys(require.cache).some((p) => p.endsWith(path.join('lib', 'plugins', 'host-katex-wall.js'))) }));`;
   const r = spawnSync(process.execPath, ['-e', `const path = require('node:path');\n${probe}`], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout);
   assert.equal(out.katexLoaded, false, 'KaTeX was required into the process');
-  assert.ok(out.children.includes('katex-wall.js'), `math.render.js does not require the wall: ${out.children}`);
-  assert.equal(out.html, wall.renderToString('\\int_0^1 x^2\\,dx', { displayMode: true, throwOnError: false, output: 'htmlAndMathml', errorColor: 'var(--warn)' }));
+  assert.ok(out.wallLoaded, 'the engine did not load the host\'s wall (lib/plugins/host-katex-wall.js)');
+  assert.ok(out.html.includes(wall.renderToString('\\int_0^1 x^2\\,dx', { displayMode: true, throwOnError: false, output: 'htmlAndMathml', errorColor: 'var(--warn)' })), 'the deck carries the wall\'s typeset');
 });

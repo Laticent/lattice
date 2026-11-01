@@ -6,7 +6,7 @@
  * `vendor.<key>` for the rest: version + SHA-256), and the browser pages, the CLI export and bake, the
  * Marp kit and the Export-to-Marp bundle all read it. `node_modules` is only the source
  * `npm run vendor:plugins` refreshes a copy from when WE upgrade, so no user downloads a library and no
- * install changes what ships (lib/plugin-kit/payload-path.js).
+ * install changes what ships (lib/core/payload-path.js).
  *
  * What is pinned here: the copies the manifests record are the ones on disk (the resolver checks that
  * too, at build); each source package is pinned exactly in package.json and installed at that build, so
@@ -20,7 +20,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { payloadOf, payloadPath, vendorPath, copiesOf, copySha } = require('../../../lib/plugin-kit/payload-path.js');
+const { payloadOf, payloadPath, vendorPath, copiesOf, copySha } = require('../../../lib/core/payload-path.js');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const pkgOf = (from) => {
   const spec = from.replace(/^npm:/, '');
@@ -91,9 +91,11 @@ test('every surface reads the plugin\'s copy', () => {
   assert.match(read('lib/plugins/hydrate-script.js'), /const abs = libraryPath\(h\.name\);/);
   assert.equal(require('../../../lib/plugins/hydrate-script.js').payloadPath({ name: 'function-plot', payload: {} }), payloadPath('function-plot'));
   // KaTeX: the engine's renderer, the docs provider bundle, the stylesheet and fonts every export reads.
-  // The renderer requires the wall, and the wall runs the plugin's own copy inside it.
-  assert.match(read('lib/plugins/math/math.render.js'), /katex = require\('\.\/shared\/katex-wall\.js'\);/);
-  assert.match(read('lib/plugins/math/shared/katex-wall.js'), /const KATEX_SOURCE = require\.resolve\('\.\.\/vendor\/katex\/katex\.min\.js'\);/);
+  // The HOST holds the wall (lib/plugins/host.js WALLS hands it to math through ctx.wall), and the wall runs the
+  // plugin's own copy inside it, read by key.
+  assert.match(read('lib/plugins/host.js'), /katex: Object\.freeze\(\{ plugin: 'math', load: \(\) => require\('\.\/host-katex-wall\.js'\) \}\)/);
+  assert.match(read('lib/plugins/math/math.render.js'), /ctx\.wall\('katex'\)/);
+  assert.match(read('lib/plugins/host-katex-wall.js'), /const KATEX_SOURCE = require\('\.\.\/core\/payload-path\.js'\)\.vendorPath\('math', 'katex'\);/);
   assert.match(read('lib/plugins/math/shared/katex-provider.js'), /import katex from '\.\.\/vendor\/katex\/katex\.min\.js';/);
   assert.match(read('tools/build-css.js'), /const KATEX_CSS = vendorPath\('math', 'katex-css'\);/);
   assert.match(read('lattice.js'), /vendorPath\('math', 'katex-css'\)/);
@@ -117,7 +119,7 @@ test('every surface reads the plugin\'s copy', () => {
       .filter((line) => !line.includes('npm:'))
       .map((line) => line.split(':')[0])
       .filter((f) => !f.includes('/vendor/') && f !== 'lib/core/remote-ref.js' && !f.endsWith('.md'));
-    assert.deepEqual(hits, [], `${hits.join(', ')} reads a vendored library from node_modules; read the plugin's copy (lib/plugin-kit/payload-path.js)`);
+    assert.deepEqual(hits, [], `${hits.join(', ')} reads a vendored library from node_modules; read the plugin's copy (lib/core/payload-path.js)`);
   }
 });
 

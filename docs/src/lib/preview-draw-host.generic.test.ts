@@ -13,9 +13,11 @@ vi.mock('../../../lib/plugins/draw-host-adapters.generated.mjs', () => ({
 	DRAW_HOST_ADAPTERS: {
 		sparkline: async () => ({
 			prepare: (job: Record<string, unknown>, env: { fonts: (asks: unknown) => unknown[] }) => ({ ...job, prepared: true, fonts: env.fonts(job.fonts) }),
-			finish: (raw: string, env: { sanitize: { slide: (s: string) => string; diagram: (s: string) => string } }) => `finished:${env.sanitize.slide(raw)}|${typeof env.sanitize.diagram}`,
+			// The host hands ONE sanitizer, the one for the kind's declared output, never a menu to pick from.
+			finish: (raw: string, env: { sanitize: (s: string) => string }) => `finished:${env.sanitize(raw)}|${typeof env.sanitize}`,
 		}),
 	},
+	DRAW_OUTPUTS: { sparkline: 'html' },
 }));
 vi.mock('./code-packages/draw-host', () => ({
 	createDrawHost: () => ({
@@ -41,7 +43,7 @@ describe("the previews' draw host: any plugin", () => {
 		answer = '<svg><script>alert(1)</script><rect/></svg>';
 	});
 
-	it("runs a kind's own prepare and finish, and hands both the host's sanitizers", async () => {
+	it("runs a kind's own prepare and finish, and hands it the one sanitizer for its declared output", async () => {
 		const { draw } = await import('./preview-draw-host-impl');
 		const out = await draw({ kind: 'sparkline', values: [1, 2] });
 		expect(sent[0]).toMatchObject({ kind: 'sparkline', values: [1, 2], prepared: true });

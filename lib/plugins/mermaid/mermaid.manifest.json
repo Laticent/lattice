@@ -52,6 +52,7 @@
   },
   "draw": {
     "frame": { "library": "esm", "preload": ["flowDiagram"] },
+    "output": "svg-diagram",
     "host": true,
     "shim": true
   },

@@ -233,8 +233,8 @@ async function readExports(folder, name, manifest) {
   out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
   // Each VENDORED library copy's hash as it sits on disk ('' when missing) — a file's SHA-256 or a
   // directory's tree hash — keyed by its `file`, for the resolver to hold against the manifest's
-  // record: the copy the plugin owns is the one that ships (lib/plugin-kit/payload-path.js).
-  const { copiesOf, copySha, walk } = require('../lib/plugin-kit/payload-path.js');
+  // record: the copy the plugin owns is the one that ships (lib/core/payload-path.js).
+  const { copiesOf, copySha, walk } = require('../lib/core/payload-path.js');
   out.vendored = {};
   for (const { entry } of copiesOf(manifest)) out.vendored[entry.file] = copySha(path.join(dir, entry.file), entry.file.endsWith('/'));
   // Every file under the plugin's vendor/ folder, so the resolver can refuse one no manifest names:
@@ -753,6 +753,9 @@ function renderDrawHostAdapters(ordered) {
   const lines = ordered.filter((p) => p.manifest.draw?.host === true).map((p) => `  ${JSON.stringify(p.manifest.name)}: () => import('./${p.folder}/${p.manifest.name}.draw-host.mjs'),`);
   return `${HEADER('The host-page halves of the plugins a sandboxed draw frame draws for, each imported lazily.')}
 export const DRAW_HOST_ADAPTERS = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+/** What each draw kind's answer IS, from its manifest's \`draw.output\`: the host picks the sanitizer for it, the plugin does not. */
+export const DRAW_OUTPUTS = Object.freeze(${JSON.stringify(Object.fromEntries(ordered.filter((p) => p.manifest.draw).map((p) => [p.manifest.name, p.manifest.draw.output || 'html'])))});
 `;
 }
 

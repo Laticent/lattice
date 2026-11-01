@@ -24,7 +24,7 @@ const liveDollars = (md) => {
 
 describe('canonicalKatexHtml — a strict grammar, rewritten from what it read', () => {
   test('KaTeX output round-trips, with the punctuation in its text and values encoded', () => {
-    const out = canonicalKatexHtml(renderers.math_inline({ content: 'a_1^2' }, { options: {} }));
+    const out = canonicalKatexHtml(renderers.math_inline({ content: 'a_1^2' }, require('../../../lib/plugins/host.js').renderCtx('math')));
     assert.ok(out);
     assert.match(out, /^<span class="katex">/);
     assert.match(out, /<annotation encoding="application\/x-tex">a&#95;1&#94;2<\/annotation>/);
