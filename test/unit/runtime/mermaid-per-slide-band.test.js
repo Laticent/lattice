@@ -34,7 +34,10 @@ const {
   diagramCacheKey,
   groupDiagramsBySlide,
 } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
-const { renderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
+const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
+// The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
+const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/core/diagram-vocabulary.js');
+const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_PATH = path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js');
@@ -97,9 +100,11 @@ function liftPreviewBuild(tokensBySection, fallbackSection, captured = {}) {
   // same branch a browser does.
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
   const factoryOut = eval(
-    `(function (document, getComputedStyle, diagramScopeKey, TEXT_VALUE_TOKENS) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
+    `(function (document, getComputedStyle, diagramScopeKey, TEXT_VALUE_TOKENS, buildDiagramTheme) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
   )(fakeDocument, fakeGetComputedStyle, diagramScopeKey,
-    require('../../../lib/core/mermaid-theme-map').textValueTokens());
+    require('../../../lib/core/mermaid-theme-map').textValueTokens(),
+    // The pass reads the map from its ctx (ctx.vocabulary.diagram); the block closes over it under this name.
+    require('../../../lib/core/mermaid-theme-map').buildDiagramTheme);
   captured.probeEl = probeEl;
   captured.close = factoryOut.closeSectionReaders;
   const ports = factoryOut.diagramThemePorts();

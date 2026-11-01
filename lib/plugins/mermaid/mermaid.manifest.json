@@ -28,7 +28,8 @@
     "hydrate": {},
     "bake": true,
     "highlight": true,
-    "styles": true
+    "styles": true,
+    "services": ["fences", "firstFenceBody"]
   },
   "tokens": [
     "--accent", "--bg", "--bg-alt", "--border", "--c-on-container", "--c-on-subcontainer",

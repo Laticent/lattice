@@ -1,5 +1,5 @@
 /**
- * Unit: lib/core/mermaid-fences.js — the one thing that says "this is a Mermaid fence".
+ * Unit: lib/plugins/mermaid/shared/mermaid-fences.js — the one thing that says "this is a Mermaid fence".
  *
  * The module exists because two paths carried their own copy of the same regex and only one
  * of them was ever going to get widened. The arms are in three groups:
@@ -19,7 +19,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { matchMermaidFences, firstMermaidFenceBody } = require('../../../lib/core/mermaid-fences');
+const { matchMermaidFences, firstMermaidFenceBody } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
 
 const BODY = 'flowchart LR\n  A --> B\n';
 

@@ -12,6 +12,8 @@ export function installNodeEngine(): void {
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = {
 		render: (source: string, theme: string) => engine.render(source, theme),
 		referenceTargets: (markdown: string) => engine.referenceTargets(markdown),
+		// A plugin's service as the host hands it, as lib/playground/index.js exposes it to the Studio.
+		pluginService: (plugin: string, name: string) => require('../../../lib/core/plugin-services.js').service(plugin, name),
 		hasTheme: () => true,
 		addThemes: () => {},
 	};

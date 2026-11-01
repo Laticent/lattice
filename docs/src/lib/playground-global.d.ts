@@ -41,6 +41,8 @@ export interface LatticePlaygroundEngine {
 	hasTheme: (name: string) => boolean;
 	/** Every link reference definition's target, used or not (lib/engine `referenceTargets`). */
 	referenceTargets?: (markdown: string) => string[];
+	/** A plugin's service as the host hands it, or null when the plugin is off or offers none (lib/core/plugin-services.js). */
+	pluginService?: (plugin: string, name: string) => ((...args: never[]) => unknown) | null;
 	/** Fenced-code grammars this deck asks for that the bundle cannot color.
 	 *  The bundle carries highlight.js core and Lattice's shell grammar only; every
 	 *  other grammar is fetched per deck by docs/src/lib/ensure-hljs-language.ts. */

@@ -40,7 +40,10 @@ const {
   buildDiagramTheme,
   diagramThemeTokens,
 } = require('../../../lib/core/mermaid-theme-map');
-const { renderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
+const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
+// The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
+const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/core/diagram-vocabulary.js');
+const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
 const { diagramScopeKey } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');

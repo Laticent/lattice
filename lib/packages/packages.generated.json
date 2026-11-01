@@ -1524,6 +1524,7 @@
         "highlight.js",
         "hydrate.js",
         "manifest.json",
+        "services.js",
         "styles.css"
       ],
       "code": true
