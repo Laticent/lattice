@@ -601,7 +601,8 @@ table says what each format does with each, and names the test that holds it. "P
 | Spark | Vector: the line or bars, and the end dot over them (`dotOf`). The dot stays in the photo, with its line, when something covers it. `pdf-small-drawings.test.js` | A group: its frame a native shape, the line and dot one SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
 | Masked mark (an absolutely placed `::before`/`::after`, such as a recommended card's star) | Vector: the mask's path (`maskedMarkOf`). Photo when in flow, transformed, below its host, see-through or covered, named `mark-<reason>`. `pdf-small-drawings.test.js` | Native freeform path when the mask is one path centered in its box; picture otherwise. `calco-pseudo.test.js` | The page itself |
 
-The plain `.pptx` and picture-mode `.odp` keep every one of these in the slide's picture, and the
+The PDF column holds in both hosts: `docs/e2e/pdf-small-drawings.spec.ts` drives the Studio's Share → PDF on
+Chromium, WebKit and Firefox with the CLI test's oracle. The plain `.pptx` and picture-mode `.odp` keep every one of these in the slide's picture, and the
 Studio's worker-lane PDF keeps them in its page image (§ 4). `pipeline-drawings-table.test.js`
 fails when a test this table names is renamed or removed.
 
