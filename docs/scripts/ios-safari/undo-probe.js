@@ -86,6 +86,12 @@ function undoProbeKit(result) {
 		addEventListener('beforeinput', spy, { capture: true });
 		addEventListener('input', spy, { capture: true });
 		addEventListener('beforeinput', after);
+		// WebKit raises the command's beforeinput only when it has a step to undo or redo, which is also when Edit → Undo is
+		// enabled for a person. A command sent right after typing could beat the typed step into WebKit's undo stack and
+		// raise nothing (#2911), so wait, briefly, for the command to be enabled, and log whether it was.
+		const t0 = Date.now();
+		while (!document.queryCommandEnabled(which) && Date.now() - t0 < 3000) await sleep(50);
+		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms`);
 		document.execCommand(which);
 		await sleep(300);
 		removeEventListener('beforeinput', spy, { capture: true });
