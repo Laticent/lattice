@@ -7,7 +7,9 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { analyze, partOf, isSeam, structureProblems } = require('../../../tools/structure.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const { analyze, partOf, isSeam, structureProblems, SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY } = require('../../../tools/structure.js');
 
 // Synthetic graphs carry none of the live tree's sanctions, so a run starts with an empty list.
 const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, entrySanctioned: {}, requires: new Map(), hostApi: new Map(), ...opts });
@@ -152,9 +154,40 @@ test('a seam inside a plugin folder does not exempt the plugin: its reach needs 
     ['lib/components/x.js', []],
   ]);
   assert.equal(run(g, { pluginSanctioned: {} }).pluginOut.length, 1);
-  assert.deepEqual(run(g, { pluginSanctioned: { 'lib/plugins/math -> lib/components': 'reason' } }).pluginOut, []);
-  const stale = run(graph([['lib/core/a.js', []]]), { pluginSanctioned: { 'lib/plugins/math -> lib/components': 'reason' } });
+  const one = { 'lib/plugins/math -> lib/components': { imports: 1, why: 'reason' } };
+  assert.deepEqual(run(g, { pluginSanctioned: one }).pluginOut, []);
+  assert.deepEqual(structureProblems(run(g, { pluginSanctioned: one })), []);
+  const stale = run(graph([['lib/core/a.js', []]]), { pluginSanctioned: one });
   assert.match(structureProblems(stale)[0], /stale .*SANCTIONED_PLUGIN_REACH/);
+});
+
+test('a sanction admits an exact count of imports: more fail as growth, fewer fail until the count is lowered', () => {
+  const g = graph([
+    ['lib/plugins/math/a.js', ['lib/core/x.js', 'lib/core/y.js']],
+    ['lib/core/x.js', []],
+    ['lib/core/y.js', []],
+  ]);
+  const at = (n) => structureProblems(run(g, { pluginSanctioned: { 'lib/plugins/math -> lib/core': { imports: n, why: 'reason' } } }));
+  assert.deepEqual(at(2), []);
+  assert.match(at(1).join('\n'), /sanctioned debt grew: lib\/plugins\/math -> lib\/core has 2 imports, over the 1 SANCTIONED_PLUGIN_REACH admits/);
+  assert.match(at(3).join('\n'), /sanctioned debt shrank: .* lower its `imports` in SANCTIONED_PLUGIN_REACH .* from 3 to 2/);
+  const entry = graph([
+    ['lib/transformers/t.js', ['lib/plugins/math/m.js']],
+    ['lib/plugins/math/m.js', []],
+  ]);
+  const inAt = (n) => structureProblems(run(entry, { entrySanctioned: { 'lib/transformers -> lib/plugins/math': { imports: n, why: 'reason' } } }));
+  assert.deepEqual(inAt(1), []);
+  assert.match(inAt(2).join('\n'), /sanctioned debt shrank: .* SANCTIONED_PLUGIN_ENTRY .* from 2 to 1/);
+});
+
+test('every committed sanction names the follow-up that removes it, with a positive count', () => {
+  for (const list of [SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY]) {
+    for (const [key, v] of Object.entries(list)) {
+      assert.ok(Number.isInteger(v.imports) && v.imports > 0, `${key}: imports must be a positive count`);
+      assert.match(v.why, /followups\.d\/[\w-]+\.md/, `${key}: name the follow-up that removes it`);
+      assert.ok(fs.existsSync(path.join(__dirname, '../../..', v.why.match(/followups\.d\/[\w-]+\.md/)[0])), `${key}: the follow-up exists`);
+    }
+  }
 });
 
 test('a file dependency-cruiser could not read is a problem, not a pass', () => {

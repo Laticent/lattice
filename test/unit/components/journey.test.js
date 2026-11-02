@@ -4,7 +4,7 @@
  * Parser:    nested <ul> with one `{who=…, mood=…, volume=…}` step record per <code> token
  *            → { sections: [{ name, tasks: [{ label, actors, mood, volume }] }] }
  * Emitter:   data model → .journey-board DOM (one shape; CSS varies per variant)
- * Dispatch:  applyToRenderedHtml walks <section class="journey ..."> blocks only
+ * Dispatch:  the host chart frame (lib/transformers/chart-frame.js) routes <section class="journey ..."> to the kind
  */
 
 const { test, describe } = require('node:test');
@@ -22,9 +22,10 @@ const {
   findOuterUL,
   splitTopLevelLI,
   transformJourneySection,
-  applyToRenderedHtml,
   JOURNEY_ACTOR_PALETTE,
 } = require('../../../lib/plugins/chart-family/kinds/journey/journey.transform');
+// The dispatch a render uses: the host frame walks the sections and hands each journey slide to the kind.
+const { applyToRenderedHtml } = require('../../../lib/transformers/chart-frame');
 
 describe('journey', () => {
   // ── clampMood ─────────────────────────────────────────────────────────
@@ -362,21 +363,23 @@ describe('journey', () => {
     assert.equal(out, SAMPLE_SECTION_INNER);
   });
 
-  // ── applyToRenderedHtml — section dispatch ───────────────────────────
+  // ── the host frame's section dispatch ────────────────────────────────
 
+  // A rendered chart slide: its title is an h2, which the frame lifts into the chart header.
+  const CHART_INNER = '<h2>My day</h2><ul>' + SAMPLE_UL_INNER + '</ul>';
   const JOURNEY_SECTION = (
-    '<section id="1" class="journey" data-lattice-slide="1">' + SAMPLE_SECTION_INNER + '</section>'
+    '<section id="1" class="journey" data-lattice-slide="1">' + CHART_INNER + '</section>'
   );
-  const HEATMAP_SECTION = (
-    '<section id="2" class="journey heatmap" data-lattice-slide="2">' + SAMPLE_SECTION_INNER + '</section>'
+  const SECOND_JOURNEY = (
+    '<section id="2" class="journey compact" data-lattice-slide="2">' + CHART_INNER + '</section>'
   );
   const NON_JOURNEY_SECTION = (
-    '<section id="3" class="kpi" data-lattice-slide="3">' + SAMPLE_SECTION_INNER + '</section>'
+    '<section id="3" class="kpi" data-lattice-slide="3">' + CHART_INNER + '</section>'
   );
 
   test('dispatch: rewrites every journey-classed section', () => {
-    const out = applyToRenderedHtml(JOURNEY_SECTION + HEATMAP_SECTION);
-    const boards = (out.match(/journey-board/g) || []).length;
+    const out = applyToRenderedHtml(JOURNEY_SECTION + SECOND_JOURNEY);
+    const boards = (out.match(/class="journey-board"/g) || []).length;
     assert.equal(boards, 2);
   });
 
@@ -386,7 +389,7 @@ describe('journey', () => {
   });
 
   test('dispatch: idempotent across the whole document', () => {
-    const once  = applyToRenderedHtml(JOURNEY_SECTION + HEATMAP_SECTION + NON_JOURNEY_SECTION);
+    const once  = applyToRenderedHtml(JOURNEY_SECTION + SECOND_JOURNEY + NON_JOURNEY_SECTION);
     const twice = applyToRenderedHtml(once);
     assert.equal(once, twice);
   });

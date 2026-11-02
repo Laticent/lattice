@@ -171,32 +171,48 @@ function namesPath(src, file) {
 }
 
 /**
- * A plugin reaching past the kit, admitted on purpose: `plugin -> part` with its reason. Fails on a
- * stale entry. chart-family is the one today: it is the chart bucket's dispatcher, and its
- * generated registry names each chart component's kernel, so it cannot leave the repo without the
- * chart components. It is in-tree by nature; the plugins meant to move to npm are the others.
+ * A plugin reaching past the kit, admitted on purpose: `plugin -> part`, with the exact number of file imports it
+ * admits and its reason. The count is a ratchet like HOST_API_CEILING: more imports than `imports` fail (the debt
+ * grew), and so do fewer, until `imports` is lowered to match, so a removed import cannot quietly come back. An entry
+ * nothing matches is stale and fails too.
+ *
+ * chart-family is the one today. Its kinds moved in from the chart bucket with their lib/core imports intact (12a,
+ * engineering/decisions/2026-11-01-charts-one-plugin.md §8); each conversion to the slide tree removes some, and
+ * the last one deletes the entry (engineering/decisions/2026-11-02-slide-facts-for-kinds.md §6, §7).
  */
+const FOLLOWUP_READERS = 'followups.d/2997-p2-chart-shared-readers-and-grammars.md';
 const SANCTIONED_PLUGIN_REACH = {
-  'lib/plugins/chart-family -> lib/core':
-    'MID-MOVE (#2997, charts one plugin, 12a): the chart kinds moved into the plugin with their lib/core imports intact. ' +
-    '12b-12c replace each one with ctx data, a host service or a package, and delete this entry before #2997 merges.',
+  'lib/plugins/chart-family -> lib/core': {
+    imports: 93,
+    why: `the chart kinds read the engine's HTML with the engine's readers; each kind that moves to the slide tree drops its imports (${FOLLOWUP_READERS})`,
+  },
 };
 
 /**
- * Code outside a plugin importing the plugin's folder directly, admitted on purpose: `importer part -> plugin`
- * with its reason. Fails on a stale entry, like the two lists above.
+ * Code outside a plugin importing the plugin's folder directly, admitted on purpose: `importer part -> plugin`, with
+ * the exact number of file imports and the reason. Counted and checked for staleness like the list above.
  */
 const SANCTIONED_PLUGIN_ENTRY = {
-  'lattice.js -> lib/plugins/chart-family':
-    'MID-MOVE (#2997, charts one plugin, 12a): the CLI reaches the chart layout engines and label drops directly; 12d routes them through plugin roles and deletes this entry before #2997 merges.',
-  'lib/runtime -> lib/plugins/chart-family':
-    'MID-MOVE (#2997, 12a): the runtime imports the state-chart and flowchart layout engines; 12d makes them a plugin role and deletes this entry before #2997 merges.',
-  'lib/playground -> lib/plugins/chart-family':
-    'MID-MOVE (#2997, 12a): the playground preloads the callout placer; 12d loads it through the plugin table and deletes this entry before #2997 merges.',
-  'lib/authoring -> lib/plugins/chart-family':
-    'MID-MOVE (#2997, 12a): the linter reads the map basemaps; 12c moves map lint into the plugin lint role and deletes this entry before #2997 merges.',
-  'site/playground -> lib/plugins/chart-family':
-    'MID-MOVE (#2997, 12a): the Playground map completion reads the basemaps; 12d serves them as plugin data and deletes this entry before #2997 merges.',
+  'lattice.js -> lib/plugins/chart-family': {
+    imports: 5,
+    why: `the CLI reaches the chart layout engines, the SVG export and the label drops; they become plugin roles (${FOLLOWUP_READERS})`,
+  },
+  'lib/runtime -> lib/plugins/chart-family': {
+    imports: 2,
+    why: `the browser runtime imports the state-chart and flowchart layout engines; they become a plugin role (${FOLLOWUP_READERS})`,
+  },
+  'lib/playground -> lib/plugins/chart-family': {
+    imports: 1,
+    why: `the playground preloads the callout placer; it loads through the plugin table (${FOLLOWUP_READERS})`,
+  },
+  'lib/authoring -> lib/plugins/chart-family': {
+    imports: 2,
+    why: `the linter reads the map basemaps; map lint moves into the plugin's lint role (${FOLLOWUP_READERS})`,
+  },
+  'site/playground -> lib/plugins/chart-family': {
+    imports: 2,
+    why: `the Playground's map completion reads the basemaps; they are served as plugin data (${FOLLOWUP_READERS})`,
+  },
 };
 
 /**
@@ -450,6 +466,22 @@ function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
 }
 const pluginRequires = (dir) => pluginManifests(dir).requires;
 
+/**
+ * Split `edges` by a counted sanction list (`{ [key]: { imports, why } }`): the edges no entry admits, the entries
+ * nothing matches, and the entries whose count moved (`found` over or under `imports`).
+ */
+function counted(edges, sanctions, keyOf) {
+  const found = new Map();
+  for (const e of edges) if (Object.hasOwn(sanctions, keyOf(e))) found.set(keyOf(e), (found.get(keyOf(e)) || 0) + 1);
+  return {
+    unsanctioned: edges.filter((e) => !Object.hasOwn(sanctions, keyOf(e))),
+    stale: Object.keys(sanctions).filter((k) => !found.has(k)),
+    drift: Object.entries(sanctions)
+      .filter(([k, v]) => found.has(k) && found.get(k) !== v.imports)
+      .map(([key, v]) => ({ key, imports: v.imports, found: found.get(key) })),
+  };
+}
+
 function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, entrySanctioned = SANCTIONED_PLUGIN_ENTRY, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling } = {}) {
   if (!requires || !hostApi) {
     const m = pluginManifests();
@@ -502,17 +534,13 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   // from npm, as it would on any package, so reaching it is not reaching past the kit.
   const declared = (e) => e.b.plugin && !!requires.get(e.a.name)?.has(e.b.name);
   const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !e.b.library && !declared(e));
-  const pluginOut = pluginReach.filter((e) => !Object.hasOwn(pluginSanctioned, reachKey(e)));
-  const usedReach = new Set(pluginReach.map(reachKey));
-  const staleReach = Object.keys(pluginSanctioned).filter((k) => !usedReach.has(k));
+  const reach = counted(pluginReach, pluginSanctioned, reachKey);
   // A host tool importing a file the plugin lists in `hostApi` (the bridge, see pluginManifests). Host
   // tools sit on HOST_TOOL_LAYER or above: the linter, the exports, the CLI, the site. The engine (layer
   // 5) renders every plugin through tables and services, so it asks for a service like code below it.
   const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer >= HOST_TOOL_LAYER && !!hostApi.get(e.b.name)?.has(e.to);
   const pluginInAll = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
-  const pluginIn = pluginInAll.filter((e) => !Object.hasOwn(entrySanctioned, reachKey(e)));
-  const usedEntry = new Set(pluginInAll.map(reachKey));
-  const staleEntry = Object.keys(entrySanctioned).filter((k) => !usedEntry.has(k));
+  const entry = counted(pluginInAll, entrySanctioned, reachKey);
   // A listed file nothing outside imports is stale: the list only shrinks, so the entry goes.
   const hostApiUsed = new Set(edges.filter(viaHostApi).map((e) => e.to));
   const staleHostApi = [...hostApi.values()].flatMap((set) => [...set]).filter((f) => !hostApiUsed.has(f)).sort();
@@ -545,7 +573,8 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     rows,
     loops,
     upward: unsanctioned.map((e) => `${e.from} (${e.a.name}, layer ${e.a.layer}) -> ${e.to} (${e.b.name}, layer ${e.b.layer})`),
-    staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`), ...staleEntry.map((k) => `${k} (SANCTIONED_PLUGIN_ENTRY)`)],
+    staleSanctions: [...staleSanctions, ...reach.stale.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`), ...entry.stale.map((k) => `${k} (SANCTIONED_PLUGIN_ENTRY)`)],
+    sanctionDrift: [...reach.drift.map((d) => ({ ...d, list: 'SANCTIONED_PLUGIN_REACH' })), ...entry.drift.map((d) => ({ ...d, list: 'SANCTIONED_PLUGIN_ENTRY' }))],
     unread: graph.unread || [],
     // A relative import that resolves to nothing: a file that moved and an importer that did not.
     // A path into node_modules is a dependency question, not a structure one (and is absent where a
@@ -556,8 +585,8 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
         : [],
     ),
     inside,
-    pluginOut: pluginOut.map((e) => `${e.from} -> ${e.to}`),
-    pluginIn: pluginIn.map((e) => `${e.from} -> ${e.to}`),
+    pluginOut: reach.unsanctioned.map((e) => `${e.from} -> ${e.to}`),
+    pluginIn: entry.unsanctioned.map((e) => `${e.from} -> ${e.to}`),
     staleHostApi,
     hostApiCount,
     hostApiCeiling,
@@ -634,8 +663,13 @@ function structureProblems(result) {
   const problems = [];
   for (const l of result.loops) problems.push(`part loop: ${l.members.join(' <-> ')}${l.cut.length ? `\n      cut one of:\n        ${l.cut.join('\n        ')}` : ''}`);
   for (const u of result.upward) problems.push(`upward import: ${u}`);
-  for (const s of result.staleSanctions) problems.push(`stale SANCTIONED_UPWARD entry (no import matches it any more): ${s}`);
+  for (const s of result.staleSanctions) problems.push(`stale sanction (no import matches it any more): ${s}`);
   for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
+  for (const d of result.sanctionDrift || []) {
+    problems.push(d.found > d.imports
+      ? `sanctioned debt grew: ${d.key} has ${d.found} imports, over the ${d.imports} ${d.list} admits; read it through the plugin contract instead`
+      : `sanctioned debt shrank: ${d.key} has ${d.found} imports; lower its \`imports\` in ${d.list} (tools/structure.js) from ${d.imports} to ${d.found}, so it cannot grow back`);
+  }
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
   for (const f of result.staleHostApi || []) problems.push(`stale hostApi entry (nothing outside the plugin imports it, or the file is gone; remove it from the manifest): ${f}`);
   if (result.hostApiCeiling != null && result.hostApiCount > result.hostApiCeiling) problems.push(`hostApi grew: the manifests list ${result.hostApiCount} files, over HOST_API_CEILING (${result.hostApiCeiling}); the bridge only shrinks, so read the plugin through a service or its manifest instead`);

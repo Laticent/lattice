@@ -111,10 +111,13 @@ A plugin that will publish on npm can depend only on what we publish beside it. 
 (`lib/plugins/<name>/`) imports only its own folder and **`lib/plugin-kit/`**, and nothing outside
 a plugin imports its folder except the generated tables.
 
-**One plugin is excepted by name.** chart-family is the chart bucket's dispatcher: its generated
-registry (`shared/chart-registry.generated.js`) names all 24 chart components' kernels, so it cannot
-leave the repo without them. It is in-tree by nature, and `SANCTIONED_PLUGIN_REACH` in
-`tools/structure.js` admits its reach into `lib/components` with that reason. A seam inside a plugin
+**One plugin is excepted by name, and the exception is counted.** chart-family holds the chart
+kinds (`kinds/`, `2026-11-01-charts-one-plugin.md` §8), and they still read the engine's HTML with
+the engine's readers in `lib/core`. `SANCTIONED_PLUGIN_REACH` in `tools/structure.js` admits that
+reach, and `SANCTIONED_PLUGIN_ENTRY` admits the few host files that import the plugin's folder
+directly. Each entry carries the exact number of imports it admits: more fail as growth, fewer fail
+until the number is lowered, so the debt can only fall. Each names the follow-up that removes it
+(`2026-11-02-slide-facts-for-kinds.md` §7). A seam inside a plugin
 folder exempts nothing: the first version of the gate let this registry pass silently, and the trio
 caught it. The plugins meant to move to npm are the others: math, Mermaid, function-plot, icons and
 anima.
