@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-02 — ceiling raised by hand, measured on PR 2997's built tree
+
+Owner OK 2026-11-02 (asked in the PR 2997 session: "raise the ceiling by 5KB", chosen over hunting savings elsewhere or loading the video player lazily). PR 2997 moves the video provider table out of engine code into the video plugin's manifest as declared data, read by the host's one matcher (`lib/core/video-providers.mjs`), as the plugin contract requires (`engineering/decisions/2026-11-01-plugin-contract-hollywood.md` §2). The Studio imports it on its startup path through the video overlay; after trimming, the table and its interpreter cost about 0.2 KB gzip over main's hand-written functions, and the PR's local build measured 549.7 KB against the 549.5 KB ceiling. The owner chose a 5 KB raise rather than the tool's full reset (which would re-slack the ceiling 10% over the measurement, about 55 KB). Only the studio eagerJsGz ceiling moves, by 5120 bytes, from 562712 to 567832; the soft target is untouched and no other route changes.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 567832 |
+
 ### 2026-10-30 — ceiling raised by hand, measured against main for PR 2982
 
 Owner OK 2026-10-30 (asked in the PR 2982 session: "Raise the ceiling slightly", chosen over deferring a debug overlay or loading the strip's New slide door late). `main` measures 562,063 bytes of Studio eager JS against its 562,200 ceiling, 137 bytes to spare (`measure-route-base.sh origin/main`, 2026-10-30). PR 2982 moves "+ New slide" from a floating pill over the preview into the head of the slide strip. The door's `strip` form (the pills' height, a 44px touch hit area, a Before | After split and an "added" note that float above it so the strip never shifts) adds 180 bytes to StudioIsland, measured against that PR's merge base after it gave 13 back; everything else in it loads with the lazy slide map. The ceiling moves 512 bytes, from 562200 to 562712, so that PR lands near 562,250 with about 460 to spare. The soft target is untouched.
