@@ -421,11 +421,12 @@ rather than Mermaid's auto-derived white-on-pale.
 
 The tree is a stack of parts, each on a layer, and a part imports only parts on its own layer or
 below: leaves and the workspace libraries (0), `lib/core` (1), contracts over core (2), the catalog,
-the package format and the plugin kit (3), adapters and plugins (4), `lib/engine` (5), what uses the
+the package format (3), adapters and plugins (4), `lib/engine` (5), what uses the
 engine (6), `lattice.js` (7), the docs site (9–16), `tools/` (20). Generated files under `lib/` are
 seams: a build step writes them from above, and the layers below read them by name. A plugin
-imports only its own folder and `lib/plugin-kit/`, and nothing else imports a plugin's folder;
-chart-family, the chart bucket's dispatcher, is the one plugin excepted by name.
+imports only its own folder, the workspace libraries and the plugins it `requires`, and nothing
+else imports a plugin's folder. chart-family is the one exception, and it is counted: its kinds'
+remaining engine imports can only fall (`tools/structure.js` `SANCTIONED_PLUGIN_REACH`).
 
 `tools/structure.js` holds the map (`PARTS`) and reports each part's size, coupling and cohesion;
 `build:check` fails on a part loop, an upward import or a plugin-boundary break

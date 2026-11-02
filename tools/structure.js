@@ -12,9 +12,10 @@
  *     bottom, so nothing in it can be released, tested or understood on its own. Budget 0.
  *   - UPWARD imports: a part importing a part on a higher layer. Budget 0, plus the
  *     SANCTIONED_UPWARD list, each entry with its reason; a stale entry fails.
- *   - the PLUGIN BOUNDARY: a plugin (`lib/plugins/<name>/`) imports only its own folder and the
- *     plugin kit (`lib/plugin-kit/`); nothing else imports a plugin's folder except the
- *     generated registries. Both counts 0, so a plugin can move out of the repo as a folder.
+ *   - the PLUGIN BOUNDARY: a plugin (`lib/plugins/<name>/`) imports only its own folder, the
+ *     workspace libraries and the plugins its manifest `requires`; the host hands it everything
+ *     else through `ctx`. Nothing else imports a plugin's folder except the generated tables.
+ *     Both counts 0 beyond the counted sanctions, so a plugin can move out of the repo as a folder.
  *   - per-part SIZE and SHAPE: files, lines, Ca (parts that import it), Ce (parts it imports),
  *     instability I = Ce/(Ca+Ce), and cohesion = imports that stay inside the part / all of the
  *     part's imports. Reported and snapshotted, not gated: they move with every honest change.
@@ -73,7 +74,6 @@ const PARTS = [
   { part: 'package.json', layer: 0, match: (f) => f === 'package.json' },
   { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
-  { part: 'lib/plugin-kit', layer: 3, match: 'lib/plugin-kit/' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/' },
   { part: 'lib/tokens', layer: 2, match: 'lib/tokens/' },
   { part: 'lib/integrations', layer: 2, match: 'lib/integrations/' },
@@ -533,7 +533,7 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   // A workspace library (`@laticent/segno`, …) publishes on its own: a plugin on npm would depend on it
   // from npm, as it would on any package, so reaching it is not reaching past the kit.
   const declared = (e) => e.b.plugin && !!requires.get(e.a.name)?.has(e.b.name);
-  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && e.b.name !== 'lib/plugin-kit' && !e.b.library && !declared(e));
+  const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && !e.b.library && !declared(e));
   const reach = counted(pluginReach, pluginSanctioned, reachKey);
   // A host tool importing a file the plugin lists in `hostApi` (the bridge, see pluginManifests). Host
   // tools sit on HOST_TOOL_LAYER or above: the linter, the exports, the CLI, the site. The engine (layer
@@ -664,7 +664,7 @@ function structureProblems(result) {
   for (const l of result.loops) problems.push(`part loop: ${l.members.join(' <-> ')}${l.cut.length ? `\n      cut one of:\n        ${l.cut.join('\n        ')}` : ''}`);
   for (const u of result.upward) problems.push(`upward import: ${u}`);
   for (const s of result.staleSanctions) problems.push(`stale sanction (no import matches it any more): ${s}`);
-  for (const e of result.pluginOut) problems.push(`plugin reaches past the plugin kit: ${e}`);
+  for (const e of result.pluginOut) problems.push(`plugin reaches outside its folder (take it through ctx, a service or a workspace library): ${e}`);
   for (const d of result.sanctionDrift || []) {
     problems.push(d.found > d.imports
       ? `sanctioned debt grew: ${d.key} has ${d.found} imports, over the ${d.imports} ${d.list} admits; read it through the plugin contract instead`

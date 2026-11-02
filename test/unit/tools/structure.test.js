@@ -45,8 +45,7 @@ test('a layered graph passes', () => {
     ['lib/engine/index.js', ['lib/core/a.js', 'lib/plugins/host.js']],
     ['lib/plugins/host.js', ['lib/core/a.js', 'lib/plugins/registry.generated.js']],
     ['lib/plugins/registry.generated.js', ['lib/plugins/math/math.render.js']],
-    ['lib/plugins/math/math.render.js', ['lib/plugin-kit/html.js']],
-    ['lib/plugin-kit/html.js', ['lib/core/a.js']],
+    ['lib/plugins/math/math.render.js', []],
     ['lib/core/a.js', []],
   ]));
   assert.deepEqual(structureProblems(r), []);

@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: lib/ was one 13-part import loop and the docs site a 5-part one; both are now acyclic layers, plugins reach the engine only through lib/plugin-kit and generated tables (chart-family excepted, by name), and build:check holds it with tools/structure.js.
+summary: lib/ was one 13-part import loop and the docs site a 5-part one; both are now acyclic layers, plugins reach the engine only through ctx and generated tables (lib/plugin-kit, the interim kit, was deleted 2026-11-02; chart-family's remaining reach is a counted sanction), and build:check holds it with tools/structure.js.
 ---
 
 # Codebase structure: layered parts and a plugin boundary (2026-10-11)
@@ -108,8 +108,12 @@ real inversions.
 ## 5. The plugin boundary
 
 A plugin that will publish on npm can depend only on what we publish beside it. So a plugin
-(`lib/plugins/<name>/`) imports only its own folder and **`lib/plugin-kit/`**, and nothing outside
-a plugin imports its folder except the generated tables.
+(`lib/plugins/<name>/`) imports only its own folder, the workspace libraries (`@laticent/*`) and
+the plugins its manifest `requires`, and nothing outside a plugin imports its folder except the
+generated tables. *(Amended 2026-11-02: this first said "and `lib/plugin-kit/`". The kit was the
+interim channel; the Hollywood contract (`2026-11-01-plugin-contract-hollywood.md`) moved what it
+offered into `ctx` and the workspace libraries, and #2997 deleted it. The kit paragraphs below are
+the record of that interim.)*
 
 **One plugin is excepted by name, and the exception is counted.** chart-family holds the chart
 kinds (`kinds/`, `2026-11-01-charts-one-plugin.md` §8), and they still read the engine's HTML with

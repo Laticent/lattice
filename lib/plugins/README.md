@@ -141,8 +141,8 @@ that `renderers` holds nothing the manifest does not declare. Named rule exports
 keep only the rules a consumer imports — the boundary parser takes the block rules alone.
 
 **What reaches a plugin from outside, and what it reaches** (`tools/structure.js`, run by
-`build:check`): a plugin imports its own folder, `lib/plugin-kit/`, the workspace libraries and the
-plugins it `requires`. Code outside reaches it through the generated tables and its `services`. A
+`build:check`): a plugin imports its own folder, the workspace libraries and the plugins it `requires`; the
+host hands it everything else through `ctx`. Code outside reaches it through the generated tables and its `services`. A
 `queries` export on the syntax module (beside `detect`) offers other pure detectors through the grammar
 table. An in-tree plugin may also list files in `hostApi` for the linter, editors, Marp export and
 Studio, a bridge that only shrinks (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).

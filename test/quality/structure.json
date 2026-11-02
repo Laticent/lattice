@@ -72,6 +72,16 @@
       "cohesion": 1
     },
     {
+      "part": "@laticent/markup",
+      "layer": 0,
+      "files": 9,
+      "lines": 1722,
+      "Ca": 23,
+      "Ce": 0,
+      "I": 0,
+      "cohesion": 1
+    },
+    {
       "part": "@laticent/mosaico",
       "layer": 0,
       "files": 8,
@@ -84,9 +94,9 @@
     {
       "part": "@laticent/segno",
       "layer": 0,
-      "files": 15,
-      "lines": 5256,
-      "Ca": 8,
+      "files": 18,
+      "lines": 5583,
+      "Ca": 16,
       "Ce": 0,
       "I": 0,
       "cohesion": 1
@@ -235,7 +245,7 @@
       "part": "package.json",
       "layer": 0,
       "files": 1,
-      "lines": 448,
+      "lines": 453,
       "Ca": 1,
       "Ce": 0,
       "I": 0,
@@ -244,21 +254,21 @@
     {
       "part": "lib/core",
       "layer": 1,
-      "files": 295,
-      "lines": 71825,
+      "files": 281,
+      "lines": 68798,
       "Ca": 24,
-      "Ce": 11,
-      "I": 0.31,
-      "cohesion": 0.89
+      "Ce": 12,
+      "I": 0.33,
+      "cohesion": 0.83
     },
     {
       "part": "lib/integrations",
       "layer": 2,
       "files": 1,
-      "lines": 2023,
+      "lines": 2021,
       "Ca": 3,
-      "Ce": 1,
-      "I": 0.25,
+      "Ce": 2,
+      "I": 0.4,
       "cohesion": 0
     },
     {
@@ -284,22 +294,22 @@
     {
       "part": "lib/components",
       "layer": 3,
-      "files": 67,
-      "lines": 28731,
-      "Ca": 10,
+      "files": 15,
+      "lines": 4225,
+      "Ca": 5,
       "Ce": 7,
-      "I": 0.41,
-      "cohesion": 0.48
+      "I": 0.58,
+      "cohesion": 0.13
     },
     {
       "part": "lib/forms",
       "layer": 3,
       "files": 12,
-      "lines": 2436,
+      "lines": 2433,
       "Ca": 8,
-      "Ce": 2,
-      "I": 0.2,
-      "cohesion": 0.23
+      "Ce": 3,
+      "I": 0.27,
+      "cohesion": 0.25
     },
     {
       "part": "lib/layout",
@@ -315,31 +325,21 @@
       "part": "lib/packages",
       "layer": 3,
       "files": 27,
-      "lines": 6130,
+      "lines": 6179,
       "Ca": 7,
-      "Ce": 3,
-      "I": 0.3,
-      "cohesion": 0.53
-    },
-    {
-      "part": "lib/plugin-kit",
-      "layer": 3,
-      "files": 17,
-      "lines": 346,
-      "Ca": 16,
-      "Ce": 3,
-      "I": 0.16,
-      "cohesion": 0
+      "Ce": 4,
+      "I": 0.36,
+      "cohesion": 0.55
     },
     {
       "part": "lib/plugins",
       "layer": 4,
-      "files": 35,
-      "lines": 2781,
+      "files": 41,
+      "lines": 3528,
       "Ca": 16,
-      "Ce": 14,
-      "I": 0.47,
-      "cohesion": 0.23
+      "Ce": 15,
+      "I": 0.48,
+      "cohesion": 0.2
     },
     {
       "part": "lib/plugins/anima",
@@ -355,41 +355,41 @@
       "part": "lib/plugins/avatars",
       "layer": 4,
       "files": 5,
-      "lines": 354,
+      "lines": 356,
       "Ca": 2,
-      "Ce": 1,
-      "I": 0.33,
-      "cohesion": 0.4
+      "Ce": 2,
+      "I": 0.5,
+      "cohesion": 0.5
     },
     {
       "part": "lib/plugins/chart-family",
       "layer": 4,
-      "files": 2,
-      "lines": 643,
-      "Ca": 1,
-      "Ce": 2,
-      "I": 0.67,
-      "cohesion": 0.03
+      "files": 56,
+      "lines": 24821,
+      "Ca": 7,
+      "Ce": 4,
+      "I": 0.36,
+      "cohesion": 0.6
     },
     {
       "part": "lib/plugins/checks",
       "layer": 4,
       "files": 4,
-      "lines": 225,
+      "lines": 244,
       "Ca": 2,
       "Ce": 2,
       "I": 0.5,
-      "cohesion": 0.29
+      "cohesion": 0.5
     },
     {
       "part": "lib/plugins/code",
       "layer": 4,
-      "files": 11,
-      "lines": 1505,
+      "files": 12,
+      "lines": 1575,
       "Ca": 4,
       "Ce": 2,
       "I": 0.33,
-      "cohesion": 0.62
+      "cohesion": 0.75
     },
     {
       "part": "lib/plugins/function-plot",
@@ -405,47 +405,47 @@
       "part": "lib/plugins/icons",
       "layer": 4,
       "files": 5,
-      "lines": 641,
+      "lines": 644,
       "Ca": 2,
-      "Ce": 1,
-      "I": 0.33,
+      "Ce": 2,
+      "I": 0.5,
       "cohesion": 0.5
     },
     {
       "part": "lib/plugins/math",
       "layer": 4,
-      "files": 6,
-      "lines": 1335,
+      "files": 5,
+      "lines": 1054,
       "Ca": 1,
       "Ce": 1,
       "I": 0.5,
-      "cohesion": 0.75
+      "cohesion": 0.67
     },
     {
       "part": "lib/plugins/mermaid",
       "layer": 4,
-      "files": 16,
-      "lines": 5005,
-      "Ca": 2,
+      "files": 20,
+      "lines": 5790,
+      "Ca": 3,
       "Ce": 1,
-      "I": 0.33,
-      "cohesion": 0.62
+      "I": 0.25,
+      "cohesion": 0.88
     },
     {
       "part": "lib/plugins/pills",
       "layer": 4,
       "files": 3,
-      "lines": 679,
-      "Ca": 3,
+      "lines": 686,
+      "Ca": 2,
       "Ce": 2,
-      "I": 0.4,
-      "cohesion": 0.2
+      "I": 0.5,
+      "cohesion": 0.33
     },
     {
       "part": "lib/plugins/sparks",
       "layer": 4,
       "files": 2,
-      "lines": 623,
+      "lines": 646,
       "Ca": 2,
       "Ce": 2,
       "I": 0.5,
@@ -454,28 +454,28 @@
     {
       "part": "lib/plugins/video",
       "layer": 4,
-      "files": 3,
-      "lines": 168,
-      "Ca": 4,
-      "Ce": 1,
-      "I": 0.2,
-      "cohesion": 0.2
+      "files": 5,
+      "lines": 374,
+      "Ca": 3,
+      "Ce": 2,
+      "I": 0.4,
+      "cohesion": 0.57
     },
     {
       "part": "lib/transformers",
       "layer": 4,
-      "files": 28,
-      "lines": 5483,
-      "Ca": 6,
-      "Ce": 4,
-      "I": 0.4,
-      "cohesion": 0.34
+      "files": 29,
+      "lines": 5916,
+      "Ca": 8,
+      "Ce": 6,
+      "I": 0.43,
+      "cohesion": 0.33
     },
     {
       "part": "lib/engine",
       "layer": 5,
       "files": 9,
-      "lines": 3335,
+      "lines": 3348,
       "Ca": 5,
       "Ce": 8,
       "I": 0.62,
@@ -485,7 +485,7 @@
       "part": "lib/authoring",
       "layer": 6,
       "files": 24,
-      "lines": 15526,
+      "lines": 15450,
       "Ca": 3,
       "Ce": 15,
       "I": 0.83,
@@ -495,10 +495,10 @@
       "part": "lib/cli",
       "layer": 6,
       "files": 7,
-      "lines": 2106,
+      "lines": 2118,
       "Ca": 2,
-      "Ce": 8,
-      "I": 0.8,
+      "Ce": 9,
+      "I": 0.82,
       "cohesion": 0.05
     },
     {
@@ -515,29 +515,29 @@
       "part": "lib/diagnostics",
       "layer": 6,
       "files": 1,
-      "lines": 899,
+      "lines": 898,
       "Ca": 3,
-      "Ce": 1,
-      "I": 0.25,
+      "Ce": 2,
+      "I": 0.4,
       "cohesion": 0
     },
     {
       "part": "lib/export",
       "layer": 6,
       "files": 35,
-      "lines": 11654,
+      "lines": 11658,
       "Ca": 5,
-      "Ce": 11,
-      "I": 0.69,
+      "Ce": 10,
+      "I": 0.67,
       "cohesion": 0.24
     },
     {
       "part": "lib/playground",
       "layer": 6,
       "files": 1,
-      "lines": 329,
+      "lines": 330,
       "Ca": 0,
-      "Ce": 5,
+      "Ce": 6,
       "I": 1,
       "cohesion": 0
     },
@@ -545,31 +545,31 @@
       "part": "lib/runtime",
       "layer": 6,
       "files": 3,
-      "lines": 3951,
+      "lines": 3955,
       "Ca": 1,
-      "Ce": 9,
-      "I": 0.9,
+      "Ce": 8,
+      "I": 0.89,
       "cohesion": 0.02
     },
     {
       "part": "lattice.js",
       "layer": 7,
       "files": 1,
-      "lines": 6705,
+      "lines": 6704,
       "Ca": 1,
-      "Ce": 14,
-      "I": 0.93,
+      "Ce": 15,
+      "I": 0.94,
       "cohesion": 0
     },
     {
       "part": "site/lib",
       "layer": 10,
       "files": 154,
-      "lines": 27271,
+      "lines": 27277,
       "Ca": 8,
-      "Ce": 15,
-      "I": 0.65,
-      "cohesion": 0.64
+      "Ce": 16,
+      "I": 0.67,
+      "cohesion": 0.65
     },
     {
       "part": "site/styles",
@@ -595,10 +595,10 @@
       "part": "site/playground",
       "layer": 12,
       "files": 79,
-      "lines": 17554,
+      "lines": 17553,
       "Ca": 7,
-      "Ce": 10,
-      "I": 0.59,
+      "Ce": 11,
+      "I": 0.61,
       "cohesion": 0.42
     },
     {
@@ -615,9 +615,9 @@
       "part": "site/studio",
       "layer": 14,
       "files": 366,
-      "lines": 99802,
+      "lines": 99804,
       "Ca": 4,
-      "Ce": 26,
+      "Ce": 27,
       "I": 0.87,
       "cohesion": 0.53
     },
@@ -655,19 +655,19 @@
       "part": "site/pages",
       "layer": 16,
       "files": 43,
-      "lines": 12850,
+      "lines": 12851,
       "Ca": 0,
-      "Ce": 10,
+      "Ce": 11,
       "I": 1,
       "cohesion": 0.05
     },
     {
       "part": "tools",
       "layer": 20,
-      "files": 355,
-      "lines": 101060,
+      "files": 357,
+      "lines": 101659,
       "Ca": 0,
-      "Ce": 31,
+      "Ce": 33,
       "I": 1,
       "cohesion": 0.44
     }
@@ -695,11 +695,11 @@
       "singleConsumer": 19
     },
     "lib/core": {
-      "files": 295,
-      "islands": 76,
-      "largestIsland": 180,
-      "isolated": 62,
-      "singleConsumer": 50
+      "files": 281,
+      "islands": 75,
+      "largestIsland": 166,
+      "isolated": 60,
+      "singleConsumer": 47
     },
     "site/studio": {
       "files": 366,
@@ -708,18 +708,18 @@
       "isolated": 5,
       "singleConsumer": 6
     },
-    "lib/components": {
-      "files": 67,
-      "islands": 11,
-      "largestIsland": 50,
-      "isolated": 8,
-      "singleConsumer": 39
+    "lib/plugins/chart-family": {
+      "files": 56,
+      "islands": 2,
+      "largestIsland": 55,
+      "isolated": 1,
+      "singleConsumer": 2
     },
     "tools": {
-      "files": 355,
-      "islands": 177,
+      "files": 357,
+      "islands": 178,
       "largestIsland": 43,
-      "isolated": 151,
+      "isolated": 152,
       "singleConsumer": 0
     }
   }
