@@ -40,10 +40,6 @@ function undoProbeKit(result) {
 	// with the same labels that do nothing, so a probe that picks one of them waits forever.
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
-	const editor = () => {
-		const e = document.querySelector('[aria-label="Deck source"]');
-		return visible(e) ? e : null;
-	};
 	/** The deck text the editor holds: CodeMirror's own document, or the plain textarea's value. */
 	const deckText = () => {
 		const e = document.querySelector('[aria-label="Deck source"]');
@@ -55,28 +51,9 @@ function undoProbeKit(result) {
 		[...document.querySelectorAll('span[role="status"][aria-live="polite"]')].map((s) => s.textContent ?? '').find((t) => /^(Undid|Redid|Nothing)/.test(t)) ?? '';
 	/** Show the editor (a phone shows one pane at a time) and put the caret at the end of the deck. */
 	const focusEnd = async () => {
-		// A tap that lands before the app has hydrated does nothing, so tap again every 2 s until the editor shows.
-		let tapped = 0;
-		const el = await until(
-			() => {
-				const e = editor();
-				if (!e && innerWidth <= 699 && Date.now() - tapped > 2000) {
-					tapped = Date.now();
-					button('Markdown source')?.click();
-				}
-				return e;
-			},
-			30000,
-			'a visible Deck source editor',
-		).catch((e) => {
-			// Say what the phone shows instead, so a red device run names the pane and the editor mode it found.
-			const shown = [...document.querySelectorAll('button[aria-label]')]
-				.filter(visible)
-				.map((b) => `${b.getAttribute('aria-label')}${b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true' ? '*' : ''}`)
-				.slice(0, 24);
-			const src = document.querySelector('[aria-label="Deck source"]');
-			throw new Error(`${e.message} (Deck source ${src ? `${src.tagName.toLowerCase()}, ${src.getClientRects().length} rects` : 'absent'}, .cm-content ${!!document.querySelector('.cm-content')}, contenteditable ${document.querySelectorAll('[contenteditable="true"]').length}, taps ${tapped ? 'yes' : 'no'}; buttons, * = pressed: ${shown.join(' | ')})`);
-		});
+		// Re-taps the Markdown source pane every 2 s until the editor shows, never the inert skeleton, and names what the
+		// phone shows on a timeout (show-editor.js, shared with the other Studio probes, #2911).
+		const el = await latticeShowDeckEditor();
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) el.setSelectionRange(el.value.length, el.value.length);
 		else {

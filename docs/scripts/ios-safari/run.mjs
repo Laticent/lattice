@@ -114,12 +114,16 @@ try {
 }
 process.exit(ok ? 0 : 1);
 
+/** A Studio probe's source with the shared editor helper ahead of it (show-editor.js, `latticeShowDeckEditor`, #2911). */
+const SHOW_EDITOR = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
+const withEditorHelper = (source) => `${SHOW_EDITOR}\n${source}`;
+
 /** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
 async function studioPage(id, file, fn) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
-	const probe = fs.readFileSync(path.join(here, file), 'utf8');
+	const probe = withEditorHelper(fs.readFileSync(path.join(here, file), 'utf8'));
 	return wd('POST', `/session/${id}/execute/async`, {
 		script: `${probe}\nconst done = arguments[arguments.length - 1];\n${fn}().then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 		args: [],
@@ -237,7 +241,7 @@ async function runPhotoProbe(id) {
  * still unchanged, since a Mac's keyboard needs no on-screen button.
  */
 async function runUndoProbe(id) {
-	const source = fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8');
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8'));
 	const run = (call) =>
 		wd('POST', `/session/${id}/execute/async`, {
 			script: `${source}\nconst done = arguments[arguments.length - 1];\n${call}.then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
