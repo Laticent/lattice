@@ -222,17 +222,11 @@ describe('state-marks — the check registry is the one table of six', () => {
 
   test('a manifest label set keyed by checks names only checks', () => {
     const shortcuts = new Set(marks.CHECKS.map((r) => `[${r.marker}]`));
-    const dir = path.join(root, 'lib/components');
-    for (const bucket of fs.readdirSync(dir)) {
-      const b = path.join(dir, bucket);
-      if (!fs.statSync(b).isDirectory()) continue;
-      for (const name of fs.readdirSync(b)) {
-        const f = path.join(b, name, `${name}.manifest.json`);
-        if (!fs.existsSync(f)) continue;
-        const members = JSON.parse(fs.readFileSync(f, 'utf8')).labelSet?.members || [];
-        const keyed = members.filter((m) => /^\[.\]$/.test(m.key));
-        for (const m of keyed) assert.ok(shortcuts.has(m.key), `${name}: ${m.key} is not a check`);
-      }
+    // Every component, the plugins' kinds (the chart kinds) included.
+    const manifests = require('../../../lib/components').loadAll(path.join(root, 'lib/components'));
+    assert.ok(manifests.some((m) => m.name === 'gantt'), 'the manifest walk misses the plugin kinds (gantt)');
+    for (const { name, labelSet } of manifests) {
+      for (const k of (labelSet?.members || []).filter((x) => /^\[.\]$/.test(x.key))) assert.ok(shortcuts.has(k.key), `${name}: ${k.key} is not a check`);
     }
   });
 

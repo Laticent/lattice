@@ -153,7 +153,8 @@ function familyReflowingComponents() {
       }
     }
   };
-  walk(path.join(ROOT, 'lib', 'components'));
+  // Every component root, the plugins' kinds (the chart kinds) included.
+  for (const root of require('../lib/packages/fs.js').componentCorpusRoots(path.join(ROOT, 'lib', 'components'))) walk(root);
   // Real components only. `_chart-family` is a SHARED stylesheet directory, not a
   // component — it has no manifest and no slide, so rostering it was a phantom
   // entry the record then claimed coverage for.

@@ -18,7 +18,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import PerfOverlay from '../components/site/PerfOverlay.astro';
 import StorageOverlay from '../components/site/StorageOverlay.astro';
 import PwaHead from '../components/site/PwaHead.astro';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { joinBase } from '../lib/base-url.mjs';
@@ -29,7 +29,7 @@ const url = (p) => joinBase(base, p);
 const docsRoot = process.cwd();
 const repoRoot = join(docsRoot, '..');
 const require = createRequire(import.meta.url);
-const { loadAll } = require(join(repoRoot, 'lib/components', 'index.js'));
+const { loadAll, groupByBucket } = require(join(repoRoot, 'lib/components', 'index.js'));
 const manifests = loadAll();
 const componentCount = manifests.length;
 
@@ -38,17 +38,12 @@ const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].
 const editorialPalettes = palettes.filter((p) => !p.startsWith('a11y-'));
 const cbSafePalettes = palettes.filter((p) => p.startsWith('a11y-'));
 
-// Bucket → component names, straight from the catalog's directory layout
-// (lib/components/<bucket>/<name>/). `_`-prefixed dirs are internal partials.
-const componentsRoot = join(repoRoot, 'lib', 'components');
+// Bucket → component names, from the loaded catalog (`loadAll`). It walks the bucket folders AND
+// the plugins' kinds: the chart kinds live in lib/plugins/chart-family/kinds/, so reading the
+// subfolders of lib/components/<bucket>/ dropped the whole Chart row.
 const bucketMap = {};
-for (const bucket of readdirSync(componentsRoot, { withFileTypes: true })) {
-	if (!bucket.isDirectory() || bucket.name.startsWith('_')) continue;
-	const names = readdirSync(join(componentsRoot, bucket.name), { withFileTypes: true })
-		.filter((e) => e.isDirectory() && !e.name.startsWith('_'))
-		.map((e) => e.name)
-		.sort();
-	if (names.length) bucketMap[bucket.name] = names;
+for (const [bucket, ms] of Object.entries(groupByBucket(manifests))) {
+	if (ms.length) bucketMap[bucket] = ms.map((m) => m.name).sort();
 }
 const bucketCount = Object.keys(bucketMap).length;
 const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());

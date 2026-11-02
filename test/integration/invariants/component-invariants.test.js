@@ -47,6 +47,7 @@ const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml, deckFromSample, deckFromSamples, ROOT } = require('../../helpers/semantic-render');
 const { LAYER3, TRANSFORM } = require('./component-invariants.layer3');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 // The overflow oracle comes from the shared kernel, never a local comparison
 // (HARD RULE #1). PROBE_SRC is the function's own source, exported for verbatim
 // injection into a page.evaluate context — the same string the emulator's inline
@@ -71,13 +72,15 @@ function resolveChrome() {
 /** Every component manifest, sorted, optionally filtered by INV_ONLY=name,name. */
 function allComponents() {
   const out = [];
-  (function walk(dir) {
+  const walk = (dir) => {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(p);
       else if (ent.name.endsWith('.manifest.json')) out.push(p);
     }
-  })(path.join(ROOT, 'lib', 'components'));
+  };
+  // Every component root, the plugins' kinds (the chart kinds) included.
+  for (const root of componentCorpusRoots(path.join(ROOT, 'lib', 'components'))) walk(root);
   let mans = out.sort().map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
   const only = (process.env.INV_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (only.length) mans = mans.filter((m) => only.includes(m.name));
@@ -184,6 +187,9 @@ function worstHeadingContrast(slideSelector) {
 }
 
 const COMPONENTS = allComponents();
+// The chart kinds live in their plugin (lib/plugins/chart-family/kinds/), not under lib/components:
+// a walk of the bucket tree alone drops them with nothing failing.
+if (!process.env.INV_ONLY && !COMPONENTS.some((m) => m.name === 'gantt')) throw new Error('allComponents() misses the plugin kinds (gantt)');
 // One deck, one slide per component. Rendering them one deck apiece cost a Chromium
 // launch + navigation + PDF encode PER COMPONENT — ~150s against 8.7s batched
 // (engineering/decisions/2026-08-18-inspection-oracle-catalog.md §5, lever A).

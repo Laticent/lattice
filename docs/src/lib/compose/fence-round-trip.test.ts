@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { componentDir, loadAll } from '../../../../lib/components';
 import { leadingTag } from './code-commands';
 import { deckSchema, deckToDoc, docToDeck, serializeSlideNode } from './deck-doc';
 import { fenceFor } from './deck-markdown';
@@ -29,17 +30,11 @@ function deckFiles(): string[] {
 		if (!fs.existsSync(abs)) continue;
 		for (const f of fs.readdirSync(abs)) if (re.test(f)) out.push(path.join(abs, f));
 	}
-	// The component galleries, two levels down: lib/components/<bucket>/<name>/*.gallery.md
-	const comps = path.join(ROOT, 'lib/components');
-	if (fs.existsSync(comps)) {
-		for (const bucket of fs.readdirSync(comps)) {
-			const bp = path.join(comps, bucket);
-			if (!fs.statSync(bp).isDirectory()) continue;
-			for (const name of fs.readdirSync(bp)) {
-				const g = path.join(bp, name, `${name}.gallery.md`);
-				if (fs.existsSync(g)) out.push(g);
-			}
-		}
+	// Every component's gallery, beside its manifest: lib/components/<bucket>/<name>/, or the plugin
+	// kind's folder (the chart kinds live in lib/plugins/chart-family/kinds/<name>/).
+	for (const m of loadAll()) {
+		const g = path.join(componentDir(m), `${m.name}.gallery.md`);
+		if (fs.existsSync(g)) out.push(g);
 	}
 	return out;
 }
@@ -73,6 +68,8 @@ describe('every fence we ship survives the Compose round-trip', () => {
 
 	it('finds a corpus worth testing — this is the anti-vacuity arm', () => {
 		expect(files.length).toBeGreaterThan(20);
+		// The chart kinds live in their plugin: the gallery walk must reach them.
+		expect(files.some((f) => f.endsWith(path.join('kinds', 'gantt', 'gantt.gallery.md')))).toBe(true);
 		const all = files.flatMap((f) => fences(fs.readFileSync(f, 'utf8')));
 		expect(all.length).toBeGreaterThan(150);
 		// The census that shaped the design: mermaid dominates, and every backtick fence

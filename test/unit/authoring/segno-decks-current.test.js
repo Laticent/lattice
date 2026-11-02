@@ -10,11 +10,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
+
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 // A deck: an example, an exemplar, a gallery, a test deck, or a manifest (its samples are decks).
-const DECKS = ['examples/*.md', 'exemplars/**/*.md', 'lib/components/**/*.gallery.md',
-  'lib/components/**/*.manifest.json', 'test/fixtures/**/*.md', 'test/integration/baseline-decks/*.md'];
+// Galleries and manifests come from every component root, the plugins' kinds included.
+const COMPONENT_ROOTS = componentCorpusRoots().map((r) => path.relative(ROOT, r).split(path.sep).join('/'));
+const DECKS = ['examples/*.md', 'exemplars/**/*.md',
+  ...COMPONENT_ROOTS.flatMap((r) => [`${r}/**/*.gallery.md`, `${r}/**/*.manifest.json`]),
+  'test/fixtures/**/*.md', 'test/integration/baseline-decks/*.md'];
 
 const OLD = [
   ['a pill modifier after the braces (`{BETA}:tag`)', /`~?\{[^`{}]*\}:[\w-]/],
@@ -30,6 +35,8 @@ const OLD = [
 test('every deck we ship uses the Segno spellings, none of the retired ones', () => {
   const files = execFileSync('git', ['ls-files', ...DECKS], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
   assert.ok(files.length > 200, `the deck walk found only ${files.length} files`);
+  // The chart kinds live in their plugin, not under lib/components: the walk must reach them.
+  assert.ok(files.includes('lib/plugins/chart-family/kinds/gantt/gantt.gallery.md'), 'the deck walk misses the plugin kinds (gantt)');
   const left = [];
   for (const rel of files) {
     // Fenced code is quoted material, not a slide.

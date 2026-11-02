@@ -18,6 +18,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const CHECKLIST = path.join(ROOT, 'lib', 'components', 'inventory', 'checklist');
@@ -59,7 +60,8 @@ describe('generated galleries — quoted state markers stay literal on a slide',
         }
       }
     };
-    walk(path.join(ROOT, 'lib', 'components'));
+    // Every component root, the plugins' kinds (the chart kinds) included.
+    for (const root of componentCorpusRoots(path.join(ROOT, 'lib', 'components'))) walk(root);
     assert.deepEqual(bad, [], `a generated gallery quotes a marker that will render as a disc:\n${bad.join('\n')}`);
   });
 });
