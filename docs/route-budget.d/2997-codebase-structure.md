@@ -1,6 +1,6 @@
-studio: +650
-playground: +700
-home: +700
+studio: +750
+playground: +800
+home: +800
 The plugin boundary (#2630). Site code that asks "does this deck use math" reads math's detectors from a generated per-plugin detector table (`lib/plugins/detect.generated.mjs`, one named export per plugin, so a bundle keeps only the ones it imports) instead of importing the math plugin's folder; the rest is the plugin kit's per-concern wrapper modules (`lib/plugin-kit/*.js`) in the chunks that bundle the engine. Measured against main at 089fd230e after rebasing (docs build, both trees): studio eager +22 B gz, playground +0.1 KB, home +0.1 KB, declared with headroom for gzip spread. The first version read the whole grammar table and measured +849/+655/+652 B; the detector table gave that back.
 
 The plugin contract on top (2026-11-01-plugin-contract-hollywood.md) adds the state facade every plugin syntax rule now runs through (`lib/plugins/state-facade.mjs`, imported by the boundary parser's block installer and the generated grammar), so a rule never touches markdown-it's live state. Measured by CI against main at b7b80b7 on 7c48490: studio +390 B gz, playground +435, home +449, nearly all of it `slide-boundaries` (+369, the facade) and `math.syntax` (+43); declared with headroom for gzip spread.
@@ -9,3 +9,5 @@ The plugin contract on top (2026-11-01-plugin-contract-hollywood.md) adds the st
 The engine bundle (`engineJsGz`, ledger-checked against its ceiling): the base plugin ctx carries only the vocabulary every render reads (status marks, record shapes, the video provider table). The diagram vocabulary reaches the Mermaid bake and pass through their own ctx, and the old video fence step lives in the video plugin's own folder, so none of them rides into the engine. Measured locally on `esm/engine.js`'s static closure (gzip -9): 301.8 KB on main at b7b80b7, 308.3 KB before this scoping, 304.8 KB after it.
 
 The video provider table (2026-11-02): the providers moved out of engine code into the video plugin's manifest as declared data, read by the host's one matcher (`lib/core/video-providers.mjs` over `lib/plugins/providers.generated.mjs`). The Studio, the Playground and the home page load it through the video overlay. After trimming, the table and its interpreter cost about 0.2 KB gz over main's hand-written functions (measured as the overlay imports it: 898 B on main, 1121 B here). CI against main at bc181a9 on 8458460 measured the whole eager-JS change at studio +574 B, playground +619 B, home +633 B; declared with headroom for gzip spread. The Studio's eager ceiling moved 5 KB in its own PR (#3001) to make room.
+
+The section walker and its tokenizer (2026-11-02) moved from `lib/core/split-sections.mjs` and `top-level-h2.mjs` into `@laticent/markup`, which now holds the HTML string walking every eager route already loaded. The route's markup chunk grew by about as much as the old `split-sections` chunk shrank: CI against main on 73c43df measured `dist` +2016 B and `split-sections` -1896 B, so the whole eager-JS change is studio +675 B, playground +727 B, home +741 B. Declared with headroom for gzip spread.
