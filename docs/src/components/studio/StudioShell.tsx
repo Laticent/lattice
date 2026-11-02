@@ -69,7 +69,6 @@ import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoo
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
-import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
@@ -4749,12 +4748,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const onPress = (e: PointerEvent) => {
 			pressAt = { x: e.clientX, y: e.clientY };
 		};
+		// THE VIDEO PLAYER LOADS OFF THE STARTUP PATH. Only a tap on a video poster needs it, and a poster exists only once a
+		// deck has rendered, which waits on the engine; so it is fetched here, beside the engine, not in the Studio's first
+		// paint (route budget `eagerJsGz`). Until it arrives a poster tap is an ordinary link and opens the clip in a tab.
+		let tapVideoAt: ((frame: HTMLIFrameElement, x: number, y: number) => boolean) | null = null;
+		void import('../../playground/video-overlay.js').then((m) => {
+			tapVideoAt = m.tapVideoAt;
+		});
 		const onTap = (e: MouseEvent) => {
 			const frame = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 			if (!frame) return;
 			const dragged = collageDragged(pressAt, e.clientX, e.clientY);
 			pressAt = null; // a click with no press of its own (a script's) is never a drag
-			if (tapVideoAt(frame, e.clientX, e.clientY) || (!dragged && (tapCodeCopyAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY)))) e.preventDefault();
+			if (tapVideoAt?.(frame, e.clientX, e.clientY) || (!dragged && (tapCodeCopyAt(frame, e.clientX, e.clientY) || tapCollageAt(frame, e.clientX, e.clientY)))) e.preventDefault();
 		};
 		// A POINTER OVER A COPY BUTTON. `:hover` cannot reach the frame either, so a code block's copy
 		// buttons stayed at rest and their tooltips never showed (followups.d/2710-p3); the host marks
