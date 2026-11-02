@@ -61,7 +61,7 @@ const deckFrontMatter = (lines) =>
 const engineTicks = (hand) => {
   const ul = GANTT_SECTION.match(/<ul>[\s\S]*<\/ul>/)[0];
   const out = ganttKernel.buildGanttChart(
-    engine.extractFirstList(ul).inner,
+    require('@laticent/markup').extractFirstList(ul).inner,
     { window: '2026-01-01 .. 2027-03-31' },
     undefined,
     hand,
