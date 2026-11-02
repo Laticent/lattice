@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted (pilot first)
 summary: >
   A chart kind stops reading its content back out of the engine's HTML. The engine describes each chart slide as
   plain data, built by the slide-facts parser code packages already use, and hands a kind its own versioned input
@@ -158,16 +158,17 @@ dispatcher's record bridging, so the plugin keeps no `lib/` edge for it.
   author's raw HTML can forge the record stamp (the dispatcher's own `STAMP` comment). That is harmless for a
   chart's own data, but it means facts cannot become the tree's prose half unless the stamp becomes unforgeable.
 
-## 9. Owner decisions
+## 9. Owner decisions (2026-11-02)
 
-1. **The data-or-capability line (§2).** Readers never cross; capabilities over host-owned render state do. That
-   is what makes ids work without duplicates.
-2. **Status marks.** The 2026-11-01 audit (Q2) said the engine keeps the drawing of a check mark and the checks
-   plugin gets a capability to draw. `status-marks.js` is a different module with only chart callers. This note
-   moves it into the charts plugin (§5). That is a departure from Q2's wording, and the alternative is a
-   `ctx.marks.draw(…)` capability.
-3. **The bundle rise (§6)**, up to about 4 KB gzipped on `engineJsGz` and the runtime.
-4. **Pilot first (§7).** Three kinds, then a go or no-go on the other 25.
+1. **The data-or-capability line (§2): pragmatic.** "I don't want to be purist. I want to be pragmatic where we
+   need to be, as long as things are not junky and are sustainable and scalable." Readers of engine formats never
+   cross; a kind may ask the host for what only the host can keep consistent (`ctx.ids`, `ctx.service`).
+2. **Status marks: into the charts plugin** (§5). `status-marks.js` has only chart callers; Q2 of the 2026-11-01
+   audit stays as written for the checks plugin's marks, which the engine also draws.
+3. **The bundle: up to about 4 KB gzipped** on `engineJsGz` and the runtime, declared in the route-budget ledger
+   with before and after numbers. The engine has 4.1 KB of headroom under its ceiling today; a ceiling change, if
+   needed, goes in its own PR with the owner's OK.
+4. **Pilot first:** bar, heatmap and journey; then a go or no-go on the other 25.
 
 ## Found on the way (off-path)
 
