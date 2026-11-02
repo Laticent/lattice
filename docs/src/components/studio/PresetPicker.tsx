@@ -3,7 +3,7 @@ import * as React from 'react';
 import { HelpTip } from '@/components/ui/help-tip';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useSettingsHit } from '@/components/ui/settings-view';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { PRESET_ENTRIES, presetSampleDeck } from './deck-preset';
 import { PooledThumbFace } from './preview-pool';
 

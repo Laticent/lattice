@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { render, createEngine } = require('../../../lib/engine');
-const { readClassAttr } = require('../../../lib/core/section-walk');
+const { readClassAttr } = require('@laticent/markup');
 
 const lastSection = (html) => (String(html).match(/<section\b[^>]*>/g) || []).pop() || '';
 const engineSaysImage = (md) => /\bimage\b/.test(readClassAttr(lastSection(render(md.replace(/!\[bg[^\]]*\]\([^)]*\)/g, 'MARK'), {}).html)));

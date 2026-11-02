@@ -8,7 +8,7 @@ const path = require('node:path');
 const {
   mermaidKindLabel, labelDiagramSvg, collapseSankeyText, DIAGRAM_STAGE_WIDTH, STAGE_TEXT_RESET,
 } = require('../../../lib/plugins/mermaid/shared/baked-figure.js');
-const { bakedFigureOpenTag, stampFigureIndex } = require('../../../lib/plugins/mermaid/shared/baked-figure-tag.js');
+const { bakedFigureOpenTag, stampFigureIndex } = require('../../../lib/plugins/mermaid/shared/baked-figure-tag.mjs');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 

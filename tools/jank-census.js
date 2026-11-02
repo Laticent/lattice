@@ -166,23 +166,11 @@ const ONLY = opts.get('only') ? new Set(opts.get('only').split(',').map((s) => s
 // Straight off the manifests, so the census cannot drift from the catalog: a component
 // added tomorrow is swept tomorrow without anyone editing a list here.
 function catalog() {
-  const dirs = fs.readdirSync(path.join(ROOT, 'lib/components'), { withFileTypes: true })
-    .filter((d) => d.isDirectory());
-  const out = [];
-  for (const bucket of dirs) {
-    const bdir = path.join(ROOT, 'lib/components', bucket.name);
-    for (const comp of fs.readdirSync(bdir, { withFileTypes: true })) {
-      if (!comp.isDirectory()) continue;
-      const mf = path.join(bdir, comp.name, `${comp.name}.manifest.json`);
-      if (!fs.existsSync(mf)) continue;
-      const m = JSON.parse(fs.readFileSync(mf, 'utf8'));
-      const variants = Array.isArray(m.variants)
-        ? m.variants.filter((v) => typeof v === 'string')
-        : [];
-      out.push({ bucket: bucket.name, name: m.name || comp.name, variants });
-    }
-  }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  // `loadAll` walks the buckets AND the plugins' kinds (the chart kinds live in their plugin).
+  const { loadAll, manifestBucket } = require('../lib/components');
+  return loadAll()
+    .map((m) => ({ bucket: manifestBucket(m), name: m.name, variants: Array.isArray(m.variants) ? m.variants.filter((v) => typeof v === 'string') : [] }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // ── the section-level marks ───────────────────────────────────────────────

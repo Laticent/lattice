@@ -50,7 +50,7 @@ function latticeCliFlags() {
   const { VALUE_OPTIONS, SWITCHES, EARLY_FLAGS } = require('../../../lib/cli/options.js');
   // --help / --version are handled before parseArgs runs.
   for (const row of [...VALUE_OPTIONS, ...SWITCHES, ...EARLY_FLAGS]) for (const f of row.flags) render.add(f);
-  const packages = flagsBetween(read('lib/packages/cli.js'), 'function parse(argv)', 'return { flags, pos };', 'lib/packages/cli.js');
+  const packages = flagsBetween(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };', 'lib/cli/packages.js');
   const videoSrc = read('lib/export/video-cli.mjs');
   const video = new Set([...videoSrc.matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
   video.add('--help');

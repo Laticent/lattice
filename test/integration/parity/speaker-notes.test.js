@@ -72,7 +72,7 @@ describe('speaker notes (emulator)', () => {
     // The `$`-carrying aside must not have injected a stray, unbalanced <section.
     const slideSections = (html.match(/<section\b[^>]*\bdata-lattice-slide=/g) || []).length;
     assert.equal(slideSections, 4, 'four slide sections in the sidecar');
-    const { splitSections } = require('../../../lib/core/split-sections');
+    const { splitSections } = require('@laticent/markup');
     const at = html.search(/<section\b[^>]*\bdata-lattice-slide=/);
     const walked = splitSections(html.slice(at)).filter((p) => p.type === 'section');
     assert.equal(walked.length, 4, 'the section walker agrees — no unbalanced <section leaked in');

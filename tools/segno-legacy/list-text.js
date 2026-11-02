@@ -5,14 +5,14 @@
  * lib/core/list-text-grammar.js. This copy is what tools/parser-bakeoff/freeze-list-text.mjs reads
  * to write the oracle (test/unit/tools/fixtures/list-text.frozen.json); nothing in lib/ may read
  * it. Each block names the file and the line it came from. Only the marker class is inlined
- * (it was `MARKER_CLASS` from lib/plugins/checks/shared/registry.js, whose value is unchanged).
+ * (it was `MARKER_CLASS` from lib/core/checks-registry.js, whose value is unchanged).
  *
  * The Compose editor's four readers joined later, copied at 7a7ad30 before their own swap.
  *
  * Do not fix bugs here: a fix would change the oracle.
  */
 
-// lib/plugins/checks/shared/registry.js
+// lib/core/checks-registry.js
 const MARKER_CLASS = '[x\\-!? /]';
 const LEADING_MARKER_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]\\s*(.*)$`);
 const LEADING_MARKER_PREFIX_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]\\s*`);
@@ -20,7 +20,7 @@ const LEADING_MARKER_PREFIX_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]\\s*`);
 // lib/core/chart-narration.js (markedCell, without its cleanLabel pass)
 const MARKED_CELL = new RegExp(`^(?:<[^>]+>\\s*)?\\[(${MARKER_CLASS})\\]\\s*(.*)$`);
 
-// lib/components/chart/roadmap/roadmap.transform.js
+// lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js
 const CELL_MARKER_RE = new RegExp(`^\\s*(?:<[^>]+>\\s*)?\\[(${MARKER_CLASS})\\]\\s*`);
 const CELL_MARKER_STRIP_RE = new RegExp(`^\\s*(<[^>]+>\\s*)?\\[${MARKER_CLASS}\\]\\s*`);
 

@@ -14,7 +14,7 @@
 import type { Scene } from '@/lib/anima';
 // The JSON value cap (lib/packages/json-guard.js). A static import is fine here: this module is
 // only ever loaded on demand (asset-bundle.ts, share-export.ts), never on the Studio's eager path.
-import { pluginKindPins, refuseCode, refusePluginCode } from '../../../../lib/packages/code-shape.mjs';
+import { pluginKindPins, refuseCode, refusePluginCode } from '../../../../lib/core/code-shape.mjs';
 import jsonGuard from '../../../../lib/packages/json-guard.js';
 // The plugin refusal, one string shared with `lattice packages add` (a CommonJS leaf, read as a default import).
 import pluginRefusal from '../../../../lib/packages/plugin-refusal.js';
@@ -153,7 +153,7 @@ export type ReadPackage = {
 	roles: Record<string, string>;
 	code: boolean;
 	/** For a package carrying code: why it is not the one shape a door can run, or null when it
-	 *  is (lib/packages/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
+	 *  is (lib/core/code-shape.mjs `refuseCode`, the same check `lattice packages add` runs). */
 	codeRefusal: string | null;
 	notes: string[];
 };
@@ -189,12 +189,12 @@ const TYPES: readonly string[] = ['theme', 'component', 'finish', 'motion'];
 /**
  * Why a code package is refused: its shape first (`refuseCode`, light, in the eager bundle), then its
  * syntax (`codeSyntaxRefusal`, a dynamic `import()`), whose parser loads only when a zip holds code.
- * The same two checks `lattice packages add` runs (lib/packages/gate.js).
+ * The same two checks `lattice packages add` runs (lib/cli/package-gate.js).
  */
 async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string | undefined): Promise<string | null> {
 	const shape = refuseCode(pkg);
 	if (shape) return shape;
-	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	const { codeSyntaxRefusal } = await import('../../../../lib/core/code-syntax.mjs');
 	return codeSyntaxRefusal(String(code ?? ''));
 }
 
@@ -205,19 +205,18 @@ async function codeRefusal(pkg: Parameters<typeof refuseCode>[0], code: string |
 async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Promise<string | null> {
 	const shape = refusePluginCode(pkg);
 	if (shape) return shape;
-	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
+	const { codeSyntaxRefusal } = await import('../../../../lib/core/code-syntax.mjs');
 	const syntax = codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
 	if (syntax) return syntax;
-	// Its stylesheet, on the CLI's terms (lib/packages/gate.js `refusePlugin`).
+	// Its stylesheet, on the CLI's terms (lib/cli/package-gate.js `refusePlugin`).
 	const { refuseImportedPluginStyles } = await import('./import-gate');
 	const sheet = await refuseImportedPluginStyles(String(pkg.files[pkg.roles['styles.css']] ?? ''), String(pkg.manifest?.name ?? ''));
 	if (sheet) return `its styles.css: ${sheet.why}`;
 	// Each inline kind's slot, compiled once here as `lattice packages add` does (gate.js `inlineSlotCompileRefusal`).
 	const pins = pluginKindPins(pkg.manifest);
 	if (!pins.some((k) => k.slot)) return null;
-	// Require-free, with Segno's ESM reader (the dev server serves only a CJS file that requires nothing).
-	const [{ default: segnoSpecCore }, segnoRead] = await Promise.all([import('../../../../lib/core/segno-spec-core.js'), import('@laticent/segno/read')]);
-	const { compileSlot } = segnoSpecCore.specCompiler(segnoRead);
+	// Segno's own slot compiler (`@laticent/segno/read`), the one every host and plugin compiles a slot with.
+	const { compileSlot } = await import('@laticent/segno/read');
 	for (const { name, slot } of pins) {
 		if (!slot) continue;
 		try {

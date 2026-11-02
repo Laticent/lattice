@@ -117,7 +117,7 @@ const SANCTIONED = [
     why: 'Legacy iOS Safari momentum scrolling for the fluid viewer. Inert in modern Chromium; still read by the old WebKit versions the exported HTML can land on.',
   },
   {
-    prop: 'line-clamp', value: '2', files: ['lib/components/chart/kanban/kanban.styles.css'], sites: 1,
+    prop: 'line-clamp', value: '2', files: ['lib/plugins/chart-family/kinds/kanban/kanban.styles.css'], sites: 1,
     why: 'Standard half of a cross-engine pair — `-webkit-line-clamp:2` is on the line above (kanban card title). Chromium clamps via the prefixed property; the standard one is there for when it lands.',
   },
 ];

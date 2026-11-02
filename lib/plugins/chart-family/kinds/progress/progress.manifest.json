@@ -1,0 +1,236 @@
+{
+  "$schema": "../../../../components/manifest.schema.json",
+  "name": "progress",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "rows",
+      "subtitle",
+      "eyebrow"
+    ]
+  },
+  "function": "evidence",
+  "bucket": "chart",
+  "form": "canvas",
+  "substance": "series",
+  "render": "html",
+  "renderNote": "Each bar is an HTML box whose width is its percentage. One number per row needs no shared coordinate system, and keeping the label as prose lets it wrap and stay selectable — an SVG bar would buy nothing but a text-wrapping problem.",
+  "kernel": {
+    "figureClass": "progress-bars",
+    "marks": [
+      {
+        "class": "progress-fill",
+        "paint": "bg",
+        "encodes": "ramp",
+        "bears": false
+      },
+      {
+        "class": "chart-status",
+        "paint": "bg",
+        "encodes": "hue",
+        "bears": true
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each bar fills to how complete its item is",
+    "figure": "flow",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "tags": [
+    "percentage",
+    "stoplight",
+    "status"
+  ],
+  "description": "Horizontal progress bars — one row per item, percentage filled.",
+  "purpose": "Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).",
+  "excludes": [
+    "claim-bleed"
+  ],
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading framing the progress view."
+    },
+    "eyebrow": {
+      "selector": "p > code",
+      "required": false,
+      "description": "Optional eyebrow caption above the heading."
+    },
+    "subtitle": {
+      "selector": "p",
+      "required": false,
+      "description": "Optional plain subtitle after the heading."
+    },
+    "rows": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note=\"Q4 slip\"}`` (the record's note first, then the nested bullets)."
+    }
+  },
+  "skeleton": "<!-- _class: progress -->\n\n`Eyebrow · context`\n\n## Progress by item.\n\n- First item `80%` `on-track`\n- Second item `55%` `at-risk`\n- Third item `30%` `blocked`\n",
+  "anatomyBlock": "progress-canvas",
+  "sample": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\nSnapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n- Adoption `12%` `blocked`\n",
+  "stressDoc": {
+    "summary": "A full wall of tracks — the ceiling.",
+    "sample": "<!-- _class: progress -->\n\n## Stress test — eight workstreams, full status range, one honest pill.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Per-team calibration `34%` `deferred`\n- Adoption `12%` `blocked`\n- Decision-log audit trail `100%` `done`\n- Recalibration playbook `45%` `deferred`\n- Auditor export rollout `73%` `on-track`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "Parallel workstreams at a glance",
+      "body": "When the audience needs to scan five to eight workstreams and immediately spot the ones in trouble. The bar length carries the magnitude; the status pill carries the verdict."
+    },
+    {
+      "title": "Percent-complete is the natural unit",
+      "body": "Readiness, OKR progress, capacity utilization, rollout coverage. Any series where each row is a 0–100% completion against its own scale fits the layout. Mixed units belong in `kpi`."
+    },
+    {
+      "title": "Status framing matters as much as the number",
+      "body": "Use the `on-track`, `at-risk`, `blocked`, `deferred`, `done` vocabulary — the engine tints the bar fill to match. A 68% bar reads very differently when it is `at-risk` than when it is `on-track`."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Comparing unrelated metrics",
+      "body": "Revenue % of target, latency vs SLO, and headcount fill aren't comparable on a shared bar scale. Use `kpi` for value/target/status tiles or `stats` for an independent metric row."
+    },
+    {
+      "title": "More than eight rows",
+      "body": "Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway."
+    },
+    {
+      "title": "Decorative status pills",
+      "body": "Don't invent status words for tone. Only the shared ten tint the bar; anything else still draws a pill in the info color, so a typo reads as deliberate."
+    }
+  ],
+  "related": [
+    {
+      "name": "kpi",
+      "when": "value + target + status tiles, not a single percent"
+    },
+    {
+      "name": "stats",
+      "when": "independent headline metrics, no completion scale"
+    },
+    {
+      "name": "gantt",
+      "when": "the rows are time-bound and need a date axis"
+    },
+    {
+      "name": "checklist",
+      "when": "binary done / not-done across a flat list"
+    },
+    {
+      "name": "timeline-list",
+      "when": "the workstreams complete in sequence, not in parallel"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the fill value without the `%` sign, assuming the bar won't fill correctly.",
+      "fix": "The `%` sign is cosmetic for the bar fill itself — a bare number and a `%`-suffixed one drive the same fill. It DOES matter for the displayed chip text, though: omit it and the chip shows a bare number with no percent sign, which reads wrong even though the bar fills correctly. Always include `%` for a clean label."
+    },
+    {
+      "mistake": "Writing the status pill before the percent chip.",
+      "fix": "Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order is a genuine break, not graceful tolerance: the bar renders at 0% fill and the percent/status text swap positions in the row."
+    }
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 40,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 4
+      },
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint or paints cut short, or labels printed across a mark or each other): side 50%: 9, clips at 10 (it measured 4 while a pane's label column was a share of the pane, and a three-word label wrapped a word to a line); stack 50/50: 4, clips at 5. sweet sits at or below it."
+    }
+  },
+  "venueCapacity": {
+    "axis": "row",
+    "at": "wide",
+    "atLeast": [
+      "laptop"
+    ],
+    "byWords": {
+      "6": {
+        "laptop": 9,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 4
+      }
+    }
+  },
+  "gesture": {
+    "archetype": "part",
+    "units": {
+      "row": {
+        "select": ".progress-row[data-label=\"{row}\"]"
+      }
+    },
+    "key": "first"
+  },
+  "segno": {
+    "row": {
+      "label": "a progress row",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": {
+            "type": "oneOf",
+            "values": [
+              "on-track",
+              "done",
+              "live",
+              "at-risk",
+              "warn",
+              "blocked",
+              "fail",
+              "pilot",
+              "decision",
+              "deferred"
+            ]
+          },
+          "required": false
+        }
+      ],
+      "params": {
+        "note": {
+          "type": "text",
+          "named": true
+        }
+      },
+      "rows": {
+        "shape": "fields",
+        "quotes": false,
+        "nested": "detail",
+        "native": true,
+        "legacy": [
+          "value",
+          "status"
+        ]
+      }
+    }
+  },
+  "venueProbe": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n"
+}

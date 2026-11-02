@@ -108,12 +108,8 @@ function minimumCount(m) {
 
 /** The component's gallery example body, with its heading and spot directives removed. */
 function galleryBody(name) {
-  const candidates = [];
-  const root = path.join(__dirname, '..', 'lib', 'components');
-  for (const bucket of fs.readdirSync(root)) {
-    const f = path.join(root, bucket, name, `${name}.gallery.md`);
-    if (fs.existsSync(f)) candidates.push(f);
-  }
+  // `componentDir` finds the folder in its bucket or its plugin (the chart kinds live in their plugin).
+  const candidates = [path.join(components.componentDir(name), `${name}.gallery.md`)].filter((f) => fs.existsSync(f));
   if (!candidates.length) return null;
   // Slides split on a `---` line OUTSIDE fenced code: a Mermaid source carries its own `---`
   // front matter, and a plain split cut the diagram example in half.

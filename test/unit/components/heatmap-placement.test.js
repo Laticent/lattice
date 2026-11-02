@@ -1,6 +1,6 @@
 /**
  * Unit: where a heatmap puts its callouts and its key, chosen by measure
- * (lib/components/chart/heatmap/heatmap.transform.js `buildHeatmap`). Design:
+ * (lib/plugins/chart-family/kinds/heatmap/heatmap.transform.js `buildHeatmap`). Design:
  * engineering/decisions/2026-10-20-callout-placement.md § 5.
  *
  * The arms pin the CHOICE, not the geometry: which side wins at which slide shape, that a
@@ -12,7 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { transformSection, parseHeatmapTable, resolveCallouts, layoutHeatmap } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+const { transformSection, parseHeatmapTable, resolveCallouts, layoutHeatmap } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
 const { liftLegends } = require('../../../lib/core/lift-label-set');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 
@@ -140,7 +140,7 @@ describe('notes and key together', () => {
 
 describe('trying the placements leaves no trace', () => {
   test('the layouts that lose report no label drops', () => {
-    const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
+    const { collectLabelDrops } = require('../../../lib/plugins/chart-family/shared/label-drops');
     const { drops } = collectLabelDrops(() => render(SIX, { orientation: 'landscape' }));
     assert.deepEqual(drops, []);
   });
@@ -181,7 +181,7 @@ describe('the slide\'s real shape settles what its orientation name cannot', () 
   });
 
   test('the chart box follows the slide: measured points exactly, linear between, clamped outside', () => {
-    const { chartBoxAspect } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+    const { chartBoxAspect } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
     assert.equal(chartBoxAspect(16 / 9), 2.72);
     assert.equal(chartBoxAspect(0.8), 1.09);
     assert.equal(chartBoxAspect(0.3), 0.67);

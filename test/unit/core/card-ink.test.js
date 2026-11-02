@@ -2,7 +2,7 @@
  * lib/core/card-ink.mjs — which ink a thin spotlight card needs.
  *
  *   1. the class readers and `needsInk`, the question the linter asks;
- *   2. the contrast arithmetic agrees with lib/theme/color.js, and the ink choice follows the photo;
+ *   2. the contrast arithmetic agrees with lib/core/color.js, and the ink choice follows the photo;
  *   3. the cover-fit mapping from a box on the panel to pixels on the photo;
  *   4. the fills and inks restated here match the ones image.styles.css paints.
  */
@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { contrastRatio } = require(path.join(ROOT, 'lib/theme/color.js'));
+const { contrastRatio } = require(path.join(ROOT, 'lib/core/color.js'));
 const load = () => import(path.join(ROOT, 'lib/core/card-ink.mjs'));
 const hex = ([r, g, b]) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 
@@ -62,7 +62,7 @@ test('needsInk: only a thin spotlight card with no ink, from the slide or the de
   assert.equal(k.needsInk(['image', 'card-o35'], [], 'spotlight'), true, '...unless the caller knows it');
 });
 
-test('contrast agrees with lib/theme/color.js', async () => {
+test('contrast agrees with lib/core/color.js', async () => {
   const k = await load();
   for (const [a, b] of [[[255, 255, 255], [12, 18, 28]], [[14, 18, 26], [250, 249, 246]], [[120, 130, 140], [30, 40, 60]], [[200, 60, 40], [20, 20, 20]]]) {
     assert.ok(Math.abs(k.contrast(a, b) - contrastRatio(hex(a), hex(b))) < 1e-9, `${hex(a)} on ${hex(b)}`);

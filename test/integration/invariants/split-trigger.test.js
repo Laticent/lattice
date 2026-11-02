@@ -33,7 +33,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const { ROOT, runEmulator } = require('../../helpers/render');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 
 const pagesOf = (pdf) => {
   const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');

@@ -74,7 +74,7 @@ describe('the engine marks a fence whose plugin the deck did not load', () => {
 
   test('an embedded plugin is never in the off list a narrowed host derives (so Export-to-Marp never stamps `@pill{…}` literal)', async () => {
     const { default: api } = await import('../../../lib/playground/index.js');
-    const { deckPluginsOffFor } = await import('../../../docs/src/playground/editor-diagnostics.js');
+    const { deckPluginsOffFor } = await import('../../../docs/src/lib/editor-diagnostics.js');
     const { PLUGIN_NAMES } = await import('../../../lib/plugins/blocks.generated.mjs');
     try {
       api.setPluginDefaults(['icons']);

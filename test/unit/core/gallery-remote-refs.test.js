@@ -1,6 +1,6 @@
 /**
  * A component package's sample slide may not fetch from the network (HARD RULE #22;
- * followups.d/2336-p3-packages-trio-followups.md item 2). `lib/packages/gallery-gate.js`
+ * followups.d/2336-p3-packages-trio-followups.md item 2). `lib/cli/gallery-gate.js`
  * renders the gallery through the engine, parses the result with parse5 and hands every
  * element to `lib/core/remote-ref.js`.
  *
@@ -14,7 +14,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { galleryRemoteRefs, galleryFindings } = require('../../../lib/packages/gallery-gate.js');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
+const { galleryRemoteRefs, galleryFindings } = require('../../../lib/cli/gallery-gate.js');
 const { isRemoteUrl, attrIsRemote, remoteCssRefs, remoteRefsInElements, VENDORED_SCRIPTS } = require('../../../lib/core/remote-ref.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -166,14 +167,17 @@ describe('galleryRemoteRefs (the rendered check)', () => {
 
   test('every shipped gallery passes (they must keep importing)', () => {
     const galleries = [];
-    (function walk(dir) {
+    const walk = (dir) => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
         else if (e.name.endsWith('.gallery.md')) galleries.push(p);
       }
-    })(path.join(ROOT, 'lib/components'));
+    };
+    // Every component root, the plugins' kinds (the chart kinds) included.
+    for (const root of componentCorpusRoots(path.join(ROOT, 'lib/components'))) walk(root);
     assert.ok(galleries.length > 50, `found ${galleries.length} galleries`);
+    assert.ok(galleries.some((g) => g.endsWith(path.join('kinds', 'gantt', 'gantt.gallery.md'))), 'the gallery walk misses the plugin kinds (gantt)');
     for (const g of galleries) assert.deepEqual(galleryRemoteRefs(fs.readFileSync(g, 'utf8')), [], path.relative(ROOT, g));
   });
 });
@@ -207,7 +211,7 @@ describe('remote-ref predicate', () => {
     // remote-ref.js is a dependency-free leaf, so it copies the names instead of requiring
     // marp-bundle.js. This keeps the copy from falling behind: a new runtime script would
     // otherwise be refused in every gallery that loads it.
-    const { RUNTIME_SCRIPT_SRCS } = require('../../../lib/core/marp-bundle.js');
+    const { RUNTIME_SCRIPT_SRCS } = require('../../../lib/export/marp-bundle.js');
     for (const src of RUNTIME_SCRIPT_SRCS) assert.ok(VENDORED_SCRIPTS.includes(src), src);
   });
 });

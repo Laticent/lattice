@@ -1,0 +1,224 @@
+{
+  "$schema": "../../../../components/manifest.schema.json",
+  "name": "word-cloud",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "words"
+    ]
+  },
+  "function": "evidence",
+  "bucket": "chart",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "renderNote": "The words are `<svg>` `<text>` \u2014 the packer places them at arbitrary sizes and angles, which CSS text flow cannot do \u2014 and since the 2026-07-27 conversion the `size = frequency` key and the spine share that same viewBox. Key and cloud used to scale by two different rules (`--fs-*` against the slide, the words against the svg box); now they are locked together at any size, and an export carries the legend that makes the words readable. The key stays `aria-hidden`: a screen reader gets the words themselves, not the A-ramp.",
+  "kernel": {
+    "figureClass": "word-cloud-canvas",
+    "marks": [
+      {
+        "class": "wc-word",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
+      }
+    ]
+  },
+  "projection": {
+    "frame": "sized by how often each came up",
+    "figure": "spatial",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": { "claims": ["trailing-paragraph"] },
+  "tags": [
+    "tag-cloud",
+    "themes",
+    "proportion"
+  ],
+  "description": "Spiral-packed word cloud — items sized by weight.",
+  "purpose": "Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.",
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading framing the cloud."
+    },
+    "words": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size and the loudest ink the variant has."
+    }
+  },
+  "skeleton": "<!-- _class: word-cloud -->\n\n## What the team called out this quarter.\n\n- velocity `12`\n- ownership `9`\n- handoffs `7`\n- review `5`\n",
+  "anatomyBlock": "word-cloud-canvas",
+  "sample": "<!-- _class: word-cloud -->\n\n## Weight is meaning in a word cloud.\n\n- time-to-value `5`\n- security `4`\n- onboarding `4`\n- pricing `3`\n- integrations `3`\n- support `2`\n- roadmap `2`\n- contracts `1`\n- residency `1`\n",
+  "stressDoc": {
+    "summary": "The densest cloud that still reads.",
+    "sample": "<!-- _class: word-cloud dense -->\n\n## Stress test — 20 terms, raw frequency counts, 512 down to 5.\n\n- component `512`\n- variant `327`\n- manifest `261`\n- gallery `204`\n- function `168`\n- form `139`\n- substance `116`\n- transform `94`\n- selector `77`\n- palette `63`\n- cascade `51`\n- bundle `42`\n- scaffolder `34`\n- token `28`\n- normalize `22`\n- packer `17`\n- spiral `13`\n- footer `9`\n- eyebrow `7`\n- watermark `5`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "Qualitative themes at a glance",
+      "body": "Retrospective summaries, survey verbatims, theme extraction, sentiment scans. The cloud lands what the corpus is about; the silhouette and the biggest words are the read."
+    },
+    {
+      "title": "Weight is approximate, not exact",
+      "body": "Word size encodes relative frequency or weight, but the eye reads 'biggest' and 'second biggest' before any precise ratio. Reach for word-cloud when the rank matters more than the count. A 'size = frequency' key sits in the right rail to make the encoding explicit."
+    },
+    {
+      "title": "Eight to twenty items",
+      "body": "Below eight the spiral looks bare and the layout wastes the canvas. Past about twenty the smallest words become unreadable. Trim the long tail or cap the cloud at a 'top 15' before authoring."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Precise comparisons",
+      "body": "If the audience needs to know that 'manifest' is 1.6× 'function', the spiral packing actively misleads. Use `progress` or a bar chart where the eye can compare lengths directly."
+    },
+    {
+      "title": "Two or three words",
+      "body": "A three-word cloud is a list with extra steps. Use `stats` for a metric row or `big-number` for a single weighted headline."
+    },
+    {
+      "title": "Multi-word phrases",
+      "body": "Each li should be a single token. Multi-word phrases blow out the layout and crowd the spiral; if your data is phrases, normalize to keywords first or use `quote` for verbatim text."
+    }
+  ],
+  "related": [
+    {
+      "name": "progress",
+      "when": "the weights need precise visual comparison"
+    },
+    {
+      "name": "stats",
+      "when": "the headline metrics are independent numbers, not a corpus"
+    },
+    {
+      "name": "piechart",
+      "when": "the items are parts of a whole, not free-form themes"
+    },
+    {
+      "name": "quote",
+      "when": "the verbatim language matters more than the frequency"
+    },
+    {
+      "name": "list",
+      "when": "single-line takeaways — the `takeaway` variant"
+    }
+  ],
+  "variants": [
+    "constellation",
+    "dense",
+    "spectrum",
+    "focal"
+  ],
+  "variantDocs": {
+    "constellation": {
+      "label": "constellation",
+      "summary": "Words scattered like stars.",
+      "sample": "<!-- _class: word-cloud constellation -->\n\n## constellation scatters the words like stars.\n\n- component `5`\n- manifest `4`\n- function `3`\n- form `3`\n- substance `2`\n- gallery `1`\n"
+    },
+    "dense": {
+      "label": "dense",
+      "summary": "The cloud packed tight.",
+      "sample": "<!-- _class: word-cloud dense -->\n\n## dense packs the cloud tight.\n\n- component `5`\n- manifest `5`\n- function `4`\n- form `4`\n- substance `4`\n- gallery `3`\n- folder `3`\n- variant `3`\n- universal `2`\n- cascade `2`\n- scaffolder `2`\n- bundler `1`\n- transform `1`\n- selector `1`\n- palette `1`\n"
+    },
+    "spectrum": {
+      "label": "spectrum",
+      "summary": "Words colored along a scale.",
+      "sample": "<!-- _class: word-cloud spectrum -->\n\n## spectrum colors the words along a scale.\n\n- component `5`\n- manifest `4`\n- function `4`\n- form `3`\n- substance `3`\n- gallery `2`\n- variant `2`\n- universal `1`\n"
+    },
+    "focal": {
+      "label": "focal",
+      "summary": "One word crowned the center.",
+      "sample": "<!-- _class: word-cloud focal -->\n\n## focal crowns one word the center.\n\n- variants `5`\n- gallery `2`\n- manifest `2`\n- docs `1`\n- declared `1`\n"
+    }
+  },
+  "commonMistakes": [
+    {
+      "mistake": "Assuming a zero, negative, or non-numeric weight breaks the sizing scale.",
+      "fix": "None of these break anything — weight is min-max normalized across the whole cloud, so zero and negative numbers still get a well-defined proportional size, and a non-numeric or non-finite weight (e.g. a typo) is silently mapped to the MIDDLE of the scale rather than erroring. That silence is the actual hazard: a mistyped weight doesn't fail loudly, it just quietly lands a word at a plausible mid-size."
+    },
+    {
+      "mistake": "Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.",
+      "fix": "Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number)."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The standard spiral pack — the plainest read for a moderate-sized cloud."
+    },
+    {
+      "variant": "constellation",
+      "useWhen": "The words should scatter like a starfield rather than pack tightly — a lighter, more open composition."
+    },
+    {
+      "variant": "dense",
+      "useWhen": "The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility."
+    },
+    {
+      "variant": "spectrum",
+      "useWhen": "Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel. The four loud tiers are stops on the theme's sequential ramp (`--seq-900/700/500/400`), so they stay ordered on a light and a dark canvas alike; the quietest tier is `--text-muted`."
+    },
+    {
+      "variant": "focal",
+      "useWhen": "One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits."
+    }
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 50,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 6,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 8,
+        "hard": 8
+      },
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, a label the chart declines to paint, or labels printed across a mark or each other): side 50%: 6, the weight-1 words fall under the type floor at 7; stack 50/50: 8, the packer drops a word at 9. sweet sits at or below it."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "part",
+    "units": {
+      "word": {
+        "select": "text.wc-word[data-label=\"{word}\"]"
+      }
+    },
+    "key": "act:peak"
+  },
+  "segno": {
+    "row": {
+      "label": "a word-cloud term",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "nested": "detail",
+        "legacy": [
+          "value"
+        ],
+        "native": true
+      }
+    }
+  }
+}

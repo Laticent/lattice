@@ -49,7 +49,7 @@ const strayInParseArgs = (body) => [...literals(body)].filter((f) => !PARSEARGS_
 
 const PARSE_ARGS = between(read('lattice.js'), 'function parseArgs(argv)', 'return { flags, positional };');
 const RENDER = new Set([...O.VALUE_OPTIONS, ...O.SWITCHES, ...O.EARLY_FLAGS].flatMap((r) => r.flags));
-const PACKAGES = literals(between(read('lib/packages/cli.js'), 'function parse(argv)', 'return { flags, pos };'));
+const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };'));
 const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
 

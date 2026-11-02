@@ -77,6 +77,8 @@ function discoverDecks() {
   walk(path.join(ROOT, 'exemplars'), (n) => n.endsWith('.md'));
   walk(path.join(ROOT, 'test', 'integration', 'baseline-decks'), (n) => n.endsWith('.md'));
   walk(path.join(ROOT, 'lib', 'components'), (n) => n.endsWith('.gallery.md'));
+  // A plugin's kinds keep their galleries beside them (lib/plugins/<plugin>/kinds/<name>/).
+  walk(path.join(ROOT, 'lib', 'plugins'), (n) => n.endsWith('.gallery.md'));
   walk(path.join(ROOT, 'lib', 'integrations'), (n) => n.endsWith('.gallery.md'));
   return [...new Set(out)];
 }
@@ -151,7 +153,7 @@ async function main(argv) {
   try {
     const home = require('../lib/packages/home.js');
     // The plugins a render would USE: the same gate and shipped-name rule as lattice.js withInstalledPlugins.
-    const { refusePackage } = require('../lib/packages/gate.js');
+    const { refusePackage } = require('../lib/cli/package-gate.js');
     const shipped = require('../lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
     const plugins = home.listInstalled(home.packagesRoot()).filter((p) => p.type === 'plugin' && p.ok && !shipped.includes(p.name) && !refusePackage(p.pkg, { forRender: true }));
     vocab.externalPlugins = plugins.map((p) => p.name);
@@ -160,7 +162,7 @@ async function main(argv) {
     if (themes.length) vocab.themeNames = [...new Set([...(vocab.themeNames || []), ...themes])];
     vocab.externalFenceOf = Object.fromEntries(plugins.map((p) => [p.name, Object.keys(p.pkg.manifest.contributes.fences ?? {})[0]]).filter(([, f]) => f));
     // Their inline kinds (`@kind{…}`, 2026-10-14-plugin-inline-door.md): a listed plugin's kind is not unknown.
-    const { pluginInlineKinds } = require('../lib/packages/code-shape.mjs');
+    const { pluginInlineKinds } = require('../lib/core/code-shape.mjs');
     vocab.externalInlineKinds = Object.fromEntries(plugins.map((p) => [p.name, pluginInlineKinds(p.pkg.manifest)]).filter(([, k]) => k.length));
   } catch {
     /* no store: no external plugins */
@@ -254,7 +256,7 @@ async function main(argv) {
     {
       const { buildAssetUrls, assetRefs, ASSET_FOLDER } = require('../lib/export/deck-assets');
       const deckDir = path.dirname(path.resolve(file));
-      const have = buildAssetUrls(deckDir, require('../lib/export/file-confine').createFileConfiner([deckDir])).urls;
+      const have = buildAssetUrls(deckDir, require('../lib/core/file-confine').createFileConfiner([deckDir])).urls;
       const seen = new Set();
       for (const ref of assetRefs(source)) {
         if (Object.hasOwn(have, ref.name) || seen.has(ref.name)) continue;

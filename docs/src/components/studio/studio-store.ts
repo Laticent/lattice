@@ -1,10 +1,10 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
 import { appendCheckpoint, type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, mapCheckpoints, readCheckpoints, replaceCheckpoints, SNAP_CAP, SNAP_PREFIX } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
-import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
-import { splitSlides } from './lint';
 import { COMMENTS_KEY_PREFIX, clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 

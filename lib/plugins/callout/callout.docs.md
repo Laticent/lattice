@@ -118,7 +118,7 @@ it under "Not drawn" and says why; `lint:deck` names the marks it could have use
 chart's manifest default, else under the figure; see **Where the notes sit is yours to say**). With a key, the
 engine tries the key's two sides and keeps the one that leaves the plot larger at the slide's real shape
 (`data-aspect`, § Placement below). A chart that has no callout on its slide renders as it
-always did, byte for byte. The shared pieces are `lib/components/chart/_chart-family/callout-layer.js`.
+always did, byte for byte. The shared pieces are `lib/plugins/chart-family/shared/callout-layer.js`.
 
 On a heatmap the notes sit in a lane to the right of the grid, each level with its cell, or in a
 column under the grid, whichever leaves the grid larger (see **Placement** below), and a
@@ -219,9 +219,9 @@ cannot hold, a callout past the sixth — its description lists under "Not drawn
 
 Callouts and the key share one model and reader, `lib/core/legend.js` (`readLegend`; `spanKind`
 says which prefix a span was written with). The SVG emitter is `laneSvg` in
-`lib/components/chart/_chart-family/legend-svg.js`, beside the placement pass it uses, since
+`lib/plugins/chart-family/shared/legend-svg.js`, beside the placement pass it uses, since
 `lib/core` may not import a component. The family's shared layer is
-`lib/components/chart/_chart-family/callout-layer.js`, which a chart adopts in five steps:
+`lib/plugins/chart-family/shared/callout-layer.js`, which a chart adopts in five steps:
 
 1. `around(html, ctx, run)` takes the slide's callout paragraphs off the section (`lift`), runs the chart's
    own splice, and puts the section back untouched when the chart declines it;

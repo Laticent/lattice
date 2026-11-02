@@ -122,7 +122,7 @@ function parseArgs(argv) {
 
 /** Mark classes the chart manifests declare, minus the ones that paint nothing (strokes, text-only). */
 function declaredMarkClasses() {
-  const dir = path.join(REPO, 'lib/components/chart');
+  const dir = path.join(REPO, 'lib/plugins/chart-family/kinds');
   const classes = new Map();
   for (const member of fs.readdirSync(dir)) {
     const file = path.join(dir, member, `${member}.manifest.json`);

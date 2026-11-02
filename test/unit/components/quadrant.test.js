@@ -14,10 +14,11 @@
  *   6. Chart-family integration: transformChartSection wires up correctly.
  */
 
+const { tagsOf, innerOf: elementInner, firstTspan } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 // The emitter's own baseline→glyph-extent table, so this test measures the box
 // that is actually painted rather than re-deriving one that might disagree.
-const { BASELINE_EXTENT } = require('../../../lib/components/chart/_chart-family/svg-label');
+const { BASELINE_EXTENT } = require('../../../lib/plugins/chart-family/shared/svg-label');
 const assert = require('node:assert/strict');
 const {
   QUADRANT_MODIFIERS,
@@ -36,7 +37,7 @@ const {
   convexHull,
   centroid,
   bubbleRadius,
-} = require('../../../lib/components/chart/quadrant/quadrant.transform');
+} = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
 
 // ── Painted-box reconstruction ─────────────────────────────────────────
 // Nominal sizes mirroring quadrant.styles.css, same as the kernel's own FS
@@ -54,7 +55,7 @@ const ADV = 0.6;
 // about. Whether that box matches the painted glyphs is a different question,
 // asked against real browser measurements in
 // test/unit/transformers/svg-label.test.js.
-const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+const { upperAdvance } = require('../../../lib/plugins/chart-family/shared/svg-label');
 
 /**
  * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
@@ -554,7 +555,7 @@ test('buildQuadrant: magic — author-supplied group names override defaults', (
 // Quadrant is a chart-family member; section dispatch + chart-frame
 // wrapping are owned by lib/plugins/chart-family/chart-family.dispatch.js. These pin the wiring.
 
-const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const { transformChartSection } = require('../../../lib/transformers/chart-frame');
 
 describe('quadrant', () => {
   test('chart-family: quadrant section is wrapped in chart-frame', () => {
@@ -651,10 +652,10 @@ describe('quadrant — the sketch token reaches the builder', () => {
   // two-word author names. Two tests, zero coverage of the shipped path — the
   // exact "test that cannot fail for the thing it exists to catch" shape this
   // repo keeps re-learning. Asserting on the emitted SVG is what closes it.
-  const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+  const { upperAdvance } = require('../../../lib/plugins/chart-family/shared/svg-label');
   // The box the corner label is wrapped to, from the transform rather than a
   // literal — a retune of LW.corner must move this test, not slip past it.
-  const { LW: QLW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { LW: QLW } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   const overrunsIn = (cls, name, hand) => {
     const html = transformChartSection(
       `<h2>X</h2><ul><li>${name}<ul><li>A <code>{2, 82}</code></li></ul></li>`
@@ -727,7 +728,9 @@ describe('quadrant — per-item detail (interactive reveal substrate)', () => {
   for (const variant of ['default', 'bubble', 'trail', 'cohort', 'threshold', 'magic']) {
     test(`${variant}: dot data-mark aligns with the detail templates`, () => {
       const html = build(variant);
-      const dotMarks = [...html.matchAll(/class="quadrant-(?:dot|bubble|trail-after)"[^>]*data-mark="(\d+)"/g)].map((x) => +x[1]).sort();
+      const dotMarks = tagsOf(html)
+        .filter((t) => ['quadrant-dot', 'quadrant-bubble', 'quadrant-trail-after'].includes(t.attrs.class) && /^\d+$/.test(t.attrs['data-mark'] ?? ''))
+        .map((t) => +t.attrs['data-mark']).sort();
       const tplMarks = [...html.matchAll(/class="chart-detail" data-mark="(\d+)"/g)].map((x) => +x[1]).sort();
       assert.deepEqual(dotMarks, [0, 1, 2], 'every item dot carries its global mark index');
       assert.deepEqual(tplMarks, [0, 2], 'only the two detailed items emit a template');
@@ -761,8 +764,8 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
 
-  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
-    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const dots = tagsOf(out, 'circle').filter((t) => t.attrs.class === 'quadrant-dot')
+    .map((t) => ({ cx: +t.attrs.cx, cy: +t.attrs.cy, r: +t.attrs.r }));
   assert.ok(dots.length >= 5, 'expected every item to plot a dot');
 
   // Reconstruct each label's painted box from its tspans (x is the anchor, so
@@ -771,7 +774,7 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
   // means honoring its dominant-baseline. Measuring every label as if it sat on
   // an alphabetic baseline is exactly the bug this whole area had: the box you
   // check is then not the box that gets painted.
-  const labels = [...out.matchAll(/<text class="quadrant-dot-label"[^>]*>([\s\S]*?)<\/text>/g)].map((m, i) => {
+  const labels = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-dot-label').map((t) => [null, elementInner(out, t)]).map((m, i) => {
     const head = out.split('<text class="quadrant-dot-label"')[i + 1] ?? '';
     const baseline = (head.match(/dominant-baseline="(\w+)"/) || [])[1] || 'auto';
     const anchor = (head.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
@@ -823,8 +826,8 @@ test('buildQuadrant: every item label stays adjacent to the mark it names', () =
     </ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
-  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
-    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const dots = tagsOf(out, 'circle').filter((t) => t.attrs.class === 'quadrant-dot')
+    .map((t) => ({ cx: +t.attrs.cx, cy: +t.attrs.cy, r: +t.attrs.r }));
   const labels = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
   assert.equal(labels.length, 6);
 
@@ -1045,14 +1048,14 @@ describe('quadrant — every name says which dot it belongs to', () => {
 // that paints `dominant-baseline="middle"`, so it is directly countable.
 test('buildQuadrant: labels go above or below their point, not beside it', () => {
   const out = buildQuadrant(modelFour(), 'default', SCALE);
-  const sideways = (out.match(/<text class="quadrant-dot-label"[^>]*dominant-baseline="middle"/g) || []).length;
+  const sideways = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-dot-label' && t.attrs['dominant-baseline'] === 'middle').length;
   assert.equal(sideways, 0, 'a point with room above or below it must not be labeled from the side');
 
   // And the preferred position is ABOVE: every label's anchor sits over its dot.
-  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)"/g)]
-    .map((m) => ({ x: +m[1], y: +m[2] }));
-  const anchors = [...out.matchAll(/<text class="quadrant-dot-label"[^>]*>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
-    .map((m) => ({ x: +m[1], y: +m[2] }));
+  const dots = tagsOf(out, 'circle').filter((t) => t.attrs.class === 'quadrant-dot')
+    .map((t) => ({ x: +t.attrs.cx, y: +t.attrs.cy }));
+  const anchors = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-dot-label')
+    .map((t) => firstTspan(out, t)).filter(Boolean).map((sp) => ({ x: +sp.attrs.x, y: +sp.attrs.y }));
   assert.equal(anchors.length, dots.length);
   const above = anchors.filter((a, i) => Math.abs(a.x - dots[i].x) < 0.01 && a.y < dots[i].y).length;
   assert.ok(above >= dots.length - 1,
@@ -1064,7 +1067,7 @@ test('buildQuadrant: labels go above or below their point, not beside it', () =>
 test('buildQuadrant: the quadrant names are obstacles for the item-label pass', () => {
   // `cornerObstacles()` briefly returned [] on the reasoning that a name outside
   // the plot cannot collide with anything inside it. Six units is not "outside".
-  const { cornerObstacles } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { cornerObstacles } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   const boxes = cornerObstacles(['Quick Wins', 'Strategic Bets', 'Defer', 'Time Sinks'], '', GEOM.plot.x0 + 168);
   assert.equal(boxes.length, 4, 'every named quadrant contributes an obstacle');
   for (const b of boxes) {
@@ -1078,7 +1081,7 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
   // The band is the BOTTOM row's, so the bottom pair decides. Reserving it
   // unconditionally shrank the whole unit ~8% around an empty gap — the defect
   // the cohort variant had, and then the top-names-only deck had after it.
-  const { vbHeight } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { vbHeight } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   assert.equal(vbHeight(true), GEOM.vbH);
   assert.equal(vbHeight(false), GEOM.vbH - 28);
 
@@ -1094,7 +1097,7 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
 test('buildQuadrant: a name wraps to the width its COLUMN has, not the full budget', () => {
   // Without this, a `threshold` target near an axis extreme gave a 15-unit
   // column a 120-unit name.
-  const { cornerBudget, LW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { cornerBudget, LW } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   // Against LW.corner, not a literal: the budget tracks the corner FONT size, so
   // it moves whenever that does (#680 took it 120 -> 140). The BEHAVIOR under
   // test is the cap/passthrough/floor, not the number.
@@ -1115,8 +1118,9 @@ test('buildQuadrant: quadrant names sit outside the plot, centered on their colu
   const leftMid = (plot.x0 + splitX) / 2;
   const rightMid = (splitX + plot.x1) / 2;
 
-  const labels = [...out.matchAll(/<text class="quadrant-label"[^>]*data-cell="(\d)"[^>]*>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
-    .map((m) => ({ cell: +m[1], x: +m[2], y: +m[3] }));
+  const labels = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-label' && /^\d$/.test(t.attrs['data-cell'] ?? ''))
+    .map((t) => ({ t, sp: firstTspan(out, t) })).filter((l) => l.sp)
+    .map(({ t, sp }) => ({ cell: +t.attrs['data-cell'], x: +sp.attrs.x, y: +sp.attrs.y }));
   assert.equal(labels.length, 4);
 
   for (const L of labels) {
@@ -1129,7 +1133,7 @@ test('buildQuadrant: quadrant names sit outside the plot, centered on their colu
     assert.ok(Math.abs(L.x - wantX) < 0.01, `cell ${L.cell} label x=${L.x} should center on ${wantX}`);
   }
   // Centered means the anchor is middle, not a corner-hugging start/end.
-  assert.equal((out.match(/class="quadrant-label"[^>]*text-anchor="middle"/g) || []).length, 4);
+  assert.equal(tagsOf(out).filter((t) => t.attrs.class === 'quadrant-label' && t.attrs['text-anchor'] === 'middle').length, 4);
 });
 
 test('buildQuadrant: a moved split re-centers the names on their real columns', () => {
@@ -1138,8 +1142,9 @@ test('buildQuadrant: a moved split re-centers the names on their real columns', 
   const model = parseQuadrant(innerOf(UL_FOUR));
   const scale = { ...SCALE, targets: { x: 8, y: 20 } };
   const out = buildQuadrant(model, 'threshold', scale);
-  const xs = [...out.matchAll(/<text class="quadrant-label[^"]*"[^>]*data-cell="(\d)"[^>]*>[\s\S]*?<tspan x="([-\d.]+)"/g)]
-    .map((m) => ({ cell: +m[1], x: +m[2] }));
+  const xs = tagsOf(out, 'text').filter((t) => (t.attrs.class ?? '').startsWith('quadrant-label') && /^\d$/.test(t.attrs['data-cell'] ?? ''))
+    .map((t) => ({ t, sp: firstTspan(out, t) })).filter((l) => l.sp)
+    .map(({ t, sp }) => ({ cell: +t.attrs['data-cell'], x: +sp.attrs.x }));
   const left = xs.filter((l) => l.cell === 0 || l.cell === 2).map((l) => l.x);
   const right = xs.filter((l) => l.cell === 1 || l.cell === 3).map((l) => l.x);
   assert.ok(left.length && right.length);
@@ -1203,8 +1208,9 @@ test('buildQuadrant: a bottom-row bubble caption flips above its bubble', () => 
     <li>Time Sinks<ul><li>Custom audit log UI <code>{8, 3}</code> <code>60</code></li></ul></li>
   </ul>`);
   const out = buildQuadrant(parseQuadrant(ul), 'bubble', SCALE);
-  const captions = [...out.matchAll(/<text class="quadrant-bubble-label"([^>]*)>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
-    .map((m) => ({ baseline: (m[1].match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto', y: +m[3] }));
+  const captions = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-bubble-label')
+    .map((t) => ({ t, sp: firstTspan(out, t) })).filter((l) => l.sp)
+    .map(({ t, sp }) => ({ baseline: t.attrs['dominant-baseline'] || 'auto', y: +sp.attrs.y }));
   assert.equal(captions.length, 2);
   const low = captions.reduce((a, b) => (a.y > b.y ? a : b));
   assert.equal(low.baseline, 'auto',
@@ -1232,8 +1238,10 @@ test('buildQuadrant: a target at the axis extreme keeps every name inside the vi
 
 test('buildQuadrant: the x-axis tick row clears the bottom name band', () => {
   const out = buildQuadrant(modelFour(), 'default', SCALE);
-  const tickY = Number((out.match(/<text class="quadrant-tick"[^>]*>[\s\S]*?<tspan x="[-\d.]+" y="([-\d.]+)"/) || [])[1]);
-  const nameY = Math.max(...[...out.matchAll(/<text class="quadrant-label"[^>]*>[\s\S]*?<tspan[^>]*y="([-\d.]+)"/g)].map((m) => +m[1]));
+  const texts = tagsOf(out, 'text');
+  const tick = texts.find((t) => t.attrs.class === 'quadrant-tick');
+  const tickY = Number(tick && firstTspan(out, tick)?.attrs.y);
+  const nameY = Math.max(...texts.filter((t) => t.attrs.class === 'quadrant-label').map((t) => +firstTspan(out, t)?.attrs.y));
   assert.ok(tickY > nameY, `tick row (y=${tickY}) must sit below the lowest quadrant name (y=${nameY})`);
 });
 

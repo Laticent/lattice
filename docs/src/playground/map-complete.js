@@ -19,8 +19,8 @@
 // every world country + group (Global South, blocs, continents) behind a
 // redundant `world` token that map.docs.md tells authors to omit.
 
-import usBasemap from '../../../lib/components/chart/map/map.basemap.json';
-import worldBasemap from '../../../lib/components/chart/map/map.basemap.world.json';
+import usBasemap from '../../../lib/plugins/chart-family/kinds/map/map.basemap.json';
+import worldBasemap from '../../../lib/plugins/chart-family/kinds/map/map.basemap.world.json';
 import { mapBasemapFor } from './slide-context.js';
 
 // Build the completion option list for one basemap: every region name + every

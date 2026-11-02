@@ -27,10 +27,10 @@
 
 import type { ChartAnimaStyle } from '@/lib/chart-anima';
 import { type DeckMotion, MOTION_SPEEDS, MOTION_STYLES, type MotionSpeed, parseDeckMotion, speedToDurationMs } from '@/playground/anima-host-sel';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
+import { getClassTokens, setGroupToken } from '../../lib/slide-directives';
 import { SLIDE_SEP } from './deck-ops';
-import { frontMatterBlock, getFrontMatter, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
-import { getClassTokens, setGroupToken } from './slide-directives';
 
 /** The three axes, as the slide-token groups `setGroupToken` needs to swap one member for another. */
 export const PLAY_TOKENS = ['motion-on', 'motion-off'] as const;
@@ -84,7 +84,7 @@ export interface MotionTarget {
  * Components that emit `data-anima-role`, and so are the ones chart motion can actually reach.
  *
  * MEASURED, not inferred from the manifests: `grep -rl data-anima-role lib/` returns these seven
- * transforms plus the shared `_chart-family/svg-label.js`. An earlier draft of this file keyed on
+ * transforms plus the shared `chart-family/shared/svg-label.js`. An earlier draft of this file keyed on
  * `render: svg` in the manifest instead, and got two of them backwards — `diagram` declares SVG
  * and emits NO role (its markup is third-party Mermaid), while `state-chart` is `render: hybrid`
  * and DOES emit one. Declaring SVG and being animatable are different properties.
@@ -217,7 +217,7 @@ export function readTargets(source: string): MotionTarget[] {
 
 	chunks.forEach((chunk, i) => {
 		const slideTokens = getClassTokens(chunk);
-		// POSITION-INDEPENDENT, like the engine's own dispatch: `chart-family.dispatch.js` picks the layout
+		// POSITION-INDEPENDENT, like the engine's own dispatch: `lib/transformers/chart-frame.js` picks the layout
 		// with `CHART_LAYOUTS.find(l => classTokens.includes(l))`, so `_class: dark funnel` is a
 		// funnel. Reading `tokens[0]` made any deck that puts a modifier first vanish from the
 		// sheet entirely — the worst failure for a surface whose promise is "every target".

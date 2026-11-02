@@ -144,16 +144,16 @@ or `--packages <dir>` for one run). Install one with `lattice packages add
 <studio-export>.zip`; the gates are the Studio's import gates, so a theme that reaches
 off the device is refused by name. A component that carries JavaScript (a code package)
 runs only after the user approves its code at its SHA-256, in the registry's code-packages
-slot, sandboxed (`lib/packages/code-door.js`; `2026-09-24-code-package-contract.md` §9). A deck naming
+slot, sandboxed (`lib/cli/code-door.js`; `2026-09-24-code-package-contract.md` §9). A deck naming
 a theme that is neither shipped nor installed fails with that name and the `add`
 command; it never falls back to another theme. A slide class that is not shipped,
 embedded or installed renders unstyled, so the render warns with the class name and the
 `add` command. The store is a plain folder, so the render gates every package again
-(`lib/packages/gate.js`): a refused theme fails the render with the reason, and a refused
+(`lib/cli/package-gate.js`): a refused theme fails the render with the reason, and a refused
 component is left out and named. An installed theme may import the base theme and
 nothing else (the Studio's rule), so its file is the whole palette chain. An installed
 component's CSS is embedded into the deck the way the Studio's Markdown export does it
-(`lib/packages/render.js`), so neither needs a special case in the engine; a component the
+(`lib/cli/package-render.js`), so neither needs a special case in the engine; a component the
 deck already embeds keeps the deck's copy. `lattice packages list | add | check | export |
 remove`; `lattice packages --help` prints the usage;
 `engineering/decisions/2026-09-23-portable-packages.md` §6 is the design.
@@ -796,7 +796,7 @@ every slide + thumbnail blob in browser memory at once, so a big deck can exhaus
 mobile/Safari tab — the CLI (Node, no per-tab ceiling) has no such limit.
 The per-slide raster differs by surface (headless Chromium screenshots here;
 `html-to-image` → `canvas` in the browser); the standalone SVGs reuse the
-chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`,
+chart-SVG flatten kernel (`lib/plugins/chart-family/shared/standalone-svg.js`,
 the same one behind "download chart as SVG"), extended to Mermaid diagrams, with
 fonts embedded so each `.svg` opens anywhere.
 

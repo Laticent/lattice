@@ -4,7 +4,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide } from '../../components/studio/deck-ops';
-import { splitSlides } from '../../components/studio/lint';
+import { splitSlides } from '../deck-lint';
 import { createFocusHub } from '../fuoco/hub';
 import { flatPart, partAt, partOfFlat, partText, unitText } from '../fuoco/outline';
 import { buildDeckIndex, type DeckIndex, deckOutliner, indexStats, updateDeckIndex } from './deck-outline';

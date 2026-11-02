@@ -84,8 +84,8 @@ const P = (p) => path.join(ROOT, p);
 // caller destructures these functions at ITS OWN require time. Patch after and
 // the callers hold the originals and the census measures nothing. `node --test`
 // gives each test file its own process, so the mutated cache cannot leak.
-const labelMod = require(P('lib/components/chart/_chart-family/svg-label.js'));
-const cartMod = require(P('lib/components/chart/_chart-family/cartesian.js'));
+const labelMod = require(P('lib/plugins/chart-family/shared/svg-label.js'));
+const cartMod = require(P('lib/plugins/chart-family/shared/cartesian.js'));
 
 /** Names dropped by the render currently under way, or null when not counting. */
 let dropped = null;
@@ -131,7 +131,7 @@ cartMod.buildCategoryLabels = function patchedCategoryLabels(o) {
   return svg;
 };
 
-const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
+const { transformChartSection } = require(P('lib/transformers/chart-frame.js'));
 const { shippedDecks } = require(P('test/helpers/decks.js'));
 
 // A PLAIN parser. The transform reads the `<ul>` / `<li>` tree, and the

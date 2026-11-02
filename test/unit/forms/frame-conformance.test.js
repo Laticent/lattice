@@ -19,6 +19,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const {
   CELL_DOM_CLASS,
   materializingCells,
@@ -134,19 +135,25 @@ describe('frame-conformance · conformanceViolations (the pure gate)', () => {
 /** Walk every component manifest on disk (the same source the real gate reads). */
 function allManifests() {
   const out = [];
-  (function walk(dir) {
+  const walk = (dir) => {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(p);
       else if (ent.name.endsWith('.manifest.json')) out.push(JSON.parse(fs.readFileSync(p, 'utf8')));
     }
-  })(path.join(ROOT, 'lib', 'components'));
+  };
+  // Every component root, the plugins' kinds (the chart kinds) included.
+  for (const root of componentCorpusRoots(path.join(ROOT, 'lib', 'components'))) walk(root);
   return out;
 }
 
 describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
   const manifests = allManifests();
   const strict = manifests.filter((m) => m.conformance === 'strict');
+
+  test('the manifest walk reaches the plugin kinds (the chart kinds live in their plugin)', () => {
+    assert.ok(manifests.some((m) => m.name === 'gantt'), 'allManifests() misses lib/plugins/*/kinds');
+  });
 
   test('every conformance value is the known enum "strict"', () => {
     for (const m of manifests) {

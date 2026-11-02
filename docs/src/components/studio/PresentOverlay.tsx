@@ -15,7 +15,6 @@ import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingT
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { CHROME_CHANGE_EVENT } from '@/lib/site-chrome';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
@@ -28,15 +27,16 @@ import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, reso
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { keyAction, PRESENT_KEYMAP } from '../../../../lib/core/present-transport.mjs';
+import { type PresentLens, presentationPairs } from '../../lib/deck-lint';
 import { exitFullscreen, fullscreenSupported, isFullscreen, toggleFullscreen, watchFullscreen } from '../../lib/fullscreen';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { SLIDE_SEP } from './deck-ops';
 import { createGuideConductor, guideStageTheme } from './guide-conductor';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
-import { type PresentLens, presentationPairs } from './lint';
 import { narrationDeck, resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';

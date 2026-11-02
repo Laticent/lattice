@@ -36,7 +36,7 @@
 // for every real stylesheet, so no snapshot's bytes move.
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
-import { MARKS_TOKENS } from '@/components/studio/marks-words';
+import { MARKS_TOKENS } from '@/lib/marks-words';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 

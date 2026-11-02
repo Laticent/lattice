@@ -59,7 +59,7 @@ describe('the field reaches both render paths and the contract', () => {
 		assert.match(read('lib/components/manifest.schema.json'), /"spectrum": \{/);
 		assert.match(read('tools/build-stage-catalog.js'), /spectrum-catalog\.generated\.js/);
 		assert.match(read('lib/engine/index.js'), /componentSpectrum,/);
-		assert.match(read('lib/core/marp-fidelity.js'), /plugin: 'componentSpectrum'/);
+		assert.match(read('lib/export/marp-fidelity.js'), /plugin: 'componentSpectrum'/);
 		const runtime = read('lib/runtime/index.js');
 		assert.match(runtime, /applyComponentSpectrum\(cur\)/);
 		// The runtime must wait for the deck's own classes: a pin applied first reads as the slide's OWN style

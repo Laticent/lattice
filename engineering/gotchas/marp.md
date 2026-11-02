@@ -211,7 +211,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   theme registration is handled by the engine's ThemeStore
   (`lib/engine/themes.js`), which loads `lattice.css` (which `@import`s
   the theme via the palette positional argument) directly.
-- **Mitigation:** The `lib/core/marp-bundle.js` exporter emits an
+- **Mitigation:** The `lib/export/marp-bundle.js` exporter emits an
   Export-to-Marp bundle that registers every bundled theme so a
   recipient's marp-cli render resolves the named theme. A bundle that
   ships a new theme must register it the same way, or the recipient's

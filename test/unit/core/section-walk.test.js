@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { mapSections } = require('../../../lib/core/section-walk');
+const { mapSections, mapSectionHtml } = require('@laticent/markup');
 
 const TWO = '<section id="1" class="title">A</section><section id="2" class="stats dark">B</section>';
 
@@ -97,7 +97,6 @@ test('an UNTERMINATED comment is text, so the walk goes on past it', () => {
   assert.deepEqual(seen, ['a', 'b']);
 });
 
-const { mapSectionHtml } = require('../../../lib/core/section-walk');
 
 test('mapSectionHtml hands the callback the whole section and passes null through verbatim', () => {
   const seen = [];

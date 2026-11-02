@@ -3,13 +3,13 @@
 //
 //   · The position is re-read at write time: the marker must still be there (an outside change may have moved or removed it),
 //     or the command refuses rather than writing three bytes over the author's words.
-//   · Only the six registry markers are written (lib/plugins/checks/shared/registry.js MARKERS); `[X]` is not one of them.
+//   · Only the six registry markers are written (lib/core/checks-registry.js MARKERS); `[X]` is not one of them.
 //   · A locked slide never changes.
 
 import type { Command } from 'prosemirror-state';
 import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-import stateMarks from '../../../../lib/plugins/checks/shared/registry.js';
+import stateMarks from '../../../../lib/core/checks-registry.js';
 
 const TOKENS = new Set((stateMarks.MARKERS as readonly string[]).map((m) => `[${m}]`));
 

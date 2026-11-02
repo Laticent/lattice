@@ -92,8 +92,9 @@ let runAll = false;
 
 for (const f of process.argv.slice(2)) {
   const rel = f.replace(/^\.\//, '');
-  // A gallery is Markdown, but the component contract reads it (every variant must be drawn).
-  if (/^lib\/components\/.*\.gallery\.md$/.test(rel)) { scripts.add('test:conformance'); continue; }
+  // A gallery is Markdown, but the component contract reads it (every variant must be drawn). A
+  // plugin kind's gallery too (the chart kinds live in lib/plugins/chart-family/kinds/).
+  if (/^lib\/(?:components|plugins\/[^/]+\/kinds)\/.*\.gallery\.md$/.test(rel)) { scripts.add('test:conformance'); continue; }
   if (isSkippable(rel)) continue;
 
   if (FULL_SUITE_TRIGGER.has(rel)) { runAll = true; break; }

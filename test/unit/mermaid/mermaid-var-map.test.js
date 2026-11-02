@@ -1,7 +1,7 @@
 /**
  * Unit: the shared Mermaid theme map and the palette files agree.
  *
- * `MERMAID_VAR_MAP` (lib/core/mermaid-theme-map.js) is the source of truth for
+ * `MERMAID_VAR_MAP` (lib/plugins/mermaid/shared/mermaid-theme-map.js) is the source of truth for
  * which CSS custom properties Mermaid needs. Every `{ var: '…' }` entry must
  * resolve against every shipped palette — if the map references a token a
  * palette doesn't define, Mermaid silently falls back to its own defaults and
@@ -25,7 +25,7 @@ const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
 const { loadPalette } = require('../../helpers/palette');
-const { MERMAID_VAR_MAP, diagramThemeTokens } = require('../../../lib/core/mermaid-theme-map');
+const { MERMAID_VAR_MAP, diagramThemeTokens } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
 
 describe('mermaid-var-map', () => {
   const required = diagramThemeTokens().sort();
@@ -99,11 +99,11 @@ describe('mermaid-var-map', () => {
     const root = path.join(__dirname, '..', '..', '..');
     // The emulator's diagram walk is the mermaid plugin's bake since plugin-system phase D.
     assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(fs.readFileSync(path.join(root, 'lattice.js'), 'utf8')), false,
-      'lattice.js defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead');
+      'lattice.js defines its own MERMAID_VAR_MAP — import lib/plugins/mermaid/shared/mermaid-theme-map instead');
     for (const rel of [path.join('lib', 'plugins', 'mermaid', 'mermaid.bake.js'), path.join('lib', 'plugins', 'mermaid', 'mermaid.hydrate.js')]) {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,
-        `${rel} defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead`);
+        `${rel} defines its own MERMAID_VAR_MAP — import lib/plugins/mermaid/shared/mermaid-theme-map instead`);
       // Since #1332 step 4 the paths do not build a palette at all: they hand ports to
       // `renderDiagrams`, which reads the shared map once per palette. A path that went
       // back to assembling its own would still import the map, so THIS is the assertion

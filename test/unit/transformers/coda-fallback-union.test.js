@@ -293,7 +293,7 @@ describe('the annotation stamp and the wrapper consumers', () => {
     const fs2 = require('node:fs');
     const path2 = require('node:path');
     const { carouselize } = require('../../../lib/core/carousel');
-    const { splitSections } = require('../../../lib/core/split-sections');
+    const { splitSections } = require('@laticent/markup');
     const fixture = fs2.readFileSync(
       path2.join(__dirname, '../core/fixtures/compare-prose.rendered.html'), 'utf8');
     const [sec] = splitSections(fixture).filter((p) => p.type === 'section');

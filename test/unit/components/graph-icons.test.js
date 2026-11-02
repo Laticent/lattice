@@ -1,6 +1,6 @@
 /**
  * Icons on graph-chart nodes — `icon=` and `icon-only` on the flowchart and the state chart
- * (engineering/decisions/2026-09-29-inline-icons.md § 5.3; lib/components/chart/_chart-family/
+ * (engineering/decisions/2026-09-29-inline-icons.md § 5.3; lib/plugins/chart-family/shared/
  * graph-icons.js). The grammar resolves and coaches the name, the transform draws it into the
  * harness, the browser pass repaints it from a closed vocabulary (HARD RULE #22), and with the
  * icons plugin off nothing changes from a chart that never wrote an icon.
@@ -9,10 +9,10 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
-const fc = require('../../../lib/components/chart/flowchart/flowchart.transform');
-const sc = require('../../../lib/components/chart/state-chart/state-chart.transform');
-const { browserJs: fcBrowserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout');
-const { browserJs: scBrowserJs } = require('../../../lib/components/chart/state-chart/state-chart.layout');
+const fc = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.transform');
+const sc = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.transform');
+const { browserJs: fcBrowserJs } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
+const { browserJs: scBrowserJs } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.layout');
 // The engine registers the icons plugin's lazy data loader (lib/plugins/data.generated.js).
 require('../../../lib/engine');
 
@@ -262,7 +262,7 @@ describe('graph icons — the cases the red team probed are pinned (HARD RULE #2
   test('the 265 shipped icons survive the rebuild whole', () => {
     // Every shape of every shipped drawing passes drawing()'s vocabulary and its geometry cap,
     // so hardening it cannot cost a real icon a stroke.
-    const { pluginData } = require('../../../lib/plugins/plugin-data.js');
+    const { pluginData } = require('../../../lib/core/plugin-data.js');
     const data = pluginData('icons');
     const names = Object.keys(data.icons);
     assert.equal(names.length, 265);

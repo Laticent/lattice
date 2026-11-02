@@ -46,7 +46,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test('QR code: the label in aria-label and <title>', async () => {
-    const { qrSvg } = require('../../../lib/engine/qr.js');
+    const { qrSvg } = require('../../../lib/components/connect/_qr-card/qr.js');
     await readsAsWritten((t) => qrSvg('https://example.com', { label: t }), { at: 'aria-label and <title>' });
   });
 
@@ -60,7 +60,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test('roadmap: a status cell and a horizon card', async () => {
-    const { applyStatusMarkers, applyHorizons } = require('../../../lib/components/chart/roadmap/roadmap.transform.js');
+    const { applyStatusMarkers, applyHorizons } = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js');
     // Cells reach the transform as rendered HTML; this text has no `<`, so it passes through raw.
     const table = (t) => '<table><thead><tr><th>Stream</th><th>Now</th><th>Next</th></tr></thead>'
       + `<tbody><tr><td>${t}</td><td>Ship it [x]</td><td>Plan [ ]</td></tr></tbody></table>`;
@@ -125,7 +125,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test("a code package's failure note", async () => {
-    const { withFailureNote } = await import('../../../lib/packages/code-door-core.mjs');
+    const { withFailureNote } = await import('../../../lib/core/code-door-core.mjs');
     await readsAsWritten((t) => withFailureNote('<section id="s1"><p>Body</p></section>', 'pkg', t));
   });
 });

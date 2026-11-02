@@ -64,10 +64,7 @@ import deckProfiles from './deck-profiles.js';
 // needs to be extracted correctly: notesCore reads per-slide HTML, and deriving those
 // slides with a flat "next </section>" scan truncates any slide holding a hand-authored
 // <section>, silently emptying its notes. Bundled beside the channel that depends on it.
-// A NAMED import of the ESM source, not a default import of the CommonJS door
-// (split-sections.js): esbuild marks the re-exported ESM namespace as __esModule, so the
-// door's default import is undefined and the bundle throws at load.
-import { splitSections as splitSectionsCore } from '../core/split-sections.mjs';
+import { splitSections as splitSectionsCore } from '@laticent/markup';
 
 // This bundle's OWN copy of the boundary parser's admission switch, so a host that narrowed its
 // plugin set can point the lint's parser at the deck's admission (docs/src/lib/plugin-admission.ts).

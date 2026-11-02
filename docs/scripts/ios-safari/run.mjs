@@ -1,6 +1,6 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js in the real
- * Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), jpeg-probe.js, the shared JPEG encoder
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then panes-probe.js, in the
+ * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), or undo-probe.js, the Filo undo checks across a reload (PROBE=undo). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
@@ -126,12 +126,23 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite (PROBE=studio): the preview payload probe, studio-probe.js. The photo suite (PROBE=photo): the photo verdict
- * probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change does not pay for the photo
- * check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes on a slow runner.
+ * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), then the pane-swap probe (panes-probe.js, #2916),
+ * each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
+ * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
+ * on a slow runner.
  */
 async function runStudioProbe(id) {
-	return studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
+	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
+	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
+	return {
+		ok: !!preview.ok && !!panes.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`].filter(Boolean).join('; ') || undefined,
+		ua: panes.ua ?? preview.ua,
+		width: panes.width ?? preview.width,
+		steps: [...named('preview', preview), ...named('panes', panes)],
+	};
 }
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');

@@ -1,5 +1,5 @@
 /**
- * The size registry (lib/engine/sizes.js) — the engine's own table of named
+ * The size registry (lib/core/sizes.js) — the engine's own table of named
  * canvases, and the `@size` block the build stamps into the Marp-facing
  * artifacts.
  *
@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { SIZES, DEFAULT_SIZE, DEFAULT_SIZE_NAME, sizeFor, isRegisteredSize, sizeBlock } = require('../../../lib/engine/sizes');
+const { SIZES, DEFAULT_SIZE, DEFAULT_SIZE_NAME, sizeFor, isRegisteredSize, sizeBlock } = require('../../../lib/core/sizes');
 const { parseSizes } = require('../../../lib/engine/css');
 const { orientationFor } = require('../../../lib/engine/css');
 
@@ -100,7 +100,7 @@ describe('the Marp `@size` stamp', () => {
       }
     };
     for (const r of roots) walk(r);
-    assert.deepEqual(offenders, [], 'source CSS declares @size — geometry belongs to lib/engine/sizes.js');
+    assert.deepEqual(offenders, [], 'source CSS declares @size — geometry belongs to lib/core/sizes.js');
   });
 
   test('the Marp-facing artifacts DO carry the full table', () => {
@@ -122,7 +122,7 @@ describe('the Marp `@size` stamp', () => {
 // so a canvas wider than 16:9 scales both back to their 16:9 pixels at its height; nothing changes
 // for 16:9 or narrower, which is what keeps every existing render byte-identical.
 describe('wider than 16:9 — the phone-landscape canvas', () => {
-  const { wideFactor, canvasWideFactor, withSize } = require('../../../lib/engine/sizes');
+  const { wideFactor, canvasWideFactor, withSize } = require('../../../lib/core/sizes');
   const { orientationCss } = require('../../../lib/engine/css');
   const { SCALES } = require('../../../lib/typography/scale');
 

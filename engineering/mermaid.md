@@ -61,7 +61,7 @@ the two things a Mermaid SVG leans on — the `<style>` mermaid injects into it,
 smuggled into the SVG namespace: the mXSS shape we keep shut, HARD RULE #22). So
 before assembly each diagram is flattened into a self-styled SVG whose labels are
 native `<text>` (`flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' })`,
-`lib/components/chart/_chart-family/standalone-svg.js`), driven by the CLI's own
+`lib/plugins/chart-family/shared/standalone-svg.js`), driven by the CLI's own
 player capture and by the Studio's `bakeDeckSections`. Charts are deliberately NOT
 flattened — they are token-driven and the player ships the CSS that drives them, so
 freezing their computed colors would pin them to the export-time scheme and kill both
@@ -532,7 +532,7 @@ labels under the floor gets the export's `⚠ TYPE FLOOR` line and, at
 ER chain in a wide slot (`mermaid-sketch-labels` slide 5) measures 5.5px and is tagged. Only a
 label with no laid-out box still reads "not measured".
 
-**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/core/mermaid-theme-map.js`
+**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/plugins/mermaid/shared/mermaid-theme-map.js`
 sets `pieLegendTextSize` to 20px and `pieSectionTextSize` to 22px. A Mermaid pie is 450 units tall and
 the slide hands it a height, so on a `diagram` slide with a Key Insight callout (a 273px-tall pie on a
 720px slide, scale 0.607) the legend draws at 12.1px and the wedge percentages at 13.4px. They were 13px
@@ -744,7 +744,7 @@ paths. Hand-copying freezes a snapshot of one palette: the diagram then ignores 
 theme switch, a dark slide, and the print look.
 
 **One map, two readers.** Which Mermaid variable is fed by which palette token is
-decided once, in `lib/core/mermaid-theme-map.js`. Each path supplies only a
+decided once, in `lib/plugins/mermaid/shared/mermaid-theme-map.js`. Each path supplies only a
 `readToken` — `getComputedStyle(section)` in the preview, offline token
 resolution against the palette text in the PDF path — and `buildDiagramTheme`
 does the rest. Before that, the two paths held separate copies of the same map
@@ -761,7 +761,7 @@ merge kernel spliced it in ahead of yours. It renders in a page the engine owns 
 (`lib/plugins/mermaid/shared/render-worker.js`), so the kernel is gone and the merge is
 Mermaid's own.
 
-The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
+The mapping is `MERMAID_VAR_MAP` in `lib/plugins/mermaid/shared/mermaid-theme-map.js`, imported by
 both paths. `test/unit/mermaid/mermaid-var-map.test.js` asserts every token it
 names resolves in every self-declaring palette;
 `test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
@@ -1295,7 +1295,7 @@ Three things follow, and all three are load-bearing:
 - **The palette is applied per BAND, not per diagram.** `mermaid.initialize` is
   global and `mermaid.render` takes no config, so per-slide themeVariables mean
   re-initializing between diagrams that resolve differently. Diagrams are grouped by
-  the slide's cascade-context key (`lib/core/diagram-scope.js`) and the palette is
+  the slide's cascade-context key (`lib/plugins/mermaid/shared/diagram-scope.js`) and the palette is
   built and applied once per group — one to three groups per deck, never one per
   slide. Rebuilding 166 variables per fence on a 150 ms debounce is what that avoids.
 - **The renders are ordered against the config.** One promise chain, so
@@ -1351,7 +1351,7 @@ there is no `getComputedStyle` there to be slow.
 ### The kernel drives; the paths supply capabilities (#1332 step 4)
 
 Neither path assembles a palette any more. `renderDiagrams`
-(`lib/core/render-diagrams.js`) walks the deck, resolves each slide's
+(`lib/plugins/mermaid/shared/render-diagrams.js`) walks the deck, resolves each slide's
 `themeVariables` from the one map, and calls the path back:
 
 ```js
@@ -1365,7 +1365,7 @@ through the sketch re-point the offline reader cannot see in the cascade), the p
 the `<section>` element itself.
 `scopeKey(scope)` names the palette that scope resolves, so the theme is built once
 per distinct palette rather than once per slide: the band string on the PDF path, the
-section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
+section's class signature (`lib/plugins/mermaid/shared/diagram-scope.js`) on the preview. Two spellings
 of "these slides paint the same", which is all the kernel needs.
 
 There is **no `finishTheme` port**, and there is no key a path may differ on. Both

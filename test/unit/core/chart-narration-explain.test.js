@@ -17,7 +17,7 @@ const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n${body}`;
 
 // ── bullet ───────────────────────────────────────────────────────────────────
 
-// lib/components/chart/bullet/bullet.gallery.md, the default-variant slide.
+// lib/plugins/chart-family/kinds/bullet/bullet.gallery.md, the default-variant slide.
 const BULLET_GALLERY = [
   '## Are we on plan.',
   '',

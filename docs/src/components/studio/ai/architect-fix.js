@@ -14,8 +14,8 @@
 // EDIT BLOCK protocol (architect-edits.js), reused here, so a fix is consistent
 // wherever it's offered.
 
+import { buildLatticePrimer } from '../../../lib/architect-knowledge.js';
 import { EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from './architect-edits.js';
-import { buildLatticePrimer } from './architect-knowledge.js';
 import { canonForFinding } from './presentation-canon.js';
 
 // Build the messages for fixing ONE finding. Mirrors the chat's rich prompt: a

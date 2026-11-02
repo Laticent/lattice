@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { buildAssetUrls, assetRefs } = require('../../../lib/export/deck-assets.js');
-const { createFileConfiner } = require('../../../lib/export/file-confine.js');
+const { createFileConfiner } = require('../../../lib/core/file-confine.js');
 const bgImage = require('../../../lib/core/bg-image.js');
 
 function deckWithAssets() {

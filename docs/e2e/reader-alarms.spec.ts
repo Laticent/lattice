@@ -5,7 +5,7 @@ import { expect, test } from './studio-fixture';
  * NO AUTHORING ALARM ON A READER-FACING DOCS PAGE.
  *
  * The docs site's live component previews are built by the one shared builder
- * (`src/lib/single-slide-render.ts`), which injects `lattice-runtime.js` into each srcdoc frame.
+ * (`src/playground/single-slide-render.ts`), which injects `lattice-runtime.js` into each srcdoc frame.
  * The runtime's overflow watcher self-boots there in AUTHOR mode, so both engine alarms can paint
  * on a page someone is merely browsing:
  *   · the red `.overflow` ring + "Overflows" tab, and

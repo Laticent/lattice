@@ -16,7 +16,7 @@
 // gate is fonts + layout — RTL, CJK line breaking — not the catalog). Adding a
 // language means: a row here + its flag SVG under docs/public/flags/, nothing more.
 
-import { getFrontMatter } from './front-matter';
+import { getFrontMatter } from '../../lib/front-matter';
 
 export type StudioLanguage = {
 	/** BCP-47 tag — also the value persisted in Studio settings / a deck's `lang:`. */

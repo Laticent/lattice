@@ -7,11 +7,11 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const icons = require('../../../lib/plugins/icons/icons.inline.js');
-const pills = require('../../../lib/plugins/pills/pills.inline.js');
+const { icons } = require('./host-built.js');
+const { pills } = require('./host-built.js');
 const VOCAB = require('../../../lib/plugins/icons/icons.vocab.generated.js');
 const DATA = require('../../../lib/plugins/icons/icons.data.generated.js');
-const { provideData } = require('../../../lib/plugins/plugin-data.js');
+const { provideData } = require('../../../lib/core/plugin-data.js');
 
 // The engine registers the loader; a unit test that never builds an engine does it itself.
 provideData('icons', () => DATA);
@@ -130,8 +130,7 @@ describe('icons — what the adversarial review found', () => {
     // browser bundle is before lattice-plugin-icons.js arrives.
     const { execFileSync } = require('node:child_process');
     const out = execFileSync(process.execPath, ['-e', `
-      const pills = require('./lib/plugins/pills/pills.inline.js');
-      const icons = require('./lib/plugins/icons/icons.inline.js');
+      const { pills, icons } = require('./test/unit/plugins/host-built.js');
       process.stdout.write(JSON.stringify([pills.pillHtml('{S3, icon=bucket}'), icons.iconHtml('^{bucket}'), !!icons.read('^{bucket}'), pills.pillHtml('{S3}')]));
     `], { cwd: require('node:path').join(__dirname, '../../..') }).toString();
     assert.deepEqual(JSON.parse(out), [null, null, true, '<span class="lat-pill" data-shape="pill">S3</span>']);

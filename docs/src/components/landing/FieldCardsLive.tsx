@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { seedPlaygroundSource } from '@/lib/landing-handoff';
-import { createSingleSlideRenderer } from '@/lib/single-slide-render';
+import { createSingleSlideRenderer } from '@/playground/single-slide-render';
 
 // Invisible controller island for the home page's live slide cards: the six
 // audience rooms. The cards themselves are static (server-rendered in <RoomCards>); this fills

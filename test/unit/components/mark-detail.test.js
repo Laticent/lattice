@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/_chart-family/mark-detail.js — the shared per-mark
+ * Unit: lib/plugins/chart-family/shared/mark-detail.js — the shared per-mark
  * detail substrate (data-mark <template> payload + speaker-note fallback)
  * generalized from the pie and reused by funnel / map / quadrant / radar.
  * See engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
@@ -9,7 +9,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   splitDetail, detailPayload, detailNote, extractFirstList, topLevelLis,
-} = require('../../../lib/components/chart/_chart-family/mark-detail');
+} = require('../../../lib/plugins/chart-family/shared/mark-detail');
 
 describe('mark-detail — splitDetail', () => {
   test('an item with no sublist returns the whole item as lead, empty detail', () => {

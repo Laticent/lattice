@@ -14,6 +14,9 @@
       {"ink": "line", "d": "M28 104C34 84 48 78 64 78C80 78 94 84 100 104", "width": 7}
     ]
   },
+  "hostApi": [
+    "avatars.inline.js"
+  ],
   "contributes": {
     "inline": {
       "avatar": {

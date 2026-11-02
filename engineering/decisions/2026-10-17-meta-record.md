@@ -133,9 +133,9 @@ Five production modules call it (`slides.js`, `lint-core.js`, `class-directive-s
 | Lint and autocomplete | `lib/authoring/lint-core.js`, `lib/core/class-directive-scan.mjs` | own regexes for `_focus*`, `paginate`, `class`, `header`, `footer`, `_debug`; autocomplete runs per keystroke |
 | Notes | `lib/authoring/notes-core.js` | key-list copy (`:328`), reads **rendered HTML** (`:555`), then `strip*FromSource` re-reads the source |
 | Studio | `slide-directives.ts`, `slide-notes.ts`, `slide-say.ts`, `slide-descriptions.ts`, `comment-block.ts`, and more (not counted) | key-list copy (`DIRECTIVE_KEYS`), in-place regex edits |
-| Marp bridge | `lib/core/marp-bundle.js` | passes every comment through verbatim; Marp turns non-directive comments into speaker notes |
+| Marp bridge | `lib/export/marp-bundle.js` | passes every comment through verbatim; Marp turns non-directive comments into speaker notes |
 
-**Five hand-kept key lists:** `lib/engine/directives.js:38`, `lib/authoring/notes-core.js:328`, `docs/src/components/studio/slide-directives.ts:17`, `docs/src/playground/grammar-vocab.js:12`, and `lib/packages/slide-facts.mjs:73` (`FACT_DIRECTIVES`, pinned to `APPLIED_DIRECTIVES` by a unit test), plus
+**Five hand-kept key lists:** `lib/engine/directives.js:38`, `lib/authoring/notes-core.js:328`, `docs/src/lib/slide-directives.ts:17`, `docs/src/playground/grammar-vocab.js:12`, and `lib/core/slide-facts.mjs:73` (`FACT_DIRECTIVES`, pinned to `APPLIED_DIRECTIVES` by a unit test), plus
 a partial one in `split-slide.ts:29`).
 
 **Stale claims found on the way** (HARD RULE #18, on the path, fixed in step 1): `directives.js:5,165` calls
@@ -259,7 +259,7 @@ provides data. The plugin system already has the pieces, so the design follows t
 | Everyone else's fields | **every plugin's `contributes.registers` becomes a record field automatically.** A plugin that declares `icon` (axes and words) gets `{icon=bare}` per slide, validated and completed, with no change to `meta` | `contributes.registers` and `lib/core/register-factory.js` already build `icon:` and `spark:` as front-matter registers and as slide class words |
 | The key list | **derived from the manifests** by `tools/build-plugin-registry.js`, which replaces the five hand-kept lists (§3) and is why a plugin's new register shows up in lint and autocomplete the day it lands | the generated registries beside `inline.generated.js` |
 | What it writes | `data-*` attributes on the `<section>`, the same ones the comments write today | `lattice_directives_apply` |
-| Who reads it | CSS (`[data-finish=ledger]`), the runtime, and other plugins through a **service** (`contributes.services`: `service('meta', 'read')`); with `meta` off the caller gets null | `lib/plugins/services.js` |
+| Who reads it | CSS (`[data-finish=ledger]`), the runtime, and other plugins through a **service** (`contributes.services`: `service('meta', 'read')`); with `meta` off the caller gets null | `lib/core/plugin-services.js` |
 | The one new host capability | a **source hook**: an in-tree plugin may run a pure source transform at engine entry, before `liftImageBgImages`, the pane gate and plugin admission. Plugins cannot install core rules today (`HOST_ANCHORS`, `resolve.js:77-81`). **It is an additive contribution, not an api bump:** `services`, `inline`, `registers`, `bake` and `highlight` all shipped under `KNOWN_API=[1]` (`resolve.js:71`), and `2026-09-27-plugin-system.md:269` says a new contribution changes no v1 plugin. `contributes.bake(source, ctx)` is an existing source transform, but it is CLI-export-only and runs only for decks that use the plugin, so it cannot read the deck | `syntax` and inline sigils are in-tree-only contributions |
 
 **`meta` can never be disabled.** The loader has no "always on" concept: `admitPlugins` (`host-grammar.mjs:67-100`) puts any
@@ -389,14 +389,14 @@ entry cannot rewrite what it reads.
 
 | File | Read | If missed |
 |---|---|---|
-| `lib/plugins/deck-plugins.mjs` | `commentBodies` loop: a `pane` key adds the component's plugin to the deck's set (`:171`) | On the default plugin set nothing changes, because `DEFAULT_PLUGINS` is every plugin (`host-grammar.mjs:33`) and the scan is skipped. It matters only when a host narrows the defaults: then a `{pane="bar"}` deck does not admit the bar chart's plugin. The engine path reports it through `componentPluginDiagnostics` (`engine/index.js:841`); the Studio settings panel would not list it |
+| `lib/core/deck-plugins.mjs` | `commentBodies` loop: a `pane` key adds the component's plugin to the deck's set (`:171`) | On the default plugin set nothing changes, because `DEFAULT_PLUGINS` is every plugin (`host-grammar.mjs:33`) and the scan is skipped. It matters only when a host narrows the defaults: then a `{pane="bar"}` deck does not admit the bar chart's plugin. The engine path reports it through `componentPluginDiagnostics` (`engine/index.js:841`); the Studio settings panel would not list it |
 | `lib/diagnostics/slice-equivalence-core.mjs` | `/<!--\s*_?pane\s*:/g` in `positionIsTrustworthy` | When no `paneCounts` map is supplied, a record-form panes deck is trusted as one rendered slide per source slide. Whether a Studio slice ever runs without `paneCounts` is **not verified** |
-| `docs/src/components/studio/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | The editor treats a record-form marker as a speaker note (`directiveKey('{pane="bar"}')` returns `''`) |
-| `docs/src/components/studio/lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | The rail labels a record-form panes slide `text` |
+| `docs/src/lib/slide-directives.ts` | `isPaneMarkerBody`, three marker regexes | The editor treats a record-form marker as a speaker note (`directiveKey('{pane="bar"}')` returns `''`) |
+| `docs/src/lib/deck-lint.ts` | `slideClass` counts two `_?pane:` markers to name a panes slide | The rail labels a record-form panes slide `text` |
 | `docs/src/lib/compose/deck-source.ts` | `PANE_MARKER_RE` keeps a marker in place | Compose moves a record-form marker like a directive |
 | `docs/src/lib/code-packages/door.ts` | `/^pane\s*:/` (`:266`) adds the pane's component to the packages a deck needs | **Already a live gap today:** the pattern does not match the canonical `_pane:` form, only the alias, so a package used only in a `_pane:` pane is not offered. Fixing it at the door fixes today's bug too |
 | `lib/core/bake-splits.js` | `parseMarker` and `mayHavePanes` at `:99,119,129`, in Studio export | follows `pane-spec`; no regex of its own |
-| `lib/layout/bridge.js` | `referencedComponents` calls `parseMarker` per line | follows `pane-spec`. Its caller is the CLI (`lib/packages/render.js:24`, `lattice.js:1818`); no Studio code calls it |
+| `lib/layout/bridge.js` | `referencedComponents` calls `parseMarker` per line | follows `pane-spec`. Its caller is the CLI (`lib/cli/package-render.js:24`, `lattice.js:1818`); no Studio code calls it |
 
 Four more files reach pane markers only through `mayHavePanes` or `splitPaneMarkdown` from `pane-spec`, so they follow
 `pane-spec` with no edit of their own: `lib/authoring/lint-core.js` (`:2765,2777,2887`), `lib/authoring/review-core.js`
@@ -544,7 +544,7 @@ per step (HARD RULE #17).
 
 | Step | Work | Proof |
 |---|---|---|
-| 1 | **Consolidate over comments.** One registry derived from the manifests (§5.0; the five lists collapse) and the `meta` manifest with `contributes.meta`; `scanMetaSource` / `readMeta` / `writeMeta` over the **existing comment grammar**; migrate the 42 readers onto them, including the three entry points the second review found outside the engine's own path (`paneOrientations` calling `mayHavePanes(raw)` at `engine/index.js:939`, `deckClassTokens` called from `lib/packages/render.js:32`, and `stress-slide` matched in `lint-core.js:4449,4758`). Slot-driven completion. `notes-core.js` treats `lat-*` comments as tooling. New lints (`legacy-directive-comment`, `meta-opener-bare`, `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container`) go in `lint-core.js` (HARD RULE #7). The stale claims in §3 | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun for every key; `build:check`; a test fails on a sixth key-list copy; a test that `meta` cannot be disabled |
+| 1 | **Consolidate over comments.** One registry derived from the manifests (§5.0; the five lists collapse) and the `meta` manifest with `contributes.meta`; `scanMetaSource` / `readMeta` / `writeMeta` over the **existing comment grammar**; migrate the 42 readers onto them, including the three entry points the second review found outside the engine's own path (`paneOrientations` calling `mayHavePanes(raw)` at `engine/index.js:939`, `deckClassTokens` called from `lib/cli/package-render.js:32`, and `stress-slide` matched in `lint-core.js:4449,4758`). Slot-driven completion. `notes-core.js` treats `lat-*` comments as tooling. New lints (`legacy-directive-comment`, `meta-opener-bare`, `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container`) go in `lint-core.js` (HARD RULE #7). The stale claims in §3 | the corpus comparison from `2026-08-05-one-class-directive-reader.md`, rerun for every key; `build:check`; a test fails on a sixth key-list copy; a test that `meta` cannot be disabled |
 | 2 | **The source hook and the door.** The additive in-tree-only source hook (no api bump); `meta` registers `compileMetaSource` on it; the forgery guard moves into the door; `lat-meta` read in the `lattice_directives` loop; record comments accepted **next to** authored directive comments; bounded wrapped-record joining; the comment-unsafe escape; `reader` and the notes channel. **Exports change here** (a `Reader:` paragraph in PPTX and PDF notes), so the dark and light sign-off below applies at this step | byte-identity: every key renders the same `<section>` as its comment, including `_class: image` + `![bg]`, adjacent records, `inline-code: literal` decks, panes and focus steps (which rewrite only their own key); a pin on rule order; a bench scenario, same-machine (#19); a fuzz of the join |
 | 3 | Lint, autocomplete, drawer and Compose on records; the D11 gate (`check-ownership`: the only writer of provider attributes is the host's apply step); the URL scheme allowlist (§5.7) | the keystroke bench for `scanMetaSource`; the gate fails a deliberate violation |
 | 4 | **The bridge**, both producers, one pass list | a real marp-cli render and the VS Code preview of a compiled demo deck; `-->` and `: ` value tests; the reader note shows labeled in PPTX notes |
@@ -723,12 +723,12 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `docs/src/components/studio/StudioShell.tsx`
 - `docs/src/components/studio/coach/coach-core.ts`
 - `docs/src/components/studio/editor-complete.ts`
-- `docs/src/components/studio/lint.ts`
+- `docs/src/lib/deck-lint.ts`
 - `docs/src/components/studio/pane-pages.ts`
 - `docs/src/components/studio/pane-probe.ts`
 - `docs/src/components/studio/present-sections.ts`
 - `docs/src/components/studio/present/rehearsal.js`
-- `docs/src/components/studio/slide-directives.ts`
+- `docs/src/lib/slide-directives.ts`
 - `docs/src/components/studio/split-slide.ts`
 - `docs/src/lib/code-packages/door.ts`
 - `docs/src/lib/compose/comment-block.ts`
@@ -737,7 +737,7 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `docs/src/lib/compose/pane-model.ts`
 - `docs/src/lib/compose/registers.ts`
 - `docs/src/lib/lente/tags.ts`
-- `docs/src/lib/single-slide-render.ts`
+- `docs/src/playground/single-slide-render.ts`
 - `docs/src/playground/slide-context.js`
 - `lib/authoring/lint-core.js`
 - `lib/authoring/notes-core.js`
@@ -748,7 +748,7 @@ Key-aware (43; the shared scanner `lib/core/class-directive-scan.mjs` is the one
 - `lib/core/bg-image-lift.js`
 - `lib/core/chart-narration.js`
 - `lib/core/class-directive-scan.mjs`
-- `lib/core/marp-bundle-math.js`
+- `lib/export/marp-bundle-math.js`
 - `lib/core/pane-spec.js`
 - `lib/core/panes.js`
 - `lib/core/resolve-motion.mjs`
@@ -769,7 +769,7 @@ Only strip, skip, tokenize or escape (18):
 - `docs/src/lib/deck-outline/deck-outline.ts`
 - `docs/src/lib/playground-controller.ts`
 - `lib/authoring/fact-check-core.js`
-- `lib/components/chart/_chart-family/mark-detail.js`
+- `lib/plugins/chart-family/shared/mark-detail.js`
 - `lib/core/closed-comments.js`
 - `lib/core/flowchart-html.js`
 - `lib/core/heading-split-core.mjs`
@@ -780,5 +780,5 @@ Only strip, skip, tokenize or escape (18):
 - `lib/core/split-panels.js`
 - `lib/export/html-player.js`
 - `lib/forms/cell/masthead/masthead.transform.js`
-- `lib/packages/code-door-core.mjs`
+- `lib/core/code-door-core.mjs`
 - `lib/plugins/chart-family/chart-family.dispatch.js`

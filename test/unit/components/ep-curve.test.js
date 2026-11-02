@@ -1,5 +1,5 @@
 /**
- * ep-curve — the return-period kernel (lib/components/chart/ep-curve/), its point
+ * ep-curve — the return-period kernel (lib/plugins/chart-family/kinds/ep-curve/), its point
  * model (lib/core/ep-curve-model.js) and its narrator.
  *
  * Pins the parse (a flat curve, named curves, at most four), the always-log
@@ -10,7 +10,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { parseEpCurve, buildEpCurve } = require('../../../lib/components/chart/ep-curve/ep-curve.transform');
+const { parseEpCurve, buildEpCurve } = require('../../../lib/plugins/chart-family/kinds/ep-curve/ep-curve.transform');
 const { readEpPoint, rpLabel } = require('../../../lib/core/ep-curve-model');
 const { narrateChart } = require('../../../lib/core/chart-narration');
 
@@ -162,7 +162,7 @@ describe('ep-curve — the checker repros', () => {
   test('under the tone finish a dot keeps its curve\'s hue', () => {
     // Tone recolors every open hue rule's mark to one ramp; a dot that took it would sit off-color on a
     // curve whose stroke no finish reaches (build-marks-css.js § STROKE_MEMBERS).
-    const css = require('node:fs').readFileSync(require.resolve('../../../lib/components/chart/_chart-family/marks.generated.css'), 'utf8');
+    const css = require('node:fs').readFileSync(require.resolve('../../../lib/plugins/chart-family/chart-family.styles.generated.css'), 'utf8');
     // The shared body rule serves every finish and skips the stroke members by name; the companion that puts them back
     // under pigment and etch has a head that does not name tone.
     const toneHue = css.split('\n').filter((l) => /^section:is\([^)]*\.marks-tone[^)]*\) :where\(:is\(\[data-hue=/.test(l) && l.includes('[data-paint="fill"]'));

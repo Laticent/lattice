@@ -12,7 +12,7 @@
  * missing key would at least fall back to a Mermaid default; a wrong value is
  * confidently wrong.
  *
- * The gap is now closed by CONSTRUCTION (lib/core/mermaid-theme-map.js): there is
+ * The gap is now closed by CONSTRUCTION (lib/plugins/mermaid/shared/mermaid-theme-map.js): there is
  * one map, so a key exists on both paths or on neither. What this file guards is
  * the seam that remains — each path still supplies its own `readToken`, and each
  * still assembles the object at its own call site. Feed BOTH the same fake
@@ -39,9 +39,12 @@ const {
   textValueTokens,
   buildDiagramTheme,
   diagramThemeTokens,
-} = require('../../../lib/core/mermaid-theme-map');
-const { renderDiagrams } = require('../../../lib/core/render-diagrams');
-const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
+} = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
+const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
+// The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
+const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');
+const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
+const { diagramScopeKey } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 // The PDF path's source: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D
@@ -208,7 +211,7 @@ describe('diagram theme parity — both render paths, one map', () => {
     // `DIVERGENT_KEYS` is gone from the module. Asserting its ABSENCE keeps the
     // retirement deliberate: re-exporting it — even as an empty list — would restore the
     // "some keys may differ" affordance this change removed.
-    const map = require(path.join(REPO, 'lib', 'core', 'mermaid-theme-map.js'));
+    const map = require(path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'mermaid-theme-map.js'));
     assert.equal('DIVERGENT_KEYS' in map, false,
       'DIVERGENT_KEYS was retired in #1674 — a divergence that stops diverging is deleted, '
       + 'not left as a standing license. Re-adding one needs its own decision record.');
@@ -315,8 +318,8 @@ describe('neither path keeps a private copy', () => {
     // it: what has to be true now is that each path hands its ports to
     // `renderDiagrams`. A path that went back to assembling its own palette would
     // still import the map and would still pass the old form of this test.
-    assert.match(EMULATOR_SRC, /require\('\.\.\/\.\.\/core\/render-diagrams'\)/);
-    assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/core\/render-diagrams'\)/);
+    assert.match(EMULATOR_SRC, /require\('\.\/shared\/render-diagrams'\)/);
+    assert.match(RUNTIME_SRC, /require\('\.\/shared\/render-diagrams'\)/);
     assert.match(EMULATOR_SRC, /renderDiagrams\(deck, \{/);
     assert.match(RUNTIME_SRC, /renderDiagrams\(deck, \{/);
     assert.equal(/buildDiagramTheme\(/.test(RUNTIME_SRC), false,

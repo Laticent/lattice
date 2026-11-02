@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { gotoStudio, railButtons, setEditorContent } from './studio-fixture';
+import { gotoStudio, railButtons, setEditorContent, typeDeck } from './studio-fixture';
 
 /**
  * The Studio's slide map: the deck's slides as thumbnails in the slide strip under the preview, in
@@ -171,6 +171,34 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 			.filter((c) => c.w < 44 || c.h < 44),
 	);
 	expect(small).toEqual([]);
+});
+
+// A story deck's picture is 40px wide, but its tile keeps the 16:9 width (the owner's call, 2026-10-30): the picture sits
+// centered with room either side, and the caption keeps its number, name and ⋯, so nothing is laid over the slide.
+test('@parity a story deck keeps 16:9 tiles: the picture is centered and the caption keeps its name and ⋯', async ({ page }) => {
+	await gotoStudio(page);
+	await typeDeck(page, ['---\nsize: story\n---\n\n<!-- _class: title -->\n\n# One', '<!-- _class: cards-grid -->\n\n# Two\n\n- A\n  - a\n- B\n  - b', '# Three'].join('\n\n---\n\n'));
+	await mapOn(page);
+	await page.locator(`${RAIL} button[data-unit="1"]`).click();
+	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '1');
+	const menu = page.locator(RAIL).getByRole('button', { name: 'Slide actions' });
+	await expect(menu).toBeVisible();
+	const geo = await page.evaluate((rail) => {
+		const tile = document.querySelector<HTMLElement>(`${rail} button[aria-current="true"]`);
+		const m = document.querySelector<HTMLElement>(`${rail} button[aria-label="Slide actions"]`);
+		const pic = tile?.firstElementChild?.getBoundingClientRect();
+		if (!tile || !m || !pic) return null;
+		const t = tile.getBoundingClientRect();
+		const r = m.getBoundingClientRect();
+		return { tileW: t.width, picW: pic.width, leftRoom: pic.left - t.left, rightRoom: t.right - pic.right, menuBelowPic: r.top >= pic.bottom - 0.5, menuInside: r.right <= t.right + 0.5, caption: tile.lastElementChild?.textContent };
+	}, RAIL);
+	expect(geo).not.toBeNull();
+	expect(geo?.tileW).toBeGreaterThan(110);
+	expect(geo?.picW).toBeLessThan(50);
+	expect(Math.abs((geo?.leftRoom ?? 0) - (geo?.rightRoom ?? 1))).toBeLessThanOrEqual(1);
+	expect(geo?.menuBelowPic).toBe(true);
+	expect(geo?.menuInside).toBe(true);
+	expect(geo?.caption).toBe('2cards-grid');
 });
 
 test('the arrow keys walk the rail slide by slide and keyboard focus stays on it', async ({ page }) => {

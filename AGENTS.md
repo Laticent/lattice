@@ -91,7 +91,8 @@ See `engineering/decisions/2026-06-30-prose-density-budget.md`.
 
 `components.pick.md` is for *picking* and `components.json` is the full machine
 record behind it; each component's generated
-`lib/components/<bucket>/<name>/<name>.docs.md` is for *authoring inside* the
+`lib/components/<bucket>/<name>/<name>.docs.md` (a chart kind's:
+`lib/plugins/chart-family/kinds/<name>/<name>.docs.md`) is for *authoring inside* the
 one you picked (HARD RULE #6 in `CLAUDE.md`: open it before writing or editing
 that slide). Its `## Agent contract` section, right after the header, is the
 dense, scannable part — read it before the narrative below. In order, it

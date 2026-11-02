@@ -7,11 +7,12 @@
         "macos-latest"
       ],
       "paths": [
-        "lib/export/file-confine.js",
+        "lib/core/file-confine.js",
+        "lib/plugins/host-page-worker.js",
         "lib/export/html-player.js",
         "lib/export/player-core.mjs",
         "test/integration/export/confine-cli.test.js",
-        "test/unit/export/file-confine.test.js",
+        "test/unit/core/file-confine.test.js",
         "test/unit/export/html-player-inline-file-urls.test.js",
         "test/unit/export/bake-helper.js",
         "lattice.js",
@@ -20,7 +21,7 @@
         "lib/plugins/mermaid/shared/render-worker.js",
         "test/integration/export/mermaid-worker-confine.test.js"
       ],
-      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
       "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows runs as export-confine-windows."
     },
     {
@@ -29,11 +30,12 @@
         "windows-latest"
       ],
       "paths": [
-        "lib/export/file-confine.js",
+        "lib/core/file-confine.js",
+        "lib/plugins/host-page-worker.js",
         "lib/export/html-player.js",
         "lib/export/player-core.mjs",
         "test/integration/export/confine-cli.test.js",
-        "test/unit/export/file-confine.test.js",
+        "test/unit/core/file-confine.test.js",
         "test/unit/export/html-player-inline-file-urls.test.js",
         "test/unit/export/bake-helper.js",
         "lattice.js",
@@ -42,7 +44,7 @@
         "lib/plugins/mermaid/shared/render-worker.js",
         "test/integration/export/mermaid-worker-confine.test.js"
       ],
-      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/core/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
       "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It uses the full `npm run build` (build-windows proves that build passes there). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
     },
     {
@@ -82,8 +84,9 @@
       ],
       "paths": [
         "lib/core/os-sandbox.js",
+        "lib/plugins/host-page-worker.js",
         "lib/core/code-sandbox.js",
-        "lib/packages/code-door.js",
+        "lib/cli/code-door.js",
         "lib/packages/code-door-worker.js",
         "lib/packages/npm-plugin-admission.js",
         "test/integration/export/os-sandbox-measure.test.js",
@@ -101,8 +104,10 @@
         "docs/scripts/ios-safari/run.sh",
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/studio-probe.js",
+        "docs/scripts/ios-safari/panes-probe.js",
         "docs/scripts/ios-safari/seed-settings.js",
-        "docs/src/lib/single-slide-render.ts",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/pane-css.js",
         "docs/src/lib/sanitize-slide-html.js",
         "lib/core/sanitize-slide-html.mjs",
         "lib/core/inline-run.js",

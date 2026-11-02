@@ -12,7 +12,7 @@
 // needs the lint core synchronously (pane-pages.ts, slide-notes.ts, PrintOptionsPanel.tsx) reads it
 // with `authoring()`, after its own loader awaited `loadAuthoring()`.
 
-import { adoptLintBoundarySetter } from './lint-boundary-state.js';
+import { adoptLintBoundarySetter } from '../lib/lint-boundary-state.js';
 import { loadLintCore } from './lint-core-source.js';
 
 /** @typedef {typeof import('./authoring-core.generated.js')} Authoring */

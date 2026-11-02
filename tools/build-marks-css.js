@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Generates lib/components/chart/_chart-family/marks.generated.css — the chart finishes' rules.
+ * Generates lib/plugins/chart-family/chart-family.styles.generated.css — the chart finishes' rules.
  *
  * A finish moves color; it never adds or removes it, and it never touches structure
  * (engineering/chart-styling.md §3). The deck picks one with `marks:`
  * (lib/core/resolve-marks.js), which stamps `marks-<name>` on every section;
  * this writes the rules those classes switch on into
- * lib/components/chart/_chart-family/marks.generated.css, which tools/build-css.js
+ * lib/plugins/chart-family/chart-family.styles.generated.css, which tools/build-css.js
  * bundles after every chart member's own CSS.
  *
  * WHAT A RULE REACHES. Only a mark that carries the mark contract (slot-contract.md):
@@ -50,7 +50,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT_FILE = path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'marks.generated.css');
+const OUT_FILE = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.generated.css');
 const check = process.argv.includes('--check');
 const silent = process.argv.includes('--silent');
 
@@ -141,7 +141,7 @@ const STATUS_MARKS = [
   // harness. An unstated shape keeps the member's `url(#sc-fill-0)` gradient unless a finish owns it too.
   { sel: '.state-node-shape:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
-  // The state chart's and the flowchart's key is the shared graph key (`_chart-family/graph-key.js`):
+  // The state chart's and the flowchart's key is the shared graph key (`chart-family/shared/graph-key.js`):
   // its status swatch follows the tiles it keys, and both charts' tiles are finished.
   // Each chart names its status hue in its own channel (state chart `--fill-*`, flowchart `--fc-*`), so the shared
   // key's swatch is reached once per chart, scoped by the key's `data-chart`.
@@ -240,7 +240,7 @@ const ring = (k) => `calc(var(--state-signal-w) * ${k})`;
  * what the HARD RULE #11 contract gate refuses, and it would be a guess besides.
  */
 function rampMembers() {
-  const { loadAll } = require('../lib/components');
+  const { componentDir, loadAll } = require('../lib/components');
   const out = [];
   for (const m of loadAll()) {
     // A mark the status table paints (progress-fill: its manifest calls its LENGTH a ramp,
@@ -248,7 +248,7 @@ function rampMembers() {
     const owned = new Set(STATUS_MARKS.flatMap((x) => [...x.sel.matchAll(/\.([a-z][a-z0-9-]*)/g)].map((c) => c[1])));
     const rows = (m.kernel?.marks || []).filter((r) => r.encodes === 'ramp' && (r.paint === 'fill' || r.paint === 'bg') && !owned.has(r.class));
     if (!rows.length) continue;
-    const dir = path.join(ROOT, 'lib', 'components', m.bucket, m.name);
+    const dir = componentDir(m, path.join(ROOT, 'lib', 'components'));
     const css = fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
     const base = css.includes(`--${m.name}-base:`) ? `var(--${m.name}-base)` : 'var(--bg)';
     // A class every member shares (`chart-key-swatch`) is scoped to this member's figure, so

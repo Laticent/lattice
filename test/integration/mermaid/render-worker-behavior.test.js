@@ -24,7 +24,9 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
-const WORKER = path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'render-worker.js');
+// The HOST's locked page runs Mermaid's page role (lib/plugins/host-page-worker.js, mermaid.page.js); a job names both.
+const WORKER = path.join(REPO, 'lib', 'plugins', 'host-page-worker.js');
+const PAGE_JOB = { plugin: 'mermaid', module: path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.page.js') };
 const { engineInitConfig } = require('../../../lib/plugins/mermaid/shared/init-directive');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
@@ -35,7 +37,7 @@ function runWorker(diagrams) {
   try {
     const jobFile = path.join(dir, 'job.json');
     const outFile = path.join(dir, 'out.json');
-    fs.writeFileSync(jobFile, JSON.stringify({
+    fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB,
       pkgRoot: REPO, chromePath: CHROME, backgroundColor: 'transparent', outFile, diagrams,
     }));
     try {

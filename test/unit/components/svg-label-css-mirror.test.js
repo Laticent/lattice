@@ -58,8 +58,8 @@ function fontSizeValue(css, raw) {
 }
 
 describe('funnel: kernel font sizes mirror funnel.styles.css', () => {
-  const css = read('lib/components/chart/funnel/funnel.styles.css');
-  const js = read('lib/components/chart/funnel/funnel.transform.js');
+  const css = read('lib/plugins/chart-family/kinds/funnel/funnel.styles.css');
+  const js = read('lib/plugins/chart-family/kinds/funnel/funnel.transform.js');
   // Read the constant from inside the `FS = { … }` block, not from anywhere in
   // the file. `quadrant.transform.js` declares BOTH `LW.axis: 392` and
   // `FS.axis: 12`; a whole-file match happens to find FS only because FS is
@@ -86,8 +86,8 @@ describe('funnel: kernel font sizes mirror funnel.styles.css', () => {
 });
 
 describe('quadrant: kernel font sizes mirror quadrant.styles.css', () => {
-  const css = read('lib/components/chart/quadrant/quadrant.styles.css');
-  const js = read('lib/components/chart/quadrant/quadrant.transform.js');
+  const css = read('lib/plugins/chart-family/kinds/quadrant/quadrant.styles.css');
+  const js = read('lib/plugins/chart-family/kinds/quadrant/quadrant.transform.js');
   // Read the constant from inside the `FS = { … }` block, not from anywhere in
   // the file. `quadrant.transform.js` declares BOTH `LW.axis: 392` and
   // `FS.axis: 12`; a whole-file match happens to find FS only because FS is
@@ -129,8 +129,8 @@ describe('quadrant: kernel font sizes mirror quadrant.styles.css', () => {
 });
 
 describe('radar: kernel font sizes mirror radar.styles.css', () => {
-  const css = read('lib/components/chart/radar/radar.styles.css');
-  const js = read('lib/components/chart/radar/radar.transform.js');
+  const css = read('lib/plugins/chart-family/kinds/radar/radar.styles.css');
+  const js = read('lib/plugins/chart-family/kinds/radar/radar.transform.js');
   const kernel = (name) => {
     const m = js.match(new RegExp(`const ${name} = ([\\d.]+)`));
     return m ? Number(m[1]) : null;
@@ -162,13 +162,13 @@ describe('radar: kernel font sizes mirror radar.styles.css', () => {
 // ("audit the component's existing aspect-ratio / max-height FIRST — the kernel
 // is the easy part"), so it gets a gate rather than a comment.
 describe('radar mini viewBox ↔ CSS box mirror', () => {
-  const css = read('lib/components/chart/radar/radar.styles.css');
+  const css = read('lib/plugins/chart-family/kinds/radar/radar.styles.css');
 
   // The kernel is the source of truth: load it and read the real viewBox it
   // emits, rather than re-deriving the arithmetic here (a re-derivation that
   // duplicates the formula would agree with a broken formula).
   const rendered = require('../../../lib/engine').render(
-    read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+    read('lib/plugins/chart-family/kinds/radar/radar.gallery.md'), 'indaco', { preview: true },
   ).html;
   const vb = /class="radar-svg radar-svg--mini" viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(rendered);
 
@@ -227,10 +227,10 @@ describe('radar mini viewBox ↔ CSS box mirror', () => {
 // So: the kernel owns the size for these classes, and CSS may not take it back.
 describe('SVG label sizes stay chart-relative, not slide-relative', () => {
   const OWNED_BY_KERNEL = [
-    { css: 'lib/components/chart/radar/radar.styles.css', sel: '.radar-mini-label' },
-    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-label' },
-    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-edge' },
-    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-a' },
+    { css: 'lib/plugins/chart-family/kinds/radar/radar.styles.css', sel: '.radar-mini-label' },
+    { css: 'lib/plugins/chart-family/kinds/word-cloud/word-cloud.styles.css', sel: '.wc-key-label' },
+    { css: 'lib/plugins/chart-family/kinds/word-cloud/word-cloud.styles.css', sel: '.wc-key-edge' },
+    { css: 'lib/plugins/chart-family/kinds/word-cloud/word-cloud.styles.css', sel: '.wc-key-a' },
   ];
   for (const { css, sel } of OWNED_BY_KERNEL) {
     test(`${sel} declares no font-size in CSS`, () => {
@@ -264,10 +264,10 @@ describe('SVG label sizes stay chart-relative, not slide-relative', () => {
     // The other half: if the kernel stopped emitting it, the labels would fall
     // back to an inherited size and the CSS check above would pass vacuously.
     const radar = require('../../../lib/engine').render(
-      read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+      read('lib/plugins/chart-family/kinds/radar/radar.gallery.md'), 'indaco', { preview: true },
     ).html;
     const wc = require('../../../lib/engine').render(
-      read('lib/components/chart/word-cloud/word-cloud.gallery.md'), 'indaco', { preview: true },
+      read('lib/plugins/chart-family/kinds/word-cloud/word-cloud.gallery.md'), 'indaco', { preview: true },
     ).html;
     assert.match(radar, /<text class="radar-mini-label" font-size="[\d.]+"/);
     assert.match(wc, /<text class="wc-key-label" font-size="[\d.]+"/);
@@ -276,7 +276,7 @@ describe('SVG label sizes stay chart-relative, not slide-relative', () => {
 });
 
 describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
-  const js = read('lib/components/chart/heatmap/heatmap.transform.js');
+  const js = read('lib/plugins/chart-family/kinds/heatmap/heatmap.transform.js');
   const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
     const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
@@ -290,13 +290,13 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
   // that matched nothing, and the gutter width rode on a number nothing in the
   // tree connected to what was painted.
   for (const [key, file, selector] of [
-    ['col', 'lib/components/chart/heatmap/heatmap.styles.css',
+    ['col', 'lib/plugins/chart-family/kinds/heatmap/heatmap.styles.css',
       ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-col-label'],
     ['row', 'lib/plugins/chart-family/chart-family.styles.css',
       ':is(section.chart-frame, figure.chart-frame) .cart-cat'],
     // The printed value. Its SIZE is mirrored here; its INK is per-stop and per
     // palette, gated by heatmap.test.js and derive-chart-cat-ink.js --check.
-    ['value', 'lib/components/chart/heatmap/heatmap.styles.css',
+    ['value', 'lib/plugins/chart-family/kinds/heatmap/heatmap.styles.css',
       ':is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value'],
   ]) {
     test(`${key} matches ${selector}`, () => {
@@ -311,7 +311,7 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
     // The gate above compares numbers. This one stops a THIRD label appearing
     // with a size nothing checks — the failure mode that let the dead
     // `.heatmap-row-label` rule ship.
-    const { parseHeatmapTable, buildHeatmap } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+    const { parseHeatmapTable, buildHeatmap } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
     const table = '<table><thead><tr><th></th><th>M0</th><th>M1</th></tr></thead><tbody>'
       + '<tr><td>Jan</td><td>100</td><td>62</td></tr>'
       + '<tr><td>Feb</td><td>100</td><td>58</td></tr></tbody></table>';

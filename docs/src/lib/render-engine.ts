@@ -14,7 +14,7 @@
 // exists so it's added in ONE: tools/build-playground.js aliases math.js's
 // `katex` import to lib/engine/katex-browser-stub.js, so lattice-playground.js
 // no longer bundles KaTeX at all — a separate on-demand bundle
-// (lib/playground/katex-provider.js → lattice-katex.js) carries it instead,
+// (lib/plugins/math/shared/katex-provider.js → lattice-katex.js) carries it instead,
 // loaded here only when a pre-scan (lib/plugins/math/math.syntax.mjs's
 // sourceHasMath, KaTeX-free by construction) finds math syntax in the source.
 //
@@ -24,8 +24,8 @@
 // exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
+import { math as MATH_DETECT } from '../../../lib/plugins/detect.generated.mjs';
 import { DRAW_WARM } from '../../../lib/plugins/draw-warm.generated.mjs';
-import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
 import { ensureCalloutLayer, ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
@@ -33,6 +33,10 @@ import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
 import { warmPreviewDrawHost } from './preview-draw-host';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = MATH_DETECT.detect as (src: string) => boolean;
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;
@@ -71,6 +75,10 @@ export type RenderMarkdownOpts = {
 	/** The default plugin set for THIS render (engine `render(…, { pluginDefaults })`). A slide
 	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
 	pluginDefaults?: string[];
+	/** Compose the pane sheet for EVERY pane component, not only those on this slide, so it is the same
+	 *  for all of a deck's slides (lib/core/pane-css.js `stablePaneScope`). Set by the single-slide frame
+	 *  only; an export leaves it unset and keeps the exact-classes sheet. */
+	stablePaneSheet?: boolean;
 };
 /**
  * A host's chance to add options to a render, given the source about to be rendered. The Studio
@@ -89,7 +97,7 @@ export type RenderMarkdownResult = {
 	flatCss?: string;
 	width?: number;
 	height?: number;
-	stats?: import('@/playground/render-metrics').RenderStats;
+	stats?: import('@/lib/render-metrics').RenderStats;
 };
 
 /**

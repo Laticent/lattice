@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/_chart-family/cartesian.js — the shared plot
+ * Unit: lib/plugins/chart-family/shared/cartesian.js — the shared plot
  * substrate for the Cartesian chart members (bar, stacked-bar, line,
  * waterfall, scatter, slope, bullet).
  *
@@ -28,7 +28,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const C = require('../../../lib/components/chart/_chart-family/cartesian');
+const C = require('../../../lib/plugins/chart-family/shared/cartesian');
 
 const FAMILY_CSS = path.join(
   __dirname, '..', '..', '..',

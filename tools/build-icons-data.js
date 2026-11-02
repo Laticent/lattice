@@ -8,7 +8,7 @@
  *                                                requires it, so it ships wherever icons are read.
  *   lib/plugins/icons/icons.data.generated.js    the drawings: name → [[tag, attrs], …], and each
  *                                                icon's category. Never required by a kernel; it
- *                                                reaches one through lib/plugins/plugin-data.js,
+ *                                                reaches one through lib/core/plugin-data.js,
  *                                                and only for a deck that uses an icon.
  *
  * Sources, in lib/plugins/_icons-source/: `curation.json` (our name, the Tabler source or one of
@@ -147,7 +147,7 @@ module.exports = Object.freeze({
   // the renderer writes the glyph beside the <svg>. An icon not in the font yet has none and draws as SVG only.
   const cpMap = fs.existsSync(CODEPOINTS) ? JSON.parse(fs.readFileSync(CODEPOINTS, 'utf8')).icons || {} : {};
   const codepoints = Object.fromEntries(names.filter((n) => cpMap[n]).map((n) => [n, cpMap[n]]));
-  const data = `${header('The icon DRAWINGS: name → [[tag, geometry], …] on a 24-unit grid. Never required by a kernel; read through lib/plugins/plugin-data.js.')}
+  const data = `${header('The icon DRAWINGS: name → [[tag, geometry], …] on a 24-unit grid. Never required by a kernel; read through lib/core/plugin-data.js.')}
 /*! Tabler Icons — https://tabler.io/icons — stream and gateway are Lattice's own.
 ${MIT_NOTICE.split('\n').map((l) => ` *${l ? ` ${l}` : ''}`).join('\n')}
  */
@@ -184,8 +184,8 @@ const MARKS_END = '  /* ── END GENERATED STATUS MARKS ── */';
 /** The SVG charts' mark table: the kernel, and the two self-contained layout passes that copy it. */
 const MARK_PATH_FILES = Object.freeze([
   path.join(ROOT, 'lib', 'core', 'status-marks.js'),
-  path.join(ROOT, 'lib', 'components', 'chart', 'flowchart', 'flowchart.layout.js'),
-  path.join(ROOT, 'lib', 'components', 'chart', 'state-chart', 'state-chart.layout.js'),
+  path.join(ROOT, 'lib', 'plugins', 'chart-family', 'kinds', 'flowchart', 'flowchart.layout.js'),
+  path.join(ROOT, 'lib', 'plugins', 'chart-family', 'kinds', 'state-chart', 'state-chart.layout.js'),
 ]);
 const PATHS_BEGIN = '// BEGIN GENERATED MARK PATHS';
 const PATHS_END = '// END GENERATED MARK PATHS';

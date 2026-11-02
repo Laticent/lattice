@@ -1,6 +1,6 @@
 /**
  * Unit: a deck with no callout never needs the heavy half of the callout layer
- * (lib/components/chart/_chart-family/callout-layer.js, callout-place.js). The ESM playground ships
+ * (lib/plugins/chart-family/shared/callout-layer.js, callout-place.js). The ESM playground ships
  * that half as its own chunk, loaded only for a deck that has a callout, so a chart that reached it
  * on a callout-free slide would throw in the browser while passing every test in Node, where the
  * `require` always succeeds. This test withholds the half and renders.
@@ -12,7 +12,7 @@ const { test, describe, before, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const layer = require('../../../lib/components/chart/_chart-family/callout-layer');
+const layer = require('../../../lib/plugins/chart-family/shared/callout-layer');
 const engine = require('../../../lib/engine');
 
 const EXAMPLES = path.join(__dirname, '..', '..', '..', 'examples');
@@ -23,7 +23,7 @@ describe('the heavy half of the callout layer', () => {
   before(() => engine.render(decks[0][1]));
   afterEach(() => {
     layer.reset();
-    require('../../../lib/components/chart/_chart-family/callout-place-load').missed = false;
+    require('../../../lib/plugins/chart-family/shared/callout-place-load').missed = false;
   });
 
   test('no deck without a callout reaches it', () => {
@@ -44,7 +44,7 @@ describe('the heavy half of the callout layer', () => {
   });
 
   test('the host\'s scan names every deck that needs the half, and none in Node, where it is carried', async () => {
-    const load = require('../../../lib/components/chart/_chart-family/callout-place-load');
+    const load = require('../../../lib/plugins/chart-family/shared/callout-place-load');
     const { default: PG } = await import('../../../lib/playground/index.js');
     const [, deck] = decks.find(([f]) => f === 'callouts-bars.md');
     assert.equal(PG.calloutsNeeded(deck), false, 'not lazy here, so nothing to load');
@@ -66,7 +66,7 @@ describe('the heavy half of the callout layer', () => {
   });
 
   test('a callout the scan cannot see still records the miss, so the host can load the layer and render again', async () => {
-    const load = require('../../../lib/components/chart/_chart-family/callout-place-load');
+    const load = require('../../../lib/plugins/chart-family/shared/callout-place-load');
     const { default: PG } = await import('../../../lib/playground/index.js');
     // The chart reads the callout through the text of the markup, so a tag inside the sigil hides it from the regex.
     const deck = '<!-- _class: bar -->\n\n## Revenue\n\n- North `10`\n- South `20`\n\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n';
@@ -85,7 +85,7 @@ describe('the heavy half of the callout layer', () => {
 
   test('install() hands the half over and reset() lets Node load it again', () => {
     layer.uninstall();
-    layer.install(require('../../../lib/components/chart/_chart-family/callout-place'));
+    layer.install(require('../../../lib/plugins/chart-family/shared/callout-place'));
     const [, md] = decks.find(([f]) => f === 'callouts-bars.md');
     assert.doesNotThrow(() => engine.render(md));
     layer.reset();

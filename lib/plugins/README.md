@@ -56,6 +56,12 @@ lib/plugins/<name>/
                           and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits
                           (lib/packages/kinds.js `plugin.codeDirs`); the importers read top-level
                           files only, so a zip's copy is dropped, never installed
+  styles.generated.css    a stylesheet a build tool writes, bundled right after styles.css (the chart
+                          finishes' rules, tools/build-marks-css.js)
+  kinds/<name>/           the component packages the plugin OWNS, one folder each (manifest, transform,
+                          styles, docs, gallery), read and gated as components (lib/packages/kinds.js
+                          `plugin.kindsDir`, lib/packages/fs.js `listComponentFolders`). The chart family's
+                          28 chart kinds live here; the catalog still lists each on its own line
 ```
 
 The grammar and the renderers are separate files on purpose: the boundary parser and the docs
@@ -134,9 +140,19 @@ such a line (`docs/src/lib/deck-outline/deck-outline.ts`). The build refuses a b
 that `renderers` holds nothing the manifest does not declare. Named rule exports let a bundler
 keep only the rules a consumer imports — the boundary parser takes the block rules alone.
 
-A renderer is `(token, ctx, env) → string`. `ctx` is frozen: `ctx.name`, `ctx.options` (this
-plugin's `createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box
-family). Keep no state in closures — the engine reuses its parser across renders.
+**What reaches a plugin from outside, and what it reaches** (`tools/structure.js`, run by
+`build:check`): a plugin imports its own folder, the workspace libraries and the plugins it `requires`; the
+host hands it everything else through `ctx`. Code outside reaches it through the generated tables and its `services`. A
+`queries` export on the syntax module (beside `detect`) offers other pure detectors through the grammar
+table. An in-tree plugin may also list files in `hostApi` for the linter, editors, Marp export and
+Studio, a bridge that only shrinks (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).
+
+A renderer is `(token, ctx) → string`. `token` is a frozen view of the markdown-it token (`type`,
+`content`, `markup`, `info`, `map`, `block`, `hidden`), never the token array or `env`. `ctx` is
+frozen and carries everything the host offers: `ctx.name`, `ctx.options` (this plugin's
+`createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box family),
+`ctx.report`, `ctx.service`, `ctx.data()` and the rest (`spec/LPM.md` §5.1). Keep no state in
+closures — the engine reuses its parser across renders; `ctx.scratch()` is the per-render memo.
 
 ## Fences
 
@@ -150,7 +166,7 @@ A plugin claims fence names in `contributes.fences` and exports a renderer per n
 The host owns `md.renderer.rules.fence` ONCE — a table from every fence name and alias to its
 plugin's renderer, and everything else to the code renderer (below). It replaced the old
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
-won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
+won. A fence renderer is `(token, ctx) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
 claim, or one a code language owns (every highlight.js name and alias), fails the build — with one
 exception: when a highlight.js upgrade later adds a language named like a fence the committed
@@ -161,7 +177,7 @@ must declare. A fence counts as use: the host derives a plugin's `detect` probe 
 
 Every fence no plugin claims goes to ONE plugin that declares `contributes.codeRenderer`: today
 `code` (`lib/plugins/code/`). Its `<name>.render.js` exports `codeRenderer`,
-`{ highlighter, render(token, ctx, env, base) }`:
+`{ highlighter, render(token, ctx, base, info) }`:
 
 - `base(highlight)` is markdown-it's own fence rule, run with that `highlight` callback (null for
   plain text). Every fence's markup (`<pre><code class="language-x">`, its attributes, the escaping

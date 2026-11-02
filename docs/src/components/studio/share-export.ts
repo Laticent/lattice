@@ -13,25 +13,29 @@ import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import iconFallbackCore from '../../../../lib/fonts/icon-fallback.js';
-import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { math as MATH_DETECT } from '../../../../lib/plugins/detect.generated.mjs';
+import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from '../../lib/front-matter';
 import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
 import { exportSourceFor } from './export/images-override.js';
 import type { StudioFinish } from './finish-library';
-import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { LatticeMedia } from './lattice-file';
 import type { BakeVoice } from './read-aloud';
 import type { SlideComment } from './slide-comments';
 import type { OverflowMarker } from './studio-store';
 import type { StudioTheme } from './theme-library';
 import { MAX_EMBEDDED_MEDIA_BYTES, MAX_LATTICE_MEDIA_BYTES } from './zip-limits';
+
+// The math plugin's own `detect` (math.syntax.mjs `sourceHasMath`), through the generated detector
+// table, never by importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMath = MATH_DETECT.detect as (src: string) => boolean;
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -262,7 +266,7 @@ type SlideNoteRecord = {
 	say: string | null;
 };
 
-/** The depth-aware `<section>` walker (lib/core/split-sections.js), via the authoring bundle. */
+/** The depth-aware `<section>` walker (docs/src/lib/markup/sections.ts), via the authoring bundle. */
 type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: string; inner?: string; cls?: string }[];
 
 /**
@@ -452,7 +456,7 @@ export async function shareHtmlPlayer(
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
 	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
-	// Split on STRUCTURE, as the CLI's `--player` does (lib/core/structural-split.js): at
+	// Split on STRUCTURE, as the CLI's `--player` does (lib/engine/structural-split.js): at
 	// portrait/square/mobile a multi-member slide becomes cover → one element per page → closing.
 	// `settle: false` is the CLI's own setting, so both hosts emit the same pages. A no-op at
 	// landscape. Without it a `size: story` deck exported 8 slides here and 32 from the CLI.
@@ -666,7 +670,7 @@ export async function shareHtmlPlayer(
 		bakeWarning = 'diagrams ship as source, not as drawings';
 	}
 	// A section the structural split already numbered (`2.2`, `2.3`: page k of authored slide 2) keeps
-	// its number, as `stampSlideNumbers` (lib/core/structural-split.js) keeps it for the CLI. Prepending
+	// its number, as `stampSlideNumbers` (lib/engine/structural-split.js) keeps it for the CLI. Prepending
 	// a second attribute shadowed it, so the same split page was slide `3` here and `2.2` from the CLI.
 	const tagged = (baked ?? recordSections).map((sec, i) =>
 		/^<section\b[^>]*\sdata-lattice-slide=/i.test(sec) ? sec : sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`),
@@ -1108,8 +1112,8 @@ export async function embeddableLattice(source: string, deckTitle: string, now: 
 
 /** The Share toast's note on an Export-to-Marp bundle, or undefined: the deck's own script the export
  *  left out (§ 11), what the bundle's HTML list will show as text or drop in marp-cli (§ 13,
- *  lib/core/marp-bundle-html.js), a <title> left open, which swallows the slides after it, and any
- *  equation the export could not typeset (lib/core/marp-bundle-math.js). */
+ *  lib/export/marp-bundle-html.js), a <title> left open, which swallows the slides after it, and any
+ *  equation the export could not typeset (lib/export/marp-bundle-math.js). */
 export function marpExportNote(removed?: {
 	scripts: number; handlers: number; urls: number; escaped?: boolean;
 	refused?: { tags?: Record<string, number>; attrs?: Record<string, number>; unclosed?: string[] };
@@ -1118,7 +1122,7 @@ export function marpExportNote(removed?: {
 	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
 	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
 	const script = n ? `it left out the deck's own script (${n} ${n === 1 ? 'piece' : 'pieces'}), which Marp would run on the recipient's machine` : '';
-	// What the bundle's HTML list will show as text or drop in marp-cli (lib/core/marp-bundle-html.js).
+	// What the bundle's HTML list will show as text or drop in marp-cli (lib/export/marp-bundle-html.js).
 	const tags = Object.keys(removed?.refused?.tags ?? {});
 	const attrs = Object.keys(removed?.refused?.attrs ?? {});
 	const refused = tags.length || attrs.length
@@ -1126,7 +1130,7 @@ export function marpExportNote(removed?: {
 		: '';
 	// A <title> left open swallows the slides after it as text in any browser; only the author can close it.
 	const unclosed = removed?.refused?.unclosed?.includes('title') ? 'the deck leaves a <title> open, so the slides after it show as text' : '';
-	// Equations the export could not typeset ship as TeX text (lib/core/marp-bundle-math.js, fail closed).
+	// Equations the export could not typeset ship as TeX text (lib/export/marp-bundle-math.js, fail closed).
 	const failed = removed?.math?.failed ?? 0;
 	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
 	return [script, refused, unclosed, math].filter(Boolean).join('; ') || undefined;
@@ -1154,7 +1158,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	// The plugins this deck's admission leaves off under the playground bundle's host (none on the
 	// shipped default set), so the bundle's runtime draws no more than the Studio's preview does.
 	const { deckPluginsOff } = await import('@/lib/plugin-admission');
-	// The bundle carries its math TYPESET (lib/core/marp-bundle-math.js): Marp's own typesetter is the
+	// The bundle carries its math TYPESET (lib/export/marp-bundle-math.js): Marp's own typesetter is the
 	// injection surface it closes. Typesetting needs the real KaTeX, which the Studio loads on demand,
 	// so load it first. If it will not load, the export still goes out: each equation ships as TeX
 	// text (fail closed), and the toast below counts them.
@@ -1354,7 +1358,7 @@ export async function shareCaptions(
 		import('./narration-projection'),
 		import('@/lib/resolve-narration'),
 		import('./narration-resolve'),
-		import('./lint'),
+		import('../../lib/deck-lint'),
 		import('@/lib/resolve-bookends'),
 	]);
 	const { splitSlides } = lintMod;

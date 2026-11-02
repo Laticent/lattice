@@ -8,9 +8,9 @@
 
 import { resolveTokenColor, stageChromeDecls } from '@/components/studio/present/stage-chrome.js';
 import { buildStageDoc } from '@/components/studio/present/stage-window.js';
-import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { A11Y_DEFS } from '@/playground/deck-preview.js';
-import { getFrontMatter } from './front-matter';
+import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
+import { getFrontMatter } from '../../lib/front-matter';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /** `#rrggbb` → [r,g,b]. The letterbox is ours and always a literal, so this is all it needs. */

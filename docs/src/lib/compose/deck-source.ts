@@ -2,12 +2,16 @@
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
-import { hasDisplayMath } from '../../../../lib/plugins/math/math.syntax.mjs';
-import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
-import { splitSlides } from '../../components/studio/lint';
-import { fenceRanges } from '../../components/studio/slide-directives';
+import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
+import { splitSlides } from '../deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../front-matter';
 import { normalizeSourceText } from '../normalize-source-text';
+import { fenceRanges } from '../slide-directives';
 import { withoutModeledBlocks } from './raw-block';
+
+// The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
+// importing the plugin's folder (tools/structure.js holds that line).
+const hasDisplayMath = MATH.queries?.hasDisplayMath as (src: string) => boolean;
 
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's
@@ -121,7 +125,7 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
 	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
 	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
-	// A list item led by `[X]`. The six markers (lib/plugins/checks/shared/registry.js) round-trip now: the
+	// A list item led by `[X]`. The six markers (lib/core/checks-registry.js) round-trip now: the
 	// serializer keeps a list item's leading marker unescaped, as it does in a table cell. `[X]` is
 	// not one of the six (GFM reads it as a checked box, the opposite of a cross), so it stays locked.
 	/^\s*(?:[-*+]|\d+[.)])\s+\[X\]/m,

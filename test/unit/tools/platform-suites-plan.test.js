@@ -5,7 +5,7 @@ const { plan, globToRegExp } = require('../../../tools/platform-suites-plan.js')
 
 const registry = {
   suites: [
-    { name: 'export-confine', os: ['macos-latest'], paths: ['lib/export/file-confine.js', 'test/unit/export/*.test.js'], run: 'a', why: 'w1' },
+    { name: 'export-confine', os: ['macos-latest'], paths: ['lib/core/file-confine.js', 'test/unit/export/*.test.js'], run: 'a', why: 'w1' },
     { name: 'paths-everywhere', os: ['macos-latest', 'windows-latest'], paths: ['lib/**/*.js'], run: 'b', why: 'w2' },
   ],
 };
@@ -21,7 +21,7 @@ test('a dispatch runs the suites it names, or all of them when it names none', (
 });
 
 test('a pull request runs only the suites whose paths match a changed file', () => {
-  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['lib/export/file-confine.js'] })), ['export-confine@macos-latest', 'paths-everywhere@macos-latest', 'paths-everywhere@windows-latest']);
+  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['lib/core/file-confine.js'] })), ['export-confine@macos-latest', 'paths-everywhere@macos-latest', 'paths-everywhere@windows-latest']);
   assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['test/unit/export/a.test.js'] })), ['export-confine@macos-latest']);
   assert.equal(plan(registry, { event: 'pull_request', changed: ['README.md', 'docs/x.md'] }).count, 0, 'an unrelated PR selects nothing');
 });

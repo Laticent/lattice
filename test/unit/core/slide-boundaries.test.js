@@ -23,6 +23,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 
 const { boundaryParser: md, FRONT_MATTER, normalizeSource } = require('../../../lib/core/boundary-parser.js');
 const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, dropLeadingEmpty, boundaryParseCount, resetBoundaryMemo } = require('../../../lib/core/slide-boundaries.mjs');
@@ -161,7 +162,7 @@ function corpusDecks() {
 	// for a few hundred milliseconds, and globbing them made this test fail with a bare ENOENT
 	// whenever the suite ran during a corpus sweep — the exact pairing a golden refresh performs.
 	// Measured: `.regr-piechart.dark.md`, read after it had already been cleaned up.
-	return [...walk(path.join(ROOT, 'examples')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...walk(path.join(ROOT, 'lib/components'))].filter(
+	return [...walk(path.join(ROOT, 'examples')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...componentCorpusRoots(path.join(ROOT, 'lib/components')).flatMap(walk)].filter(
 		(f) => f.endsWith('.md') && !path.basename(f).startsWith('.'),
 	);
 }

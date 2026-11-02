@@ -10,7 +10,7 @@
 // Only the genuinely interactive bits hydrate: the hero Preview/Source Tabs
 // (HeroPreview), the field-card live previews (FieldCardsLive), and the restyle
 // carousel (RestyleShowcase). Each WRAPS the irreducible engine via the shared
-// <DeckPreview> bridge (src/components/DeckPreview.tsx → src/lib/single-slide-render.ts)
+// <DeckPreview> bridge (src/components/DeckPreview.tsx → src/playground/single-slide-render.ts)
 // — it never reimplements the engine render.
 // See engineering/decisions/2026-06-09-shadcn-migration.md §0.
 import { readFileSync } from 'node:fs';

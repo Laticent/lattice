@@ -13,7 +13,11 @@ import type { AgentLibrary } from './architect-agent';
 
 type Loader = () => Promise<string>;
 
-const componentDocs = import.meta.glob<string>('../../../../lib/components/*/*/*.docs.md', { query: '?raw', import: 'default' });
+// A plugin's kinds (the charts plugin's chart kinds) keep their docs beside them, so both trees are read.
+const componentDocs = import.meta.glob<string>(['../../../../lib/components/*/*/*.docs.md', '../../../../lib/plugins/*/kinds/*/*.docs.md'], {
+  query: '?raw',
+  import: 'default',
+});
 const skillDocs = import.meta.glob<string>('../../../../design/skills/*.md', { query: '?raw', import: 'default' });
 const designDocs = import.meta.glob<string>(['../../../../design/editorial.md', '../../../../design/design-principles.md'], { query: '?raw', import: 'default' });
 const baseDocs = import.meta.glob<string>(['../../../../lib/base/base.docs.md', '../../../../lib/base/base.registers.docs.md'], { query: '?raw', import: 'default' });

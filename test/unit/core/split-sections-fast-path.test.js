@@ -1,7 +1,7 @@
 /**
  * `splitSections` walks literal section tags on stretches it can prove clean and
  * hands every other stretch to the `scanTags` tokenizer (the fast path is
- * explained above `walkFast` in lib/core/split-sections.js). The claim is that
+ * explained above `walkFast` in docs/src/lib/markup/sections.ts). The claim is that
  * this is an OPTIMIZATION: the pieces are identical to the tokenizer-only walk on
  * every input. This file is where that claim is held, over a seeded corpus built
  * from the shapes that make a `<section` literal something other than a tag.
@@ -9,7 +9,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 
 const FRAGMENTS = [
   '<section>', '<section class="a">', "<section class='b'>", '<section title="a>b" class="c">',

@@ -1,6 +1,6 @@
 /**
  * The deck-config "Slide size" picker (docs/src/playground/deck-sizes.js) must
- * stay in step with the engine's size registry (lib/engine/sizes.js): every value
+ * stay in step with the engine's size registry (lib/core/sizes.js): every value
  * it offers must be a real registered size, and the social/mobile formats added
  * in #399 must be present. This is the drift guard that was missing when the
  * picker offered only the three landscape sizes while the engine had eight.
@@ -15,7 +15,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { SIZES } = require('../../../lib/engine/sizes');
+const { SIZES } = require('../../../lib/core/sizes');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const registered = new Set(Object.keys(SIZES));
@@ -32,7 +32,7 @@ describe('deck-config size picker ↔ the size registry', () => {
 
   test('the registry actually defines the social/mobile sizes (#399)', () => {
     for (const s of ['square', 'portrait', 'story', 'mobile']) {
-      assert.ok(registered.has(s), `lib/engine/sizes.js is missing the '${s}' size`);
+      assert.ok(registered.has(s), `lib/core/sizes.js is missing the '${s}' size`);
     }
   });
 

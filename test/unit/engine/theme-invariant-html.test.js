@@ -1,7 +1,7 @@
 /**
  * WHAT A PALETTE CHANGES IN THE MARKUP — the theme's NAME, and nothing else.
  *
- * This started as the opposite claim. The sanitize memo in `docs/src/lib/single-slide-render.ts`
+ * This started as the opposite claim. The sanitize memo in `docs/src/playground/single-slide-render.ts`
  * was written believing the engine's HTML is theme-invariant, so a palette flip would re-sanitize
  * a string already sanitized and cost nothing. Measured over the whole committed corpus, that
  * looked true — because the measurement ran with NO theme registered, and the engine stamps
@@ -58,7 +58,7 @@ for (const rel of DECKS) {
 			neutral(a.html),
 			`${rel} renders differently under \`${THEMES[1]}\` than under \`${THEMES[0]}\` for a reason beyond the theme's NAME. ` +
 				'Something now emits palette-derived MARKUP. That may be right — but re-read the cache reasoning in ' +
-				'docs/src/lib/single-slide-render.ts before deleting this row.',
+				'docs/src/playground/single-slide-render.ts before deleting this row.',
 		);
 		assert.equal(neutral(c.html), neutral(a.html));
 	});

@@ -27,5 +27,5 @@ test('the `spark:` register the host builds is the sparks plugin\'s', () => {
 test('the inline kind is `spark`, behind `~`', () => {
   assert.deepEqual(Object.keys(manifest.contributes.inline), ['spark']);
   assert.equal(manifest.contributes.inline.spark.sigil, '~');
-  assert.equal(typeof sparks.inline.spark.resolve, 'function');
+  assert.equal(typeof sparks.inline({}).spark.resolve, 'function');
 });

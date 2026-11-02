@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
-const { parseBullet } = require('../../../lib/components/chart/bullet/bullet.transform.js');
-const { extractFirstList } = require('../../../lib/core/html-lists.js');
+const { parseBullet } = require('../../../lib/plugins/chart-family/kinds/bullet/bullet.transform.js');
+const { extractFirstList } = require('@laticent/markup');
 const bulletFacts = require('../../../lib/core/bullet-facts.js');
 const { __parseBulletRowsForTest, narrateBullet, narrateWordCloud, narrateChart } = require('../../../lib/core/chart-narration.js');
 

@@ -104,7 +104,7 @@ test('the stylesheet and markup channels agree on what an address is', async () 
 test('a package carrying it is REFUSED at the front door, not only reported (component and theme)', () => {
   // The finding alone is not enough: `firstRefusal` refuses only the rules it lists, and the
   // first cut of this fix reported the address while the package still installed and rendered.
-  const { refusePackage } = require('../../../lib/packages/gate.js');
+  const { refusePackage } = require('../../../lib/cli/package-gate.js');
   const css = `section.p{--q:"${E}/y";background-image:image-set(var(--q) 1x)}`;
   const comp = { type: 'component', name: 'p', manifest: { name: 'p', type: 'component' }, roles: { 'styles.css': 'p.styles.css' }, files: { 'p.styles.css': css } };
   assert.match(refusePackage(comp, { forRender: true }) ?? '', /custom property/);

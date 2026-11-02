@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fenceRanges } from '../src/components/studio/slide-directives';
+import { fenceRanges } from '../src/lib/slide-directives';
 import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
 
 // These specs are ES modules, so `__dirname` does not exist.

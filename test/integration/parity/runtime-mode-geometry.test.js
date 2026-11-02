@@ -38,8 +38,8 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
-const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
-const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
+const engine = require('../../../lib/transformers/chart-frame');
+const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -61,7 +61,7 @@ const deckFrontMatter = (lines) =>
 const engineTicks = (hand) => {
   const ul = GANTT_SECTION.match(/<ul>[\s\S]*<\/ul>/)[0];
   const out = ganttKernel.buildGanttChart(
-    engine.extractFirstList(ul).inner,
+    require('@laticent/markup').extractFirstList(ul).inner,
     { window: '2026-01-01 .. 2027-03-31' },
     undefined,
     hand,

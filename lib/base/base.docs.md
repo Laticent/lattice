@@ -1321,9 +1321,9 @@ foreground tokens meet WCAG AA on body backgrounds. The `.heat` modifier remaps
 hollow rings neutral.
 
 **Implementation contract:** the marker grammar AND its meaning live in one
-pair of kernels: `lib/plugins/checks/shared/leading.js` reads it (`readLeadingMarker`, the
+pair of kernels: `lib/core/checks-leading.js` reads it (`readLeadingMarker`, the
 Segno list-text grammar in `lib/core/list-text-grammar.js`) and
-`lib/plugins/checks/shared/registry.js` says what it means. Its `CHECKS` table is the one place the six
+`lib/core/checks-registry.js` says what it means. Its `CHECKS` table is the one place the six
 answers live: each row holds the answer's id, marker, shape class, mask token, tone token,
 hollow-or-solid, universal word and meaning, and `stateClassesFor`, `MARKERS` and
 `MARKER_LABELS` are read from it. The stylesheet, the layout word maps and the Studio's

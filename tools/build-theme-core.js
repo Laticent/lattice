@@ -2,7 +2,7 @@
 /**
  * Bundle the pure Theme Studio core for the browser.
  *
- *   lib/theme/{color,derive,contrast,serialize,parse,gate,starters}.js
+ *   lib/core/color.js + lib/theme/{derive,contrast,serialize,parse,gate,starters}.js
  *     →  docs/src/playground/theme-core.generated.js   (ESM, named exports)
  *
  * WHY a bundle (not a direct import like the Architect does with lint-core):
@@ -41,7 +41,7 @@ const silent = argv.includes('--silent') || check;
 // named ESM exports. `export *` doesn't work here — CJS exports aren't
 // statically enumerable, so esbuild can't surface them by name.
 const ENTRY_CONTENTS = `
-import color from './color.js';
+import color from '../core/color.js';
 import derive from './derive.js';
 import contrast from './contrast.js';
 import serialize from './serialize.js';

@@ -68,7 +68,7 @@
  *     Specificity is the only lever. With plain `:root` alone, an a11y deck exported
  *     with that directive renders `color-scheme: dark`, canvas rgb(0,0,0).
  *   · plain `:root` is what the PACKED paths need — specifically every frame built by
- *     `docs/src/lib/single-slide-render.ts`, which injects its own unpacked
+ *     `docs/src/playground/single-slide-render.ts`, which injects its own unpacked
  *     `:root{color-scheme:MODE}` (the component reference pages / Specimen, the Studio,
  *     the landing previews). NOT the Playground: `docs/src/playground/deck-preview.js`
  *     can inject that rule but its `colorScheme` option defaults to null and no

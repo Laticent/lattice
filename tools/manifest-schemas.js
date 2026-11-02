@@ -66,6 +66,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const Ajv2020 = require('ajv/dist/2020');
+const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -89,6 +90,7 @@ const FAMILIES = Object.freeze([
     dir: 'lib/components',
     ext: '.manifest.json',
     nested: true, // lib/components/<bucket>/<name>/<name>.manifest.json
+    pluginKinds: true, // and lib/plugins/<plugin>/kinds/<name>/<name>.manifest.json (lib/packages/fs.js pluginKindFolders)
   },
   {
     family: 'theme',
@@ -243,6 +245,9 @@ function listFamilyManifests(fam, root = ROOT) {
         ]),
       )
     : subdirs(base).map((d) => `${fam.dir}/${d}/${d}${fam.ext}`);
+  if (fam.pluginKinds) {
+    for (const k of pluginKindFolders(base)) leaves.push(path.relative(root, path.join(k.parent, k.name, `${k.name}${fam.ext}`)).split(path.sep).join('/'));
+  }
   for (const p of leaves) if (fs.existsSync(path.join(root, p))) out.push(p);
   return out.sort();
 }

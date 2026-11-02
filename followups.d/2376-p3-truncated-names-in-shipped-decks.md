@@ -4,7 +4,7 @@ priority: P3
 recorded: 2026-09-28
 area: chart
 severity: medium
-swimlane: lib/components/chart/waterfall/waterfall.docs.md
+swimlane: lib/plugins/chart-family/kinds/waterfall/waterfall.docs.md
 source: https://github.com/Laticent/lattice/pull/2376
 ---
 
@@ -18,7 +18,7 @@ why now   — the panes-chart-labels PR made a name painted cut short report as 
             examples/mobile-landscape.md prints "Contract…" under its waterfall. Both are visible in
             the committed PDFs. Pre-existing; this PR only made them reportable.
 where     — the two decks' waterfall slides (shorter step names, fewer steps), or waterfall's
-            category band (lib/components/chart/waterfall/waterfall.transform.js
+            category band (lib/plugins/chart-family/kinds/waterfall/waterfall.transform.js
             fitCategoryLabels), which gives each step two lines of about 12 characters.
 done when — neither deck's export prints a CHART LABELS DROPPED line, and each slide still makes
             its point.

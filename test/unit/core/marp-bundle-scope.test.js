@@ -8,7 +8,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { withMarpScope } = require('../../../lib/core/marp-bundle-scope');
-const { withRuntimeScriptsReport } = require('../../../lib/core/marp-bundle');
+const { withRuntimeScriptsReport } = require('../../../lib/export/marp-bundle');
 const { render } = require('../../../lib/engine');
 
 test('Marp numbers the deck as Lattice does: on by default, a manifest or a class opts a slide out or in', () => {

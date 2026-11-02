@@ -1,6 +1,6 @@
 /**
  * Unit tests for matrix-grid's chart-family builder
- * (lib/components/chart/matrix-grid/matrix-grid.transform.js buildMatrixGridSection).
+ * (lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform.js buildMatrixGridSection).
  *
  * buildMatrixGridSection runs on the raw section HTML before the generic
  * chart-frame skeleton wrap (eyebrow/h2/subtitle/caption lift). It does three
@@ -23,7 +23,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildMatrixGridSection } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
+const { buildMatrixGridSection } = require('../../../lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform');
 
 const ctx = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
 
@@ -203,7 +203,7 @@ describe('matrix-grid column geometry', () => {
   // them, so an index into the raw file finds the explanation, not the rule.
   const CSS = fs
     .readFileSync(
-      path.join(__dirname, '../../../lib/components/chart/matrix-grid/matrix-grid.styles.css'),
+      path.join(__dirname, '../../../lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.styles.css'),
       'utf8',
     )
     .replace(/\/\*[\s\S]*?\*\//g, '');
@@ -303,7 +303,7 @@ describe('matrix-grid column geometry', () => {
 describe('the cell key', () => {
   const {
     buildMatrixGridSection,
-  } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
+  } = require('../../../lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform');
   const { labelSetFor } = require('../../../lib/core/label-set');
 
   const cell = (shape, text = '') => `<td><span class="cell ${shape}">${text}</span></td>`;
@@ -405,7 +405,7 @@ describe('the cell key', () => {
 describe('the cell key and the screen-reader label agree', () => {
   const {
     buildMatrixGridSection,
-  } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
+  } = require('../../../lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform');
   const { cellHtml } = require('../../../lib/core/matrix-grid-cells');
 
   const CTX = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };

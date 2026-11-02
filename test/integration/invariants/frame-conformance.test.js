@@ -28,6 +28,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { renderHtml, ROOT } = require('../../helpers/semantic-render');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const { conformanceViolations, CELL_DOM_CLASS } = require('../../../lib/forms/frame-conformance');
 
 /** Best-effort Chromium path — mirrors component-invariants.test.js. */
@@ -46,13 +47,15 @@ function resolveChrome() {
 /** Every component manifest that opted into `conformance: "strict"`, sorted by name. */
 function strictComponents() {
   const out = [];
-  (function walk(dir) {
+  const walk = (dir) => {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, ent.name);
       if (ent.isDirectory()) walk(p);
       else if (ent.name.endsWith('.manifest.json')) out.push(p);
     }
-  })(path.join(ROOT, 'lib', 'components'));
+  };
+  // Every component root, the plugins' kinds (the chart kinds) included.
+  for (const root of componentCorpusRoots(path.join(ROOT, 'lib', 'components'))) walk(root);
   return out
     .sort()
     .map((f) => JSON.parse(fs.readFileSync(f, 'utf8')))

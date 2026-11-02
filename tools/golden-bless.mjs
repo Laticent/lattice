@@ -26,7 +26,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   BLESS_BUDGET_MS,
@@ -51,6 +51,8 @@ const require = createRequire(import.meta.url);
 // classify(): which markdown should have a committed PDF; buildFor(): render those PDFs.
 const { classify, buildFor } = require('./build-staged-pdfs.js');
 const { SHOWCASES: SHOWCASE_DEFS } = require('./build-showcase-galleries.js');
+const { componentDir, groupByBucket, loadAll } = require('../lib/components');
+const COMPONENTS_BY_BUCKET = groupByBucket(loadAll());
 
 const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 });
 // Changed AND new PDFs. `git diff` alone misses an untracked file, so a PDF the bless
@@ -275,7 +277,10 @@ async function main() {
     if (job?.kind !== 'showcase' || missing.includes(md)) continue;
     const def = SHOWCASE_DEFS.find((d) => d.id === job.id);
     const pdfs = expectedPdfs(md, job);
-    const sourcesAt = commitTime([md, ...(def?.buckets || []).map((b) => `lib/components/${b}`)]);
+    // A bucket's sources are its folder AND each member's own folder, which for a plugin kind is in
+    // its plugin (the chart showcase's chart kinds live in lib/plugins/chart-family/kinds/).
+    const bucketSources = (b) => [`lib/components/${b}`, ...(COMPONENTS_BY_BUCKET[b] || []).map((m) => relative(ROOT, componentDir(m)))];
+    const sourcesAt = commitTime([md, ...[...new Set((def?.buckets || []).flatMap(bucketSources))]]);
     if (pdfs.every((p) => isTracked(p) && commitTime([p]) >= sourcesAt)) continue;
     for (const p of pdfs) rmSync(join(ROOT, p), { force: true }); // a missing PDF is always stale
     try {

@@ -134,7 +134,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   characters (1,636,862 bytes — the numbers `.length` and `wc -c` give you differ,
   and this file is full of multi-byte punctuation) against 1,594,354 on disk. The
   whole 772-character difference is one hunk of
-  `lib/components/chart/journey/journey.styles.css` that `fbb6287` changed: a
+  `lib/plugins/chart-family/kinds/journey/journey.styles.css` that `fbb6287` changed: a
   nine-line comment added above `section.journey .journey-mood-key-label`, less
   the `opacity: 0.85` line the same commit deleted from the rule.
 - **What checks this properly, and where:** `npm run build:check:all` runs in

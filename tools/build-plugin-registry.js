@@ -35,11 +35,14 @@
  *   lib/plugins/inline.generated.js     CommonJS. Each plugin's inline-code kinds (`<name>.inline.js`),
  *                                        the rows lib/core/inline-code-directives.js appends to its own.
  *   lib/plugins/services.generated.js   CommonJS. Each plugin's services (`<name>.services.js`), for
- *                                        lib/plugins/services.js.
+ *                                        lib/core/plugin-services.js.
+ *   lib/plugins/dispatch.generated.js   CommonJS. Each plugin's dispatch (`<name>.dispatch.js`, the
+ *                                        code that calls an extension point's fillers), for the
+ *                                        transformer that runs it (lib/transformers/chart-family.js).
  *   lib/plugins/registers.generated.js  CommonJS, data only. Each plugin's front-matter registers, for
  *                                        lib/core/register-factory.js.
  *   lib/plugins/data.generated.js       CommonJS. Each plugin's data as a LAZY loader, which the
- *                                        engine registers with lib/plugins/plugin-data.js.
+ *                                        engine registers with lib/core/plugin-data.js.
  *   lib/plugins/data-probe.generated.mjs  ESM. Each data plugin's `detect` and on-demand file, for a
  *                                        browser surface that fetches the data before rendering.
  *   lib/plugins/meta.generated.mjs      ESM, data only. The slide-metadata vocabulary: the `meta` plugin's
@@ -91,10 +94,17 @@ const DRAW_WARM_FILE = path.join(PLUGINS_DIR, 'draw-warm.generated.mjs');
 const EXTENSION_POINTS_FILE = path.join(PLUGINS_DIR, 'extension-points.generated.json');
 const INLINE_FILE = path.join(PLUGINS_DIR, 'inline.generated.js');
 const SERVICES_FILE = path.join(PLUGINS_DIR, 'services.generated.js');
+
+/** The ctx the build hands a plugin's inline and services factories to list their keys: it offers nothing. */
+const PROBE_CTX = Object.freeze({ name: '', service: () => null, data: () => null, dataPending: () => false, vocabulary: Object.freeze({ checks: require('../lib/core/checks-registry.js') }), marks: Object.freeze({ read: () => null, html: () => '', element: () => null }) });
+const DISPATCH_FILE = path.join(PLUGINS_DIR, 'dispatch.generated.js');
 const REGISTERS_FILE = path.join(PLUGINS_DIR, 'registers.generated.js');
 const DATA_FILE = path.join(PLUGINS_DIR, 'data.generated.js');
 const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
 const META_FILE = path.join(PLUGINS_DIR, 'meta.generated.mjs');
+const DETECT_FILE = path.join(PLUGINS_DIR, 'detect.generated.mjs');
+const PROVIDERS_FILE = path.join(PLUGINS_DIR, 'providers.generated.mjs');
+const LINT_FILE = path.join(PLUGINS_DIR, 'lint.generated.js');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -121,7 +131,7 @@ function listPlugins() {
  */
 async function readExports(folder, name, manifest) {
   const dir = path.join(PLUGINS_DIR, folder);
-  const out = { rules: [], renderers: [], detect: false, hasSyntax: false, hasRender: false };
+  const out = { rules: [], renderers: [], detect: false, queries: false, hasSyntax: false, hasRender: false };
   const syntaxPath = path.join(dir, `${name}.syntax.mjs`);
   if (fs.existsSync(syntaxPath)) {
     const mod = await import(pathToFileURL(syntaxPath).href);
@@ -129,6 +139,10 @@ async function readExports(folder, name, manifest) {
     out.rules = Object.keys(manifest.contributes?.syntax || {}).filter((t) => typeof mod[t] === 'function');
     out.module = mod;
     out.detect = typeof mod.detect === 'function';
+    // `queries`: the plugin's other pure source detectors the host may ask (a frozen object of
+    // functions), forwarded beside `detect` in detect.generated.mjs only: the grammar table would keep
+    // them alive in every bundle that reads the grammar.
+    out.queries = !!mod.queries && typeof mod.queries === 'object' && Object.values(mod.queries).every((f) => typeof f === 'function');
   }
   const renderPath = path.join(dir, `${name}.render.js`);
   if (fs.existsSync(renderPath)) {
@@ -196,12 +210,26 @@ async function readExports(folder, name, manifest) {
   // keys (and each kind's four functions) so the one-to-one check can compare them.
   const inlinePath = path.join(dir, `${name}.inline.js`);
   if (fs.existsSync(inlinePath)) {
-    const { inline = {} } = require(inlinePath);
+    // `inline` is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js); read with a
+    // probe ctx that offers nothing, which is all a key listing needs.
+    const exported = require(inlinePath).inline;
+    if (typeof exported !== 'function') throw new Error(`${name}.inline.js: \`inline\` must be a factory of the plugin's ctx, \`(ctx) => ({ … })\``);
+    const inline = exported(PROBE_CTX);
     out.inline = Object.keys(inline);
     out.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row || {}).filter((f) => typeof row[f] === 'function')]));
   }
+  const lintPath = path.join(dir, `${name}.lint.js`);
+  if (fs.existsSync(lintPath)) {
+    const exported = require(lintPath).lint;
+    if (typeof exported !== 'function') throw new Error(`${name}.lint.js: \`lint\` must be a factory of the plugin's ctx, \`(ctx) => (deck) => findings\``);
+    out.hasLint = true;
+  }
   const servicesPath = path.join(dir, `${name}.services.js`);
-  if (fs.existsSync(servicesPath)) out.services = Object.keys(require(servicesPath).services || {});
+  if (fs.existsSync(servicesPath)) {
+    const exported = require(servicesPath).services;
+    if (typeof exported !== 'function') throw new Error(`${name}.services.js: \`services\` must be a factory of the plugin's ctx, \`(ctx) => ({ … })\``);
+    out.services = Object.keys(exported(PROBE_CTX));
+  }
   out.hasData = fs.existsSync(path.join(dir, `${name}.data.generated.js`));
   // The highlight grammar is a pure function of highlight.js's API; read for its export.
   const highlightPath = path.join(dir, `${name}.highlight.js`);
@@ -215,8 +243,8 @@ async function readExports(folder, name, manifest) {
   out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
   // Each VENDORED library copy's hash as it sits on disk ('' when missing) — a file's SHA-256 or a
   // directory's tree hash — keyed by its `file`, for the resolver to hold against the manifest's
-  // record: the copy the plugin owns is the one that ships (lib/plugins/payload-path.js).
-  const { copiesOf, copySha, walk } = require('../lib/plugins/payload-path.js');
+  // record: the copy the plugin owns is the one that ships (lib/core/payload-path.js).
+  const { copiesOf, copySha, walk } = require('../lib/core/payload-path.js');
   out.vendored = {};
   for (const { entry } of copiesOf(manifest)) out.vendored[entry.file] = copySha(path.join(dir, entry.file), entry.file.endsWith('/'));
   // Every file under the plugin's vendor/ folder, so the resolver can refuse one no manifest names:
@@ -295,6 +323,11 @@ async function shippedFenceClaims() {
  * regenerated once broken. For the same reason the rules are installed here directly rather
  * than through lib/plugins/host-grammar.mjs, which imports the generated grammar.
  */
+/** The state facade, loaded from its source (it imports nothing generated, so a broken registry can still rebuild). */
+function requireStateFacade() {
+  return require(path.join(ROOT, 'lib', 'plugins', 'state-facade.mjs'));
+}
+
 function componentsWithPlugins(listed, exportsByName) {
   const MarkdownIt = require('markdown-it');
   const { discoverPackages } = require(path.join(ROOT, 'lib', 'packages', 'fs.js'));
@@ -308,7 +341,8 @@ function componentsWithPlugins(listed, exportsByName) {
         if (typeof mod[token] !== 'function') continue; // the resolver reports the missing rule
         const ruler = rule.kind === 'inline' ? md.inline.ruler : md.block.ruler;
         const [side, anchor] = Object.entries(rule.anchor)[0];
-        ruler[side](anchor, token, mod[token]);
+        // As the host installs it: through the state facade (lib/plugins/state-facade.mjs).
+        ruler[side](anchor, token, requireStateFacade().guardedRule(mod[token], p.manifest.name, new Set(Object.keys(syntax))));
       }
       return { name: p.manifest.name, md, tokens: new Set(Object.keys(syntax)) };
     });
@@ -365,6 +399,81 @@ const HEADER = (what) => `// GENERATED by tools/build-plugin-registry.js from li
 
 const ident = (name) => `p_${name.replace(/-/g, '_')}`;
 
+/**
+ * The plugins' DETECTORS alone: each plugin's `detect` and `queries`, one named export per plugin, for
+ * code that only asks "does this source use the plugin" (the Studio deciding what to load). The grammar
+ * table answers too, but it carries every plugin's manifest data and syntax rules; a named export per
+ * plugin lets a bundler keep only the detectors a caller imports (route budget, #2630).
+ */
+/**
+ * The media PROVIDERS plugins declare (`contributes.providers`), as plain data keyed by plugin: the host's one matcher
+ * (lib/core/video-providers.mjs) reads them, so it never imports a plugin's folder and a plugin never ships the matcher.
+ * ESM, data only: Node requires it (require(esm)) and the docs site imports it.
+ */
+/**
+ * The plugins' LINT roles (`contributes.lint`), in dependency order: lib/authoring/lint-core.js runs each over the deck
+ * view it builds and refuses a finding whose rule the manifest does not declare. Light, like the inline kinds: the
+ * linter bundles it into every surface that lints.
+ */
+function renderLint(ordered) {
+  const lines = ordered.filter((p) => (p.manifest.contributes.lint || []).length)
+    .map((p) => `  Object.freeze({ plugin: ${JSON.stringify(p.manifest.name)}, rules: Object.freeze(${JSON.stringify(p.manifest.contributes.lint)}), lint: require('./${p.folder}/${p.manifest.name}.lint.js').lint }),`);
+  return `${HEADER('The plugins\' LINT roles, in dependency order: what lib/authoring/lint-core.js runs over its deck view.')}
+const PLUGIN_LINT = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { PLUGIN_LINT };
+`;
+}
+
+/**
+ * The trust rule for a declared provider's templates, enforced at build so no page carries the check: `embed` holds only
+ * the validated `{id}` (a hostile address must never become an iframe src), `watch` is an https template with `{id}` or
+ * exactly `{url}`, and `oembed` holds only `{watch}`. Returns the problems, one per bad template.
+ */
+function checkProviderTemplates(ordered) {
+  const problems = [];
+  const ID = /^https:\/\/[^{}]*\{id\}[^{}]*$/;
+  for (const p of ordered) {
+    for (const row of p.manifest.contributes.providers || []) {
+      const at = `plugin "${p.manifest.name}" provider "${row.key}"`;
+      if (row.embed !== null && !ID.test(row.embed)) problems.push(`${at}: embed may hold only {id}`);
+      if (row.watch !== '{url}' && !ID.test(row.watch)) problems.push(`${at}: watch is an https template with {id}, or exactly {url}`);
+      if (row.oembed !== null && !/^https:\/\/[^{}]*\{watch\}[^{}]*$/.test(row.oembed)) problems.push(`${at}: oembed may hold only {watch}`);
+    }
+  }
+  return problems;
+}
+
+function renderProviders(ordered) {
+  const rows = ordered.filter((p) => (p.manifest.contributes.providers || []).length)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: ${JSON.stringify(p.manifest.contributes.providers)},`);
+  return `${HEADER('The plugins\' declared media PROVIDERS, keyed by plugin name: data the host\'s matcher reads.')}
+export const PROVIDER_TABLES = Object.freeze({${rows.length ? `\n${rows.join('\n')}\n` : ''}});
+`;
+}
+
+function renderDetect(ordered, exportsByName) {
+  const withDetect = ordered.filter((p) => {
+    const exp = exportsByName.get(p.manifest.name);
+    return exp.hasSyntax && (exp.detect || exp.queries);
+  });
+  const imports = withDetect.map((p) => {
+    const exp = exportsByName.get(p.manifest.name);
+    const names = [...(exp.detect ? ['detect'] : []), ...(exp.queries ? ['queries'] : [])];
+    return `import { ${names.map((n) => `${n} as ${ident(p.manifest.name)}__${n}`).join(', ')} } from './${p.folder}/${p.manifest.name}.syntax.mjs';`;
+  });
+  const exportsOut = withDetect.map((p) => {
+    const exp = exportsByName.get(p.manifest.name);
+    const id = ident(p.manifest.name);
+    return `export const ${p.manifest.name.replace(/-/g, '_')} = /* @__PURE__ */ Object.freeze({ detect: ${exp.detect ? `${id}__detect` : 'null'}, queries: ${exp.queries ? `${id}__queries` : 'null'} });`;
+  });
+  return `${HEADER('The plugins\' DETECTORS: each plugin\'s `detect` and `queries`, one named export per plugin, so a bundle keeps only the ones it imports.')}
+${byModule(imports).join('\n')}
+
+${exportsOut.join('\n')}
+`;
+}
+
 function renderGrammar(ordered, exportsByName, components, fills) {
   const imports = ordered
     .filter((p) => {
@@ -388,7 +497,9 @@ function renderGrammar(ordered, exportsByName, components, fills) {
         `anchor: Object.freeze(${JSON.stringify(rule.anchor)})`,
         `triggers: Object.freeze(${JSON.stringify(rule.triggers)})`,
         `opaque: ${rule.opaque === true}`,
-        `run: ${mod}__${token}`,
+        // Through the state facade, here where the table is built, so no reader of the table can run a rule raw
+        // (lib/plugins/state-facade.mjs; 2026-11-01-plugin-contract-hollywood.md §4).
+        `run: guardedRule(${mod}__${token}, ${JSON.stringify(m.name)}, new Set(${JSON.stringify(Object.keys(m.contributes.syntax))}))`,
       ];
       return `      ${token}: Object.freeze({ ${fields.join(', ')} }),`;
     });
@@ -415,7 +526,7 @@ function renderGrammar(ordered, exportsByName, components, fills) {
     ].join('\n');
   });
   return `${HEADER('The plugins\' GRAMMAR, in dependency order: manifest data + syntax rules + detect. No renderer library is reachable from here.')}
-${byModule(imports).join('\n')}
+${byModule([...imports, ...(ordered.some((p) => Object.keys(p.manifest.contributes.syntax || {}).length) ? [`import { guardedRule } from './state-facade.mjs';`] : [])]).join('\n')}
 
 export const PLUGIN_GRAMMAR = Object.freeze([
 ${entries.join('\n')}
@@ -474,9 +585,12 @@ function renderBlocks(ordered) {
   const byPlugin = new Map();
   for (const { plugin, token } of entries) byPlugin.set(plugin, [...(byPlugin.get(plugin) || []), token]);
   const imports = [...byPlugin].map(([plugin, tokens]) => `import { ${tokens.sort().join(', ')} } from './${plugin.folder}/${plugin.manifest.name}.syntax.mjs';`);
+  if (entries.length) imports.push(`import { guardedRule } from './state-facade.mjs';`);
+  // Each rule through the state facade, with its plugin's declared token types, as host-grammar.mjs installs it.
+  const guard = (e) => `guardedRule(${e.token}, ${JSON.stringify(e.plugin.manifest.name)}, new Set(${JSON.stringify(Object.keys(e.plugin.manifest.contributes.syntax))}))`;
   const calls = [
-    ...entries.filter((e) => e.rule.anchor.before).map((e) => `  md.block.ruler.before(${JSON.stringify(e.rule.anchor.before)}, ${JSON.stringify(e.token)}, ${e.token});`),
-    ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${e.token});`),
+    ...entries.filter((e) => e.rule.anchor.before).map((e) => `  md.block.ruler.before(${JSON.stringify(e.rule.anchor.before)}, ${JSON.stringify(e.token)}, ${guard(e)});`),
+    ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${guard(e)});`),
   ];
   const opaque = entries.filter((e) => e.rule.opaque).map((e) => e.token);
   const ahead = entries.filter((e) => typeof e.rule.scansAhead === 'string').map((e) => `${JSON.stringify(e.token)}: ${JSON.stringify(e.rule.scansAhead)}`);
@@ -698,6 +812,9 @@ function renderDrawHostAdapters(ordered) {
   const lines = ordered.filter((p) => p.manifest.draw?.host === true).map((p) => `  ${JSON.stringify(p.manifest.name)}: () => import('./${p.folder}/${p.manifest.name}.draw-host.mjs'),`);
   return `${HEADER('The host-page halves of the plugins a sandboxed draw frame draws for, each imported lazily.')}
 export const DRAW_HOST_ADAPTERS = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+/** What each draw kind's answer IS, from its manifest's \`draw.output\`: the host picks the sanitizer for it, the plugin does not. */
+export const DRAW_OUTPUTS = Object.freeze(${JSON.stringify(Object.fromEntries(ordered.filter((p) => p.manifest.draw).map((p) => [p.manifest.name, p.manifest.draw.output || 'html'])))});
 `;
 }
 
@@ -799,9 +916,12 @@ function renderInline(ordered) {
     // A SHORTCUT kind (`[x]`, a check) is not a record: the manifest's one opening character is the row's `lead`.
     const tag = decl.untagged ? `sigil: null, untagged: true` : decl.shortcut ? `sigil: null, shortcut: true, lead: ${decl.shortcut.charCodeAt(0)}` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
     const embedded = m.embedded === true ? ', embedded: true' : '';
-    return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
+    return `  inlineRow(${JSON.stringify(m.name)}, ${JSON.stringify(kind)}, require('./${p.folder}/${m.name}.inline.js').inline, { name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag} }),`;
   }));
   return `${HEADER('The plugins\' INLINE-CODE kinds, in dependency order: the rows the host\'s dispatcher appends to its own.')}
+const { inlineRow } = require('../core/plugin-ctx.js');
+
+// A plugin's \`inline\` export is a factory the host calls with the plugin's ctx (lib/core/plugin-ctx.js).
 const INLINE = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
 
 module.exports = { INLINE };
@@ -809,16 +929,33 @@ module.exports = { INLINE };
 }
 
 /**
- * The plugins' SERVICES, keyed by plugin: the named functions lib/plugins/services.js hands a
+ * The plugins' SERVICES, keyed by plugin: the named functions lib/core/plugin-services.js hands a
  * caller that asks the host, never the plugin. Light modules, like the inline kinds.
  */
 function renderServices(ordered) {
   const lines = ordered.filter((p) => (p.manifest.contributes.services || []).length)
     .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.services.js').services,`);
-  return `${HEADER('The plugins\' SERVICES, keyed by plugin name: what lib/plugins/services.js hands a caller.')}
+  return `${HEADER('The plugins\' SERVICES, keyed by plugin name: what lib/core/plugin-services.js hands a caller.')}
 const SERVICES = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
 
 module.exports = { SERVICES };
+`;
+}
+
+/**
+ * The plugins' DISPATCHES, keyed by plugin: each plugin that offers an extension point ships the
+ * code that calls its fillers (`<name>.dispatch.js`), and the transformer that runs it reaches it
+ * here, never by importing the plugin's folder (engineering/decisions/2026-10-11-codebase-structure.md).
+ * Its own module, apart from the registry, because a dispatch loads every filler and the runtime
+ * bundle that carries the chart transformer must not carry every plugin's renderer with it.
+ */
+function renderDispatch(ordered) {
+  const lines = ordered.filter((p) => Object.keys(p.manifest.contributes.extensionPoints || {}).length)
+    .map((p) => `  ${JSON.stringify(p.manifest.name)}: require('./${p.folder}/${p.manifest.name}.dispatch.js'),`);
+  return `${HEADER('The plugins\' DISPATCHES, keyed by plugin name: the code that calls each extension point\'s fillers.')}
+const DISPATCH = Object.freeze({${lines.length ? `\n${lines.join('\n')}\n` : ''}});
+
+module.exports = { DISPATCH };
 `;
 }
 
@@ -840,7 +977,7 @@ module.exports = { PLUGIN_REGISTERS };
 }
 
 /**
- * Each plugin's DATA, as a lazy loader the engine registers with lib/plugins/plugin-data.js, so a
+ * Each plugin's DATA, as a lazy loader the engine registers with lib/core/plugin-data.js, so a
  * Node render loads it on first use and never otherwise. A browser bundle that carries the engine
  * aliases THIS file to lib/plugins/data-browser-stub.js, and the data arrives as its own script.
  */
@@ -959,6 +1096,8 @@ async function build(opts = {}) {
   if (errors.length) return { errors, warnings };
   const byName = new Map(listed.map((p) => [p.manifest.name, p]));
   const ordered = order.map((n) => byName.get(n));
+  const providerProblems = checkProviderTemplates(ordered);
+  if (providerProblems.length) return { errors: providerProblems, warnings };
   return {
     errors: [],
     warnings,
@@ -981,10 +1120,14 @@ async function build(opts = {}) {
       [EXTENSION_POINTS_FILE, renderExtensionPoints(ordered)],
       [INLINE_FILE, renderInline(ordered)],
       [SERVICES_FILE, renderServices(ordered)],
+      [DISPATCH_FILE, renderDispatch(ordered)],
       [REGISTERS_FILE, renderRegisters(ordered)],
       [DATA_FILE, renderData(ordered)],
       [DATA_PROBE_FILE, renderDataProbe(ordered, exportsByName)],
       [META_FILE, renderMeta(ordered)],
+      [DETECT_FILE, renderDetect(ordered, exportsByName)],
+      [PROVIDERS_FILE, renderProviders(ordered)],
+      [LINT_FILE, renderLint(ordered)],
     ],
   };
 }
@@ -1005,7 +1148,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,registers,data,data-probe,meta}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers,lint}.generated.*\n`);
 }
 
 if (require.main === module) {

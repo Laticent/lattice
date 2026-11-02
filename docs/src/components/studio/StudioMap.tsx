@@ -28,13 +28,13 @@ import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
+import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import { deckDerivedFactsFor, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/lib/strip-actions';
-import { slideClass } from './lint';
+import { deckDerivedFactsFor, type SingleSlideOptions } from '@/playground/single-slide-render';
+import { slideClass } from '../../lib/deck-lint';
 import { liveColor } from './live/live-model';
 import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';
 import type { RailPerson } from './SlideRail';
@@ -64,7 +64,7 @@ export interface StudioMapProps {
 	classLabels?: boolean;
 	/** Called once the map has mounted, so the shell hides the pills only when there is a map to replace them. */
 	onReady?: () => void;
-	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the map only navigates. */
+	/** The slide menu and its doors (components/studio/strip-actions), on the full view only; absent, the map only navigates. */
 	actions?: StripActions;
 	/** An empty deck's one tile, "+ Add your first slide", where the map edits. */
 	onAddFirst?: () => void;
@@ -104,6 +104,10 @@ interface Item {
 	section: number;
 	flat: number;
 }
+
+// At the Read stop the caption row still runs, holding the number alone, so every stop draws the same picture size in
+// the same 116px strip (StudioShell.tsx).
+const NO_CLASS = () => '';
 
 export default function StudioMap({ hub, index, view, onPick, options, sample, front, paletteOverride, extraTheme, modeOverride, extraCss, aspect, orientation, people, classLabels = false, onReady, actions, onAddFirst }: StudioMapProps) {
 	const items = React.useMemo(() => {
@@ -284,7 +288,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	onReadyRef.current = onReady;
 	React.useEffect(() => onReadyRef.current?.(), []);
 
-	// ── THE SLIDE MENU (lib/strip-actions) ── on the rail's container, so MapRail, which the Playground shares, stays a
+	// ── THE SLIDE MENU (components/studio/strip-actions) ── on the rail's container, so MapRail, which the Playground shares, stays a
 	// pure navigator: the menu's doors are native listeners here, and its ⋯ goes in the rail's one slot by the focus.
 	const wrapRef = React.useRef<HTMLDivElement>(null);
 	const slideOf = React.useCallback((el: Element) => {
@@ -307,12 +311,13 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		const it = items[i];
 		return it ? `${index.units[it.unit]?.id ?? it.unit}:${it.section}` : i;
 	}, [items, index]);
-	// The ⋯ sits over the tile's corner. On touch it draws at 28px over a 48px hit area (its ::after), so the 44px touch
-	// floor holds without a button that covers a third of a 72px tile.
+	// The ⋯ is the caption pill's right-hand segment, as it is on the current pill (SlideRail.tsx), so it reuses the pill's
+	// INSET shape. Every captioned tile is at least 16:9 wide (MapRail geometryFor), so it always has the room. On touch it
+	// is 44px wide and its ::after lifts the hit area to 44px tall over the 22px caption.
 	const adorn = React.useCallback(
 		(i: number) => {
 			const it = items[i];
-			return actions && it ? <SlideMenuButton actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute top-1 left-1 z-20 size-6 bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] [@media(pointer:coarse)]:size-7 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5 [@media(pointer:coarse)]:after:content-['']" /> : null;
+			return actions && it ? <SlideMenuButton inset actions={actions} at={{ unit: it.unit, part: it.section }} className="absolute bottom-px right-px z-20 h-5 rounded-r-[5px] [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-y-3 [@media(pointer:coarse)]:after:inset-x-0 [@media(pointer:coarse)]:after:content-['']" /> : null;
 		},
 		[items, actions],
 	);
@@ -327,7 +332,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 					</button>
 				</div>
 			) : (
-				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : undefined} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
 			)}
 		</div>
 	);

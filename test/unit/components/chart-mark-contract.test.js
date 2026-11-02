@@ -12,9 +12,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const engine = require('../../../lib/engine');
-const { hueContract } = require('../../../lib/components/chart/flowchart/flowchart.transform');
+const { hueContract } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.transform');
 const cells = require('../../../lib/core/matrix-grid-cells');
-const { buildQuadrant, parseQuadrant } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+const { buildQuadrant, parseQuadrant } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
 
 /**
  * Every opening tag in `html`, found by a linear scan rather than a regex: the patterns this
@@ -125,7 +125,7 @@ describe('marks the gallery does not render', () => {
   test('a slotted flowchart group carries no contract; its shapes and tile key do', () => {
     const md = '<!-- _class: flowchart -->\n\n## F\n\n- Ingest `c2`\n  - Pull `c3` -> Parse `c3`\n\n`[{c2, Ingest}, {c3, Step}]`\n';
     const html = render(md);
-    const { browserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout');
+    const { browserJs } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
     // The group is drawn by the browser pass; its template must not stamp the contract.
     assert.doesNotMatch(browserJs(), /fc-group"[^\n]*data-hue/);
     const keys = tagsOf(html, 'span', 'fc-key-swatch');
@@ -141,7 +141,7 @@ describe('marks the gallery does not render', () => {
   // one chart back on its shipped paint inside a finished deck. Each row renders the member's
   // own docs example for that variant.
   const docsExample = (member, variant) => {
-    const md = fs.readFileSync(path.join(__dirname, `../../../lib/components/chart/${member}/${member}.docs.md`), 'utf8');
+    const md = fs.readFileSync(path.join(__dirname, `../../../lib/plugins/chart-family/kinds/${member}/${member}.docs.md`), 'utf8');
     const from = md.indexOf(`### \`${variant}\``);
     assert.ok(from >= 0, `${member}.docs.md has a ${variant} section`);
     const fence = /```markdown\n([\s\S]*?)\n```/.exec(md.slice(from));

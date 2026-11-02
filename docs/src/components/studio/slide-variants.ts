@@ -1,4 +1,4 @@
-import { getClassTokens, setClassTokens, setGroupToken } from './slide-directives';
+import { getClassTokens, setClassTokens, setGroupToken } from '../../lib/slide-directives';
 
 /**
  * A component's OWN classification of its declared variants (`variantAxes` in

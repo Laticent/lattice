@@ -41,13 +41,13 @@ const SCRATCH = path.join(ROOT, '.scratch', `folder-drop-${process.pid}`);
 const DROP_NAME = 'tempo-bars';
 const DROP_FIGURE = 'tempo-bars-strip';
 
-// Deliberately takes EVERY helper off \`ctx.utils\` and requires nothing. That is
-// the facility \`ctx\` carries for a dropped-in kernel — a kernel written outside
-// this tree cannot know the relative path to transform-utils — so the drop proof
-// is the right place to exercise it. First-party kernels require directly, which
-// would have left \`ctx.utils\` shipped and unused.
-const DROP_KERNEL = `function buildTempoBars(ulInner, utils) {
-  const { escAttr, parseTopLevelLis } = utils;
+// A kind dropped into the plugin's kinds/ folder takes the plugin's own helpers by relative path, as every
+// shipped kind does: the drop lands inside the plugin, so `../../shared/` is known (the host's `ctx.utils` bag of
+// HTML walkers was deleted in #2997, engineering/decisions/2026-11-02-slide-facts-for-kinds.md §3).
+const DROP_KERNEL = `const { escAttr, spliceFirstList } = require('../../shared/transform-utils');
+const { parseTopLevelLis } = require('@laticent/markup');
+
+function buildTempoBars(ulInner) {
   const rows = parseTopLevelLis(ulInner).map((item) => {
     const m = item.match(/^([\\s\\S]*?)\\s*<code>([^<]+)<\\/code>\\s*$/);
     const label = (m ? m[1] : item).replace(/<[^>]+>/g, '').trim();
@@ -57,8 +57,8 @@ const DROP_KERNEL = `function buildTempoBars(ulInner, utils) {
   return '<div class="${DROP_FIGURE}">' + rows + '</div>';
 }
 
-function transformSection(html, ctx) {
-  return ctx.utils.spliceFirstList(html, (ext) => buildTempoBars(ext.inner, ctx.utils));
+function transformSection(html) {
+  return spliceFirstList(html, (ext) => buildTempoBars(ext.inner));
 }
 
 module.exports = { transformSection, buildTempoBars };
@@ -107,7 +107,7 @@ function stageTree() {
 }
 
 function dropChart(projection = DROP_MANIFEST.projection) {
-  const dir = path.join(SCRATCH, 'lib', 'components', 'chart', DROP_NAME);
+  const dir = path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'kinds', DROP_NAME);
   fs.mkdirSync(dir, { recursive: true });
   const manifest = projection === null
     ? Object.fromEntries(Object.entries(DROP_MANIFEST).filter(([k]) => k !== 'projection'))
@@ -144,8 +144,8 @@ test('a chart added by folder-drop alone', async (t) => {
 
   const registry = require(
     path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'shared', 'chart-registry.generated.js'));
-  const family = require(
-    path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'chart-family.dispatch.js'));
+  // The host's chart frame in the scratch tree, which reaches the scratch plugin through the generated dispatch table.
+  const family = require(path.join(SCRATCH, 'lib', 'transformers', 'chart-frame.js'));
 
   await t.test('the manifest alone put it in the dispatch table', () => {
     assert.ok(registry.LAYOUTS.includes(DROP_NAME),
@@ -260,7 +260,7 @@ test('a chart added by folder-drop alone', async (t) => {
   await t.test('FORGETTING the declaration goes RED — the arm the six rosters lacked', () => {
     dropChart(null);
     const dropped = JSON.parse(fs.readFileSync(path.join(
-      SCRATCH, 'lib', 'components', 'chart', DROP_NAME, `${DROP_NAME}.manifest.json`), 'utf8'));
+      SCRATCH, 'lib', 'plugins', 'chart-family', 'kinds', DROP_NAME, `${DROP_NAME}.manifest.json`), 'utf8'));
     assert.equal(dropped.projection, undefined, 'the fixture still declares a projection');
 
     // The LOADER accepts it: absence is a coverage question, not a shape error, and

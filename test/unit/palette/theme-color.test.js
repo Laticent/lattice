@@ -1,5 +1,5 @@
 /**
- * Unit: lib/theme/color.js — the color primitives shared by the Theme Studio
+ * Unit: lib/core/color.js — the color primitives shared by the Theme Studio
  * and the contrast gate. Pins the WCAG predicate to its anchor values, checks
  * the OKLCH round-trip on real shipped-theme colors, and exercises the
  * contrast-repair helper the derivation depends on.
@@ -20,7 +20,7 @@ const {
   mix,
   pickInk,
   ensureContrast,
-} = require('../../../lib/theme/color.js');
+} = require('../../../lib/core/color.js');
 
 describe('theme-color', () => {
   test('normalizeHex accepts 3- and 6-digit, with/without #', () => {

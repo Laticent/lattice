@@ -11,7 +11,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { parseBracketList, tidy, unquote } = require('../../../lib/core/bracket-list');
+const { parseBracketList, tidy, unquote } = require('@laticent/segno/read');
 const { parseInlineSet } = require('../../../lib/core/label-set');
 
 describe('axis forms — a positional list', () => {

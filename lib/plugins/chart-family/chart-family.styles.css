@@ -1,5 +1,5 @@
 /* chart-family.styles.css — the chart family plugin's stylesheet: the shared chart frame for
- * list-and-pill chart layouts (was _chart-family.css, then _chart-family/chart-family.css).
+ * list-and-pill chart layouts (was _chart-family.css, then chart-family/shared/chart-family.css).
  *
  * Extracted from lib/_legacy.css in Phase 7 cleanup. Provides the
  * .chart-frame skeleton used by gantt, radar, quadrant, progress,
@@ -1591,7 +1591,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  * CARTESIAN CHROME — the shared plot furniture
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * The paint side of `_chart-family/cartesian.js`. Seven members (bar,
+ * The paint side of `chart-family/shared/cartesian.js`. Seven members (bar,
  * stacked-bar, line, waterfall, scatter, slope, bullet) draw their marks
  * themselves and get their AXES, GRID, TICKS and CATEGORY LABELS from here — so
  * a gridline is the same gray at the same weight on a bar slide and on a

@@ -48,13 +48,14 @@ const fs = require('node:fs');
 const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { minifyCss, minifyCssPieces } = require('./minify-css');
-const { sizeBlock } = require('../lib/engine/sizes');
+const { sizeBlock } = require('../lib/core/sizes');
+const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 /**
  * Stamp the engine's size registry into a stylesheet's `@theme` comment, as the
  * `@size` directives Marp reads.
  *
- * The engine owns the page box (lib/engine/sizes.js) and resolves geometry from
+ * The engine owns the page box (lib/core/sizes.js) and resolves geometry from
  * that table, so no SOURCE stylesheet carries `@size` any more. Marp is a
  * different consumer: marp-cli and the Marp for VS Code extension read geometry
  * out of the theme comment, and they only ever see dist/ — so the requirement is
@@ -248,7 +249,7 @@ const TAIL_SOURCES = [
   // (tools/build-marks-css.js). After every chart member's CSS, so a finish is read
   // last among the chart rules; BEFORE the print textures, so a print deck keeps its
   // pattern fills whatever finish it names. See lib/core/resolve-marks.js.
-  'lib/components/chart/_chart-family/marks.generated.css',
+  'lib/plugins/chart-family/chart-family.styles.generated.css',
   // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
   // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked
   // node fills). Scoped to section.print; inert on every non-print deck.
@@ -340,14 +341,14 @@ function formsSlicingCss() {
 // stylesheets (highlight-js's, and mermaid's plugin sheet lib/plugins/mermaid/mermaid.styles.css),
 // each a hand-authored token map, KaTeX's base is the package's own ~720-selector
 // layout sheet, read from the math plugin's OWN copy of it (lib/plugins/math/vendor/katex/,
-// the manifest's `vendor`; lib/plugins/payload-path.js), never node_modules. Its glyph fonts used to resolve to a
+// the manifest's `vendor`; lib/core/payload-path.js), never node_modules. Its glyph fonts used to resolve to a
 // pinned jsDelivr CDN; they are now SELF-HOSTED — we copy the plugin's woff2 to
 // dist/fonts/ and rewrite each `@font-face` src down to the single woff2 entry,
 // pointed at stylesheet-relative `fonts/<file>.woff2`. Math renders with zero
 // network, same as the text faces. (woff2 is universally supported on every
 // render path we target, so the woff/ttf fallbacks in KaTeX's src list are
 // dropped rather than shipped.) See lib/plugins/math/math.docs.md.
-const { vendorPath } = require('../lib/plugins/payload-path');
+const { vendorPath } = require('../lib/core/payload-path');
 const KATEX_CSS = vendorPath('math', 'katex-css');
 const KATEX_FONTS = vendorPath('math', 'katex-fonts');
 function katexFontFiles() {
@@ -517,6 +518,9 @@ function componentStyles() {
       tryReadFor(bucketRel, child.name);
     }
   }
+  // A plugin's kinds (the charts plugin's chart kinds, lib/plugins/<plugin>/kinds/<name>/) are components
+  // too: the same name sort places them, so moving a kind into its plugin leaves the bundle order alone.
+  for (const k of pluginKindFolders(root)) tryReadFor(path.relative(ROOT, k.parent), k.name);
 
   return [...collected.entries()]
     .sort(([a], [b]) => a.localeCompare(b))

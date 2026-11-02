@@ -345,7 +345,7 @@ test('a chart in a pane draws on a canvas shaped like its pane; a slide chart ke
 });
 
 test('a keyed chart grows its key only when the printed text really grows', () => {
-  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-legend');
+  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/plugins/chart-family/shared/svg-legend');
   // A synthetic unit: a 200-unit diagram with a key beside it whose width grows with its type.
   const build = (_o, m) => ({ viewW: 200 + 120 * m, viewH: 200 });
   const printed = (r, pv) => {
@@ -392,7 +392,7 @@ test('a radar in a pane lays out for the pane: its rim labels count in the fit',
 });
 
 test('a keyed chart with labels in its diagram is scored by the smaller text, capped at the slide', () => {
-  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-legend');
+  const { fitKeyToPane, FS_OF_HEIGHT } = require('../../../lib/plugins/chart-family/shared/svg-legend');
   // A 300-unit diagram whose own labels are 11 units at scale 1, growing with the key's type.
   const build = (_o, m) => ({ viewW: 300 + 200 * m, viewH: 300 + 30 * m });
   const pv = { w: 400, h: 60 };

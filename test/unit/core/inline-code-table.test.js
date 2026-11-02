@@ -15,8 +15,8 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '../../..');
 const table = require('../../../lib/core/inline-code-directives.js');
-const { stateHtml, stateElement, parseInlineState } = require('../../../lib/plugins/checks/shared/registry.js');
-const pills = require('../../../lib/plugins/pills/pills.inline.js');
+const { stateHtml, stateElement, parseInlineState } = require('../../../lib/core/checks-registry.js');
+const { pills } = require('../plugins/host-built.js');
 const sparks = require('../../../lib/plugins/sparks/sparks.inline.js');
 const icons = require('../../../lib/plugins/icons/icons.inline.js');
 const avatars = require('../../../lib/plugins/avatars/avatars.inline.js');
@@ -250,8 +250,8 @@ describe('the inline-code table — the lead table and the probe flags', () => {
    *  options together (a frame with a look, a skin with a beard) is reached by construction. */
   function pairs() {
     // Valid heads, and the empty or blank ones a kind refuses (a blank name, an empty label).
-    const kinds = [['^{database', icons.SPEC], ['!{Ada Okafor', avatars.SPEC], ['{BETA', CORE.pill], ['~{1 2 3', CORE.spark],
-      ['!{""', avatars.SPEC], ['!{ ', avatars.SPEC], ['!{c3', avatars.SPEC], ['{""', CORE.pill], ['{ ', CORE.pill], ['^{', icons.SPEC], ['~{', CORE.spark]];
+    const kinds = [['^{database', icons.SPEC], ['!{Ada Okafor', avatars.SPEC], ['{BETA', CORE.pill], ['~{1 2 3', require('../../../lib/plugins/sparks/sparks.inline.js').SPEC],
+      ['!{""', avatars.SPEC], ['!{ ', avatars.SPEC], ['!{c3', avatars.SPEC], ['{""', CORE.pill], ['{ ', CORE.pill], ['^{', icons.SPEC], ['~{', require('../../../lib/plugins/sparks/sparks.inline.js').SPEC]];
     const out = [];
     for (const [head, spec] of kinds) {
       const words = [];
@@ -369,7 +369,7 @@ describe('the named form — `@kind{…}` is its alias, on both paths (2026-10-1
   const named = (s) => (ALIAS[s[0]] ? `@${ALIAS[s[0]]}${s.slice(1)}` : `@pill${s}`);
   // The icons and avatars draw nothing until their data is provided (an engine does it; a unit test
   // that builds none does it itself), and nothing equals nothing: load both, and count real drawings.
-  const { provideData } = require('../../../lib/plugins/plugin-data.js');
+  const { provideData } = require('../../../lib/core/plugin-data.js');
   provideData('icons', () => require('../../../lib/plugins/icons/icons.data.generated.js'));
   provideData('avatars', () => require('../../../lib/plugins/avatars/avatars.data.generated.js'));
 

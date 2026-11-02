@@ -36,7 +36,7 @@ const palette = pi >= 0 ? args[pi + 1] : 'indaco';
 
 let decks = args.filter((a) => a.endsWith('.md')).map((a) => (a.startsWith('/') ? a : join(process.cwd(), a)));
 if (args.includes('--galleries')) {
-  decks = globSync('lib/components/**/*.gallery.md', { cwd: ROOT }).map((p) => join(ROOT, p)).sort();
+  decks = [...globSync('lib/components/**/*.gallery.md', { cwd: ROOT }), ...globSync('lib/plugins/*/kinds/**/*.gallery.md', { cwd: ROOT })].map((p) => join(ROOT, p)).sort();
 }
 if (!decks.length) {
   console.error('No decks. Pass <deck>.md paths or --galleries.');

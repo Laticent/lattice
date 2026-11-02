@@ -5,10 +5,10 @@
 // Pure/async, degrades to a null assessment (never a fabricated grade) when the deck
 // has no real content. See engineering/decisions/2026-07-03-studio-succession.md §2.1.
 
-import { buildVocabSets } from '@/playground/editor-diagnostics.js';
+import { buildVocabSets } from '@/lib/editor-diagnostics.js';
+import { splitSlides as studioSplitSlides } from '../../../lib/deck-lint';
+import { stripFrontMatter } from '../../../lib/front-matter';
 import type { Finding } from '../architect';
-import { stripFrontMatter } from '../front-matter';
-import { splitSlides as studioSplitSlides } from '../lint';
 
 export type ScoreCategory = { key: string; half: 'craft' | 'style'; label: string; score: number | null; na?: boolean; notes: string[] };
 export type ScoreHalf = { score: number; band: string; summary: string };

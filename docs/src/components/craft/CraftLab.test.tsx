@@ -9,7 +9,7 @@ import { CraftLab } from './CraftLab';
 const { renderInto } = vi.hoisted(() => ({
 	renderInto: vi.fn(() => Promise.resolve({ ok: true, slides: 1, error: null as string | null })),
 }));
-vi.mock('@/lib/single-slide-render', () => ({
+vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: () => ({
 		renderInto,
 		whenReady: () => Promise.resolve(),

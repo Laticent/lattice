@@ -749,6 +749,19 @@ Two mechanisms, neither of which replaces the loop above:
 Design and the reasoning behind counting rather than clocking:
 `engineering/decisions/2026-08-03-performance-guard.md`.
 
+## A refactor that must not move output — `npm run identity:check`
+
+A move, a split or a contract change that claims "no behavior change" proves it with
+`npm run identity:check -- --strict` (`tools/render-identity.mjs`), not a sentence in the PR. It builds this tree and
+another commit (`--ref`, default `origin/main`), renders every shipped deck (examples, the baseline decks, every
+gallery) through each tree's engine, and compares the HTML per deck, the stylesheets the CSS build writes, and
+`lint:deck --all`'s findings. `--strict` also fails on a deck that does not pair by its source, so a deck edited in the
+same PR cannot leave the comparison. Paste its summary line in the PR's Tests section.
+
+What it does not cover, so say which of these you checked another way: the browser runtime's DOM pass, the CLI's
+PDF, PPTX and player bytes, the Studio's single-slide render (`npm run equiv:check`), and decks rendered with
+options other than their own front matter.
+
 ## OpenRouter budget — our key stays cheap (HARD RULE #24)
 
 We have a paid `OPEN_ROUTER_KEY` in the environment. Two failure modes to prevent, and
@@ -986,7 +999,7 @@ each one, tracked in that doc's backlog (§6).
 
 The owned engine is canonical (the marp-parity gate was retired in P4; Marp
 is no longer a render path). The one remaining Marp surface is **Export to
-Marp** (`lib/core/marp-bundle.js`) — a one-way bundle for recipients, NOT a
+Marp** (`lib/export/marp-bundle.js`) — a one-way bundle for recipients, NOT a
 Lattice render path, so it isn't a third renderer to keep in parity.
 
 **A floor this rule never touches:** manually wiring `dist/lattice-runtime.js`
@@ -1350,7 +1363,7 @@ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
 | `grouping_strategy` | `ALLGREEN` | A group merges only if every PR in it is green; a red one is removed and the rest re-tested |
 | `max_entries_to_build` / `max_entries_to_merge` | 5 / 5 | Up to five PRs are tested together, each on top of the ones ahead |
 | `min_entries_to_merge_wait_minutes` | 5 | The queue waits up to 5 minutes to fill a group |
-| `check_response_timeout_minutes` | 60 | A `ci` run that has not reported in 60 minutes fails the entry |
+| `check_response_timeout_minutes` | 120 (raised from 60 by the owner 2026-10-29, after runner contention pushed queue runs past 60 minutes and ejected PRs that had only been waiting; `engineering/decisions/2026-10-30-ci-pipeline-stages.md`) | A `ci` run that has not reported in 120 minutes fails the entry |
 | Required check | `ci` (the aggregate job in `ci.yml`) | The only check the queue waits on — CodeQL is not in it |
 | `strict_required_status_checks_policy` | `false` (turned off by the owner 2026-10-06; it was `true` when read on 2026-09-28) | "Require branches to be up to date". Even when it was on, it did **not** stop a behind PR entering the queue: 12 of the last 15 queue entries up to 2026-09-28 were behind `main` (by 1–8 commits) and 11 merged green. It only made GitHub label behind PRs "out-of-date". The queue tests every PR against current `main`, so the setting added nothing. **Ignore an "out-of-date" label if it ever comes back** |
 

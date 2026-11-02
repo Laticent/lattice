@@ -30,13 +30,101 @@
       }
     ]
   },
+  "hostApi": [
+    "video.inline.js",
+    "shared/video-marp-export.js"
+  ],
   "contributes": {
     "inline": {
       "video": {
         "named": true,
         "address": true
       }
-    }
+    },
+    "providers": [
+      {
+        "key": "youtube",
+        "label": "YouTube",
+        "hosts": [
+          "youtube.com",
+          "youtu.be",
+          "youtube-nocookie.com"
+        ],
+        "id": [
+          {
+            "query": "v",
+            "pattern": "^[\\w-]{11}$"
+          },
+          {
+            "host": "youtu.be",
+            "path": "^/([\\w-]{11})$"
+          },
+          {
+            "notHost": "youtu.be",
+            "path": "^/(?:shorts|embed|live|v)/([\\w-]{11})$"
+          }
+        ],
+        "watch": "https://www.youtube.com/watch?v={id}",
+        "oembed": "https://www.youtube.com/oembed?url={watch}&format=json",
+        "embed": "https://www.youtube-nocookie.com/embed/{id}?autoplay=1&rel=0",
+        "shape": "landscape"
+      },
+      {
+        "key": "vimeo",
+        "label": "Vimeo",
+        "hosts": [
+          "vimeo.com"
+        ],
+        "id": [
+          {
+            "path": "^/(?:video/)?(\\d{5,})(?:/|$)"
+          }
+        ],
+        "watch": "https://vimeo.com/{id}",
+        "oembed": "https://vimeo.com/api/oembed.json?url={watch}",
+        "embed": "https://player.vimeo.com/video/{id}?autoplay=1",
+        "shape": "landscape"
+      },
+      {
+        "key": "tiktok",
+        "label": "TikTok",
+        "hosts": [
+          "tiktok.com"
+        ],
+        "id": [
+          {
+            "path": "^/(?:@[\\w.-]+/video/|embed/(?:v2/)?|player/v1/)(\\d{6,})(?:/|$)"
+          }
+        ],
+        "watch": "{url}",
+        "oembed": "https://www.tiktok.com/oembed?url={watch}",
+        "embed": "https://www.tiktok.com/player/v1/{id}?autoplay=1",
+        "shape": "portrait",
+        "asyncResolve": true
+      },
+      {
+        "key": "instagram",
+        "label": "Instagram",
+        "hosts": [
+          "instagram.com"
+        ],
+        "id": [
+          {
+            "path": "^/(?:reels?|p|tv)/([\\w-]+)(?:/|$)"
+          }
+        ],
+        "watch": "{url}",
+        "oembed": null,
+        "embed": "https://www.instagram.com/p/{id}/embed/",
+        "shape": "portrait"
+      }
+    ],
+    "lint": [
+      "video-not-alone",
+      "video-no-record",
+      "video-slide-class",
+      "video-extra-record"
+    ]
   },
   "render": {
     "parity": "equivalent",

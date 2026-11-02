@@ -46,6 +46,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const {
   CARD_STYLE_LAYOUTS,
   findInlineTitleBodyLine,
@@ -103,8 +104,9 @@ describe('deck-authoring contract', () => {
       if (fs.existsSync(bucketGallery)) bucketGalleries.push(bucketGallery);
     }
   }
-  // Per-component galleries — every <name>.gallery.md beneath a bucket.
-  const componentGalleries = walkMarkdown(componentsRoot, '.gallery.md')
+  // Per-component galleries — every <name>.gallery.md beneath a bucket, and every plugin kind's
+  // (the chart kinds live in lib/plugins/chart-family/kinds/).
+  const componentGalleries = componentCorpusRoots(componentsRoot).flatMap((r) => walkMarkdown(r, '.gallery.md'))
     .filter((p) => !bucketGalleries.includes(p));
 
   const allDecks = [...examples, ...bucketGalleries, ...integrationGalleries, ...componentGalleries];
@@ -115,6 +117,7 @@ describe('deck-authoring contract', () => {
 
   test(`found ${allDecks.length} markdown decks to scan (sanity)`, () => {
     assert.ok(allDecks.length > 0, 'no decks discovered — directory walk broken');
+    assert.ok(componentGalleries.some((p) => p.endsWith(path.join('kinds', 'gantt', 'gantt.gallery.md'))), 'the gallery walk misses the plugin kinds (gantt)');
   });
 
   for (const deckPath of allDecks) {

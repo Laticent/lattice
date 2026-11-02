@@ -26,7 +26,7 @@ test('a docs-site change owes three widths, WebKit and Gecko, and screenshots', 
 });
 
 test('a docs/src/lib change owes screenshots too: it renders what the preview shows', () => {
-  assert.ok(surfaces(['docs/src/lib/single-slide-render.ts']).some((x) => /screenshots at 1440/.test(x)));
+  assert.ok(surfaces(['docs/src/playground/single-slide-render.ts']).some((x) => /screenshots at 1440/.test(x)));
   assert.ok(!surfaces(['docs/src/test/x.test.ts']).some((x) => /screenshots at 1440/.test(x)));
 });
 
@@ -53,5 +53,5 @@ test('a path in the platform-suites registry plans a dispatch for that suite', (
 });
 
 test('a component doc alone owes no render tier', () => {
-  assert.ok(!surfaces(['lib/components/chart/bar/bar.docs.md']).some((x) => /integration tier/.test(x)));
+  assert.ok(!surfaces(['lib/plugins/chart-family/kinds/bar/bar.docs.md']).some((x) => /integration tier/.test(x)));
 });

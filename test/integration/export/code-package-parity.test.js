@@ -26,13 +26,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { codePackages, bundleCodePackage } = require('../../../lib/packages/code-bundle.js');
+const { componentDir } = require('../../../lib/components');
 const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = require('../../../lib/core/code-sandbox.js');
-const { WORKER_NETWORK } = require('../../../lib/packages/code-shape.mjs');
-const { splitSections } = require('../../../lib/core/split-sections.js');
+const { WORKER_NETWORK } = require('../../../lib/core/code-shape.mjs');
+const { splitSections } = require('@laticent/markup');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
 const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
-const { slideFacts } = require('../../../lib/packages/slide-facts.mjs');
+const { slideFacts } = require('../../../lib/core/slide-facts.mjs');
 const { openSanitizerPage } = require('../../../lib/packages/code-door-worker.js');
 const { doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 
@@ -45,9 +46,9 @@ const SAMPLES_URL = 'https://studio.example/samples/';
 
 function sampleDeck(name) {
   if (name === 'qr') return path.join(ROOT, 'examples', 'qr.md');
-  const [hit] = fs.globSync(`lib/components/*/${name}/${name}.gallery.md`, { cwd: ROOT });
-  assert.ok(hit, `no gallery deck for ${name}`);
-  return path.join(ROOT, hit);
+  const deck = path.join(componentDir(name), `${name}.gallery.md`);
+  assert.ok(fs.existsSync(deck), `no gallery deck for ${name}`);
+  return deck;
 }
 
 /** Render `deck` and return what `adapter.applyToHtml` was handed and what it gave back. */
@@ -168,14 +169,14 @@ describe('code packages: every shipped transform runs in the locked page and mat
   });
 
   test('every component transform file is frozen into a package, and a chart carries only its own kernel', async () => {
-    const files = fs.globSync('lib/components/*/*/*.transform.js', { cwd: ROOT }).sort();
+    const files = fs.globSync(['lib/components/*/*/*.transform.js', 'lib/plugins/*/kinds/*/*.transform.js'], { cwd: ROOT }).sort();
     const pkgs = codePackages();
     const inputsOf = new Map();
     for (const p of pkgs) inputsOf.set(p.name, (await bundled(p.name)).inputs);
     const covered = new Set([...inputsOf.values()].flat());
     assert.deepEqual(files.filter((f) => !covered.has(f)), [], 'a shipped transform no package carries');
     for (const p of pkgs.filter((q) => q.chart)) {
-      const kernels = inputsOf.get(p.name).filter((f) => /^lib\/components\/chart\/[^_][^/]*\/[^/]+\.transform\.js$/.test(f));
+      const kernels = inputsOf.get(p.name).filter((f) => /^lib\/plugins\/[^/]+\/kinds\/[^/]+\/[^/]+\.transform\.js$/.test(f));
       assert.deepEqual(kernels, [path.relative(ROOT, p.chart.file)], `${p.name} must carry its own kernel and no other chart's`);
     }
   });

@@ -5,7 +5,7 @@
  *
  * The five targets, and the production function each one stands for:
  *
- *   axis   `[{Effort, 0..10, 5}, Reach]`   lib/core/bracket-list.js parseBracketList (cap 3 and uncapped)
+ *   axis   `[{Effort, 0..10, 5}, Reach]`   docs/src/lib/segno/bracket-list.ts parseBracketList (cap 3 and uncapped)
  *   flow   `Storefront -SEV1-> Payments`   splitRow as it was before Segno phase 3 (one text segment;
  *                                          tools/segno-legacy/flowchart-row.js)
  *   gantt  `2026 Q1..Q3`                    lib/core/gantt-time.js parseSpanToken + parseTimePoint
@@ -24,7 +24,7 @@ const { parseBracketList } = require('../segno-legacy/bracket-list.js');
 const { splitRow } = require('../segno-legacy/flowchart-row.js');
 const { parseSpanToken, parseTimePoint } = require('../../lib/core/gantt-time.js');
 const { isValuePill, signedValue } = require('../segno-legacy/chart-values.js');
-const { parseInlineState } = require('../../lib/plugins/checks/shared/registry.js');
+const { parseInlineState } = require('../../lib/core/checks-registry.js');
 const { resolve: resolvePill } = require('../segno-legacy/inline-pills.js');
 
 /** One output shape per target; every candidate's impl returns the same. */

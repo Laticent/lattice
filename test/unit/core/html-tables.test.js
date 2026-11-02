@@ -11,7 +11,7 @@ const MarkdownIt = require('markdown-it');
 
 const {
   extractFirstTable, spliceFirstTable, parseRowCells, parseRows, parseTable,
-} = require('../../../lib/core/html-tables');
+} = require('../../../lib/plugins/chart-family/shared/html-tables');
 
 const md = new MarkdownIt({ html: true });
 const TABLE = md.render([

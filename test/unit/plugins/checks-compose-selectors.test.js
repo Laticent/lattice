@@ -12,8 +12,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
-const { composeHtml, composeElement } = require('../../../lib/plugins/checks/shared/compose.js');
-const { CHECKS } = require('../../../lib/plugins/checks/shared/registry.js');
+// The composer as the host hands it out: the checks plugin's services, built with its ctx.
+const { service } = require('../../../lib/core/plugin-services.js');
+const composeHtml = service('checks', 'composeHtml');
+const composeElement = service('checks', 'composeElement');
+const { CHECKS } = require('../../../lib/core/checks-registry.js');
 
 const css = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
 const { document } = new JSDOM('<body></body>').window;

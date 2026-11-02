@@ -41,7 +41,7 @@ contains:
    `@laticent/lattice/themes/<name>.css` is a published export documented as a
    Marp theme file, and Marp throws without it. A palette does **not** declare
    `@size` — the page box belongs to the engine's registry
-   (`lib/engine/sizes.js`), and the build stamps those directives into `dist/`.
+   (`lib/core/sizes.js`), and the build stamps those directives into `dist/`.
    See `engineering/decisions/2026-08-16-size-registry-ownership.md` and
    `2026-08-16-theme-identity-ownership.md`.
 2. An `@import 'lattice'` line (pulls in layouts, structural tokens, and
@@ -358,7 +358,7 @@ byte-identical. See `engineering/textures.md`.
 **Quadrant chart** is now a native chart-family component, not a mermaid
 diagram — it draws from the chart-family's own `--catN-*` spectrum (tunable
 per theme via `--chart-catN`) and no longer uses theme-defined
-`--c-quadrant-*` slot tokens. See `lib/components/chart/quadrant/`.
+`--c-quadrant-*` slot tokens. See `lib/plugins/chart-family/kinds/quadrant/`.
 
 ### Chart-family palette (`--chart-catN`, the status solids)
 
@@ -393,7 +393,7 @@ slots it wants to flavor.
 status" recipe, and how each curated theme expresses it on its own
 hue-or-value axis (cuoio by warm hue, onyx by *value* not hue, indaco by cool
 hue + a curated crimson `fail`) — lives in
-`lib/components/chart/_chart-family/chart-family.style.md`.** This section is
+`design/chart-palette.md`.** This section is
 the mechanical contract; the style doc carries the "different yet similar"
 design principles.
 

@@ -9,7 +9,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert');
-const { findTopLevelH2, hasTopLevelTag, readTopLevelH2Text } = require('../../../lib/core/top-level-h2');
+const { findTopLevelH2, hasTopLevelTag, readTopLevelH2Text } = require('@laticent/markup');
 
 test('a nested h2 is not the section heading', () => {
   assert.equal(readTopLevelH2Text('<div class="card"><h2>Inner</h2></div><h2>Real</h2>'), 'Real');

@@ -36,7 +36,7 @@ section.lat-pane-host > .cell-stage > .lat-panes[data-panes="stack"] {
   flex-direction: column;
 }
 /* THE SPINE between the panes — the chart family's diagram|key rule
- * (buildSpine, lib/components/chart/_chart-family/svg-legend.js), in CSS: an accent
+ * (buildSpine, lib/plugins/chart-family/shared/svg-legend.js), in CSS: an accent
  * fade, transparent at both ends, so it reads as a quiet seam, not a hard divider.
  * The SVG copy keeps its own stops only because SVG `fill` cannot take a CSS
  * gradient; the five stops here are the same five. Keep them in step.

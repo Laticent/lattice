@@ -55,6 +55,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const COMPONENTS = path.join(ROOT, 'lib/components');
+const { pluginKindFolders } = require('../../../lib/packages/fs.js');
 
 /**
  * Counters that are NOT ordinals — a `counter()` used to print a DATUM the author
@@ -97,7 +98,8 @@ function components() {
     .filter((b) => b.isDirectory())
     .flatMap((b) => fs.readdirSync(path.join(COMPONENTS, b.name), { withFileTypes: true })
       .filter((c) => c.isDirectory())
-      .map((c) => ({ name: c.name, dir: path.join(COMPONENTS, b.name, c.name) })));
+      .map((c) => ({ name: c.name, dir: path.join(COMPONENTS, b.name, c.name) })))
+    .concat(pluginKindFolders(COMPONENTS).map((k) => ({ name: k.name, dir: path.join(k.parent, k.name) })));
 }
 
 /**

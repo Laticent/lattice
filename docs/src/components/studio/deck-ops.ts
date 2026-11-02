@@ -1,6 +1,6 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
-import { frontMatterBlock } from './front-matter';
+import { frontMatterBlock } from '../../lib/front-matter';
 
 // Structural slide editing on the deck SOURCE — add / delete / duplicate / move / replace.
 //

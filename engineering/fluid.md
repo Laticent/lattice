@@ -49,16 +49,16 @@ Until the P7 rename lands, "auto-split" and `split-*` in the code mean **Fluid's
 
 | Piece | File |
 |---|---|
-| the one preprocessor every surface calls (stamp, size gate, split, run adornments) | `lib/core/structural-split.js` `structuralSplit` |
+| the one preprocessor every surface calls (stamp, size gate, split, run adornments) | `lib/engine/structural-split.js` `structuralSplit` |
 | the decision: which slides divide, on which seam, how many pages | `@laticent/fluido` (`docs/src/lib/fluido/plan.ts`) `planSlide`, `paginates`, `rescueRuns` |
 | the split kernel, the connector that reads the facts and builds the pages | `lib/core/auto-split.js` `splitDoc` |
 | cover, body and closing pages | `lib/core/split-envelope.js` |
 | the 14 per-component strategies | `lib/core/carousel.js` `CAROUSEL_STRATEGIES` |
 | panes split per pane at non-`wide` sizes | `lib/core/panes.js` `installPaneSplit` |
-| the size gate | `lib/core/structural-split.js` `splitApplies` |
+| the size gate | `lib/engine/structural-split.js` `splitApplies` |
 
 Callers: the CLI (`lattice.js`), the Playground (`lib/playground/index.js` `splitForPreview`), the
-Studio (`docs/src/lib/single-slide-render.ts`) and the Studio's player export
+Studio (`docs/src/playground/single-slide-render.ts`) and the Studio's player export
 (`docs/src/components/studio/share-export.ts`). All of them go through `structuralSplit`.
 
 ## Checking a change

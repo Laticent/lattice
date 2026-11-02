@@ -6,10 +6,10 @@ import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelShe
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import { notify } from '@/lib/notify';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
-import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';

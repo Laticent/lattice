@@ -54,7 +54,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  ROOT, SIZE_ALIAS, FAMILIES, findManifest, renderProbe,
+  SIZE_ALIAS, FAMILIES, findManifest, renderProbe,
 } = require('./lib/calibrate-core.js');
 const { resolveChrome } = require('./lib/resolve-chrome.js');
 
@@ -106,17 +106,13 @@ for (const entry of EXTRA_FRONT_MATTER) {
 
 /** Every component manifest that carries a slide to render, in catalog order. */
 function componentNames() {
-  const root = path.join(ROOT, 'lib', 'components');
-  const names = [];
-  for (const bucket of fs.readdirSync(root).sort()) {
-    const dir = path.join(root, bucket);
-    if (!fs.statSync(dir).isDirectory()) continue;
-    for (const name of fs.readdirSync(dir).sort()) {
-      const m = findManifest(name);
-      if (m && (m.skeleton || m.sample)) names.push(name);
-    }
-  }
-  return names;
+  // Every component (`loadAll`: the buckets AND the plugins' kinds, where the chart kinds live), by
+  // bucket then name.
+  const { loadAll, manifestBucket } = require('../lib/components');
+  return loadAll()
+    .filter((m) => m.skeleton || m.sample)
+    .sort((a, b) => manifestBucket(a).localeCompare(manifestBucket(b)) || a.name.localeCompare(b.name))
+    .map((m) => m.name);
 }
 
 /** The skeleton as an author writes it: its own `_class` comment dropped so ours leads. */

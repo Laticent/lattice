@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { AcronymEntry } from '../../lib/front-matter';
 import { AcronymEditor } from './AcronymEditor';
-import type { AcronymEntry } from './front-matter';
 
 // The deck-scope Acronyms editor over `acronyms:`. It commits the WHOLE registry (term → { expansion,
 // definition? }) on blur / add / remove; the front-matter serialization is covered in front-matter.test.ts.

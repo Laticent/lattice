@@ -12,7 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const pills = require('../../../lib/plugins/pills/pills.inline.js');
+const { pills } = require('../plugins/host-built.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 

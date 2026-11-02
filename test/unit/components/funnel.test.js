@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/funnel/funnel.transform.js — kernel for the
+ * Unit: lib/plugins/chart-family/kinds/funnel/funnel.transform.js — kernel for the
  * `funnel` chart-family member.
  *
  * Section dispatch + chart-frame wrapping live in chart-family.dispatch.js (funnel is
@@ -21,7 +21,7 @@ const {
   parseFunnel,
   buildFunnel,
   GEOM,
-} = require('../../../lib/components/chart/funnel/funnel.transform');
+} = require('../../../lib/plugins/chart-family/kinds/funnel/funnel.transform');
 
 // Build the <ul> inner HTML the dispatcher hands the kernel. Each stage is
 // `<li>Label <code>value</code></li>`, matching Marp Core / emulator output.

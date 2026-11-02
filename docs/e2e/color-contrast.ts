@@ -24,7 +24,7 @@
  *
  * A shared module is what stops the next spec inheriting the broken one by copy.
  *
- * WHY NOT `lib/theme/color.js`, which is the repo's color kernel (HARD RULE #1):
+ * WHY NOT `lib/core/color.js`, which is the repo's color kernel (HARD RULE #1):
  * it answers a different question. Its `contrastRatio` takes two HEX STRINGS,
  * while every interesting reading here is a COMPOSITE — an alpha wash over a
  * ground — which has no hex spelling; and its `hexToRgb` throws on the 4- and

@@ -16,7 +16,7 @@
 // window is `deck-render.js`. It is its own module, apart from preview-virtual.js's patch kernel,
 // because the Studio's preview builder imports that kernel and must not carry the virtual list.
 
-import { splitSections as splitSectionsCore, unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
+import { splitSections as splitSectionsCore, unclosedSectionAt } from '@laticent/markup';
 
 /** The attribute that marks a placeholder. */
 export const LV_ATTR = 'data-lv-ph';

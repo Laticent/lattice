@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { nextIndex, type Palette } from '@/lib/restyle-carousel';
-import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
+import { createSingleSlideRenderer } from '@/playground/single-slide-render';
 
 // "Your brand, one line": one slide re-rendered live through every palette,
 // auto-advancing. The swatch rail + the active-name readout are React (shadcn-

@@ -174,7 +174,7 @@ test('live path and engine path pick the same layout for the same sizes', () => 
 // ── a collage never splits across slides ────────────────────────────────────────────────
 const path = require('node:path');
 const fs = require('node:fs');
-const ss = require('../../../lib/core/structural-split');
+const ss = require('../../../lib/engine/structural-split');
 const { loadAll } = require('../../../lib/components');
 const { createEngine } = require('../../../lib/engine');
 
@@ -343,7 +343,7 @@ test('narration: a collage with no alt text speaks only its prose', async () => 
 // ── regressions an independent checker reproduced ────────────────────────────────────────
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
-const { stampCollage } = require('../../../lib/core/collage-stamp');
+const { stampCollage } = require('../../../lib/transformers/collage-stamp');
 
 function pngFile(dir, name, w, h) {
   const buf = Buffer.alloc(33);
@@ -445,7 +445,7 @@ test('stampSection and stampCollage pass the slide aspect through', () => {
   const guessed = k.stampSection(s, DEMO_ASPECTS, k.optionsFromClass('collage bleed'), 'landscape');
   const real = k.stampSection(s, DEMO_ASPECTS, k.optionsFromClass('collage bleed'), 'landscape', 4 / 3);
   assert.notEqual(guessed, real, 'the 4:3 slide gets its own grid');
-  const { stampCollage } = require('../../../lib/core/collage-stamp');
+  const { stampCollage } = require('../../../lib/transformers/collage-stamp');
   assert.ok(typeof stampCollage === 'function' && stampCollage.length === 3, 'the CLI stamp takes the slide aspect as its third argument');
 });
 

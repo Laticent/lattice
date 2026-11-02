@@ -1,5 +1,5 @@
 /**
- * Unit: `@callout{…}` on the charts that read it (lib/components/chart/_chart-family/callout-layer.js).
+ * Unit: `@callout{…}` on the charts that read it (lib/plugins/chart-family/shared/callout-layer.js).
  * One contract, run over every chart that has adopted callouts: the chart draws a ring and a marker on
  * each mark a note names and a numbered row in a lane; a note that names no mark is listed as not
  * drawn; past six the rest are not drawn; off hides them and their details still reach the card;
@@ -15,7 +15,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const { transformChartSection } = require('../../../lib/transformers/chart-frame');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 
 const md = new MarkdownIt({ html: true });
@@ -173,12 +173,12 @@ describe('the readers list matches the kernels', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const { CALLOUT_READERS } = require('../../../lib/core/legend');
-  const chartDir = path.join(__dirname, '../../../lib/components/chart');
+  const chartDir = path.join(__dirname, '../../../lib/plugins/chart-family/kinds');
   const adopters = fs.readdirSync(chartDir, { withFileTypes: true })
     .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
     .filter((d) => {
       const f = path.join(chartDir, d.name, `${d.name}.transform.js`);
-      return fs.existsSync(f) && /require\('\.\.\/_chart-family\/callout-layer'\)/.test(fs.readFileSync(f, 'utf8'));
+      return fs.existsSync(f) && /require\('\.\.\/\.\.\/shared\/callout-layer'\)/.test(fs.readFileSync(f, 'utf8'));
     })
     .map((d) => d.name)
     .sort();
@@ -251,7 +251,7 @@ describe('radar: variants that take no callouts keep the paragraph', () => {
 });
 
 describe('a group of notes under a figure flows and wraps', () => {
-  const { laneSvg } = require('../../../lib/components/chart/_chart-family/legend-svg');
+  const { laneSvg } = require('../../../lib/plugins/chart-family/shared/legend-svg');
   const entry = (text, mark) => ({ text, target: { cx: 10 * (mark + 1), cy: 20, w: 8, h: 8, mark } });
   const draw = (width, texts) => laneSvg(texts.map(entry), { x: 0, width, top: 100, bottom: Infinity, fontSize: 8, flow: true });
   const tops = (r) => r.placed.map((p) => Math.round(p.box.top));
@@ -278,7 +278,7 @@ describe('a group of notes under a figure flows and wraps', () => {
 });
 
 describe('flow: whole words, and no note wider than the view', () => {
-  const { laneSvg } = require('../../../lib/components/chart/_chart-family/legend-svg');
+  const { laneSvg } = require('../../../lib/plugins/chart-family/shared/legend-svg');
   const one = (text, fontSize, width = 400) => laneSvg([{ text, target: { cx: 10, cy: 10, w: 4, h: 4, mark: 'a' } }], { x: 0, width, top: 100, bottom: Infinity, fontSize, flow: true });
 
   test('a note that measures as one line is set as one line, at every size', () => {

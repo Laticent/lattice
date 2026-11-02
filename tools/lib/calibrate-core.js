@@ -23,6 +23,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { pluginKindFolders } = require('../../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -246,6 +247,8 @@ function findManifest(name) {
     const p = path.join(ROOT, 'lib', 'components', b, name, `${name}.manifest.json`);
     if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
   }
+  const kind = pluginKindFolders(path.join(ROOT, 'lib', 'components')).find((k) => k.name === name);
+  if (kind) return JSON.parse(fs.readFileSync(path.join(kind.parent, name, `${name}.manifest.json`), 'utf8'));
   return null;
 }
 

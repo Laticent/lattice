@@ -1,9 +1,9 @@
 
-// Segno phase 2's plumbing: JSON slot specs compile to Segno slots (lib/core/segno-spec.js),
+// Segno phase 2's plumbing: JSON slot specs compile to Segno slots (`compileSlot`, @laticent/segno),
 // and the core slots (lib/core/segno-slots.js) read the spellings the notation promises.
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { compileSlot, compileType } = require('../../../lib/core/segno-spec.js');
+const { compileSlot, compileType } = require('@laticent/segno/read');
 const { coreSlot, componentSlot, CORE } = require('../../../lib/core/segno-slots.js');
 
 const value = (slot, text) => {
@@ -15,6 +15,9 @@ const code = (slot, text) => {
   const r = slot.read(text);
   return r.ok ? 'ok' : r.diagnostics[0].code;
 };
+
+// The spark's record shape is the sparks plugin's own now (lib/plugins/sparks/sparks.inline.js `SPEC`).
+const sparkSlot = () => require('@laticent/segno/read').compileSlot(require('../../../lib/plugins/sparks/sparks.inline.js').SPEC, 'core.spark');
 
 describe('segno-spec: JSON → Segno slot', () => {
   test('every type compiles', () => {
@@ -63,7 +66,7 @@ describe('core slots', () => {
     // The core `state` slot spelled the six as done/partial/fail/unknown/todo/skip, a third vocabulary nothing read;
     // it retired when the checks plugin took the grammar (engineering/decisions/2026-10-18-checks.md §18).
     assert.ok(!('state' in CORE));
-    const check = compileSlot(require('../../../lib/plugins/checks/checks.inline.js').SPEC);
+    const check = compileSlot(require('../plugins/host-built.js').checks.SPEC);
     const pairs = { '[x]': 'pass', '[-]': 'warn', '[!]': 'fail', '[?]': 'unknown', '[ ]': 'todo', '[/]': 'skip' };
     for (const [token, id] of Object.entries(pairs)) {
       assert.equal(value(check, token).answer, id, token);
@@ -83,9 +86,9 @@ describe('core slots', () => {
     assert.notEqual(code(coreSlot('pill'), '{A, c13}'), 'ok');
   });
   test('a spark needs its tag; a pill refuses one', () => {
-    assert.equal(code(coreSlot('spark'), '{1 2 3}'), 'missing-tag');
+    assert.equal(code(sparkSlot(), '{1 2 3}'), 'missing-tag');
     assert.equal(code(coreSlot('pill'), '~{BETA}'), 'unexpected-tag');
-    assert.deepEqual(value(coreSlot('spark'), '~{3 5 -2 4, bar, c3, lg}'), { data: '3 5 -2 4', type: 'bar', color: 3, size: 'lg' });
+    assert.deepEqual(value(sparkSlot(), '~{3 5 -2 4, bar, c3, lg}'), { data: '3 5 -2 4', type: 'bar', color: 3, size: 'lg' });
   });
   test('slots are compiled once', () => {
     assert.equal(coreSlot('pill'), coreSlot('pill'));
@@ -97,4 +100,20 @@ describe('core slots', () => {
   test('every core spec compiles', () => {
     for (const name of Object.keys(CORE)) assert.ok(coreSlot(name));
   });
+});
+
+test('the core slot specs are frozen all the way down, so a plugin reading ctx.vocabulary cannot rewrite them (#2997)', () => {
+  const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
+  const seen = ctxFor('pills', null).vocabulary.slots.CORE.pill;
+  // Sloppy-mode writes to a frozen object are ignored rather than thrown: assert they do not land.
+  try {
+    seen.positional.length = 0;
+    seen.params.evil = {};
+  } catch {
+    /* strict-mode callers get a TypeError instead */
+  }
+  assert.ok(Object.isFrozen(seen.positional) && Object.isFrozen(seen.params));
+  assert.equal(CORE.pill.positional.length, 1);
+  assert.equal('evil' in CORE.pill.params, false);
+  assert.ok(Object.isFrozen(CORE.pill.params.shape.values));
 });

@@ -7,7 +7,7 @@
 // `icon:` and `spark:` it is a look with no absent state: a deck that says nothing wears
 // DEFAULT_MARKS (the engine's MARKS_DEFAULT; marks-catalog.test.ts pins them).
 
-import { DEFAULT_MARKS } from './marks-words';
+import { DEFAULT_MARKS } from '../../lib/marks-words';
 
 export type MarksEntry = {
 	/** the `marks:` register value (and engine MARKS_NAMES member) */

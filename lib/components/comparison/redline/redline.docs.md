@@ -160,7 +160,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 - [`compare-code`](../../code/compare-code/compare-code.docs.md) — the diff is source code, not natural language
 - [`compare-prose`](../../comparison/compare-prose/compare-prose.docs.md) — two narrative alternatives, not verbatim amendments
-- [`state-chart`](../../chart/state-chart/state-chart.docs.md) — the change is structural state, not text
+- [`state-chart`](../../../plugins/chart-family/kinds/state-chart/state-chart.docs.md) — the change is structural state, not text
 - [`obligation-matrix`](../../legal/obligation-matrix/obligation-matrix.docs.md) — comparing many regimes against shared obligations
 
 ## Demo deck

@@ -23,7 +23,7 @@ const { renderInto, dispose } = vi.hoisted(() => ({
 	),
 	dispose: vi.fn(),
 }));
-vi.mock('@/lib/single-slide-render', () => ({
+vi.mock('@/playground/single-slide-render', () => ({
 	createSingleSlideRenderer: () => ({
 		renderInto,
 		whenReady: () => Promise.resolve(),

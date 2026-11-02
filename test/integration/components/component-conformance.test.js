@@ -42,12 +42,12 @@ const ONLY = (process.env.CONF_ONLY || '').split(',').map((s) => s.trim()).filte
 const REPORT = path.join(ROOT, '.scratch', 'conformance-render', 'report.json');
 const MATRIX = process.env.CONFORMANCE_RENDER === '1';
 
+// Every component by name, the plugins' kinds included (`loadAll`).
+const MANIFESTS = new Map(require('../../../lib/components').loadAll().map((m) => [m.name, m]));
 const manifest = (name) => {
-  for (const b of fs.readdirSync(path.join(ROOT, 'lib', 'components'))) {
-    const f = path.join(ROOT, 'lib', 'components', b, name, `${name}.manifest.json`);
-    if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, 'utf8'));
-  }
-  throw new Error(`no manifest for ${name}`);
+  const m = MANIFESTS.get(name);
+  if (!m) throw new Error(`no manifest for ${name}`);
+  return m;
 };
 
 describe('component conformance, render tier (report-only)', () => {

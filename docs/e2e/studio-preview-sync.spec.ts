@@ -1,7 +1,7 @@
 // DOES THE PREVIEW STAY IN SYNC WITH THE EDITOR WHILE TYPING?
 //
 // Reported symptom: "the editor and preview are out of sync while typing." The suspect is the
-// deck-context gate (`needsDeckContext` in docs/src/lib/single-slide-render.ts), which turned the
+// deck-context gate (`needsDeckContext` in docs/src/playground/single-slide-render.ts), which turned the
 // slice render from a rare misalignment fallback into the PRIMARY path for a deck that sets no
 // `paginate` / running-global directive / divider / `glossary: auto` — i.e. the shipped shape.
 //

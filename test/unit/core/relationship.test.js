@@ -14,7 +14,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf, RELATION, stripTags } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
-const { composeHtml } = require('../../../lib/plugins/checks/shared/compose.js');
+// The composer as the host hands it out: the checks plugin's service, built with its ctx.
+const composeHtml = require('../../../lib/core/plugin-services.js').service('checks', 'composeHtml');
 const { render } = require('../../../lib/engine');
 
 // Reads a signal as { mark, label } rather than matching its markup.

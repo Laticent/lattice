@@ -5,7 +5,7 @@
 // `paneCss.paneClasses`), so two renders with different panes have different sheets. Both live
 // previews patch a slide in place under a signature and keep the resident sheet while it holds:
 // the Playground's filmstrip (deck-render.js) and the Studio's single-slide frame
-// (lib/single-slide-render.ts). Each puts this in its signature, so a deck that gains a pane,
+// (playground/single-slide-render.ts). Each puts this in its signature, so a deck that gains a pane,
 // or changes what a pane holds or how, gets the new sheet — a list typed into a pane rendered as
 // bare lines, and a chart at the wrong scale, until a reload.
 

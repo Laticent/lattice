@@ -236,6 +236,8 @@ describe('plugin rules fire only on their declared triggers', () => {
 
   for (const { plugin, token, rule } of rules) {
     test(`${plugin.name}: ${token} declines every character but ${rule.triggers.join(' ')}`, () => {
+      // The rule as the host installs it: run with the state facade, never markdown-it's live state (host-grammar.mjs).
+      const guarded = (r) => (r.run.rule ? r.run : requireGrammarHost().guardedRule(r.run, plugin.name, new Set(Object.keys(plugin.syntax))));
       const claimed = [];
       for (const ch of chars) {
         if (rule.triggers.includes(ch)) continue;
@@ -252,12 +254,12 @@ describe('plugin rules fire only on their declared triggers', () => {
                 const state = new md.inline.State(src, md, {}, []);
                 state.pos = pos;
                 const pending = state.pending;
-                if (rule.run(state, silent) || state.pos !== pos || state.tokens.length || state.pending !== pending) claimed.push(`${where} at ${pos}`);
+                if (guarded(rule)(state, silent) || state.pos !== pos || state.tokens.length || state.pending !== pending) claimed.push(`${where} at ${pos}`);
               }
             } else {
               const state = new md.block.State(shape, md, {}, []);
               const before = { parentType: state.parentType, lineMax: state.lineMax, blkIndent: state.blkIndent };
-              const moved = rule.run(state, 0, state.lineMax, silent) || state.line !== 0 || state.tokens.length
+              const moved = guarded(rule)(state, 0, state.lineMax, silent) || state.line !== 0 || state.tokens.length
                 || state.parentType !== before.parentType || state.lineMax !== before.lineMax || state.blkIndent !== before.blkIndent;
               if (moved) claimed.push(where);
             }
@@ -304,11 +306,15 @@ describe('plugin host — fail-soft at the render step', () => {
   test('a string result passes through untouched', () => {
     assert.equal(failSoft(() => '<b>ok</b>', {}, 'source', 'inline')(tokens, 0, {}, {}), '<b>ok</b>');
   });
-  test('the renderer receives the frozen ctx and the per-render env', () => {
+  test('the renderer receives a frozen view of its token and the frozen ctx, never the token or the env', () => {
     const ctx = Object.freeze({ name: 'x', options: Object.freeze({ a: 1 }), family: 'tall' });
     const env = { page: 3 };
     let seen;
-    failSoft((t, c, e) => { seen = [t, c, e]; return ''; }, ctx, 'source', 'inline')(tokens, 0, {}, env);
-    assert.deepEqual(seen, [token, ctx, env]);
+    failSoft((...args) => { seen = args; return ''; }, ctx, 'source', 'inline')(tokens, 0, {}, env);
+    assert.equal(seen.length, 2, 'two arguments: the view and the ctx (2026-11-01-plugin-contract-hollywood.md §4)');
+    assert.notEqual(seen[0], token, 'a view, not the live token');
+    assert.ok(Object.isFrozen(seen[0]));
+    assert.equal(seen[0].content, token.content);
+    assert.equal(seen[1], ctx);
   });
 });

@@ -1,6 +1,6 @@
 import { Code2, Image as ImageIcon } from 'lucide-react';
 import * as React from 'react';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { figureLabel, figureSample } from './chat-figures';
 import { PooledThumbFace } from './preview-pool';

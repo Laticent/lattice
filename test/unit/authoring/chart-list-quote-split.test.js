@@ -195,7 +195,7 @@ describe('the chart lists agree', () => {
   test('every detail chart writes its detail through the shared payload', () => {
     const fs = require('node:fs');
     for (const c of ROW_DETAIL.DETAIL_CHARTS) {
-      const src = fs.readFileSync(path.join(__dirname, `../../../lib/components/chart/${c}/${c}.transform.js`), 'utf8');
+      const src = fs.readFileSync(path.join(__dirname, `../../../lib/plugins/chart-family/kinds/${c}/${c}.transform.js`), 'utf8');
       assert.match(src, /detailPayload/, `${c} emits its templates through mark-detail.detailPayload (the </template> guard)`);
     }
   });
@@ -218,7 +218,7 @@ describe('a description cannot break the slide, the narration or the card', () =
   });
 
   test('templateSafe balances what it was given and turns raw-text openers into text', () => {
-    const md = require('../../../lib/components/chart/_chart-family/mark-detail.js');
+    const md = require('../../../lib/plugins/chart-family/shared/mark-detail.js');
     assert.equal(md.templateSafe('<li><div>x</li>'), '<li><div>x</div></li>');
     assert.equal(md.templateSafe('<li>a</div></li>'), '<li>a&lt;/div></li>');
     assert.equal(md.templateSafe('<li><!-- x</li>'), '<li>&lt;!-- x</li>');
@@ -254,7 +254,7 @@ describe('a description cannot break the slide, the narration or the card', () =
   });
 
   test('the speaker note pauses between a description and its sublist', () => {
-    const md = require('../../../lib/components/chart/_chart-family/mark-detail.js');
+    const md = require('../../../lib/plugins/chart-family/shared/mark-detail.js');
     const note = md.detailNote([{ label: 'G', valueRaw: '1', detail: '<li><p>Up on the year</p><ul><li>two</li><li>one</li></ul></li>' }]);
     assert.equal(note, '<!-- G (1): Up on the year · two · one -->');
   });

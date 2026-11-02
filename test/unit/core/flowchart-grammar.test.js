@@ -413,7 +413,7 @@ describe('lint integration', () => {
 test('the style slot in flowchart.manifest.json names exactly the grammar\'s vocabulary', () => {
   // The slot is declared as manifest data (Segno phase 2) and the key and docs read the
   // grammar's exported lists, so the two copies are pinned equal here.
-  const spec = require('../../../lib/components/chart/flowchart/flowchart.manifest.json').segno.style.params;
+  const spec = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.manifest.json').segno.style.params;
   assert.deepEqual(spec.shape.values, [...g.SHAPES]);
   assert.deepEqual(spec.status.values, [...g.STATUS_WORDS]);
   assert.deepEqual(spec.head.values, [...g.HEADS]);

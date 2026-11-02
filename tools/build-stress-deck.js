@@ -45,20 +45,20 @@ function parseArgs(argv) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const dir = path.join(REPO, 'lib/components', args.bucket);
-  if (!fs.existsSync(dir)) {
+  // The bucket's components from the loaded catalog: `loadAll` walks the bucket folders AND the
+  // plugins' kinds, so `--bucket chart` reaches the chart kinds that live in their plugin.
+  const { loadAll, groupByBucket } = require('../lib/components');
+  const members = groupByBucket(loadAll())[args.bucket];
+  if (!members) {
     console.error(`build-stress-deck: no such bucket — ${args.bucket}`);
     process.exit(2);
   }
 
   const slides = [];
   const missing = [];
-  for (const name of fs.readdirSync(dir).sort()) {
-    const manifest = path.join(dir, name, `${name}.manifest.json`);
-    if (!fs.existsSync(manifest)) continue;
-    const m = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+  for (const m of [...members].sort((a, b) => a.name.localeCompare(b.name))) {
     const sample = m.stressDoc?.sample;
-    if (!sample) { missing.push(name); continue; }
+    if (!sample) { missing.push(m.name); continue; }
     slides.push(sample.trim());
   }
 

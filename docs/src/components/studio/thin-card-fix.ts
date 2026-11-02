@@ -3,12 +3,12 @@ import type { Text } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { unitAt } from '@/lib/fuoco/outline';
+import { slideRanges, splitSlides } from '../../lib/deck-lint';
+import { stripFrontMatter } from '../../lib/front-matter';
+import { canEditClass } from '../../lib/slide-directives';
 import { replaceSlide } from './deck-ops';
-import { stripFrontMatter } from './front-matter';
-import { slideRanges, splitSlides } from './lint';
 import { cachedFix, cardOf } from './photo-ink-read';
 import { applyFix, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdict } from './photo-verdict';
-import { canEditClass } from './slide-directives';
 
 // The editor's view of the photo verdict (photo-verdict.ts), the one answer the Coach shows too:
 //   - the `thin-card-no-ink` tooltip: lint's warning is instant and knows nothing about the picture; the tooltip then

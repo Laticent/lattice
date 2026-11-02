@@ -9,7 +9,7 @@ What this folder holds is the seam where Lattice's own render meets *Marpit's
 file format*, which LFM is deliberately compatible with (`---` separators, YAML
 front matter, `<!-- _class: -->` directives), plus the override layer a deck
 needs when it is rendered by REAL marp-core — the Export-to-Marp bundle
-(`lib/core/marp-bundle.js`).
+(`lib/export/marp-bundle.js`).
 
 > **Corrected 2026-08-02.** This page used to open "Marp is the framework
 > Lattice is built on … **Marp is the foundation**. Every component, every
@@ -104,7 +104,7 @@ front-matter `theme:` directive.
 
 `marp.config.js` was DELETED in P4 — there is no config file at the repo root
 and no marp-cli render path. What follows describes the config
-`lib/core/marp-bundle.js` GENERATES into an exported bundle, for the recipient's
+`lib/export/marp-bundle.js` GENERATES into an exported bundle, for the recipient's
 own marp-cli to read:
 
 - **`themeSet`**: list of `.css` files Marp registers as themes

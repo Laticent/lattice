@@ -138,7 +138,7 @@ function stressDeck(times) {
 }
 
 function hubSpokeDeck(tieredCopies) {
-  const gallery = readFileSync(join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.gallery.md'), 'utf8');
+  const gallery = readFileSync(join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.gallery.md'), 'utf8');
   const tiered = gallery.split('\n---\n').find((s) => /_class: hub-spoke tiered/.test(s));
   if (!tiered) throw new Error('hub-spoke.gallery.md has no tiered slide — the hub-spoke dataset would measure the wrong thing');
   return gallery + Array.from({ length: tieredCopies }, () => `\n---\n${tiered}`).join('');
@@ -513,7 +513,7 @@ async function flowchartTier() {
   // kernel's old home in the chart family, so a base arm cut from an older main still runs.
   const kernelPath = [
     join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
-    join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js'),
+    join(ROOT, 'lib/plugins/chart-family/shared/graph-layout.js'),
   ].find((p) => existsSync(p));
   if (!kernelPath) return { summary: [] };
   req(join(ROOT, 'lib/core/dagre-layout.js'));
@@ -647,7 +647,7 @@ async function splitTier() {
     console.log('\n=== SPLIT \u00b7 not comparable (no @laticent/fluido in this tree) ===');
     return { summary: [] };
   }
-  const ss = req(join(ROOT, 'lib/core/structural-split.js'));
+  const ss = req(join(ROOT, 'lib/engine/structural-split.js'));
   const { loadAll } = req(join(ROOT, 'lib/components/index.js'));
   const { createEngine } = req(join(ROOT, 'lib/engine/index.js'));
   const capacity = ss.splitCapacityFrom(loadAll(join(ROOT, 'lib/components')));
@@ -943,7 +943,7 @@ async function squadraTier() {
 // THE DENOMINATOR IS FROZEN CODE, for the reason the calibration probe is upstream code: a
 // denominator that moved with lib/ would hide the change. The retired kernel lives in
 // tools/segno-legacy/, which nothing ships. One part of it is live — it reads state marks
-// through lib/plugins/checks/shared/registry.js `parseInlineState` — and that is the price of reusing it: a
+// through lib/core/checks-registry.js `parseInlineState` — and that is the price of reusing it: a
 // state-mark change moves both columns. A state mark is 3 characters and a few percent of the
 // kernel's time, so the ratio still sees a change to the dispatcher.
 //

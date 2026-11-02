@@ -34,7 +34,7 @@ const SETTLE_MS = 1500;
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fence-home-'));
 process.env.LATTICE_HOME = home;
 const engine = require('../../../lib/engine');
-const { renderWithCodePackages } = require('../../../lib/packages/code-door.js');
+const { renderWithCodePackages } = require('../../../lib/cli/code-door.js');
 const { pluginDigest, codeDigest, grantTrust } = require('../../../lib/packages/trust.js');
 
 /** The stranger's renderer: tries the network, then returns markup carrying every thing a fence output must lose. */

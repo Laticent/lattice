@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 
 const { deriveTheme, validateEssentials, requiredTokenList, ESSENTIAL_KEYS, RAMP_STRATEGIES, normalizeStrategy } = require('../../../lib/theme/derive.js');
 const { auditBoth } = require('../../../lib/theme/contrast.js');
-const { contrastRatio, oklchToHex, mix, ensureContrast, oklabDistance } = require('../../../lib/theme/color.js');
+const { contrastRatio, oklchToHex, mix, ensureContrast, oklabDistance } = require('../../../lib/core/color.js');
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 describe('theme-derive', () => {

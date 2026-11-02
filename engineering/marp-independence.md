@@ -38,8 +38,8 @@ cataloged in full in
 | Source imports | **zero** real `@marp-team` / `marpit` imports | repo-wide grep; remaining marp strings are comments citing the porting source |
 | First-party render (CLI · emulator · playground) | **owned engine** | `lib/engine/` |
 | `marp.config.js` (BYO marp-cli render path) | **retired** | deleted; the owned engine is the only render path |
-| Export-to-Marp (#250 / #257) | **stays — generates recipient bundles** | the bundle pins marp-cli for the *recipient*, not for us; its generated config ships no engine — the deck is **rendered by the recipient's Marp**, and the bundle carries the minified `lattice.css` + themes, the browser runtime, and Mermaid for fidelity. There is **no bundled emulator** (`lib/core/marp-bundle.js`). |
-| VS Code live preview | **clean handoff, KNOWN CEILING** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary. What the handoff delivers is now measured, not assumed: `npm run pdf` / `npm run html` in the bundle carry every component layout, the deck-wide registers, and Mermaid (marp-cli drives a real headless browser, so the runtime executes) with **the exceptions `lib/core/marp-fidelity.js` enumerates** (deliberately not a number here — it moved from six to seven to six again inside two changes, and a hardcoded count in prose drifts silently); the ledger is the source and the generated bundle README prints it; the marp-vscode PREVIEW pane is *believed* to be palette + CSS only, on the reading that its webview blocks scripts — **UNVERIFIED and contested**, see `engineering/gotchas.md`. See §5 Cost 3 and `engineering/gotchas.md`. |
+| Export-to-Marp (#250 / #257) | **stays — generates recipient bundles** | the bundle pins marp-cli for the *recipient*, not for us; its generated config ships no engine — the deck is **rendered by the recipient's Marp**, and the bundle carries the minified `lattice.css` + themes, the browser runtime, and Mermaid for fidelity. There is **no bundled emulator** (`lib/export/marp-bundle.js`). |
+| VS Code live preview | **clean handoff, KNOWN CEILING** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary. What the handoff delivers is now measured, not assumed: `npm run pdf` / `npm run html` in the bundle carry every component layout, the deck-wide registers, and Mermaid (marp-cli drives a real headless browser, so the runtime executes) with **the exceptions `lib/export/marp-fidelity.js` enumerates** (deliberately not a number here — it moved from six to seven to six again inside two changes, and a hardcoded count in prose drifts silently); the ledger is the source and the generated bundle README prints it; the marp-vscode PREVIEW pane is *believed* to be palette + CSS only, on the reading that its webview blocks scripts — **UNVERIFIED and contested**, see `engineering/gotchas.md`. See §5 Cost 3 and `engineering/gotchas.md`. |
 
 **Marp is fully externalized.** We render every first-party path; Marp is an
 optional *export target* a user hands off to (VS Code, marp-cli) — its own thing,
@@ -165,7 +165,7 @@ gate, so we deepen it ourselves rather than wish for a second renderer:
 
 ### What a `mirrored` ledger row now means
 
-`lib/core/marp-fidelity.js` classifies every markdown-it plugin as `baked`,
+`lib/export/marp-fidelity.js` classifies every markdown-it plugin as `baked`,
 `mirrored`, `unmirrored` or `moot`. **`mirrored` is the load-bearing one**: it
 promises that `lib/runtime/**`, bundled into `dist/lattice-runtime.js`,
 reproduces the plugin for a reader who is looking at the exported HTML rather

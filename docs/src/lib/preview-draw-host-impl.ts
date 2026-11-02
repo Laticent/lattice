@@ -17,7 +17,7 @@
 // safe default; a plugin whose answer is a figure with its own structure (Mermaid's svg, which needs `<style>` and `<foreignObject>`)
 // says so in its `finish`, which receives both sanitizers.
 
-import { DRAW_HOST_ADAPTERS } from '../../../lib/plugins/draw-host-adapters.generated.mjs';
+import { DRAW_HOST_ADAPTERS, DRAW_OUTPUTS } from '../../../lib/plugins/draw-host-adapters.generated.mjs';
 import { DRAW_KINDS } from '../../../lib/plugins/draw-kinds.generated.mjs';
 import { createDrawHost } from './code-packages/draw-host';
 import { engineBase, sameOriginAsset } from './engine-base';
@@ -90,10 +90,18 @@ function framesFonts(asks: unknown): Face[] {
 }
 
 /** What each plugin's host-page half receives. */
-const env = Object.freeze({ fonts: framesFonts, sanitize: Object.freeze({ slide: sanitizeSlideHtml, diagram: sanitizeDiagramSvg }) });
+// THE HOST PICKS THE SANITIZER (2026-11-01-plugin-contract-hollywood.md §2). A kind's manifest declares what its answer IS
+// (`draw.output`); the host maps that to one of ITS profiles and hands the plugin's `finish` only that one. A plugin never names its own
+// confinement, and a kind with no declaration gets the strictest, the slide sanitizer.
+const PROFILES: Record<string, (s: string) => string> = Object.freeze({ html: sanitizeSlideHtml, 'svg-diagram': sanitizeDiagramSvg });
+const profileFor = (kind: string): ((s: string) => string) => {
+	const output = (DRAW_OUTPUTS as Record<string, string>)[kind];
+	return output && Object.hasOwn(PROFILES, output) ? PROFILES[output] : sanitizeSlideHtml;
+};
+const envFor = (kind: string) => Object.freeze({ fonts: framesFonts, sanitize: profileFor(kind) });
 type HostHalf = { prepare?: (job: Job, env: unknown) => Job; finish?: (raw: string, env: unknown) => string };
 const halves = new Map<string, Promise<HostHalf>>();
-/** A kind's host-page half, loaded the first time the kind is drawn; a kind with none gets the safe defaults (no prepare, slide-sanitized answer). */
+/** A kind's host-page half, loaded the first time the kind is drawn; a kind with none gets the safe defaults (no prepare, its declared profile's sanitizer). */
 function halfFor(kind: string): Promise<HostHalf> {
 	let p = halves.get(kind);
 	if (!p) {
@@ -106,10 +114,11 @@ function halfFor(kind: string): Promise<HostHalf> {
 
 async function drawKind(job: Job): Promise<string> {
 	const half = await halfFor(job.kind);
+	const env = envFor(job.kind);
 	const sent = half.prepare ? half.prepare(job, env) : job;
 	const raw = await host.draw(sent as Parameters<typeof host.draw>[0]);
 	mark('sanitize-start');
-	const clean = half.finish ? half.finish(raw, env) : sanitizeSlideHtml(raw);
+	const clean = half.finish ? half.finish(raw, env) : env.sanitize(raw);
 	mark('sanitize-done');
 	return clean;
 }

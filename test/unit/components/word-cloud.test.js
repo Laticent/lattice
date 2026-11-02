@@ -10,6 +10,7 @@
  *      — idempotent HTML-string rewrite.
  */
 
+const { tagsOf } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
@@ -30,7 +31,7 @@ const {
   VARIANT_OPTS,
   CANVAS_W,
   CANVAS_H,
-} = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
+} = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform');
 
 describe('word-cloud', () => {
   // ── clampWeight ─────────────────────────────────────────────────────────
@@ -391,7 +392,8 @@ describe('word-cloud', () => {
     const out = buildCanvas(items, 'default');
     // Discipline is weight 4.5, rank 2 — it doesn't get accent; Execution is 5, rank 1 → accent
     // Match the rank-1 <text> specifically
-    const rank1 = out.match(/<text class="wc-word"[^>]*data-weight="5" data-rank="1"[^>]*>/);
+    const rank1Tag = tagsOf(out, 'text').find((t) => t.attrs.class === 'wc-word' && t.attrs['data-weight'] === '5' && t.attrs['data-rank'] === '1');
+    const rank1 = rank1Tag ? [rank1Tag.raw] : null;
     assert.ok(rank1, 'rank 1 text present');
     assert.match(rank1[0], /--wc-color:var\(--accent\)/);
   });
@@ -492,7 +494,7 @@ describe('word-cloud', () => {
 // any legitimate re-tune of the canvas, teaching the next editor to update the
 // number rather than to check the derivation.
 describe('word-cloud: the portrait size scale is derived from the pack boxes', () => {
-  const wc = require('../../../lib/components/chart/word-cloud/word-cloud.transform.js');
+  const wc = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform.js');
   // Its own fixture — the dispatch suite's `WC_SECTION` is scoped to that describe.
   const SECTION = '<section id="1" class="word-cloud" data-lattice-slide="1"><h2>Q1</h2>' +
     '<ul><li>velocity <code>12</code></li><li>ownership <code>9</code></li>' +

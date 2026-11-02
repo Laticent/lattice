@@ -4,7 +4,7 @@
  *
  * Design: engineering/decisions/2026-10-19-universal-legend.md, split from the legend plugin by
  * 2026-10-20-callout-placement.md. The kernels (lib/core/legend.js,
- * lib/components/chart/_chart-family/legend-svg.js) write geometry, a class and a `data-c` color slot;
+ * lib/plugins/chart-family/shared/legend-svg.js) write geometry, a class and a `data-c` color slot;
  * this file is the only place a callout gets a color (HARD RULE #3). Every color is a theme token, so
  * a callout follows a palette and a light or dark canvas with no code. The class names keep their
  * `legend-` prefix from before the split, so no rendered deck changed with it.

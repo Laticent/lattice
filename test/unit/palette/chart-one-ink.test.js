@@ -28,7 +28,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { baseThemeNames } = require('../../helpers/palette');
 const { loadThemeChain, resolve, contrast } = require('../../helpers/chart-color');
-const { hexToOklch } = require('../../../lib/theme/color.js');
+const { hexToOklch } = require('../../../lib/core/color.js');
 const { SIGNAL_DARK_FILL } = require('../../../lib/theme/chart-solids.js');
 const { STATUS_MARK } = require('../../../lib/core/status-marks.js');
 

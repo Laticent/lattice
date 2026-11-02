@@ -4,8 +4,8 @@ import DeckPreview from '@/components/DeckPreview';
 import { CodeField } from '@/components/studio/CodeField';
 import { Button } from '@/components/ui/button';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import type { SingleSlideOptions } from '@/playground/single-slide-render';
 
 // CraftLab — the docs' hands-on pane: a live slide above an editable source box.
 //
