@@ -945,6 +945,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const pseudoHides: Array<{ el: Element; side: 'before' | 'after' }> = [];
 	// Elements whose OWN paint was lifted into shapes, so the capture hides it (a pseudo's is hidden apart).
 	const paintHidden = new Set<Element>();
+	// Drawings (an icon's <svg>) lifted whole into a shape, so the capture hides the element itself.
+	const drawnHidden = new Set<Element>();
 	let refusedOut: Refusal[] | undefined;
 	let keptOut: ReadResult['kept'];
 	const approximated: string[] = [];
@@ -1669,8 +1671,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					const y = Math.sin(a) + sgn * kk * Math.cos(a);
 					return [cp * rx * x - sp * ry * y + cx, sp * rx * x + cp * ry * y + cy];
 				};
-				const c1 = pt(a0, k, -1);
-				const c2 = pt(a1, k, 1);
+				// A cubic's first control point leaves the start along its tangent, P(a0) + k·P'(a0); the second comes back
+				// into the end, P(a1) − k·P'(a1). (Swapped, an arc drew as a pinched loop: the database icon's ellipses.)
+				const c1 = pt(a0, k, 1);
+				const c2 = pt(a1, k, -1);
 				const e = pt(a1, 0, 0);
 				out.push([c1[0], c1[1], c2[0], c2[1], e[0], e[1]]);
 			}
@@ -1791,6 +1795,49 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		// The PDF writer reads the same masks with the same placement rules (lib/core/pdf-compose/read-slide.mjs
 		// `markOf`); this reader imports nothing, so the two are kept in step by hand.
+		/** A slide coordinate to a thousandth of a px, as every lifted shape stores it. */
+		const round = (v: number) => Math.round(v * 1000) / 1000;
+		/**
+		 * Path commands in a drawing's own units, placed at origin (ox, oy) and scale (sx, sy), as a `path` shape in slide
+		 * px whose path is relative to its box. Null when a point is not finite or the drawing leaves box `r` (beyond half
+		 * its stroke): the browser clips it there, and a shape would not be.
+		 */
+		const pathShapeOf = (cmds: Array<(string | number)[]>, ox: number, oy: number, sx: number, sy: number, r: Rect, strokeUnits: number, stroked: boolean): Shape | null => {
+			const pts: number[] = [];
+			const mapped = cmds.map((c) => {
+				if (c[0] === 'Z') return ['Z'];
+				const out: (string | number)[] = [c[0]];
+				for (let k = 1; k < c.length; k += 2) {
+					const X = ox + (c[k] as number) * sx;
+					const Y = oy + (c[k + 1] as number) * sy;
+					out.push(X, Y);
+					pts.push(X, Y);
+				}
+				return out;
+			});
+			if (!pts.length) return null;
+			if (pts.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e6)) return null;
+			const xs = pts.filter((_v, k) => k % 2 === 0);
+			const ys = pts.filter((_v, k) => k % 2 === 1);
+			// A path that leaves its box is clipped by the mask in the browser; a shape would not be.
+			const reach = strokeUnits * ((sx + sy) / 2);
+			if (minOf(xs) < r.x - reach - 1 || maxOf(xs) > r.x + r.w + reach + 1 || minOf(ys) < r.y - reach - 1 || maxOf(ys) > r.y + r.h + reach + 1) return null;
+			let bx = minOf(xs);
+			let by = minOf(ys);
+			let bw = maxOf(xs) - bx;
+			let bh = maxOf(ys) - by;
+			// A straight rule has no thickness in one direction; a path needs a box.
+			if (bw < 1) {
+				bx -= (1 - bw) / 2;
+				bw = 1;
+			}
+			if (bh < 1) {
+				by -= (1 - bh) / 2;
+				bh = 1;
+			}
+			const path = mapped.map((c) => (c[0] === 'Z' ? ['Z'] : [c[0], ...(c.slice(1) as number[]).map((v, k) => round(v - (k % 2 ? by : bx)))])) as Shape['path'];
+			return { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked };
+		};
 		const markOf = (ps: CSSStyleDeclaration & Record<string, string>, r: Rect, op: number): Shape | null => {
 			const mask = ps.maskImage && ps.maskImage !== 'none' ? ps.maskImage : ps.webkitMaskImage;
 			const color = paintOf(ps.backgroundColor, op);
@@ -1850,41 +1897,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!c) return null;
 				cmds.push(...c);
 			}
-			const pts: number[] = [];
-			const mapped = cmds.map((c) => {
-				if (c[0] === 'Z') return ['Z'];
-				const out: (string | number)[] = [c[0]];
-				for (let k = 1; k < c.length; k += 2) {
-					const X = ox + (c[k] as number) * sx;
-					const Y = oy + (c[k + 1] as number) * sy;
-					out.push(X, Y);
-					pts.push(X, Y);
-				}
-				return out;
-			});
-			if (!pts.length) return null;
-			if (pts.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e6)) return null;
-			const xs = pts.filter((_v, k) => k % 2 === 0);
-			const ys = pts.filter((_v, k) => k % 2 === 1);
-			// A path that leaves its box is clipped by the mask in the browser; a shape would not be.
-			const reach = (Number.parseFloat(attr(first, 'stroke-width') || '1') || 1) * ((sx + sy) / 2);
-			if (minOf(xs) < r.x - reach - 1 || maxOf(xs) > r.x + r.w + reach + 1 || minOf(ys) < r.y - reach - 1 || maxOf(ys) > r.y + r.h + reach + 1) return null;
-			let bx = minOf(xs);
-			let by = minOf(ys);
-			let bw = maxOf(xs) - bx;
-			let bh = maxOf(ys) - by;
-			// A straight rule has no thickness in one direction; a path needs a box.
-			if (bw < 1) {
-				bx -= (1 - bw) / 2;
-				bw = 1;
-			}
-			if (bh < 1) {
-				by -= (1 - bh) / 2;
-				bh = 1;
-			}
-			const round = (v: number) => Math.round(v * 1000) / 1000;
-			const path = mapped.map((c) => (c[0] === 'Z' ? ['Z'] : [c[0], ...(c.slice(1) as number[]).map((v, k) => round(v - (k % 2 ? by : bx)))])) as Shape['path'];
-			const shape: Shape = { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked, pseudo: true };
+			const base = pathShapeOf(cmds, ox, oy, sx, sy, r, Number.parseFloat(attr(first, 'stroke-width') || '1') || 1, stroked);
+			if (!base) return null;
+			const shape: Shape = { ...base, pseudo: true };
 			if (stroked) {
 				const width = Number.parseFloat(attr(first, 'stroke-width') || '1') * ((sx + sy) / 2);
 				if (!Number.isFinite(width)) return null;
@@ -1896,6 +1911,54 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			if (filled) shape.fill = color;
 			if (!shape.stroke && !shape.fill) return null;
+			return shape;
+		};
+		// An ICON's <svg> (lib/plugins/icons: `.lat-icon-svg`, `.lat-pill-icon`) as one native outline shape, so an office
+		// reader draws it in every app, sharp, recolorable as a shape (engineering/decisions/2026-11-01-icon-font.md § 3.4).
+		// Its paths share one stroke and no fill (icons.styles.css); the drawing sits in the content box, fitted as the
+		// <svg>'s preserveAspectRatio says (`slice` in a pill draws past the box, which `overflow: visible` paints). Anything
+		// else, or a path that does not read, keeps the <svg> a picture.
+		const ICON_SVG = new Set(['lat-icon-svg', 'lat-pill-icon']);
+		const iconSvgMarkOf = (svg: Element, r: Rect, op: number): Shape | null => {
+			const vb = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+			if (vb.length !== 4 || vb.some(Number.isNaN) || !(vb[2] > 0 && vb[3] > 0)) return null;
+			const kids = Array.from(svg.querySelectorAll('*'));
+			if (!kids.length || kids.some((k) => k.localName !== 'path' || k.hasAttribute('transform'))) return null;
+			const cs = win.getComputedStyle(svg);
+			const left = px(cs.paddingLeft) + px(cs.borderLeftWidth);
+			const top = px(cs.paddingTop) + px(cs.borderTopWidth);
+			const box = { x: r.x + left, y: r.y + top, w: r.w - left - px(cs.paddingRight) - px(cs.borderRightWidth), h: r.h - top - px(cs.paddingBottom) - px(cs.borderBottomWidth) };
+			if (!(box.w > 0 && box.h > 0)) return null;
+			const [align, fit = 'meet'] = (svg.getAttribute('preserveAspectRatio') || 'xMidYMid meet').trim().split(/\s+/);
+			if (align !== 'xMidYMid' || (fit !== 'meet' && fit !== 'slice')) return null;
+			const scale = (fit === 'slice' ? Math.max : Math.min)(box.w / vb[2], box.h / vb[3]);
+			const ox = box.x + (box.w - vb[2] * scale) / 2 - vb[0] * scale;
+			const oy = box.y + (box.h - vb[3] * scale) / 2 - vb[1] * scale;
+			const styles = kids.map((k) => win.getComputedStyle(k));
+			const first = styles[0];
+			if (styles.some((st) => st.stroke !== first.stroke || st.strokeWidth !== first.strokeWidth || st.fill !== first.fill || st.strokeLinecap !== first.strokeLinecap || st.strokeLinejoin !== first.strokeLinejoin || st.opacity !== first.opacity)) return null;
+			// One opaque, solid, scaling stroke is the only paint a shape outline reproduces: a translucent or dashed stroke, a
+			// non-scaling one, a hidden path or a width in percent keeps the drawing a picture (svgOf honors all of them).
+			const strokeAlpha = Number.parseFloat(first.strokeOpacity || '1');
+			if (first.fill !== 'none' || (first.strokeDasharray && first.strokeDasharray !== 'none')) return null;
+			if (styles.some((st) => st.strokeOpacity !== first.strokeOpacity || st.visibility !== 'visible' || (st.vectorEffect && st.vectorEffect !== 'none'))) return null;
+			if (!(strokeAlpha >= 1) || /%/.test(first.strokeWidth)) return null;
+			const color = paintOf(first.stroke, op * Number.parseFloat(first.opacity || '1'));
+			const units = Number.parseFloat(first.strokeWidth);
+			if (!color || !(units > 0)) return null;
+			const cmds: Array<(string | number)[]> = [];
+			for (const k of kids) {
+				const c = readPath(k.getAttribute('d') || '');
+				if (!c) return null;
+				cmds.push(...c);
+			}
+			// `overflow: visible` paints the whole drawing, so no edge clips it; otherwise the content box does.
+			const clip = cs.overflow === 'visible' ? { x: -1e5, y: -1e5, w: 2e5, h: 2e5 } : box;
+			const base = pathShapeOf(cmds, ox, oy, scale, scale, clip, units, true);
+			if (!base) return null;
+			const shape: Shape = { ...base, stroke: { ...color, width: round(units * scale) } };
+			if (first.strokeLinecap === 'round' || first.strokeLinecap === 'square') shape.cap = first.strokeLinecap;
+			if (first.strokeLinejoin === 'round' || first.strokeLinejoin === 'bevel') shape.join = first.strokeLinejoin;
 			return shape;
 		};
 		// A pseudo-element as a candidate: a plain box, or a mark. Null keeps it in the picture.
@@ -2113,6 +2176,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (shown && rect.w > 0 && rect.h > 0) logoFound = { x: Math.round(rect.x * 1000) / 1000, y: Math.round(rect.y * 1000) / 1000, w: Math.round(rect.w * 1000) / 1000, h: Math.round(rect.h * 1000) / 1000, ...((el.getAttribute('alt') || '').trim() ? { alt: (el.getAttribute('alt') || '').trim() } : {}) };
 				return;
 			}
+			if (el !== section && tag === 'svg' && shown && rect.w > 0 && rect.h > 0 && [...el.classList].some((c) => ICON_SVG.has(c)) && effectless(el)) {
+				const op = opacityOf(el);
+				const mark = iconSvgMarkOf(el, rect, op);
+				const at = mark && { x: mark.x, y: mark.y, w: mark.w, h: mark.h };
+				if (mark && at && unclipped(el, at, true)) {
+					candidates.push({ el, rect: at, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, approx: [], mark });
+					return;
+				}
+			}
 			if (el !== section && DRAWN.has(tag)) {
 				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}`, bleed: bleedOf(cs), alt: (el.getAttribute('alt') || el.getAttribute('aria-label') || el.querySelector('title')?.textContent || '').trim() || undefined });
 				return;
@@ -2270,7 +2342,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const unlift = (c: Candidate, reason: string, by?: Item) => {
 			const cover = coverOf(c);
 			lifted.delete(c);
-			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0, ...(c.struck || []).map((st) => Math.ceil(Math.max(Math.abs(st.x), Math.abs(st.y)) + st.spread))), kind: 'refused-box' });
+			// An icon's <svg> falls back as the drawing it is, so the picture keeps its sharp SVG copy (svgOf).
+			if (c.mark && !c.pseudo) items.push({ node: c.el, owner: c.el, rect: c.rect, bleed: 0, kind: 'drawn:svg' });
+			else items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0, ...(c.struck || []).map((st) => Math.ceil(Math.max(Math.abs(st.x), Math.abs(st.y)) + st.spread))), kind: 'refused-box' });
 			if (options?.diagnose) {
 				const above_ = by || items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
 				const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
@@ -2424,6 +2498,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (c.mark) {
 				shapes.push({ ...c.mark });
 				shapeEls.push(c.el);
+				if (!c.pseudo) drawnHidden.add(c.el);
 				continue;
 			}
 			const firstShape = shapes.length;
@@ -2804,6 +2879,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// A slide whose only painted boxes are highlight chips has no shapes, and the chips' own paint must still go.
 	if (options?.hide && (shapes.length || chipEls.size)) {
 		const undo: Array<() => void> = [];
+		for (const el of drawnHidden as Set<HTMLElement>) {
+			const saved = el.getAttribute('style');
+			el.style.setProperty('visibility', 'hidden', 'important');
+			undo.push(() => flushStyle(el, saved));
+		}
 		// A pseudo shape hides its pseudo (below), never its element: the element may paint something else.
 		for (const el of [...paintHidden, ...chipEls] as HTMLElement[]) {
 			const saved = el.getAttribute('style');

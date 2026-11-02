@@ -8,6 +8,7 @@ import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
+import officeIconsCore from '../../../../../lib/core/office-icons.js';
 import sizesCore from '../../../../../lib/engine/sizes.js';
 
 let override = { mode: 'deck', quality: '' };
@@ -34,12 +35,26 @@ export function applyFontsOverride(fromDeck) {
 	return fontsOverride ? fontPolicyCore.mergeFontsSettings(fromDeck, fontsOverride) : fromDeck;
 }
 
+// The export panel's choice for icons in an editable PowerPoint or LibreOffice file (lib/core/office-icons.js): '' defers to the
+// deck's `office-icons:` line; `shapes` or `font` overrides it, as `--office-icons` does on the command line.
+let officeIconsOverride = '';
+
+export function setOfficeIconsOverride(next) {
+	officeIconsOverride = next === 'shapes' || next === 'font' ? next : '';
+}
+
+/** The deck's `office-icons:` line with the panel's choice on top: `shapes` or `font`. */
+export function applyOfficeIconsOverride(fromDeck) {
+	return officeIconsCore.resolveOfficeIcons(fromDeck, officeIconsOverride);
+}
+
 /** What the deck's own lines settle to with no panel choice on top: the value "Deck setting" lands on. */
 export function deckPolicyOf(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
 	return {
 		images: imagePolicyCore.resolveImagePolicy(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images'))).mode,
 		fonts: fontPolicyCore.resolveFontPolicy(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts'))),
+		officeIcons: officeIconsCore.parseOfficeIcons(frontMatterKeyCore.frontMatterValue(fm, 'office-icons')).mode,
 	};
 }
 

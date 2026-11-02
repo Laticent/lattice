@@ -6,7 +6,8 @@
  *         `icon: svg` draws the <svg>: the same ink in the same place.
  *   system  under `fonts: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
  *         `icon: svg` page.
- *   PPTX / ODP  each icon is a text run in "Lattice Icons", and the face is embedded.
+ *   PPTX / ODP  each icon is a native outline shape and no icon font travels; under `office-icons: font` each icon is a text
+ *         run in "Lattice Icons", and the face is embedded. An icon's arcs become cubics that stay on the arc.
  *   HTML  the player carries the faces cut to the deck's icons; under `system` the page and the player show each
  *         <svg>, and under `icon: svg` neither carries the font.
  *   hidden  no `display:none` <svg> is drawn into the PDF (they once printed at the page's top-left corner).
@@ -120,15 +121,106 @@ describe('icon-font-exports', () => {
 		assert.ok(off / a.px.length < 0.0005, `${off} pixels differ from the svg page`);
 	});
 
-	test('an editable PowerPoint and ODP hold each icon as a run in the embedded Lattice Icons face', async () => {
+	// Office files go where no export can follow (Google Slides, iPhone Preview), and those apps ignore embedded fonts: they
+	// draw our icon code points as boxes or another font's pictures. So by default each icon is a native outline shape
+	// (lib/core/office-icons.js), and the font is the author's opt-in (`office-icons: font`).
+	test('an editable PowerPoint and ODP draw each icon as a native outline shape by default, and carry no icon font', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('shapes', [], 'shapes.pptx', ['--editable'])));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		const geoms = slide.match(/<a:custGeom>/g) || [];
+		assert.equal(geoms.length, 3, 'one shape per icon: database, the bucket pill\'s icon, lock');
+		assert.doesNotMatch(slide, /Lattice Icons/, 'no icon run');
+		assert.equal((slide.match(/<a:ln[^>]* cap="rnd"[^>]*>/g) || []).length >= 3, true, 'round stroke ends, as the <svg> draws them');
+		const pres = await pptx.file('ppt/presentation.xml').async('string');
+		assert.doesNotMatch(pres, /Lattice Icons/, 'the face is not embedded');
+		const odp = await JSZip.loadAsync(fs.readFileSync(render('shapes', [], 'shapes.odp', ['--editable'])));
+		const content = await odp.file('content.xml').async('string');
+		assert.equal((content.match(/<draw:custom-shape\b/g) || []).length, 3, 'three outline shapes in the ODP');
+		assert.doesNotMatch(content + (await odp.file('styles.xml').async('string')), /Lattice Icons/);
+	});
+
+	// The database icon's top is an ellipse (center 12,6, radii 8 and 3, in the 24-unit grid) written as two arcs. Each
+	// cubic the reader makes of an arc must stay on that ellipse: with the two control points swapped, the first cubic's
+	// midpoint landed at 0.17 of the way from the curve (and the icon drew as a pinched loop).
+	test('an icon\'s arcs become cubics that stay on the arc', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(path.join(dir, 'shapes.pptx')));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		// The database icon is the shape whose path starts at its box's left edge a sixth of the way down (4,6 in 4..20 x 3..21).
+		const geom = (slide.match(/<a:custGeom>[\s\S]*?<\/a:custGeom>/g) || []).find((g) => {
+			const [, gw, gh] = g.match(/<a:path w="(\d+)" h="(\d+)"/).map(Number);
+			const [, x, y] = g.match(/<a:moveTo><a:pt x="(-?\d+)" y="(-?\d+)"/).map(Number);
+			return x === 0 && Math.abs(gw / gh - 16 / 18) < 0.01 && Math.abs(y / gh - 1 / 6) < 0.01;
+		});
+		assert.ok(geom, 'the database icon is a shape');
+		const [, w, h] = geom.match(/<a:path w="(\d+)" h="(\d+)"/).map(Number);
+		const cmds = [...geom.matchAll(/<a:(moveTo|lnTo|cubicBezTo)>([\s\S]*?)<\/a:\1>/g)].map(([, k, body]) => [k, [...body.matchAll(/x="(-?\d+)" y="(-?\d+)"/g)].map((m) => [Number(m[1]), Number(m[2])])]);
+		// The drawing's box in icon units: x 4..20, y 3..21 (the cylinder's top and bottom ellipses).
+		const toIcon = ([x, y]) => [4 + (x / w) * 16, 3 + (y / h) * 18];
+		let at = cmds[0][1][0];
+		const off = [];
+		for (const [k, pts] of cmds.slice(1, 5)) {
+			assert.equal(k, 'cubicBezTo', 'the top ellipse is four cubics');
+			const [p1, p2, p3] = pts;
+			const mid = [0, 1].map((d) => (at[d] + 3 * p1[d] + 3 * p2[d] + p3[d]) / 8);
+			const [X, Y] = toIcon(mid);
+			off.push(Math.abs(((X - 12) / 8) ** 2 + ((Y - 6) / 3) ** 2 - 1));
+			at = p3;
+		}
+		assert.ok(Math.max(...off) < 0.03, `cubic midpoints off the ellipse by ${off.map((o) => o.toFixed(3)).join(', ')}`);
+	});
+
+	// Each shape must land where the page draws the icon: the browser's own box for the <svg>'s paths (getBBox under the
+	// screen transform), in slide px, against the shape's frame in the file. A wrong content box (the tile's padding, the
+	// pill's padding-right) or a wrong fit (a pill's `slice`) moves or resizes the shape and fails here.
+	test('each icon shape lands on the box the page draws the icon in', async () => {
+		render('place', [], 'place.pptx', ['--editable', '--keep-html']);
+		const pptx = await JSZip.loadAsync(fs.readFileSync(path.join(dir, 'place.pptx')));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		const slideCx = Number((await pptx.file('ppt/presentation.xml').async('string')).match(/<p:sldSz cx="(\d+)"/)[1]);
+		const frames = [...slide.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].map((m) => m[0]).filter((sp) => sp.includes('<a:custGeom>')).map((sp) => {
+			const [, x, y] = sp.match(/<a:off x="(-?\d+)" y="(-?\d+)"/).map(Number);
+			const [, w, h] = sp.match(/<a:ext cx="(\d+)" cy="(\d+)"/).map(Number);
+			return { x, y, w, h };
+		});
+		const page = await browser.newPage();
+		await page.goto(`file://${path.join(dir, 'place.html')}`);
+		const boxes = await page.evaluate(() => {
+			const sec = document.querySelector('section[data-lattice-slide]');
+			sec.classList.add('icon-svg');
+			const s = sec.getBoundingClientRect();
+			const scale = s.width / sec.offsetWidth;
+			return [...sec.querySelectorAll('.lat-icon-svg, .lat-pill-icon')].map((svg) => {
+				let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+				for (const p of svg.querySelectorAll('path')) {
+					const b = p.getBBox();
+					const m = p.getScreenCTM();
+					for (const [px, py] of [[b.x, b.y], [b.x + b.width, b.y], [b.x, b.y + b.height], [b.x + b.width, b.y + b.height]]) {
+						const q = new DOMPoint(px, py).matrixTransform(m);
+						x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y);
+					}
+				}
+				return { x: (x0 - s.left) / scale, y: (y0 - s.top) / scale, w: (x1 - x0) / scale, h: (y1 - y0) / scale, width: sec.offsetWidth };
+			});
+		});
+		await page.close();
+		assert.equal(boxes.length, 3);
+		const emu = slideCx / boxes[0].width;
+		for (const b of boxes) {
+			const near = frames.find((f) => Math.abs(f.x / emu - b.x) < 0.5 && Math.abs(f.y / emu - b.y) < 0.5 && Math.abs(f.w / emu - b.w) < 0.5 && Math.abs(f.h / emu - b.h) < 0.5);
+			assert.ok(near, `no shape at ${JSON.stringify(b)}; shapes: ${JSON.stringify(frames.map((f) => ({ x: f.x / emu, y: f.y / emu, w: f.w / emu, h: f.h / emu })))}`);
+		}
+	});
+
+	test('`office-icons: font` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
 		const glyphs = ['database', 'bucket', 'lock'].map((n) => String.fromCodePoint(Number.parseInt(ICON_CODEPOINTS[n], 16)));
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.pptx', ['--editable'])));
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.pptx', ['--editable'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		for (const g of glyphs) assert.ok(slide.includes(`<a:t>${g}</a:t>`), `no run for U+${g.codePointAt(0).toString(16)}`);
 		assert.match(slide, /typeface="Lattice Icons/);
+		assert.doesNotMatch(slide, /<a:custGeom>/, 'no icon shape beside the glyph');
 		const pres = await pptx.file('ppt/presentation.xml').async('string');
 		assert.match(pres, /<p:font typeface="Lattice Icons/, 'the face is in the embedded font list');
-		const odp = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.odp', ['--editable'])));
+		const odp = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.odp', ['--editable'])));
 		const content = await odp.file('content.xml').async('string');
 		for (const g of glyphs) assert.ok(content.includes(g), `the ODP lost U+${g.codePointAt(0).toString(16)}`);
 		const styles = await odp.file('styles.xml').async('string');

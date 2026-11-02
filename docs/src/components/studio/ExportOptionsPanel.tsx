@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
 import { FontsControl } from './FontsControl';
 import { OffFencesNotice } from './OffFencesNotice';
+import { OfficeIconsControl } from './OfficeIconsControl';
 import { PicturesControl, ResolutionControl } from './PicturesControl';
 
 export function ExportOptionsPanel({
@@ -133,6 +134,7 @@ export function ExportOptionsPanel({
 							</span>
 							<Switch className="mt-0.5" aria-label="Editable text" checked={editable} disabled={busy} onCheckedChange={setEditable} />
 						</div>
+						{editable && <OfficeIconsControl key={`office-icons-${deckId}`} deckId={deckId} source={source} busy={busy} />}
 					</div>
 				)}
 

@@ -2831,7 +2831,22 @@ const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, de
 // icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
 // Under `system` every slide takes `icon-svg`, the class `icon: svg` stamps, so the player and every format built from this
 // page keep the switch (lib/fonts/icon-fallback.js). A deck that draws no glyph (`icon: svg`) carries no icon font.
+// An editable PowerPoint or LibreOffice file draws its icons as native outline shapes unless the author asks for the font
+// (`office-icons: font`): apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs, so the
+// shapes are the default (lib/core/office-icons.js). The <svg> each slide then shows is what Calco lifts as a shape.
+const OFFICE_ICONS = (() => {
+  const { parseOfficeIcons, resolveOfficeIcons } = require('./lib/core/office-icons.js');
+  const flag = flags['office-icons'];
+  if (flag !== undefined && parseOfficeIcons(flag).unknown) {
+    console.error(`error: --office-icons: '${flag}' is not shapes or font`);
+    process.exit(1);
+  }
+  return resolveOfficeIcons(frontMatterValue(fm, 'office-icons'), flag);
+})();
 const iconsAsSvg = FONT_POLICY.emoji === 'system';
+// Shapes are switched on in the LIVE page just before Calco reads it (the office capture below), so the HTML this run
+// writes, and a player built from it, keep the font.
+const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE, mode: OFFICE_ICONS, emojiTier: FONT_POLICY.emoji });
 const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
 const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;
@@ -4934,6 +4949,9 @@ async function renderBody(browser, g, closeBrowser) {
     // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
     if (OUT_FORMAT === 'odp' || EDITABLE) {
       const office = require('./lib/export/office-export');
+      // Icons as native shapes (lib/core/office-icons.js): each slide shows its icons' <svg>, which Calco lifts as one
+      // outline shape. Set here, on the live page, so nothing written to disk changes.
+      if (OFFICE_ICON_SHAPES) await g(() => page.$$eval('section[data-lattice-slide]', (els) => { for (const el of els) el.classList.add('icon-svg'); }), 'icons as shapes');
       const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
       const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;

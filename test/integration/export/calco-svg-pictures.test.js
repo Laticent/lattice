@@ -26,10 +26,12 @@ const puppeteer = require('puppeteer');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 
-// `icon: svg`: icons draw as glyphs of the Lattice Icons font by default (engineering/decisions/2026-11-01-icon-font.md), and this
-// test is about the SVG picture an icon becomes when it is an <svg> (icon-font-exports.test.js covers the glyph).
-const DECK = ['---', 'theme: indaco', 'icon: svg', '---', '',
-	'## Icons', '', 'Storage `{S3, icon=bucket, c4}` and `{Primary, icon=database, tag}`.', '',
+// `icon: svg`: icons draw as glyphs of the Lattice Icons font by default (engineering/decisions/2026-11-01-icon-font.md). In an
+// editable office file an icon's <svg> becomes a native outline shape (icon-font-exports.test.js); one whose stroke a shape
+// cannot reproduce (here a translucent stroke, set by the deck's CSS on `^{lock, bare}`, drawn in its color) stays the SVG picture this
+// test is about.
+const DECK = ['---', 'theme: indaco', 'icon: svg', 'style: "section .lat-icon-svg path { stroke-opacity: 0.5 }"', '---', '',
+	'## Icons', '', 'Storage `{S3, icon=bucket, c4}` and `{Primary, icon=database, tag}`, locked `^{lock, bare}`.', '',
 	'---', '', '## Avatars', '', 'Our sponsor `!{Ada Okafor}` with `!{Ben Liu, lg}` and `!{Cy Diaz, rounded}`.', '',
 	'---', '', '## Sparks', '', 'Revenue `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` against `~{1.9/1.6, bullet}`.', ''].join('\n');
 
@@ -107,8 +109,10 @@ describe('calco-svg-pictures', () => {
 				pairs++;
 			}
 		}
-		// Two icons, three avatars, two sparks.
-		assert.equal(pairs, 7);
+		// The translucent icon, three avatars, two sparks; the two pill icons are outline shapes.
+		assert.equal(pairs, 6);
+		const icons = await zip.file('ppt/slides/slide1.xml').async('string');
+		assert.equal((icons.match(/<a:custGeom>/g) || []).length, 2, 'the two pill icons are native shapes');
 		assert.match(await zip.file('[Content_Types].xml').async('string'), /Extension="svg" ContentType="image\/svg\+xml"/);
 	});
 
@@ -136,7 +140,7 @@ describe('calco-svg-pictures', () => {
 		const zip = await JSZip.loadAsync(fs.readFileSync(path.join(dir, 'deck.odp')));
 		const content = await zip.file('content.xml').async('string');
 		const frames = [...content.matchAll(/<draw:image xlink:href="(Pictures\/[^"]+\.svg)"[^>]*\/><draw:image xlink:href="(Pictures\/[^"]+\.png)"/g)];
-		assert.equal(frames.length, 7);
+		assert.equal(frames.length, 6);
 		const manifest = await zip.file('META-INF/manifest.xml').async('string');
 		for (const [, svgPath, pngPath] of frames) {
 			assert.match(manifest, new RegExp(`full-path="${svgPath}" manifest:media-type="image/svg\\+xml"`));
