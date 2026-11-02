@@ -39,7 +39,7 @@ charts a capability the engine hosts, like Mermaid.
 | **A. How an author writes a chart** | (a) `_class: bar`, unchanged; (b) one `chart` class with `type: bar` | **(a)**. 28 kinds are what authors and agents choose between (one line each in `components.pick.md`); (b) breaks every chart deck for no reader benefit |
 | **B. Where a kind's files live** | (a) inside the plugin, `lib/plugins/charts/kinds/<kind>/`; (b) stay in `lib/components/chart/` with the plugin owning only transforms | **(a)**. A kind's transform, CSS, docs and gallery change together; splitting them across two trees keeps the reach the move exists to remove |
 | **C. How the catalog sees a kind** | (a) the plugin declares its kinds as catalog entries (`contributes.kinds`), and the catalog build reads them as it reads components; (b) a single "chart" catalog entry like Mermaid's `diagram` component | **(a)**. The catalog keeps 28 lines, so picking stays a one-line decision (HARD RULE #6 still opens the kind's docs) |
-| **D. Chart grammars and models the engine also reads** | (a) a package, `@laticent/chart-models`; (b) the plugin owns them and answers through declared roles; (c) leave them in `lib/core` and pass them through ctx | **(b)**. The engine reads them for two jobs that are chart knowledge: Present-mode narration (`lib/core/chart-narration.js`) and chart lint. Both become plugin roles: `narrate(figure)` and `lint` (synchronous, pure, gathered into the linter by a generated table, exactly as inline kinds' `diagnose` is today). (a) was a workaround for lint's synchronous call, which the generated table already solves; (c) is the drift the alignment audit removed |
+| **D. Chart grammars and models the engine also reads** | (a) a package, `@laticent/chart-models`; (b) the plugin owns them and answers through declared roles; (c) leave them in `lib/core` and pass them through ctx | **(b)**. The engine reads them for two jobs that are chart knowledge: Present-mode narration (`lib/core/chart-narration.js`) and chart lint. Lint becomes a plugin role (`lint`: synchronous, pure, gathered into the linter by a generated table, as inline kinds' `diagnose` is). Narration becomes data the kinds declare (phrases, typed fact functions) and Regia speaks (`2026-11-02-regia-narrator.md`); there is no `narrate()` role. (a) was a workaround for lint's synchronous call, which the generated table already solves; (c) is the drift the alignment audit removed |
 | **E. Host knowledge a transform needs** | ctx | The pill pass's row records (`chart-rows` `RECORD_ATTR`, `matrix-grid-cells`) as ctx **data**; render-scoped ids as `ctx.section.mark(…)` (Hollywood §2 `html` row); icons through `ctx.service` (as today) |
 | **F. CSS** | (a) the plugin's styles slot, kinds concatenated in catalog order, then the generated marks CSS; (b) keep the component walk | **(a)**, holding today's order: kinds, then `marks.generated.css`, then `base.print-textures.css` (`build-css.js:245-250`). The bytes of the CSS bundle must come out identical |
 | **G. Lazy kernels in the Studio** | keep per-kind lazy loading | The plugin's generated kind table replaces `chart-registry.generated.js`; `tools/build-playground.js` reads that table instead of regex-parsing the registry (`build-playground.js:157-194`), and each `esm/chart-<kind>.js` still registers one kind. `chartKernelGz`/`chartKernelsGz` budgets unchanged |
@@ -64,9 +64,11 @@ Reverse edges to cut: `lib/runtime/index.js:51,57` (the state-chart and flowchar
 
 ## 4. What stays the same, and how it is checked
 
-- Every chart deck renders byte-identical engine HTML, CSS bundle and exports (PDF, PPTX, the player). Any
+- **The move itself** (step 1 of `2026-11-02-regia-narrator.md` §8) renders every chart deck byte-identical: engine HTML, CSS bundle and exports (PDF, PPTX, the player). Any
   byte change is an export change and comes to the owner (QUALITY BAR).
 - `lint:deck --all` output is identical.
+- The later steps (the slide tree and its host marker, narration on Regia, variants) change output on purpose, each
+  under its own gate and review, never mixed with the move (`2026-11-02-regia-narrator.md` §8).
 - The 28 docs pages, galleries and catalog lines are unchanged in content.
 - Route budgets: `engineJsGz`, `chartKernelGz`, `chartKernelsGz`, `lintCoreGz` do not rise.
 
