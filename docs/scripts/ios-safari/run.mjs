@@ -29,6 +29,10 @@ const LABEL = process.env.SIM_LABEL || 'iOS';
 const OUT = process.env.ARTIFACT_DIR || path.join(process.cwd(), 'ios-safari-artifacts');
 const PROBE = process.env.PROBE || 'studio';
 const ROOT = path.resolve(here, '..', '..', '..');
+/** A Studio probe's source with the shared editor helper ahead of it (show-editor.js, `latticeShowDeckEditor`, #2911).
+ * It sits up here because the top-level `await` below runs the probe, and a `const` read before its line throws. */
+const SHOW_EDITOR = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
+const withEditorHelper = (source) => `${SHOW_EDITOR}\n${source}`;
 // The encoder goes in as its own source text, the way lib/export/chrome-recode.js sends it. The pictures: a slide-sized
 // synthetic photograph made in the page, and the committed screenshots below. The page's bytes for the synthetic one must
 // equal Node's: the same file in every engine is the encoder's contract.
@@ -114,9 +118,6 @@ try {
 }
 process.exit(ok ? 0 : 1);
 
-/** A Studio probe's source with the shared editor helper ahead of it (show-editor.js, `latticeShowDeckEditor`, #2911). */
-const SHOW_EDITOR = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
-const withEditorHelper = (source) => `${SHOW_EDITOR}\n${source}`;
 
 /** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
 async function studioPage(id, file, fn) {
