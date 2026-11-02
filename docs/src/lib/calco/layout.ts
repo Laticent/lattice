@@ -53,6 +53,10 @@ export function metricsFor(style: TextStyle, fonts: EmbeddedFont[], cache: Map<E
  * gap): the pitch the browser used, in the unit a proportional `spcPct` is read in.
  */
 export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: number): number {
+	// One line has no pitch to keep, so it states none: 100%. Apps disagree about where a multiple puts the FIRST
+	// baseline (Google Slides drew a 1.3x single line about 0.3 em higher than PowerPoint and LibreOffice, next to an
+	// inline icon placed exactly), and at 100% there is nothing to disagree about. The box is placed to match (placeFrame).
+	if (frame.lines.length <= 1) return 1;
 	const natural = (metrics.ascent + metrics.descent + (metrics.lineGap || 0)) * size;
 	return natural > 0 ? frame.lineHeight / natural : 1;
 }
@@ -66,7 +70,8 @@ export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: nu
  *    text, so the box top is the baseline minus (pitch − descent);
  *  - `proportional` (the .pptx's spcPct): the line is the face's natural line scaled by the
  *    multiple, glyphs at its top, so the box top is the baseline minus multiple × ascent.
- *    (Measured in LibreOffice 26.8; Google Slides reads the multiple the same way.)
+ *    (Measured in LibreOffice 26.8. Google Slides drew a one-line box at 1.3x about 0.3 em higher, so a single line
+ *    states 100%: `spacingMultiple`.)
  */
 /**
  * `capped`: honor `frame.before` (a split piece's box ends at its text). Only for a format whose text boxes never wrap

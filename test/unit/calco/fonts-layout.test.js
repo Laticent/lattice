@@ -84,6 +84,16 @@ describe('calco layout', () => {
     assert.equal(placeFrame(whole, 1280, metrics, 28, 'proportional', true).w, placeFrame(whole, 1280, metrics, 28).w, 'a frame with no before is unchanged');
   });
 
+  // One line states 100%: apps disagree where a multiple puts the first baseline (Google Slides drew a 1.3x line about
+  // 0.3 em higher), and one line has no pitch to keep. Placed to match, the glyphs land where they did.
+  test('a single line states 100% line spacing, placed so its baseline does not move', () => {
+    const { spacingMultiple } = require('@laticent/calco');
+    const one = frame([[{ text: 'x', style: style() }]], { y: 400, firstLineHeight: 35.28, lineHeight: 47.6 });
+    assert.equal(spacingMultiple(one, metrics, 28), 1);
+    const box = placeFrame(one, 1280, metrics, 28, 'proportional');
+    assert.ok(Math.abs(box.y - (400 + 28 - 28)) < 1e-9, `top ${box.y}: the baseline less one ascent`);
+  });
+
   test('a single line with no leading starts at the glyph top', () => {
     const f = frame([[{ text: 'x', style: style() }]], { y: 300, firstLineHeight: 35.28, lineHeight: 35.28 });
     assert.ok(Math.abs(placeFrame(f, 1280, metrics, 28).y - 300) < 1e-9);
