@@ -177,6 +177,6 @@ or declared host API.
 - `engineering/decisions/2026-11-01-charts-one-plugin.md` §2 D, E; §8.
 - `engineering/decisions/2026-11-01-plugin-contract-alignment-audit.md`.
 - `engineering/decisions/2026-11-02-declared-figure-semantics.md` §2, §3.
-- `followups.d/2997-p1-slide-tree-and-host-marker.md`.
+- [#3008](https://github.com/Laticent/lattice/issues/3008).
 - Two adversarial trios, 2026-11-02 (red team, inversion, checker): the first on the draft, the second by Robert C.
   Martin's and Martin Fowler's standards.

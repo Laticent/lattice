@@ -209,8 +209,11 @@ test('every committed sanction names the follow-up that removes it and lists its
   for (const list of [SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY]) {
     for (const [key, v] of Object.entries(list)) {
       assert.ok(Array.isArray(v.edges) && v.edges.length > 0, `${key}: list its imports in tools/structure.sanctioned.json`);
-      assert.match(v.why, /followups\.d\/[\w-]+\.md/, `${key}: name the follow-up that removes it`);
-      assert.ok(fs.existsSync(path.join(__dirname, '../../..', v.why.match(/followups\.d\/[\w-]+\.md/)[0])), `${key}: the follow-up exists`);
+      // The follow-up is a followups.d/ item (which must exist) or, once promoted, its tracked issue.
+      const file = v.why.match(/followups\.d\/[\w-]+\.md/);
+      const issue = /github\.com\/Laticent\/lattice\/issues\/\d+/.test(v.why);
+      assert.ok(file || issue, `${key}: name the follow-up that removes it (a followups.d/ item or its issue)`);
+      if (file) assert.ok(fs.existsSync(path.join(__dirname, '../../..', file[0])), `${key}: the follow-up exists`);
     }
   }
 });

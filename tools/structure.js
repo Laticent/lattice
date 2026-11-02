@@ -186,7 +186,7 @@ function namesPath(src, file) {
  */
 const SANCTIONED_EDGES_FILE = path.join(ROOT, 'tools', 'structure.sanctioned.json');
 const SANCTIONED_EDGES = fs.existsSync(SANCTIONED_EDGES_FILE) ? JSON.parse(fs.readFileSync(SANCTIONED_EDGES_FILE, 'utf8')).edges : {};
-const FOLLOWUP_READERS = 'followups.d/2997-p2-chart-shared-readers-and-grammars.md';
+const FOLLOWUP_READERS = 'https://github.com/Laticent/lattice/issues/3009';
 const withEdges = (list) => Object.fromEntries(Object.entries(list).map(([k, why]) => [k, { why, edges: SANCTIONED_EDGES[k] || [] }]));
 const SANCTIONED_PLUGIN_REACH = withEdges({
   'lib/plugins/chart-family -> lib/core': `the chart kinds read the engine's HTML with the engine's readers; each kind that moves to the slide tree drops its imports (${FOLLOWUP_READERS})`,

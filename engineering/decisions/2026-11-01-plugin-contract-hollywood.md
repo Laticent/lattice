@@ -386,11 +386,11 @@ where the rest went:
 
 | §6 step | On #2997 | The rest |
 |---|---|---|
-| 1. `ctx` extended | Yes | The kind ctx becomes one ctx built from the manifest in `followups.d/2997-p1-chart-tree-and-one-ctx.md` |
+| 1. `ctx` extended | Yes | The kind ctx becomes one ctx built from the manifest in [#3006](https://github.com/Laticent/lattice/issues/3006) |
 | 2. Host-owned trust | Yes | — |
-| 3. Plugins on `ctx`; no kit | Yes. `lib/plugin-kit/` is deleted; its last file had no importer | The chart kinds still import 93 `lib/core` modules. Each is listed in `tools/structure.sanctioned.json`, where a new one fails by name and the list can only shrink, emptied by `followups.d/2997-p2-chart-shared-readers-and-grammars.md` |
+| 3. Plugins on `ctx`; no kit | Yes. `lib/plugin-kit/` is deleted; its last file had no importer | The chart kinds still import 93 `lib/core` modules. Each is listed in `tools/structure.sanctioned.json`, where a new one fails by name and the list can only shrink, emptied by [#3009](https://github.com/Laticent/lattice/issues/3009) |
 | 4. `hostApi` emptied | No | `followups.d/2630-p2-host-tools-read-plugins-as-data.md` (`HOST_API_CEILING` holds it at 14 and falling) |
-| 5. Packages | No | `followups.d/2997-p2-plugin-packages.md` |
+| 5. Packages | No | [#3012](https://github.com/Laticent/lattice/issues/3012) |
 | 6. Structure gate | Yes, with one counted plugin exception (chart-family) and the text backstop | The exception goes with step 3's rest |
 
 **`api` stays 1.** §4 planned `KNOWN_API = [1, 2]`. The owner ruled (2026-11-02) that before GA there is
