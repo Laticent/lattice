@@ -425,6 +425,25 @@ module.exports = { PLUGIN_LINT };
 `;
 }
 
+/**
+ * The trust rule for a declared provider's templates, enforced at build so no page carries the check: `embed` holds only
+ * the validated `{id}` (a hostile address must never become an iframe src), `watch` is an https template with `{id}` or
+ * exactly `{url}`, and `oembed` holds only `{watch}`. Returns the problems, one per bad template.
+ */
+function checkProviderTemplates(ordered) {
+  const problems = [];
+  const ID = /^https:\/\/[^{}]*\{id\}[^{}]*$/;
+  for (const p of ordered) {
+    for (const row of p.manifest.contributes.providers || []) {
+      const at = `plugin "${p.manifest.name}" provider "${row.key}"`;
+      if (row.embed !== null && !ID.test(row.embed)) problems.push(`${at}: embed may hold only {id}`);
+      if (row.watch !== '{url}' && !ID.test(row.watch)) problems.push(`${at}: watch is an https template with {id}, or exactly {url}`);
+      if (row.oembed !== null && !/^https:\/\/[^{}]*\{watch\}[^{}]*$/.test(row.oembed)) problems.push(`${at}: oembed may hold only {watch}`);
+    }
+  }
+  return problems;
+}
+
 function renderProviders(ordered) {
   const rows = ordered.filter((p) => (p.manifest.contributes.providers || []).length)
     .map((p) => `  ${JSON.stringify(p.manifest.name)}: ${JSON.stringify(p.manifest.contributes.providers)},`);
@@ -1077,6 +1096,8 @@ async function build(opts = {}) {
   if (errors.length) return { errors, warnings };
   const byName = new Map(listed.map((p) => [p.manifest.name, p]));
   const ordered = order.map((n) => byName.get(n));
+  const providerProblems = checkProviderTemplates(ordered);
+  if (providerProblems.length) return { errors: providerProblems, warnings };
   return {
     errors: [],
     warnings,
