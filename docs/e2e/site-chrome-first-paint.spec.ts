@@ -17,7 +17,7 @@ import { expect, test } from './studio-fixture';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-type Sample = { t: number; label: string | null; icon: string | null };
+type Sample = { t: number; label: string | null; icon: string | null; spans: number };
 
 /** How many stops the mode toggle renders (System · Light · Dark) — the completeness test
  *  the sampler uses to tell a half-parsed button from an unlit one. */
@@ -30,7 +30,7 @@ async function sampleHeader(page: import('@playwright/test').Page) {
 	// module-scope constant referenced inside it is a ReferenceError there — the rAF loop dies
 	// on its first tick and the log is empty, which reads as "the header never appeared".
 	await page.addInitScript((stops) => {
-		const log: { t: number; label: string | null; icon: string | null }[] = [];
+		const log: { t: number; label: string | null; icon: string | null; spans: number }[] = [];
 		(window as unknown as { __hdr: typeof log }).__hdr = log;
 		const t0 = performance.now();
 		const tick = () => {
@@ -64,9 +64,9 @@ async function sampleHeader(page: import('@playwright/test').Page) {
 							.map((s) => s.getAttribute('data-pref'))
 							.join(',')
 					: null;
-			const rec = { t: Math.round(performance.now() - t0), label, icon: shown };
+			const rec = { t: Math.round(performance.now() - t0), label, icon: shown, spans: spans.length };
 			const last = log[log.length - 1];
-			if (!last || last.label !== rec.label || last.icon !== rec.icon) log.push(rec);
+			if (!last || last.label !== rec.label || last.icon !== rec.icon || last.spans !== rec.spans) log.push(rec);
 			if (performance.now() - t0 < 9000) requestAnimationFrame(tick);
 		};
 		requestAnimationFrame(tick);
@@ -81,7 +81,14 @@ async function throttle(page: import('@playwright/test').Page) {
 /** The states a person could actually see — an element that has not been parsed yet is not
  *  one of them, and neither is the frame before the header exists. */
 function shown(log: Sample[]) {
-	return log.filter((s) => s.label !== null || s.icon !== null);
+	// A HALF-PARSED LABEL LIST is the same non-state as a half-parsed mode button: the eighteen label
+	// spans arrive in parser chunks, and a frame that lands before the painted one has been parsed sees
+	// "no label lit". How many spans the finished list has is the largest count the sampler saw, so a
+	// frame with fewer is absence. A list that is COMPLETE and shows nothing still reads as "" and fails.
+	const full = Math.max(0, ...log.map((s) => s.spans));
+	return log
+		.map((s) => (s.label !== null && s.spans < full ? { ...s, label: null } : s))
+		.filter((s) => s.label !== null || s.icon !== null);
 }
 
 // The header is one component but three page families reach it three different ways (a
