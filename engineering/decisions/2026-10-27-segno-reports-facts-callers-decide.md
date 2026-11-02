@@ -301,7 +301,7 @@ is held to that fixed scanner. It was built on 2026-10-30 and held unwired for t
 crossed the Studio's route-budget ceiling (D9); the owner's 5 KB raise in #3001 (for #2997) left room for it,
 so it is switched on with no ceiling moved, which the owner confirmed (D9 A).
 
-- **What is built.** `lib/core/html-ref-grammar.js` is a Segno grammar for the WHATWG tokenizer's data
+- **What is built.** `tools/lib/html-ref-grammar.js` is a Segno grammar for the WHATWG tokenizer's data
   state: tags, attributes, comments (the dash-counting states of §13.2.5.43-52, written as a regular
   grammar), bogus comments, doctypes and `</>`. `tools/build-segno-grammar.js` generates
   `lib/core/html-ref.generated.js`; `lib/core/html-ref-reader.js` (`makeScanHtml`) walks its tape and

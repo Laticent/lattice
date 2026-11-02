@@ -1,6 +1,6 @@
 /**
  * scan-html.js — `scanHtml` as it was at e6c3a4a, before Segno R3's work fixed the live scanner and
- * built the generated reader meant to replace it (lib/core/html-ref-grammar.js, html-ref-reader.js).
+ * built the generated reader meant to replace it (tools/lib/html-ref-grammar.js, html-ref-reader.js).
  *
  * Frozen verbatim from lib/core/remote-ref.js at e6c3a4a (the helpers it reads are copied beside it).
  * test/unit/core/html-ref-differential.test.js and tools/check-html-ref-spans.mjs read it to show the

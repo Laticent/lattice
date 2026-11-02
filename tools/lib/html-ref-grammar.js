@@ -6,6 +6,9 @@
  * lib/core/html-ref-reader.js walks that parser's flat tree. Change the grammar here, then run
  * `npm run segno-lib:build`; build:check fails while the generated file is stale.
  *
+ * It lives in tools/, not beside the reader in lib/core: only the build reads it (the browser ships the
+ * generated parser), and the structure gate keeps a file beside its one user (`npm run structure`).
+ *
  * It follows the WHATWG tokenizer (HTML §13.2.5) in the data state, for what decides where a tag,
  * an attribute, a comment or a bogus comment ends. What it keeps (a node per kept piece; text,
  * bogus comments, doctypes and `</>` are read and dropped):
