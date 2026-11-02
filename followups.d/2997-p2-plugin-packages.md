@@ -21,5 +21,9 @@ done when — every workspace library `lib/` imports lives under packages/; `@la
             resolve.js reads `KNOWN_API` from it; each in-tree plugin has a private package.json mirroring the
             engine's version, and the structure gate holds each plugin to its declared dependencies; `npm pack`
             shows the root tarball unchanged in what it ships. Publishing them stays an owner decision (§7 Q3).
+            Note for that decision: `@laticent/markup` is marked `"private": true` (docs/src/lib/markup/package.json)
+            yet the engine requires it at runtime, so a `npm publish --workspaces` would skip it and leave the
+            published engine unresolvable; the other eight workspace libraries are unpublished but not private
+            (red team on #2997).
 evidence  — npm run identity:check (0 differ); npm pack --dry-run before and after; route budget measured
 verify    — npm run build:check; npm test; checker on the diff (it moves every library import path)

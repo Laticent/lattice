@@ -4,8 +4,10 @@
  *
  * The characterization test for a refactor that must not move output (engineering/decisions/
  * 2026-11-02-slide-facts-for-kinds.md §8). It renders every deck the engine ships with (examples/,
- * test/integration/baseline-decks/, and every *.gallery.md under lib/) through the owned engine of BOTH trees,
- * hashes the HTML and CSS each produces, and runs `lint:deck` over the same files in both trees. A deck is matched
+ * test/integration/baseline-decks/, and every *.gallery.md under lib/) through the owned engine of BOTH trees and
+ * hashes the HTML each produces, compares the stylesheets each tree's CSS build writes (dist/*.css and
+ * dist/themes/*.css: a minified file byte for byte, a full one with its comments stripped, because those carry each
+ * source file's path), and runs `lint:deck` over the same files in both trees. A deck is matched
  * across the two trees by its SOURCE (a hash of its markdown), not its path, so a file that moved still pairs up.
  *
  *   npm run identity:check                     # against origin/main
@@ -27,6 +29,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -70,7 +73,7 @@ for (const file of decks.sort()) {
   let r;
   try {
     const res = engine.render(src, { baseUrl: undefined });
-    r = { html: sha(scrub(res.html)), css: sha(scrub(res.css || '')) };
+    r = { html: sha(scrub(res.html)) };
   } catch (e) { r = { error: scrub(e.message).slice(0, 200) }; }
   out.decks[key] = { ...r, path: path.relative(root, file) };
 }
@@ -87,9 +90,45 @@ process.stdout.write(JSON.stringify(out));
 `;
 
 function renderTree(root) {
-  return JSON.parse(execFileSync(process.execPath, ['-e', CHILD, root], {
+  const out = JSON.parse(execFileSync(process.execPath, ['-e', CHILD, root], {
     cwd: root, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024,
   }));
+  out.css = cssDigest(root);
+  return out;
+}
+
+/**
+ * Build what the engine reads that is not committed: the workspace libraries (@laticent/*, which resolve to their own
+ * dist/) and the CSS bundle. Run in BOTH trees, so neither compares stale builds. Not the whole `npm run build`: its
+ * bundling steps (the agent kit, the player) read esbuild's path banners and do not run against a shared node_modules,
+ * and the engine needs none of them.
+ */
+function buildTree(dir, label) {
+  const steps = fs.readdirSync(path.join(dir, 'tools')).filter((f) => /^build-[a-z]+-lib\.js$/.test(f)).sort();
+  if (fs.existsSync(path.join(dir, 'tools/build-segno-grammar.js'))) steps.unshift('build-segno-grammar.js');
+  steps.push('build-css.js');
+  for (const step of steps) {
+    try {
+      execFileSync(process.execPath, [path.join(dir, 'tools', step)], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
+    } catch (e) {
+      throw new Error(`building ${label} (${step}) failed:\n${String(e.stdout || '').slice(-1500)}${String(e.stderr || '').slice(-1500)}`);
+    }
+  }
+}
+
+/** Every stylesheet the CSS build writes, by name: a minified file as written, a full one without its comments. */
+function cssDigest(root) {
+  const out = {};
+  for (const sub of ['dist', 'dist/themes']) {
+    const dir = path.join(root, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.css')).sort()) {
+      const text = fs.readFileSync(path.join(dir, f), 'utf8');
+      const body = f.includes('-min.') ? text : text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim();
+      out[`${sub}/${f}`] = createHash('sha256').update(body).digest('hex').slice(0, 16);
+    }
+  }
+  return out;
 }
 
 function withRefTree(ref, fn) {
@@ -109,25 +148,14 @@ function withRefTree(ref, fn) {
       fs.symlinkSync(fs.existsSync(own) ? own : path.join(ROOT, 'node_modules', '@laticent', lib), path.join(nm, '@laticent', lib));
     }
     if (fs.existsSync(path.join(ROOT, 'docs/node_modules'))) fs.symlinkSync(path.join(ROOT, 'docs/node_modules'), path.join(dir, 'docs/node_modules'), 'dir');
-    // The other tree's own workspace-library builds (not committed) and its CSS bundle; its committed generated
-    // tables are already in the checkout. Not the whole `npm run build`: its bundling steps (the agent kit, the
-    // player) read esbuild's path banners and do not run against a shared node_modules, and the engine needs none.
-    const steps = fs.readdirSync(path.join(dir, 'tools')).filter((f) => /^build-[a-z]+-lib\.js$/.test(f)).sort();
-    if (fs.existsSync(path.join(dir, 'tools/build-segno-grammar.js'))) steps.unshift('build-segno-grammar.js');
-    steps.push('build-css.js');
-    for (const step of steps) {
-      try {
-        execFileSync(process.execPath, [path.join(dir, 'tools', step)], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
-      } catch (e) {
-        throw new Error(`building ${ref} (${step}) failed:\n${String(e.stdout || '').slice(-1500)}${String(e.stderr || '').slice(-1500)}`);
-      }
-    }
+    buildTree(dir, ref);
     return fn(dir);
   } finally {
     execFileSync('git', ['worktree', 'remove', '--force', dir], { cwd: ROOT });
   }
 }
 
+if (!argv.includes('--no-build')) buildTree(ROOT, 'this tree');
 const here = renderTree(ROOT);
 const there = withRefTree(REF, renderTree);
 
@@ -137,8 +165,8 @@ const removed = [];
 for (const [key, a] of Object.entries(here.decks)) {
   const b = there.decks[key];
   if (!b) { added.push(a.path); continue; }
-  if (a.html !== b.html || a.css !== b.css || a.error !== b.error) {
-    changed.push({ path: a.path, was: b.path, html: a.html !== b.html, css: a.css !== b.css, error: a.error || b.error || null });
+  if (a.html !== b.html || a.error !== b.error) {
+    changed.push({ path: a.path, was: b.path, html: a.html !== b.html, error: a.error || b.error || null });
   }
 }
 for (const [key, b] of Object.entries(there.decks)) if (!here.decks[key]) removed.push(b.path);
@@ -150,23 +178,27 @@ for (const p of sourceChanged) {
   removed.splice(removed.indexOf(p), 1);
 }
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
+const cssNames = [...new Set([...Object.keys(here.css), ...Object.keys(there.css)])].sort();
+const cssChanged = cssNames.filter((n) => here.css[n] !== there.css[n]);
 
 const result = {
   ref: REF,
   decks: Object.keys(here.decks).length,
   paired: Object.keys(here.decks).filter((k) => there.decks[k]).length,
-  changed, sourceChanged, added, removed, lintSame, strict: STRICT,
+  changed, sourceChanged, added, removed, lintSame, cssChanged, stylesheets: cssNames.length, strict: STRICT,
   lintFindings: { here: here.lint.length, there: there.lint.length },
 };
 if (JSON_OUT) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 else {
   console.log(`render-identity vs ${REF}: ${result.paired} paired decks, ${changed.length} differ; ` +
     `${sourceChanged.length} source changed, ${added.length} added, ${removed.length} removed; lint ${lintSame ? 'identical' : 'DIFFERS'} ` +
-    `(${result.lintFindings.here} findings here, ${result.lintFindings.there} there).`);
-  for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.css ? ' css' : ''}${c.error ? ` error: ${c.error}` : ''}`);
+    `(${result.lintFindings.here} findings here, ${result.lintFindings.there} there); ` +
+    `${cssNames.length} stylesheets, ${cssChanged.length} differ.`);
+  for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.error ? ` error: ${c.error}` : ''}`);
+  for (const n of cssChanged) console.log(`  stylesheet differs: ${n}`);
   for (const p of sourceChanged) console.log(`  source changed: ${p}`);
   for (const p of added) console.log(`  added:   ${p}`);
   for (const p of removed) console.log(`  removed: ${p}`);
 }
 const unpaired = sourceChanged.length + added.length + removed.length;
-process.exit(changed.length || !lintSame || (STRICT && unpaired) ? 1 : 0);
+process.exit(changed.length || cssChanged.length || !lintSame || (STRICT && unpaired) ? 1 : 0);

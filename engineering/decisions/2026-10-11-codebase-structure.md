@@ -78,7 +78,7 @@ other part.
 | 0 | the ten `@laticent/*` libraries, `lib/adaptive`, `fonts`, `finishes`, `exemplars`, `typography`, `motion`, `lib/schemas` (every `*.schema.json`) | leaves: they import nothing of ours |
 | 1 | `lib/core` | the pure building blocks |
 | 2 | `lib/theme`, `tokens`, `integrations` | contracts over core |
-| 3 | `lib/components`, `forms`, `layout`, `packages`, `plugin-kit` | the catalog, the package format, and what a plugin may use |
+| 3 | `lib/components`, `forms`, `layout`, `packages` | the catalog and the package format (`plugin-kit` sat here until #2997 deleted it) |
 | 4 | `lib/plugins` (host) and each `lib/plugins/<name>`, `lib/transformers` | adapters and plugins |
 | 5 | `lib/engine` | assembles the render pipeline |
 | 6 | `lib/authoring`, `cli`, `concepts`, `diagnostics`, `export`, `playground`, `runtime` | what uses the engine |

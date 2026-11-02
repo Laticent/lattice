@@ -163,7 +163,9 @@ function isSeam(file) {
  * (`const DIR = path.join(ROOT, 'lib', 'plugins')` … `path.join(DIR, 'x.generated.js')`).
  */
 function namesPath(src, file) {
-  let s = src.replace(/(['"])\s*,\s*['"]/g, '/');
+  // Code only: a comment that names a path proves nothing (the red team named a hand-written
+  // lib/core/dispatch.generated.js after this file's own comment, #2997).
+  let s = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1').replace(/(['"])\s*,\s*['"]/g, '/');
   const dirs = [...s.matchAll(/\b([A-Z_][A-Z0-9_]*)\s*=\s*path\.(?:join|resolve)\(\s*ROOT\s*,\s*['"]([^'"]+)['"]\s*\)/g)];
   for (const [, name, dir] of dirs) s = s.replace(new RegExp(`\\b${name}\\s*,\\s*['"]`, 'g'), `'${dir}/`);
   const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -255,6 +257,7 @@ function cruise() {
   graph.unread = unreadModules(graph);
   graph.excludedImports = excludedImports(graph);
   graph.modules.push(...astroModules());
+  graph.computedImports = computedImports(graph);
   return graph;
 }
 
@@ -293,6 +296,35 @@ function unreadModules(graph) {
     }
     const specs = [...stripComments(src).matchAll(SPECIFIER)].map((x) => x[1]).filter((spec) => !spec.includes('node_modules') && scannedTarget(m.source, spec));
     if (specs.length) out.push(m.source);
+  }
+  return out;
+}
+
+/**
+ * `require(…)` and `import(…)` calls whose argument is not a string literal, per file, in every part but
+ * tools/. No static reader can follow one, and a file with one visible import passes the unread-file
+ * check however many it hides (the red team, #2997). Each file's count is listed, with the reason the
+ * call must be computed, in tools/structure.computed-imports.json: a file not listed, or with more than
+ * its count, fails; one with fewer fails until the count is lowered.
+ */
+const COMPUTED_IMPORT = /\b(?:require|import)\s*\(\s*(?!['"][^'"`$]*['"]\s*\))(?=\S)(?!\))/g;
+const COMPUTED_FILE = path.join(ROOT, 'tools', 'structure.computed-imports.json');
+const COMPUTED_LISTED = fs.existsSync(COMPUTED_FILE) ? JSON.parse(fs.readFileSync(COMPUTED_FILE, 'utf8')).files : {};
+function computedImports(graph) {
+  const out = {};
+  for (const m of graph.modules) {
+    if (m.coreModule || m.couldNotResolve || /node_modules|\/dist\/|\.json$|\.css$/.test(m.source)) continue;
+    const part = partOf(m.source);
+    if (!part || part.name === 'tools') continue;
+    let src;
+    try {
+      src = fs.readFileSync(path.join(ROOT, m.source), 'utf8');
+    } catch {
+      continue;
+    }
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+    const n = [...code.matchAll(COMPUTED_IMPORT)].length;
+    if (n) out[m.source] = n;
   }
   return out;
 }
@@ -349,7 +381,11 @@ function astroModules() {
     return null;
   };
   return out.map((file) => {
-    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(ROOT, file), 'utf8'))?.[1] ?? '';
+    const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    // The front matter runs at build time; a `<script>` block is bundled for the browser. Both import
+    // (the red team counted 43 imports in script blocks the gate did not read, #2997).
+    const scripts = [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n');
+    const fm = `${/^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? ''}\n${scripts}`;
     const deps = [];
     SPECIFIER.lastIndex = 0;
     for (const m of stripComments(fm).matchAll(SPECIFIER)) {
@@ -479,7 +515,7 @@ function listed(edges, sanctions, keyOf) {
   };
 }
 
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, entrySanctioned = SANCTIONED_PLUGIN_ENTRY, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, entrySanctioned = SANCTIONED_PLUGIN_ENTRY, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling, computedListed } = {}) {
   if (!requires || !hostApi) {
     const m = pluginManifests();
     requires ??= m.requires;
@@ -589,6 +625,8 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     hostApiCount,
     hostApiCeiling,
     excludedImports: graph.excludedImports || [],
+    computedImports: graph.computedImports || null,
+    computedListed: computedListed ?? COMPUTED_LISTED,
     coreSingleConsumer: inside['lib/core']?.singleConsumer.length ?? 0,
     coreSingleConsumerCeiling,
     // `require('@laticent/lattice')` from inside the repo is Node's self-reference: it loads the engine
@@ -671,6 +709,15 @@ function structureProblems(result) {
   if (result.hostApiCeiling != null && result.hostApiCount < result.hostApiCeiling) problems.push(`hostApi shrank to ${result.hostApiCount} files: lower HOST_API_CEILING in tools/structure.js from ${result.hostApiCeiling} to ${result.hostApiCount}, so it cannot grow back`);
   if (result.coreSingleConsumerCeiling != null && result.coreSingleConsumer > result.coreSingleConsumerCeiling) problems.push(`lib/core grew a single-consumer file: ${result.coreSingleConsumer} files there serve exactly one other part, over CORE_SINGLE_CONSUMER_CEILING (${result.coreSingleConsumerCeiling}); keep a file beside its one user, and move it down when a second part needs it (\`npm run structure\` lists them)`);
   if (result.coreSingleConsumerCeiling != null && result.coreSingleConsumer < result.coreSingleConsumerCeiling) problems.push(`lib/core has fewer single-consumer files (${result.coreSingleConsumer}): lower CORE_SINGLE_CONSUMER_CEILING in tools/structure.js from ${result.coreSingleConsumerCeiling} to ${result.coreSingleConsumer}, so they cannot come back`);
+  if (result.computedImports) {
+    const listed = result.computedListed || {};
+    for (const [file, n] of Object.entries(result.computedImports)) {
+      const want = listed[file]?.count ?? 0;
+      if (n > want) problems.push(`a computed require/import the gate cannot follow (${n} in the file, ${want} listed); use a string literal, or list it with its reason in tools/structure.computed-imports.json: ${file}`);
+      else if (n < want) problems.push(`fewer computed imports than listed (${n}, listed ${want}); lower its count in tools/structure.computed-imports.json: ${file}`);
+    }
+    for (const file of Object.keys(listed)) if (!result.computedImports[file]) problems.push(`stale entry in tools/structure.computed-imports.json (no computed import left): ${file}`);
+  }
   for (const e of result.selfImports || []) problems.push(`imports the repository by its package name, which the gate cannot follow; import it by path: ${e}`);
   for (const e of result.excludedImports || []) problems.push(`imports a file the gate does not read (tests, examples and other excluded trees hide their edges; only tools/ may): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);

@@ -1,0 +1,109 @@
+{
+  "note": "Files with a require()/import() whose argument is not a string literal, with how many and why each must stay computed. tools/structure.js fails on a file not listed or over its count, and on a stale or over-counted entry. Prefer a string literal; add a line only with its reason in the PR.",
+  "files": {
+    "docs/src/components/FrontMatterReference.astro": {
+      "count": 2,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/components/site/CommandMenu.tsx": {
+      "count": 1,
+      "why": "loads the Pagefind search index the docs build writes, by URL at runtime"
+    },
+    "docs/src/components/studio/ai/architect-model.js": {
+      "count": 4,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/lib/ensure-charts.ts": {
+      "count": 2,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/lib/ensure-code-format.ts": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/lib/load-engine.ts": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/pages/comparison.astro": {
+      "count": 1,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/components/[bucket]/[name].astro": {
+      "count": 2,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/components/index.astro": {
+      "count": 1,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/features.astro": {
+      "count": 1,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/index.astro": {
+      "count": 1,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/playground.astro": {
+      "count": 4,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/studio.astro": {
+      "count": 2,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/pages/studio/modifier-vocab.json.ts": {
+      "count": 1,
+      "why": "build-time require of lib/ or tools/ from the repo root: Astro front matter cannot reach CommonJS outside docs/ by a relative import; a downward edge (site -> lib)"
+    },
+    "docs/src/playground/bg-image-lift-source.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/playground/code-record-source.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/playground/kokoro-worker.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/playground/lint-core-source.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "docs/src/playground/voice-model.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
+    },
+    "lattice.js": {
+      "count": 1,
+      "why": "probes optional third-party installs (mermaid-cli's puppeteer) across several node_modules roots"
+    },
+    "lib/authoring/lint-core.js": {
+      "count": 1,
+      "why": "the fix driver is required only in Node and hidden from browser bundlers on purpose, so the lint core stays fs-free (HARD RULE #7)"
+    },
+    "lib/core/dagre-bundle.generated.js": {
+      "count": 1,
+      "why": "a vendored bundle's own internal shim, inside a generated string"
+    },
+    "lib/packages/code-bundle.js": {
+      "count": 3,
+      "why": "esbuild needs each chart kind's file, read from the registry's source as data (followups.d/2630-p3-computed-require-into-chart-registry.md)"
+    },
+    "lib/packages/draw-frame-core.mjs": {
+      "count": 1,
+      "why": "writes an import() into the sandboxed draw frame's boot script as text; the frame loads the plugin's vendored library by URL"
+    },
+    "lib/plugins/code/shared/load-grammar.js": {
+      "count": 1,
+      "why": "requires a highlight.js language by name from node_modules"
+    },
+    "lib/plugins/host-page-worker.js": {
+      "count": 1,
+      "why": "runs the plugin page role named by the host's job (the plugin's own committed <name>.page.js under pkgRoot)"
+    }
+  }
+}

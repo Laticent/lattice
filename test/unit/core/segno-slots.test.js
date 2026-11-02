@@ -101,3 +101,19 @@ describe('core slots', () => {
     for (const name of Object.keys(CORE)) assert.ok(coreSlot(name));
   });
 });
+
+test('the core slot specs are frozen all the way down, so a plugin reading ctx.vocabulary cannot rewrite them (#2997)', () => {
+  const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
+  const seen = ctxFor('pills', null).vocabulary.slots.CORE.pill;
+  // Sloppy-mode writes to a frozen object are ignored rather than thrown: assert they do not land.
+  try {
+    seen.positional.length = 0;
+    seen.params.evil = {};
+  } catch {
+    /* strict-mode callers get a TypeError instead */
+  }
+  assert.ok(Object.isFrozen(seen.positional) && Object.isFrozen(seen.params));
+  assert.equal(CORE.pill.positional.length, 1);
+  assert.equal('evil' in CORE.pill.params, false);
+  assert.ok(Object.isFrozen(CORE.pill.params.shape.values));
+});
