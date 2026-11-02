@@ -17,8 +17,8 @@
  * @param {number} [ms] how long to wait, default 30 000
  * @returns {Promise<HTMLElement>} the visible Deck source editor
  */
-// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
-async function latticeShowDeckEditor(ms = 30000) {
+// A global on purpose, set rather than declared, so it is plainly one: the probes that run after this file call it.
+globalThis.latticeShowDeckEditor = async function latticeShowDeckEditor(ms = 30000) {
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const editor = () => {
@@ -49,4 +49,4 @@ async function latticeShowDeckEditor(ms = 30000) {
 		}
 		await new Promise((r) => setTimeout(r, 100));
 	}
-}
+};
