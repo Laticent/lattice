@@ -217,7 +217,8 @@ describe('dropCoveredSheetFaces: against the real engine sheet', () => {
     const katex = [...new Set(scanFontFaceRules(css).map((r) => r.family)
       .filter((f) => f?.startsWith('KaTeX_')))];
     const r = dropCoveredSheetFaces(css, {
-      covered: [...new Set(TEXT_FACES.map((f) => f.family)), 'Noto Color Emoji', ...katex],
+      // Lattice Icons: lattice.js covers it too, since the page carries its faces as data (lib/fonts/face-css.js `iconFaceCss`).
+      covered: [...new Set(TEXT_FACES.map((f) => f.family)), 'Noto Color Emoji', 'Lattice Icons', ...katex],
     });
     assert.ok(r.dropped >= 30, `expected the sheet's self-hosted block to go; dropped ${r.dropped}`);
     assert.equal(scanFontFaceRules(r.css).filter((x) => x.hasRelativeUrl).length, 0,

@@ -29,6 +29,7 @@ const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'lib', 'plugins', 'icons');
 /** The sources, outside the package (an `_` folder is not a package, lib/packages/kinds.js). */
 const SRC = path.join(ROOT, 'lib', 'plugins', '_icons-source');
+const CODEPOINTS = path.join(SRC, 'codepoints.json');
 const VOCAB_FILE = path.join(DIR, 'icons.vocab.generated.js');
 const DATA_FILE = path.join(DIR, 'icons.data.generated.js');
 const check = process.argv.includes('--check');
@@ -142,12 +143,17 @@ module.exports = Object.freeze({
 });
 `;
   const lines = names.map((n) => `  ${JSON.stringify(n)}: ${JSON.stringify(icons[n])},`);
+  // Each icon's Lattice Icons codepoint (lib/plugins/_icons-source/codepoints.json, kept by `npm run icons:font`):
+  // the renderer writes the glyph beside the <svg>. An icon not in the font yet has none and draws as SVG only.
+  const cpMap = fs.existsSync(CODEPOINTS) ? JSON.parse(fs.readFileSync(CODEPOINTS, 'utf8')).icons || {} : {};
+  const codepoints = Object.fromEntries(names.filter((n) => cpMap[n]).map((n) => [n, cpMap[n]]));
   const data = `${header('The icon DRAWINGS: name → [[tag, geometry], …] on a 24-unit grid. Never required by a kernel; read through lib/plugins/plugin-data.js.')}
 /*! Tabler Icons — https://tabler.io/icons — stream and gateway are Lattice's own.
 ${MIT_NOTICE.split('\n').map((l) => ` *${l ? ` ${l}` : ''}`).join('\n')}
  */
 module.exports = Object.freeze({
   category: Object.freeze(${JSON.stringify(category)}),
+  codepoints: Object.freeze(${JSON.stringify(codepoints)}),
   icons: Object.freeze({
 ${lines.join('\n')}
   }),

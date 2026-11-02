@@ -104,7 +104,8 @@ def build(job, face):
 
 
 def main():
-    job = json.load(open(sys.argv[1]))
+    with open(sys.argv[1], encoding='utf-8') as f:
+        job = json.load(f)
     missing = [n for n in job['icons'] if n not in job['codepoints']]
     if missing:
         sys.exit(f'icon-font: no codepoint for {", ".join(missing)}')

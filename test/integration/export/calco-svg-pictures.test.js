@@ -26,7 +26,9 @@ const puppeteer = require('puppeteer');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 
-const DECK = ['---', 'theme: indaco', '---', '',
+// `icon: svg`: icons draw as glyphs of the Lattice Icons font by default (engineering/decisions/2026-11-01-icon-font.md), and this
+// test is about the SVG picture an icon becomes when it is an <svg> (icon-font-exports.test.js covers the glyph).
+const DECK = ['---', 'theme: indaco', 'icon: svg', '---', '',
 	'## Icons', '', 'Storage `{S3, icon=bucket, c4}` and `{Primary, icon=database, tag}`.', '',
 	'---', '', '## Avatars', '', 'Our sponsor `!{Ada Okafor}` with `!{Ben Liu, lg}` and `!{Cy Diaz, rounded}`.', '',
 	'---', '', '## Sparks', '', 'Revenue `~{0.8 0.9 1.1 1.2 1.4 1.5 1.7 1.9, end}` against `~{1.9/1.6, bullet}`.', ''].join('\n');

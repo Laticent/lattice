@@ -1182,7 +1182,7 @@ const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // Hoisted ABOVE the plugins' bakes, which run at module-evaluation time (the font plumbing is
 // declared further down; reaching it early is a TDZ throw).
-const { fontFaceCss, emojiFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
@@ -1408,7 +1408,9 @@ const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 // faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
 // without math nothing supplies KaTeX's faces — and nothing asks for one, since no
 // element carries a KaTeX family without KaTeX markup.
-const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES];
+// Lattice Icons too: the page carries its faces as data whenever a slide draws a glyph (`iconFaceCss` below), and under
+// `fonts: emoji: system` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
+const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
   // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already
@@ -2814,7 +2816,13 @@ const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title
 // draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
 const FILE_IS_HTML = OUT_FORMAT === 'html';
 const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
-const extraFontCss = katexFacesCss + emojiCss;
+// Lattice Icons: an icon draws as a glyph of our font beside its <svg>, and CSS shows the glyph (`icon: font`, the default).
+// The Emoji font setting decides whether the file carries the font: under `system` it does not, and since no machine has our
+// icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
+const usesIconGlyphs = highlightedSlides.some((s) => s.includes('lat-icon-glyph') || s.includes('lat-pill-glyph'));
+const iconsAsSvg = usesIconGlyphs && FONT_POLICY.emoji === 'system';
+const iconCss = usesIconGlyphs && !iconsAsSvg ? iconFaceCss(PKG_ROOT) : '';
+const extraFontCss = katexFacesCss + emojiCss + iconCss;
 // `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
 const docFonts = !extraFontCss
@@ -3017,7 +3025,7 @@ const a11yTextureDefs = texturePatternDefs(
   texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
 );
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeAttr(deckLang)}"${iconsAsSvg ? ' data-lattice-icons="svg"' : ''}><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${docFonts}
 ${katexCssTag}

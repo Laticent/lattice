@@ -30,6 +30,7 @@ import fontPolicyCore from '../../../lib/core/font-policy.js';
 import emojiCore from '../../../lib/fonts/emoji-faces.js';
 // Vite bundles each .woff2 and resolves the import to its served URL.
 import faceRuleCore from '../../../lib/fonts/face-rule.js';
+import iconFacesCore from '../../../lib/fonts/icon-faces.js';
 import textFacesCore from '../../../lib/fonts/text-faces.js';
 import caveat400 from './fonts/caveat-400.woff2';
 import caveat700 from './fonts/caveat-700.woff2';
@@ -152,6 +153,28 @@ async function emojiSliceRule({ file, range }) {
 	return emojiRules.get(file);
 }
 
+// Lattice Icons (lib/fonts/icon-faces.js): the same three woff2 the CLI reads from assets/fonts/. An icon draws as one of
+// their glyphs by default; the face follows the EMOJI tier (engineering/decisions/2026-11-01-icon-font.md).
+const ICON_URL = import.meta.glob('../../../assets/fonts/lattice-icons-*.woff2', { eager: true, query: '?url', import: 'default' });
+export const ICON_FACES = iconFacesCore.ICON_FACES.map((f) => ({ family: f.family, weight: f.weight, style: f.style, url: ICON_URL[`../../../assets/fonts/${f.file}.woff2`] })).filter((f) => f.url);
+let iconCssPromise = null;
+function buildIconFontCss() {
+	if (!iconCssPromise) {
+		iconCssPromise = Promise.all(ICON_FACES.map((f) => faceBase64(f.url)))
+			.then((b64s) => ICON_FACES.map((f, i) => faceRuleCore.faceRuleCss(f, 'block', b64s[i])).join(''))
+			.catch((err) => {
+				iconCssPromise = null;
+				throw err;
+			});
+	}
+	return iconCssPromise;
+}
+/** True when the text holds a Lattice Icons glyph (a private-use codepoint the icon map names). */
+function drawsIcons(text) {
+	for (const hex of Object.values(iconFacesCore.ICON_CODEPOINTS)) if (text.includes(String.fromCodePoint(Number.parseInt(hex, 16)))) return true;
+	return false;
+}
+
 /**
  * The CLI's font block, plus (when `text` is given) the Noto Color Emoji slices that text needs, under the
  * `fonts:` policy (lib/core/font-policy.js): `system` leaves that class out, `full` ships every emoji slice.
@@ -164,7 +187,8 @@ export async function buildFontEmbedCss(text = '', fonts) {
 	if (policy.emoji === 'system') return base;
 	const need = new Set(policy.emoji === 'full' ? emojiCore.EMOJI_SLICES.map((s) => s.file) : emojiCore.slicesFor(text));
 	const rules = await Promise.all(emojiCore.EMOJI_SLICES.filter((s) => need.has(s.file)).map(emojiSliceRule));
-	return base + rules.join('');
+	const icons = drawsIcons(text) ? await buildIconFontCss() : '';
+	return base + rules.join('') + icons;
 }
 
 // Inject the embedded faces into `doc` (idempotent) and wait until every face is
@@ -179,7 +203,7 @@ export async function ensureFontsLoaded(doc, css) {
 			doc.head.appendChild(style);
 		}
 		await Promise.all(
-			FACES.map((f) => doc.fonts.load(`${f.style} ${f.weight} 1em '${f.family}'`).catch(() => {})),
+			[...FACES, ...ICON_FACES].map((f) => doc.fonts.load(`${f.style} ${f.weight} 1em '${f.family}'`).catch(() => {})),
 		);
 		await doc.fonts.ready;
 	} catch (_e) {

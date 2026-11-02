@@ -74,8 +74,17 @@ describe('icons — both render paths', () => {
     assert.match(icons.iconHtml('^{bucket}'), /role="img" aria-label="bucket"/);
     const pill = pills.pillHtml('{S3, icon=bucket, c4}');
     assert.match(pill, /<svg class="lat-pill-icon"[^>]*aria-hidden="true"/);
-    assert.match(pill, /<\/svg>S3<\/span>$/);
+    // The glyph rides beside the <svg>, hidden from assistive technology like it (icon-font decision § 3.3).
+    assert.match(pill, /<\/svg><span class="lat-pill-glyph" aria-hidden="true"><span data-glyph="&#x[0-9A-F]+;"><\/span><\/span>S3<\/span>$/);
     assert.match(pills.pillHtml('{icon=database}'), /role="img" aria-label="database"/);
+  });
+  test('the glyph is never document text: a pill\'s label, a title or a copy reads only what the author wrote', () => {
+    // It is the `::before` of a span (`content: attr(data-glyph)`), as the <svg> was no text either. A text node made
+    // the bucket's private-use codepoint part of the pill's label (LFM conformance, `inline-notation`).
+    for (const html of [icons.iconHtml('^{bucket}'), pills.pillHtml('{S3, icon=bucket, c4}')]) {
+      const text = html.replace(/<[^>]*>/g, '');
+      assert.doesNotMatch(text, /&#x|[\uE000-\uF8FF]/, html);
+    }
   });
   test('the pill\'s two paths agree with an icon', () => {
     for (const s of ['{S3, icon=bucket, c4}', '{icon=db}', '{Primary, icon=database, tag, lg}']) {
@@ -104,7 +113,7 @@ describe('icons — what the adversarial review found', () => {
   test('an icon-only pill takes its option words as options, not as a label', () => {
     assert.match(pills.pillHtml('{icon=gateway, c2}'), /^<span class="lat-pill" data-shape="pill" data-c="c2" role="img" aria-label="gateway"><svg/);
     assert.match(pills.pillHtml('{c2, icon=gateway, lg, tag}'), /data-shape="tag" data-c="c2" data-size="lg" role="img"/);
-    assert.match(pills.pillHtml('{"lg", icon=db}'), /<\/svg>lg<\/span>$/, 'a quoted label is a label');
+    assert.match(pills.pillHtml('{"lg", icon=db}'), /<\/svg><span class="lat-pill-glyph" aria-hidden="true"><span data-glyph="&#x[0-9A-F]+;"><\/span><\/span>lg<\/span>$/, 'a quoted label is a label');
   });
   test('an empty pill is still not an attempt', () => {
     assert.equal(pills.diagnose('{""}'), null);

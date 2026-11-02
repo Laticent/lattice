@@ -1050,7 +1050,10 @@ export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
 // Everything the export will draw, for the emoji slice picker: the text, and what pseudo-elements draw through `content:`,
 // which `textContent` never holds (an emoji set only there lost its slice and drew in a fallback face).
-const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}`;
+// The icon glyphs too: each is a `::before` drawn from `data-glyph` (lib/plugins/icons/icons.inline.js), so it is in no text node,
+// and the font supply needs to see it to carry the Lattice Icons faces (playground/font-embed.js).
+const glyphTextOf = (doc) => [...(doc?.body?.querySelectorAll('[data-glyph]') || [])].map((el) => el.getAttribute('data-glyph') || '').join('');
+const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}\n${glyphTextOf(doc)}`;
 
 async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
@@ -1069,8 +1072,15 @@ async function sectionsOf(frame, fonts) {
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
-	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
-	else doc.documentElement.removeAttribute('data-lattice-omit-fonts');
+	// Icons too: no machine has our icon font, so under `system` the page shows each icon's <svg> instead (lib/plugins/icons/icons.styles.css;
+	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
+	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') {
+		doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
+		doc.documentElement.setAttribute('data-lattice-icons', 'svg');
+	} else {
+		doc.documentElement.removeAttribute('data-lattice-omit-fonts');
+		doc.documentElement.removeAttribute('data-lattice-icons');
+	}
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
 }
@@ -2526,7 +2536,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const skippedFonts = new Map();
 			// The `fonts:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
 			// characters the deck draws in it, `used` and `full` keep the whole face, `system` embeds nothing. Emoji are not embedded: see there.
-			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text), (face, why) => {
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text, fontPolicyCore.resolveFontPolicy(opts?.fonts).emoji), (face, why) => {
 				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.
 				const label = face.italic ? `${face.family} italic` : face.family;
 				if (!skippedFonts.has(label)) skippedFonts.set(label, why);
