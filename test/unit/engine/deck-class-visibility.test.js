@@ -35,7 +35,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { render } = require('../../../lib/engine');
-const { readClassAttr } = require('../../../lib/core/section-walk');
+const { readClassAttr } = require('@laticent/markup');
 
 // Every section's OPEN TAG, verbatim, in document order.
 function openTags(html) {

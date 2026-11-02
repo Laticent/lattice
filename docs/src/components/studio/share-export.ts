@@ -264,7 +264,7 @@ type SlideNoteRecord = {
 	say: string | null;
 };
 
-/** The depth-aware `<section>` walker (lib/core/split-sections.js), via the authoring bundle. */
+/** The depth-aware `<section>` walker (docs/src/lib/markup/sections.ts), via the authoring bundle. */
 type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: string; inner?: string; cls?: string }[];
 
 /**

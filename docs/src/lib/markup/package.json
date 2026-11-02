@@ -2,7 +2,7 @@
   "name": "@laticent/markup",
   "version": "0.1.0",
   "private": true,
-  "description": "Balanced-HTML string walking for highlighted code and rendered slides: split highlighted code into one balanced fragment per source line. Reads only the string it is given: no DOM, no Node, no dependencies.",
+  "description": "Balanced-HTML string walking for highlighted code and rendered slides: the tokenizer, the section walker, top-level element and list readers, tag stripping, escaping, and the per-line split of highlighted code. Reads only the string it is given: no DOM, no Node, no dependencies.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {

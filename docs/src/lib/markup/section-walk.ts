@@ -1,7 +1,7 @@
 /**
  * mapSections — the shared depth-aware `<section>` walker every
  * applyToRenderedHtml-style transform uses to visit Marpit's rendered
- * slides and rewrite the ones it owns.
+ * slides and rewrite the ones it owns. Moved from lib/core/section-walk.js, unchanged in behavior.
  *
  * Before this module the identical ~30-line scan loop was pasted into five
  * transforms (chart-family, roadmap, journey, split-panels, masthead — the
@@ -32,7 +32,7 @@
  * at all.
  */
 
-const { splitSections } = require('./split-sections');
+import { splitSections } from './sections.js';
 
 /**
  * The class attribute of an open tag, WITH THE LEFT BOUNDARY THAT MAKES IT THE
@@ -88,23 +88,23 @@ const CLASS_ATTR = /(?:^|\s)class="([^"]*)"/;
  * `name` is interpolated into a RegExp, so it must be a literal attribute name from
  * the caller, never parsed input. Every call site passes a constant.
  */
-function readAttr(tag, name) {
+function readAttr(tag: unknown, name: string): string | null {
   if (typeof tag !== 'string') return null;
   const m = tag.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`));
-  return m ? m[1] : null;
+  return m ? (m[1] as string) : null;
 }
 
 /**
  * Read the resolved class list off an open tag. '' when absent — never null, so
  * callers can `.split()` / `.includes()` without a guard.
  */
-function readClassAttr(tag) {
+function readClassAttr(tag: unknown): string {
   if (typeof tag !== 'string') return '';
   const m = tag.match(CLASS_ATTR);
-  return m ? m[1] : '';
+  return m ? (m[1] as string) : '';
 }
 
-// The walk itself is `splitSections` (lib/core/split-sections.js), the one
+// The walk itself is `splitSections` (./sections.ts), the one
 // section walker, which reads the document through the `scanTags` tokenizer.
 // This module used to carry its own `indexOf('<section')` scan, and so did
 // qr-card's `walkSections` and svg-a11y-names' `sectionSpans`. A literal scan
@@ -122,7 +122,10 @@ function readClassAttr(tag) {
 // callers of this function rewrite `class="…"` with the double-quoted grammar
 // `readClassAttr` speaks. Changing the READER is a separate question from
 // changing the WALK, and this change is only the walk.
-function mapSections(html, rewrite) {
+/** What a `mapSections` rewrite returns: nothing (keep the section), new inner HTML, or a new open tag and/or inner. */
+export type SectionRewrite = string | { openTag?: string; inner?: string } | null | undefined;
+
+function mapSections(html: string, rewrite: (openTag: string, cls: string, inner: string) => SectionRewrite): string {
   let out = '';
   for (const piece of splitSections(html)) {
     if (piece.type === 'gap') { out += piece.text; continue; }
@@ -153,7 +156,7 @@ function mapSections(html, rewrite) {
  * `rewrite(sectionHtml, cls)` returns the replacement section, or null/undefined
  * to pass the section through byte-identical (its close tag verbatim).
  */
-function mapSectionHtml(html, rewrite) {
+function mapSectionHtml(html: string, rewrite: (section: string, cls: string) => string | null | undefined): string {
   let out = '';
   for (const piece of splitSections(html)) {
     if (piece.type === 'gap') { out += piece.text; continue; }
@@ -164,4 +167,4 @@ function mapSectionHtml(html, rewrite) {
   return out;
 }
 
-module.exports = { mapSections, mapSectionHtml, readAttr, readClassAttr, CLASS_ATTR };
+export { mapSectionHtml, mapSections, readAttr, readClassAttr };

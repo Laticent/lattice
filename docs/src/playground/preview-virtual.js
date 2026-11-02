@@ -23,10 +23,10 @@
 // controller that consumes it is `renderDeck` in `deck-render.js`; `deck-preview.js`
 // re-exports `splitSections` so every host shares one implementation.
 
-import { splitSections as splitSectionsCore, unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
+import { splitSections as splitSectionsCore, unclosedSectionAt } from '@laticent/markup';
 
 // Split the rendered HTML into one HTML string per slide, with the engine's own walker
-// (`splitSections`, lib/core/split-sections.mjs — HARD RULE #1).
+// (`splitSections`, docs/src/lib/markup/sections.ts — HARD RULE #1).
 //
 // This used to pair each `<section …>` with the next literal `</section>`, on the claim that
 // user content is escaped so no stray section tag appears inside a slide. An HTML comment is not

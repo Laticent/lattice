@@ -13,7 +13,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
-const { splitSections: splitSectionsCore } = require('../../../lib/core/split-sections.js');
+const { splitSections: splitSectionsCore } = require('@laticent/markup');
 
 const sec = (inner) => `<section data-lattice-slide="1">${inner}</section>`;
 
@@ -493,7 +493,7 @@ describe('notes-core: say channel (say:)', () => {
     // The deck shape that defeats the docs site's flat splitter: a slide containing a
     // hand-authored <section>. The flat scan ends slide 1 at the NESTED close tag, so the
     // note after it is lost — while the slide COUNT still matches, which is exactly why a
-    // count-parity check waves it through. `lib/core/split-sections.js` is depth-aware.
+    // count-parity check waves it through. `docs/src/lib/markup/sections.ts` is depth-aware.
     const NESTED =
       '<section id="1" class="title"><h1>One</h1><section class="inner"><p>n</p></section><p>tail</p><!-- SECRETNEST --></section>' +
       '<section id="2" class="content"><h2>Two</h2><!-- NOTETWO --></section>';

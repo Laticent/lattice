@@ -2,7 +2,7 @@
  * Every transform that walks the rendered deck section by section reads a
  * section tag QUOTED in an HTML comment as text.
  *
- * #2329 moved five walkers onto `splitSections` (lib/core/split-sections.js).
+ * #2329 moved five walkers onto `splitSections` (docs/src/lib/markup/sections.ts).
  * These five were still on private scans and each lost a slide's transform on a
  * comment an author can type into any deck:
  *

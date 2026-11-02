@@ -25,7 +25,7 @@
 // It means the engine and the outliner disagree about the deck, and a map would then misplace
 // tiles, so a test holds both lists empty over the example decks and a reader can still see them.
 
-import { splitSections } from '../../../lib/core/split-sections.mjs';
+import { splitSections } from '@laticent/markup';
 import type { DeckIndex } from './deck-outline';
 import { partCount, partOfFlat, partText } from './fuoco/outline';
 

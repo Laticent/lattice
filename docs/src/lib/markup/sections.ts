@@ -4,7 +4,7 @@
  * Splits rendered Marpit/engine HTML into ordered pieces — `gap` (text between
  * sections) and `section` ({ openTag, inner, cls }) — with a depth-aware
  * </section> scan that survives nested sections. Reassemble with
- * `openTag + inner + '</section>'`.
+ * `openTag + inner + '</section>'`. Moved from lib/core/split-sections.mjs, unchanged in behavior.
  *
  * Pure + fs-free, so both the Node render kernels (lib/integrations/markdown-it/plugins.js
  * progress rail) and the browser-bundled Form Tile kernels (lib/forms/tile/*)
@@ -32,7 +32,7 @@
  * § Known gaps), and a comment-skipping patch bolted onto the string scan would
  * have closed one shape of it while leaving RAWTEXT and attribute values open.
  *
- * `scanTags` (lib/core/top-level-h2.js) is the repo's tokenizer for exactly this
+ * `scanTags` (./tags.ts) is the repo's tokenizer for exactly this
  * and its docblock says so: inert spans are YIELDED rather than swallowed
  * "because the depth walk must not count them". Reusing it (HARD RULE #1, #15)
  * moves the walk MUCH closer to what a browser sees, and closes three further
@@ -84,7 +84,7 @@
  *     not.
  */
 
-import { scanTags } from './top-level-h2.mjs';
+import { scanTags } from './tags.js';
 
 /**
  * The `class` attribute of an open tag, found by WALKING THE ATTRIBUTES rather
@@ -112,9 +112,16 @@ import { scanTags } from './top-level-h2.mjs';
  */
 // HTML's five whitespace characters. A comparison, not `/[ \t\n\r\f]/.test`:
 // this runs per character of every section open tag on every walk.
-const isSpace = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f';
+/** A gap of text between top-level sections, or one top-level section split into its parts. */
+export type SectionPiece =
+  | { type: 'gap'; text: string }
+  | { type: 'section'; openTag: string; inner: string; cls: string; close: string; start: number; end: number };
 
-function findClassAttr(openTag) {
+interface SectionTag { isClose: boolean; start: number; end: number }
+
+const isSpace = (c: string | undefined): boolean => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f';
+
+function findClassAttr(openTag: unknown): { value: string; start: number; end: number } | null {
   const t = String(openTag);
   let i = t.indexOf('<') + 1;
   if (t[i] === '/') i += 1;
@@ -134,7 +141,7 @@ function findClassAttr(openTag) {
     i += 1;
     while (i < t.length && isSpace(t[i])) i += 1;
     let valStart = i;
-    let valEnd;
+    let valEnd: number;
     const q = t[i];
     if (q === '"' || q === "'") {
       valStart = i + 1;
@@ -151,7 +158,7 @@ function findClassAttr(openTag) {
 }
 
 /** Splice a new `class="…"` into `openTag`, or add one when it carries none. */
-function withClass(openTag, next) {
+function withClass(openTag: string, next: string): string {
   const a = findClassAttr(openTag);
   if (a) return `${openTag.slice(0, a.start)}class="${next}"${openTag.slice(a.end)}`;
   const lt = openTag.indexOf('<');
@@ -194,10 +201,10 @@ const DIRTY = /<!|<\?|<(?:script|style|textarea)(?![a-zA-Z0-9-])|=\s*(?:"[^"<>]*
 // between `from` and it. One search therefore answers every later query up to
 // the match it found, and the walk stays linear instead of rescanning the tail
 // of the document once per section.
-function cleanChecker(src) {
+function cleanChecker(src: string): (from: number, to: number) => boolean {
   let searchedFrom = Infinity;
   let at = -1;                          // leftmost match at or after searchedFrom; Infinity = none
-  return (from, to) => {
+  return (from: number, to: number): boolean => {
     if (!(from >= searchedFrom && from <= at)) {
       DIRTY.lastIndex = from;
       const m = DIRTY.exec(src);
@@ -210,15 +217,15 @@ function cleanChecker(src) {
 
 // The next literal section tag at or after `from`, with the end of the stretch
 // that must be clean for it to be read literally (through its own `>`).
-function nextLiteral(src, from) {
+function nextLiteral(src: string, from: number): { m: RegExpExecArray | null; gt: number; until: number } {
   SECTION_LITERAL.lastIndex = from;
   const m = SECTION_LITERAL.exec(src);
-  if (!m) return { m: null, until: src.length };
+  if (!m) return { m: null, gt: -1, until: src.length };
   const gt = src.indexOf('>', m.index);
   return { m, gt, until: gt < 0 ? src.length : gt + 1 };
 }
 
-function walkFast(src, onSection) {
+function walkFast(src: string, onSection: (t: SectionTag) => void): void {
   const n = src.length;
   const isClean = cleanChecker(src);
   let pos = 0;
@@ -261,20 +268,20 @@ function walkFast(src, onSection) {
 // return another document's tags. Four entries covers the repeats a render makes
 // (they are adjacent passes) and holds at most four documents alive between renders.
 const WALK_MEMO_SIZE = 4;
-const walkMemo = [];
+const walkMemo: { src: string; tags: SectionTag[] }[] = [];
 
-function sectionTagsOf(src) {
+function sectionTagsOf(src: string): SectionTag[] {
   for (let k = 0; k < walkMemo.length; k++) {
     if (walkMemo[k].src === src) return walkMemo[k].tags;
   }
-  const tags = [];
+  const tags: SectionTag[] = [];
   walkFast(src, (t) => { tags.push({ isClose: t.isClose, start: t.start, end: t.end }); });
   walkMemo.unshift({ src, tags });
   if (walkMemo.length > WALK_MEMO_SIZE) walkMemo.pop();
   return tags;
 }
 
-function splitSections(html, { tokenizerOnly = false } = {}) {
+function splitSections(html: string, { tokenizerOnly = false }: { tokenizerOnly?: boolean } = {}): SectionPiece[] {
   // NO `String(html ?? '')`, matching the old walk, which read `html.length`
   // directly. Coercing would turn a caller's mistake into a silent empty answer
   // — a wrong render instead of a crash, the trade `lib/engine/index.js` refuses
@@ -288,14 +295,14 @@ function splitSections(html, { tokenizerOnly = false } = {}) {
   // render. No caller passes one (all 30 call sites were enumerated), so this
   // buys a loud failure for the shapes it catches and nothing for the rest.
   const src = html;
-  const pieces = [];
+  const pieces: SectionPiece[] = [];
   let i = 0;        // start of the not-yet-emitted run of text
   let open = -1;    // offset of the current TOP-LEVEL `<section`
   let tagEnd = -1;  // one past that open tag's `>`
   let depth = 0;
 
   // One section tag, `{ isClose, start, end }` — the depth bookkeeping.
-  const onSection = (t) => {
+  const onSection = (t: SectionTag): void => {
     if (!t.isClose) {
       if (depth === 0) { open = t.start; tagEnd = t.end; }
       depth += 1;                       // see NOTE ON `<section/>` above
@@ -314,7 +321,7 @@ function splitSections(html, { tokenizerOnly = false } = {}) {
     const cm = findClassAttr(openTag);
     // `start`/`end` are the section's offsets in `html` and `close` is its close
     // tag VERBATIM. Most callers reassemble with a literal '</section>' and need
-    // none of them; `mapSections` (lib/core/section-walk.js) promises to pass an
+    // none of them; `mapSections` (./section-walk.ts) promises to pass an
     // untouched section through byte-identical, and a malformed close tag the
     // walker accepts (see above) would otherwise be rewritten.
     pieces.push({
@@ -356,7 +363,7 @@ function splitSections(html, { tokenizerOnly = false } = {}) {
  * and every later slide sits inside it. An author mid-way through typing `<section class="x">`
  * is in exactly this state. Read by the same tokenizer, from the start of the trailing gap.
  */
-function unclosedSectionAt(html, pieces = splitSections(html)) {
+function unclosedSectionAt(html: string, pieces: SectionPiece[] = splitSections(html)): number {
   const last = pieces[pieces.length - 1];
   if (!last || last.type !== 'gap') return -1;
   const from = html.length - last.text.length;
@@ -366,4 +373,4 @@ function unclosedSectionAt(html, pieces = splitSections(html)) {
   return -1;
 }
 
-export { findClassAttr, splitSections, unclosedSectionAt, withClass };
+export { splitSections, unclosedSectionAt, withClass };

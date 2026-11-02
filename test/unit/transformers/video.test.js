@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const { detectProvider } = require('../../../lib/core/video-providers.mjs');
 const video = require('../../../lib/components/imagery/video/video.transform');
 const plugin = require('../../../lib/plugins/video/video.inline.js');
-const { findTopLevelH2 } = require('../../../lib/core/top-level-h2');
+const { findTopLevelH2 } = require('@laticent/markup');
 const { resolveOembed, videoUrlsFromDeck } = require('../../../tools/fetch-video-oembed');
 
 /** The figure the plugin draws from one record, as the markdown-it pass would emit it. */

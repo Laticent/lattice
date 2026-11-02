@@ -807,8 +807,7 @@ const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { exportDeckStyleText } = require('./lib/export/export-scaffold');
 const { exportGlobalCss } = require('./lib/export/author-css');
 const { splitKatexSheet } = require('./lib/export/katex-inline');
-const { readClassAttr } = require('./lib/core/section-walk');
-const { splitSections } = require('./lib/core/split-sections');
+const { readClassAttr, splitSections } = require('@laticent/markup');
 // The label-drop channel's READER half — same grammar as the writer, one module
 // (lib/components/chart/_chart-family/label-drops.js), so the two cannot drift.
 const { decodeLabelDrops } = require('./lib/components/chart/_chart-family/label-drops');
@@ -2218,7 +2217,7 @@ const logoWallPack       = require('./lib/core/logo-wall-pack');
 // One `<section>` string per top-level slide, from the engine's assembled
 // <article class="lattice"> document — the shape the emulator's downstream
 // (highlight, deck-logo, page template) expects. The walk is the shared kernel
-// (lib/core/split-sections.js, HARD RULE #1), which reads a comment, a
+// (docs/src/lib/markup/sections.ts, HARD RULE #1), which reads a comment, a
 // <style>/<script> body and a quoted attribute as TEXT. The private regex copy
 // this replaced did not: a `<section` quoted inside a comment or a <style> moved
 // its depth counter, the walk found zero slides, and the export shipped a
@@ -2373,7 +2372,7 @@ function engineSlides(deckSource = rawMd) {
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's
     // always the author's `statement` class — needsScrim keys off that.
     // Resolved `class`, never the `data-class` directive payload that precedes it —
-    // see lib/core/section-walk.js readClassAttr (#1358).
+    // see docs/src/lib/markup/section-walk.ts readClassAttr (#1358).
     const cls = readClassAttr((s.match(/^<section\b[^>]*>/i) || [''])[0]);
     if (imageScrim.needsScrim(cls) && s.indexOf('class="image-scrim') === -1) {
       s = s.replace(/(<div class="lattice-bg[\s\S]*?<\/div>)/, `$1${imageScrim.SCRIM_HTML}`);

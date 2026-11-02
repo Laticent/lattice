@@ -29,7 +29,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const { ROOT, runEmulator } = require('../../helpers/render');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 
 describe('split veto — a hoistable lede + note must not veto the split', () => {
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'split-veto-hoist.md');

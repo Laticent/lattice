@@ -1,6 +1,8 @@
 /**
- * top-level-h2 — find a section's OWN title `<h2>`, never one nested inside its
- * content.
+ * tags.ts — the HTML tokenizer (`scanTags`) and the top-level element readers built on it. Its first job, and
+ * the name it carried in lib/core (top-level-h2): find a section's OWN title `<h2>`, never one nested inside its
+ * content. Moved from lib/core/top-level-h2.mjs, unchanged in behavior; its `stripTags` is `stripScannedTags`
+ * here, because ./text.ts already exports a different `stripTags`.
  *
  * ── WHY THIS IS A KERNEL AND NOT A REGEX ────────────────────────────────────
  *
@@ -117,6 +119,23 @@
  */
 
 /** Elements with no closing tag — they must not open a depth level. */
+/** One token of `scanTags`: a tag, or an inert span (a comment, a `<!…>`/`<?…>`, a RAWTEXT body). */
+export type ScanToken =
+  | { kind: 'inert'; start: number; end: number }
+  | { kind: 'tag'; name: string; isClose: boolean; selfClose: boolean; start: number; end: number };
+
+/** A top-level element's start tag: `start` is the offset of `<`, `tagEnd` the offset just past `>`. */
+export interface TopLevelHit { start: number; tagEnd: number }
+
+/** A top-level element, closed: `end` is the offset just past its end (or where the parser closed it). */
+export interface TopLevelElement extends TopLevelHit { name: string; end: number }
+
+type StackEvent =
+  | { open: true; close?: undefined; name: string; start: number; tagEnd: number }
+  | { close: true; open?: undefined; name: string; start: number; tagEnd: number; end: number };
+
+interface OpenElement { name: string; start: number; tagEnd: number; top: boolean; fostered: boolean }
+
 const VOID_TAGS = new Set([
   'br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col',
   'embed', 'source', 'track', 'wbr', 'keygen',
@@ -213,11 +232,11 @@ const TABLE_ONLY_TAGS = new Set([
  */
 const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
 
-const CLOSED_BY_SIBLING = new Map([
+const CLOSED_BY_SIBLING = new Map<string, string[]>([
   ['li', ['li']],
   // A heading start tag closes an open heading — `<h2>Outer<h2>Inner</h2>` is two
   // siblings, not a nest, and `</h3>` closes an open `<h2>`.
-  ...HEADINGS.map((h) => [h, HEADINGS]),
+  ...HEADINGS.map((h): [string, string[]] => [h, HEADINGS]),
   ['dt', ['dt', 'dd']],
   ['dd', ['dt', 'dd']],
   ['td', ['td', 'th']],
@@ -279,7 +298,7 @@ const SPECIAL_TAGS = new Set([
  * `String.includes` for the track — is what let a quoted `<ul class="tile-track">`
  * mean two different things on the two render paths.
  */
-function* scanTags(src, from = 0) {
+function* scanTags(src: string, from = 0): Generator<ScanToken> {
   const n = src.length;
   let i = from;
   // The next `-->` and the next `>` at or after the scan, found once and reused until
@@ -288,7 +307,7 @@ function* scanTags(src, from = 0) {
   // `<!--` took 148 s to render. The answers are the same `indexOf` would give.
   let commentClose = -2;
   let bangClose = -2;
-  const nextFrom = (cached, needle, at) =>
+  const nextFrom = (cached: number, needle: string, at: number): number =>
     (cached === -1 || cached >= at ? cached : src.indexOf(needle, at));
   while (i < n) {
     const lt = src.indexOf('<', i);
@@ -309,7 +328,7 @@ function* scanTags(src, from = 0) {
     // after the opener read them as a comment running to the next `-->` in the document, which
     // swallowed every slide in between (measured: 1 of 3 slides stamped).
     if (src.startsWith('<!--', lt)) {
-      let stop;
+      let stop: number;
       if (src.startsWith('>', lt + 4)) stop = lt + 5;
       else if (src.startsWith('->', lt + 4)) stop = lt + 6;
       else {
@@ -417,12 +436,17 @@ function* scanTags(src, from = 0) {
  *
  * @returns whatever `accept` returned, or `{ start, tagEnd }` by default, or `null`.
  */
-function findTopLevelTag(scope, tagName, accept) {
+function findTopLevelTag(scope: unknown, tagName: string): TopLevelHit | null;
+function findTopLevelTag<T>(scope: unknown, tagName: string, accept: (hit: TopLevelHit) => T | null | undefined | false): T | null;
+function findTopLevelTag<T>(
+  scope: unknown,
+  tagName: string,
+  accept?: (hit: TopLevelHit) => T | null | undefined | false,
+): T | TopLevelHit | null {
   const want = String(tagName).toLowerCase();
   const src = String(scope ?? '');
-  const take = accept || ((hit) => hit);
   for (const hit of walkTopLevel(src, want)) {
-    const got = take(hit);
+    const got = accept ? accept(hit) : hit;
     if (got) return got;
   }
   return null;
@@ -437,7 +461,7 @@ function findTopLevelTag(scope, tagName, accept) {
  * direct child, while a real parser ignores `</aside>` and leaves the list
  * inside the `<div>`.
  */
-function* walkTopLevel(src, want) {
+function* walkTopLevel(src: string, want: string): Generator<TopLevelHit> {
   for (const ev of walkStack(src)) if (ev.open && ev.name === want) yield { start: ev.start, tagEnd: ev.tagEnd };
 }
 
@@ -450,7 +474,7 @@ function* walkTopLevel(src, want) {
  * slot is the first direct child of its kind, as the DOM arm's `:scope > blockquote` reads it,
  * and the element is cut out from `start` to `end`.
  */
-function* topLevelElements(src) {
+function* topLevelElements(src: unknown): Generator<TopLevelElement> {
   for (const ev of walkStack(String(src ?? ''))) {
     if (ev.close) yield { name: ev.name, start: ev.start, tagEnd: ev.tagEnd, end: ev.end };
   }
@@ -493,13 +517,13 @@ const DEFAULT_SCOPE_BARRIERS = new Set(['applet', 'caption', 'html', 'table', 't
 const TABLE_PARTS = new Set(['table', 'tbody', 'tfoot', 'thead', 'tr', 'td', 'th', 'caption', 'colgroup']);
 const TABLE_CONTENT = new Set(['caption', 'colgroup', 'col', 'tbody', 'tfoot', 'thead', 'td', 'th', 'tr', 'table', 'style', 'script', 'template', 'form', 'input']);
 
-function* walkStack(src) {
-  const open = [];
-  const lastIndex = (name) => { for (let i = open.length - 1; i >= 0; i -= 1) if (open[i].name === name) return i; return -1; };
-  const closeEv = (e, end) => ({ close: true, name: e.name, start: e.start, tagEnd: e.tagEnd, end });
+function* walkStack(src: string): Generator<StackEvent> {
+  const open: OpenElement[] = [];
+  const lastIndex = (name: string): number => { for (let i = open.length - 1; i >= 0; i -= 1) if (open[i].name === name) return i; return -1; };
+  const closeEv = (e: OpenElement, end: number): StackEvent => ({ close: true, name: e.name, start: e.start, tagEnd: e.tagEnd, end });
   // Is something between `at` and the current node a scope barrier? Scanning stops at a foreign
   // root: what sits inside an `<svg>` is SVG, and an SVG element named `marquee` hides nothing.
-  const outOfScope = (at) => {
+  const outOfScope = (at: number): boolean => {
     for (let i = at + 1; i < open.length; i += 1) {
       if (FOREIGN_ROOTS.has(open[i].name)) return false;
       if (DEFAULT_SCOPE_BARRIERS.has(open[i].name)) return true;
@@ -509,11 +533,11 @@ function* walkStack(src) {
   // `fosterEnd`: where a FOSTERED element ends when an end tag that is not its own closes it.
   // `<table><p>C.</table>` closes the paragraph, but the `</table>` belongs to the table: cut
   // with it, the paragraph took the table's end tag away and left the table open.
-  const popTo = function* (len, end, fosterEnd = end) {
+  const popTo = function* (len: number, end: number, fosterEnd = end): Generator<StackEvent> {
     const gone = open.splice(len);
     for (let i = gone.length - 1; i >= 0; i -= 1) if (gone[i].top) yield closeEv(gone[i], gone[i].fostered && i > 0 ? fosterEnd : end);
   };
-  const push = function* (name, start, tagEnd, top, fostered = false) {
+  const push = function* (name: string, start: number, tagEnd: number, top: boolean, fostered = false): Generator<StackEvent> {
     open.push({ name, start, tagEnd, top, fostered });
     if (top) yield { open: true, name, start, tagEnd };
   };
@@ -710,7 +734,7 @@ function* walkStack(src) {
  *
  * @returns {number} the offset of `<`, or -1.
  */
-function findFirstTag(scope, tagName) {
+function findFirstTag(scope: unknown, tagName: string): number {
   const want = String(tagName).toLowerCase();
   for (const t of scanTags(String(scope ?? ''))) {
     if (t.kind === 'tag' && !t.isClose && t.name === want) return t.start;
@@ -726,7 +750,7 @@ function findFirstTag(scope, tagName) {
  * be fooled by tag-LIKE text a browser never parses. `topic-track.js` uses it to
  * recognize its own emitted track without mistaking a quoted one for it.
  */
-function maskInert(html) {
+function maskInert(html: unknown): string {
   const src = String(html ?? '');
   let out = '';
   let at = 0;
@@ -738,8 +762,11 @@ function maskInert(html) {
   return out + src.slice(at);
 }
 
-/** Strip every tag from `html`, honoring quoted attribute values. */
-function stripTags(html) {
+/**
+ * Strip every tag from `html`, honoring quoted attribute values. Unlike `stripTags` (./text.ts) it reads tags
+ * through the tokenizer, and neither folds `&nbsp;` nor trims.
+ */
+function stripScannedTags(html: unknown): string {
   const src = String(html ?? '');
   let out = '';
   let at = 0;
@@ -770,7 +797,7 @@ function stripTags(html) {
  * moves with it: an earlier revision said 182, a rebase added two decks, and the
  * figure stopped reproducing (HARD RULE #9).
  */
-function findTopLevelH2(scope) {
+function findTopLevelH2(scope: unknown): { start: number; text: string } | null {
   const src = String(scope ?? '');
   return findTopLevelTag(src, 'h2', ({ start, tagEnd }) => {
     // Find the close through the TOKENIZER, not `/<\/h2\s*>/`. A regex here
@@ -803,7 +830,7 @@ function findTopLevelH2(scope) {
 }
 
 /** Does `scope` have a direct-child `<tag>`? */
-function hasTopLevelTag(scope, tagName) {
+function hasTopLevelTag(scope: unknown, tagName: string): boolean {
   return findTopLevelTag(scope, tagName) !== null;
 }
 
@@ -816,31 +843,24 @@ function hasTopLevelTag(scope, tagName) {
  * decoding here would double-encode on the way back out; a consumer that needs
  * plain text decodes at its own edge.
  */
-function readTopLevelH2Text(scope) {
+function readTopLevelH2Text(scope: unknown): string {
   const hit = findTopLevelH2(scope);
   if (!hit) return '';
-  // `stripTags`, never `/<[^>]+>/g`: that form ends a tag at the first `>`,
+  // `stripScannedTags`, never `/<[^>]+>/g`: that form ends a tag at the first `>`,
   // including one inside a quoted attribute, so a heading carrying
   // `<span title="a > b">x</span>` leaked `b">x` into the text — and from there
   // into every sibling slide's track label.
-  return stripTags(hit.text).replace(/\s+/g, ' ').trim();
+  return stripScannedTags(hit.text).replace(/\s+/g, ' ').trim();
 }
 
 export {
-  CLOSED_BY_SIBLING,
   findFirstTag,
   findTopLevelH2,
   findTopLevelTag,
   hasTopLevelTag,
   maskInert,
-  P_CLOSING_TAGS,
-  RAW_TEXT_TAGS,
   readTopLevelH2Text,
-  SPECIAL_TAGS,
   scanTags,
-  stripTags,
-  TABLE_ONLY_TAGS,
+  stripScannedTags,
   topLevelElements,
-  VOID_TAGS,
-  walkTopLevel,
 };

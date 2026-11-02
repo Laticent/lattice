@@ -27,7 +27,7 @@ const {
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
 const { splitDoc, applyRails } = require('../../../lib/core/auto-split');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 
 // A rendered `form` slide: the masthead band masthead-lift builds, a `.cell-stage`
 // content cell, and the `.cell-footer` chrome cell. The shape every autosplit-eligible

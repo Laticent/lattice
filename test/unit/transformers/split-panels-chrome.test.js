@@ -314,7 +314,7 @@ describe('the quote slot is the first top-level blockquote, whole', () => {
 // A slot inside any container the browser nests it in is not the slot. The string path used to mask
 // a named list of blocks (`div`, `table`, …) and missed the rest, and read raw-text bodies and
 // attribute values as markup; it now reads every slot through the shared tokenizer
-// (lib/core/top-level-h2.mjs `topLevelElements`). Each arm renders both paths and compares them
+// (docs/src/lib/markup/tags.ts `topLevelElements`). Each arm renders both paths and compares them
 // (followups.d/2478-p4-split-slot-mask-coverage.md).
 describe('a slot inside a browser container or a raw-text element is not the slot, on both paths', () => {
   const Q = '<blockquote><p>Q.</p></blockquote>';
@@ -433,7 +433,7 @@ describe('parser shapes: both paths read the slot the parser builds', () => {
     // NOT modelled, and not claimed: the clone of `<a>` the parser wraps the adopted block's
     // children in. When the adopted block IS a slot (`<a><ul><li>A</li></a></ul>` as the option
     // list), the DOM path finds `<a>` children where the kernel finds `<li>`s. Recorded in the
-    // tokenizer's header (lib/core/top-level-h2.mjs), with active-formatting reconstruction.
+    // tokenizer's header (docs/src/lib/markup/tags.ts), with active-formatting reconstruction.
   });
 
   test('the lede stops at the first top-level h3-h6 on split-panel, and not on split-compare', () => {

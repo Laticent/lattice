@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const katex = require('katex');
 const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, MEMBER_CLAIM_STRATEGIES } = require('../../../lib/core/carousel');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
 // trailing material — the rule-6 gate below appends its sentinels at the SAME position
 // rather than guessing one (HARD RULE #15).

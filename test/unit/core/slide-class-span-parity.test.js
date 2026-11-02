@@ -42,7 +42,7 @@ const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-par
 const { readDirectiveComment } = require('../../../lib/core/comment-directive');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 const { EXCLUDE_MIRRORS } = require('../../helpers/generated-mirrors.js');
 
 const REPO = path.join(__dirname, '..', '..', '..');

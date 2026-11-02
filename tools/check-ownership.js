@@ -7102,7 +7102,7 @@ function checkDiagramScopeSelectors(errors) {
 // paragraph on `class: no-note` + `_class: content`, and `wrapImageText` skipped the
 // `.image-text` panel on `class: image` + `_class: dark` — the second a silent
 // divergence from the DOM path, which reads `className` and is right for free.
-// The fix is one shared reader (`readClassAttr`, lib/core/section-walk.js); this gate
+// The fix is one shared reader (`readClassAttr`, docs/src/lib/markup/section-walk.ts); this gate
 // is what stops the idiom growing back.
 //
 // KEYED ON AN UNAMBIGUOUS REGEX SHAPE, not on the string `class="`: the trigger is a
@@ -7865,7 +7865,7 @@ function checkClassAttrReads(errors) {
     errors.push(
       `${o.file}:${o.line} matches a class attribute with no left boundary (\`${o.snippet}…\`) — it will read ` +
       `\`data-class="<raw _class: payload>"\` instead of the RESOLVED class list, which is #1358. Read it with ` +
-      `\`readClassAttr\` (lib/core/section-walk.js), or guard the pattern with a leading \`\\s\`. ` +
+      `\`readClassAttr\` (docs/src/lib/markup/section-walk.ts), or guard the pattern with a leading \`\\s\`. ` +
       `\`\\b\` is not a guard: the boundary inside \`data-class\` is a word boundary.`,
     );
   }

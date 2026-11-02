@@ -22,12 +22,12 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { unclosedSectionAt } from '@laticent/markup';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { slideEdgeK } from '../../../lib/core/slide-frame.mjs';
-import { unclosedSectionAt } from '../../../lib/core/split-sections.mjs';
 import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { deckContextKey, SWAP_IN_PLACE, swapKindForSlide } from '../../../lib/core/swap-kind.mjs';
 import {
@@ -390,7 +390,7 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // The walker moved with it, and had to: the guard is "the walker mis-paired", so checking it
 // against a list produced by a DIFFERENT walker guards nothing. `sectionsOf` / `sectionSpansOf`
 // (the same list `alignmentFailure` is handed by the compare closure) are the engine's own
-// depth-aware walker, `splitSections` (lib/core/split-sections.mjs), and so is the filmstrip's
+// depth-aware walker, `splitSections` (docs/src/lib/markup/sections.ts), and so is the filmstrip's
 // `splitSections` (preview-virtual.js): one walk everywhere (HARD RULE #1). It reads a section tag
 // in a comment, in rawtext or in an attribute value as text, and pairs a nested section with its
 // own close. A nested or never-closed section still makes the open count disagree with the walk,

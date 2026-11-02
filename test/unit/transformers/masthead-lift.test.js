@@ -420,7 +420,7 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
   // Form-migration audit (2026-07-09): the DOM path's `section.form` selector
   // had no depth guard (unlike form-default.js's `section:not(section
   // section)`), so a literal nested `<section class="form">` an author
-  // writes inside slide content (lib/core/section-walk.js's own documented
+  // writes inside slide content (docs/src/lib/markup/section-walk.ts's own documented
   // scenario) was lifted independently on the runtime path — a divergence
   // from the HTML-string kernel, which only ever touches top-level sections.
   test('DOM path leaves a literal nested <section class="form"> untouched, matching the HTML kernel', () => {
