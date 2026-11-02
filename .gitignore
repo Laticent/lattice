@@ -23,6 +23,9 @@ tokenization/
 !lib/components/**/*.pdf
 !lib/base/**/*.pdf
 !lib/integrations/**/*.pdf
+# A plugin's kinds are component packages too (the chart family's 28, lib/plugins/<plugin>/kinds/<kind>/), with the same
+# golden pair beside each gallery; without this line the nightly bless renders them and git drops them.
+!lib/plugins/*/kinds/**/*.pdf
 # The Marp kit's sample deck, rendered through real marp-cli — the HARD RULE #9
 # artifact for a feature colocated with its implementation. Reviewable in the
 # diff, which is the point: the first version of this deck shipped with a blank
