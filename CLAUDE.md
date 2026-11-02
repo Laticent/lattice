@@ -319,7 +319,8 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   `SANCTIONED_HEX` allowlist for fixed non-themeable colors. `*.tokens.css` + `var(--t,#fallback)`
   defaults exempt.)*
 - **#6 — Before authoring any `<!-- _class: X -->` slide**, in the SAME turn open
-  `lib/components/<bucket>/X/X.docs.md` AND grep
+  `lib/components/<bucket>/X/X.docs.md` (a chart kind:
+  `lib/plugins/chart-family/kinds/X/X.docs.md`) AND grep
   `test/integration/baseline-decks/gallery.md` for a live example (base
   modifiers → `lib/base/base.docs.md`).
 - **#7 — Every lint rule runs through `lib/authoring/lint-core.js`** — pure, fs-free,
@@ -686,7 +687,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | **Styling an existing chart** — structure vs colour, the viewBox trap, the three finishes, what to measure contrast against, the order to verify in | `engineering/chart-styling.md` |
 | The deck-authoring contract | `design/skill.md` |
 | Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` — and for a deck-level front-matter REGISTER (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:` `headline:` `lift:` `corners:`), `lib/base/base.registers.docs.md` |
-| A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
+| A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` (a chart kind: `lib/plugins/chart-family/kinds/<name>/<name>.docs.md`) |
 | Picking a component as an agent | `dist/docs/components.pick.md` — one line per component, the whole catalog in ~3.8k tokens; skim or grep it, then read the picked component's `.docs.md` (#6). `dist/docs/components.json` is the full machine record for TOOLS — don't load it to choose. **`dist/` is generated, not committed** — `npm install` (via `prepare`) and the SessionStart hook both build it, so run `npm run build` if it isn't there. Without a clone, the same files are published on the [`dist-kits`](https://github.com/Laticent/lattice/tree/dist-kits/agent) branch. Also `AGENTS.md` |
 | What scripts/tools already exist (don't reinvent) | `dist/engineering/capabilities.md` — 300+ rows; **grep it for the thing you were about to build** (`grep -i contrast`, `grep -i bench`), then open the script or tool the row names — its own header is the long form. Don't read it top-to-bottom |
 | What algorithms/models we already ship (color science, parsers, routing, formats, statistics) — and what we deliberately don't do | `engineering/science.md` — one row per idea, file + symbol; grep it before building or "improving" an algorithm |
