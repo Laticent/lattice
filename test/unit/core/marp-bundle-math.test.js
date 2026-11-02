@@ -1,13 +1,13 @@
 /**
  * The Export-to-Marp bundle carries its math typeset, never as TeX
- * (lib/core/marp-bundle-math.js; engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15).
+ * (lib/export/marp-bundle-math.js; engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 15).
  * The real-marp-cli arm is test/integration/export/marp-bundle-author-script.test.js.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
-const { bakeMath, canonicalKatexHtml, KATEX_ALLOWLIST, _internal: { encode, styleOk, blankFor } } = require('../../../lib/core/marp-bundle-math');
+const { bakeMath, canonicalKatexHtml, KATEX_ALLOWLIST, _internal: { encode, styleOk, blankFor } } = require('../../../lib/export/marp-bundle-math');
 const { renderers } = require('../../../lib/plugins/math/math.render.js');
 
 // What a MathJax-on Marp would read: commonmark with raw HTML, and no `$` left unescaped in text.
@@ -24,7 +24,7 @@ const liveDollars = (md) => {
 
 describe('canonicalKatexHtml — a strict grammar, rewritten from what it read', () => {
   test('KaTeX output round-trips, with the punctuation in its text and values encoded', () => {
-    const out = canonicalKatexHtml(renderers.math_inline({ content: 'a_1^2' }, { options: {} }));
+    const out = canonicalKatexHtml(renderers.math_inline({ content: 'a_1^2' }, require('../../../lib/plugins/host.js').renderCtx('math')));
     assert.ok(out);
     assert.match(out, /^<span class="katex">/);
     assert.match(out, /<annotation encoding="application\/x-tex">a&#95;1&#94;2<\/annotation>/);

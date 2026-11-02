@@ -68,7 +68,7 @@ describe('dagre delivery to the state-chart pass', () => {
 
   test('the serialised pass does NOT carry the dagre IIFE', () => {
     const STATE_CHART_BROWSER_JS = require(
-      path.join(ROOT, 'lib/components/chart/state-chart/state-chart.layout.js')).browserJs();
+      path.join(ROOT, 'lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js')).browserJs();
     // NOT `includes('__latticeDagre')`: the pass legitimately NAMES that global —
     // reading it is how a stringified function reaches a layout engine at all.
     // What must not be here is the LIBRARY, so the markers are internals only the

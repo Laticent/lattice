@@ -5,7 +5,7 @@
  * marp-core highlights with its OWN highlight.js, whose stock bash knows POSIX built-ins and nothing
  * a command list is made of: `npm`, `docker`, `kubectl` and every flag came out as plain text (0
  * tokens, observed on marp-cli 4.5.0). The bundle's `marp.config.cjs` now rebuilds bash on that
- * instance from the code plugin's shell grammar (lib/core/marp-bundle-html.js `ownShell`;
+ * instance from the code plugin's shell grammar (lib/export/marp-bundle-html.js `ownShell`;
  * engineering/decisions/2026-10-15-code-plugin.md, defect 9). This renders a bundle with marp-cli
  * and reads the tokens back, with the config and without it, so the test proves both that the
  * config is what colors the block and that stock Marp still does not. It also opens the page in
@@ -24,7 +24,7 @@ const { spawnSync } = require('node:child_process');
 const { npxSync } = require('../../helpers/npx-lock');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'core', 'marp-bundle.js'));
+const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT = path.join(ROOT, '.scratch', 'marp-bundle-shell-grammar');
 const TIMEOUT = 300000;

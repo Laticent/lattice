@@ -29,9 +29,9 @@ same commit — and gates the few hand-written mirrors that can't derive.
 for what a component/variant/token IS.
 
 **The underscore contract:** a folder starting with `_` (like
-`chart/_chart-family/` or `connect/_qr-card/`) is bucket-scoped shared
+`plugins/chart-family/shared/` or `connect/_qr-card/`) is bucket-scoped shared
 infrastructure, NOT a shippable component — the loader and the CSS walker
-both skip it. Shared chart helpers live in `chart/_chart-family/`
+both skip it. Shared chart helpers live in `plugins/chart-family/shared/`
 (`svg-legend.js`, `mark-detail.js`, `transform-utils.js`, `cartesian.js`); the dispatch is the chart family plugin's `lib/plugins/chart-family/chart-family.dispatch.js`.
 
 **Gotcha:** generic HTML list/section walking belongs in `lib/core/`

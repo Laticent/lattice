@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/_chart-family/svg-label.js — the shared wrapping
+ * Unit: lib/plugins/chart-family/shared/svg-label.js — the shared wrapping
  * `<text>` emitter for in-diagram chart labels.
  *
  * Native SVG text does not wrap, so every diagram label used to run off its
@@ -36,7 +36,7 @@ const {
   columnShare,
   LINE_HEIGHT,
   LEADER_MIN_GAP,
-} = require('../../../lib/components/chart/_chart-family/svg-label');
+} = require('../../../lib/plugins/chart-family/shared/svg-label');
 
 const tspans = (svg) => [...svg.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/g)].map((m) => m[1]);
 const attr = (svg, name) => {

@@ -52,32 +52,32 @@
     "exemplars/README.md": [
       1
     ],
-    "lib/components/chart/bar/bar.gallery.md": [
+    "lib/plugins/chart-family/kinds/bar/bar.gallery.md": [
       3,
       4,
       5
     ],
-    "lib/components/chart/bullet/bullet.gallery.md": [
+    "lib/plugins/chart-family/kinds/bullet/bullet.gallery.md": [
       3,
       4,
       5
     ],
-    "lib/components/chart/heatmap/heatmap.gallery.md": [
+    "lib/plugins/chart-family/kinds/heatmap/heatmap.gallery.md": [
       3,
       4
     ],
-    "lib/components/chart/line/line.gallery.md": [
+    "lib/plugins/chart-family/kinds/line/line.gallery.md": [
       3,
       4,
       5,
       6
     ],
-    "lib/components/chart/slope/slope.gallery.md": [
+    "lib/plugins/chart-family/kinds/slope/slope.gallery.md": [
       3,
       4,
       5
     ],
-    "lib/components/chart/stacked-bar/stacked-bar.gallery.md": [
+    "lib/plugins/chart-family/kinds/stacked-bar/stacked-bar.gallery.md": [
       3,
       4,
       5

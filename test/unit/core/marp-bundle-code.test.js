@@ -13,8 +13,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
-const { withoutCodeRecords, withRuntimeScriptsReport, RUNTIME_SCRIPT_SRCS } = require('../../../lib/core/marp-bundle');
-const { configSource } = require('../../../lib/core/marp-bundle-html');
+const { withoutCodeRecords, withRuntimeScriptsReport, RUNTIME_SCRIPT_SRCS } = require('../../../lib/export/marp-bundle');
+const { configSource } = require('../../../lib/export/marp-bundle-html');
 
 describe('withoutCodeRecords', () => {
   test('a record directly above a fence goes, and the fence stays', () => {

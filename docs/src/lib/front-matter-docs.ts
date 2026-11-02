@@ -4,7 +4,7 @@
 // A VIEW of the engine's table (lib/core/deck-settings.js) since 2026-10-16: the columns below
 // are fields of each row there, so the reference page, the editor's key list and the linter
 // read one table. GROUPS stays here: it is how this page lays the table out.
-import { OFFERED_SETTINGS } from '../components/studio/front-matter-keys';
+import { OFFERED_SETTINGS } from './front-matter-keys';
 
 export type FrontMatterGroup = 'general' | 'look' | 'chrome' | 'accent' | 'motion' | 'speech' | 'export' | 'raw' | 'developer';
 

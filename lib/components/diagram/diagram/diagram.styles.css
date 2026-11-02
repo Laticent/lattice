@@ -89,7 +89,7 @@ section.form.diagram:has(> .cell-stage > p) { gap:var(--sp-xs); }
    The MARP-VSCODE WEBVIEW, which the same note was written for, is **UNVERIFIED**
    (HARD RULE #23) — it cannot be driven from this sandbox, and it is NOT a retired
    surface: the export-to-Marp bundle is rendered by that extension and ships this
-   CSS plus the browser runtime to it (lib/core/marp-bundle.js). Retest it there
+   CSS plus the browser runtime to it (lib/export/marp-bundle.js). Retest it there
    and record the result rather than assuming either way; `max-width: 100%` below
    is the wall if the ancestor ever is indeterminate.
 

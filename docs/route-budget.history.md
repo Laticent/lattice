@@ -6,6 +6,18 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-02 — 1 KB of ceiling moved from the engine to the lint core, by hand
+
+Owner OK 2026-11-02 (asked in the PR 2997 session: "Move 1 KB of ceiling", chosen over hunting 0.2 KB of savings in the lint chunk; first opened as its own PR, #3003, then folded into PR 2997 under the owner's budget exception: "need, soundness and without adding bloat"). PR 2997 moves the chart frame from the chart family plugin into the host (lib/transformers/chart-frame.js). The plugin's old dispatcher imported its own shared/transform-utils.js, which imports lib/core/chart-status and the chart value readers behind it, so they sat in the engine's static closure; the host frame does not import them, so they now count only in the lint chunk, which also reads them. Measured by CI on PR 2997 at 86fa12f against f4806f7: engineJsGz 756.4 -> 754.3 KB, lintCoreGz 123.1 -> 123.5 KB (ceiling 123.3). The bytes moved rather than grew, so the ceilings move by the same 1 KB in opposite directions; soft targets are unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707731 | 707731 | +0 | 777480 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 777480 |
+| home | engineJsGz | 707731 | 707731 | +0 | 777480 |
+| components | engineJsGz | 707731 | 707731 | +0 | 777480 |
+| studio | lintCoreGz | 112808 | 112808 | +0 | 127248 |
+
 ### 2026-11-02 — ceiling raised by hand, measured on PR 2997's built tree
 
 Owner OK 2026-11-02 (asked in the PR 2997 session: "raise the ceiling by 5KB", chosen over hunting savings elsewhere or loading the video player lazily). PR 2997 moves the video provider table out of engine code into the video plugin's manifest as declared data, read by the host's one matcher (`lib/core/video-providers.mjs`), as the plugin contract requires (`engineering/decisions/2026-11-01-plugin-contract-hollywood.md` §2). The Studio imports it on its startup path through the video overlay; after trimming, the table and its interpreter cost about 0.2 KB gzip over main's hand-written functions, and the PR's local build measured 549.7 KB against the 549.5 KB ceiling. The owner chose a 5 KB raise rather than the tool's full reset (which would re-slack the ceiling 10% over the measurement, about 55 KB). Only the studio eagerJsGz ceiling moves, by 5120 bytes, from 562712 to 567832; the soft target is untouched and no other route changes.

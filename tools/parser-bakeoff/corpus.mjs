@@ -22,6 +22,7 @@ import { join } from 'node:path';
 const require = createRequire(import.meta.url);
 const MarkdownIt = require('markdown-it');
 const { outlineFromMarkdown } = require('../../lib/core/flowchart-grammar.js');
+const { componentCorpusRoots } = require('../../lib/packages/fs.js');
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 const md = new MarkdownIt({ html: true });
@@ -91,7 +92,12 @@ function literals(src) {
 
 /** Every deck and component doc the corpus reads: the decks we ship, then the docs. */
 export function deckFiles() {
-  return [...decks(), ...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md'))];
+  return [...decks(), ...componentDocs()];
+}
+
+/** Every component doc, the plugins' kinds (the chart kinds) included. */
+function componentDocs() {
+  return componentCorpusRoots().flatMap((r) => walk(r, (p) => p.endsWith('.docs.md')));
 }
 
 /** String literals in the named test files (paths from the repo root), up to 200 characters. */
@@ -111,7 +117,7 @@ function decks() {
 }
 
 export function realCorpus() {
-  const files = [...decks(), ...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md'))];
+  const files = [...decks(), ...componentDocs()];
   const spans = [];
   for (const f of files) spans.push(...codeSpans(readFileSync(f, 'utf8')));
   const lits = [];

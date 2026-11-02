@@ -27,8 +27,8 @@
 // inside an app, and the two should look like their hosts. Both target the same `lp-*`
 // class contract the shared projection emits, so the markup stays one thing.
 
-import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { scanTags } from '../../../../lib/core/top-level-h2.mjs';
+import { readClassAttr, scanTags } from '@laticent/markup';
+import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { RUNTIME_DRAWN_FENCES } from '../../../../lib/plugins/drawn.generated.mjs';
 import { drawnFenceCount } from '../../../../lib/plugins/drawn-probe.mjs';
 import { buildDeckRender, type DeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';
@@ -97,12 +97,6 @@ export const ARTICLE_ROOT = '.st-read-article';
  * for a paint — several hundred ms against a projection that runs in 3.5-11.8 ms. A deck with
  * no runtime-drawn content would pay all of it for a byte-identical result.
  */
-// The resolved `class` of ONE tag, read with `readClassAttr`'s own grammar (lib/core/section-walk.js
-// `CLASS_ATTR`) — that module is CommonJS with dependencies this bundle cannot interop. The leading
-// `(?:^|\s)` is what keeps it off `data-class=`, which carries the author's RAW `_class:` payload
-// rather than the resolved list (#1358). Linear: `scanTags` has already bounded the tag.
-const CLASS_ATTR = /(?:^|\s)class="([^"]*)"/;
-const readClassAttr = (tag: string): string => tag.match(CLASS_ATTR)?.[1] ?? '';
 
 /** `language-<fence>` for every code fence a runtime draws (Mermaid's), from the plugin registry. */
 const DRAWN_CODE_CLASSES = RUNTIME_DRAWN_FENCES.map((f) => `language-${f}`);

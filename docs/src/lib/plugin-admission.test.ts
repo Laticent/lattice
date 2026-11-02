@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { boundaryRulesGeneration as lintGeneration } from '@/playground/authoring-core.generated.js';
 import { admitPlugins } from '../../../lib/plugins/host-grammar.mjs';
-import { stripFrontMatter } from '../components/studio/front-matter';
-import { splitSlides } from '../components/studio/lint';
+import { splitSlides } from './deck-lint';
+import { stripFrontMatter } from './front-matter';
 import { deckPluginsOff, followDeckAdmission } from './plugin-admission';
 
 // The Studio's source-side readers follow the deck's admission under a host that narrowed its

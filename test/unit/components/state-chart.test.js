@@ -14,11 +14,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const engine = require('../../../lib/engine');
-const { transformSection, parseStateChart, payload, STATE_CHART_VARIANTS } = require('../../../lib/components/chart/state-chart/state-chart.transform');
-const { stateChartAdapter, browserJs, installStateChartLayout, fitInlineStateCharts } = require('../../../lib/components/chart/state-chart/state-chart.layout');
-const { htmlNeedsDagre, figureNeedsDagre, machineBranches } = require('../../../lib/components/chart/state-chart/state-chart.adoption');
+const { transformSection, parseStateChart, payload, STATE_CHART_VARIANTS } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.transform');
+const { stateChartAdapter, browserJs, installStateChartLayout, fitInlineStateCharts } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.layout');
+const { htmlNeedsDagre, figureNeedsDagre, machineBranches } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.adoption');
 const { outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
-const { STATUS_TONE } = require('../../../lib/components/chart/_chart-family/graph-key');
+const { STATUS_TONE } = require('../../../lib/plugins/chart-family/shared/graph-key');
 
 const ROOT = path.join(__dirname, '../../..');
 const render = (body, cls = 'state-chart') => String(engine.render(`<!-- _class: ${cls} -->\n\n## A machine.\n\n${body}\n`).html);
@@ -214,11 +214,11 @@ describe('state chart — the adapter', () => {
   });
 
   test('its tone table is the key\'s and the stylesheet\'s', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lib/components/chart/state-chart/state-chart.layout.js'), 'utf8');
+    const src = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js'), 'utf8');
     const block = /const STATUS_TONE = (\{[\s\S]*?\});/.exec(src)[1];
     // eslint-disable-next-line no-new-func
     assert.deepEqual(new Function(`return ${block}`)(), STATUS_TONE);
-    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/state-chart/state-chart.styles.css'), 'utf8');
+    const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/state-chart/state-chart.styles.css'), 'utf8');
     for (const [word, tone] of Object.entries(STATUS_TONE)) {
       if (tone === 'mute') continue;
       assert.match(css, new RegExp(`\\[data-s="${word}"\\][^{]*\\{ --fill-hue: var\\(--state-${tone}-hue\\)`), `${word} -> ${tone} in the stylesheet`);
@@ -226,7 +226,7 @@ describe('state chart — the adapter', () => {
   });
 
   test('its status marks are the kernel\'s', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lib/components/chart/state-chart/state-chart.layout.js'), 'utf8');
+    const src = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js'), 'utf8');
     const kernel = require('../../../lib/core/status-marks.js');
     for (const name of ['STATUS_MARK', 'MARK_PATH']) {
       const block = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`).exec(src)[1];
@@ -367,7 +367,7 @@ describe('state chart — every shipped slide lays out with zero quality faults'
   const decks = [
     'examples/state-chart.md', 'examples/state-chart-branching.md', 'examples/state-chart-polish.md',
     'examples/state-chart-polish-followups.md', 'examples/state-chart-stress.md', 'examples/state-chart-paint.md',
-    'lib/components/chart/state-chart/state-chart.gallery.md', 'examples/portrait-gantt-statechart.md',
+    'lib/plugins/chart-family/kinds/state-chart/state-chart.gallery.md', 'examples/portrait-gantt-statechart.md',
   ];
   let slides = 0;
   for (const deck of decks) {

@@ -1,7 +1,7 @@
 /**
  * Unit: the RENDER SEAM for the display-equation reflow (`displayBlock` in lib/plugins/math/math.render.js).
  *
- * The rule itself lives in lib/core/tex-linebreak.js and is tested there. What this file pins is
+ * The rule itself lives in lib/plugins/math/shared/tex-linebreak.js and is tested there. What this file pins is
  * the three things the seam owns, each of which can be wrong without the rule being wrong:
  *
  *   1. the reflow is OFF unless the caller asks for it — `lib/engine/index.js` asks only for a

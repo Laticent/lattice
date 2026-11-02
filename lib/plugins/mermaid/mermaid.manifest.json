@@ -16,6 +16,11 @@
       {"ink": "line", "d": "M76 52L94 34M76 74L94 94", "width": 6}
     ]
   },
+  "hostApi": [
+    "shared/baked-figure-tag.mjs",
+    "shared/init-directive.js",
+    "shared/label-length.js"
+  ],
   "contributes": {
     "fences": {
       "mermaid": { "body": "mermaid", "as": "code" }
@@ -23,7 +28,8 @@
     "hydrate": {},
     "bake": true,
     "highlight": true,
-    "styles": true
+    "styles": true,
+    "services": ["fences", "firstFenceBody"]
   },
   "tokens": [
     "--accent", "--bg", "--bg-alt", "--border", "--c-on-container", "--c-on-subcontainer",
@@ -47,6 +53,7 @@
   },
   "draw": {
     "frame": { "library": "esm", "preload": ["flowDiagram"] },
+    "output": "svg-diagram",
     "host": true,
     "shim": true
   },

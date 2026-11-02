@@ -14,7 +14,7 @@ const { JSDOM } = require('jsdom');
 
 const { createEngine } = require('../../../lib/engine');
 const { refuseAuthorMarkup, refuseAuthorMarkupInSource, HOST_MARKERS, BAKE_WRITTEN } = require('../../../lib/plugins/author-markup.js');
-const { withRuntimeScripts } = require('../../../lib/core/marp-bundle.js');
+const { withRuntimeScripts } = require('../../../lib/export/marp-bundle.js');
 const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
@@ -116,9 +116,9 @@ describe('an author cannot write the host\'s figure markers', () => {
       const f = path.join(root, dir.name, `${dir.name}.bake.js`);
       if (!fs.existsSync(f)) continue;
       // The bake AND the plugin's own shared modules it requires: Mermaid's bake builds its figure
-      // tag in shared/baked-figure.js, which the Studio's export shares (HARD RULE #1).
+      // tag in shared/baked-figure-tag.mjs, which the Studio's export shares (HARD RULE #1).
       const bakeSrc = fs.readFileSync(f, 'utf8');
-      const files = [f, ...[...bakeSrc.matchAll(/require\('\.\/(shared\/[\w-]+)(?:\.js)?'\)/g)].map((m) => path.join(root, dir.name, `${m[1]}.js`))];
+      const files = [f, ...[...bakeSrc.matchAll(/require\('\.\/(shared\/[\w-]+)(\.mjs|\.js)?'\)/g)].map((m) => path.join(root, dir.name, `${m[1]}${m[2] || '.js'}`))];
       for (const file of files) {
         const src = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
         for (const m of src.matchAll(/data-lattice-[a-z-]+/g)) written.add(m[0]);
@@ -156,7 +156,7 @@ describe('an author cannot write the host\'s figure markers', () => {
 });
 
 // An Export-to-Marp bundle is rendered by MARP with `html: true`, not by the engine, so the producer
-// refuses the same markup in the deck's source (lib/core/marp-bundle.js `withRuntimeScripts`). Marp's
+// refuses the same markup in the deck's source (lib/export/marp-bundle.js `withRuntimeScripts`). Marp's
 // tokenizer is markdown-it, so markdown-it with `html: true` stands in for it here, and jsdom judges
 // what the browser reads; test/integration/export/marp-admission.test.js runs the real marp-cli.
 describe('an Export-to-Marp bundle refuses the same markup in its source', () => {

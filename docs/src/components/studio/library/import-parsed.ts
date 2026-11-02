@@ -21,8 +21,8 @@ import { type ImportRename, renameAssetInSource } from '../asset-rename';
 
 export { applyImportRenames, type ImportRename } from '../asset-rename';
 
+import { codeNameRefusal } from '../../../../../lib/core/code-shape.mjs';
 import { planFencePlugins } from '../../../../../lib/packages/code-door-fence.mjs';
-import { codeNameRefusal } from '../../../../../lib/packages/code-shape.mjs';
 import fenceDoor from '../../../../../lib/packages/fence-door.generated.json';
 import reservedClasses from '../../../../../lib/packages/reserved-classes.generated.js';
 import { PLUGIN_NAMES } from '../../../../../lib/plugins/blocks.generated.mjs';
@@ -135,7 +135,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 		const moved = name !== c.name;
 		// A code package is never renamed: its transform finds its slides by its own name, so
 		// renamed it would match nothing (the inversion lens on step 2). Refused instead, as the
-		// CLI refuses it (lib/packages/cli.js prepare).
+		// CLI refuses it (lib/cli/packages.js prepare).
 		if (c.pkg?.files?.['transform.js'] != null) {
 			const clash = codeNameRefusal(c.name, [...reservedClassNames, ...RESERVED_COMPONENT_NAMES]);
 			if (clash) {

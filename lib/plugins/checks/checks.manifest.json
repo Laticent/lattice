@@ -25,6 +25,9 @@
   "requires": [
     "pills"
   ],
+  "hostApi": [
+    "checks.inline.js"
+  ],
   "contributes": {
     "inline": {
       "state": {
@@ -34,6 +37,10 @@
         "named": true
       }
     },
+    "services": [
+      "composeHtml",
+      "composeElement"
+    ],
     "styles": true
   },
   "render": {

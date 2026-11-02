@@ -136,7 +136,7 @@ describe('refuseImportedComponent', () => {
 
 	it('refuses, rather than waves through, a sample slide it could not check', async () => {
 		const pg = window.LatticePlayground;
-		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [] };
+		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { render: () => { throw new Error('boom'); }, referenceTargets: () => [], pluginService: () => () => [] };
 		try {
 			expect((await refuseImportedComponent('section.w .a{color:var(--accent)}', 'w', '<!-- _class: w -->'))?.why).toMatch(/could not be checked \(boom\)/);
 		} finally {

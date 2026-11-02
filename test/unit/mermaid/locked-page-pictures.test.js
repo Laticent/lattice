@@ -5,7 +5,11 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { readdressPictures, restorePictures, LOCKED_ORIGIN } = require('../../../lib/plugins/mermaid/shared/render-worker.js');
+const { readdressPictures: rawReaddress, restorePictures } = require('../../../lib/plugins/mermaid/shared/render-worker.js');
+// The origin and picture path are the HOST's page's (lib/plugins/host-page-worker.js), handed to Mermaid in its page ctx.
+const { originOf, LOCAL_PICTURE_PATH } = require('../../../lib/plugins/host-page-worker.js');
+const LOCKED_ORIGIN = originOf('mermaid');
+const readdressPictures = (def, back) => rawReaddress(def, back, { origin: LOCKED_ORIGIN, picturePath: LOCAL_PICTURE_PATH });
 
 test('every file: address leaves the definition and comes back in the SVG unchanged', () => {
   const a = 'file:///home/me/deck/pic%20one.svg';

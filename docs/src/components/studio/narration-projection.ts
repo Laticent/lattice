@@ -17,10 +17,10 @@
 // the render palette/mode only need to be VALID, not "correct" — we resolve them the
 // same way the presenter stage doc does, for consistency.
 
-import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
+import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
-import { stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
+import { splitSlides } from '../../lib/deck-lint';
+import { stripFrontMatter } from '../../lib/front-matter';
 import { paneSplitCounts } from './pane-pages';
 import type { SceneRef } from './present-guide';
 import { buildDeckRender, type ExtraTheme, loadDeckRenderFonts } from './share-export';

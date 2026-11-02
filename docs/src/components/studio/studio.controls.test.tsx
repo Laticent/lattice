@@ -342,7 +342,7 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
-	// The strip's slide menu (lib/strip-actions), from the ⋯ beside the current slide: the icon row it replaced is gone
+	// The strip's slide menu (components/studio/strip-actions), from the ⋯ beside the current slide: the icon row it replaced is gone
 	// (2026-10-27-slide-structure-strip.md §12 item 11).
 	const stripAction = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
 		await user.click(within(document.querySelector('nav[aria-label="Slide navigator"]') as HTMLElement).getByRole('button', { name: 'Slide actions' }));

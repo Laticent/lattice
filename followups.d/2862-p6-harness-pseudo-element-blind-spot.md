@@ -13,5 +13,5 @@ source: https://github.com/Laticent/lattice/pull/2862
 why now   — a rotated ::before axis title in matrix-grid was cut and neither the harness nor the engine's clip detector saw it; a person found it from the demo deck. Anything drawn only by a pseudo-element is unchecked.
 where     — tools/check-venue-conformance.js inspectInPage; possibly a pixel check on the rasterized page.
 done when — a pseudo-element label cut by its container is reported, with a test that fails on the pre-fix matrix-grid.
-evidence  — the old matrix-grid CSS (git show fd1296d^:lib/components/chart/matrix-grid/matrix-grid.styles.css) failing the new check.
+evidence  — the old matrix-grid CSS (git show fd1296d^:lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.styles.css) failing the new check.
 verify    — tier 1 checker.

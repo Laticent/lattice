@@ -2,7 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
-import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
+import { deckPluginList, writeDeckPlugins } from '../../../../lib/core/deck-plugins.mjs';
 
 /**
  * FENCES WHOSE PLUGIN IS OFF ship as source; say so before the export, not after (#2758). One notice,

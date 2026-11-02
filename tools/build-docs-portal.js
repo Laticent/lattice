@@ -52,7 +52,7 @@
 const fs = require('node:fs');
 const { themeEntries } = require('../lib/theme/files.js');
 const path = require('node:path');
-const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
+const { componentDir, loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
 const {
   FUNCTIONS, FORMS, SUBSTANCES, TAG_GROUPS,
   UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
@@ -125,7 +125,7 @@ const { venuePickCell } = require('./lib/venue-capacity');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
-const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/theme/color.js');
+const { ensureContrast, hexToOklch, oklabDistance, withLightness } = require('../lib/core/color.js');
 const { solveInk, bestEffortInk, feasibleRange, MIN_DIST } = require('../lib/theme/cat-ink.js');
 
 // The capacity to publish, matching what `tools/build-component-docs.js` prints in
@@ -713,7 +713,7 @@ function resolvePalettes() {
       }
       // FAIL LOUD ON A NON-HEX SEED OR CANVAS, naming the theme, the token and the role. The
       // solve is hex-only, and without this the value travels into `hexToOklch` and surfaces as
-      // `not a hex color: color-mix(in oklab, …)` from deep inside lib/theme/color.js — naming
+      // `not a hex color: color-mix(in oklab, …)` from deep inside lib/core/color.js — naming
       // nothing, and taking the WHOLE docs token sheet (and therefore `build:check`) down with it.
       // That is precisely the failure `lib/theme/cat-ink.js` documents as the thing its own
       // null-check exists to prevent, and the status-fill block above already guards the same way
@@ -852,7 +852,7 @@ function bucketTagline(bucket) {
 /** Relative path (from dist/docs/) to a component's light gallery PDF, or null. */
 function galleryHref(m) {
   const bucket = manifestBucket(m);
-  const abs = path.join(COMPONENTS_DIR, bucket, m.name, `${m.name}.gallery.light.pdf`);
+  const abs = path.join(componentDir(m, COMPONENTS_DIR, bucket), `${m.name}.gallery.light.pdf`);
   if (!fs.existsSync(abs)) return null;
   return path.relative(DOCS_DIR, abs).split(path.sep).join('/');
 }
@@ -875,7 +875,7 @@ function galleryHref(m) {
  *  No current component trips any of these — the exact-set assertion in
  *  test/unit/tools/headline-default.test.js is the rot-guard that catches it if one ever does. */
 function headlineDefault(m) {
-  const abs = path.join(COMPONENTS_DIR, manifestBucket(m), m.name, `${m.name}.styles.css`);
+  const abs = path.join(componentDir(m, COMPONENTS_DIR), `${m.name}.styles.css`);
   if (!fs.existsSync(abs)) return 'left';
   const css = fs.readFileSync(abs, 'utf8');
   const variants = documentedVariants(m);
@@ -920,11 +920,11 @@ function rewriteLinks(md, m) {
   // Related-component links are emitted in-place-correct as cross-bucket
   // paths (../../<bucket>/<name>/<name>.docs.md); collapse to in-page anchors
   // for the single-file portal.
-  let out = md.replace(/\]\(\.\.\/\.\.\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md\)/g, '](#$1)');
-  // The design-system pointer is emitted four levels up (in-place-correct for
-  // lib/components/<bucket>/<name>/); the portal sits at dist/docs/, so root
+  let out = md.replace(/\]\((?:\.\.\/)+(?:[a-z0-9-]+\/)*([a-z0-9-]+)\/\1\.docs\.md\)/g, '](#$1)');
+  // The design-system pointer is emitted relative to the component's own folder (four levels up for
+  // lib/components/<bucket>/<name>/, five for a plugin kind); the portal sits at dist/docs/, so root
   // is two levels up.
-  out = out.replace(/\]\(\.\.\/\.\.\/\.\.\/\.\.\/design\//g, '](../../design/');
+  out = out.replace(/\]\((?:\.\.\/){4,5}design\//g, '](../../design/');
   out = out.replace(/\]\(\.\.\/\.\.\/docs\/([^)]+)\)/g, '](./$1)');
   const gh = galleryHref(m);
   if (gh) out = out.replace(/\]\(\.\/[a-z0-9-]+\.gallery\.light\.pdf\)/g, `](${gh})`);
@@ -1104,11 +1104,11 @@ function renderPortalJson(manifests) {
 // plugin set changes; the grammar.json --check gate makes drift loud.
 
 // The shared state-marker grammar (LFM-1.0 §3.2), DERIVED from the kernel that
-// renders it (lib/plugins/checks/shared/registry.js) so grammar.json cannot disagree with the
+// renders it (lib/core/checks-registry.js) so grammar.json cannot disagree with the
 // engine: the semantic and shape classes are `stateClassesFor`'s, the answer is the
 // kernel's universal word. Each marker has ONE meaning in every component; only
 // `[x]` and `[ ]` are GitHub task-list syntax (§5.1).
-const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/plugins/checks/shared/registry');
+const { MARKERS, MARKER_LABELS, stateClassesFor } = require('../lib/core/checks-registry');
 const STATE_MARKERS = Object.fromEntries(MARKERS.map((m) => {
   const { sem, shape } = stateClassesFor(m);
   return [`[${m}]`, {

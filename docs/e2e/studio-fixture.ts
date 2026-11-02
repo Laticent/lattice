@@ -502,7 +502,7 @@ export function addedNote(page: Page): Locator {
 	return page.locator('[data-new-slide][data-confirming]').filter({ visible: true }).first();
 }
 
-/** Run one of the slide menu's actions on the current slide (lib/strip-actions), through the ⋯ beside it in whichever
+/** Run one of the slide menu's actions on the current slide (components/studio/strip-actions), through the ⋯ beside it in whichever
  *  strip is on screen: the pills or the slide map. `id` is the item's `data-strip-action`. */
 export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete'): Promise<void> {
 	// A tap on the slide that is already current opens the menu too, so it may be open already; the ⋯ would close it.

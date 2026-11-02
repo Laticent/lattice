@@ -1,7 +1,7 @@
 /**
  * THE `mirrored` LEDGER CLAIM, ATTESTED BY RENDERED OUTPUT.
  *
- * `lib/core/marp-fidelity.js` records, per markdown-it plugin, whether the
+ * `lib/export/marp-fidelity.js` records, per markdown-it plugin, whether the
  * runtime reproduces it for the VS Code Marp preview. A `mirrored` row is a
  * promise that a reader of the preview sees what a reader of the engine's
  * render sees. Until this file, that promise was checked like this:
@@ -62,7 +62,7 @@ const { JSDOM } = require('jsdom');
 const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { LEDGER } = require(path.join(ROOT, 'lib/core/marp-fidelity.js'));
+const { LEDGER } = require(path.join(ROOT, 'lib/export/marp-fidelity.js'));
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 
 // The BUNDLE, not `lib/runtime/index.js`. A preview loads the bundle, and the
@@ -130,7 +130,7 @@ async function renderRuntime(markup, frontMatter, pluginData = []) {
     ? () => Promise.resolve({ ok: true, text: () => Promise.resolve(frontMatter) })
     : () => Promise.reject(new Error('no network in this test'));
   // A browser surface gets a plugin's drawings from a data script that sets this global
-  // (lib/plugins/plugin-data.js). A probe whose claim is about a DRAWN chip names the data it
+  // (lib/core/plugin-data.js). A probe whose claim is about a DRAWN chip names the data it
   // needs; without it the runtime leaves the span as the `<code>` the author wrote.
   if (pluginData.length) {
     dom.window.__latticePluginData = Object.fromEntries(

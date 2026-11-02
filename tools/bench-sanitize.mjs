@@ -19,7 +19,7 @@
  *      rebuilds its ~250-tag / ~300-attribute allowlists on every call. What shipped before #1543.
  *   B  setConfig once — what ships now.
  *   C  memo hit — a `Map.get` on the exact input string, the floor `sanitizeOnce` reaches in
- *      docs/src/lib/single-slide-render.ts.
+ *      docs/src/playground/single-slide-render.ts.
  * Inputs are REAL engine output: a prose slide, the median and heaviest slices of the 40-slide
  * gallery, and the whole 40-slide render as a control (at 62KB the config parse is a rounding
  * error, which is what "fixed cost" predicts).
@@ -46,6 +46,7 @@ import { ADD_ATTR, ADD_TAGS, FORBID_ATTR, FORBID_TAGS, STYLE_SCRIPT_RE } from '.
 
 const require = createRequire(import.meta.url);
 const { render } = require('../lib/engine/index.js');
+const { componentCorpusRoots } = require('../lib/packages/fs.js');
 const ROOT = path.resolve(import.meta.dirname, '..');
 
 const argv = process.argv.slice(2);
@@ -106,7 +107,7 @@ function corpusSections() {
 		}
 		return out;
 	};
-	return [...walk(path.join(ROOT, 'examples')), ...walk(path.join(ROOT, 'lib/components')).filter((f) => f.endsWith('.gallery.md')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...walk(path.join(ROOT, 'exemplars'))];
+	return [...walk(path.join(ROOT, 'examples')), ...componentCorpusRoots().flatMap((r) => walk(r)).filter((f) => f.endsWith('.gallery.md')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...walk(path.join(ROOT, 'exemplars'))];
 }
 
 const cfg = { FORBID_TAGS, FORBID_ATTR, ADD_TAGS, ADD_ATTR };

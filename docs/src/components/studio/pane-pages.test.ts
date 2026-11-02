@@ -5,9 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
+import { splitSlides } from '../../lib/deck-lint';
+import { frontMatterBlock, stripFrontMatter } from '../../lib/front-matter';
 import { SLIDE_SEP } from './deck-ops';
-import { frontMatterBlock, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
 import { foldPaneSplits, type SlideScript } from './narration-projection';
 import { panePageOfCaret, paneSplitCounts, paneSplitLineOf, renderedPageCounts } from './pane-pages';
 

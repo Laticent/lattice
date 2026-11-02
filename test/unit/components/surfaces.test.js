@@ -4,14 +4,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { loadAll, manifestBucket } = require('../../../lib/components');
+const { componentDir, loadAll, manifestBucket } = require('../../../lib/components');
 const { SURFACES, CONTENT_SURFACES, componentSurfaces } = require('../../../lib/components/surfaces');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const byName = new Map(loadAll().map((m) => [m.name, m]));
 const surfacesOf = (name, hosts) => {
   const m = byName.get(name);
-  return componentSurfaces(m, { dir: path.join(ROOT, 'lib/components', manifestBucket(m), name), hosts });
+  return componentSurfaces(m, { dir: componentDir(m), hosts });
 };
 
 test('every component has the slide surface, and only known surfaces', () => {

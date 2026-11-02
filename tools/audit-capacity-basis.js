@@ -39,8 +39,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const { BUILDERS, findManifest } = require('./lib/calibrate-core.js');
-const { loadAll, manifestBucket } = require('../lib/components');
-const { MARKER_CLASS } = require('../lib/plugins/checks/shared/registry');
+const { componentDir, loadAll, manifestBucket } = require('../lib/components');
+const { MARKER_CLASS } = require('../lib/core/checks-registry');
 
 // A state marker is chrome, not a word — every one of the six, not only GFM's two.
 const STATE_MARKER_RE = new RegExp(`\\[${MARKER_CLASS}\\]`, 'g');
@@ -83,7 +83,7 @@ const mean = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
 function gallerySlides(name) {
   const m = byName.get(name);
   if (!m) return [];
-  const p = path.join(ROOT, 'lib', 'components', manifestBucket(m), name, `${name}.gallery.md`);
+  const p = path.join(componentDir(m, path.join(ROOT, 'lib', 'components')), `${name}.gallery.md`);
   if (!fs.existsSync(p)) return [];
   const isMine = new RegExp(`_class:[^-]*\\b${name}\\b`);
   return fs.readFileSync(p, 'utf8').split(/^---\s*$/m)

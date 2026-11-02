@@ -18,7 +18,7 @@
  *   1. lattice.css            tools/build-css.js
  *   2. lattice-default.css    tools/build-default-bundle.js  (engine + default palette)
  *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
- *   2c. chart dispatch registry tools/build-chart-registry.js (lib/components/chart/, before step 3)
+ *   2c. chart dispatch registry tools/build-chart-registry.js (lib/plugins/chart-family/kinds/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
  *   4. lattice.js    tools/build-cli.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
@@ -77,6 +77,11 @@ const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 const PREFLIGHT = [
   { label: 'font-embedding parity', script: 'check-fonts.js' },
   { label: 'lint coverage', script: 'check-lint-coverage.js' },
+  // The codebase's parts stay layered: no part loop, no upward import, plugin boundary intact
+  // (tools/structure.js; engineering/decisions/2026-10-11-codebase-structure.md). Shells out to
+  // dependency-cruiser, so it lives here rather than in the ownership guard. `checkOnly`: it runs
+  // in build:check (pre-push and CI) and not in a plain build, which generates nothing it gates.
+  { label: 'structure (part loops, layers, plugin boundary)', script: 'check-structure.js', checkOnly: true },
 ];
 
 const STEPS = [
@@ -89,6 +94,9 @@ const STEPS = [
   // verifies it is fresh and writes nothing outside dist/.
   { label: 'Segno notation parser (generated source)', script: 'build-segno-grammar.js' },
   { label: 'Segno library dist (CJS + .d.ts)', script: 'build-segno-lib.js', uncommitted: true },
+  // Markup, balanced-HTML string walking: the engine's transformers and the code plugin require it for the
+  // code-line split, so it builds before anything that bundles lib/.
+  { label: 'Markup library dist (ESM + CJS + .d.ts)', script: 'build-markup-lib.js', uncommitted: true },
   // Mosaico, the box-packing library (2026-10-16-mosaico-layout-library.md). FOREGROUND and this
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.
@@ -126,7 +134,7 @@ const STEPS = [
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The marks rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
-  { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-marks-css.js' },
+  { label: 'chart finish rules (lib/plugins/chart-family/shared)', script: 'build-marks-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice.js — those bundles
@@ -145,7 +153,7 @@ const STEPS = [
   // rather than uncommitted: `present-guide.ts` imports it as an ordinary module, so a missing
   // file is a docs-site build error rather than a degraded feature.
   { label: 'guide handles (docs studio)', script: 'build-guide-handles.js' },
-  { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
+  { label: 'chart dispatch registry (lib/plugins/chart-family/kinds)', script: 'build-chart-registry.js' },
   // Also ahead of the bundles: lib/export/image-set.js and lib/authoring/scorecard.js
   // `require()` this catalog and both are inlined by esbuild, and three docs-site
   // modules import it. It replaces nine hand-maintained rosters — see
@@ -501,7 +509,7 @@ async function main(argv) {
   }
 
   // Read-only preflight gates (font parity, …) — fail before generating.
-  for (const gate of onlyUncommitted ? [] : PREFLIGHT) {
+  for (const gate of onlyUncommitted ? [] : PREFLIGHT.filter((g) => check || !g.checkOnly)) {
     process.stdout.write(`▸ ${gate.label}\n`);
     if (!runStep(gate, false)) {
       process.stderr.write(`\nbuild aborted: ${gate.label} failed.\n`);

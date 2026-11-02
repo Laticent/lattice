@@ -11,7 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const pills = require('../../../lib/plugins/pills/pills.inline.js');
+const { pills } = require('../plugins/host-built.js');
 
 describe('inline-pills — what it renders', () => {
   test('a bare label is a capsule pill', () => {
@@ -133,7 +133,7 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
     // cold over the repo's real distribution; see the kernel docblock for the method.
     const src = require('node:fs').readFileSync(require.resolve('../../../lib/plugins/pills/pills.inline.js'), 'utf8');
     // The decision lives in `accepted`, which `read` and `accepts` both call.
-    const body = /function accepted\(text, off\) \{([\s\S]*?)\n\}/.exec(src)[1];
+    const body = /function accepted\(text, ctx\) \{([\s\S]*?)\n\}/.exec(src)[1];
     const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));
     assert.ok(rejectLine, 'the O(1) first-char reject is gone');
     assert.match(rejectLine, /return null/, 'the reject must return, not fall through');

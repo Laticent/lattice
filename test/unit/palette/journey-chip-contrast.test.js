@@ -40,7 +40,7 @@ const { resolveTokenExpr, mixSrgb } = require('../../../lib/core/resolve-token-e
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const THEMES_DIR = path.join(REPO, 'themes');
-const JOURNEY_CSS = path.join(REPO, 'lib', 'components', 'chart', 'journey', 'journey.styles.css');
+const JOURNEY_CSS = path.join(REPO, 'lib', 'plugins', 'chart-family', 'kinds', 'journey', 'journey.styles.css');
 const AA = 4.5;
 
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');

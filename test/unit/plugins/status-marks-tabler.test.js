@@ -20,7 +20,7 @@ test('the generated block defines every mark token the stylesheets read, and onl
   const defined = [...block.matchAll(/^\s+(--mark-[a-z-]+):/gm)].map((m) => m[1]);
   assert.equal(new Set(defined).size, defined.length, 'a mark token is defined twice');
   const css = ['lib/base/base.modifiers.css', 'lib/plugins/checks/checks.styles.css', 'lib/plugins/chart-family/chart-family.styles.css',
-    'lib/components/evidence/kpi/kpi.styles.css', 'lib/components/chart/roadmap/roadmap.styles.css']
+    'lib/components/evidence/kpi/kpi.styles.css', 'lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css']
     .map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
   // Only the MASKS: `--mark-ink` and its kin share the prefix but are colors.
   const read = new Set([...css.matchAll(/var\((--mark-(?:check|dash|x|slash|question|dot)(?:-bold)?)\)/g)].map((m) => m[1]));

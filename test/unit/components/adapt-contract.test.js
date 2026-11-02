@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { loadAll, manifestBucket } = require('../../../lib/components');
+const { loadAll, manifestBucket, componentDir } = require('../../../lib/components');
 const { checkAdaptDeclarations, checkSolverIntentDeclared } = require('../../../tools/check-ownership');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -30,11 +30,13 @@ test('@container aspect-ratio CSS implies adapt.mode reflow', () => {
   for (const m of loadAll()) {
     const bucket = manifestBucket(m);
     const candidates = [
+      // `componentDir` finds a plugin kind's folder too (the chart kinds live in their plugin).
+      path.join(componentDir(m), `${m.name}.styles.css`),
       path.join(COMPONENTS, bucket, m.name, `${m.name}.styles.css`),
       path.join(COMPONENTS, m.name, `${m.name}.styles.css`),
       path.join(COMPONENTS, m.name, 'styles.css'),
     ];
-    const css = candidates.filter(fs.existsSync).map((p) => fs.readFileSync(p, 'utf8')).join('\n');
+    const css = [...new Set(candidates)].filter(fs.existsSync).map((p) => fs.readFileSync(p, 'utf8')).join('\n');
     if (RE.test(css)) {
       assert.strictEqual(m.adapt.mode, 'reflow', `${m.name} has @container aspect-ratio CSS but adapt.mode is "${m.adapt.mode}"`);
     }

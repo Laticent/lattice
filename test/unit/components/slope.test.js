@@ -1,10 +1,10 @@
 /**
- * Unit: lib/components/chart/slope/slope.transform.js — kernel for the `slope`
+ * Unit: lib/plugins/chart-family/kinds/slope/slope.transform.js — kernel for the `slope`
  * chart-family member (the slopegraph, and its `dumbbell` variant).
  *
  * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; this
  * kernel only produces the figure HTML. The substrate it consumes
- * (_chart-family/cartesian.js) has its own suite — nothing here re-tests ticks,
+ * (chart-family/shared/cartesian.js) has its own suite — nothing here re-tests ticks,
  * scales or the series DSL. What IS tested here is everything the slope decides
  * for itself:
  *
@@ -33,10 +33,10 @@ const {
   buildSlope,
   buildDesc,
   transformSection,
-} = require('../../../lib/components/chart/slope/slope.transform');
-const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+} = require('../../../lib/plugins/chart-family/kinds/slope/slope.transform');
+const cart = require('../../../lib/plugins/chart-family/shared/cartesian');
 
-const CSS = path.join(__dirname, '../../../lib/components/chart/slope/slope.styles.css');
+const CSS = path.join(__dirname, '../../../lib/plugins/chart-family/kinds/slope/slope.styles.css');
 
 /**
  * Build the <ul> inner HTML the dispatcher hands the kernel.

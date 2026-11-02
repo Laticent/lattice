@@ -11,7 +11,7 @@
 //   · `emitPatch` — the narrow `{ from, to, insert }` between two emits, in source offsets.
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
-import { splitSlides } from '../../components/studio/lint';
+import { splitSlides } from '../deck-lint';
 import { deckToDoc, type EmitBaseline } from './deck-doc';
 import { normalizeSource, parseDeck } from './deck-source';
 

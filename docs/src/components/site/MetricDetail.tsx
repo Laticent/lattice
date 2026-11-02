@@ -15,8 +15,8 @@ import * as React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
+import type { RenderStats } from '@/lib/render-metrics';
 import { cn } from '@/lib/utils';
-import type { RenderStats } from '@/playground/render-metrics';
 import { bandLabel, formatValue, type MetricMeta, type Rating, REGIME_WORD, type Regime } from './perf-metrics';
 
 const RATING_COLOR: Record<string, string> = {

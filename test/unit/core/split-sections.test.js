@@ -26,7 +26,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const { splitSections } = require('../../../lib/core/split-sections');
+const { splitSections } = require('@laticent/markup');
 const { applyFormToHtml } = require('../../../lib/integrations/markdown-it/plugins');
 
 const sectionsOf = (html) => splitSections(html).filter((p) => p.type === 'section');
@@ -273,7 +273,7 @@ describe('applyFormToHtml — the stamp the derailed walk skipped', () => {
 
 // ── unclosedSectionAt ────────────────────────────────────────────────────────
 test('unclosedSectionAt finds the first top-level section that never closes, read by the tokenizer', () => {
-  const { unclosedSectionAt } = require('../../../lib/core/split-sections');
+  const { unclosedSectionAt } = require('@laticent/markup');
   assert.equal(unclosedSectionAt('<section>a</section><section>b</section>'), -1);
   assert.equal(unclosedSectionAt('<section>a</section><!-- <section> -->'), -1, 'a quoted tag is text');
   assert.equal(unclosedSectionAt('<section>a</section><p title="<section>">x</p>'), -1, 'so is one in an attribute');

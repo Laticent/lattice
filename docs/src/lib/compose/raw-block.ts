@@ -1,8 +1,14 @@
 import MarkdownIt from 'markdown-it';
 import type { NodeSpec, Node as PMNode } from 'prosemirror-model';
-import { mathBlockRule, mathInlineRule } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
 import { CLIP_ORIGIN } from './clip-origin';
 import { commentBlockRule } from './comment-block';
+
+// The math plugin's own rules, read from the generated grammar table (never by importing its folder).
+// Picked by the kind each rule declares, not by its token name: the plugin owns its token names.
+const MATH_RULES = Object.values(PLUGIN_GRAMMAR.find((p) => p.name === 'math')?.syntax ?? {}) as { kind: string; run: (...args: never[]) => boolean }[];
+const mathBlockRule = MATH_RULES.find((r) => r.kind === 'block')?.run as (state: unknown, startLine: number, endLine: number, silent: boolean) => boolean;
+const mathInlineRule = MATH_RULES.find((r) => r.kind === 'inline')?.run as (state: unknown, silent: boolean) => boolean;
 
 // RAW BLOCKS and MATH — the three things a slide can hold that Compose draws as ONE unit and writes back byte for byte.
 //
@@ -16,7 +22,7 @@ import { commentBlockRule } from './comment-block';
 // (engineering/decisions/2026-10-21-compose-point-and-click.md §7). A prose editor cannot round-trip them (it escapes `_`
 // and `*` in `a_1`, and turns `<div>` into literal text), so the node is an atom: nothing inside it is prose.
 //
-// THE GRAMMAR IS THE ENGINE'S. The math rules are `lib/plugins/math/math.syntax.mjs`'s own, installed at the same places the
+// THE GRAMMAR IS THE ENGINE'S. The math rules are the math plugin's own (math.syntax.mjs, through the grammar table), installed at the same places the
 // math plugin installs them (inline after `escape`, block before `fence`), so Compose and the render draw the same boundary
 // (HARD RULE #1). The HTML rule is markdown-it's own `html_block` rule, called with `html` on for that one call.
 //

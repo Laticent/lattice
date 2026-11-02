@@ -10,6 +10,8 @@ import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { setSpendDeck } from '@/components/studio/ai/spend.js';
+import type { StripActions, StripVia } from '@/components/studio/strip-actions';
+import type { StripActionId, StripMenuState, StripShortcut } from '@/components/studio/strip-actions/model';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -34,6 +36,7 @@ import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
+import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
@@ -46,22 +49,24 @@ import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, no
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
-import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import type { StripActions, StripVia } from '@/lib/strip-actions';
-import type { StripActionId, StripMenuState, StripShortcut } from '@/lib/strip-actions/model';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { hashString } from '@/playground/deck-preview';
-import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
+import { type SingleSlideOptions, suspendScaleObservers } from '@/playground/single-slide-render';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
-import { sourceHasMathOutsideCode } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
+import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from '../../lib/deck-lint';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { activeMode, MODES } from '../../lib/mode-catalog';
+import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
+import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
@@ -98,7 +103,6 @@ import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, useFirstSlideShown } from './first-slide';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -116,7 +120,6 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
-import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { followBus, type PresentPlace, rowIdOf, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
@@ -127,8 +130,6 @@ import { MotionTargets } from './MotionTargets';
 import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { marksValue, parseMarksValue } from './marks-value';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
-import { activeMode, MODES } from './mode-catalog';
-import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
@@ -148,7 +149,6 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { canEditClass, getClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
@@ -175,6 +175,10 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
+
+// The math plugin's own detectors (math.syntax.mjs), through the generated detector table, never by
+// importing the plugin's folder (tools/structure.js holds that line).
+const sourceHasMathOutsideCode = MATH.queries?.sourceHasMathOutsideCode as (src: string) => boolean;
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -4004,7 +4008,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				e.preventDefault();
 				setCmdOpen((v) => !v);
 			} else if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented && !presentOpenRef.current && !isTypingTarget(document.activeElement)) {
-				// The one list of keyboard shortcuts (lib/strip-actions/shortcuts.tsx). Never from a text field, where "?" is a letter.
+				// The one list of keyboard shortcuts (components/studio/strip-actions/shortcuts.tsx). Never from a text field, where "?" is a letter.
 				e.preventDefault();
 				setShortcutsOpen(true);
 			} else if ((e.metaKey || e.ctrlKey) && e.key === '.') {
@@ -5119,7 +5123,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const othersLive = live.view.people.some((p) => !p.me);
 
 
-	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; lib/strip-actions) ──
+	// ── THE SLIDE MENU (2026-10-27-slide-structure-strip.md §5; components/studio/strip-actions) ──
 	// On the full view only, where a strip's place is the deck's place: never under a reader lens (a filtered, possibly
 	// reordered subset, where a view index would hit the wrong slide), at the Read stop, in the landscape-phone view, or
 	// for a read-only Live member.
@@ -5186,7 +5190,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		requestDelete(at);
 		return !othersLive;
 	};
-	// A drag's drop (lib/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
+	// A drag's drop (components/studio/strip-actions/drag.ts): the whole move is one write, so one step of the undo history.
 	const opMoveTo = (at: SlideAt, to: number) => applyDeckOp(moveToAt(source, at, to), { label: 'Move slide', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	const stripLatest = React.useRef({ open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') });
 	stripLatest.current = { open: openStripMenu, run: runStripAction, shortcut: runStripShortcut, move: opMoveTo, addFirst: () => opAddSlide('after') };
@@ -8271,10 +8275,10 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
-// The slide menu's icons that the palette rows below load anyway (lib/strip-actions `icons`); the menu brings its own two
+// The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
 const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
-const ShortcutsDialog = React.lazy(() => import('@/lib/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
+const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
 	if (!hit) return null;

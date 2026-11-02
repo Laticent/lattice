@@ -391,7 +391,7 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a decline or a plugin-off slide shows the old-form list, not braces', () => {
-    const { applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+    const { applyToRenderedHtml } = require('../../../lib/transformers/chart-frame');
     const html = render(deck('bar', '- EMEA `{4.2}`\n- APAC `{3}`'));
     const off = applyToRenderedHtml(html, { off: true });
     assert.doesNotMatch(off, /\{4\.2\}/);

@@ -29,10 +29,10 @@
  * for layout-engine development, not deck authoring).
  *
  * Want a copy someone can render with Marp instead? That is a one-way
- * EXPORT, not a render path: `npm run export:marp` (lib/core/marp-bundle.js)
+ * EXPORT, not a render path: `npm run export:marp` (lib/export/marp-bundle.js)
  * produces a self-contained bundle the recipient renders with their own
  * marp-cli. What such a render does and does not reproduce is the ledger in
- * lib/core/marp-fidelity.js.
+ * lib/export/marp-fidelity.js.
  */
 
 const fs            = require('fs');
@@ -111,8 +111,8 @@ const pkgVersion = () => {
 // This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
 // of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
-// The math plugin's own copy of the sheet (lib/plugins/payload-path.js), its fonts beside it.
-try { katexCssAbsPath = require('./lib/plugins/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
+// The math plugin's own copy of the sheet (lib/core/payload-path.js), its fonts beside it.
+try { katexCssAbsPath = require('./lib/core/payload-path.js').vendorPath('math', 'katex-css'); } catch (_e) { /* no css link emitted */ }
 
 // ── Plugins with a browser half (function-plot, …) ───────────────────────
 // A plugin that draws in the browser (lib/plugins/<name>/<name>.hydrate.js) reaches this page as
@@ -511,7 +511,7 @@ if (process.argv[2] === '__complete') {
   process.exit(0);
 }
 
-// `lattice packages …` — the package store (lib/packages/cli.js). Dispatched BEFORE the render
+// `lattice packages …` — the package store (lib/cli/packages.js). Dispatched BEFORE the render
 // argv parsing, which would otherwise read `packages` as a source file and `--type` as an
 // unknown option. The subcommand owns its own --help.
 //
@@ -520,7 +520,7 @@ if (process.argv[2] === '__complete') {
 // which exits on an unknown option. `spawnSync` blocks until the child is done, and we exit
 // with its code before the render path runs. The cost is one Node startup (~40 ms).
 if (process.argv[2] === 'packages') {
-  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/packages/cli.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/packages.js'), ...process.argv.slice(3)], { stdio: 'inherit' });
   if (r.error) console.error(`error: ${r.error.message}`);
   process.exit(r.status ?? 1);
 }
@@ -667,8 +667,8 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
 const mdFile = positional[0];
 // Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
-// symlink in the deck folder and a typed `file:///etc/x` are refused (lib/export/file-confine.js; media note §4.11).
-const DECK_CONFINE = require('./lib/export/file-confine.js').createFileConfiner([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
+// symlink in the deck folder and a typed `file:///etc/x` are refused (lib/core/file-confine.js; media note §4.11).
+const DECK_CONFINE = require('./lib/core/file-confine.js').createFileConfiner([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
 let cssFile, outFile, paletteArg;
 // Did the CALLER supply the layout stylesheet, or did we construct the default? On
 // the default path the sheet is `dist/lattice.css` and its name is unambiguously
@@ -802,16 +802,15 @@ function stripSharedSource(src, noteBodies, boundary = undefined) {
 const {
   OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker, stripMarkerForLevel,
 } = require('./lib/core/resolve-overflow-marker');
-const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
+const { resolveExportOverflowMarker } = require('./lib/export/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
 const { exportDeckStyleText } = require('./lib/export/export-scaffold');
 const { exportGlobalCss } = require('./lib/export/author-css');
 const { splitKatexSheet } = require('./lib/export/katex-inline');
-const { readClassAttr } = require('./lib/core/section-walk');
-const { splitSections } = require('./lib/core/split-sections');
+const { readClassAttr, splitSections } = require('@laticent/markup');
 // The label-drop channel's READER half — same grammar as the writer, one module
-// (lib/components/chart/_chart-family/label-drops.js), so the two cannot drift.
-const { decodeLabelDrops } = require('./lib/components/chart/_chart-family/label-drops');
+// (lib/plugins/chart-family/shared/label-drops.js), so the two cannot drift.
+const { decodeLabelDrops } = require('./lib/plugins/chart-family/shared/label-drops');
 const {
   ENGINE_SCRIPT_ATTR,
   INSTALL_AUTHOR_DEFERRAL_PROBE_SRC,
@@ -1065,12 +1064,12 @@ const { cliThemeStore, cliDeckSheet, shippedSheetText, katexFamilies, katexInlin
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
-// one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
+// one `size:` (lib/core/sizes.js `withSize`). An unknown name fails at the size check below.
 //
 // A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
 // PDF or PowerPoint big, and the author owns that choice.
 const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({ deckSize: frontMatterValue((mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', 'size'), requested: flags.size, format: OUT_FORMAT });
-const mdSized = EXPORT_CANVAS.size ? require('./lib/engine/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
+const mdSized = EXPORT_CANVAS.size ? require('./lib/core/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
 if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {
   const f = require('./lib/core/export-canvas').FOUR_K_FACTOR[OUT_FORMAT];
   console.log(`  Deck size is 4K; exporting at HD (1280x720) to keep the file small. --size 4k keeps 4K, typically ${f}x larger.`);
@@ -1299,7 +1298,7 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 }
 // The store is a plain folder: a package unzipped into it by hand, or a `--packages` folder,
 // never passed `add`. So the gate `add` runs is run again here, before the CSS is used, and a
-// refused theme fails the render with the reason (lib/packages/gate.js; HARD RULE #22).
+// refused theme fails the render with the reason (lib/cli/package-gate.js; HARD RULE #22).
 // A shipped name wins over an installed one, and a release that ADDS a shipped name hides a
 // package the user installed under it before. That must not be silent: the deck would render
 // a different theme from the one it rendered yesterday (followups.d/2336 item 1).
@@ -1311,7 +1310,7 @@ if (fs.existsSync(palettePath) && !flags.quiet) {
   }
 }
 if (installedTheme) {
-  const refused = require('./lib/packages/gate.js').refusePackage(installedTheme.pkg);
+  const refused = require('./lib/cli/package-gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
     console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
     console.error(`       (${installedTheme.dir})`);
@@ -1496,13 +1495,13 @@ const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 // listing the valid names. No directive → hd default, unchanged. Front-matter-
 // scoped so a `size:` in prose / a code block can't trip it.
 //
-// Reads lib/engine/sizes.js, the same table `resolveSize` resolves against, so
+// Reads lib/core/sizes.js, the same table `resolveSize` resolves against, so
 // the CLI cannot accept a name the renderer would not honor or reject one it
 // would. This used to parse `@size` out of the loaded stylesheets — which meant
 // the guard was only as good as whichever sheet happened to carry the table, and
 // it silently disabled ITSELF (`knownSizes.size &&`) when none did. See
 // engineering/decisions/2026-08-16-size-registry-ownership.md.
-const { SIZES, isRegisteredSize } = require('./lib/engine/sizes');
+const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
@@ -1543,7 +1542,7 @@ try {
 // See engineering/decisions/2026-05-12-diagram-tokens.md for the architecture.
 
 // ── Mermaid theme variables — structural map only ───────────────────────
-// THE map lives in lib/core/mermaid-theme-map.js, imported by this path and by
+// THE map lives in lib/plugins/mermaid/shared/mermaid-theme-map.js, imported by this path and by
 // the runtime (#1332 step 2, HARD RULE #1). It used to live HERE, with a second
 // copy in lib/runtime/index.js kept in sync by comment; the two held the same 166
 // slots but 38 different VALUES. They are now one object, so a key exists on both
@@ -1604,7 +1603,7 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
 }
 
 // ── Build the Mermaid themeVariables object from the map + CSS vars ──────
-// This path's half of the port (lib/core/mermaid-theme-map.js): read one token
+// This path's half of the port (lib/plugins/mermaid/shared/mermaid-theme-map.js): read one token
 // out of the OFFLINE-resolved palette. The render worker is a separate process, so
 // there is no live DOM to ask — `parsePaletteVars` has already collapsed light-dark() and
 // chased every var() chain to a literal for the scheme being baked.
@@ -1680,7 +1679,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // The band a slide renders in IS this path's `scope`: hand the kernel a band and a
 // token name, get the value that band resolves. `resolveDiagramBand` decides the
 // band (lib/core/diagram-band.js); the kernel decides when to build a palette from
-// it (lib/core/render-diagrams.js). Nothing here assembles `themeVariables`.
+// it (lib/plugins/mermaid/shared/render-diagrams.js). Nothing here assembles `themeVariables`.
 //
 // The three eager `MERMAID_THEME_VARS*` constants that used to live here are gone.
 // They resolved all 166 variables for all three bands at module load, printing a
@@ -1707,7 +1706,7 @@ function paletteVarsForBand(band) {
  * face. That is #1674 in one sentence.
  *
  * So the re-point is applied HERE, in the reader, which is where a path difference
- * belongs (`lib/core/render-diagrams.js` § THE PORT): the map stays declarative
+ * belongs (`lib/plugins/mermaid/shared/render-diagrams.js` § THE PORT): the map stays declarative
  * (`fontFamily: { var: 'font-body' }`) and both paths answer the same question.
  *
  * Only the tokens the diagram map actually reads need an entry. `base.sketch.css`
@@ -1787,8 +1786,8 @@ let DECK_PLUGIN_CSS = '';
 /** Exit, naming each package, if any of these code packages lacks the user's approval. */
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
-  const { untrustedCodePackages } = require('./lib/packages/code-door.js');
-  const { printableLine } = require('./lib/packages/gate.js');
+  const { untrustedCodePackages } = require('./lib/cli/code-door.js');
+  const { printableLine } = require('./lib/cli/package-gate.js');
   const untrusted = untrustedCodePackages(pkgs);
   if (!untrusted.length) return;
   for (const u of untrusted) {
@@ -1804,7 +1803,7 @@ function refuseUnapprovedCode(pkgs) {
  * when the user has not given it. A plugin the deck does not list, whose fence the deck writes, is named once.
  */
 function withInstalledPlugins(source) {
-  const { refusePackage } = require('./lib/packages/gate.js');
+  const { refusePackage } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
   const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
@@ -1832,7 +1831,7 @@ function withInstalledPlugins(source) {
     const written = inlineKindsOf(p.pkg.manifest).filter((k) => source.includes(`\`@${k.name}{`));
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
-  const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
+  const { pluginReturnFields } = require('./lib/core/code-shape.mjs');
   return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
 }
 
@@ -1842,12 +1841,12 @@ function withInstalledPlugins(source) {
  * is. The door admits the bytes against the pin again and refuses them where the OS layer reads OFF.
  */
 function withNpmPlugins(source, installed, approvals, shippedNames) {
-  const { deckPluginList } = require('./lib/plugins/deck-plugins.mjs');
+  const { deckPluginList } = require('./lib/core/deck-plugins.mjs');
   const asked = deckPluginList(source);
   // A deck that lists no plugin never reads a list: a file someone planted in a parent folder costs it nothing.
   if (!asked.length) return [];
   const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
-  const { refusePackage, printableLine } = require('./lib/packages/gate.js');
+  const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
   const deckDir = path.dirname(path.resolve(mdFile));
   const file = findPluginList(deckDir);
   if (!file) return [];
@@ -1870,11 +1869,11 @@ function withNpmPlugins(source, installed, approvals, shippedNames) {
 // `withInstalledComponents`, which is where "used" is decided.
 let REOPENABLE_COMPONENTS = [];
 function withInstalledComponents(source) {
-  const { embedInstalledComponents, classTokens } = require('./lib/packages/render.js');
-  const { refusePackage } = require('./lib/packages/gate.js');
+  const { embedInstalledComponents, classTokens } = require('./lib/cli/package-render.js');
+  const { refusePackage } = require('./lib/cli/package-gate.js');
   const { embeddedComponentNames } = require('./lib/layout/bridge.js');
   const { COMPONENT_NAMES } = require('./lib/core/resolve-component.js');
-  // The store is a plain folder, so every package is gated again here (lib/packages/gate.js):
+  // The store is a plain folder, so every package is gated again here (lib/cli/package-gate.js):
   // a refused component is left out and named, never embedded.
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
@@ -1904,7 +1903,7 @@ function withInstalledComponents(source) {
   const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
   const reservedNames = require('./lib/packages/index.js').createRegistry(require('./lib/packages/packages.generated.json'));
   const approvals = readTrust();
-  const { codeNameRefusal } = require('./lib/packages/code-door-core.mjs');
+  const { codeNameRefusal } = require('./lib/core/code-door-core.mjs');
   const knownClasses = [...require('./lib/packages/reserved-classes.generated.js').names, ...COMPONENT_NAMES];
   const installedCode = installed.filter((p) => p.pkg.code && !shippedComponents.has(p.name)).filter((p) => {
     if (reservedNames.unreservedName('component', p.name) === p.name && !codeNameRefusal(p.name, knownClasses)) return true;
@@ -1945,6 +1944,7 @@ const bakeServices = {
   print: WANT_PRINT,
   paletteUsesTexture: PALETTE_USES_TEXTURE,
   orientation: orientationFor(resolveSize(((mdForBake.match(FRONT_MATTER_RE) || [''])[0].match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd')).name,
+  paneOrientations: (src) => require('./lib/engine').paneOrientations(src),
   browser: { path: CHROME_EXEC, args: OFFLINE_ARGS },
   readToken: readScopeToken,
   scopeKey: diagramScopeKey,
@@ -2117,9 +2117,9 @@ const SPLIT_CAP = (() => {
   // made autosplit a SILENT NO-OP for every npx/npm consumer of the packaged
   // CLI while working in the repo. lib/ ships in the tarball, so the
   // package-root walk lands on the real manifests in both worlds.
-  // The projection itself is shared with the browser bundle (lib/core/structural-split.js
+  // The projection itself is shared with the browser bundle (lib/engine/structural-split.js
   // `splitCapacityFrom`), so the CLI and the live preview read the same map.
-  const map = require('./lib/core/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
+  const map = require('./lib/engine/structural-split').splitCapacityFrom(require('./lib/components').loadAll(path.join(PKG_ROOT, 'lib', 'components')));
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.
   if (!Object.keys(map).length) {
@@ -2146,7 +2146,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // drifted — it used to omit 16:9 and silently rendered it as hd), resolve the
 // `size:` directive through the engine's own `resolveSize`, the same lookup the
 // scaffold bakes into `@page`. It reads the engine's size REGISTRY
-// (lib/engine/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
+// (lib/core/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
 // (resolveSize required above, before the plugins' bakes.)
 const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName);
@@ -2170,13 +2170,13 @@ const slideH         = parseFloat(_geom.height);
 // cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
 // unregistered name before this line runs.)
 //
-// The gate is `splitApplies` (lib/core/structural-split.js), shared with the browser preview so
+// The gate is `splitApplies` (lib/engine/structural-split.js), shared with the browser preview so
 // the two can never disagree about which box splits. It calls the ONE family classifier
 // (lib/adaptive/families.js `familyFor`), the same call the engine's `data-family` stamp makes,
 // and keeps the `Number.isFinite` guard both sibling call sites carry (lib/engine/index.js,
 // lib/engine/css.js orientationFor): `familyFor(NaN)` falls through every band and returns
 // 'strip', the opposite verdict from the 'wide' those two produce for the same degenerate box.
-const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').splitApplies(slideW, slideH);
+const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').splitApplies(slideW, slideH);
 // Orientation scaling/fill and the slide's own 1% (`--_sec-1cqi`) used to be emitted HERE,
 // beside the deck sheet. The engine's flat sheet now carries both for `deckSizeName`
 // (composeCss appends `geometryVarsCss` + `orientationCss` from the same `resolveSize`), so
@@ -2197,7 +2197,7 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/core/structural-split').sp
 // collapses bg left/right to a full-bleed background). See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
-const collageStamp       = require('./lib/core/collage-stamp');
+const collageStamp       = require('./lib/transformers/collage-stamp');
 const logoWallPack       = require('./lib/core/logo-wall-pack');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
@@ -2217,7 +2217,7 @@ const logoWallPack       = require('./lib/core/logo-wall-pack');
 // One `<section>` string per top-level slide, from the engine's assembled
 // <article class="lattice"> document — the shape the emulator's downstream
 // (highlight, deck-logo, page template) expects. The walk is the shared kernel
-// (lib/core/split-sections.js, HARD RULE #1), which reads a comment, a
+// (docs/src/lib/markup/sections.ts, HARD RULE #1), which reads a comment, a
 // <style>/<script> body and a quoted attribute as TEXT. The private regex copy
 // this replaced did not: a `<section` quoted inside a comment or a <style> moved
 // its depth counter, the walk found zero slides, and the export shipped a
@@ -2296,11 +2296,11 @@ function engineSlides(deckSource = rawMd) {
   const deckMd = deckSource;
   // CODE PACKAGES run INSIDE the engine render, in the registry's code-packages slot
   // (lib/transformers/code-packages.js): a first render captures the slides they claim, the
-  // sandbox runs them, a second render puts their sanitized output in (lib/packages/code-door.js).
+  // sandbox runs them, a second render puts their sanitized output in (lib/cli/code-door.js).
   // A deck no installed code package claims renders once, as before.
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
-    const { renderWithCodePackages } = require('./lib/packages/code-door.js');
+    const { renderWithCodePackages } = require('./lib/cli/code-door.js');
     const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
@@ -2372,7 +2372,7 @@ function engineSlides(deckSource = rawMd) {
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's
     // always the author's `statement` class — needsScrim keys off that.
     // Resolved `class`, never the `data-class` directive payload that precedes it —
-    // see lib/core/section-walk.js readClassAttr (#1358).
+    // see docs/src/lib/markup/section-walk.ts readClassAttr (#1358).
     const cls = readClassAttr((s.match(/^<section\b[^>]*>/i) || [''])[0]);
     if (imageScrim.needsScrim(cls) && s.indexOf('class="image-scrim') === -1) {
       s = s.replace(/(<div class="lattice-bg[\s\S]*?<\/div>)/, `$1${imageScrim.SCRIM_HTML}`);
@@ -2834,7 +2834,7 @@ const hasHydratedPlugins = pagePlugins.length > 0;
 // A used plugin whose library is missing draws NOTHING: the host settles every placeholder
 // `unavailable` with its config shown, and nothing is left pending for the barrier to warn about.
 // So say it here, once per plugin, rather than ship a page of JSON silently. Every first-party
-// plugin owns its copy (lib/plugins/payload-path.js), so this fires only for a damaged install.
+// plugin owns its copy (lib/core/payload-path.js), so this fires only for a damaged install.
 for (const h of pagePlugins) {
   if (h.payload && !payloadPath(h) && !QUIET) {
     console.warn(`  ⚠ ${h.name}: its library (${h.payload.file}) is missing from the package — its figures export showing their source. Reinstall Lattice to restore it.`);
@@ -2878,7 +2878,7 @@ const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure
 let needsDagre = false;
 if (hasStateChart) {
   try {
-    const { htmlNeedsDagre } = require('./lib/components/chart/state-chart/state-chart.adoption.js');
+    const { htmlNeedsDagre } = require('./lib/plugins/chart-family/kinds/state-chart/state-chart.adoption.js');
     needsDagre = htmlNeedsDagre(highlightedSlides);
   } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
 }
@@ -2899,7 +2899,7 @@ let calloutsEmbedded = false;   // the placer rides in the first script that nee
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js');
     // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
     // reading-order grid with no dagre at all, and most shipped machines are chains, so
     // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
@@ -2937,7 +2937,7 @@ const hasFlowchart = highlightedSlides.some(s => s.includes('flowchart-figure'))
 let flowchartScript = '';
 if (hasFlowchart) {
   try {
-    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/components/chart/flowchart/flowchart.layout.js');
+    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js');
     let dagreIife = '';
     if (!(hasStateChart && needsDagre)) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
@@ -3416,7 +3416,7 @@ async function renderBody(browser, g, closeBrowser) {
     const { WEB_IMAGE_PLACEHOLDER } = require('./lib/core/remote-ref.js');
     // The command line names two more places the caller trusts by construction: the layout stylesheet and the
     // palette files (their `url()` assets sit beside them). They join the deck folder and the install.
-    const { createFileConfiner, localPathOfFileUrl } = require('./lib/export/file-confine.js');
+    const { createFileConfiner, localPathOfFileUrl } = require('./lib/core/file-confine.js');
     const confine = createFileConfiner([...DECK_CONFINE.roots, path.dirname(path.resolve(cssFile)), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
     const outHtmlReal = fs.realpathSync(path.resolve(outHtml));
     // The output page itself, compared by REAL path (the output folder may be reached through a symlink, as
@@ -3846,7 +3846,7 @@ async function renderBody(browser, g, closeBrowser) {
     // 2026-10-27-fluid-layout-library.md §12).
     // The deck chrome comes from the front matter (`md`), not from a section's
     // `data-header`/`data-footer`, which a per-slide `_footer:` also fills (railRun's header).
-    const ss = require('./lib/core/structural-split');
+    const ss = require('./lib/engine/structural-split');
     const r = ss.structuralSplit(cleanDocHtml, { deckSource: md, width: slideW, height: slideH, capacity: SPLIT_CAP });
     // With no manifests found (SPLIT_CAP empty, already warned above) `structuralSplit` returns
     // before the adornments. The old inline path still ran `railRun`, whose re-berth touches every
@@ -4349,14 +4349,17 @@ async function renderBody(browser, g, closeBrowser) {
       // pin them to the export-time scheme — killing the player's own dark/light toggle
       // and the Read·Article re-host's `figure.chart-frame` recolor. Mermaid has no
       // such dependency (it bakes its colors at render time either way).
-      const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+      const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/plugins/chart-family/shared/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
       // The motion roles the live runtime writes on every drawn diagram. The CLI's diagrams come
-      // from the render worker, not the runtime, so they arrive untagged; tagging the baked copy
-      // here is what lets a `motion: on` deck animate its diagrams in the player too.
-      // Closure-free for the same reason the flattener is.
-      const { tagMermaidMotion: tagPlayerSvg } = require('./lib/plugins/mermaid/shared/motion-roles.js');
-      await g(() => page.evaluate(`window.__tagMermaidMotion = ${tagPlayerSvg.toString()};`), 'player capture: inject diagram motion tagger');
+      // from a plugin's bake, not the runtime, so they arrive untagged; tagging the baked copy here
+      // is what lets a `motion: on` deck animate its diagrams in the player too. Each bake that
+      // draws figures publishes its own tagger (`ctx.state.motionTagger`, lib/plugins/host-bake.js),
+      // so this names no plugin. Closure-free for the same reason the flattener is.
+      // Only plain functions: each is injected as its own source text, and a value that is not one would
+      // run as arbitrary code in the capture page or break the injected array.
+      const motionTaggers = [...BAKE_CONTEXTS.values()].map((c) => c.state.motionTagger).filter((f) => typeof f === 'function');
+      await g(() => page.evaluate(`window.__motionTaggers = [${motionTaggers.map((f) => f.toString()).join(', ')}];`), 'player capture: inject diagram motion taggers');
       const baked = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
@@ -4373,7 +4376,9 @@ async function renderBody(browser, g, closeBrowser) {
           try {
             const flat = window.__flattenSvgStyles(live[i], window, { foreignObjectLabels: 'text' });
             // Its own try: a tagging failure costs only the motion, never the bake it rides on.
-            try { window.__tagMermaidMotion(flat); } catch (_t) { /* ships as a still */ }
+            for (const tag of window.__motionTaggers) {
+              try { tag(flat); } catch (_t) { /* ships as a still */ }
+            }
             copies[i].replaceWith(flat);
           } catch (_e) { unbaked++; }
         }
@@ -4679,7 +4684,7 @@ async function renderBody(browser, g, closeBrowser) {
             const idxs = allIdxs.filter((idx) => rb.bakedBand(idx) !== lookMode);
             if (idxs.length) {
               if (!QUIET) process.stdout.write(`  re-rendering ${idxs.length} ${rb.noun}(s) → ${lookMode}...`);
-              const { flattenSvgStyles: flatten } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+              const { flattenSvgStyles: flatten } = require('./lib/plugins/chart-family/shared/standalone-svg.js');
               const parts = [];
               const authorKept = new Set();   // sets its own colors — the look can't override (intended, benign)
               const renderFailed = new Set(); // mmdc fell back — no look render; keeps the slide-scheme bake (may be WRONG)
@@ -4773,7 +4778,7 @@ async function renderBody(browser, g, closeBrowser) {
       }
 
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
-        require('./lib/components/chart/_chart-family/standalone-svg.js');
+        require('./lib/plugins/chart-family/shared/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
       const raw = await g(() => page.evaluate(({ KEYED, FIGURES }) => {
         const ser = new XMLSerializer();
@@ -5411,7 +5416,7 @@ async function slideCameraFor(page) {
     let cam = null;
     try {
       // The same places the page itself may read: the deck, Lattice's install, and the folders of the stylesheet and palettes the command line names.
-      const camConfine = require('./lib/export/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
+      const camConfine = require('./lib/core/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
       cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: camConfine, allowRemote: !!flags['allow-remote'], warn: (m) => { if (!QUIET) console.error(m); } });
     } catch (e) {
       if (!QUIET) console.error(`  ⚠ slide camera unavailable (${e?.message || e}); using Chrome's screenshot`);
@@ -5518,7 +5523,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {

@@ -1,0 +1,92 @@
+/* map — spatial choropleth / highlight chart (chart-family series member).
+ * See lib/plugins/chart-family/kinds/map/map.manifest.json for the contract.
+ *
+ * The kernel (map.transform.js) emits a <div class="map-figure"> holding an
+ * SVG basemap (one <path> per region) and a legend (swatch · name · value).
+ * All color lives here so the kernel stays palette-blind: choropleth regions
+ * carry a `--mix` percentage and ride a single-hue ramp off --chart-cat-1-hue;
+ * highlight regions carry a `--region-hue` var-reference into a --catN slot;
+ * unnamed regions take the neutral base fill. Unlayered like every other
+ * component file (broad @layer activation is blocked — see cascade.md). */
+
+:is(section.map, figure.chart-frame) .map-figure {
+  /* The neutral fill an unnamed region takes — and the ANCHOR the choropleth
+   * ramp mixes the hue into, so every valued region reads as "neutral + N%
+   * hue". That keeps the ramp monotonic ABOVE the neutral in both light and
+   * dark: a low value can never sink darker than an empty region the way a
+   * mix-toward-`--bg` ramp does on a dark canvas. */
+  --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqi;
+}
+:is(section.map, figure.chart-frame) .map-svg {
+  /* Also define --map-base on the SVG itself (not just .map-figure): Read·Article
+   * re-hosts the bare .map-svg outside .map-figure, so the choropleth/neutral
+   * regions need the base anchor on an ancestor that survives the re-host. */
+  --map-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  min-width: 0;
+  /* Width-driven (a world map is wide-short): FILL the 70% canvas zone so the
+   * map scales to the room it's actually given (it was pinned small at 56cqi).
+   * height:auto lets the aspect ratio set the height; max-height guards a tall
+   * two-line subtitle. This BASE rule governs hero/bleed maps only — the Form and
+   * non-form non-hero maps container-fill via the shared rules in chart-family.styles.css. */
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  display: block;
+}
+
+/* ── Regions ──────────────────────────────────────────────────────────────
+ * Unnamed regions sit on a quiet neutral fill so the named ones carry the read.
+ *
+ * THE BASEMAP IS DRAWN, NOT TINTED — its legibility comes from its BORDERS.
+ * `--map-base` is `color-mix(--muted-mark 16%, --bg)`, and a fixed perceptual
+ * percentage cannot serve both canvas polarities: 16% away from white is a
+ * visible grey, while 16% away from BLACK is four sRGB levels. Measured against
+ * the canvas, the land read 1.18–1.25:1 on every theme and **1.02:1 on onyx and
+ * a11y-achromatopsia in dark**, whose canvas is #000 — a world map nobody can
+ * see, with only the named countries showing.
+ *
+ * The stroke used to be `var(--bg)`, a hairline canvas-colored divider that kept
+ * adjacent named regions crisp — and was invisible over the land by definition,
+ * so it could not help. Drawing it in the theme's own muted ink instead fixes
+ * both polarities with ONE rule and no light-dark pair, because an outline does
+ * not care which way the canvas leans: border-against-land goes from 1.02–1.25:1
+ * to **2.86–6.10:1** across five themes x two modes. It still separates adjacent
+ * named regions, and it costs the choropleth nothing — raising `--map-base`
+ * instead was measured and rejected, because lifting the land pushes the ramp's
+ * faintest step INTO it (onyx dark: data-against-land 1.19:1 -> 1.07:1). */
+:is(section.map, figure.chart-frame) .map-region {
+  fill: var(--map-base);
+  stroke: color-mix(in oklab, var(--muted-mark) 55%, transparent);
+  stroke-width: var(--chart-edge);
+  stroke-linejoin: round;
+}
+
+/* Choropleth — one sequential ramp off --chart-cat-1-hue, mixed into the neutral
+ * base (--map-base) so low values read as a faint tint of the hue OVER the
+ * empty fill, never below it. The kernel sets --mix (a color-mix percentage)
+ * per region: low → faint hue, high → saturated. Low→high on the ramp. */
+:is(section.map, figure.chart-frame) .map-region--on {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
+}
+
+/* Categories (a set, not a magnitude): each named region is its category SOLID, the same flat color a pie wedge or
+ * a bar of that category wears (chart-family.styles.css § THE SOLID TIER). The kernel sets --region-hue to the
+ * slot's var reference; the chart finish repaints it through the mark contract. */
+:is(section.map, figure.chart-frame) .map-region--hl {
+  fill: var(--region-hue);
+}
+
+/* ── Legend ───────────────────────────────────────────────────────────────
+ * The key is now SVG-native (legend-svg-key.js → `.chart-key-*`, styled in
+ * lib/plugins/chart-family/chart-family.styles.css): the kernel emits swatch <rect>s whose fills
+ * mirror the region fills (highlight hue / choropleth ramp), group headings as
+ * `.chart-key-head` rows, and unmatched names as a hollow `?` chip. The old HTML
+ * `.map-legend` / `.map-swatch` rules are retired with it; the `.map-region-*`
+ * fills below are unchanged. See 2026-06-13-svg-native-legend.md. */

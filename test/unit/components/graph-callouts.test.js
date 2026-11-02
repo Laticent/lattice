@@ -11,9 +11,9 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const engine = require('../../../lib/engine');
-const { flowchartAdapter, browserJs: flowchartBrowserJs, htmlHasCallouts: fcHas } = require('../../../lib/components/chart/flowchart/flowchart.layout');
-const { stateChartAdapter, browserJs: stateBrowserJs, htmlHasCallouts: scHas } = require('../../../lib/components/chart/state-chart/state-chart.layout');
-const { placeCallouts } = require('../../../lib/components/chart/_chart-family/callout-browser');
+const { flowchartAdapter, browserJs: flowchartBrowserJs, htmlHasCallouts: fcHas } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
+const { stateChartAdapter, browserJs: stateBrowserJs, htmlHasCallouts: scHas } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.layout');
+const { placeCallouts } = require('../../../lib/plugins/chart-family/shared/callout-browser');
 
 const render = (cls, body) => String(engine.render(`<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`).html);
 const modelOf = (html, attr) => {

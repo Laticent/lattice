@@ -50,17 +50,17 @@ describe('the row schemas', () => {
     // takeRowDescription, directly or through splitDetail; bar, line, slope and stacked-bar through
     // the shared Cartesian kernel). Progress shows its nested note on the slide face and lifts
     // nothing; the two tables have no list row to quote under.
-    const read = (f) => fs.readFileSync(path.join(__dirname, '../../../lib/components/chart', f), 'utf8');
-    const cartesian = /splitDetail|takeRowDescription/.test(read('_chart-family/cartesian.js'));
+    const read = (f) => fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds', f), 'utf8');
+    const cartesian = /splitDetail|takeRowDescription/.test(read('../shared/cartesian.js'));
     assert.ok(cartesian, 'the Cartesian kernel lifts descriptions');
     for (const c of IN_SCOPE.filter((x) => x !== 'heatmap' && x !== 'matrix-grid')) {
       const src = read(`${c}/${c}.transform.js`);
-      const lifts = /splitDetail|takeRowDescription/.test(src) || /cart\.parseSeries|parseSeries\(/.test(src) && /_chart-family\/cartesian/.test(src);
+      const lifts = /splitDetail|takeRowDescription/.test(src) || /cart\.parseSeries|parseSeries\(/.test(src) && /shared\/cartesian/.test(src);
       assert.equal(rows.DETAIL_CHARTS.includes(c), lifts, c);
     }
     for (const c of rows.DETAIL_CHARTS) {
       const src = read(`${c}/${c}.transform.js`);
-      assert.ok(/detailPayload/.test(src) || /_chart-family\/cartesian/.test(src), `${c} emits its detail through the shared payload`);
+      assert.ok(/detailPayload/.test(src) || /shared\/cartesian/.test(src), `${c} emits its detail through the shared payload`);
     }
     for (const c of ['progress', 'heatmap', 'matrix-grid']) assert.ok(!rows.DETAIL_CHARTS.includes(c), c);
   });

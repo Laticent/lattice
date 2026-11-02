@@ -35,7 +35,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr');
-const { contrastRatio, hexToOklch, oklchToHex, oklabDistance } = require('../lib/theme/color.js');
+const { contrastRatio, hexToOklch, oklchToHex, oklabDistance } = require('../lib/core/color.js');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { simulate, SIMULATED_TYPES, ACHROMATOPSIA } = require('../lib/theme/cvd.js');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');

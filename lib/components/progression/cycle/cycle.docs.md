@@ -65,7 +65,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 ## Related components
 
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the process is linear — a real start and finish, not a loop
-- [`timeline-list`](../../chart/timeline-list/timeline-list.docs.md) — events fixed to dates rather than a repeating cycle
+- [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — events fixed to dates rather than a repeating cycle
 - [`diagram`](../../diagram/diagram/diagram.docs.md) — the loop has branches or feedback into non-adjacent stages
 
 ## Demo deck

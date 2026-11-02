@@ -20,7 +20,7 @@ const buildHtmlLegend = ({ listClass, itemClass, markClass, labelClass, rows, ar
   Array.isArray(rows) ? rows.map((r) => ({ text: r.label, detail: r.detail, rowClass: r.stateClass, swatch: r.markState })) : rows,
   { classes: { list: listClass, item: itemClass, mark: markClass, label: labelClass }, ariaLabel, tag },
 );
-const { STATE_LABEL } = require('../../../lib/components/chart/roadmap/roadmap.transform');
+const { STATE_LABEL } = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform');
 
 const STATE_ORDER = ['state-shipped', 'state-wip', 'state-planned', 'state-skipped'];
 

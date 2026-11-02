@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, railButtons, stripNote, test, typeDeck } from './studio-fixture';
 
-// DRAG TO REORDER in both strips (2026-10-27-slide-structure-strip.md §5, lib/strip-actions/drag.ts). One rule for
+// DRAG TO REORDER in both strips (2026-10-27-slide-structure-strip.md §5, components/studio/strip-actions/drag.ts). One rule for
 // every pointer: a press held still lifts the slide, releasing it without moving opens the menu, moving it drags. A
 // mouse that moves lifts at once; a finger that moves before the hold scrolls. The drop is one step of the history.
 

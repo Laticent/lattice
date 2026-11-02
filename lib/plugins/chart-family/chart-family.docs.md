@@ -26,7 +26,7 @@ is the slot's name because the manifest names no other `block` — holding the f
 derive:
 
 ```jsonc
-// lib/components/chart/gantt/gantt.manifest.json
+// lib/plugins/chart-family/kinds/gantt/gantt.manifest.json
 "kernel": { "figureClass": "gantt-chart", "marks": [ … ] }
 ```
 
@@ -67,7 +67,7 @@ Every render path reaches the dispatch through the section transformer
 `lib/transformers/chart-family.js`, which stays in `lib/transformers/` because section transforms
 are first-party and hand-ordered (plugin-system §4.3). The kernels' own shared helpers (the SVG
 label and legend builders, the cartesian axes, `transform-utils.js`) stay in
-`lib/components/chart/_chart-family/`: they are the members' library, not the family's dispatch.
+`lib/plugins/chart-family/shared/`: they are the members' library, not the family's dispatch.
 
 **In api 1 a slot is in-tree only, both ways:** the family is shipped, and so is every filler. A
 zip component's `transform.js` is code, which the package gate refuses at import

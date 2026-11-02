@@ -40,7 +40,7 @@ written as `@legend{…}` spans, and those still draw as callouts; write `@callo
 ## Where it draws today
 
 The charts draw their own keys through the legend's key kernels: `keySvg`
-(`lib/components/chart/_chart-family/legend-svg-key.js`) for bar, stacked-bar, tower, piechart, map,
+(`lib/plugins/chart-family/shared/legend-svg-key.js`) for bar, stacked-bar, tower, piechart, map,
 quadrant, radar, heatmap and line, and `keyHtml` (`lib/core/legend-key.js`) for roadmap, matrix-grid
 and obligation-matrix. Authoring a key through `@legend{…}`, to rename or reorder its entries, lands
 one component at a time (`2026-10-20-callout-placement.md` § 7). Until a component reads it, a
@@ -55,5 +55,5 @@ it no longer does, and `callout: off` is the switch now.
 The model and reader are `lib/core/legend.js`, shared with the callout plugin. The HTML key is
 `lib/core/legend-key.js` (a component's own classes) and `lib/core/legend-html.js` (the legend's
 own); the mark slot is `lib/core/legend-mark.js`; the SVG key is `keySvg` in
-`lib/components/chart/_chart-family/legend-svg-key.js`. The emitters write classes and a `data-c`
+`lib/plugins/chart-family/shared/legend-svg-key.js`. The emitters write classes and a `data-c`
 color slot and never a color; this plugin's stylesheet paints them.

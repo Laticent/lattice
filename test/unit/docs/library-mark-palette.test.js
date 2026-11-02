@@ -25,7 +25,7 @@ const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { contrastRatio, oklabDistance } = require('../../../lib/theme/color');
+const { contrastRatio, oklabDistance } = require('../../../lib/core/color');
 
 const PUBLIC = path.join(__dirname, '../../../docs/public');
 const PAPER = { light: '#f6f3ec', dark: '#121012' };

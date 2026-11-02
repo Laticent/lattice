@@ -327,7 +327,7 @@ test('agent kit structure', { skip }, async (t) => {
 	await t.test('the cross-cutting rules ship in full', async () => {
 		const rules = fs.readFileSync(path.join(KIT, 'authoring', 'rules.md'), 'utf8');
 		const { AUTHORING_RULES } = await import(
-			path.join(ROOT, 'docs', 'src', 'components', 'studio', 'ai', 'architect-knowledge.js')
+			path.join(ROOT, 'docs', 'src', 'lib', 'architect-knowledge.js')
 		);
 		for (const rule of AUTHORING_RULES) {
 			assert.ok(
@@ -819,11 +819,11 @@ test('agent kit structure', { skip }, async (t) => {
 	 * The README said "the two runtime `<script>` tags" while every deck in the kit
 	 * emitted three — the count was typed once and the list grew under it when
 	 * dagre was split out of the runtime bundle. Both numbers now derive from
-	 * `RUNTIME_SCRIPT_SRCS` in lib/core/marp-bundle.js, which the tag block is generated
+	 * `RUNTIME_SCRIPT_SRCS` in lib/export/marp-bundle.js, which the tag block is generated
 	 * from as well, so a fourth engine cannot desynchronise them; this arm says so.
 	 */
 	await t.test('every stated runtime-script count matches the real tag list', () => {
-		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/export/marp-bundle.js');
 		const word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'][names.length];
 		assert.ok(word, `${names.length} runtime scripts — extend the word list`);
 
@@ -849,7 +849,7 @@ test('agent kit structure', { skip }, async (t) => {
 	 * while the decks are generated from `RUNTIME_TAGS`, which always closes.
 	 */
 	await t.test('every kit deck carries the runtime tags in execution order', () => {
-		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/core/marp-bundle.js');
+		const { RUNTIME_SCRIPT_SRCS: names } = require('../../../lib/export/marp-bundle.js');
 		const bad = [];
 		for (const f of fs.readdirSync(path.join(KIT, 'examples'))) {
 			const got = [...readKit(`examples/${f}`).matchAll(SCRIPT_SRC_RE)].map((m) => m[1]);

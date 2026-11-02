@@ -76,3 +76,15 @@ test('an unreadable page (crammed prose, no cut) is counted apart from clips', (
   const r = compare({ 'a.md': { 'story@hall': { clip: 1, lost: 0 } } }, t);
   assert.deepEqual(r.regressions, [{ src: 'a.md', cell: 'story@hall', metric: 'unreadable', was: 0, now: 1 }]);
 });
+
+test('a baseline source this run never walked is NOT SCORED, never silently absent', () => {
+  // The chart kinds moved out of lib/components and the source walk lost them: their baseline
+  // entries produced no cells, and a compare over the run's own cells read "no count rose".
+  const base = { 'a.md': { 'story@hall': { clip: 0, lost: 0 } }, 'gone.md': { 'story@hall': { clip: 1, lost: 0 } } };
+  const r = compare(base, { 'a.md': { 'story@hall': { clip: 0, lost: 0 } } });
+  assert.deepEqual(r.regressions, [{ src: 'gone.md', cell: 'story@hall', metric: 'unscored', missing: true }]);
+  assert.equal(exitCode(r), 3);
+  assert.match(format(r), /NOT SCORED.*never walked it/);
+  // A run asked for fewer cells (`--only`, `--sizes`) is not blamed for the rest.
+  assert.deepEqual(compare(base, { 'a.md': { 'story@hall': { clip: 0, lost: 0 } } }, { inScope: (src) => src === 'a.md' }).regressions, []);
+});

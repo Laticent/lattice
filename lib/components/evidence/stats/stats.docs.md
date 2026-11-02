@@ -86,8 +86,8 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`big-number`](../../statement/big-number/big-number.docs.md) — one number is enough to carry the slide
 - [`kpi`](../../evidence/kpi/kpi.docs.md) — metrics need targets, trends, and status pills
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — one focal KPI with a paragraph of supporting prose
-- [`piechart`](../../chart/piechart/piechart.docs.md) — the numbers are parts of a whole, not independent
-- [`progress`](../../chart/progress/progress.docs.md) — the metrics are completion percentages across workstreams
+- [`piechart`](../../../plugins/chart-family/kinds/piechart/piechart.docs.md) — the numbers are parts of a whole, not independent
+- [`progress`](../../../plugins/chart-family/kinds/progress/progress.docs.md) — the metrics are completion percentages across workstreams
 
 ## Demo deck
 

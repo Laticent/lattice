@@ -43,7 +43,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const CSS = path.join(ROOT, 'lib/plugins/chart-family/chart-family.styles.css');
-const CHART_DIR = path.join(ROOT, 'lib/components/chart');
+const CHART_DIR = path.join(ROOT, 'lib/plugins/chart-family/kinds');
 
 /** A knockout strokes the canvas color to separate touching marks. */
 const KNOCKOUTS = {

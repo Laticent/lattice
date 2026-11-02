@@ -29,6 +29,8 @@ pre-commit:
         - 'examples/*.md'
         - 'test/integration/baseline-decks/*.md'
         - 'lib/components/**/*.gallery.md'
+        # A plugin's kinds are component packages too (the chart family's 28, moved out of lib/components in #2997).
+        - 'lib/plugins/*/kinds/**/*.gallery.md'
         - 'lib/integrations/**/*.gallery.md'
       run: node tools/lint-deck.js --strict {staged_files}
     # pdf-rebuild WAS HERE, and is gone on purpose (goldens rollout step 3). It rendered

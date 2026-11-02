@@ -8,13 +8,13 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';

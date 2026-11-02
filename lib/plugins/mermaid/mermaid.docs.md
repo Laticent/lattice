@@ -92,7 +92,7 @@ and the CLI names the plugin.
 
 The render kernels both halves share live in two places. The plugin's OWN — the init directive,
 the render worker, portrait reorientation and the motion roles — are in its `shared/` folder. The
-ones other code also reads — `lib/core/render-diagrams.js`, `mermaid-theme-map.js`,
+ones other code also reads — `lib/plugins/mermaid/shared/render-diagrams.js`, `mermaid-theme-map.js`,
 `diagram-scope.js`, `diagram-look.js` — stay where HARD RULE #1 put them; the plugin's modules are
 the entry points onto them.
 

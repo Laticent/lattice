@@ -48,8 +48,14 @@ function tally(rows, expected = [], arm = 'structural') {
  * regressions: a count above its baseline, a new source that clips or loses, or a cell scored
  * at bless time that this run did not score. wins: a count that fell. scored: a cell unscored
  * at bless time that this run scored (bless to start tracking it).
+ *
+ * A baseline cell this run never produced at all — its source was not walked — is NOT SCORED too
+ * (`missing: true`). The loop used to cover only the run's own cells, so when the chart kinds
+ * moved out of `lib/components` and the source walk lost them, 28 baseline sources went unscored
+ * every night with "no count rose". `inScope(src, cell)` names the baseline cells this run was
+ * asked for (a `--only` or `--sizes` run asks for fewer); by default, all of them.
  */
-function compare(baseline, now) {
+function compare(baseline, now, { inScope = () => true } = {}) {
   const regressions = [];
   const wins = [];
   const scored = [];
@@ -73,6 +79,11 @@ function compare(baseline, now) {
       }
     }
   }
+  for (const [src, cells] of Object.entries(baseline)) {
+    for (const cell of Object.keys(cells)) {
+      if (now[src]?.[cell] === undefined && inScope(src, cell)) regressions.push({ src, cell, metric: 'unscored', missing: true });
+    }
+  }
   const cells = Object.values(now).flatMap((c) => Object.values(c));
   const nothingScored = cells.length === 0 || cells.every((t) => t.unscored);
   return { regressions, wins, scored, nothingScored };
@@ -80,7 +91,7 @@ function compare(baseline, now) {
 
 /** The report lines, each with the marker the nightly workflow reads; the verdict line first. */
 function format({ regressions, wins, scored = [], nothingScored = false }) {
-  const line = (x) => (x.metric === 'unscored' ? `- ${x.src} at ${x.cell}: NOT SCORED (no rows; render failed or rejected)` : `- ${x.src} at ${x.cell}: ${x.metric} ${x.was} -> ${x.now}`);
+  const line = (x) => (x.missing ? `- ${x.src} at ${x.cell}: NOT SCORED (the baseline scores it, but this run never walked it; a source walk lost it, or it was deleted without a re-bless)` : x.metric === 'unscored' ? `- ${x.src} at ${x.cell}: NOT SCORED (no rows; render failed or rejected)` : `- ${x.src} at ${x.cell}: ${x.metric} ${x.was} -> ${x.now}`);
   const out = [];
   const unscored = regressions.filter((x) => x.metric === 'unscored');
   const rose = regressions.filter((x) => x.metric !== 'unscored');

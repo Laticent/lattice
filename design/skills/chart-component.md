@@ -6,7 +6,7 @@
 
 **Read this when** you need a new chart kind (a Cartesian plot, a new
 distribution, a new comparison encoding) that the existing chart components (the
-live roster is `LAYOUTS` in `lib/plugins/chart-family/shared/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
+live roster is `LAYOUTS` in `lib/plugins/chart-family/shared/chart-registry.generated.js`) don't cover. **You'll produce** a kind folder under `lib/plugins/chart-family/kinds/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
 > **Changing how an EXISTING chart looks is a different job** — read
@@ -69,7 +69,7 @@ HTML table (the sole exception is `roadmap`, whose body is a markdown table).
 ## Where it lives
 
 ```text
-lib/components/chart/<name>/
+lib/plugins/chart-family/kinds/<name>/
   <name>.manifest.json     ← function evidence/progression · form canvas · substance series · bucket chart
   <name>.styles.css        ← interior only; consumes --chart-cat-N-* / --state-X-*
   <name>.transform.js      ← the pure kernel: parse<Name> → build<Name> SVG
@@ -80,7 +80,7 @@ lib/components/chart/<name>/
 Shared engine: the chart family PLUGIN (`lib/plugins/chart-family/`) owns
 `chart-family.dispatch.js` (the dispatcher and the chart frame) and
 `chart-family.styles.css` (the frame chrome and the categorical/semantic color
-token model); the kernels' shared helpers stay in `lib/components/chart/_chart-family/`:
+token model); the kernels' shared helpers stay in `lib/plugins/chart-family/shared/`:
 `svg-legend.js` (SVG-native legend), `mark-detail.js` (per-mark reveal substrate),
 `transform-utils.js`.
 
@@ -243,7 +243,7 @@ mud and value-collapse hide there.
    family.
 
    **SILENT — no gate, no red test, just a capability your chart quietly lacks:**
-   - `docs/src/lib/single-slide-render.ts` — the Studio chart-count chip (a regex
+   - `docs/src/playground/single-slide-render.ts` — the Studio chart-count chip (a regex
      alternation, not an array).
    - `docs/src/playground/chart-interact.js` `CHART_SVG_SEL` — without it the
      Present-mode mark reveal and detail popovers never attach.
@@ -290,7 +290,7 @@ Authoring (what the deck author writes):
 The kernel (pure CommonJS, color-free):
 
 ```js
-// lib/components/chart/funnel/funnel.transform.js
+// lib/plugins/chart-family/kinds/funnel/funnel.transform.js
 function parseFunnel(ulInner) {          // the <li> HTML of the first list
   // → [{ label, value, num }]; return null/[] when there's nothing to draw
 }
@@ -304,7 +304,7 @@ The dispatch — recipe step 4 — in full. It is two things, both inside your o
 component folder; nothing central is edited.
 
 ```js
-// lib/components/chart/funnel/funnel.transform.js — the family's ratified entrypoint
+// lib/plugins/chart-family/kinds/funnel/funnel.transform.js — the family's ratified entrypoint
 const { spliceFirstList } = require('../_chart-family/transform-utils');
 
 function transformSection(html, ctx) {
@@ -317,7 +317,7 @@ module.exports = { transformSection, parseFunnel, buildFunnel };
 ```
 
 ```jsonc
-// lib/components/chart/funnel/funnel.manifest.json
+// lib/plugins/chart-family/kinds/funnel/funnel.manifest.json
 "kernel": { "figureClass": "funnel-figure" }
 // tools/build-chart-registry.js reads that into the frozen registry, and the
 // shared transformChartSection(innerHtml, cls, orientation) dispatches on it.
@@ -415,9 +415,9 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
 
 ## Canonical sources
 
-- `lib/components/chart/_chart-family/chart-family.docs.md` — the frame, the
+- `lib/plugins/chart-family/shared/README.md` — the frame, the
   dispatcher, the kernel contract, the legend placement test.
-- `lib/components/chart/_chart-family/chart-family.style.md` — the curation
+- `design/chart-palette.md` — the curation
   rationale (two spectrums, hue vs value differentiation).
 - `lib/plugins/chart-family/chart-family.styles.css` — the categorical + semantic
   token model.
@@ -426,4 +426,4 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
   point).
 - `test/unit/palette/chart-contrast.test.js` — the runnable contrast validator.
 - The `dataviz` skill — the medium-agnostic method this realizes in Lattice.
-- `lib/components/chart/funnel/` — the reference kernel.
+- `lib/plugins/chart-family/kinds/funnel/` — the reference kernel.

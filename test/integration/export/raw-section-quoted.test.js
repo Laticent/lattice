@@ -3,14 +3,14 @@
  *
  * The emulator used to split the engine's document with its own regex walk,
  * `/<section\b[^>]*>|<\/section>/gi`, a private copy of what
- * `lib/core/split-sections.js` does. That regex cannot tell markup from text, so
+ * `docs/src/lib/markup/sections.ts` does. That regex cannot tell markup from text, so
  * a `<section` inside an HTML comment or inside `<style>` text moved its depth
  * counter, the walk found ZERO slides, and the export shipped a one-page PDF
  * with exit code 0 and no warning. Measured on this fixture before the fix:
  * 1 page, and 0 sections in the `.html` export.
  *
  * A second copy of the same walk sat under the per-slide kernels
- * (`mapSections`, lib/core/section-walk.js, plus qr-card's `walkSections` and
+ * (`mapSections`, docs/src/lib/markup/section-walk.ts, plus qr-card's `walkSections` and
  * svg-a11y-names' `sectionSpans`). With the page count fixed, the same deck still
  * lost the masthead band on every slide from the quoting one on: the engine built
  * 0 bands where the deck without the quote builds 2. All of them now walk the
@@ -62,7 +62,7 @@ describe('raw-section-quoted', () => {
     }
  
     // The count alone is not the claim. The per-slide kernels walk the sections
-    // too (`mapSections`, lib/core/section-walk.js), and when that walk stopped at
+    // too (`mapSections`, docs/src/lib/markup/section-walk.ts), and when that walk stopped at
     // the quoted tag every later slide lost its Form chrome while the page count
     // stayed right. Slides two to four each carry an h2, so each owes a band.
     const bands = html.match(/class="cell-masthead"/g) || [];

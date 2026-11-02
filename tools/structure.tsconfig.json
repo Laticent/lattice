@@ -1,0 +1,13 @@
+{
+  "//": "Resolution-only config for tools/structure.js (dependency-cruiser reads it to resolve the docs site's `@/` alias and the workspace libraries' `@laticent/source` condition). Never used to typecheck: docs/tsconfig.json is the real one.",
+  "compilerOptions": {
+    "baseUrl": "../docs",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": ["@laticent/source"],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "files": ["../docs/src/content.config.ts"]
+}

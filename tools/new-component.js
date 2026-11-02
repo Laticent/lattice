@@ -64,7 +64,13 @@ requireOneOf('function', fn, FUNCTIONS);
 requireOneOf('form', form, FORMS);
 requireOneOf('substance', substance, [...SUBSTANCES, MIXED_SUBSTANCE]);
 
-const dir = path.join(ROOT, 'lib', 'components', bucket, name);
+// A bucket whose kinds a plugin owns (the plugin's extension point names the bucket: the chart bucket's
+// kinds live in the chart family plugin) scaffolds into that plugin's `kinds/`; every other bucket into
+// lib/components/<bucket>/.
+const owner = Object.values(require('../lib/plugins/extension-points.generated.json')).find((slot) => slot.bucket === bucket);
+const dir = owner
+	? path.join(ROOT, 'lib', 'plugins', owner.plugin, 'kinds', name)
+	: path.join(ROOT, 'lib', 'components', bucket, name);
 if (fs.existsSync(dir)) bail(`${path.relative(ROOT, dir)} already exists — pick another name`);
 
 // --- manifest template ------------------------------------------------------

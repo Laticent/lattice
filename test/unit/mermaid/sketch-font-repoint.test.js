@@ -23,7 +23,7 @@ const REPO = path.join(__dirname, '..', '..', '..');
 const SKETCH_CSS = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.sketch.css'), 'utf8');
 const TOKENS_CSS = fs.readFileSync(path.join(REPO, 'lib', 'base', 'base.tokens.css'), 'utf8');
 const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8');
-const { MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
+const { MERMAID_VAR_MAP } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
 
 /** The `SKETCH_TOKEN_REPOINTS` table, read out of the emulator source. */
 function repointTable() {

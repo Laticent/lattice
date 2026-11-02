@@ -66,15 +66,13 @@ function changedComponents(base = 'origin/main') {
 
 /** Every component directory with a generated gallery, as `{ name, bucket, file }`, sorted. */
 function galleryFiles(only = null) {
+  // Every component (`loadAll`: the buckets AND the plugins' kinds, where the chart kinds live), its
+  // gallery beside its manifest (`componentDir`).
+  const { loadAll, componentDir, manifestBucket } = require('../lib/components');
   const out = [];
-  const base = path.join(ROOT, 'lib', 'components');
-  for (const b of fs.readdirSync(base, { withFileTypes: true })) {
-    if (!b.isDirectory()) continue;
-    for (const d of fs.readdirSync(path.join(base, b.name), { withFileTypes: true })) {
-      if (!d.isDirectory() || d.name.startsWith('_')) continue;
-      const file = path.join(base, b.name, d.name, `${d.name}.gallery.md`);
-      if (fs.existsSync(file) && (!only || only.includes(d.name))) out.push({ name: d.name, bucket: b.name, file });
-    }
+  for (const m of loadAll()) {
+    const file = path.join(componentDir(m), `${m.name}.gallery.md`);
+    if (fs.existsSync(file) && (!only || only.includes(m.name))) out.push({ name: m.name, bucket: manifestBucket(m), file });
   }
   return out.sort((a, c) => a.name.localeCompare(c.name));
 }

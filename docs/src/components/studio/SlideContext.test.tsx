@@ -2,10 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
+import { getClassTokens } from '../../lib/slide-directives';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { SlideContextBody } from './SlideContext';
 import { listComments } from './slide-comments';
-import { getClassTokens } from './slide-directives';
 
 // The module under test reads the lint core synchronously; in the app, its loader awaits this first.
 beforeAll(() => loadAuthoring());

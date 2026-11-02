@@ -6,21 +6,21 @@
  * verbatim paints nothing, and one that rejects it pushes the word into the
  * label. Before this pin the family did both: gantt and kanban folded,
  * progress and timeline-list stamped verbatim (untinted), state-chart and slope
- * rejected. `chartStatus` in _chart-family/transform-utils.js is the rule; each
+ * rejected. `chartStatus` in chart-family/shared/transform-utils.js is the rule; each
  * block below pins one consumer to it. Kanban's own pin is
  * kanban-status-case.test.js.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { CHART_STATUS, chartStatus } = require('../../../lib/components/chart/_chart-family/transform-utils');
-const { buildProgressBars } = require('../../../lib/components/chart/progress/progress.transform');
-const { buildTimelineSpine } = require('../../../lib/components/chart/timeline-list/timeline-list.transform');
-const { parseStateChart } = require('../../../lib/components/chart/state-chart/state-chart.transform');
+const { CHART_STATUS, chartStatus } = require('../../../lib/plugins/chart-family/shared/transform-utils');
+const { buildProgressBars } = require('../../../lib/plugins/chart-family/kinds/progress/progress.transform');
+const { buildTimelineSpine } = require('../../../lib/plugins/chart-family/kinds/timeline-list/timeline-list.transform');
+const { parseStateChart } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.transform');
 const { outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 const parseState = (md) => parseStateChart(outlineFromMarkdown(md)).states[0];
-const { parseSlope, buildSlope } = require('../../../lib/components/chart/slope/slope.transform');
-const { transformSection: gantt } = require('../../../lib/components/chart/gantt/gantt.transform');
+const { parseSlope, buildSlope } = require('../../../lib/plugins/chart-family/kinds/slope/slope.transform');
+const { transformSection: gantt } = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 
 // Every word, three ways: as the vocabulary spells it, SHOUTED, and Capitalized.
 const spellings = (word) => [word, word.toUpperCase(), word[0].toUpperCase() + word.slice(1)];

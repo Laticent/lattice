@@ -60,7 +60,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
-const { splitSections } = require('../../../lib/core/split-sections.js');
+const { splitSections } = require('@laticent/markup');
 
 describe('strip-notes: no whitespace fingerprint', () => {
   const ROOT = path.join(__dirname, '..', '..', '..');

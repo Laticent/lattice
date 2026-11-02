@@ -1,5 +1,5 @@
 /**
- * Unit: the legend's SVG emitter (`laneSvg`, lib/components/chart/_chart-family/legend-svg.js) and
+ * Unit: the legend's SVG emitter (`laneSvg`, lib/plugins/chart-family/shared/legend-svg.js) and
  * its first caller, the heatmap's authored callouts. Design:
  * engineering/decisions/2026-10-19-universal-legend.md, Wave 0.
  */
@@ -8,9 +8,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { laneSvg, laneIndent, laneHeight, plateSvg, markerSvg, markerShapes, MARKER_SHAPES, DIGIT_OF_HEIGHT, PLATE_CLASS } = require('../../../lib/components/chart/_chart-family/legend-svg');
-const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
-const { transformSection } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+const { laneSvg, laneIndent, laneHeight, plateSvg, markerSvg, markerShapes, MARKER_SHAPES, DIGIT_OF_HEIGHT, PLATE_CLASS } = require('../../../lib/plugins/chart-family/shared/legend-svg');
+const { collectLabelDrops } = require('../../../lib/plugins/chart-family/shared/label-drops');
+const { transformSection } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
 const { narrateDataSeries, narrateChart } = require('../../../lib/core/chart-narration');
 const { PLATE_SHAPES } = require('../../../lib/core/segno-slots');
 
@@ -175,7 +175,7 @@ describe('laneSvg', () => {
       assert.ok(h > 8.5 && h < 11, `${shape}: ${h}`);
     }
     // One row style (owner, 2026-10-21): the lane marker is the key's swatch, MARK_OF_LABEL of the label.
-    const { MARK_OF_LABEL } = require('../../../lib/components/chart/_chart-family/svg-legend');
+    const { MARK_OF_LABEL } = require('../../../lib/plugins/chart-family/shared/svg-legend');
     assert.equal(laneHeight(7.5), 7.5 * MARK_OF_LABEL);
     assert.ok(Math.abs(laneHeight(7.5) * DIGIT_OF_HEIGHT - 7.5 * 0.79) < 0.05);
     // With or without its digit, a marker is the same shape element with the same slot: no attribute

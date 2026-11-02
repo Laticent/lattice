@@ -1,6 +1,6 @@
 import { CHROME, expect, gotoStudio, railButtons, stripNote, test, typeDeck } from './studio-fixture';
 
-// THE SLIDE MENU on both strips (2026-10-27-slide-structure-strip.md §5, lib/strip-actions). Four doors, one menu:
+// THE SLIDE MENU on both strips (2026-10-27-slide-structure-strip.md §5, components/studio/strip-actions). Four doors, one menu:
 // the ⋯ beside the current slide, a right-click, Shift+F10, and a tap on the slide that is already current. Opening
 // it makes its slide current, so the action's target is never in doubt.
 

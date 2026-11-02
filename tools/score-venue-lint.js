@@ -124,7 +124,7 @@ function score(deck, venue, vocab, fresh) {
 
 /** The decks a sweep lints: every committed example, component gallery and baseline deck. */
 function sweepDecks() {
-  const r = spawnSync('git', ['ls-files', 'examples/*.md', 'lib/components/*/*/*.gallery.md', 'test/integration/baseline-decks/*.md'], { cwd: ROOT, encoding: 'utf8' });
+  const r = spawnSync('git', ['ls-files', 'examples/*.md', 'lib/components/*/*/*.gallery.md', 'lib/plugins/*/kinds/*/*.gallery.md', 'test/integration/baseline-decks/*.md'], { cwd: ROOT, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`git ls-files failed: ${r.stderr}`);
   return r.stdout.split('\n').filter(Boolean);
 }

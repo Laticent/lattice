@@ -20,11 +20,11 @@ import {
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+import { slideClass } from '../../lib/deck-lint';
 import { LensIcon, PreviewIcon } from './icons';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
 // workspace default reader views (workspace-lenses.ts), so the panel and the defaults can't drift.
 import { ARCHETYPES } from './lens-archetypes';
-import { slideClass } from './lint';
 
 // The Lenses panel — the human-in-the-loop control center for reader views (design
 // engineering/decisions/2026-07-13-lente-reader-lenses.md). The through-line is: a

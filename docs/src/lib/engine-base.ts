@@ -8,7 +8,7 @@
 // (engineering/decisions/2026-10-14-engine-spine.md §6). `ensureEngine` records the URL here instead;
 // the tag stays a fallback for a page that still loads the single-file bundle.
 
-import { ENGINE_FILE } from '@/playground/engine-file.mjs';
+import { ENGINE_FILE } from '@/lib/engine-file.mjs';
 
 /** The ESM engine's entry, relative to the versioned asset directory. */
 export const ENGINE_ENTRY = ENGINE_FILE;

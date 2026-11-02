@@ -1,5 +1,5 @@
 /**
- * `lattice packages new plugin <name>` (lib/packages/new-plugin.js, lib/packages/cli.js): the
+ * `lattice packages new plugin <name>` (lib/packages/new-plugin.js, lib/cli/packages.js): the
  * scaffold passes the RESOLVER beside every shipped plugin, its own fixtures hold against its own
  * renderer, and the command refuses a name that would collide. The end-to-end proof — scaffold
  * into a clean checkout, `npm run build`, `npm run build:check`, `npm run test:plugins` — is a
@@ -16,7 +16,7 @@ const MarkdownIt = require('markdown-it');
 const { scaffoldPlugin, nameRefusal } = require('../../../lib/packages/new-plugin');
 const { resolvePlugins } = require('../../../lib/plugins/resolve');
 const { PLUGINS } = require('../../../lib/plugins/host');
-const { main } = require('../../../lib/packages/cli');
+const { main } = require('../../../lib/cli/packages');
 
 // A name no real plugin takes, so an author's own scaffold (the docs use `sparkline`) never collides.
 const NAME = 'zz-scaffold-probe';
@@ -25,7 +25,8 @@ const manifest = JSON.parse(files[`${NAME}.manifest.json`]);
 
 /** The scaffold's render module, loaded from its own text. */
 function renderModule() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-new-plugin-'));
+  // Inside the repo, so the scaffold's `require('@laticent/markup')` resolves as it does from lib/plugins/<name>/.
+  const dir = fs.mkdtempSync(path.join(__dirname, '.tmp-new-plugin-'));
   try {
     const file = path.join(dir, `${NAME}.render.js`);
     fs.writeFileSync(file, files[`${NAME}.render.js`]);
@@ -59,12 +60,15 @@ describe('the plugin scaffold', () => {
     const pluginFile = (name, role) => path.join(__dirname, `../../../lib/plugins/${name}/${name}.${role}`);
     for (const s of shipped) {
       const name = s.manifest.name;
+      const built = (exported) => exported(require('../../../lib/core/plugin-ctx.js').ctxFor(name));
       if (fs.existsSync(pluginFile(name, 'inline.js'))) {
-        const { inline } = require(pluginFile(name, 'inline.js'));
+        // A plugin exports its kinds and services as factories the host calls with its ctx (lib/core/plugin-ctx.js).
+        const { inline } = { inline: built(require(pluginFile(name, 'inline.js')).inline) };
         s.exports.inline = Object.keys(inline);
         s.exports.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row).filter((f) => typeof row[f] === 'function')]));
       }
-      if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(require(pluginFile(name, 'services.js')).services);
+      if (fs.existsSync(pluginFile(name, 'lint.js'))) s.exports.hasLint = typeof require(pluginFile(name, 'lint.js')).lint === 'function';
+      if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(built(require(pluginFile(name, 'services.js')).services));
       s.exports.hasData = fs.existsSync(pluginFile(name, 'data.generated.js'));
       // The draw role files (manifest `draw`), read the way tools/build-plugin-registry.js reads them; the two `.mjs` halves by presence.
       if (fs.existsSync(pluginFile(name, 'draw-frame.js'))) {

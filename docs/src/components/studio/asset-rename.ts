@@ -24,8 +24,8 @@
 // edit decks you are not looking at" — is testable without a store, a deck list, or a
 // browser.
 
-import { getFrontMatter, writeFrontMatterLine } from './front-matter';
-import { comments, directiveKey, getClassTokens, setClassTokens } from './slide-directives';
+import { getFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { comments, directiveKey, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 
 /** The asset kinds whose name appears in deck source. */
 export type RenamableKind = 'theme' | 'component' | 'finish';

@@ -47,7 +47,7 @@ const path = require('path');
 
 const { resolveVars } = require('../lib/theme/contrast.js');
 const { simulate, canonicalType, SIMULATED_TYPES } = require('../lib/theme/cvd.js');
-const { oklabDistance, normalizeHex } = require('../lib/theme/color.js');
+const { oklabDistance, normalizeHex } = require('../lib/core/color.js');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
 

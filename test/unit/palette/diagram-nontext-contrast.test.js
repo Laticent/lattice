@@ -45,7 +45,7 @@ const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildDiagramTheme, MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
+const { buildDiagramTheme, MERMAID_VAR_MAP } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
 const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr');
 const { SHAPES, LINES, NON_TEXT_FLOOR } = require('../../helpers/diagram-surfaces');
 
@@ -164,7 +164,7 @@ describe('baked diagram graphics clear the 3:1 non-text floor', () => {
           `${theme} (${scheme}) bakes diagram graphics below the ${NON_TEXT_FLOOR}:1 non-text floor:\n  ` +
           `${failures.join('\n  ')}\n` +
           'A Mermaid SVG bakes its colors, so no CSS can rescue this after the fact. Either the key is ' +
-          'fed from the wrong tier in lib/core/mermaid-theme-map.js — a stroke drawn on the CANVAS wants ' +
+          'fed from the wrong tier in lib/plugins/mermaid/shared/mermaid-theme-map.js — a stroke drawn on the CANVAS wants ' +
           'a canvas-curated token, one drawn on a categorical FILL wants --cat-on-fill — or the palette ' +
           'needs to curate the token so it clears both of its canvases.');
       });

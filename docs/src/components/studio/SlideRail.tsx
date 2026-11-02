@@ -14,13 +14,13 @@
 // Labels are cached here by text, so a keystroke re-derives only the slide it touched.
 
 import * as React from 'react';
+import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/lib/strip-actions';
 import { cn } from '@/lib/utils';
-import { slideClass, slideTitle } from './lint';
+import { slideClass, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
 
 // Labels by section text. Bounded by clearing, not by eviction order: the working set is the
@@ -54,7 +54,7 @@ export interface SlideRailProps {
 	liveBySlide: ReadonlyMap<number, readonly RailPerson[]>;
 	/** `key` is true for an arrow, Home or End on the strip, which must not take keyboard focus away from it. */
 	onPick: (unitIndex: number, section: number, via?: { key: boolean }) => void;
-	/** The slide menu and its doors (lib/strip-actions), on the full view only; absent, the strip only navigates. */
+	/** The slide menu and its doors (components/studio/strip-actions), on the full view only; absent, the strip only navigates. */
 	actions?: StripActions;
 	/** An empty deck's one tile, "+ Add your first slide", where the strip edits. */
 	onAddFirst?: () => void;
@@ -156,7 +156,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 
 	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
 	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
-	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (lib/strip-actions).
+	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (components/studio/strip-actions).
 	const keyNav = React.useRef(false);
 	const onKeyDown = (e: React.KeyboardEvent) => {
 		// Only a key on a slide button steps. React bubbles events through portals, so the open slide menu's own arrow

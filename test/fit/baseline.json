@@ -159,7 +159,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/bar/bar.gallery.md": {
+  "lib/plugins/chart-family/kinds/bar/bar.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -191,7 +191,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/bullet/bullet.gallery.md": {
+  "lib/plugins/chart-family/kinds/bullet/bullet.gallery.md": {
     "portrait@hall": {
       "clip": 1,
       "unreadable": 0,
@@ -255,7 +255,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/ep-curve/ep-curve.gallery.md": {
+  "lib/plugins/chart-family/kinds/ep-curve/ep-curve.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -287,7 +287,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/flowchart/flowchart.gallery.md": {
+  "lib/plugins/chart-family/kinds/flowchart/flowchart.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -319,7 +319,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/funnel/funnel.gallery.md": {
+  "lib/plugins/chart-family/kinds/funnel/funnel.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -351,7 +351,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/gantt/gantt.gallery.md": {
+  "lib/plugins/chart-family/kinds/gantt/gantt.gallery.md": {
     "portrait@hall": {
       "clip": 7,
       "unreadable": 0,
@@ -383,7 +383,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/heatmap/heatmap.gallery.md": {
+  "lib/plugins/chart-family/kinds/heatmap/heatmap.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -415,7 +415,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/histogram/histogram.gallery.md": {
+  "lib/plugins/chart-family/kinds/histogram/histogram.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -447,7 +447,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/hub-spoke/hub-spoke.gallery.md": {
+  "lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -479,7 +479,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/journey/journey.gallery.md": {
+  "lib/plugins/chart-family/kinds/journey/journey.gallery.md": {
     "portrait@hall": {
       "clip": 12,
       "unreadable": 0,
@@ -511,7 +511,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/kanban/kanban.gallery.md": {
+  "lib/plugins/chart-family/kinds/kanban/kanban.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -543,7 +543,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/line/line.gallery.md": {
+  "lib/plugins/chart-family/kinds/line/line.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -575,7 +575,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/map/map.gallery.md": {
+  "lib/plugins/chart-family/kinds/map/map.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -607,7 +607,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/matrix-grid/matrix-grid.gallery.md": {
+  "lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.gallery.md": {
     "portrait@hall": {
       "clip": 8,
       "unreadable": 0,
@@ -639,7 +639,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/piechart/piechart.gallery.md": {
+  "lib/plugins/chart-family/kinds/piechart/piechart.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -671,7 +671,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/progress/progress.gallery.md": {
+  "lib/plugins/chart-family/kinds/progress/progress.gallery.md": {
     "portrait@hall": {
       "clip": 7,
       "unreadable": 0,
@@ -703,7 +703,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/quadrant/quadrant.gallery.md": {
+  "lib/plugins/chart-family/kinds/quadrant/quadrant.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -735,7 +735,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/radar/radar.gallery.md": {
+  "lib/plugins/chart-family/kinds/radar/radar.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -767,7 +767,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/risk-matrix/risk-matrix.gallery.md": {
+  "lib/plugins/chart-family/kinds/risk-matrix/risk-matrix.gallery.md": {
     "portrait@hall": {
       "clip": 1,
       "unreadable": 0,
@@ -799,7 +799,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/roadmap/roadmap.gallery.md": {
+  "lib/plugins/chart-family/kinds/roadmap/roadmap.gallery.md": {
     "portrait@hall": {
       "clip": 10,
       "unreadable": 0,
@@ -831,7 +831,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/scatter/scatter.gallery.md": {
+  "lib/plugins/chart-family/kinds/scatter/scatter.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -863,7 +863,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/slope/slope.gallery.md": {
+  "lib/plugins/chart-family/kinds/slope/slope.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -895,7 +895,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/stacked-bar/stacked-bar.gallery.md": {
+  "lib/plugins/chart-family/kinds/stacked-bar/stacked-bar.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -927,7 +927,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/state-chart/state-chart.gallery.md": {
+  "lib/plugins/chart-family/kinds/state-chart/state-chart.gallery.md": {
     "portrait@hall": {
       "clip": 9,
       "unreadable": 0,
@@ -959,7 +959,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/timeline-list/timeline-list.gallery.md": {
+  "lib/plugins/chart-family/kinds/timeline-list/timeline-list.gallery.md": {
     "portrait@hall": {
       "clip": 7,
       "unreadable": 0,
@@ -991,7 +991,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/tower/tower.gallery.md": {
+  "lib/plugins/chart-family/kinds/tower/tower.gallery.md": {
     "portrait@hall": {
       "clip": 3,
       "unreadable": 0,
@@ -1023,7 +1023,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/waterfall/waterfall.gallery.md": {
+  "lib/plugins/chart-family/kinds/waterfall/waterfall.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,
@@ -1055,7 +1055,7 @@
       "lost": 0
     }
   },
-  "lib/components/chart/word-cloud/word-cloud.gallery.md": {
+  "lib/plugins/chart-family/kinds/word-cloud/word-cloud.gallery.md": {
     "portrait@hall": {
       "clip": 2,
       "unreadable": 0,

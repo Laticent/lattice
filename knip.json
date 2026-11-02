@@ -12,7 +12,7 @@
     "lib/layout/*.js",
     "lib/authoring/*.js",
     "lib/exemplars/*.js",
-    "lib/components/chart/_chart-family/*.js",
+    "lib/plugins/chart-family/shared/*.js",
     "lib/core/*.js"
   ],
   "project": ["lib/**/*.js", "tools/**/*.js", "*.js"],

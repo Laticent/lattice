@@ -20,12 +20,12 @@
 //
 // On the shipped default set `pluginAdmission` answers null, nothing is off, and this does nothing.
 
-import { deckPluginsOffFor } from '@/playground/editor-diagnostics.js';
+import { deckPluginsOffFor } from '@/lib/editor-diagnostics.js';
 // The lint bundle's copy is switched through lint-boundary-state.js, never by importing the lint core:
 // the lint core loads after first paint, and importing it here would put it back on the Studio's
 // startup path. The state module holds the `off` set until the lint core loads, and
 // authoring-door.js's loadAuthoring() applies it before it hands the lint core to any reader.
-import { setLintBoundaryOff as setLintBoundaryPluginsOff } from '@/playground/lint-boundary-state.js';
+import { setLintBoundaryOff as setLintBoundaryPluginsOff } from '@/lib/lint-boundary-state.js';
 import { setBoundaryPluginsOff } from '../../../lib/core/boundary-parser.mjs';
 import { PLUGIN_NAMES } from '../../../lib/plugins/blocks.generated.mjs';
 

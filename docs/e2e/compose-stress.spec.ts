@@ -578,7 +578,7 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			// correct about the app, not the walk avoiding a bug — a disabled control that the
 			// walk insisted on clicking would report a 15s timeout as if it were a defect.
 			// The draw happens before the enabled check, for the determinism reason above.
-			// The strip's actions live in its slide menu (lib/strip-actions); a disabled item stays in the menu, so the walk
+			// The strip's actions live in its slide menu (components/studio/strip-actions); a disabled item stays in the menu, so the walk
 			// reads its state there and closes the menu instead of picking it.
 			const name = pick(['duplicate', 'move-earlier', 'move-later', 'Previous slide', 'Next slide']);
 			if (name === 'Previous slide' || name === 'Next slide') {

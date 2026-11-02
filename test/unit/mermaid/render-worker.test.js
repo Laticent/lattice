@@ -21,7 +21,12 @@ const path = require('node:path');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const WORKER = path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'render-worker.js');
-const { resolveBundles } = require(WORKER);
+// The page's files are named by key in Mermaid's page module and resolved by the HOST's page (lib/plugins/host-page-worker.js).
+const HOST_PAGE = path.join(REPO, 'lib', 'plugins', 'host-page-worker.js');
+const resolveBundles = () => {
+  const { indexHtml, scripts } = require(HOST_PAGE).resolveAssets('mermaid', require(WORKER).assets());
+  return { indexHtml, mermaidIife: scripts['mermaid.min.js'], zenumlIife: scripts['mermaid-zenuml.min.js'] };
+};
 const { fontFaceCss, fontFamilies } = require('../../../lib/fonts/face-css.js');
 
 /**
@@ -34,7 +39,8 @@ function stripComments(src) {
   const out = src
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-  assert.ok(out.length > src.length * 0.3,
+  // The worker is mostly its reasoning now that the host owns the page (lib/plugins/host-page-worker.js): a fifth of it is code.
+  assert.ok(out.length > src.length * 0.2,
     'the comment stripper ate the file — it is too naive for this source');
   return out;
 }
@@ -131,7 +137,7 @@ describe('render worker: contract', () => {
     // (pnpm's isolated layout or Yarn PnP threw, and EVERY diagram degraded to a `<pre>`). The
     // plugin now owns all three, at a path under the package itself, so the code asks for none.
     const src = stripComments(fs.readFileSync(WORKER, 'utf8'));
-    assert.doesNotMatch(src, /require\.resolve|node_modules/, 'the worker resolves a library from node_modules again — read the plugin\'s copy (lib/plugins/payload-path.js)');
+    assert.doesNotMatch(src, /require\.resolve|node_modules/, 'the worker resolves a library from node_modules again — read the plugin\'s copy (lib/core/payload-path.js)');
   });
 
   test('it does not shell out to mmdc, and nothing else does either', () => {
@@ -188,7 +194,8 @@ describe('render worker: a dead page is not a diagram error', () => {
       'renderAll must consult the classifier after a per-diagram failure');
     assert.match(src, /return \{ ok: false, error: `render page died mid-batch/,
       'a fatal page error must make the whole payload ok:false, so the caller retries');
-    assert.match(src, /protocolTimeout: PROTOCOL_TIMEOUT_MS/,
+    // The CDP budget is the HOST's page's now: it launches the browser (lib/plugins/host-page-worker.js).
+    assert.match(fs.readFileSync(HOST_PAGE, 'utf8'), /protocolTimeout: PROTOCOL_TIMEOUT_MS/,
       'the CDP calls must be bounded — one page serves the whole deck, so an unbounded '
       + 'wedge stalls every remaining diagram behind it');
   });
@@ -197,9 +204,11 @@ describe('render worker: a dead page is not a diagram error', () => {
     // The worker bounds its own CDP calls, but a child that wedges before it can report
     // leaves the caller's synchronous `spawnSync` blocked with no budget at all.
     // The export path: the emulator, and the mermaid plugin's bake it runs (plugin-system phase D).
-    const emulator = fs.readFileSync(path.join(REPO, 'lattice.js'), 'utf8')
-      + fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
-    assert.match(emulator, /(?:execFileSync|spawnSync)\(process\.execPath, \[MERMAID_WORKER, jobFile\], \{[^}]*\btimeout\b/,
-      'the worker spawn must carry a timeout');
+    // The HOST spawns the page (lib/plugins/host-bake.js `runPage`), and Mermaid's bake hands it a budget.
+    const host = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'host-bake.js'), 'utf8');
+    assert.match(host, /spawnSync\(process\.execPath, \[worker, jobFile\], \{[^}]*\btimeout\b/,
+      'the page spawn must carry a timeout');
+    const bake = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.bake.js'), 'utf8');
+    assert.match(bake, /ctx\.runPage\([\s\S]*?\{ timeout \}\)/, 'the bake must pass its budget to the host\'s page');
   });
 });

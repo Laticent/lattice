@@ -13,6 +13,12 @@
       {"ink": "accent", "d": "M74 22L54 106", "width": 8}
     ]
   },
+  "hostApi": [
+    "shared/marp-export.js",
+    "shared/read-fences.js",
+    "shared/record.js",
+    "shared/shell.hljs.js"
+  ],
   "contributes": {
     "syntax": {
       "code_record": { "kind": "block", "anchor": { "before": "fence" }, "triggers": ["`"], "opaque": true, "scansAhead": false }

@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/bar/bar.transform.js — kernel for the `bar`
+ * Unit: lib/plugins/chart-family/kinds/bar/bar.transform.js — kernel for the `bar`
  * chart-family member.
  *
  * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; the shared
@@ -29,11 +29,11 @@ const {
   parseBar, buildBar, transformSection,
   resolveShape, wantsValueAxis, padFor, domainFor, bestTicks, marksOf,
   rowGutterFor, maxBarFor, maxRowBarFor, GUT_COL_NOAXIS,
-} = require('../../../lib/components/chart/bar/bar.transform');
-const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+} = require('../../../lib/plugins/chart-family/kinds/bar/bar.transform');
+const cart = require('../../../lib/plugins/chart-family/shared/cartesian');
 
 const CSS = fs.readFileSync(
-  path.join(__dirname, '../../../lib/components/chart/bar/bar.styles.css'), 'utf8');
+  path.join(__dirname, '../../../lib/plugins/chart-family/kinds/bar/bar.styles.css'), 'utf8');
 // The rules only — the file's prose explains the traps by name (`nth-child`,
 // `@layer`, `margin`, `fill`), so a check run over the comments would fail on
 // the documentation of the very thing it is guarding.
@@ -299,7 +299,7 @@ describe('bar kernel', () => {
     test('the figure root carries the literal class the manifest declares', () => {
       const html = buildBar(parseBar(ul(REGIONS)), ctx());
       assert.match(html, /<div class="bar-figure">/);
-      const manifest = require('../../../lib/components/chart/bar/bar.manifest.json');
+      const manifest = require('../../../lib/plugins/chart-family/kinds/bar/bar.manifest.json');
       assert.equal(manifest.kernel.figureClass, 'bar-figure');
     });
 
@@ -396,7 +396,7 @@ describe('bar kernel', () => {
   });
 
   describe('the stress case renders', () => {
-    const manifest = require('../../../lib/components/chart/bar/bar.manifest.json');
+    const manifest = require('../../../lib/plugins/chart-family/kinds/bar/bar.manifest.json');
 
     test('every manifest sample parses and builds without throwing', () => {
       const samples = [manifest.sample, manifest.skeleton, manifest.stressDoc.sample,

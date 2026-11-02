@@ -4,7 +4,7 @@ priority: P3
 recorded: 2026-09-25
 area: chart
 severity: medium
-swimlane: lib/components/chart/journey/journey.docs.md
+swimlane: lib/plugins/chart-family/kinds/journey/journey.docs.md
 source: https://github.com/Laticent/lattice/pull/2356
 ---
 
@@ -18,7 +18,7 @@ that PR's path: the PR only touched the `data-label` attribute beside it.
        why       — journey.transform.js parses a label with its local `stripTags`, which drops tags
                    but keeps the entities markdown-it wrote; the render then runs `escHtml` on that
                    already-escaped text, so every `&` doubles (`&amp;amp;`).
-       where     — lib/components/chart/journey/journey.transform.js: parseTask / parseSection
+       where     — lib/plugins/chart-family/kinds/journey/journey.transform.js: parseTask / parseSection
                    (stripTags), the `.journey-task-label` / `.journey-stage-name` /
                    `.journey-vstage-name` spans, and `journeyDesc`, which inserts the raw label.
        fix       — parse with `lib/core/plain-text.js`'s `plainText` (fixed-point strip + decode)

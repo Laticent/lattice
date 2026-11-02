@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Editing an imported CODE package in a faculty keeps what makes it runnable: its transform AND its
-// manifest's `"facts"` declaration (lib/packages/code-shape.mjs factsRefusal). The faculties save with
+// manifest's `"facts"` declaration (lib/core/code-shape.mjs factsRefusal). The faculties save with
 // an id and no package carry; keeping the transform alone dropped the declaration, so the edited
 // component was refused on its next render and its export was refused on re-import (the checker,
 // #2459). Reproduced first, then fixed.

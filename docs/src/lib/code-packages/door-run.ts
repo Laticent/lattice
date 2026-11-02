@@ -4,22 +4,17 @@
 // kernel, the slide sanitizer, the runner and the shipped claim list stay out of the Studio's and
 // the Playground's first load (docs/route-budget.json).
 
-// The spec compiler is require-free and takes Segno's reader, so the dev server can serve it (vite-cjs-lib-dev.test.ts):
-// a default import, then the named function off it.
-import * as segnoRead from '@laticent/segno/read';
+// Segno's own slot compiler (`@laticent/segno/read`), the one every host and plugin compiles a slot with.
+import { compileSlot } from '@laticent/segno/read';
 import DOMPurify from 'dompurify';
+import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/core/code-door-core.mjs';
+import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { doorFinish, doorFinishFence, doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import segnoSpecCore from '../../../../lib/core/segno-spec-core.js';
-
-const { compileSlot } = segnoSpecCore.specCompiler(segnoRead);
-
-import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, substituteHook, withFailureNote } from '../../../../lib/packages/code-door-core.mjs';
 import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
-import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
 

@@ -187,7 +187,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// asked for their modules (found by the red team, 2026-10-19: 30 of 38 portrait and square examples
 			// painted a plain cover). Everything the host does to the HTML happens before the scan.
 			const geom = { w: out.width || 1280, h: out.height || 720 };
-			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
+			// Split on STRUCTURE, the way the PDF export does (lib/engine/structural-split.js). The
 			// render is one section per authored slide; at portrait/square the export cuts each
 			// multi-member slide into cover → one element per page → closing, and without this the
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in

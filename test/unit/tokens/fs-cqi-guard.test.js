@@ -47,7 +47,7 @@ const SANCTIONED = [
        + 'fixed accent disc.',
   },
   {
-    file: 'lib/components/chart/journey/journey.styles.css',
+    file: 'lib/plugins/chart-family/kinds/journey/journey.styles.css',
     count: 2,
     why: 'actor initials fitted inside a fixed 1.45cqi disc. Measured legible as-is: 15.2px '
        + 'landscape, 47.0px portrait, 23.3px square.',

@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/line/line.transform.js — the kernel for the `line`
+ * Unit: lib/plugins/chart-family/kinds/line/line.transform.js — the kernel for the `line`
  * chart-family member (the Cartesian trend chart, with its `area`,
  * `stacked-area` and `step` variants).
  *
@@ -19,7 +19,7 @@
  *   7. The stylesheet mirror — the kernel wraps text to the shared `cart-*`
  *      sizes, so this member's own CSS must not re-declare a font size.
  *
- * The shared substrate (`_chart-family/cartesian.js`) has its own suite —
+ * The shared substrate (`chart-family/shared/cartesian.js`) has its own suite —
  * ticks, scales, `parseSeries`, the painted chrome — and is not re-tested here.
  */
 
@@ -30,9 +30,9 @@ const path = require('node:path');
 
 const {
   parseLine, buildLine, variantOf, includeZeroFor, segmentsOf, DOT_MIN_SPACING,
-} = require('../../../lib/components/chart/line/line.transform');
+} = require('../../../lib/plugins/chart-family/kinds/line/line.transform');
 
-const CSS_PATH = path.join(__dirname, '../../../lib/components/chart/line/line.styles.css');
+const CSS_PATH = path.join(__dirname, '../../../lib/plugins/chart-family/kinds/line/line.styles.css');
 
 // The <li> HTML the dispatcher hands a kernel, matching Marp Core / emulator
 // output. `flat` is one li per point; `nested` is a group per category.
@@ -458,7 +458,7 @@ describe('line kernel', () => {
 
   describe('the stress case', () => {
     const sample = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/line/line.manifest.json'), 'utf8'),
+      fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/line/line.manifest.json'), 'utf8'),
     ).stressDoc.sample;
 
     test('the manifest’s own stress sample parses and builds on every variant', () => {

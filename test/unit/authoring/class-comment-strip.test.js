@@ -9,6 +9,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const { stripClassComments } = require('../../../lib/authoring/prose-budgets.js');
 const { reviewText } = require('../../../lib/authoring/review-core.js');
 
@@ -55,10 +56,12 @@ describe('stripClassComments matches the old regex', () => {
     const files = [
       ...markdownFiles(path.join(ROOT, 'examples')),
       ...markdownFiles(path.join(ROOT, 'test/integration/baseline-decks')),
-      ...markdownFiles(path.join(ROOT, 'lib/components')),
+      // Every component root, the plugins' kinds (the chart kinds) included.
+      ...componentCorpusRoots(path.join(ROOT, 'lib/components')).flatMap((r) => markdownFiles(r)),
       ...markdownFiles(path.join(ROOT, 'design')),
     ];
     assert.ok(files.length > 50, `found ${files.length} files`);
+    assert.ok(files.some((f) => f.endsWith(path.join('kinds', 'gantt', 'gantt.gallery.md'))), 'the walk misses the plugin kinds (gantt)');
     let directives = 0;
     for (const f of files) {
       const src = fs.readFileSync(f, 'utf8');

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Basemap generator for the `map` component (lib/components/chart/map/).
+ * Basemap generator for the `map` component (lib/plugins/chart-family/kinds/map/).
  *
  *   us-atlas states-albers-10m TopoJSON  →  map.basemap.json
  *
@@ -41,9 +41,9 @@ const path = require('node:path');
 const SOURCE_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json';
 const SOURCE_LABEL =
   'us-atlas@3 states-albers-10m (US Census cartographic boundaries, d3.geoAlbersUsa, public domain)';
-const OUT = path.join(__dirname, '..', 'lib', 'components', 'chart', 'map', 'map.basemap.json');
-const WORLD_OUT = path.join(__dirname, '..', 'lib', 'components', 'chart', 'map', 'map.basemap.world.json');
-const WORLD_ROBINSON_OUT = path.join(__dirname, '..', 'lib', 'components', 'chart', 'map', 'map.basemap.world-robinson.json');
+const OUT = path.join(__dirname, '..', 'lib', 'plugins', 'chart-family', 'kinds', 'map', 'map.basemap.json');
+const WORLD_OUT = path.join(__dirname, '..', 'lib', 'plugins', 'chart-family', 'kinds', 'map', 'map.basemap.world.json');
+const WORLD_ROBINSON_OUT = path.join(__dirname, '..', 'lib', 'plugins', 'chart-family', 'kinds', 'map', 'map.basemap.world-robinson.json');
 // The world basemap (Natural Earth countries + grouping) is built by a sibling
 // module — its curated metadata (ISO fallbacks, exonyms, dated blocs) and
 // inlined projections are substantial enough to keep out of this file. It bakes

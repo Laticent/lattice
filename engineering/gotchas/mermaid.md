@@ -283,7 +283,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   unset value (empty string).
 - **Mitigation:** `openSectionReader(scopeEl)` in `lattice-runtime.js`
   reads from **the section being rendered**, which the shared kernel
-  hands it per slide (`renderDiagrams`, `lib/core/render-diagrams.js`).
+  hands it per slide (`renderDiagrams`, `lib/plugins/mermaid/shared/render-diagrams.js`).
   `document.documentElement` survives only as a last-resort fallback for
   a fence outside any section, where it reads empty and the retry budget
   takes over. A sentinel-color guard (`themeSettled`) gates the first

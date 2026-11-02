@@ -35,7 +35,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
-const { wrapSvgLabel } = require('../../../lib/components/chart/_chart-family/svg-label');
+const { wrapSvgLabel } = require('../../../lib/plugins/chart-family/shared/svg-label');
 
 describe('wrapSvgLabel — the baseline reaches every tspan', () => {
   test('a declared baseline lands on the <text> AND on each <tspan>', () => {
@@ -71,7 +71,7 @@ describe('wrapSvgLabel — the baseline reaches every tspan', () => {
  */
 const TSPAN_BUILDERS = [
   {
-    file: 'lib/components/chart/_chart-family/svg-label.js',
+    file: 'lib/plugins/chart-family/shared/svg-label.js',
     owes: 'kernel',
     why: 'the shared wrapping emitter behind ~10 chart transforms; it owns the ' +
       'baseline whenever a caller declares one and repeats it per line. It ' +
@@ -80,33 +80,33 @@ const TSPAN_BUILDERS = [
       'entry only records that it is covered there',
   },
   {
-    file: 'lib/components/chart/state-chart/state-chart.layout.js',
+    file: 'lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js',
     owes: 'attr',
     why: 'the browser pass paints each state name as one <text> of measured lines, ' +
       'centered with `central`, so every line carries it',
   },
   {
-    file: 'lib/components/chart/flowchart/flowchart.layout.js',
+    file: 'lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js',
     owes: 'attr',
     why: 'the browser pass paints each shape name as one <text> of measured ' +
       'lines, centred with `central`, so every line carries it',
   },
   {
-    file: 'lib/components/chart/_chart-family/legend-svg-key.js',
+    file: 'lib/plugins/chart-family/shared/legend-svg-key.js',
     owes: 'none',
     why: 'declares no dominant-baseline anywhere — every line is positioned by an ' +
       'explicit baseline y, so there is nothing to carry down and WebKit and ' +
       'Chromium already agree (measured at 0.7px, rasterization noise)',
   },
   {
-    file: 'lib/components/chart/hub-spoke/hub-spoke.transform.js',
+    file: 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.transform.js',
     owes: 'none',
     why: 'its only tspans are the value and status folded onto a label line in a ' +
       'crowded wing; they ride the parent <text>\'s explicit baseline y and the file ' +
       'declares no dominant-baseline, so there is nothing to carry down',
   },
   {
-    file: 'lib/components/chart/_chart-family/standalone-svg.js',
+    file: 'lib/plugins/chart-family/shared/standalone-svg.js',
     owes: 'style',
     why: 'sets an inline `style` ON the tspan it creates, not on an ancestor, so ' +
       'the value is already one level down',
@@ -132,8 +132,8 @@ function chartSources(dir, out = []) {
 
 describe('the tspan-builder census', () => {
   test('no builder appears or disappears unlisted', () => {
-    // The chart bucket AND the chart family plugin, whose dispatch builds the chart frame.
-    const found = [...chartSources('lib/components/chart'), ...chartSources('lib/plugins/chart-family')]
+    // The chart family plugin: its kinds, its shared kernel and the dispatch that builds the chart frame.
+    const found = [...chartSources('lib/plugins/chart-family')]
       .filter((f) => BUILDS_TSPAN.test(read(f)));
     const listed = TSPAN_BUILDERS.map((b) => b.file);
     assert.deepEqual(found.sort(), listed.sort(),
@@ -190,10 +190,10 @@ describe('the tspan-builder census', () => {
  */
 const CHART_CSS = [
   'lib/plugins/chart-family/chart-family.styles.css',
-  'lib/components/chart/funnel/funnel.styles.css',
-  'lib/components/chart/tower/tower.styles.css',
-  'lib/components/chart/risk-matrix/risk-matrix.styles.css',
-  'lib/components/chart/word-cloud/word-cloud.styles.css',
+  'lib/plugins/chart-family/kinds/funnel/funnel.styles.css',
+  'lib/plugins/chart-family/kinds/tower/tower.styles.css',
+  'lib/plugins/chart-family/kinds/risk-matrix/risk-matrix.styles.css',
+  'lib/plugins/chart-family/kinds/word-cloud/word-cloud.styles.css',
 ];
 
 /**

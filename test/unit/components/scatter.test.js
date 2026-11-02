@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/scatter/scatter.transform.js — kernel for the
+ * Unit: lib/plugins/chart-family/kinds/scatter/scatter.transform.js — kernel for the
  * `scatter` chart-family member.
  *
  * Section dispatch and chart-frame wrapping live in chart-family.dispatch.js; this
@@ -31,9 +31,9 @@ const {
   pearson, trendNote, leastSquares, bubbleRadius, pickVariant,
   clipToPlot, niceFloor,
   FS, GUTTER, DOT_R, BUBBLE, TREND_MIN_POINTS, SCATTER_MODIFIERS,
-} = require('../../../lib/components/chart/scatter/scatter.transform');
+} = require('../../../lib/plugins/chart-family/kinds/scatter/scatter.transform');
 
-const ROOT = path.join(__dirname, '../../../lib/components/chart');
+const ROOT = path.join(__dirname, '../../../lib/plugins/chart-family/kinds');
 
 // The <ul> inner HTML the dispatcher hands the kernel, matching Marp Core /
 // emulator output: `<li>Label <code>x</code> <code>y</code></li>`.
@@ -706,7 +706,7 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
 // Position is the authority, so an empty first member names the SECOND axis
 // only. The parser used to drop the blank, which moved the name onto x.
 describe('scatter — an empty member holds its axis position', () => {
-  const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+  const { transformChartSection } = require('../../../lib/transformers/chart-frame');
   test('[, Teams adopting] names y and leaves x unnamed', () => {
     const { html } = transformChartSection('<p><code>[, Teams adopting]</code></p><h2>X</h2>' +
       '<ul><li>A <code>{1, 2}</code></li><li>B <code>{3, 4}</code></li><li>C <code>{5, 1}</code></li></ul>', 'scatter');

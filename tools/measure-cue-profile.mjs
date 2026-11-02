@@ -43,7 +43,7 @@ import fs from 'node:fs';
 // The fixed-point tag stripper every kernel here uses — see `spokenText` below.
 import { createRequire } from 'node:module';
 
-const { stripTags } = createRequire(import.meta.url)('../lib/core/plain-text.js');
+const { stripTags } = createRequire(import.meta.url)('@laticent/markup');
 
 /** `00:01:02.345` → milliseconds. */
 function ms(stamp) {
@@ -64,7 +64,7 @@ function ms(stamp) {
  * carried two local one-pass regexes, which CodeQL flagged high
  * (js/incomplete-multi-character-sanitization) within minutes of the push. Correct,
  * and the rule is not academic: removing a tag can splice a NEW one together out of
- * the text either side of it, so one pass is not a fixed point. `lib/core/plain-text.js`
+ * the text either side of it, so one pass is not a fixed point. `@laticent/markup` (text.ts)
  * loops until stable and has done since it was written; reaching for it is HARD
  * RULE #15, and writing a local copy of a kernel this repo already documents as the
  * answer is exactly what that rule is for.

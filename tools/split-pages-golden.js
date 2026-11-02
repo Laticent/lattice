@@ -29,7 +29,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const ss = require('../lib/core/structural-split');
+const ss = require('../lib/engine/structural-split');
 const { loadAll } = require('../lib/components');
 const { createEngine } = require('../lib/engine');
 
@@ -44,17 +44,14 @@ const onlyAt = args.indexOf('--only');
 const ONLY = onlyAt >= 0 ? args[onlyAt + 1] : '';
 
 function galleries() {
-  const out = ['test/integration/baseline-decks/gallery.md'];
-  const comps = path.join(ROOT, 'lib', 'components');
-  for (const bucket of fs.readdirSync(comps).sort()) {
-    const dir = path.join(comps, bucket);
-    if (!fs.statSync(dir).isDirectory()) continue;
-    for (const name of fs.readdirSync(dir).sort()) {
-      const file = path.join(dir, name, `${name}.gallery.md`);
-      if (fs.existsSync(file)) out.push(path.relative(ROOT, file));
-    }
-  }
-  return out.filter((f) => !ONLY || f.includes(ONLY));
+  // Every component's gallery (`loadAll`: the buckets AND the plugins' kinds, where the chart kinds
+  // live), beside its manifest (`componentDir`), in path order.
+  const { componentDir } = require('../lib/components');
+  const comps = loadAll()
+    .map((m) => path.relative(ROOT, path.join(componentDir(m), `${m.name}.gallery.md`)))
+    .filter((f) => fs.existsSync(path.join(ROOT, f)))
+    .sort();
+  return ['test/integration/baseline-decks/gallery.md', ...comps].filter((f) => !ONLY || f.includes(ONLY));
 }
 
 // The same front-matter rewrite the unit tests use: drop any authored `size:` and set ours.

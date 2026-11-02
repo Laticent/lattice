@@ -746,7 +746,7 @@ describe('bakeDeckSections — freezeTokens is opt-in', () => {
 	it('defaults to off, so a paint keeps its var() reference for the host to re-theme', async () => {
 		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		svg.setAttribute('data-lattice-tokens', '--cat-1:rgb(1, 2, 3)');
-		const { parseTokenDecls, applyCollectedTokens } = await import('../../../../../lib/components/chart/_chart-family/standalone-svg.js');
+		const { parseTokenDecls, applyCollectedTokens } = await import('../../../../../lib/plugins/chart-family/shared/standalone-svg.js');
 		// The collection format the bake writes, and the consumer the opt-in calls.
 		expect(parseTokenDecls('--cat-1:rgb(1, 2, 3)')).toEqual([['--cat-1', 'rgb(1, 2, 3)']]);
 		expect(applyCollectedTokens(svg)).toBe(1);

@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/waterfall/waterfall.transform.js — kernel for the
+ * Unit: lib/plugins/chart-family/kinds/waterfall/waterfall.transform.js — kernel for the
  * `waterfall` chart-family member (the bridge).
  *
  * The substrate this kernel sits on (ticks, scales, the plot box, the series
@@ -29,11 +29,11 @@ const path = require('node:path');
 
 const {
   parseWaterfall, buildWaterfall, buildDesc, fmtSigned, MIN_BAR,
-} = require('../../../lib/components/chart/waterfall/waterfall.transform');
-const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+} = require('../../../lib/plugins/chart-family/kinds/waterfall/waterfall.transform');
+const cart = require('../../../lib/plugins/chart-family/shared/cartesian');
 
 const STYLES = path.join(
-  __dirname, '../../../lib/components/chart/waterfall/waterfall.styles.css');
+  __dirname, '../../../lib/plugins/chart-family/kinds/waterfall/waterfall.styles.css');
 
 // The <ul> inner HTML the dispatcher hands the kernel. A row is
 // [label, value] or [label, value, marker] — the marker being the family's
@@ -326,7 +326,7 @@ describe('waterfall kernel', () => {
     test('the figure class is emitted literally, matching the manifest kernel block', () => {
       assert.match(svg, /<div class="waterfall-figure">/);
       const manifest = JSON.parse(fs.readFileSync(path.join(
-        __dirname, '../../../lib/components/chart/waterfall/waterfall.manifest.json'), 'utf8'));
+        __dirname, '../../../lib/plugins/chart-family/kinds/waterfall/waterfall.manifest.json'), 'utf8'));
       assert.equal(manifest.kernel.figureClass, 'waterfall-figure');
     });
 

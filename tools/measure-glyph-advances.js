@@ -3,7 +3,7 @@
  * Re-measure the per-glyph advance table `GLYPH_UPPER` against the shipped
  * woff2s, in a real headless Chromium, at the labels' real CSS.
  *
- * WHY THIS EXISTS. `lib/components/chart/_chart-family/svg-label.js` carries
+ * WHY THIS EXISTS. `lib/plugins/chart-family/shared/svg-label.js` carries
  * GLYPH_UPPER: a per-glyph advance table, two faces, that decides how wide an
  * uppercase tracked chart label paints. It is a claim about specific font
  * BYTES, frozen as literals — and until `checkFontMetricsPin` landed, bumping
@@ -89,7 +89,7 @@ const path = require('node:path');
 
 const {
   GLYPH_UPPER, GLYPH_UPPER_FONTS, GLYPH_UPPER_MAX,
-} = require('../lib/components/chart/_chart-family/svg-label');
+} = require('../lib/plugins/chart-family/shared/svg-label');
 // hub-spoke's MIXED-CASE hand table measures the same pinned Shantell Sans 700 bytes, so a
 // face swap that trips checkFontMetricsPin owes it a re-measure too. lib/core may not import
 // lib/components (.dependency-cruiser.cjs), which is why it lives in its own kernel and not

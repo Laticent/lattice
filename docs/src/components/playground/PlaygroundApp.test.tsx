@@ -259,7 +259,7 @@ describe('PlaygroundApp — fuzz: view and pane never desync across random journ
 // in BOTH directions — or the tour would spotlight nothing (the handoff entry
 // path arrives in Edit; Explore steps must still mount). the Theme select lives in the
 // site topbar, outside this component — exempt here, covered by the e2e drive.
-import { STEPS } from '@/playground/playground-tour.js';
+import { STEPS } from '@/components/playground/playground-tour.js';
 
 describe('PlaygroundApp — every tour step is reachable in its declared mode', () => {
 	const OUTSIDE = new Set(['button[aria-label="Theme"]']);

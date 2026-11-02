@@ -9,8 +9,8 @@
 const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { provideData, markDataFailed } = require('../../../lib/plugins/plugin-data.js');
-const k = require('../../../lib/plugins/avatars/avatars.inline.js');
+const { provideData, markDataFailed } = require('../../../lib/core/plugin-data.js');
+const { avatars: k } = require('./host-built.js');
 const tp = require('../../../lib/components/inventory/team-profile/team-profile.transform.js');
 
 const loadData = () => provideData('avatars', () => require('../../../lib/plugins/avatars/avatars.data.generated.js'));
@@ -330,7 +330,7 @@ describe('avatars — earrings, head coverings and clothing', () => {
       const d = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.data.generated.js'))});
       const { clothing, earrings, headwear, ...old } = d.drawings;
       globalThis.__latticePluginData = { avatars: { palettes: d.palettes, drawings: old } };
-      const k = require(${JSON.stringify(require.resolve('../../../lib/plugins/avatars/avatars.inline.js'))});
+      const { avatars: k } = require(${JSON.stringify(require.resolve('./host-built.js'))});
       process.stdout.write(String(k.avatarHtml('!{Ada Okafor}')));`;
     const r = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);

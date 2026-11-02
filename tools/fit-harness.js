@@ -41,6 +41,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { StringDecoder } = require('node:string_decoder');
 const ratchet = require('./lib/fit-harness/ratchet');
+const { fitSources } = require('./lib/fit-harness/sources');
 const chains = require('./lib/fit-harness/chains');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
@@ -88,12 +89,8 @@ const FIT_ARMS = [
   { name: 'fit-balanced', policy: { pack: 'balanced' } },
 ];
 
-function sources() {
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
-  let list = [path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), ...walk(path.join(ROOT, 'lib/components')).filter((f) => f.endsWith('.gallery.md'))];
-  if (CORPUS === 'all') list = list.concat(fs.readdirSync(path.join(ROOT, 'examples')).filter((f) => f.endsWith('.md')).map((f) => path.join(ROOT, 'examples', f)));
-  return list.filter((f) => !ONLY || f.includes(ONLY)).sort();
-}
+// Every component gallery, the plugins' kinds included (tools/lib/fit-harness/sources.js).
+const sources = () => fitSources(ROOT, { corpus: CORPUS, only: ONLY });
 
 const squash = (s) => s.replace(/\s+/g, ' ').trim();
 
@@ -203,15 +200,8 @@ async function main() {
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH || undefined;
   const browser = await puppeteer.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
   // Components whose manifest excludes `compact`: the clip rescue never applies to them.
-  const noCompact = [];
-  for (const bucket of fs.readdirSync(path.join(ROOT, 'lib/components'))) {
-    const dir = path.join(ROOT, 'lib/components', bucket);
-    if (!fs.statSync(dir).isDirectory()) continue;
-    for (const c of fs.readdirSync(dir)) {
-      const f = path.join(dir, c, `${c}.manifest.json`);
-      if (fs.existsSync(f) && (JSON.parse(fs.readFileSync(f, 'utf8')).excludes || []).includes('compact')) noCompact.push(c);
-    }
-  }
+  // Every component, the plugins' kinds included (`loadAll`).
+  const noCompact = require('../lib/components').loadAll().filter((m) => (m.excludes || []).includes('compact')).map((m) => m.name);
   const cfg = { noCompact, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
   const open = async (file) => {
     const p = await browser.newPage();
@@ -585,7 +575,9 @@ function applyRatchet(rows) {
     console.log(`fit ratchet: blessed ${Object.keys(now).length} sources into ${BLESS}`);
   }
   if (RATCHET) {
-    const result = ratchet.compare(JSON.parse(fs.readFileSync(RATCHET, 'utf8')), now);
+    // The baseline cells this run was asked for: a baseline source it never walked is NOT SCORED.
+    const inScope = (src, cell) => (!ONLY || src.includes(ONLY)) && SIZES.includes(cell.split('@')[0]) && VENUES.includes(cell.split('@')[1]);
+    const result = ratchet.compare(JSON.parse(fs.readFileSync(RATCHET, 'utf8')), now, { inScope });
     console.log(ratchet.format(result));
     const code = ratchet.exitCode(result);
     if (code) process.exitCode = code;

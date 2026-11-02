@@ -81,7 +81,7 @@ export { tally as default };
 `;
 
 /**
- * A package written against `slide.facts` only (lib/packages/slide-facts.mjs): it draws a dated list
+ * A package written against `slide.facts` only (lib/core/slide-facts.mjs): it draws a dated list
  * as rows, from the facts' title and first list, and never reads `slide.html`. It also tries to send
  * the facts out, and to change them.
  */
@@ -131,7 +131,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
   let home;
   let code;
   let secret;
-  const { main } = require('../../../lib/packages/cli.js');
+  const { main } = require('../../../lib/cli/packages.js');
   const cli = async (argv) => {
     const out = [];
     const status = await main(argv, { log: (s) => out.push(s), err: (s) => out.push(s), ask: async () => false, probe: async () => 'probe skipped in this test' });

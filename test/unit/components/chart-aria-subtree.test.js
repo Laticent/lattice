@@ -46,7 +46,7 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const P = (p) => path.join(ROOT, p);
-const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
+const { transformChartSection } = require(P('lib/transformers/chart-frame.js'));
 const md = new MarkdownIt({ html: true });
 
 /**
@@ -225,7 +225,7 @@ describe('chart SVGs hide their marks from the accessibility tree', () => {
     // decoration must never be the reason a render fails.
     assert.match(src, /svg\.children \? \[\.\.\.svg\.children\] : \[\]/, 'the marking pass must tolerate a DOM with no children collection');
     // And neither chart's adapter writes the SVG itself.
-    for (const f of ['lib/components/chart/state-chart/state-chart.layout.js', 'lib/components/chart/flowchart/flowchart.layout.js']) {
+    for (const f of ['lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js', 'lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js']) {
       assert.doesNotMatch(fs.readFileSync(P(f), 'utf8'), /\.innerHTML\s*=/, `${f} writes markup itself instead of through Trama`);
     }
   });

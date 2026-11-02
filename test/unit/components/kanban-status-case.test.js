@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/kanban/kanban.transform.js — a card's status word.
+ * Unit: lib/plugins/chart-family/kinds/kanban/kanban.transform.js — a card's status word.
  *
  * The kernel recognizes a status by folding case against the frozen
  * CHART_STATUS vocabulary, so the `data-s` it stamps must be folded the same
@@ -10,8 +10,8 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildKanbanBoard } = require('../../../lib/components/chart/kanban/kanban.transform');
-const { CHART_STATUS } = require('../../../lib/components/chart/_chart-family/transform-utils');
+const { buildKanbanBoard } = require('../../../lib/plugins/chart-family/kinds/kanban/kanban.transform');
+const { CHART_STATUS } = require('../../../lib/plugins/chart-family/shared/transform-utils');
 
 const board = (pill) =>
   buildKanbanBoard(`<li>Doing<ul><li>Migrate API<ul><li>Platform <code>${pill}</code></li></ul></li></ul></li>`);

@@ -43,12 +43,12 @@ describe('sizeRatio — canonical size → aspect', () => {
 		expect(sizeRatio('nonsense')).toEqual([16, 9]);
 	});
 
-	it('answers exactly what the engine renders, name for name (lib/engine/sizes.js)', () => {
+	it('answers exactly what the engine renders, name for name (lib/core/sizes.js)', () => {
 		// The engine matches a size name exactly and renders an unknown one at 16:9, so `STORY`,
 		// `Square` and `4:3` are 16:9 slides. A frame drawn at the shape the name suggests left an
 		// empty band beside the slide in the preview and in Present.
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const { SIZES } = require('../../../../lib/engine/sizes.js') as { SIZES: Record<string, { width: string; height: string }> };
+		const { SIZES } = require('../../../../lib/core/sizes.js') as { SIZES: Record<string, { width: string; height: string }> };
 		const reduce = (w: number, h: number) => { const g = (a: number, b: number): number => (b ? g(b, a % b) : a); const d = g(w, h); return [w / d, h / d]; };
 		for (const [name, geo] of Object.entries(SIZES)) {
 			const [w, h] = sizeRatio(name);

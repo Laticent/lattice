@@ -1,6 +1,6 @@
 /**
  * Unit: the `hub-spoke` chart member — lib/core/hub-spoke-model.js (the grammar, the
- * channel rule, the lint) and lib/components/chart/hub-spoke/hub-spoke.transform.js
+ * channel rule, the lint) and lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.transform.js
  * (the geometry and the SVG).
  *
  * What is pinned here, and why each exists:
@@ -24,7 +24,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const HS = require('../../../lib/core/hub-spoke-model');
-const T = require('../../../lib/components/chart/hub-spoke/hub-spoke.transform');
+const T = require('../../../lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.transform');
 const { findHubSpokeIssues } = require('../../../lib/authoring/lint-core');
 const { narrateChart } = require('../../../lib/core/chart-narration');
 
@@ -297,7 +297,7 @@ describe('hub-spoke lint (through lint-core)', () => {
     assert.ok(rules(slide('', `- Hub\n${twelve}`)).includes('hub-spoke-crowded'));
   });
   test('the shipped samples lint clean', () => {
-    const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.manifest.json'), 'utf8'));
+    const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.manifest.json'), 'utf8'));
     const samples = [m.sample, m.stressDoc.sample, ...Object.values(m.variantDocs).map((v) => v.sample)];
     for (const md of samples) assert.deepEqual(rules(md), [], md.split('\n')[0]);
   });
@@ -576,7 +576,7 @@ describe('hub-spoke narration', () => {
 
 // ── palette-blindness (HARD RULE #3) ──────────────────────────────────────────────
 test('the dark hub dims to 74% heading ink, and a group is held off the hub\'s lightness', () => {
-  const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const hub = css.match(/\.hub-spoke-hub \{([^}]*)\}/)[1];
   assert.match(hub, /color-mix\(in oklab, var\(--text-heading\) 74%, var\(--bg\)\)/);
   const group = css.match(/:is\(\.hub-spoke-node, \.hub-spoke-leaf, \.chart-key-swatch\)\[data-hue\] \{([^}]*)\}/)[1];
@@ -589,7 +589,7 @@ test('the dark hub dims to 74% heading ink, and a group is held off the hub\'s l
 test('the kernel emits no color; the stylesheet carries no hex, margin or @layer', () => {
   const html = T.buildHubSpoke(model('Hub', PMO)).html;
   assert.doesNotMatch(html, /#[0-9a-fA-F]{3,8}\b|rgb\(|fill="(?!none)/);
-  const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/);
   assert.doesNotMatch(css, /\bmargin\s*:/);
   assert.doesNotMatch(css, /@layer/);
@@ -601,7 +601,7 @@ test('the kernel emits no color; the stylesheet carries no hex, margin or @layer
 // disc and its key swatch the contract, a status disc the status channel; and what the
 // finish hands back: the status row and tone's re-point of the group property.
 describe('hub-spoke under a chart finish', () => {
-  const finishCss = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/marks.generated.css'), 'utf8');
+  const finishCss = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/chart-family.styles.generated.css'), 'utf8');
   const CONTRACT = /data-hue="\d"[^>]*data-paint="fill"[^>]*data-encodes="hue"|data-paint="fill"[^>]*data-encodes="hue"/;
   test('the hub carries no slot, paint or encodes, so no finish can reach it', () => {
     const html = T.buildHubSpoke(model('Hub', [['A', ['Data']], ['B', ['Ops']], ['C', ['at-risk']]])).html;
@@ -630,7 +630,7 @@ describe('hub-spoke under a chart finish', () => {
     assert.match(rule[1], /--hs-group-hue: var\(--chart-cat-1-hue\) !important/);
     assert.match(rule[1], /--hs-group-ink: var\(--chart-cat-1-ink\) !important/);
     assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
-    const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     // The band, arrowhead and name read the member property, never the family slot table,
     // or the re-point above would land on nothing.
     for (const sel of [/\.hub-spoke-twig\)\[data-hue\] \{([^}]*)\}/, /\.hub-spoke-arrow\[data-hue\] \{([^}]*)\}/, /\.hub-spoke-name\[data-hue\] \{([^}]*)\}/]) {
@@ -654,7 +654,7 @@ describe('hub-spoke under a chart finish', () => {
       assert.match(finishCss, plain, `${f} draws the first-hue hub only on a plain chart`);
     }
     assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\(\.hub-spoke-svg:has/);
-    const member = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8');
+    const member = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.styles.css'), 'utf8');
     assert.doesNotMatch(member, /\.marks-(pigment|etch|tone)/, 'the member does not name a finish');
   });
 });
@@ -782,7 +782,7 @@ describe('hub-spoke — the rows it owns, and nothing past them', () => {
 });
 
 describe('hub-spoke — icon ink under a chart finish', () => {
-  const sheet = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/marks.generated.css'), 'utf8')
+  const sheet = fs.readFileSync(path.join(ROOT, 'lib/plugins/chart-family/chart-family.styles.generated.css'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/@supports[^{]*\{/g, '');
   const rulesOf = [...sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
   const ALL = 'section:is(.marks-pigment, .marks-etch, .marks-tone) :where(';

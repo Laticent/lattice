@@ -1,5 +1,5 @@
+import { splitSections } from '@laticent/markup';
 import { describe, expect, it } from 'vitest';
-import { splitSections } from '../../../../../lib/core/split-sections.mjs';
 import { emptySlidesOf } from './deck-export.js';
 
 // The fit check lays out only the slides a turn changed; every other slide reaches the frame as an

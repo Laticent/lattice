@@ -150,7 +150,7 @@ export interface PassOptions {
   /** Force live layout on, whatever the document says. */
   live?: boolean;
   /**
-   * Sets a chart's callout notes (lib/components/chart/_chart-family/callout-browser.js), handed to an adapter on
+   * Sets a chart's callout notes (lib/plugins/chart-family/shared/callout-browser.js), handed to an adapter on
    * `ctx.callouts`. Trama never calls it. It rides in as a function because the adapter is serialized and may
    * close over nothing.
    */
@@ -282,7 +282,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   const esc = (t: unknown) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   /**
-   * A node's DRAWING — an icon the server put in the harness (lib/components/chart/_chart-family/
+   * A node's DRAWING — an icon the server put in the harness (lib/plugins/chart-family/shared/
    * graph-icons.js) — as markup for the chart's SVG, rebuilt from a closed vocabulary: the six
    * shape elements an icon is drawn with and only their geometry attributes, every value
    * checked against the characters geometry is written in and every number in it bounded

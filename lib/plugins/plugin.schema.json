@@ -21,6 +21,13 @@
     },
     "title": {"type": "string", "minLength": 1},
     "description": {"type": "string", "minLength": 1},
+    "hostApi": {
+      "type": "array",
+      "description": "IN-TREE ONLY, and a bridge that only shrinks. The plugin's own files (paths inside its folder) that host tools above the plugin layer may import: the linter, the inline editors, the Marp export and the Studio still call a first-party plugin's code to author a deck. tools/structure.js holds every other import into the folder as a break, and fails on an entry nothing imports. Each entry is a file to turn into manifest data, generic host code or a sandboxed call, so host tools treat a first-party and a third-party plugin alike (followups.d/2630-p2-host-tools-read-plugins-as-data.md). A package that arrives as data never holds it.",
+      "items": {"type": "string", "pattern": "^(?!/)(?!.*\\.\\.)[a-z0-9][a-z0-9._/-]*\\.(js|mjs)$"},
+      "uniqueItems": true,
+      "minItems": 1
+    },
     "embedded": {
       "type": "boolean",
       "description": "IN-TREE ONLY. An embedded plugin is part of the engine's body: the host admits it on every render, whatever the default set, a host's narrowing, the deck's `plugins:` list or `disabled` say, and no switch turns it off. A package that arrives as data (a zip) never holds it; the importer refuses one that does. Making a plugin embedded is an owner decision with its own note (engineering/decisions/2026-10-17-pills-plugin.md § 4.5)."
@@ -77,7 +84,7 @@
         },
         "returns": {
           "type": "object",
-          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/packages/code-shape.mjs).",
+          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/core/code-shape.mjs).",
           "additionalProperties": false,
           "required": ["fields"],
           "properties": {
@@ -107,7 +114,7 @@
         },
         "codeRenderer": {
           "const": true,
-          "description": "The plugin renders every fenced block no plugin claims: `<name>.render.js` exports `codeRenderer`, `{ highlighter, render(token, ctx, env, base) }`, where `base(highlight)` runs markdown-it's own fence rule with that `highlight` callback (null for plain text). A claimed fence never reaches it, so it cannot restyle a drawn figure. At most one plugin fills the role, and a second is a build error naming both. With none active, a fence renders as escaped plain code. In-tree only."
+          "description": "The plugin renders every fenced block no plugin claims: `<name>.render.js` exports `codeRenderer`, `{ highlighter, render(token, ctx, base, info) }` (`token` a frozen token view, `info` `{ name, drawn, record }`), where `base(highlight)` runs markdown-it's own fence rule with that `highlight` callback (null for plain text). A claimed fence never reaches it, so it cannot restyle a drawn figure. At most one plugin fills the role, and a second is a build error naming both. With none active, a fence renders as escaped plain code. In-tree only."
         },
         "hydrate": {
           "type": "object",
@@ -188,10 +195,53 @@
         },
         "services": {
           "type": "array",
-          "description": "Named functions other code may call through the host (lib/plugins/services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports a `services` object with exactly these keys. Light, like `inline`. In-tree only.",
+          "description": "Named functions other code may call through the host (lib/core/plugin-services.js `service(plugin, name)`), never by importing the plugin: with the plugin off, the caller gets null and renders without it. The plugin's `<name>.services.js` exports `services`, a factory of its ctx returning an object with exactly these keys. Light, like `inline`. In-tree only.",
           "minItems": 1,
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}
+        },
+        "lint": {
+          "type": "array",
+          "description": "The lint rule ids this plugin's `<name>.lint.js` reports (HARD RULE #7, amended 2026-11-01). The role exports `lint`, a factory of the plugin's ctx returning `(deck) => findings`: pure and synchronous, run by lib/authoring/lint-core.js through lib/plugins/lint.generated.js over a deck view the host builds. A finding whose `rule` is not listed here is refused. In-tree only.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+        },
+        "providers": {
+          "type": "array",
+          "description": "Media providers declared as DATA (2026-11-01-plugin-contract-hollywood.md §2 `video` row): which hosts a provider owns, how a video id is read from the PARSED url, and the templates its links are built from. The host owns the one matcher over this table (lib/core/video-providers.mjs), because matching an address is a trust check: it matches the parsed host, never a substring, and builds a player src only from a validated id. In-tree only.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "label", "hosts", "id", "watch", "oembed", "embed", "shape"],
+            "properties": {
+              "key": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Stable; becomes `data-provider` on the figure."},
+              "label": {"type": "string", "description": "The human name: \"Watch on {label}\"."},
+              "hosts": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[a-z0-9.-]+$"}, "description": "Hostnames the provider owns, matched against the parsed host (exact, or a subdomain)."},
+              "id": {
+                "type": "array",
+                "minItems": 1,
+                "description": "How to read the video id, tried in order; the first rule that applies and matches wins, and none gives ''. `query` + `pattern`: a search parameter whose whole value matches. `path`: a pattern over the pathname whose first group is the id. `host` / `notHost` limit a rule to (or away from) one host, `www.` ignored.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "query": {"type": "string"},
+                    "pattern": {"type": "string"},
+                    "path": {"type": "string"},
+                    "host": {"type": "string"},
+                    "notHost": {"type": "string"}
+                  }
+                }
+              },
+              "watch": {"type": "string", "pattern": "^(?:\\{url\\}|https://[^{}]*\\{id\\}[^{}]*)$", "description": "The watch and QR target: an https template holding `{id}`, or exactly `{url}` (the author's address, re-serialized by the parser that validated it)."},
+              "oembed": {"type": ["string", "null"], "pattern": "^https://[^{}]*\\{watch\\}[^{}]*$", "description": "The oEmbed endpoint, `{watch}` URL-encoded; null when there is no public one."},
+              "embed": {"type": ["string", "null"], "pattern": "^https://[^{}]*\\{id\\}[^{}]*$", "description": "A player src built from the validated id and nothing else; null when the provider cannot be framed."},
+              "shape": {"enum": ["landscape", "portrait"]},
+              "asyncResolve": {"type": "boolean", "description": "A link form exists whose id is not in the address (TikTok short links), so the player resolves it out of band."}
+            }
+          }
         },
         "registers": {
           "type": "object",
@@ -270,7 +320,7 @@
         },
         "data": {
           "const": true,
-          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through lib/plugins/plugin-data.js `pluginData(name)`, never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
+          "description": "`<name>.data.generated.js` exists: plain data the plugin's kernels read through their ctx (`ctx.data`, loaded by lib/core/plugin-data.js), never by `require`. The engine registers a lazy loader for it (lib/plugins/data.generated.js), so a Node render loads it on first use; a browser bundle aliases that file to a stub and the data arrives as its own script (`globalThis.__latticePluginData`), fetched only for a deck that uses the plugin."
         },
         "styles": {
           "const": true,
@@ -388,13 +438,14 @@
             }
           }
         },
+        "output": { "enum": ["html", "svg-diagram"], "description": "What the frame's answer is, so the HOST picks the sanitizer for it (2026-11-01-plugin-contract-hollywood.md §2): `html` (the default) goes through the slide sanitizer, `svg-diagram` through the diagram sanitizer, which keeps the `<foreignObject>` labels and the `<style>` a diagram draws with. The draw host's `finish` receives that one sanitizer as `env.sanitize`, never a menu. A new or looser kind is a host change, reviewed with its justification, never a manifest string." },
         "host": { "type": "boolean", "description": "`<name>.draw-host.mjs` exists and exports `prepare(job, env)` and/or `finish(raw, env)`. The host runs `prepare` on a job before it crosses to the frame and `finish` on the frame's answer before the page sees it. A plugin with no `finish` has its answer treated as markup and put through the slide sanitizer. Runs in the host page, never in the frame." },
         "shim": { "type": "boolean", "description": "`<name>.draw-shim.mjs` exports `createShim(host, doc)`: an object with the library's global's shape that sends the work to the host. Required for a plugin whose browser half is a document pass (`render.exec.hydrate: \"pass\"`), which calls the global itself; forbidden for one whose hydrate function receives `ctx.draw`." }
       }
     },
     "vendor": {
       "type": "object",
-      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugins/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
+      "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/core/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,

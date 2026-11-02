@@ -22,6 +22,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,22 +30,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'narration-coverage-'));
 
-const manifests = fs
-	.readdirSync(path.join(ROOT, 'lib/components'), { withFileTypes: true })
-	.filter((d) => d.isDirectory())
-	.flatMap((bucket) => {
-		const dir = path.join(ROOT, 'lib/components', bucket.name);
-		return fs
-			.readdirSync(dir, { withFileTypes: true })
-			.filter((c) => c.isDirectory())
-			.map((c) => path.join(dir, c.name, `${c.name}.manifest.json`))
-			.filter((f) => fs.existsSync(f));
-	})
-	.sort();
+// Every component (`loadAll`: the buckets AND the plugins' kinds, where the chart kinds live), in
+// manifest-path order.
+const { loadAll, componentDir } = createRequire(import.meta.url)('../lib/components');
+const manifests = loadAll().sort((a, b) => componentDir(a).localeCompare(componentDir(b)));
 
 const slides = [];
-for (const file of manifests) {
-	const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+for (const m of manifests) {
 	const sample = m.sample || m.skeleton;
 	if (!sample) continue;
 	slides.push({ bucket: m.bucket || m.function, name: m.name, source: sample.trim() });

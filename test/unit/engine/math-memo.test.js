@@ -12,7 +12,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const mathMod = require('../../../lib/plugins/math/math.render.js');
-const { renderTex, _resetMathMemo, _mathMemoStats } = mathMod;
+const { _resetMathMemo, _mathMemoStats } = mathMod;
+// The renderer typesets with the HOST's wall, which its ctx hands it (`ctx.wall('katex')`); the test passes the same one.
+const WALL = require('../../../lib/plugins/host-katex-wall.js');
+const renderTex = (src, displayMode, output) => mathMod.renderTex(src, displayMode, output, WALL);
 const { render } = require('../../../lib/engine');
 
 const GALLERY = path.join(__dirname, '../../../lib/components/math/math/math.gallery.md');
@@ -65,8 +68,8 @@ test('a FAILED typeset is never cached', () => {
   // The browser stub throws until the KaTeX provider registers. Caching that
   // fallback would pin escaped TeX for the life of the page.
   _resetMathMemo();
-  // The renderer's KaTeX is the math plugin's own copy, run behind the wall (lib/core/katex-wall.js).
-  const katex = require('../../../lib/core/katex-wall.js');
+  // The renderer's KaTeX is the math plugin's own copy, run behind the wall (lib/plugins/host-katex-wall.js).
+  const katex = require('../../../lib/plugins/host-katex-wall.js');
   const real = katex.renderToString;
   katex.renderToString = () => { throw new Error('provider not registered yet'); };
   const degraded = renderTex('E = mc^2', true);

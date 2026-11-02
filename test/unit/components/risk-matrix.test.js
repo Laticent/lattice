@@ -1,6 +1,6 @@
 /**
  * risk-matrix — the likelihood × impact register kernel
- * (lib/components/chart/risk-matrix/) and its narrator.
+ * (lib/plugins/chart-family/kinds/risk-matrix/) and its narrator.
  *
  * Pins the parse (a point record per risk, an optional mitigation target), the
  * bands, the rows the chart cannot place, a crowded cell, the drawn arrowhead,
@@ -11,10 +11,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseRiskMatrix, buildRiskMatrix, FS } = require('../../../lib/components/chart/risk-matrix/risk-matrix.transform');
+const { parseRiskMatrix, buildRiskMatrix, FS } = require('../../../lib/plugins/chart-family/kinds/risk-matrix/risk-matrix.transform');
 const { bandOf, cellOf } = require('../../../lib/core/risk-matrix-model');
 
-const STYLES = path.join(__dirname, '../../../lib/components/chart/risk-matrix/risk-matrix.styles.css');
+const STYLES = path.join(__dirname, '../../../lib/plugins/chart-family/kinds/risk-matrix/risk-matrix.styles.css');
 
 const ul = (rows) => rows.map(([label, ...pills]) => `<li>${label} ${pills.map((p) => `<code>${p}</code>`).join(' ')}</li>`).join('');
 

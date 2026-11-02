@@ -19,7 +19,7 @@ const editors = require('../../../lib/authoring/inline-editors.js');
 const avatars = { ...avatarKernel, edit: editors.avatar.edit, written: (t) => editors.avatar.read(t)?.written ?? null };
 const icons = { ...iconKernel, edit: editors.icon.edit };
 const { editRecord } = require('../../../lib/core/segno-edit.js');
-const { compileSlot } = require('../../../lib/core/segno-spec.js');
+const { compileSlot } = require('@laticent/segno/read');
 
 const ROOT = path.resolve(__dirname, '../../..');
 

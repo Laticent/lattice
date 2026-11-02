@@ -471,9 +471,13 @@ describe('texture-polarity', () => {
     assert.match(emulator, /renderDiagrams\(deck, \{/,
       'the PDF path must walk the deck through the shared kernel, not render inside a '
       + 'String.replace over source offsets');
-    assert.match(emulator, /slideClassSpans\(source\)/,
-      "the PDF path must take each slide's OWN `_class:`, not the last one anywhere before "
-      + 'the fence (#1329)');
+    // The slides are the HOST's reading (lib/plugins/host-bake.js `slideAtFor`, over the same source the bake gets);
+    // the bake asks `ctx.slideAt(offset)` per fence.
+    const host = fs.readFileSync(path.join(ROOT, 'lib', 'plugins', 'host-bake.js'), 'utf8');
+    assert.match(host, /slideClassSpans\(source\)/,
+      "the PDF path must take each slide's OWN `_class:`, not the last one anywhere before the fence (#1329)");
+    assert.match(emulator, /ctx\.slideAt\(m\.start\)/,
+      'and the bake must ask the host where each fence falls');
   });
 
   test('each slot maps to its OWN pattern — the mapping is injective', () => {

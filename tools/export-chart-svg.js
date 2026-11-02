@@ -37,7 +37,7 @@
 const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
-const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = require('../lib/components/chart/_chart-family/standalone-svg.js');
+const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = require('../lib/plugins/chart-family/shared/standalone-svg.js');
 const { buildChartFontFaceCss } = require('./lib/chart-font-embed.js');
 // The keyed set, projected from each manifest's `projection.figure === "svg"`. This
 // file's copy lived INSIDE the page.evaluate below under a different name (`KEYED`),

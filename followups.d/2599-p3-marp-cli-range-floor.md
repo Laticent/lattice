@@ -14,7 +14,7 @@ why now   — the bundle's package.json pins marp-cli `^4.3.1` (`MARP_CLI_RANGE`
             test resolves the newest 4.x. #2589 and #2599 measured the allowlist, the functional
             `engine:` and the notes hook only on marp-cli 4.5.1 / marp-core 4.4.0. A recipient whose
             lockfile holds 4.3.1 runs a config nobody rendered there.
-where     — lib/core/marp-bundle.js `MARP_CLI_RANGE`; test/integration/export/marp-bundle-author-script.test.js.
+where     — lib/export/marp-bundle.js `MARP_CLI_RANGE`; test/integration/export/marp-bundle-author-script.test.js.
 done when — the integration test passes with marp-cli pinned to exactly 4.3.1, or the range's floor
             is raised to the oldest version that passes, with the reason in the PR.
 evidence  — the integration run's pass/fail table at 4.3.1 and at the newest 4.x.

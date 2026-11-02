@@ -9,7 +9,7 @@
  * token. No caller hits that today, which is exactly why it needed a test and
  * not a comment.
  *
- * `readAttr` moved to lib/core/section-walk.js in the same change (HARD RULE
+ * `readAttr` moved to docs/src/lib/markup/section-walk.ts in the same change (HARD RULE
  * #15 — the class-only reader added there was a duplicate of this one), so the
  * re-export's contract is pinned here too.
  */
@@ -18,7 +18,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { mergeClass, addClassToFirstTag, setAttr } = require('../../../lib/core/collections');
-const { readAttr, readClassAttr } = require('../../../lib/core/section-walk');
+const { readAttr, readClassAttr } = require('@laticent/markup');
 
 describe('collections — class/attribute helpers', () => {
   describe('mergeClass', () => {

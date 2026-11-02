@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { deriveSyntaxInks, syntaxInkSeeds, SYNTAX_INK_ROLES } = require('../../../tools/build-docs-portal.js');
-const { contrastRatio, oklabDistance, oklchToHex, hexToOklch } = require('../../../lib/theme/color.js');
+const { contrastRatio, oklabDistance, oklchToHex, hexToOklch } = require('../../../lib/core/color.js');
 const { AA, MARGIN, MIN_DIST } = require('../../../lib/theme/cat-ink.js');
 
 /**

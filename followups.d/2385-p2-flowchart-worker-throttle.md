@@ -15,7 +15,7 @@ why now   — #2385's live layout lays a chart out on nearly every keystroke, in
             Mermaid's twin costs 1 render (about 90 ms), because it waits for a
             150 ms pause, but it then shows nothing new until you stop. The owner
             chose a throttle as a follow-up: keep the chart moving, cut the CPU.
-where     — lib/components/chart/flowchart/flowchart.layout.js: `liveWorker()`'s
+where     — lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js: `liveWorker()`'s
             `W.post` / `send` queue (newest wins, one in flight per chart).
 done when — during a burst a chart is laid out at most once per ~300 ms, plus one
             layout for the final edit as soon as typing stops; re-measured with the

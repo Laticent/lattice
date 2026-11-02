@@ -18,7 +18,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open.
        why now   — roadmap still carries byte-identical private copies of parseRowCells /
                    parseRows / splitTable; the kernel's own docblock names it as the
                    outstanding consumer, so the consolidation is unfinished until this lands
-       where     — lib/components/chart/roadmap/roadmap.transform.js; kernel at
+       where     — lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js; kernel at
                    lib/core/html-tables.js (HARD RULES #1/#15)
        done when — roadmap's private walkers are gone, its committed goldens unchanged
        evidence  — roadmap gallery PDF rendered before/after, byte-identical

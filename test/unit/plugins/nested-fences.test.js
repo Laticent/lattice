@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { matchNestedMermaidFences, reprefix } = require('../../../lib/plugins/mermaid/shared/nested-fences');
-const { matchMermaidFences } = require('../../../lib/core/mermaid-fences');
+const { matchMermaidFences } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
 
 const nested = (md) => matchNestedMermaidFences(md).map((f) => ({ prefix: f.prefix, body: f.body }));
 
@@ -55,7 +55,7 @@ test('a fence between two `$$` lines is math to the engine, so it is skipped', (
 });
 
 test('the narrator reads a nested fence too (firstMermaidFenceBody)', () => {
-	const { firstMermaidFenceBody } = require('../../../lib/core/mermaid-fences');
+	const { firstMermaidFenceBody } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
 	assert.match(firstMermaidFenceBody('> ```mermaid\n> flowchart LR\n>   A --> B\n> ```\n'), /^flowchart LR\n {2}A --> B/);
 	assert.match(firstMermaidFenceBody('10. Tenth\n\n    ```mermaid\n    flowchart LR\n      A --> B\n    ```\n'), /^flowchart LR/);
 	assert.equal(firstMermaidFenceBody('no fence here'), null);

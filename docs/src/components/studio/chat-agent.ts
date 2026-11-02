@@ -7,6 +7,7 @@
 // See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
 import { getSpendDeck } from '@/components/studio/ai/spend.js';
+import { FRONT_MATTER_KEYS } from '../../lib/front-matter-keys';
 // ONLY LAZY-ONLY MODULES ARE IMPORTED HERE. Vite writes every chunk a lazily imported
 // module statically needs into the IMPORTER's preload map — and the importer is the eager
 // `architect` chunk. Importing `architect.ts`, `front-matter` or the palettes from here put
@@ -23,7 +24,6 @@ import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { boundTrace } from './chat-trace';
 import type { FitScope } from './draft-fit';
-import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 import type { ChatTrace } from './studio-store';

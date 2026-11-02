@@ -4,7 +4,7 @@ priority: P3
 recorded: 2026-10-25
 area: chart
 severity: low
-swimlane: lib/components/chart/gantt/gantt.transform.js
+swimlane: lib/plugins/chart-family/kinds/gantt/gantt.transform.js
 source: https://github.com/Laticent/lattice/pull/2887
 ---
 

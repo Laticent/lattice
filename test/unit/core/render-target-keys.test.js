@@ -545,7 +545,7 @@ test('the emulator reads all three through the kernel, not its own regex', () =>
 });
 
 test("the Studio editor offers every one, so a hand-typed key is discoverable", () => {
-	// The Studio's key list (docs/src/components/studio/front-matter-keys.ts) is a view of the
+	// The Studio's key list (docs/src/lib/front-matter-keys.ts) is a view of the
 	// engine's table, lib/core/deck-settings.js: every row not marked `offer: false` is offered.
 	const { DECK_SETTINGS } = require('../../../lib/core/deck-settings');
 	const { withProse } = require('../../../lib/core/deck-settings.prose');

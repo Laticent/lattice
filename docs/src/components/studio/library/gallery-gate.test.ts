@@ -11,7 +11,7 @@ import { galleryRemoteRefs } from './gallery-gate';
 describe('galleryRemoteRefs', () => {
 	beforeEach(() => {
 		renderMarkdown.mockClear();
-		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { referenceTargets: () => [] };
+		(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { referenceTargets: () => [], pluginService: (plugin: string, name: string) => (plugin === 'mermaid' && name === 'fences' ? () => [] : null) };
 	});
 
 	it('renders the gallery alone and as inserted, never warming the draw host', async () => {

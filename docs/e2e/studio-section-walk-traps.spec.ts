@@ -3,7 +3,7 @@ import { expect, gotoStudio, livePreview, persistedSource, railButtons, test } f
 
 // ── The section walker reads the deck the way the browser does, on the STUDIO route ──────
 //
-// #2279 moved `splitSections` (lib/core/split-sections.mjs) onto the `scanTags` tokenizer, so
+// #2279 moved `splitSections` (docs/src/lib/markup/sections.ts) onto the `scanTags` tokenizer, so
 // three shapes that used to derail the per-slide Form pass stopped doing it: a comment that
 // quotes a section tag, a `>` inside a quoted attribute, and an apostrophe in an UNQUOTED
 // attribute value. That PR drove /playground. This drives /studio, the one reachable surface

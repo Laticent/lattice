@@ -10,7 +10,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/components/studio/ai/architect-knowledge.js');
+  return import('../../../docs/src/lib/architect-knowledge.js');
 }
 
 const SAMPLE = [

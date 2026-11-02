@@ -13,12 +13,11 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const tt = require('../../../lib/transformers/topic-track');
-const { readTopLevelH2Text: readH2 } = require('../../../lib/core/top-level-h2');
+const { readTopLevelH2Text: readH2, maskInert } = require('@laticent/markup');
 // The kernel's own reader, not a hand-rolled regex. `/<[^>]+>/g` ends a tag at
 // the first `>`, including one inside a quoted attribute — the defect family
 // this suite exists to catch, so a test helper must not contain it. CodeQL flags
 // the shape as incomplete sanitization for the same reason.
-const { maskInert } = require('../../../lib/core/top-level-h2');
 
 const S = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 /** A section that declares an override, the way the engine stamps it. */

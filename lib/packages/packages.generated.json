@@ -342,7 +342,7 @@
     {
       "type": "component",
       "name": "bar",
-      "path": "lib/components/chart/bar",
+      "path": "lib/plugins/chart-family/kinds/bar",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -366,7 +366,7 @@
     {
       "type": "component",
       "name": "bullet",
-      "path": "lib/components/chart/bullet",
+      "path": "lib/plugins/chart-family/kinds/bullet",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -563,7 +563,7 @@
     {
       "type": "component",
       "name": "ep-curve",
-      "path": "lib/components/chart/ep-curve",
+      "path": "lib/plugins/chart-family/kinds/ep-curve",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -576,7 +576,7 @@
     {
       "type": "component",
       "name": "flowchart",
-      "path": "lib/components/chart/flowchart",
+      "path": "lib/plugins/chart-family/kinds/flowchart",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -589,7 +589,7 @@
     {
       "type": "component",
       "name": "funnel",
-      "path": "lib/components/chart/funnel",
+      "path": "lib/plugins/chart-family/kinds/funnel",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -602,7 +602,7 @@
     {
       "type": "component",
       "name": "gantt",
-      "path": "lib/components/chart/gantt",
+      "path": "lib/plugins/chart-family/kinds/gantt",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -626,7 +626,7 @@
     {
       "type": "component",
       "name": "heatmap",
-      "path": "lib/components/chart/heatmap",
+      "path": "lib/plugins/chart-family/kinds/heatmap",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -639,7 +639,7 @@
     {
       "type": "component",
       "name": "histogram",
-      "path": "lib/components/chart/histogram",
+      "path": "lib/plugins/chart-family/kinds/histogram",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -652,7 +652,7 @@
     {
       "type": "component",
       "name": "hub-spoke",
-      "path": "lib/components/chart/hub-spoke",
+      "path": "lib/plugins/chart-family/kinds/hub-spoke",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -687,7 +687,7 @@
     {
       "type": "component",
       "name": "journey",
-      "path": "lib/components/chart/journey",
+      "path": "lib/plugins/chart-family/kinds/journey",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -700,7 +700,7 @@
     {
       "type": "component",
       "name": "kanban",
-      "path": "lib/components/chart/kanban",
+      "path": "lib/plugins/chart-family/kinds/kanban",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -724,7 +724,7 @@
     {
       "type": "component",
       "name": "line",
-      "path": "lib/components/chart/line",
+      "path": "lib/plugins/chart-family/kinds/line",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -781,7 +781,7 @@
     {
       "type": "component",
       "name": "map",
-      "path": "lib/components/chart/map",
+      "path": "lib/plugins/chart-family/kinds/map",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -816,7 +816,7 @@
     {
       "type": "component",
       "name": "matrix-grid",
-      "path": "lib/components/chart/matrix-grid",
+      "path": "lib/plugins/chart-family/kinds/matrix-grid",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -840,7 +840,7 @@
     {
       "type": "component",
       "name": "piechart",
-      "path": "lib/components/chart/piechart",
+      "path": "lib/plugins/chart-family/kinds/piechart",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -886,7 +886,7 @@
     {
       "type": "component",
       "name": "progress",
-      "path": "lib/components/chart/progress",
+      "path": "lib/plugins/chart-family/kinds/progress",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -910,7 +910,7 @@
     {
       "type": "component",
       "name": "quadrant",
-      "path": "lib/components/chart/quadrant",
+      "path": "lib/plugins/chart-family/kinds/quadrant",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -934,7 +934,7 @@
     {
       "type": "component",
       "name": "radar",
-      "path": "lib/components/chart/radar",
+      "path": "lib/plugins/chart-family/kinds/radar",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -969,7 +969,7 @@
     {
       "type": "component",
       "name": "risk-matrix",
-      "path": "lib/components/chart/risk-matrix",
+      "path": "lib/plugins/chart-family/kinds/risk-matrix",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -982,7 +982,7 @@
     {
       "type": "component",
       "name": "roadmap",
-      "path": "lib/components/chart/roadmap",
+      "path": "lib/plugins/chart-family/kinds/roadmap",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1006,7 +1006,7 @@
     {
       "type": "component",
       "name": "scatter",
-      "path": "lib/components/chart/scatter",
+      "path": "lib/plugins/chart-family/kinds/scatter",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1032,7 +1032,7 @@
     {
       "type": "component",
       "name": "slope",
-      "path": "lib/components/chart/slope",
+      "path": "lib/plugins/chart-family/kinds/slope",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1067,7 +1067,7 @@
     {
       "type": "component",
       "name": "stacked-bar",
-      "path": "lib/components/chart/stacked-bar",
+      "path": "lib/plugins/chart-family/kinds/stacked-bar",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1080,7 +1080,7 @@
     {
       "type": "component",
       "name": "state-chart",
-      "path": "lib/components/chart/state-chart",
+      "path": "lib/plugins/chart-family/kinds/state-chart",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1139,7 +1139,7 @@
     {
       "type": "component",
       "name": "timeline-list",
-      "path": "lib/components/chart/timeline-list",
+      "path": "lib/plugins/chart-family/kinds/timeline-list",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1174,7 +1174,7 @@
     {
       "type": "component",
       "name": "tower",
-      "path": "lib/components/chart/tower",
+      "path": "lib/plugins/chart-family/kinds/tower",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1211,7 +1211,7 @@
     {
       "type": "component",
       "name": "waterfall",
-      "path": "lib/components/chart/waterfall",
+      "path": "lib/plugins/chart-family/kinds/waterfall",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1237,7 +1237,7 @@
     {
       "type": "component",
       "name": "word-cloud",
-      "path": "lib/components/chart/word-cloud",
+      "path": "lib/plugins/chart-family/kinds/word-cloud",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1420,7 +1420,8 @@
         "docs.md",
         "fixtures.md",
         "manifest.json",
-        "styles.css"
+        "styles.css",
+        "styles.generated.css"
       ],
       "code": true
     },
@@ -1433,6 +1434,7 @@
         "fixtures.md",
         "inline.js",
         "manifest.json",
+        "services.js",
         "styles.css",
         "syntax.mjs"
       ],
@@ -1523,6 +1525,8 @@
         "highlight.js",
         "hydrate.js",
         "manifest.json",
+        "page.js",
+        "services.js",
         "styles.css"
       ],
       "code": true
@@ -1574,6 +1578,7 @@
         "docs.md",
         "fixtures.md",
         "inline.js",
+        "lint.js",
         "manifest.json",
         "syntax.mjs"
       ],

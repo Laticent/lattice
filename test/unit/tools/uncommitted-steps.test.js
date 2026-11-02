@@ -98,6 +98,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Measured 2026-09-28: its whole write set is docs/src/lib/segno/dist/ (docs/.gitignore's
   // `dist/`); the committed notation.generated.ts is written by build-segno-grammar.js.
   'build-segno-lib.js',
+  // Its whole write set is docs/src/lib/markup/dist/, covered by docs/.gitignore's `dist/`.
+  'build-markup-lib.js',
   'build-suono-lib.js',
   // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
   'build-tavola-lib.js',
@@ -138,7 +140,7 @@ const EXPECTED_PR_OWNED = new Set([
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
   'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
-  'build-marks-css.js', // lib/components/chart/_chart-family/marks.generated.css
+  'build-marks-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and
   // lib/plugins/registry.generated.js, both tracked.
   'build-plugin-registry.js',
@@ -157,7 +159,7 @@ const EXPECTED_PR_OWNED = new Set([
   // Measured 2026-09-28: writes exactly docs/src/lib/segno/notation.generated.ts, which git
   // tracks — the docs site and Vitest import it. Since Segno phase 3 (2026-10-06) also
   // lib/core/flowchart-row.generated.js, tracked too: `splitRow` requires it; and since phase 3's
-  // list text (2026-10-06) lib/core/list-text.generated.js, which the checks plugin's leading reader (lib/plugins/checks/shared/leading.js) requires.
+  // list text (2026-10-06) lib/core/list-text.generated.js, which the checks plugin's leading reader (lib/core/checks-leading.js) requires.
   // Since followup 2718-p3 (2026-10-16) also docs/src/lib/segno/notation-plain.generated.ts, tracked:
   // notation.ts imports it.
   'build-segno-grammar.js', // docs/src/lib/segno, lib/core

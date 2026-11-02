@@ -6,8 +6,8 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { keySvg } = require('../../../lib/components/chart/_chart-family/legend-svg-key');
-const { wrapLabelToLines } = require('../../../lib/components/chart/_chart-family/svg-legend');
+const { keySvg } = require('../../../lib/plugins/chart-family/shared/legend-svg-key');
+const { wrapLabelToLines } = require('../../../lib/plugins/chart-family/shared/svg-legend');
 
 test('wrapLabelToLines: short label stays one line', () => {
   assert.deepEqual(wrapLabelToLines('hello world', 20), ['hello world']);

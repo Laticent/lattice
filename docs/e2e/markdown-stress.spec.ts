@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { usedComponents } from '../src/components/studio/lint';
+import { usedComponents } from '../src/lib/deck-lint';
 import { buildDeckIndex, deckEditableOffset } from '../src/lib/deck-outline/deck-outline';
 import { partOfFlat, partStart, partText } from '../src/lib/fuoco/outline';
 import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPaint } from './studio-fixture';

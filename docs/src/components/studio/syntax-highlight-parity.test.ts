@@ -178,7 +178,7 @@ describe('every CodeMirror surface INSTALLS its highlighter', () => {
 //
 // It is CSS rather than a HighlightStyle because the tokens arrive as ProseMirror
 // decorations carrying an hljs CLASS name (the engine tokenizes; see
-// `lib/core/highlight-spans.js`), so there is no object to read rows off. A text
+// `lib/plugins/code/shared/highlight-spans.js`), so there is no object to read rows off. A text
 // matcher over the stylesheet is therefore the only instrument available — narrow by
 // construction, and it says what it cannot see: it checks the TOKENS each rule
 // resolves to, never which hljs class sits in which row.

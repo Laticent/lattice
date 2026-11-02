@@ -163,7 +163,7 @@ test('GLOSSARY_VENUE_ROWS mirrors the generated glossary rows at 6 and 16 words 
 test('NON_WIDE_SIZES mirrors every size preset that is not in the wide family', async () => {
   const { NON_WIDE_SIZES } = await import('../../../lib/core/glossary-auto.mjs');
   const { familyFor } = require('../../../lib/adaptive/families.js');
-  const { SIZES } = require('../../../lib/engine/sizes.js');
+  const { SIZES } = require('../../../lib/core/sizes.js');
   const nonWide = Object.entries(SIZES)
     .filter(([, v]) => familyFor(Number.parseFloat(v.width) / Number.parseFloat(v.height)) !== 'wide')
     .map(([k]) => k);

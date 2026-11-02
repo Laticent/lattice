@@ -443,7 +443,7 @@ describe('a plugin’s stylesheet reaches the previews, rebuilt behind its root'
 });
 
 describe('data returns (threat-model decisions 11 and 12): the CLI door’s rules, in the Studio', () => {
-	const { RETURN_ENVELOPE, pluginReturnFields } = require('../../../../lib/packages/code-shape.mjs') as { RETURN_ENVELOPE: string; pluginReturnFields: (m: unknown) => ReturnType<typeof import('../../../../lib/packages/code-shape.mjs').pluginReturnFields> };
+	const { RETURN_ENVELOPE, pluginReturnFields } = require('../../../../lib/core/code-shape.mjs') as { RETURN_ENVELOPE: string; pluginReturnFields: (m: unknown) => ReturnType<typeof import('../../../../lib/core/code-shape.mjs').pluginReturnFields> };
 	const cli = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string, kinds?: unknown[], returns?: unknown[]) => string };
 	const RETURNS = { fields: { status: { type: 'word', values: ['ok', 'late'] }, note: { type: 'text' } } };
 	const fields = pluginReturnFields({ contributes: { returns: RETURNS } });

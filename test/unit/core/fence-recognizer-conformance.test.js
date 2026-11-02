@@ -3,7 +3,7 @@
  *
  * This repo has several things that decide "is this a Mermaid fence", and they do not agree:
  *
- *   · `matchMermaidFences` (lib/core/mermaid-fences.js) — the CLI's substitution and the
+ *   · `matchMermaidFences` (lib/plugins/mermaid/shared/mermaid-fences.js) — the CLI's substitution and the
  *     narrator. Caps indent at three, because it REPLACES source with a picture.
  *   · `createFenceReader` (lib/core/slide-speech.js) — narration's fence state. Trims, so any
  *     indent. Over-blanking under-narrates, which is the safe direction there.
@@ -38,7 +38,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { render } = require('../../../lib/engine/index.js');
-const { matchMermaidFences } = require('../../../lib/core/mermaid-fences');
+const { matchMermaidFences } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
 const { createFenceReader, slideToSpeech } = require('../../../lib/core/slide-speech');
 const { scanFences } = require('../../../lib/core/fence-languages');
 

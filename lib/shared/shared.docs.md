@@ -87,7 +87,7 @@ opt out, it belongs here.
 ## See also
 
 - `lib/base/base.docs.md` — universal authoring patterns and variants.
-- `lib/components/chart/_chart-family/chart-family.docs.md` — the chart-family subsystem
+- `lib/plugins/chart-family/shared/README.md` — the chart-family subsystem
   (also a "shared among some components" concern, but rich enough to
   warrant its own folder rather than living here).
 - `design/design-system.md §6.5` — the variant tier system that

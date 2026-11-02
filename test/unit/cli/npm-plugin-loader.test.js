@@ -319,7 +319,7 @@ describe('fetching into the cache', () => {
     assert.equal((await loader.fetchOne(e, { registry: REG, dir })).ok, true);
     const { entries } = loader.npmPluginEntries(proj, ['gantt'], { dir });
     assert.equal(entries.length, 1);
-    require('../../../lib/packages/gate.js').refusePackage(loader.npmPluginPkg(e, entries[0].code));
+    require('../../../lib/cli/package-gate.js').refusePackage(loader.npmPluginPkg(e, entries[0].code));
     assert.equal(fs.existsSync(marker), false, 'the loader ran the bundle');
     // CONTROL: the same bytes loaded in Node write the marker, so the probe can see a load.
     const f = path.join(home, 'g5-control.mjs');
@@ -347,7 +347,7 @@ describe('the door entries a render gets', () => {
 });
 
 describe('lattice packages fetch', () => {
-  const { main } = require('../../../lib/packages/cli.js');
+  const { main } = require('../../../lib/cli/packages.js');
   const lines = () => {
     const out = [];
     return { out, log: (s) => out.push(s), err: (s) => out.push(s) };
