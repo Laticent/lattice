@@ -38,7 +38,7 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
-const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const engine = require('../../../lib/transformers/chart-frame');
 const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 
 const RUNTIME_SRC = fs.readFileSync(

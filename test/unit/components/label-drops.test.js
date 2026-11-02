@@ -26,7 +26,7 @@ const P = (p) => path.join(ROOT, p);
 const {
   noteLabelDrop, noteHiddenLabels, collectLabelDrops, encodeLabelDrops, decodeLabelDrops,
 } = require(P('lib/plugins/chart-family/shared/label-drops.js'));
-const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
+const { transformChartSection } = require(P('lib/transformers/chart-frame.js'));
 
 // Plain parser, for the census's reason: the engine's parser has the pill plugin
 // installed, which eats the trailing inline code the chart kernels read values from.

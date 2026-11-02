@@ -329,7 +329,7 @@ const LONG = parseRadar([
   '<li>Speed <code>6</code></li><li>Support <code>7</code></li><li>Customer onboarding flow <code>5</code></li></ul></li>',
 ].join(''), false);
 const lineCount = (html, name) => {
-  const m = html.match(new RegExp(`<text class="radar-axis-label"[^>]*>((?:(?!</text>)[\\s\\S])*)</text>`, 'g'))
+  const m = html.match(/<text class="radar-axis-label"[^>]*>((?:(?!<\/text>)[\s\S])*)<\/text>/g)
     .find((t) => t.includes(name.split(' ')[0]));
   return (m.match(/<tspan/g) || []).length;
 };
@@ -414,7 +414,7 @@ test('readRadarAxis: an eyebrow that is not a bracketed list is not the axis', (
 // regression in either module surfaces here, not only in the integration
 // PDF build.
 
-const { transformChartSection, applyToRenderedHtml } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const { transformChartSection, applyToRenderedHtml } = require('../../../lib/transformers/chart-frame');
 
 describe('radar', () => {
   test('chart-family: radar section is wrapped in chart-frame', () => {

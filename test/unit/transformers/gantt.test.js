@@ -19,14 +19,14 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const engine = require('../../../lib/transformers/chart-frame');
 const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
 const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter } = ganttKernel;
 const { LINE_HEIGHT } = require('../../../lib/plugins/chart-family/shared/svg-label.js');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
-const { extractFirstList } = engine;
+const { extractFirstList } = require('@laticent/markup');
 const inner = (ul) => extractFirstList(ul).inner;
 
 // The gantt is SVG-native (2026-07-26): marks are <rect>/<polygon> in viewBox

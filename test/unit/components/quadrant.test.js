@@ -554,7 +554,7 @@ test('buildQuadrant: magic — author-supplied group names override defaults', (
 // Quadrant is a chart-family member; section dispatch + chart-frame
 // wrapping are owned by lib/plugins/chart-family/chart-family.dispatch.js. These pin the wiring.
 
-const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const { transformChartSection } = require('../../../lib/transformers/chart-frame');
 
 describe('quadrant', () => {
   test('chart-family: quadrant section is wrapped in chart-frame', () => {

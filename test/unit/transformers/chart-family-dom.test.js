@@ -12,7 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const chartFamily = require('../../../lib/transformers/chart-family');
-const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const engine = require('../../../lib/transformers/chart-frame');
 const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 const notesCore = require('../../../lib/authoring/notes-core');
 
@@ -401,7 +401,7 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
     assert.notEqual(ticks(sec), mono,
       'the axis kept its mono tick count while the CSS moved to the hand face');
     assert.equal(ticks(sec), ganttKernel.buildGanttChart(
-      engine.extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
+      require('@laticent/markup').extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
       { window: '2026-01-01 .. 2027-03-31' }, undefined, true,
     ).match(/class="gantt-tick"/g).length, 'the rebuild must match what the engine builds');
   });

@@ -15,7 +15,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
-const { transformChartSection } = require('../../../lib/plugins/chart-family/chart-family.dispatch');
+const { transformChartSection } = require('../../../lib/transformers/chart-frame');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 
 const md = new MarkdownIt({ html: true });
