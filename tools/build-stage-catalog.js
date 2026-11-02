@@ -48,7 +48,7 @@ const CODA_OUT_FILE = path.join(ROOT, 'lib', 'forms', 'cell', 'coda', 'coda-cata
 const CARDS_OUT_FILE = path.join(ROOT, 'lib', 'core', 'cards-catalog.generated.js');
 const LABEL_SET_OUT_FILE = path.join(ROOT, 'lib', 'core', 'label-set-catalog.generated.js');
 const INLINE_RUN_OUT_FILE = path.join(ROOT, 'lib', 'core', 'inline-run-catalog.generated.js');
-const CALLOUT_OUT_FILE = path.join(ROOT, 'lib', 'core', 'callout-catalog.generated.js');
+const CALLOUT_OUT_FILE = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'shared', 'callout-catalog.generated.js');
 const AXIS_OUT_FILE = path.join(ROOT, 'lib', 'core', 'axis-catalog.generated.js');
 const SPECTRUM_OUT_FILE = path.join(ROOT, 'lib', 'core', 'spectrum-catalog.generated.js');
 const SEGNO_OUT_FILE = path.join(ROOT, 'lib', 'core', 'segno-slots.generated.js');
@@ -349,7 +349,7 @@ function buildSegnoSlots() {
 }
 
 /**
- * lib/core/callout-catalog.generated.js: each chart manifest's `callout` defaults (today the side its
+ * lib/plugins/chart-family/shared/callout-catalog.generated.js: each chart manifest's `callout` defaults (today the side its
  * `@callout` notes sit on when the author does not say). The placement reads it at render time in the
  * engine, the runtime and the CLI, none of which can fs-load a manifest. A chart with no entry takes the
  * shared default: notes under the figure.
@@ -734,7 +734,7 @@ function main() {
     }
     const currentCallout = fs.existsSync(CALLOUT_OUT_FILE) ? fs.readFileSync(CALLOUT_OUT_FILE, 'utf8') : '';
     if (currentCallout !== calloutOut) {
-      console.error('[build-stage-catalog] STALE — run `node tools/build-stage-catalog.js` and commit lib/core/callout-catalog.generated.js');
+      console.error('[build-stage-catalog] STALE — run `node tools/build-stage-catalog.js` and commit lib/plugins/chart-family/shared/callout-catalog.generated.js');
       process.exit(1);
     }
     const currentAxis = fs.existsSync(AXIS_OUT_FILE) ? fs.readFileSync(AXIS_OUT_FILE, 'utf8') : '';
