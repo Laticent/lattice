@@ -372,10 +372,10 @@ so it is switched on with no ceiling moved.
 - **Cost.** On the 443 rendered decks (13.6 MB) the reader takes 183 ms against the old scanner's 144 ms
   (median of five). Both are linear on hostile input now (the unit test times both on ten floods).
 - **Bytes.** Measured with `docs/scripts/measure-route-base.sh` against main and the branch's docs build:
-  `_astro/remote-ref.js` grows by 2,495 gzip bytes on studio, playground and home (the parser is 3,172 bytes
+  `_astro/remote-ref.js` grows by 2,701 gzip bytes on studio, playground and home as CI measures it (2,495 locally; the parser is 3,172 bytes
   minified and gzipped; the reader 1,810 against the old scanner's 1,374), declared in
-  `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz goes from 562,174 to about 564,669
-  bytes, under the 567,832 ceiling. Playground and home stay under theirs.
+  `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz measures 551.6 KB in CI against the
+  554.5 KB (567,832-byte) ceiling. Playground and home stay under theirs.
 - **Browser fuzz.** See the PR body (#3002): `npm run fuzz:web-refs` at 100,000 inputs per engine on the
   switched code, and the failing arm.
 - **Not done:** R4. Each consumer (gallery gate, export, linter, narrator) still keeps its own scan.
@@ -404,9 +404,9 @@ built so far is hard to undo.
   failing arm still failing) has run green. R4 stays one PR per consumer.
 
 - **D9. The Studio ceiling for R3. Answered by the ceiling the owner set on 2026-11-02.** Switching R3 on
-  added 2,495 gzip bytes to the Studio's eager JavaScript, which then sat 164 bytes under its 562,200-byte
-  ceiling, so the switch waited (built on 2026-10-30, unwired). The owner raised that ceiling by 5 KB in #3001
-  for #2997's 0.2 KB, which leaves room for R3 with 3,163 bytes to spare, so the switch shipped with no
+  added about 2.5 KB gzip to the Studio's eager JavaScript (2,495 bytes locally, 2,701 in CI), which then sat
+  164 bytes under its 562,200-byte ceiling, so the switch waited (built on 2026-10-30, unwired). The owner raised that ceiling by 5 KB in #3001
+  for #2997's 0.2 KB, which leaves room for R3 (CI: 551.6 KB against 554.5 KB), so the switch shipped with no
   ceiling moved. The bytes are declared in the route budget's explanation file. Overturning it is one
   revert: the hand-written scanner, with the six fixes, is frozen in tools/segno-legacy/scan-html-fixed.js.
 
