@@ -44,7 +44,7 @@ const componentsDir = join(repoRoot, 'lib', 'components');
 const outDir = join(here, '..', 'public', 'showcase');
 
 const require = createRequire(import.meta.url);
-const { loadAll, manifestBucket } = require(join(componentsDir, 'index.js'));
+const { componentDir, loadAll, manifestBucket } = require(join(componentsDir, 'index.js'));
 
 const MODES = ['light', 'dark'];
 const TARGET_WIDTH = 1600; // ~2x the on-page display width
@@ -58,7 +58,7 @@ function showcaseComponents() {
 }
 
 function srcPdf(m, mode) {
-	return join(componentsDir, manifestBucket(m), m.name, `${m.name}.gallery.${mode}.pdf`);
+	return join(componentDir(m, componentsDir), `${m.name}.gallery.${mode}.pdf`);
 }
 const outFile = (name, mode) => join(outDir, `${name}.${mode}.webp`);
 const SOURCES = join(here, 'showcase-sources.json');
@@ -83,7 +83,12 @@ function check() {
 			const pdf = srcPdf(m, mode);
 			if (!rec) stale.push(`${key}: no source record`);
 			else if (rec.page !== page) stale.push(`${key}: showcase page changed (${rec.page} → ${page})`);
-			else if (!existsSync(pdf)) stale.push(`${key}: gallery PDF missing`);
+			else if (!existsSync(pdf) && rec.src !== pdf.replace(`${repoRoot}/`, '')) {
+				// The gallery MOVED (a chart kind into its plugin): pull requests commit no PDFs, so the PDF at its new
+				// home arrives with the next bless (engineering/decisions/2026-10-06-goldens-bot-blessed.md). The record
+				// still names the old home until this script regenerates it from the blessed PDF.
+				process.stderr.write(`waiting: ${key}: the gallery moved (${rec.src} → ${pdf.replace(`${repoRoot}/`, '')}); its PDF arrives with the next bless.\n`);
+			} else if (!existsSync(pdf)) stale.push(`${key}: gallery PDF missing`);
 			else if (sha256(pdf) !== rec.srcSha256)
 				stale.push(`${key}: gallery PDF changed since the WebP was generated (drifted render)`);
 		}
