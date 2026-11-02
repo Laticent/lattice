@@ -5,7 +5,7 @@ recorded: 2026-11-01
 area: website
 severity: medium
 swimlane: engineering/development.md §Studio e2e suite
-deferred: off-path — both fail identically with main's sources (e6c3a4a) in the cloud sandbox; PR 2992 changes only the PDF writer and Calco's editable path, which neither export uses
+deferred: off-path — not this PR's: both fail identically with main's sources (e6c3a4a, and again on 379917f) on every engine. PR 2992 does touch their capture setup in deck-export.js (the font supply reads icon glyphs; under system emoji each slide gets icon-svg), and the pill is not an icon, so that change cannot remove it; the cause is not found yet
 source: https://github.com/Laticent/lattice/pull/2992
 ---
 

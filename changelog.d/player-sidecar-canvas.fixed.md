@@ -1,0 +1,1 @@
+- `lattice deck.md out --player` with no extension keeps the deck's own canvas in the player: a `size: 4k` deck's player is 3840 x 2160 again, not the HD canvas the PDF beside it takes.
