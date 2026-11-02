@@ -152,14 +152,14 @@ Delivery is policy over acts, owned by the delivery layer, never by a kind. It h
 | Register | Axis | Values | Exists |
 |---|---|---|---|
 | `delivery:` | **Character**: how each act looks and moves (focus, point, ink, stillness), and caption and read-along policy | `restrained` (default), `expressive`, `somber` | deck level only, `lib/core/resolve-delivery.mjs` (2026-09-25 presets, 2026-09-27 styles); `_delivery:` per slide is new |
-| (density; name pending, `narrate:` collides with `--narrate`) | **Density**: which acts are spoken, and which are switched off | `full` (default: all eight acts), `brief` (the key beat), `insight` (verdict, peak, compare); then `-act` to switch any act off | new |
+| `verbosity:` | **Density**: which acts are spoken, and which are switched off | `full` (default: all eight acts), `brief` (the key beat), `insight` (verdict, peak, compare); then `-act` to switch any act off | new |
 
 A new style touches no kind; a new kind gets every style.
 
 The author controls both **at the deck and at the slide** (owner decision, 2026-11-02):
 
-- Deck: `delivery: expressive` and `<density>: full -note` in front matter.
-- Slide: `_delivery: somber` and `_<density>: brief` (or `-frame`) on one slide, overriding the deck for that
+- Deck: `delivery: expressive` and `verbosity: full -note` in front matter.
+- Slide: `_delivery: somber` and `_verbosity: brief` (or `-frame`) on one slide, overriding the deck for that
   slide only.
 - The producer adds one rule of its own when it builds a timeline (never in assistive output): a `frame` is skipped when the slide before framed the same kind, so a
   deck of five bar charts explains bars once.
@@ -192,8 +192,11 @@ The author controls both **at the deck and at the slide** (owner decision, 2026-
 - **Q3:** delivery is split by craft, with no scheduler library: **Regia is the narrator** ("our Vetrina for
   narration"), Cadenza times and owns pace, LTT carries each cue's act and targets, and Suono and Vetrina perform. An
   earlier proposal for a delivery scheduler was rejected as tight coupling (`2026-11-02-regia-narrator.md`).
-- **Q4:** **#2997 holds for all of it**: the plugin contract, the charts plugin with per-kind manifests, the semantics
+- **Q4 (superseded the same day):** first "#2997 holds for all of it"; the plugin contract, the charts plugin with per-kind manifests, the semantics
   contract, and every capability moved onto it, in one PR.
+- **Q4, re-asked after the adversarial review:** one PR per gated step (`2026-11-02-regia-narrator.md` §7, §8): #2997 lands
+  the plugin contract and the byte-identical charts move; the slide tree, narration on Regia and variants follow, one
+  PR each, each replacing what it supersedes.
 - **Q2:** data plus named functions, in the shape of §4a: phrases with slots filled from the tree, and a function per
   computed act that returns facts, never words.
 - **Speech and gesture** are one beat (§4b); **delivery** is controlled at the deck and the slide (§4c).

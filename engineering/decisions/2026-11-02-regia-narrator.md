@@ -70,7 +70,7 @@ The boundary follows the crafts:
   named fact functions (`2026-11-02-declared-figure-semantics.md` §4a).
 - **The fact functions themselves**, passed in by the caller (the kind's code). Regia calls them with the tree and
   gets typed facts back, never words (§7 #4).
-- **A policy**: density (`full`, `brief`, `insight`, and `-act` switches; the register's name is an owner decision, §7 #14), register, the variant seed, and
+- **A policy**: density (`full`, `brief`, `insight`, and `-act` switches; the register is `verbosity:`), register, the variant seed, and
   the previous scene's kind (so a repeated `frame` is dropped).
 
 **Out**
@@ -108,7 +108,7 @@ Live playback (Present) reads the same records in memory; a bake writes them to 
 
 | Control | Register (deck · slide) | Owner | Why |
 |---|---|---|---|
-| Density, act switches | `<density>:` · `_<density>:` (name: owner decision, §7 #14) | Regia | decides what is said |
+| Density, act switches | `verbosity:` · `_verbosity:` | Regia | decides what is said |
 | Register, variants | (style presets) | Regia | decides how it is phrased |
 | Character | `delivery:` · `_delivery:` | host data in `lib/core/delivery-styles/`, handed to Vetrina and the player | decides how pointing looks, captions and read-along (§7 #10) |
 | Pace | `pace:` | Cadenza | decides timing |
@@ -174,12 +174,16 @@ and `CHART_SVG_SEL`; the player's side channel, `player-core.mjs:2496-2501`). Tw
 literals, not 24; and the 2026-09-27 note's "the LTT track carries the refs" is inaccurate (they travel in the player's
 data).
 
-### What the owner decides
+### Owner decisions (2026-11-02)
 
-1. **Scope** of #2997 (the owner chose one PR for everything; the review argues for gated steps).
-2. **The phrase grammar**: typed facts plus Regia's grammar, or a standard message format.
-3. **The LTT change**: extending `actions` with targets.
-4. **The density register's name**.
+1. **Scope: one PR per gated step.** #2997 lands the plugin contract and step 1 (charts as one plugin, byte-identical).
+   Steps 2, 3 and 4 (§8) each land as their own PR, and each fully replaces what it supersedes, so `main` never holds
+   a half-migrated state or a bridge. This supersedes the earlier "hold #2997 for all of it".
+2. **Grammar: typed facts plus Regia's grammar.** Fact functions return typed values; Regia speaks them. Prototyped on
+   line, funnel and sequence before the other kinds.
+3. **LTT: extend the `actions` layer** with `{ unit, id }` targets, covered by the segment hash. An additive change to
+   `spec/LTT-1.0.md`; the player's side channel goes.
+4. **The density register is `verbosity:`** (`verbosity: brief -frame`; `_verbosity: insight` on a slide).
 
 ## 8. Order of work, gated
 
