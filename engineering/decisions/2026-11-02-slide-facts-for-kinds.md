@@ -170,6 +170,24 @@ dispatcher's record bridging, so the plugin keeps no `lib/` edge for it.
    needed, goes in its own PR with the owner's OK.
 4. **Pilot first:** bar, heatmap and journey; then a go or no-go on the other 25.
 
+Later the same day the owner set the model plainly: "a chart needs the chart markdown and a way to parse it and the
+ctx which contains metadata. This is the Hollywood principle and the Unix philosophy. With respect to an id it
+should be handed one too… handing it [the parsed] markup is ideal so every chart can focus on value-added work."
+Three more answers followed:
+
+5. **The tree comes from the markdown parse.** The engine builds a kind's tree from markdown-it's tokens, with HTML
+   only as output, not by re-reading its own rendered HTML. A label's inline content is rendered by the engine and
+   placed opaque. Where the pilot finds a label that cannot stay byte-identical this way, it falls back to today's
+   reader for that one field and says so. This supersedes §3's "built by the slide-facts parser" and §6's bundle
+   estimate, which assumed that parser in the engine.
+6. **Ids are handed over, in the slide-tree PR.** The end state is a unique id prefix per figure, handed in as
+   data (`lat-r0-s3-f2-`), under which the kind names its own parts. It changes every chart id's spelling, so it
+   lands with `followups.d/2997-p1`, which already changes every chart's HTML under export sign-off. Until then
+   #2997 keeps today's ids through `ctx.ids` (§2), marked temporary.
+7. **The lint core takes 1 KB of the engine's ceiling.** Moving the frame to the host (`d922a6e`) moved the chart
+   value readers out of the engine closure into the lint chunk (engine −2.1 KB, lint +0.4 KB). The ceilings move
+   1 KB in opposite directions in their own PR (#3003).
+
 ## Found on the way (off-path)
 
 `risk-band` ids (`risk-matrix.transform.js:126`) are minted through `nextRenderSeq`, but the family is missing from
