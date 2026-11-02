@@ -58,6 +58,17 @@ async function latticePhotoProbe() {
 	};
 	/** The heading of the slide the preview frame shows: the slide on screen, as the reader sees it. */
 	const shown = () => frameDoc()?.querySelector('section h1, section h2')?.textContent?.trim() ?? '';
+	/** What the preview holds, for a timeout's message: the frames, which one is `.live`, and what its document has. */
+	const previewState = () => {
+		const box = document.querySelector('[aria-label="Live deck preview"]');
+		const frames = [...(box?.querySelectorAll('iframe') ?? [])];
+		const doc = frameDoc();
+		return [
+			`preview box ${box ? 'present' : 'absent'}`,
+			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w]`).join(' ') || 'none'}`,
+			`live doc ${doc ? `${doc.readyState}, ${doc.querySelectorAll('section').length} sections, first heading "${doc.querySelector('h1, h2')?.textContent?.trim().slice(0, 40) ?? ''}", body ${doc.body?.innerHTML.length ?? 0} chars` : 'unreadable'}`,
+		].join('; ');
+	};
 	const editorText = () => document.querySelector('[aria-label="Deck source"]')?.textContent ?? '';
 	/** The Coach's photo finding, as text, and its fix button's label. */
 	const coachFinding = () => [...document.querySelectorAll('p')].find((p) => visible(p) && /^The text on this photo reads at/.test(p.textContent.trim()));
@@ -213,7 +224,10 @@ async function latticePhotoProbe() {
 		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
 		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
-		await until(() => shown() !== '', 90000, 'the first preview render');
+		await until(() => shown() !== '', 90000, 'the first preview render').catch((e) => {
+			// Say what the frame held: an iPad run once timed out here with the slide drawn on screen (#2911).
+			throw new Error(`${e.message} (${previewState()})`);
+		});
 		await sleep(1000);
 		await setDeck(DECK);
 
