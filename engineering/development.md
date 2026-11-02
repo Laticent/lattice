@@ -518,7 +518,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
   that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
   until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
-  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs`, so a probe edit runs one suite, not all four. Where the Coach is a sheet over the editor, the probe closes
+  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs`, so a probe edit runs one suite, not all of them. Where the Coach is a sheet over the editor, the probe closes
   it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
   Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
@@ -528,6 +528,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   committed screenshots with the shared JPEG encoder (`lib/core/jpeg-encode.mjs`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
+  `ios-safari-photo-memory` runs it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with
+  `sips` and shows them in ten small frames, first by their own addresses, then through the Studio's preview-sized copies
+  (`preview-image-scale.ts`, #2998). Each arm runs on a site of its own (`127.0.0.1`, then `[::1]`), because WebKit picks a content
+  process per site and a port is not part of the site. `vmmap --summary` reads each simulator WebKit process's physical footprint
+  (`ps` RSS does not see a decoded photo), and an arm counts each process's growth only, because a plain sum nets out memory
+  another process frees during the arm. The suite fails when the originals cost under 60 MB or the copies more than 60% of them;
+  CI has read 86 to 117 MB against 17 to 34 MB. It was part of `ios-safari-studio` until it took that job to 27.6 of its 30
+  minutes.
   `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
   Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
   click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap

@@ -25,11 +25,14 @@ function view() {
   };
 }
 function probe({ cached = false, src = 'a.jpg' } = {}) {
-  let res;
-  let rej;
-  const p = { src, complete: cached, naturalWidth: cached ? 1200 : 0, decode: () => new Promise((a, b) => { res = a; rej = b; }) };
-  p.land = () => { p.complete = true; p.naturalWidth = 1200; res(); };
-  p.fail = () => { p.complete = true; rej(new Error('gone')); };
+  const on = {};
+  const p = {
+    src, complete: cached, naturalWidth: cached ? 1200 : 0, decodes: 0,
+    addEventListener: (type, fn) => { on[type] = fn; },
+    decode() { p.decodes++; return Promise.resolve(); },
+  };
+  p.land = () => { p.complete = true; p.naturalWidth = 1200; on.load?.(); };
+  p.fail = () => { p.complete = true; on.error?.(); };
   return p;
 }
 const flush = () => new Promise((r) => setImmediate(r));
@@ -46,6 +49,18 @@ describe('the Underpainting', () => {
     assert.equal(e.getAttribute(PAINTING), 'done', 'the painting fades away over the picture');
     for (const t of v.timers.filter((x) => x.live)) t.fn();
     assert.equal(e.hasAttribute(PAINTING), false);
+  });
+
+  // A probe's `decode()` makes the browser hold the FULL-SIZE bitmap even when nothing paints it
+  // (~48MB for a 12MP photo, kept by WebKit long after the slide is gone). Wait for `load` instead.
+  it('never forces a decode of the picture: it waits for the load', async () => {
+    const e = el();
+    const p = probe();
+    paintUntilDecoded(e, p, view());
+    p.land();
+    await flush();
+    assert.equal(e.getAttribute(PAINTING), 'done');
+    assert.equal(p.decodes, 0, 'decode() was called');
   });
 
   it('a picture resumed in a re-created element does not replay the sweep', () => {

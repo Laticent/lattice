@@ -115,6 +115,14 @@ if (typeof window !== 'undefined') void loadRemoteRef();
 // bundle (docs/route-budget.json). See ./image-size-memo.ts.
 let imageMemoLoad: Promise<typeof import('../lib/image-size-memo')> | null = null;
 const loadImageMemo = () => (imageMemoLoad ??= import('../lib/image-size-memo'));
+// Preview-sized copies of the deck's photos (../lib/preview-image-scale.ts), lazily loaded for the same
+// reason. Each copy's size is handed to the memo above as it lands, so its section stamps final.
+let imageScaleLoad: Promise<typeof import('../lib/preview-image-scale')> | null = null;
+const loadImageScale = () =>
+	(imageScaleLoad ??= Promise.all([import('../lib/preview-image-scale'), loadImageMemo()]).then(([scale, memo]) => {
+		scale.onCopySized(memo.rememberSize);
+		return scale;
+	}));
 
 export type RenderStatus = {
 	ok: boolean;
@@ -142,6 +150,11 @@ export type RenderStatus = {
 };
 
 export type SingleSlideOptions = {
+	/** Show each background photo through a preview-sized copy (../lib/preview-image-scale.ts). ONLY a
+	 *  host that re-renders on `lattice:preview-images-ready` may opt in (DeckPreview does): a photo
+	 *  whose copy is still being made renders with no `url()` at all, and a host that never hears
+	 *  the copy land would keep the Underpainting until its next edit. Absent, photos load as-is. */
+	scaleImages?: boolean;
 	/** Web origins the reader allowed this deck's images to load from (trio follow-up 11), for
 	 *  the EXPORT renders that take these options (`buildDeckRender`). The live renderer takes its
 	 *  own per-render list (`renderInto` `opts.webOrigins`) and ignores this one. */
@@ -1051,6 +1064,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		liveRenderers += 1;
 	};
 	const dagreUrl = opts.dagreUrl || '';
+	// Read here, not in renderInto: its own `opts` argument shadows this one.
+	const scaleImages = !!opts.scaleImages;
 	const themes = createThemeFetcher(themeBase);
 
 	// Teardown bookkeeping — everything THIS renderer instance creates that would
@@ -2002,15 +2017,25 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Mermaid `img:`). The allowed origins join the policy, so they join the sig too.
 				const remoteRef = await loadRemoteRef();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				// The site's own origin is not a web image: it serves the `sample:` art (remote-ref.js withOwnOrigin).
-				const web = remoteRef.blockWebImages(out.html, remoteRef.withOwnOrigin(allow));
-				// Stamp each image slide from what is already known of its photo, before ANY sink
-				// writes it: the first painted frame is the final layout (./image-size-memo.ts).
+				// Stamp each image slide from what is already known of its photo, before ANY sink writes it,
+				// read from the ORIGINAL addresses: the first painted frame is the final layout (./image-size-memo.ts).
 				const imageMemo = await loadImageMemo();
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				out = { ...out, html: await imageMemo.stampKnownSizes(web.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live')) };
+				// Every photo at the size THIS host draws it, never the original (../lib/preview-image-scale.ts):
+				// a frame decodes a picture at its full size whatever box it sits in. A hidden host has no
+				// box yet, so it takes the slide's own width. Opt-in (the renderer's `scaleImages` option):
+				// see SingleSlideOptions for why only a listening host may.
+				const imageScale = scaleImages ? await loadImageScale() : null;
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, remoteRef.withOwnOrigin(allow), remoteRef.webOrigin);
+				const tier = imageScale ? imageScale.tierFor(host.getBoundingClientRect().width || geom.width, window.devicePixelRatio) : 0;
+				let html = await imageMemo.stampKnownSizes(out.html, geom, host.querySelector<HTMLIFrameElement>('iframe.live'));
+				if (imageScale) html = imageScale.rewrite(html, tier, host, document.baseURI, remoteRef, allow, geom.height / geom.width).html;
+				// LAST, over everything above: the reader's web-image choices, the same gate the frame's markup
+				// always passed. The site's own origin is not a web image: it serves the `sample:` art.
+				const web = remoteRef.blockWebImages(html, remoteRef.withOwnOrigin(allow));
+				out = { ...out, html: web.html };
+				const warmCopy = imageScale ? (url: string, prose?: boolean) => imageScale.warm(url, tier, document.baseURI, geom.height / geom.width, prose) : undefined;
+				const prefetchImages = (fr: HTMLIFrameElement | null | undefined) => imageMemo.prefetch(fr, markdown, remoteRef.withOwnOrigin(allow), remoteRef.webOrigin, warmCopy);
 				webAllow = allow;
 				// The theme and author CSS reach the frame beside the markup, so their web references
 				// count too: the restyle path swaps that <style> without touching <head>.
