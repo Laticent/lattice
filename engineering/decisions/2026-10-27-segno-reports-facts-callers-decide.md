@@ -376,8 +376,12 @@ so it is switched on with no ceiling moved.
   minified and gzipped; the reader 1,810 against the old scanner's 1,374), declared in
   `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz measures 551.6 KB in CI against the
   554.5 KB (567,832-byte) ceiling. Playground and home stay under theirs.
-- **Browser fuzz.** See the PR body (#3002): `npm run fuzz:web-refs` at 100,000 inputs per engine on the
-  switched code, and the failing arm.
+- **Browser fuzz.** `npm run fuzz:web-refs -- --seed 11` in Chromium 131, WebKit 26.0 and Firefox 142, run in
+  resumable 3,000-input chunks (`--from`/`--count`), on the shipped scanner (`lib/` identical from 9498c3a to
+  513d0ef): 100,000 inputs per engine, 0 leaks, 0 unattributed requests, 0 hung inputs, 0 scanner errors;
+  17,125 (Chromium), 16,373 (WebKit) and 16,648 (Firefox) of them fetch as written. An earlier run, on the code
+  before the stray-`<body>` fix, found that leak (fb-43615, closed and replayed clean in all three). The failing arm, `--ref 3780dc9` (the
+  scanner before #2909's fuzz fixes), leaked 142 times in 2,400 inputs.
 - **Not done:** R4. Each consumer (gallery gate, export, linter, narrator) still keeps its own scan.
 
 ## Decisions for the owner
