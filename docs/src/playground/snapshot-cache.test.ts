@@ -242,6 +242,26 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.css).toContain('marks-tone');
 	});
 
+	// Every theme ships every face, and a face no captured element names can never draw in the replay. Kept, the
+	// unused ones (Caveat, Shantell Sans, the icon font) took the default Edit deck's snapshot past half MAX_UNITS
+	// (e2e/playground-paint.spec.ts). A family named anywhere in a stack keeps its face. (jsdom computes no ::before style, so the
+	// pseudo-element arm is covered by the real-browser e2e/playground-paint.spec.ts only.)
+	it('keeps only the font faces some captured element names, in any position of its stack', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		const faces = ['Outfit', 'Noto Color Emoji', 'Caveat', 'Lattice Icons'].map((f) => `@font-face{font-family:"${f}";src:url(fonts/${f.replace(/ /g, '-').toLowerCase()}.woff2)}`).join('');
+		doc.head.innerHTML = `<style>${faces}@font-face{src:url(fonts/nameless.woff2)}section{font-family:Outfit, "Noto Color Emoji", sans-serif}.lat-icon-glyph > span{font-family:"Lattice Icons"}</style>`;
+		const meta = { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 };
+		const plain = captureFirstSectionFromFrame(frame, meta);
+		expect(plain?.css).toContain('outfit.woff2');
+		expect(plain?.css, 'a fallback family keeps its face').toContain('noto-color-emoji.woff2');
+		expect(plain?.css, 'a face with no family is kept').toContain('nameless.woff2');
+		expect(plain?.css).not.toContain('caveat.woff2');
+		expect(plain?.css).not.toContain('lattice-icons.woff2');
+		(doc.querySelector('.lattice > section') as HTMLElement).insertAdjacentHTML('beforeend', '<span class="lat-icon-glyph"><span data-glyph="x"></span></span>');
+		expect(captureFirstSectionFromFrame(frame, meta)?.css, 'a glyph box (its span names the icon font) keeps it').toContain('lattice-icons.woff2');
+	});
+
 	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

@@ -168,6 +168,36 @@ const finishMarksAbsent = (doc, sel) => {
 	}
 };
 
+// A FONT FACE serves only an element whose font-family names it, in any position of the stack (a
+// fallback family draws the glyphs the first one lacks). A face no captured element or ::before/::after
+// names can never draw in the replayed slide, so it is dropped exactly, like a pane arm. Every theme ships
+// every face, so kept whole they cost the default Edit deck's snapshot about 1.5K units (Caveat, Shantell Sans,
+// and the Lattice Icons font, engineering/decisions/2026-11-01-icon-font.md)
+// and took it past half MAX_UNITS (e2e/playground-paint.spec.ts). When no family can be read, every face is kept.
+const PSEUDOS = [null, '::before', '::after'];
+const familyList = (value) =>
+	String(value || '')
+		.split(',')
+		.map((f) => f.trim().replace(/^["']|["']$/g, '').toLowerCase())
+		.filter(Boolean);
+function familiesNamedIn(doc, root) {
+	const win = doc.defaultView;
+	const top = root?.nodeType === 9 ? root.documentElement : root;
+	if (!win?.getComputedStyle || !top) return null;
+	const named = new Set();
+	try {
+		for (const el of [top, ...top.querySelectorAll('*')]) for (const pseudo of PSEUDOS) for (const f of familyList(win.getComputedStyle(el, pseudo).fontFamily)) named.add(f);
+	} catch {
+		return null;
+	}
+	return named.size ? named : null;
+}
+const faceUnused = (rule, named) => {
+	if (!named) return false;
+	const family = familyList(rule.style?.getPropertyValue('font-family'))[0];
+	return !!family && !named.has(family);
+};
+
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;
 	if (finishArmAbsent(doc, selectorText)) return false;
@@ -222,7 +252,7 @@ function scopeSelector(sel, scope) {
 // When `scope` is set (the Playground path), every kept style rule is scoped under it
 // so the snapshot CSS is inert outside the instant-shell — the Studio path passes no
 // scope and keeps the historical unscoped output (its shell is a full-page overlay).
-function collectRules(rules, doc, out, scope, hasPane) {
+function collectRules(rules, doc, out, scope, hasPane, named) {
 	for (const rule of rules) {
 		// @import — DROP. The snapshot CSS is injected into the TOP document (not the
 		// sandboxed preview iframe); a replayed @import would fetch an arbitrary external
@@ -240,12 +270,14 @@ function collectRules(rules, doc, out, scope, hasPane) {
 			else if (hasPane || !all.some(isPaneArm)) out.push(rule.cssText);
 			else out.push(`${all.filter((s) => !isPaneArm(s)).join(',')}{${rule.style.cssText}}`);
 		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
-			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole
+			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole,
+			// except a face no captured element names (familiesNamedIn above).
+			if (rule.type === 5 && faceUnused(rule, named)) continue;
 			out.push(rule.cssText);
 		} else if (rule.cssRules) {
 			// @media/@container/@supports/@layer{…} — recurse; keep only if non-empty
 			const inner = [];
-			collectRules(rule.cssRules, doc, inner, scope, hasPane);
+			collectRules(rule.cssRules, doc, inner, scope, hasPane, named);
 			if (inner.length) {
 				const head = rule.cssText.slice(0, rule.cssText.indexOf('{'));
 				out.push(`${head}{${inner.join('')}}`);
@@ -263,9 +295,10 @@ function collectRules(rules, doc, out, scope, hasPane) {
 export function extractCriticalFromDoc(doc, scope, root = doc) {
 	const out = [];
 	const hasPane = !!root?.querySelector?.('lat-pane');
+	const named = familiesNamedIn(doc, root);
 	for (const sheet of doc.styleSheets) {
 		try {
-			collectRules(sheet.cssRules, doc, out, scope, hasPane);
+			collectRules(sheet.cssRules, doc, out, scope, hasPane, named);
 		} catch {
 			/* a sheet we can't read (shouldn't happen for same-origin srcdoc) — skip */
 		}
