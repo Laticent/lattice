@@ -1069,13 +1069,15 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 //
 // A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
 // PDF or PowerPoint big, and the author owns that choice.
-// The player keeps the deck's canvas, and an extensionless `--player` run's deliverable is the player (OUT_FORMAT above).
+// The player keeps the deck's canvas. One render serves the output and the player beside it (an extensionless run's
+// `.html` sidecar, or `a.pdf --player`'s `a.html`), so when the player is on its rule wins and the PDF or PowerPoint
+// renders at the deck's size too; `--size hd` lowers both.
 const FM_BLOCK = (mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
 const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({
   deckSize: frontMatterValue(FM_BLOCK, 'size'),
   requested: flags.size,
   format: OUT_FORMAT,
-  player: !OUT_EXT && (!!flags.player || require('./lib/core/render-target-keys').readRenderTargetKey(FM_BLOCK, 'player')),
+  player: !!flags.player || require('./lib/core/render-target-keys').readRenderTargetKey(FM_BLOCK, 'player'),
 });
 const mdSized = EXPORT_CANVAS.size ? require('./lib/engine/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
 if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {

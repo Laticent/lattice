@@ -476,6 +476,8 @@ the worst of 21 photos stays above 38 dB PSNR. The canvas rule is `lib/core/expo
 4K exports PDF, PPTX and ODP at HD unless `--size 4k` (CLI) or the panel's Resolution (Studio) says otherwise; the deck is
 never rewritten. The design is resolution-independent, so HD vs 4K is only pixels: on the 52-slide photo deck the PDF is
 5.5 MB vs 8.4 MB and the PPTX 11.9 MB vs 27.5 MB (quality 90). The player, the HTML and the image set do not follow the canvas.
+A run that also writes the player (`--player`, or the deck's `player:` key) renders once for both files, so the player's
+rule wins: the PDF or PowerPoint beside it keeps the deck's 4K too, and `--size hd` lowers both.
 
 **Where the author chooses.** One front-matter line, `images:` (`original`, `90`, `optimized 90`); the CLI flag `--images` takes the same words
 (the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,
