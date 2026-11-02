@@ -1,9 +1,9 @@
 
-// Segno phase 2's plumbing: JSON slot specs compile to Segno slots (lib/core/segno-spec.js),
+// Segno phase 2's plumbing: JSON slot specs compile to Segno slots (`compileSlot`, @laticent/segno),
 // and the core slots (lib/core/segno-slots.js) read the spellings the notation promises.
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { compileSlot, compileType } = require('../../../lib/core/segno-spec.js');
+const { compileSlot, compileType } = require('@laticent/segno/read');
 const { coreSlot, componentSlot, CORE } = require('../../../lib/core/segno-slots.js');
 
 const value = (slot, text) => {

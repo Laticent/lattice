@@ -100,7 +100,7 @@ export interface IconFields {
 /** One change to an icon (`edit` in icons.inline.js): a slot parameter to its new value, `null` for the default. */
 export type IconEdit = Record<string, string | number | null>;
 
-/** A slot schema as the kernels export it (lib/core/segno-spec.js): the panel is drawn from it. */
+/** A slot schema as the kernels export it (`compileSlot`, @laticent/segno): the panel is drawn from it. */
 export interface SlotSpec {
 	readonly positional?: readonly { name: string; type: unknown }[];
 	readonly params: Readonly<Record<string, { type: string; values?: readonly string[]; prefix?: string; max?: number; named?: boolean; word?: string; of?: unknown } | string>>;
