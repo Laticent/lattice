@@ -7,7 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { removeTags, stripTags, plainText } = require('../../../lib/core/plain-text');
+const { removeTags, stripTags, plainText } = require('@laticent/markup');
 const { detailNote } = require('../../../lib/components/chart/_chart-family/mark-detail');
 const { stripDebugAttrs } = require('../../../lib/engine/index.js');
 

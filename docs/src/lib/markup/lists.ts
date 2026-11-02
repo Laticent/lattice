@@ -1,33 +1,18 @@
 /**
- * Depth-aware HTML list walkers — the canonical home for the two primitives
- * every string-rewriting transform needs when it walks rendered Markdown:
- * "give me the top-level <li> contents of this list" and "find the first
- * <ul>/<ol> in this HTML."
- *
- * Both are tag-depth scanners, not regexes, because the naive
- * /<ul>([\s\S]*?)<\/ul>/ stops at the first NESTED </ul> and silently
- * truncates any list whose items carry sublists — the exact shape most
- * Lattice layouts author (— Title / nested body).
- *
- * History: these lived in lib/components/chart/_chart-family/chart-family.js
- * and were copied ("kept local to keep the kernel self-contained") into
- * funnel, map, and mark-detail — and imported from chart-family by
- * lib/core/split-panels.js, which made a core primitive depend on a
- * component (the one architectural-boundary violation the quality
- * assessment flagged). Moving them here inverts that edge: components
- * import core, never the reverse. See engineering/quality-assessment.md.
- *
- * Pure string-in/string-out — no fs, no DOM — safe for every browser bundle.
+ * lists.ts — depth-aware HTML list walkers: "give me the top-level <li> contents of this list" and "find the first
+ * <ul>/<ol> in this HTML". Tag-depth scanners, not regexes: /<ul>([\s\S]*?)<\/ul>/ stops at the first NESTED </ul>
+ * and silently truncates any list whose items carry sublists, the shape most Lattice layouts author. Moved from
+ * lib/core/html-lists.js, unchanged in behavior. Pure string-in/string-out.
  */
 
 // Walk a list's inner HTML and return its top-level `<li>` contents,
 // tracking depth so a nested </li> doesn't terminate the outer item.
 // Tolerates attributes on <li>, <ul>, <ol> (e.g. the engine renders
 // ordered lists with `start="2"` for resumed numbering).
-function parseTopLevelLis(inner) {
-  const items = [];
+export function parseTopLevelLis(inner: string): string[] {
+  const items: string[] = [];
   let depth = 0, liContentStart = -1, i = 0;
-  const matchOpen = (tag, idx) => {
+  const matchOpen = (tag: string, idx: number): number => {
     if (!inner.startsWith('<' + tag, idx)) return -1;
     const next = inner.charCodeAt(idx + 1 + tag.length);
     // Either '>' or whitespace before attributes
@@ -70,9 +55,9 @@ function parseTopLevelLis(inner) {
 // on opening tags (the engine adds data-tight, id, class, start, etc.).
 // Returns { inner, start, end } or null. Unlike /<ul>([\s\S]*?)<\/ul>/ this
 // correctly handles nested lists (the lazy regex stops at the first inner </ul>).
-function extractFirstList(src) {
+export function extractFirstList(src: string): { inner: string; start: number; end: number } | null {
   // Find first <ul or <ol with optional attributes
-  const matchListOpen = (pos) => {
+  const matchListOpen = (pos: number): number => {
     if (src[pos] !== '<') return -1;
     const isUl = src.startsWith('ul', pos + 1);
     const isOl = src.startsWith('ol', pos + 1);
@@ -82,7 +67,7 @@ function extractFirstList(src) {
     const gt = src.indexOf('>', pos);
     return gt < 0 ? -1 : gt + 1;
   };
-  const isListClose = (pos) =>
+  const isListClose = (pos: number): number =>
     (src.startsWith('</ul>', pos) || src.startsWith('</ol>', pos)) ? pos + 5 : -1;
 
   let s = -1;
@@ -110,5 +95,3 @@ function extractFirstList(src) {
   }
   return null;
 }
-
-module.exports = { parseTopLevelLis, extractFirstList };

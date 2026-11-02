@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { parseTopLevelLis, extractFirstList } = require('../../../lib/core/html-lists');
+const { parseTopLevelLis, extractFirstList } = require('@laticent/markup');
 
 test('parseTopLevelLis returns top-level items, not nested ones', () => {
   const inner = '<li>alpha<ul><li>nested</li></ul></li><li>beta</li>';
