@@ -5,6 +5,7 @@
 //
 // (segno, Italian: sign, mark — and the musical *dal segno*, next to cadenza.)
 
+export { parseBracketList, tidy, unquote } from './bracket-list.js';
 export type { CharSet } from './charset.js';
 export * as charset from './charset.js';
 export { generate, kindsOf } from './codegen.js';

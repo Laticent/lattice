@@ -5,7 +5,7 @@
  *
  * The five targets, and the production function each one stands for:
  *
- *   axis   `[{Effort, 0..10, 5}, Reach]`   lib/core/bracket-list.js parseBracketList (cap 3 and uncapped)
+ *   axis   `[{Effort, 0..10, 5}, Reach]`   docs/src/lib/segno/bracket-list.ts parseBracketList (cap 3 and uncapped)
  *   flow   `Storefront -SEV1-> Payments`   splitRow as it was before Segno phase 3 (one text segment;
  *                                          tools/segno-legacy/flowchart-row.js)
  *   gantt  `2026 Q1..Q3`                    lib/core/gantt-time.js parseSpanToken + parseTimePoint

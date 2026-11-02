@@ -29,7 +29,7 @@ function fnBody(file, name) {
 }
 
 const INCUMBENT = [
-  ['lib/core/bracket-list.js', ['parseBracketList']],
+  ['docs/src/lib/segno/bracket-list.ts', ['parseBracketList']],
   ['tools/segno-legacy/flowchart-row.js', ['readArrow', 'splitRow']], // frozen: Segno phase 3 replaced it
   ['lib/core/gantt-time.js', ['parseTimePoint', 'parseSpanToken']],
   ['lib/core/chart-values.js', ['NUMERIC_PILL', 'isValuePill']],

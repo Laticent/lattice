@@ -1,5 +1,7 @@
 /**
- * bracket-list.js — the ONE tokenizer for a bracketed list an author typed.
+ * bracket-list.ts — the ONE tokenizer for a bracketed list an author typed. Moved from lib/core/bracket-list.js,
+ * unchanged in behavior: a grammar Segno reads belongs beside Segno, where the engine, the linter and the charts
+ * plugin all reach it.
  *
  *   `[Effort, Reach]`                      two members, one part each
  *   `[{Effort, 0..10}, {Reach, 0..100}]`   two members, two parts each
@@ -24,7 +26,8 @@
  * Pure: strings in, plain data out. No DOM, no markdown-it, no fs (HARD RULE #1).
  */
 
-const { parse: segnoParse } = require('@laticent/segno/read');
+import type { Item } from './notation.js';
+import { parse as segnoParse } from './notation.js';
 
 /**
  * Collapse whitespace the way a rendered label would read it.
@@ -35,7 +38,7 @@ const { parse: segnoParse } = require('@laticent/segno/read');
  * scan below returns the input UNCHANGED when there is nothing to collapse —
  * which is the overwhelmingly common case, and which allocates nothing at all.
  */
-function tidy(s) {
+function tidy(s: unknown): string {
   const src = typeof s === 'string' ? s : String(s ?? '');
   const n = src.length;
   let a = 0;
@@ -89,7 +92,7 @@ function tidy(s) {
  * key. The two normalizations must agree; this is what makes that true rather
  * than merely asserted, and a fuzz arm pins it over the whole set.
  */
-function isWs(c) {
+function isWs(c: number): boolean {
   return (
     c === 32 || // space
     (c >= 9 && c <= 13) || // tab, LF, VT, FF, CR
@@ -113,7 +116,7 @@ function isWs(c) {
  * this rule it would be three. The alternative — banning commas in a name —
  * fails the first author who measures cost excluding tax.
  */
-function unquote(s) {
+function unquote(s: unknown): string {
   const t = tidy(s);
   if (t.length < 2) return t;
   const q = t.charCodeAt(0);
@@ -152,17 +155,17 @@ function unquote(s) {
  * @param {{maxParts?: number}} [opts]  cap on parts per braced member
  * @returns {Array<string[]>|null}
  */
-function parseBracketList(text, opts) {
-  const maxParts = opts && opts.maxParts > 0 ? opts.maxParts : 0;
+function parseBracketList(text: unknown, opts?: { maxParts?: number }): string[][] | null {
+  const maxParts = opts?.maxParts && opts.maxParts > 0 ? opts.maxParts : 0;
   const src = (typeof text === 'string' ? text : String(text ?? '')).trim();
   // O(1) reject before Segno is asked anything: almost no span is a bracketed list.
   if (src.length < 2 || src.charCodeAt(0) !== 91 /* [ */ || src.charCodeAt(src.length - 1) !== 93 /* ] */) return null;
   const p = segnoParse(src);
   if (!p.ok || p.item.name !== null || p.item.tag || p.item.value.kind !== 'list') return null;
-  const members = [];
+  const members: string[][] = [];
   let pending = 0;
   for (const el of p.item.value.items) {
-    let parts;
+    let parts: string[];
     if (el === null) parts = [];
     else if (el.kind === 'record') parts = el.items.map((it) => tidy(partText(src, it))).filter(Boolean);
     else parts = [tidy(el.kind === 'scalar' && el.quoted ? el.text : src.slice(el.from, el.to).trim())].filter(Boolean);
@@ -176,10 +179,10 @@ function parseBracketList(text, opts) {
 }
 
 /** One record item as the text the author typed: quoted text unquoted, anything else raw. */
-function partText(src, it) {
+function partText(src: string, it: Item): string {
   const v = it.value;
   if (it.name === null && v.kind === 'scalar' && v.quoted) return v.text;
   return src.slice(it.from, it.to).trim();
 }
 
-module.exports = { parseBracketList, unquote, tidy };
+export { parseBracketList, tidy, unquote };

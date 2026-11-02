@@ -12,6 +12,8 @@
  * as the main entry — this file only re-exports — but each built entry bundles its own copy, so
  * never compare a value from this entry to one from another by identity (`instanceof`, `===`).
  */
+
+export { parseBracketList, tidy, unquote } from './bracket-list.js';
 export type { Inconsistency, Use } from './consistency.js';
 export { consistency } from './consistency.js';
 export { MAX_INDEX_SPAN, readIndexList } from './index-list.js';
