@@ -757,6 +757,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	let logoFound: ReadResult['logo'];
 	const frames: TextFrame[] = [];
 	const frameBlocks: Element[] = [];
+	// Frames that are a later piece of a split paragraph (below): only the FIRST piece takes the block's role, so a heading
+	// with an icon is still the slide's title (one title, not two) and a footer with a pill is still its footer.
+	const splitFrames = new Set<number>();
 	const textOwners = new Set<Element>();
 	const kept: Word[] = [];
 	for (const [, el] of dropped) textOwners.add(el);
@@ -852,6 +855,104 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
+		// One line as runs: its words, the spaces between them, and a spacer where something else took room.
+		// `x` is the left edge of the box the line is written into (a leading gap is measured from it).
+		const runsOf = (line: Word[], x: number, align: TextFrame['align']): TextRun[] => {
+			const runs: TextRun[] = [];
+			// One undecorated copy per style, so consecutive spaces merge into one run.
+			const plain = new Map<TextStyle, TextStyle>();
+			const plainOf = (st: TextStyle) => {
+				let hit = plain.get(st);
+				if (!hit) plain.set(st, (hit = { ...st, underline: false, strike: false }));
+				return hit;
+			};
+			const push = (text: string, style: TextStyle) => {
+				const tail = runs[runs.length - 1];
+				if (tail && tail.style === style) tail.text += text;
+				else runs.push({ text, style });
+			};
+			// A spacer: a no-break space at 2px whose letter-spacing is the gap. It is how a
+			// box with no inline padding reproduces the room a padded pill or a marker took.
+			const spacer = (px: number, like: TextStyle) => {
+				const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
+				// A spacer is 2px tall: a highlight on it would be a speck, so the chip's padding is left clear.
+				if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none', highlight: undefined } });
+			};
+			// Below this a gap is kerning or rounding, not room something else took. Where the
+			// style changes (a padded code chip, a pill), the padding is often smaller than
+			// that, so the bar there is a pixel.
+			const minGap = (s: TextStyle, boundary = false) => (boundary ? 1 : Math.max(2, 0.15 * s.size));
+			if (!line.length) return runs;
+			if (align === 'left' && line[0].x - x > minGap(line[0].style)) spacer(line[0].x - x, line[0].style);
+			line.forEach((word, i) => {
+				if (i) {
+					const before = line[i - 1];
+					// The separator is drawn in the font of the text node it came from: a space
+					// that starts " now render" is the body font, not the code chip's before it
+					// (a monospace space is twice as wide: "roadmap  now"). It never carries an
+					// underline or strike, so a link is not underlined under its outer space.
+					const sep = word.lead ? ' ' : '';
+					const from = word.leadFromPrev ? before.style : word.style;
+					const sepStyle = from.underline || from.strike ? plainOf(from) : from;
+					if (sep) push(sep, sepStyle);
+					const expected = sep ? advance(' ', sepStyle) : 0;
+					const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
+					if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
+				}
+				push(word.text, word.style);
+			});
+			return runs;
+		};
+		// SPLIT AT ROOM. Where something else took room in a line (an inline icon, the space between two pills, an icon
+		// before a pill's label), the paragraph is written as one box per segment, each where the browser put it. A
+		// spacer would hold that room only in an app that honors character spacing exactly: iPhone Preview came up a
+		// character short, and the next word slid under the icon (engineering/decisions/2026-11-01-icon-font.md § 3.6).
+		// A gap counts as room when it is wider than its space by more than 0.6 em: an icon is about 1.2 em, the padding
+		// of an inline code chip about 0.3 em (that one keeps its spacer, and the sentence stays one box).
+		const ROOM_EM = 0.6;
+		const roomBefore = (line: Word[], i: number) => {
+			const before = line[i - 1];
+			const word = line[i];
+			const from = word.leadFromPrev ? before.style : word.style;
+			const expected = word.lead ? advance(' ', from) : 0;
+			const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
+			return gap - expected > ROOM_EM * word.style.size;
+		};
+		// The first line's own indent is not room something took.
+		const indent = Number.parseFloat(bcs.textIndent) || 0;
+		const roomAhead = (line: Word[]) => align === 'left' && line.length > 0 && line[0].x - x - (line === lines[0] ? indent : 0) > ROOM_EM * line[0].style.size;
+		// Not split, and held by the spacer as before: right-to-left text, and a line that mixes directions (its words stop
+		// running left to right, so a "gap" is reordering, not room); justified text and extra word-spacing, whose wide spaces
+		// are the paragraph's own; and math, whose gaps are its layout (splitting it cut an equation into pieces).
+		const mixed = lines.some((l) => l.some((wd, i) => i > 0 && wd.x < l[i - 1].x));
+		const spaced = /justify/.test(bcs.textAlign) || (Number.parseFloat(bcs.wordSpacing) || 0) > 0;
+		const math = words.some((wd) => !!wd.node.parentElement?.closest('math, .katex, mjx-container'));
+		const splittable = !preformatted && !rtl && !mixed && !spaced && !math;
+		if (splittable && lines.some((l) => roomAhead(l) || l.some((_w, i) => i > 0 && roomBefore(l, i)))) {
+			for (const line of lines) {
+				let seg: Word[] = [];
+				const flush = (next?: Word) => {
+					if (!seg.length) return;
+					const sx = minOf(seg.map((wd) => wd.x));
+					const ex = maxOf(seg.map((wd) => wd.x + wd.w));
+					const top = minOf(seg.map((wd) => wd.y));
+					const bot = maxOf(seg.map((wd) => wd.y + wd.h));
+					if (frameBlocks.includes(block)) splitFrames.add(frames.length);
+					frameBlocks.push(block);
+					const piece: TextFrame = { x: sx, y: top, w: ex - sx, h: bot - top, firstLineHeight: maxOf(seg.map((wd) => wd.h)), lineHeight, align: 'left', lines: [runsOf(seg, sx, 'left')] };
+					// The box ends where its text does: grown further, it would reach over the icon after it (and take its clicks).
+					if (next) piece.before = ex + 1;
+					frames.push(piece);
+					seg = [];
+				};
+				line.forEach((wd, i) => {
+					if (i > 0 && roomBefore(line, i)) flush(wd);
+					seg.push(wd);
+				});
+				flush();
+			}
+			continue;
+		}
 		frameBlocks.push(block);
 		frames.push({
 			x,
@@ -861,52 +962,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			firstLineHeight: firstH,
 			lineHeight,
 			align,
-			lines: lines.map((line) => {
-				const runs: TextRun[] = [];
-				// One undecorated copy per style, so consecutive spaces merge into one run.
-				const plain = new Map<TextStyle, TextStyle>();
-				const plainOf = (st: TextStyle) => {
-					let hit = plain.get(st);
-					if (!hit) plain.set(st, (hit = { ...st, underline: false, strike: false }));
-					return hit;
-				};
-				const push = (text: string, style: TextStyle) => {
-					const tail = runs[runs.length - 1];
-					if (tail && tail.style === style) tail.text += text;
-					else runs.push({ text, style });
-				};
-				// A spacer: a no-break space at 2px whose letter-spacing is the gap. It is how a
-				// box with no inline padding reproduces the room a padded pill or a marker took.
-				const spacer = (px: number, like: TextStyle) => {
-					const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
-					// A spacer is 2px tall: a highlight on it would be a speck, so the chip's padding is left clear.
-					if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none', highlight: undefined } });
-				};
-				// Below this a gap is kerning or rounding, not room something else took. Where the
-				// style changes (a padded code chip, a pill), the padding is often smaller than
-				// that, so the bar there is a pixel.
-				const minGap = (s: TextStyle, boundary = false) => (boundary ? 1 : Math.max(2, 0.15 * s.size));
-				if (!line.length) return runs;
-				if (align === 'left' && line[0].x - x > minGap(line[0].style)) spacer(line[0].x - x, line[0].style);
-				line.forEach((word, i) => {
-					if (i) {
-						const before = line[i - 1];
-						// The separator is drawn in the font of the text node it came from: a space
-						// that starts " now render" is the body font, not the code chip's before it
-						// (a monospace space is twice as wide: "roadmap  now"). It never carries an
-						// underline or strike, so a link is not underlined under its outer space.
-						const sep = word.lead ? ' ' : '';
-						const from = word.leadFromPrev ? before.style : word.style;
-						const sepStyle = from.underline || from.strike ? plainOf(from) : from;
-						if (sep) push(sep, sepStyle);
-						const expected = sep ? advance(' ', sepStyle) : 0;
-						const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
-						if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
-					}
-					push(word.text, word.style);
-				});
-				return runs;
-			}),
+			lines: lines.map((line) => runsOf(line, x, align)),
 		});
 	}
 
@@ -918,6 +974,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const onlyCode = (el: Element) => el.tagName === 'P' && el.children.length === 1 && el.firstElementChild?.tagName === 'CODE' && (el.textContent || '').trim() === (el.firstElementChild.textContent || '').trim();
 	const isHeading = (el: Element | null) => !!el && /^H[1-3]$/.test(el.tagName);
 	frames.forEach((frame, i) => {
+		if (splitFrames.has(i)) return;
 		const block = frameBlocks[i];
 		if (block.closest('.lat-pagination')) frame.role = 'number';
 		else if (block.closest('header')?.parentElement === section) frame.role = 'header';

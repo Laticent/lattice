@@ -201,6 +201,10 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .vpill { left: 700px; top: 640px; width: 120px; text-align: center; font-size: 14px; }
   .vpill::before { content: ""; display: inline-block; width: 24px; height: 12px; background: #063; }
   .rpill { left: 900px; top: 640px; width: 200px; text-align: right; font-size: 14px; }
+  .rtlgap { left: 40px; top: 470px; width: 400px; font-size: 20px; }
+  .rtlgap i, .justgap i, .indentgap i { display: inline-block; width: 30px; }
+  .justgap { left: 460px; top: 400px; width: 260px; font-size: 16px; text-align: justify; }
+  .indentgap { left: 760px; top: 400px; width: 300px; font-size: 16px; text-indent: 40px; }
   .rpill::after { content: ""; display: inline-block; width: 30px; height: 12px; background: #600; }
 </style></head><body>
 <section id="r">
@@ -223,6 +227,9 @@ third</pre>
   <p class="lig">office first</p>
   <p class="vpill">Speed</p>
   <p class="rpill">Ends early</p>
+  <p class="rtlgap" dir="rtl">שלום <i></i> עולם</p>
+  <p class="justgap">Justified words spread across the line so each gap is wide and wider still here at the end.</p>
+  <p class="indentgap">An indented first line starts late, and the lines after it start at the column edge.</p>
   <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
 </section></body></html>`;
 
@@ -246,22 +253,39 @@ describe('calco reader: the review cases', () => {
     assert.equal(plain(find(/bold/)).replace(/ /g, ''), 'bold italic');
   });
 
-  test('generated text is read in line: the "01" a ::before draws, a spacer for the 60px it takes, then the word', () => {
+  // Room something takes in a line (here the 60px a ::before marker's box takes, and a chip's 16px padding: both more
+  // than 0.6 em) splits the paragraph into one box per piece, each where the browser drew it. A spacer stretched by
+  // character spacing used to hold it, and an app that does not honor that spacing exactly slid the next word under
+  // what took the room (reader.ts, SPLIT AT ROOM).
+  test('generated text is read in line: the "01" a ::before draws is its own box, and the word starts 60px later', () => {
     // The marker is no longer picture content: a real element stands in for it during the read.
-    const why = find(/Why/);
-    assert.equal(why.x, 40, 'the frame starts at the marker');
-    const runs = why.lines[0];
-    assert.equal(runs[0].text, '01');
-    assert.equal(runs[runs.length - 1].text, 'Why');
-    const gap = runs.find((r) => /^\s+$/.test(r.text));
-    assert.ok(gap && gap.style.letterSpacing > 30, 'a spacer carries the rest of the 60px');
+    const one = find(/^01$/);
+    const why = find(/^Why$/);
+    assert.ok(one && why, 'two boxes');
+    assert.equal(one.x, 40, "the marker's box starts at the marker");
+    assert.ok(Math.abs(why.x - 100) < 1, `the word starts after the marker's 60px: ${why.x}`);
+    assert.equal(why.y, one.y, 'on one line');
   });
 
-  test('a padded inline pill keeps its room as a spacer run', () => {
-    const runs = find(/pill/).lines[0];
-    const spacers = runs.filter((r) => r.text === ' ');
-    assert.ok(spacers.length >= 1, 'a spacer stands in for the padding');
-    assert.ok(spacers.every((r) => r.style.letterSpacing > 8), JSON.stringify(spacers.map((r) => r.style.letterSpacing)));
+  test('a padded inline pill splits the line at its padding, with no stretched spacer', () => {
+    const a = find(/^A$/);
+    const pill = find(/^pill$/);
+    const after = find(/^after$/);
+    assert.ok(a && pill && after, 'three boxes');
+    assert.ok(pill.x - (a.x + a.w) >= 16, 'the pill starts past its 16px padding');
+    assert.ok(after.x - (pill.x + pill.w) >= 16, 'the next word starts past it too');
+    for (const f of [a, pill, after]) assert.ok(f.lines[0].every((r) => !(r.style.letterSpacing > 8)), 'no stretched spacer');
+  });
+
+  // Not split at room (the spacer holds it, as before): right-to-left text, whose words run right to left; justified
+  // text, whose wide spaces are the paragraph's own; a first-line indent, which is the paragraph's own start.
+  test('right-to-left text, justified text and a first-line indent are not split into pieces', () => {
+    // Each paragraph is ONE box: its first word's box holds its last word too.
+    for (const [first, last] of [[/שלום/, 'עולם'], [/Justified/, 'end.'], [/An indented/, 'edge.']]) {
+      const f = find(first);
+      assert.ok(f, `${first} was read`);
+      assert.ok(plain(f).includes(last), `${first} split: its box holds ${JSON.stringify(plain(f))}`);
+    }
   });
 
   test('a heading whose glyph box overhangs a clipping stage is still read', () => {

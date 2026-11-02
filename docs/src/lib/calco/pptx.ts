@@ -199,7 +199,8 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const lines = frame.lines;
 		const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
 		const metrics = metricsFor(lead, fonts, metricsCache);
-		const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
+		// Capped: PowerPoint never wraps a text box (`wrap: false` below), so a split piece's box can end at its text.
+		const box = placeFrame(frame, W, metrics, lead.size, 'proportional', true);
 		// An empty line (a blank line in code) is an empty paragraph in the lead style.
 		const runs = lines.flatMap((line, li) => {
 			const last = li < lines.length - 1;

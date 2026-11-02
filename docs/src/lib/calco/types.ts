@@ -68,6 +68,13 @@ export interface TextFrame {
 	lineHeight: number;
 	align: 'left' | 'center' | 'right';
 	lines: TextRun[][];
+	/**
+	 * One piece of a paragraph split where something took room (an inline icon, a pill), not the last on its line: the x,
+	 * px, its box may grow to. A writer grows a box's width for a wider substitute font, and must not grow it past this,
+	 * or the box would reach over the icon after it and take its clicks. Only PowerPoint honors it (its boxes never wrap);
+	 * LibreOffice wraps an .odp box at its width, so there a piece keeps its slack (layout.ts `placeFrame`).
+	 */
+	before?: number;
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
 	/**

@@ -211,6 +211,37 @@ describe('icon-font-exports', () => {
 		}
 	});
 
+	// The bug the owner hit on an iPhone: the room an icon takes in a sentence was held by a stretched 2 px space, and
+	// an app that does not honor character spacing exactly slid the next word under the icon. Now the sentence is split
+	// at the icon into text boxes where the browser put each piece (reader.ts, SPLIT AT ROOM), so no text box spans an
+	// icon and no stretched spacer is left to misread. A piece's box ends at its text (it would otherwise grow over the
+	// icon after it and take its clicks).
+	test('no text box spans an icon shape, and no stretched spacer holds an icon\'s room', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(path.join(dir, 'shapes.pptx')));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		const rect = (sp) => {
+			const [, x, y] = sp.match(/<a:off x="(-?\d+)" y="(-?\d+)"/).map(Number);
+			const [, w, h] = sp.match(/<a:ext cx="(\d+)" cy="(\d+)"/).map(Number);
+			return { x, y, w, h };
+		};
+		const sps = [...slide.matchAll(/<p:sp>[\s\S]*?<\/p:sp>/g)].map((m) => m[0]);
+		const icons = sps.filter((sp) => sp.includes('<a:custGeom>')).map(rect);
+		const texts = sps.filter((sp) => /<a:t>[^<]*\w/.test(sp) && !sp.includes('<a:custGeom>')).map((sp) => ({ ...rect(sp), text: [...sp.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1]).join('') }));
+		const over = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+		for (const t of texts) for (const ic of icons) assert.ok(!over(t, ic), `"${t.text}" spans an icon`);
+		assert.ok(texts.some((t) => t.text.trim() === 'Storage'), 'the sentence is split at the icon');
+		assert.doesNotMatch(slide, /<a:rPr [^>]*sz="150"[^>]*spc="\d{3,}"/, 'a 1.5 pt spacer stretched by character spacing');
+	});
+
+	// A heading split at its icon stays the slide's title: the FIRST piece takes the role (PowerPoint's outline and its
+	// accessibility check read the title placeholder), and only one piece does.
+	test('a heading with an inline icon keeps its title placeholder, once', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('title', [], 'title.pptx', ['--editable'], ['## Storage `^{database}` costs less', '', 'Body.', ''])));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		assert.equal((slide.match(/<p:ph type="title"/g) || []).length, 1, 'one title placeholder');
+		assert.match(slide.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?<p:ph type="title"[\s\S]*?<\/p:sp>/)[0], /<a:t>Storage<\/a:t>/, 'the title is the first piece');
+	});
+
 	test('`office-icons: font` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
 		const glyphs = ['database', 'bucket', 'lock'].map((n) => String.fromCodePoint(Number.parseInt(ICON_CODEPOINTS[n], 16)));
 		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.pptx', ['--editable'])));

@@ -68,7 +68,12 @@ export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: nu
  *    multiple, glyphs at its top, so the box top is the baseline minus multiple × ascent.
  *    (Measured in LibreOffice 26.8; Google Slides reads the multiple the same way.)
  */
-export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact'): PlacedBox {
+/**
+ * `capped`: honor `frame.before` (a split piece's box ends at its text). Only for a format whose text boxes never wrap
+ * (PowerPoint, `wrap: false`); LibreOffice wraps an .odp text box at its width whatever its style says, so there a piece
+ * keeps its slack, or its last word would drop onto the next line.
+ */
+export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact', capped = false): PlacedBox {
 	const { ascent, descent } = metrics;
 	// The browser's baseline: the glyph box splits ascent : descent.
 	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
@@ -80,7 +85,8 @@ export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetric
 			: frame.align === 'right'
 				? frame.x
 				: slideW - frame.x - frame.w;
-	const slack = Math.max(0, Math.min(Math.max(0.1 * frame.w, 3 * maxSize), room));
+	const limit = capped && frame.before !== undefined && frame.align === 'left' ? Math.max(0, frame.before - frame.x - frame.w) : room;
+	const slack = Math.max(0, Math.min(Math.max(0.1 * frame.w, 3 * maxSize), room, limit));
 	const x = frame.align === 'center' ? frame.x - slack / 2 : frame.align === 'right' ? frame.x - slack : frame.x;
 	return { x, y, w: frame.w + slack, h: frame.lineHeight * frame.lines.length };
 }
