@@ -699,7 +699,7 @@ describe('html-player export — a baked label halo follows, or its ink freezes 
 	const TIMEOUT = 120000;
 	let out;
 	test.before(async () => {
-		const { flattenSvgStyles } = require(path.join(ROOT, 'lib/components/chart/_chart-family/standalone-svg.js'));
+		const { flattenSvgStyles } = require(path.join(ROOT, 'lib/plugins/chart-family/shared/standalone-svg.js'));
 		const puppeteer = require('puppeteer');
 		const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 		try {

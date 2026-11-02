@@ -31,6 +31,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -50,6 +51,15 @@ function readGalleries(root = ROOT) {
 			const theme = /^theme:\s*['"]?([\w-]+)/m.exec(head)?.[1] || 'indaco';
 			out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir: `lib/components/${bucket.name}/${comp.name}/`, theme });
 		}
+	}
+	// A plugin's kinds keep their galleries beside them (lib/plugins/<plugin>/kinds/<name>/).
+	for (const k of pluginKindFolders(base)) {
+		const file = path.join(k.parent, k.name, `${k.name}.gallery.md`);
+		if (!fs.existsSync(file)) continue;
+		const head = fs.readFileSync(file, 'utf8').split(/\r\n?|\n/).slice(0, 12).join('\n');
+		const theme = /^theme:\s*['"]?([\w-]+)/m.exec(head)?.[1] || 'indaco';
+		const dir = `${path.relative(root, path.join(k.parent, k.name)).split(path.sep).join('/')}/`;
+		out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir, theme });
 	}
 	return out.sort((a, b) => a.file.localeCompare(b.file));
 }

@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/_chart-family/standalone-svg.js — the PURE halves of
+ * Unit: lib/plugins/chart-family/shared/standalone-svg.js — the PURE halves of
  * the standalone chart-SVG export (finalizeStandaloneSvg + collectFontFamilies).
  *
  * flattenSvgStyles is browser-only (needs getComputedStyle); it's covered
@@ -15,7 +15,7 @@ const {
   parseTokenDecls,
   applyCollectedTokens,
   bakePlan,
-} = require('../../../lib/components/chart/_chart-family/standalone-svg.js');
+} = require('../../../lib/plugins/chart-family/shared/standalone-svg.js');
 
 describe('finalizeStandaloneSvg', () => {
   const PIE = '<svg viewBox="0 0 377 200"><rect/></svg>';
@@ -262,7 +262,7 @@ describe('the flattener carries the edge contract into the exported file', () =>
   // carries an apostrophe ("the chart's swatch"), and a naive quote scan reads
   // that as the start of a string and the next one as its end.
   const SRC = fs.readFileSync(
-    path.join(__dirname, '../../../lib/components/chart/_chart-family/standalone-svg.js'),
+    path.join(__dirname, '../../../lib/plugins/chart-family/shared/standalone-svg.js'),
     'utf8',
   );
   const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');

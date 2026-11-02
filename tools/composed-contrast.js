@@ -130,7 +130,7 @@ const BUNDLE     = path.join(ROOT, 'dist', 'lattice.css');
 // site, so the card pins below are anchored to their selectors. (Before the levelling
 // this note said 5% "bounds" the 4% variants; that argument retired with the 5%.)
 const REDLINE = 'lib/components/comparison/redline/redline.styles.css';
-const WORDCLOUD = 'lib/components/chart/word-cloud/word-cloud.transform.js';
+const WORDCLOUD = 'lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform.js';
 const POLICY = 'lib/components/legal/policy-recommendation/policy-recommendation.styles.css';
 const OBLIGATION = 'lib/components/legal/obligation-matrix/obligation-matrix.styles.css';
 const KPI = 'lib/components/evidence/kpi/kpi.styles.css';
@@ -139,11 +139,11 @@ const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styl
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
 const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
 const BASETOKENS = 'lib/base/base.tokens.css';
-const ROADMAP = 'lib/components/chart/roadmap/roadmap.styles.css';
+const ROADMAP = 'lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css';
 const REGUPDATE = 'lib/components/legal/regulatory-update/regulatory-update.styles.css';
-const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
-const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
-const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
+const KANBAN   = 'lib/plugins/chart-family/kinds/kanban/kanban.styles.css';
+const STATECHART = 'lib/plugins/chart-family/kinds/state-chart/state-chart.styles.css';
+const STATECHART_JS = 'lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js';
 const ELEMENTS = 'lib/base/base.elements.css';
 
 // The kanban card's own opaque fill — the base every in-card surface sits on. Light is
@@ -638,7 +638,7 @@ const SURFACES = [
     groups: [{ bg: 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))' }],
     ink: '--on-mark',
     min: 4.5,
-    src: 'lib/components/chart/risk-matrix/risk-matrix.styles.css',
+    src: 'lib/plugins/chart-family/kinds/risk-matrix/risk-matrix.styles.css',
     requires: [
       /\.risk-key-marker\[data-band="critical"\] \{\s*fill: color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--on-mark-shade, black\)\);/,
       /\.risk-key-number \{ fill: var\(--chart-on-mark\); \}/,

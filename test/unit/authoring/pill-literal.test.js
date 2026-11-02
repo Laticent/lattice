@@ -90,7 +90,7 @@ describe('author class words in a string replacement', () => {
 
 describe('author text in a string replacement — the sites followups.d/2519-p3 named', () => {
   const meta = require('../../../lib/forms/tile/meta/meta.transform.js');
-  const roadmap = require('../../../lib/components/chart/roadmap/roadmap.transform.js');
+  const roadmap = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js');
   const TOKENS = ['$&', '$`', "$'"];
 
   test('a `meta:` value holding a replacement token keeps it', () => {

@@ -25,7 +25,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const P = (p) => path.join(ROOT, p);
 const {
   noteLabelDrop, noteHiddenLabels, collectLabelDrops, encodeLabelDrops, decodeLabelDrops,
-} = require(P('lib/components/chart/_chart-family/label-drops.js'));
+} = require(P('lib/plugins/chart-family/shared/label-drops.js'));
 const { transformChartSection } = require(P('lib/plugins/chart-family/chart-family.dispatch.js'));
 
 // Plain parser, for the census's reason: the engine's parser has the pill plugin
@@ -141,7 +141,7 @@ describe('a name painted cut short is reported as `truncate`', () => {
   });
 
   test('a CJK name that wraps between characters is not a split word', () => {
-    const { measureLabel } = require('../../../lib/components/chart/_chart-family/svg-label.js');
+    const { measureLabel } = require('../../../lib/plugins/chart-family/shared/svg-label.js');
     assert.equal(measureLabel('売上高合計', { width: 20, fontSize: 10 }).split, false);
     assert.equal(measureLabel('FY20', { width: 20, fontSize: 10 }).split, true);
   });

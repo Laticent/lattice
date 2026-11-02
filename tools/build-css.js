@@ -49,6 +49,7 @@ const { themeEntries, themePath } = require('../lib/theme/files.js');
 const path = require('node:path');
 const { minifyCss, minifyCssPieces } = require('./minify-css');
 const { sizeBlock } = require('../lib/core/sizes');
+const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 /**
  * Stamp the engine's size registry into a stylesheet's `@theme` comment, as the
@@ -247,7 +248,7 @@ const TAIL_SOURCES = [
   // (tools/build-marks-css.js). After every chart member's CSS, so a finish is read
   // last among the chart rules; BEFORE the print textures, so a print deck keeps its
   // pattern fills whatever finish it names. See lib/core/resolve-marks.js.
-  'lib/components/chart/_chart-family/marks.generated.css',
+  'lib/plugins/chart-family/chart-family.styles.generated.css',
   // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
   // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked
   // node fills). Scoped to section.print; inert on every non-print deck.
@@ -508,6 +509,9 @@ function componentStyles() {
       tryReadFor(bucketRel, child.name);
     }
   }
+  // A plugin's kinds (the charts plugin's chart kinds, lib/plugins/<plugin>/kinds/<name>/) are components
+  // too: the same name sort places them, so moving a kind into its plugin leaves the bundle order alone.
+  for (const k of pluginKindFolders(root)) tryReadFor(path.relative(ROOT, k.parent), k.name);
 
   return [...collected.entries()]
     .sort(([a], [b]) => a.localeCompare(b))

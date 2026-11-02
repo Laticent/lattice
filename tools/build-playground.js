@@ -218,7 +218,7 @@ const lazyChartRegistryPlugin = {
 // half, and `callout-place` is an entry of its own that installs it into the one shared layer. The host
 // loads that entry for a deck that writes a callout (docs/src/lib/ensure-charts.ts `ensureCalloutLayer`).
 // Never in the IIFE or Node, where the `require` stays.
-const CALLOUT_CHUNK_DIR = path.join(ROOT, 'lib', 'components', 'chart', '_chart-family');
+const CALLOUT_CHUNK_DIR = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'shared');
 const CALLOUT_PLACE_LOAD = path.join(CALLOUT_CHUNK_DIR, 'callout-place-load.js');
 const calloutPlaceEsmPlugin = {
   name: 'callout-place-esm',

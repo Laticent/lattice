@@ -84,7 +84,7 @@ export interface MotionTarget {
  * Components that emit `data-anima-role`, and so are the ones chart motion can actually reach.
  *
  * MEASURED, not inferred from the manifests: `grep -rl data-anima-role lib/` returns these seven
- * transforms plus the shared `_chart-family/svg-label.js`. An earlier draft of this file keyed on
+ * transforms plus the shared `chart-family/shared/svg-label.js`. An earlier draft of this file keyed on
  * `render: svg` in the manifest instead, and got two of them backwards — `diagram` declares SVG
  * and emits NO role (its markup is third-party Mermaid), while `state-chart` is `render: hybrid`
  * and DOES emit one. Declaring SVG and being animatable are different properties.

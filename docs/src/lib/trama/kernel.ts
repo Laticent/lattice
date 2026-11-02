@@ -1,7 +1,7 @@
 /**
  * Trama kernel: dagre places the boxes, and `solveRoutes` routes the lines. The layout
  * half of the graph-chart library (engineering/decisions/2026-09-27-trama-graph-chart-library.md);
- * it moved here from `lib/components/chart/_chart-family/graph-layout.js`, where the
+ * it moved here from `lib/plugins/chart-family/shared/graph-layout.js`, where the
  * flowchart shipped it (2026-09-25-flowchart-authoring.md §7).
  *
  * ONE SELF-CONTAINED FUNCTION, ON PURPOSE. A chart's browser pass is shipped as

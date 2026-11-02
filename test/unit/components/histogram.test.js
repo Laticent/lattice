@@ -1,5 +1,5 @@
 /**
- * histogram — the band kernel (lib/components/chart/histogram/), its row model
+ * histogram — the band kernel (lib/plugins/chart-family/kinds/histogram/), its row model
  * (lib/core/histogram-model.js), its narrator and its lint rule.
  *
  * Pins the parse (a range and a value, in either order), the area rule (a band's
@@ -10,7 +10,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { parseHistogram, buildHistogram, transformSection } = require('../../../lib/components/chart/histogram/histogram.transform');
+const { parseHistogram, buildHistogram, transformSection } = require('../../../lib/plugins/chart-family/kinds/histogram/histogram.transform');
 const { readRow, joins } = require('../../../lib/core/histogram-model');
 const { readAxisMember } = require('../../../lib/core/axis-member');
 const { narrateChart } = require('../../../lib/core/chart-narration');
@@ -87,7 +87,7 @@ describe('histogram kernel', () => {
   });
 
   test('the seam paints the canvas, wider than an edge, and never takes the pointer', () => {
-    const css = require('node:fs').readFileSync(require.resolve('../../../lib/components/chart/histogram/histogram.styles.css'), 'utf8');
+    const css = require('node:fs').readFileSync(require.resolve('../../../lib/plugins/chart-family/kinds/histogram/histogram.styles.css'), 'utf8');
     const rule = css.split('.histogram-seam {')[1].split('}')[0];
     for (const decl of ['stroke: var(--bg);', 'stroke-width: calc(2 * var(--chart-hairline));', 'vector-effect: non-scaling-stroke;', 'pointer-events: none;']) {
       assert.ok(rule.includes(decl), `the seam rule keeps \`${decl}\``);
@@ -100,7 +100,7 @@ describe('histogram kernel', () => {
     for (const a of tags(svg, 'histogram-band')) {
       assert.deepEqual([a('data-hue'), a('data-encodes'), a('data-paint')], ['1', 'hue', 'fill']);
     }
-    const mark = require('../../../lib/components/chart/histogram/histogram.manifest.json').kernel.marks[0];
+    const mark = require('../../../lib/plugins/chart-family/kinds/histogram/histogram.manifest.json').kernel.marks[0];
     assert.deepEqual([mark.encodes, mark.paint, mark.bears], ['hue', 'fill', false], 'the values print above a band, never on it');
   });
 
@@ -211,7 +211,7 @@ describe('histogram — the checker repros', () => {
   });
 
   test('a value label that cannot be placed is reported as a drop', () => {
-    const { collectLabelDrops } = require('../../../lib/components/chart/_chart-family/label-drops');
+    const { collectLabelDrops } = require('../../../lib/plugins/chart-family/shared/label-drops');
     // Thirty one-unit bands of equal height: their labels cannot all clear one another.
     const rows = Array.from({ length: 30 }, (_, i) => ['', `${i}..${i + 1}`, '33.3%']);
     const { drops } = collectLabelDrops(() => buildHistogram(parseHistogram(li(rows)), {}));

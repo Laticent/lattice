@@ -206,8 +206,8 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`stats`](../../evidence/stats/stats.docs.md) — metric row without targets or status pills
 - [`big-number`](../../statement/big-number/big-number.docs.md) — a single number is the whole argument
 - [`split-panel`](../../statement/split-panel/split-panel.docs.md) — one KPI with a paragraph of supporting prose
-- [`progress`](../../chart/progress/progress.docs.md) — completion percentages across parallel workstreams
-- [`timeline-list`](../../chart/timeline-list/timeline-list.docs.md) — milestones in time, not metrics at a moment
+- [`progress`](../../../plugins/chart-family/kinds/progress/progress.docs.md) — completion percentages across parallel workstreams
+- [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — milestones in time, not metrics at a moment
 
 ## Demo deck
 

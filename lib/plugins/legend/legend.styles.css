@@ -3,7 +3,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Design: engineering/decisions/2026-10-19-universal-legend.md. The kernels (lib/core/legend.js,
- * lib/core/legend-mark.js, lib/components/chart/_chart-family/legend-svg.js) write geometry, a class
+ * lib/core/legend-mark.js, lib/plugins/chart-family/shared/legend-svg.js) write geometry, a class
  * and a `data-c` color slot; this file is the only place a key gets a color (HARD RULE #3). Every
  * color is a theme token, so a legend follows a palette and a light or dark canvas with no code. A
  * callout's paint is the callout plugin's (lib/plugins/callout/callout.styles.css, split off by

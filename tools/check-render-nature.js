@@ -82,7 +82,7 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
-const { loadAll, manifestBucket } = require('../lib/components');
+const { componentDir, loadAll, manifestBucket } = require('../lib/components');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 /** The two buckets whose components are visualizations — the family that declares `render`. */
@@ -122,7 +122,7 @@ function vizComponents() {
       name: m.name,
       bucket: manifestBucket(m),
       declared: m.render,
-      deck: path.join(ROOT, 'lib', 'components', manifestBucket(m), m.name, `${m.name}.gallery.md`),
+      deck: path.join(componentDir(m, path.join(ROOT, 'lib', 'components')), `${m.name}.gallery.md`),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

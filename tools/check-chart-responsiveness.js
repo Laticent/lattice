@@ -11,7 +11,7 @@
  * layout-box length lands in any chart component's CSS.
  *
  * What it flags: a px literal on a LAYOUT-BOX property (see LAYOUT_PROPS) in
- * `lib/components/chart/**\/*.css`.
+ * `lib/plugins/chart-family/**\/*.css`.
  *
  * What it does NOT flag — the three legitimate ways px appears in chart CSS:
  *   1. SVG-viewBox context — a rule that targets an SVG element/class or carries
@@ -243,9 +243,8 @@ function findViolations(css) {
 }
 
 function defaultGlob() {
-  // `chart/*/*.css` covers each member and `_chart-family/`; the chart frame is the chart family
-  // plugin's stylesheet now, so it is named on its own.
-  const out = execSync('ls lib/components/chart/*/*.css lib/plugins/chart-family/chart-family.styles.css', { cwd: ROOT, encoding: 'utf8' });
+  // Each kind's sheet, the chart frame (the plugin's own stylesheet) and the generated finish rules.
+  const out = execSync('ls lib/plugins/chart-family/kinds/*/*.css lib/plugins/chart-family/chart-family.styles.css lib/plugins/chart-family/chart-family.styles.generated.css', { cwd: ROOT, encoding: 'utf8' });
   return [...new Set(out.trim().split('\n').filter(Boolean))];
 }
 

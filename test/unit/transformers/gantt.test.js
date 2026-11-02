@@ -1,6 +1,6 @@
 /**
  * Unit tests for the redesigned gantt — the continuous-time renderer
- * (lib/components/chart/gantt/gantt.transform.js buildGanttChart) and the
+ * (lib/plugins/chart-family/kinds/gantt/gantt.transform.js buildGanttChart) and the
  * authoring linter (lib/authoring/lint-core.js findGanttIssues, via lintTextWith).
  *
  * Contract: a task is a nested bullet with trailing inline-code tokens — a span
@@ -20,11 +20,11 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
-const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
+const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
 const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL, ganttGutter } = ganttKernel;
-const { LINE_HEIGHT } = require('../../../lib/components/chart/_chart-family/svg-label.js');
+const { LINE_HEIGHT } = require('../../../lib/plugins/chart-family/shared/svg-label.js');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
 const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
@@ -589,7 +589,7 @@ describe('gantt — tick advance follows the painted face', () => {
 
   test('the hand advance stays inside its derivation window', () => {
     const { ADVANCE_MONO_TRACKED, ADVANCE_HAND_TRACKED } =
-      require('../../../lib/components/chart/_chart-family/svg-label');
+      require('../../../lib/plugins/chart-family/shared/svg-label');
     assert.ok(ADVANCE_HAND_TRACKED > ADVANCE_MONO_TRACKED,
       'the proportional hand sans sets wider than tracked mono');
     // Both walls of the window svg-label.js derives, locked here because the
@@ -616,7 +616,7 @@ describe('gantt — tick advance follows the painted face', () => {
 
   test('the wrap budget admits the longest emitted label, in BOTH orientations', () => {
     const { charBudget, ADVANCE_HAND_TRACKED, ADVANCE_MONO_TRACKED } =
-      require('../../../lib/components/chart/_chart-family/svg-label');
+      require('../../../lib/plugins/chart-family/shared/svg-label');
     for (const [name, G] of [['landscape', GANTT_GEOM], ['portrait', GANTT_GEOM_TALL]]) {
       for (const [face, adv] of [['mono', ADVANCE_MONO_TRACKED], ['hand', ADVANCE_HAND_TRACKED]]) {
         const budget = charBudget(G.tickBoxW, G.fsTick, adv);

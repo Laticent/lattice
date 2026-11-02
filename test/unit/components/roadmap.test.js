@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/roadmap/roadmap.transform.js — roadmap modifier transforms.
+ * Unit: lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js — roadmap modifier transforms.
  *
  * Two transforms keyed off the roadmap layout class:
  *   - roadmap status   : tag <td> cells with state marker → state class
@@ -16,7 +16,7 @@ const {
   applyHorizons,
   applyToRenderedHtml,
   markerToState,
-} = require('../../../lib/components/chart/roadmap/roadmap.transform');
+} = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform');
 
 describe('roadmap', () => {
   // ── markerToState ──────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ describe('roadmap', () => {
 describe('the status key label set', () => {
   const {
     transformSection, STATE_LABEL,
-  } = require('../../../lib/components/chart/roadmap/roadmap.transform');
+  } = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform');
 
   // A minimal rendered roadmap carrying all four markers.
   const GRID = '<h2>Plan</h2><table><thead><tr><th></th><th>Q1</th></tr></thead>'
@@ -355,7 +355,7 @@ describe('the status key label set', () => {
 });
 
 describe('the two answers roadmap gained: missed and uncertain', () => {
-  const { transformSection } = require('../../../lib/components/chart/roadmap/roadmap.transform');
+  const { transformSection } = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform');
   const GRID = '<h2>Plan</h2><table><thead><tr><th></th><th>Q2</th><th>Q3</th></tr></thead>'
     + '<tbody>'
     + '<tr><td>Billing</td><td>[x] Tiers</td><td>[!] Metering, cut for Q4</td></tr>'

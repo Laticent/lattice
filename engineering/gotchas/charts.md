@@ -18,7 +18,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   landed on `nth-child(6)` → `--cat6` (rose).
 - **Mitigation:** Wedge borders count by `nth-of-type` instead, which
   considers only `<path>` siblings and ignores `<defs>`
-  (`lib/components/chart/piechart/piechart.styles.css`). Legend swatches
+  (`lib/plugins/chart-family/kinds/piechart/piechart.styles.css`). Legend swatches
   keep `nth-child` — their flex container has no leading non-swatch
   sibling.
 - **Triggered by:** Any piechart render (the `<defs>` is always emitted

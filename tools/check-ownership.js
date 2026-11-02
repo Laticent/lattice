@@ -125,7 +125,7 @@ const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
 const manifestSchemas = require('./manifest-schemas'); // the four manifest families + their JSON-Schema gate
 const { checkManifestSchemas } = manifestSchemas;
 const {
-  loadAll, manifestBucket, BUCKETS,
+  componentDir, loadAll, manifestBucket, BUCKETS,
   UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS, MODIFIER_GROUPS,
 } = require('../lib/components');
 const { TRANSFORMERS } = require('../lib/transformers/registry');
@@ -142,7 +142,7 @@ const { followupProblems } = require('./followups');
 const { contractDrop, contractOf, SANCTIONED_TOKEN_CONTRACTS } = require('../lib/tokens/contracts');
 // font-metrics pin: the table and the digests live together, beside what they
 // describe — this gate only compares them against the bytes on disk.
-const { GLYPH_UPPER, GLYPH_UPPER_FONTS } = require('../lib/components/chart/_chart-family/svg-label');
+const { GLYPH_UPPER, GLYPH_UPPER_FONTS } = require('../lib/plugins/chart-family/shared/svg-label');
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -453,7 +453,7 @@ function cssRootModifierTokens(css, name) {
 function componentTransformPath(m) {
   const bucket = manifestBucket(m);
   const candidates = [
-    path.join(COMPONENTS_DIR, bucket, m.name, `${m.name}.transform.js`),
+    path.join(componentDir(m, COMPONENTS_DIR, bucket), `${m.name}.transform.js`),
     path.join(COMPONENTS_DIR, m.name, `${m.name}.transform.js`),
   ];
   return candidates.find((p) => fs.existsSync(p)) || null;
@@ -993,7 +993,7 @@ function checkPackageIdentity(errors, { root } = {}) {
     for (const e of result.errors) errors.push(`${where}: ${e} (package identity — the manifest owns the name)`);
   }
   if (root) return;
-  const { family, listFamilyManifests } = require('./manifest-schemas.js');
+  const { family, listFamilyManifests } = require('./manifest-schemas');
   for (const [type, fam] of [['theme', 'theme'], ['component', 'component']]) {
     const swept = listFamilyManifests(family(fam)).length;
     const seen = found.filter((f) => f.type === type).length;
@@ -1473,7 +1473,7 @@ function checkRelatedTargets(manifests, errors) {
 function componentStylesPath(m) {
   const bucket = manifestBucket(m);
   const candidates = [
-    path.join(COMPONENTS_DIR, bucket, m.name, `${m.name}.styles.css`),
+    path.join(componentDir(m, COMPONENTS_DIR, bucket), `${m.name}.styles.css`),
     path.join(COMPONENTS_DIR, m.name, `${m.name}.styles.css`),
     path.join(COMPONENTS_DIR, m.name, 'styles.css'),
   ];
@@ -2814,11 +2814,11 @@ const SANCTIONED_READING_ROLE = [
   { file: 'lib/components/anchor/title/title.styles.css', role: 'message', count: 1, why: 'E1 display component' },
   { file: 'lib/components/anchor/topic/topic.styles.css', role: 'message', count: 2, why: 'E1 display component (lead line; `topic fact` headline)' },
   { file: 'lib/components/anchor/topic/topic.styles.css', role: 'body-compact', count: 1, why: 'E1 display component: a tile track past six tiles steps its labels down' },
-  { file: 'lib/components/chart/flowchart/flowchart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
-  { file: 'lib/components/chart/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
-  { file: 'lib/components/chart/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
-  { file: 'lib/components/chart/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
-  { file: 'lib/components/chart/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
+  { file: 'lib/plugins/chart-family/kinds/flowchart/flowchart.styles.css', role: 'body-compact', count: 1, why: 'E4 chart text' },
+  { file: 'lib/plugins/chart-family/kinds/journey/journey.styles.css', role: 'body-compact', count: 3, why: 'E4 chart keys (legends)' },
+  { file: 'lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.styles.css', role: 'body-compact', count: 3, why: 'E4 chart text (grid cells are a chart, not a table)' },
+  { file: 'lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css', role: 'body-compact', count: 1, why: 'E4 chart key (the legend)' },
+  { file: 'lib/plugins/chart-family/kinds/timeline-list/timeline-list.styles.css', role: 'body-compact', count: 1, why: 'E7 support line (a milestone\'s description under its --fs-body title)' },
   { file: 'lib/components/code/code/code.styles.css', role: 'body-compact', count: 1, why: 'code keeps --fs-body-compact: a code line cannot wrap (owner, 2026-09-29)' },
   { file: 'lib/plugins/code/code.styles.css', role: 'body-compact', count: 1, why: 'the code panel every fence sits on reads at the code layout\'s own step: a code line cannot wrap (owner, 2026-09-29), and a block should read the same size on any slide (code-plugin note §5)' },
   { file: 'lib/components/code/compare-code/compare-code.styles.css', role: 'body-compact', count: 2, why: 'code keeps --fs-body-compact (owner, 2026-09-29)' },
@@ -3009,7 +3009,7 @@ const TYPE_SIZE_MODIFIER_BUDGET = 0;
 // that no longer matches exactly (fewer OR more) fails, so the list cannot rot or quietly grow.
 const SANCTIONED_TYPE_SIZE_MODIFIERS = [
   {
-    file: 'lib/components/chart/kanban/kanban.styles.css',
+    file: 'lib/plugins/chart-family/kinds/kanban/kanban.styles.css',
     modifier: 'dark',
     count: 1,
     why: 'Size-neutral. `:is(section.kanban, figure.kanban).dark .kanban-size` shares one rule with the bare `.kanban-size` selector, so the chip is `--fs-meta` on both canvases; the arm exists only to outrank an earlier dark treatment of the chip.',
@@ -5465,7 +5465,7 @@ function checkRenderNature(manifests, errors) {
 // never a second hand-kept bucket list beside the loader's.
 const KERNEL_SLOT = require('../lib/plugins/extension-points.generated.json').kernel || null;
 const KERNEL_BUCKETS_GATED = new Set(KERNEL_SLOT ? [KERNEL_SLOT.bucket] : []);
-const kernelModuleRel = (bucket, name) => path.join('lib', 'components', bucket, name, `${name}.${KERNEL_SLOT.role}.js`);
+const kernelModuleRel = (bucket, name) => path.relative(ROOT, path.join(componentDir(name, COMPONENTS_DIR, bucket), `${name}.${KERNEL_SLOT.role}.js`));
 
 function checkChartKernels(manifests, errors) {
   for (const m of manifests) {
@@ -5572,7 +5572,7 @@ function writesClass(src, cls) {
 //   `lib/core/matrix-grid-cells.js`, through the `matrixGridCells` plugin — the
 //   transform's own header says so and then does not emit them.
 //
-//   `chart-key-swatch` comes from the shared `_chart-family/legend-svg-key.js` and is
+//   `chart-key-swatch` comes from the shared `chart-family/shared/legend-svg-key.js` and is
 //   emitted inside six different members' sections, and `chart-status` is a
 //   family class two members reuse. (An earlier revision named
 //   `gantt-legend-swatch` as the second example. That was wrong — gantt writes it
@@ -5744,7 +5744,7 @@ const SANCTIONED_MARK_IDENTITY = [
   //
   // DERIVED FROM WHAT THE CODE WRITES, not from what it mentions. The first cut of this list was
   // built with a raw substring search and carried three rows that were COMMENTS —
-  // `_chart-family/label-drops.js`, `_chart-family/svg-label.js` and `word-cloud.transform.js`
+  // `chart-family/shared/label-drops.js`, `chart-family/shared/svg-label.js` and `word-cloud.transform.js`
   // each merely name `data-label` in prose. Two more named a DIFFERENT attribute whose name starts
   // the same way — `lib/plugins/chart-family/chart-family.dispatch.js` writes `data-label-drops`, `journey.transform.js`
   // writes `data-label-len`. All five are out; `writesMarkIdentity` strips comments and bounds the
@@ -5758,60 +5758,60 @@ const SANCTIONED_MARK_IDENTITY = [
   // lands the Present Guide's pointer on that photo (projection: lib/transformers/prose-projection.mjs
   // `speakCollage`). It declares no value.
   ['components/imagery/collage/collage.transform.js', true, false],
-  ['components/chart/bar/bar.transform.js', true, true],
-  ['components/chart/bullet/bullet.transform.js', true, true],
+  ['plugins/chart-family/kinds/bar/bar.transform.js', true, true],
+  ['plugins/chart-family/kinds/bullet/bullet.transform.js', true, true],
   // The shared category-axis emitter: a category's label names the column or row a data-series
   // sentence is about ("Q1 2025: …"). Declares no value, so a mark that corroborates outranks it.
-  ['components/chart/_chart-family/cartesian.js', true, false],
-  ['components/chart/funnel/funnel.transform.js', true, true],
+  ['plugins/chart-family/shared/cartesian.js', true, false],
+  ['plugins/chart-family/kinds/funnel/funnel.transform.js', true, true],
   // A tower names each layer, and each reinsurer's share as `Layer · Reinsurer` with its percentage.
-  ['components/chart/tower/tower.transform.js', true, true],
+  ['plugins/chart-family/kinds/tower/tower.transform.js', true, true],
   // A risk matrix names each risk on its marker, with its likelihood and impact.
-  ['components/chart/risk-matrix/risk-matrix.transform.js', true, true],
+  ['plugins/chart-family/kinds/risk-matrix/risk-matrix.transform.js', true, true],
   // A histogram names each band (its label, or its range) with its value.
-  ['components/chart/histogram/histogram.transform.js', true, true],
+  ['plugins/chart-family/kinds/histogram/histogram.transform.js', true, true],
   // An EP curve names each dot by its return period, with its loss, and each curve by its name.
-  ['components/chart/ep-curve/ep-curve.transform.js', true, true],
-  ['components/chart/gantt/gantt.transform.js', true, true],
-  ['components/chart/heatmap/heatmap.transform.js', true, true],
+  ['plugins/chart-family/kinds/ep-curve/ep-curve.transform.js', true, true],
+  ['plugins/chart-family/kinds/gantt/gantt.transform.js', true, true],
+  ['plugins/chart-family/kinds/heatmap/heatmap.transform.js', true, true],
   // A hub-spoke names its hub, every satellite, and (tiered) every branch and leaf — each
   // sentence of `narrateHubSpoke` opens with one — and a node carries its printed value.
-  ['components/chart/hub-spoke/hub-spoke.transform.js', true, true],
+  ['plugins/chart-family/kinds/hub-spoke/hub-spoke.transform.js', true, true],
   // A journey's stage and step — each sentence of `narrateJourneyMood` opens with one. The mood is
   // said as a score ("scores four"), and a step carries no value attribute to corroborate it.
-  ['components/chart/journey/journey.transform.js', true, false],
+  ['plugins/chart-family/kinds/journey/journey.transform.js', true, false],
   // The three flow charts label their row / card / column / milestone — the thing each sentence of
   // their narrator (`narrateProgress` · `narrateKanban` · `narrateTimelineList`) leads with. Only
   // progress has a number to corroborate; a card and a date have none.
-  ['components/chart/kanban/kanban.transform.js', true, false],
+  ['plugins/chart-family/kinds/kanban/kanban.transform.js', true, false],
   // A line names its SERIES on the line and its CATEGORY on each dot, with the dot's value: the
   // narration reads a series point by point, and the value is what tells one quarter's dots apart.
-  ['components/chart/line/line.transform.js', true, true],
-  ['components/chart/map/map.transform.js', true, true],
-  ['components/chart/piechart/piechart.transform.js', true, true],
-  ['components/chart/progress/progress.transform.js', true, true],
-  ['components/chart/quadrant/quadrant.transform.js', true, false],
+  ['plugins/chart-family/kinds/line/line.transform.js', true, true],
+  ['plugins/chart-family/kinds/map/map.transform.js', true, true],
+  ['plugins/chart-family/kinds/piechart/piechart.transform.js', true, true],
+  ['plugins/chart-family/kinds/progress/progress.transform.js', true, true],
+  ['plugins/chart-family/kinds/quadrant/quadrant.transform.js', true, false],
   // A radar polygon is named by its series; its values are per SPOKE, so there is no one value.
-  ['components/chart/radar/radar.transform.js', true, false],
+  ['plugins/chart-family/kinds/radar/radar.transform.js', true, false],
   // roadmap `horizons`: a card's head (its horizon) and each bet in it (`narrateRoadmapHorizons`).
-  ['components/chart/roadmap/roadmap.transform.js', true, false],
-  ['components/chart/scatter/scatter.transform.js', true, false],
-  ['components/chart/slope/slope.transform.js', true, true],
-  ['components/chart/stacked-bar/stacked-bar.transform.js', true, true],
-  ['components/chart/state-chart/state-chart.transform.js', true, true],
+  ['plugins/chart-family/kinds/roadmap/roadmap.transform.js', true, false],
+  ['plugins/chart-family/kinds/scatter/scatter.transform.js', true, false],
+  ['plugins/chart-family/kinds/slope/slope.transform.js', true, true],
+  ['plugins/chart-family/kinds/stacked-bar/stacked-bar.transform.js', true, true],
+  ['plugins/chart-family/kinds/state-chart/state-chart.transform.js', true, true],
   // The state chart, like the flowchart, names each state on its harness tile and on the tile the
   // pass paints; its status is the value.
-  ['components/chart/state-chart/state-chart.layout.js', true, true],
+  ['plugins/chart-family/kinds/state-chart/state-chart.layout.js', true, true],
   // The flowchart names each shape twice: on the harness tile the server emits (what shows before
   // the browser pass, or where it cannot run) and on the shape the pass paints. No value: a shape's
   // status paints it rather than being a quantity a sentence could corroborate.
-  ['components/chart/flowchart/flowchart.transform.js', true, false],
-  ['components/chart/flowchart/flowchart.layout.js', true, false],
-  ['components/chart/timeline-list/timeline-list.transform.js', true, false],
-  ['components/chart/waterfall/waterfall.transform.js', true, true],
+  ['plugins/chart-family/kinds/flowchart/flowchart.transform.js', true, false],
+  ['plugins/chart-family/kinds/flowchart/flowchart.layout.js', true, false],
+  ['plugins/chart-family/kinds/timeline-list/timeline-list.transform.js', true, false],
+  ['plugins/chart-family/kinds/waterfall/waterfall.transform.js', true, true],
   // A word with detail (a `>` description or nested bullets, #2690) also carries its weight as
   // `data-value`, so the reveal popover shows the number beside the word as on every other chart.
-  ['components/chart/word-cloud/word-cloud.transform.js', true, true],
+  ['plugins/chart-family/kinds/word-cloud/word-cloud.transform.js', true, true],
   // The player bundle is GENERATED from lib/export; it replays a deck's own attributes rather
   // than authoring them, so it is listed to keep the census total honest, not as an emitter.
   ['export/anima-player-bundle.generated.mjs', false, true],
@@ -6074,12 +6074,12 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     provenance:
       'OURS — Trama writes the markup its adapter paints (and the same string again when a live layout ' +
       'holds the last drawing). Two adapters call it: the flowchart ' +
-      '(lib/components/chart/flowchart/flowchart.layout.js), painting from `data-fc-model`, and the state ' +
-      'chart (lib/components/chart/state-chart/state-chart.layout.js), painting from `data-sc-model`. A deck ' +
+      '(lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js), painting from `data-fc-model`, and the state ' +
+      'chart (lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js), painting from `data-sc-model`. A deck ' +
       'can FORGE either attribute in raw HTML and the slide sanitizer keeps it (DOMPurify keeps data-*), so ' +
       'neither adapter trusts any of it: its sanitizeModel rebuilds every structural field from a closed set ' +
       'or an integer range and drops the rest, and every author string is escaped where it is painted. ' +
-      'A node\'s ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js) is read back out of the ' +
+      'A node\'s ICON (`icon=`, lib/plugins/chart-family/shared/graph-icons.js) is read back out of the ' +
       'HARNESS, which a deck can forge as well: Trama\'s `drawing` rebuilds it from six shape elements and ' +
       'their geometry attributes, each value checked against the characters geometry is written in and ' +
       'every number in it bounded at 1e4, inside a wrapper that clips two units past the icon grid, and ' +
@@ -11988,11 +11988,11 @@ const PDF_OWNERSHIP = [
     // `lib/base/logo.gallery.dark.pdf` — files build-bucket-galleries would never write —
     // which is #1279's own defect one directory level away, under a green gate. The
     // gate has to assert the `producer:` field is true OF THIS FILE. (Red team.)
-    test: (f) => (/^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+    test: (f) => (/^lib\/(?:components\/.+|plugins\/[a-z0-9-]+\/kinds\/[a-z0-9-]+\/[a-z0-9-]+)\.gallery\.(light|dark)\.pdf$/.test(f)
       && hasSourceDeck(f, f.replace(/\.(light|dark)\.pdf$/, '.md')))
       || EXTRA_NAMES.some((n) => f === `${relPosix(ROOT, EXTRA_GALLERIES[n])}/${n}.gallery.light.pdf`
         || f === `${relPosix(ROOT, EXTRA_GALLERIES[n])}/${n}.gallery.dark.pdf`),
-    what: 'component, bucket and hand-authored galleries',
+    what: 'component (plugin kinds included), bucket and hand-authored galleries',
     producer: 'tools/build-galleries.js · tools/build-bucket-galleries.js (EXTRA_GALLERIES covers the ones outside lib/components)',
     watcher: 'build:galleries:check · build:bucket-galleries:check · npm run regress (pixel) · tools/golden-diff.mjs (PR montage) · overflow:check',
   },
@@ -13730,7 +13730,7 @@ function checkLockfileOptionalPeers(errors, root = ROOT, lockfiles = OPTIONAL_PE
 }
 
 // ─── Font-metrics pin ──────────────────────────────────────────────────────
-// `GLYPH_UPPER` (lib/components/chart/_chart-family/svg-label.js) is a per-glyph
+// `GLYPH_UPPER` (lib/plugins/chart-family/shared/svg-label.js) is a per-glyph
 // advance table for the two faces uppercase tracked chart labels paint in. It
 // decides how wide a quadrant corner name or a radar sector name is ESTIMATED to
 // be, which decides where the line breaks AND the box `deCollideLabels`/
@@ -13778,7 +13778,7 @@ function checkFontMetricsPin(errors, opts = {}) {
   if (!faces.length && !pinned.length) {
     errors.push(
       'font-metrics pin verified nothing — both GLYPH_UPPER and GLYPH_UPPER_FONTS are empty in ' +
-      'lib/components/chart/_chart-family/svg-label.js. Either the table was gutted or the export ' +
+      'lib/plugins/chart-family/shared/svg-label.js. Either the table was gutted or the export ' +
       'broke; a green result here would be a claim about zero faces.',
     );
     return;
@@ -13788,7 +13788,7 @@ function checkFontMetricsPin(errors, opts = {}) {
     if (pins[face]) continue;
     errors.push(
       `GLYPH_UPPER has a "${face}" face but GLYPH_UPPER_FONTS does not pin one ` +
-      '(lib/components/chart/_chart-family/svg-label.js). An unpinned face is a table of ' +
+      '(lib/plugins/chart-family/shared/svg-label.js). An unpinned face is a table of ' +
       'measurements no gate can tie to any bytes: swap that face\'s woff2 and every check stays ' +
       'green while its labels overrun. Add a { family, file, sha256 } entry for it.',
     );
@@ -13796,7 +13796,7 @@ function checkFontMetricsPin(errors, opts = {}) {
   for (const face of pinned) {
     if (tables[face]) continue;
     errors.push(
-      `stale font-metrics pin in lib/components/chart/_chart-family/svg-label.js — ` +
+      `stale font-metrics pin in lib/plugins/chart-family/shared/svg-label.js — ` +
       `GLYPH_UPPER_FONTS pins "${face}" but GLYPH_UPPER has no such face. Drop the entry so the ` +
       'pin keeps naming exactly the faces the table measures.',
     );
@@ -13832,7 +13832,7 @@ function checkFontMetricsPin(errors, opts = {}) {
       errors.push(
         `font drift — \`${src.file}\` (${pin.family}, the ${face} face) no longer matches the ` +
         `bytes GLYPH_UPPER was measured against.\n      pinned ${src.sha256}\n      actual ${actual}\n` +
-        '    The per-glyph advance table in lib/components/chart/_chart-family/svg-label.js is a ' +
+        '    The per-glyph advance table in lib/plugins/chart-family/shared/svg-label.js is a ' +
         'measurement of the OLD file, and so is the MEASURED array in ' +
         'test/unit/transformers/svg-label.test.js — neither moves on its own, so without this gate ' +
         'the whole suite would stay green while quadrant and radar labels overran their boxes. ' +

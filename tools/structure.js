@@ -177,8 +177,26 @@ function namesPath(src, file) {
  * chart components. It is in-tree by nature; the plugins meant to move to npm are the others.
  */
 const SANCTIONED_PLUGIN_REACH = {
-  'lib/plugins/chart-family -> lib/components':
-    "the chart bucket's dispatcher: its generated registry (shared/chart-registry.generated.js) names every chart component's kernel, so the plugin is in-tree by nature",
+  'lib/plugins/chart-family -> lib/core':
+    'MID-MOVE (#2997, charts one plugin, 12a): the chart kinds moved into the plugin with their lib/core imports intact. ' +
+    '12b-12c replace each one with ctx data, a host service or a package, and delete this entry before #2997 merges.',
+};
+
+/**
+ * Code outside a plugin importing the plugin's folder directly, admitted on purpose: `importer part -> plugin`
+ * with its reason. Fails on a stale entry, like the two lists above.
+ */
+const SANCTIONED_PLUGIN_ENTRY = {
+  'lattice.js -> lib/plugins/chart-family':
+    'MID-MOVE (#2997, charts one plugin, 12a): the CLI reaches the chart layout engines and label drops directly; 12d routes them through plugin roles and deletes this entry before #2997 merges.',
+  'lib/runtime -> lib/plugins/chart-family':
+    'MID-MOVE (#2997, 12a): the runtime imports the state-chart and flowchart layout engines; 12d makes them a plugin role and deletes this entry before #2997 merges.',
+  'lib/playground -> lib/plugins/chart-family':
+    'MID-MOVE (#2997, 12a): the playground preloads the callout placer; 12d loads it through the plugin table and deletes this entry before #2997 merges.',
+  'lib/authoring -> lib/plugins/chart-family':
+    'MID-MOVE (#2997, 12a): the linter reads the map basemaps; 12c moves map lint into the plugin lint role and deletes this entry before #2997 merges.',
+  'site/playground -> lib/plugins/chart-family':
+    'MID-MOVE (#2997, 12a): the Playground map completion reads the basemaps; 12d serves them as plugin data and deletes this entry before #2997 merges.',
 };
 
 /**
@@ -432,7 +450,7 @@ function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
 }
 const pluginRequires = (dir) => pluginManifests(dir).requires;
 
-function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling } = {}) {
+function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SANCTIONED_PLUGIN_REACH, entrySanctioned = SANCTIONED_PLUGIN_ENTRY, requires, hostApi, hostApiCeiling, coreSingleConsumerCeiling } = {}) {
   if (!requires || !hostApi) {
     const m = pluginManifests();
     requires ??= m.requires;
@@ -491,7 +509,10 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   // tools sit on HOST_TOOL_LAYER or above: the linter, the exports, the CLI, the site. The engine (layer
   // 5) renders every plugin through tables and services, so it asks for a service like code below it.
   const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer >= HOST_TOOL_LAYER && !!hostApi.get(e.b.name)?.has(e.to);
-  const pluginIn = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
+  const pluginInAll = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
+  const pluginIn = pluginInAll.filter((e) => !Object.hasOwn(entrySanctioned, reachKey(e)));
+  const usedEntry = new Set(pluginInAll.map(reachKey));
+  const staleEntry = Object.keys(entrySanctioned).filter((k) => !usedEntry.has(k));
   // A listed file nothing outside imports is stale: the list only shrinks, so the entry goes.
   const hostApiUsed = new Set(edges.filter(viaHostApi).map((e) => e.to));
   const staleHostApi = [...hostApi.values()].flatMap((set) => [...set]).filter((f) => !hostApiUsed.has(f)).sort();
@@ -524,7 +545,7 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     rows,
     loops,
     upward: unsanctioned.map((e) => `${e.from} (${e.a.name}, layer ${e.a.layer}) -> ${e.to} (${e.b.name}, layer ${e.b.layer})`),
-    staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`)],
+    staleSanctions: [...staleSanctions, ...staleReach.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`), ...staleEntry.map((k) => `${k} (SANCTIONED_PLUGIN_ENTRY)`)],
     unread: graph.unread || [],
     // A relative import that resolves to nothing: a file that moved and an importer that did not.
     // A path into node_modules is a dependency question, not a structure one (and is absent where a
@@ -636,7 +657,7 @@ function printTable(result) {
   }
 }
 
-module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, HOST_TOOL_LAYER, HOST_API_CEILING, CORE_SINGLE_CONSUMER_CEILING, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
+module.exports = { PARTS, SANCTIONED_UPWARD, SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY, HOST_TOOL_LAYER, HOST_API_CEILING, CORE_SINGLE_CONSUMER_CEILING, pluginManifests, pluginRequires, partOf, isSeam, analyze, structureProblems, cruise, astroModules, unreadModules };
 
 if (require.main === module) {
   const args = new Set(process.argv.slice(2));

@@ -156,8 +156,8 @@ keeps its tiles, marked `data-<attr>-nolayout`.
 **Serialization is the contract.** The kernel, the pipeline and every adapter may each be
 shipped as `fn.toString()` source (in a page's bootstrap script, or to build the worker),
 so each one closes over nothing: they reach one another only as arguments. The
-flowchart's adapter, `lib/components/chart/flowchart/flowchart.layout.js`, is the worked
-example; the state chart's, `lib/components/chart/state-chart/state-chart.layout.js`, adds
+flowchart's adapter, `lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js`, is the worked
+example; the state chart's, `lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js`, adds
 markers to the kernel's input and asks for the grid (`wrap`).
 
 ## When it draws

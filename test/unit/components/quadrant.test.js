@@ -17,7 +17,7 @@
 const { test, describe } = require('node:test');
 // The emitter's own baseline→glyph-extent table, so this test measures the box
 // that is actually painted rather than re-deriving one that might disagree.
-const { BASELINE_EXTENT } = require('../../../lib/components/chart/_chart-family/svg-label');
+const { BASELINE_EXTENT } = require('../../../lib/plugins/chart-family/shared/svg-label');
 const assert = require('node:assert/strict');
 const {
   QUADRANT_MODIFIERS,
@@ -36,7 +36,7 @@ const {
   convexHull,
   centroid,
   bubbleRadius,
-} = require('../../../lib/components/chart/quadrant/quadrant.transform');
+} = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
 
 // ── Painted-box reconstruction ─────────────────────────────────────────
 // Nominal sizes mirroring quadrant.styles.css, same as the kernel's own FS
@@ -54,7 +54,7 @@ const ADV = 0.6;
 // about. Whether that box matches the painted glyphs is a different question,
 // asked against real browser measurements in
 // test/unit/transformers/svg-label.test.js.
-const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+const { upperAdvance } = require('../../../lib/plugins/chart-family/shared/svg-label');
 
 /**
  * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
@@ -651,10 +651,10 @@ describe('quadrant — the sketch token reaches the builder', () => {
   // two-word author names. Two tests, zero coverage of the shipped path — the
   // exact "test that cannot fail for the thing it exists to catch" shape this
   // repo keeps re-learning. Asserting on the emitted SVG is what closes it.
-  const { upperAdvance } = require('../../../lib/components/chart/_chart-family/svg-label');
+  const { upperAdvance } = require('../../../lib/plugins/chart-family/shared/svg-label');
   // The box the corner label is wrapped to, from the transform rather than a
   // literal — a retune of LW.corner must move this test, not slip past it.
-  const { LW: QLW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { LW: QLW } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   const overrunsIn = (cls, name, hand) => {
     const html = transformChartSection(
       `<h2>X</h2><ul><li>${name}<ul><li>A <code>{2, 82}</code></li></ul></li>`
@@ -1064,7 +1064,7 @@ test('buildQuadrant: labels go above or below their point, not beside it', () =>
 test('buildQuadrant: the quadrant names are obstacles for the item-label pass', () => {
   // `cornerObstacles()` briefly returned [] on the reasoning that a name outside
   // the plot cannot collide with anything inside it. Six units is not "outside".
-  const { cornerObstacles } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { cornerObstacles } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   const boxes = cornerObstacles(['Quick Wins', 'Strategic Bets', 'Defer', 'Time Sinks'], '', GEOM.plot.x0 + 168);
   assert.equal(boxes.length, 4, 'every named quadrant contributes an obstacle');
   for (const b of boxes) {
@@ -1078,7 +1078,7 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
   // The band is the BOTTOM row's, so the bottom pair decides. Reserving it
   // unconditionally shrank the whole unit ~8% around an empty gap — the defect
   // the cohort variant had, and then the top-names-only deck had after it.
-  const { vbHeight } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { vbHeight } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   assert.equal(vbHeight(true), GEOM.vbH);
   assert.equal(vbHeight(false), GEOM.vbH - 28);
 
@@ -1094,7 +1094,7 @@ test('buildQuadrant: a chart with no bottom names reserves no band for them', ()
 test('buildQuadrant: a name wraps to the width its COLUMN has, not the full budget', () => {
   // Without this, a `threshold` target near an axis extreme gave a 15-unit
   // column a 120-unit name.
-  const { cornerBudget, LW } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const { cornerBudget, LW } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform');
   // Against LW.corner, not a literal: the budget tracks the corner FONT size, so
   // it moves whenever that does (#680 took it 120 -> 140). The BEHAVIOR under
   // test is the cap/passthrough/floor, not the number.

@@ -30,7 +30,7 @@ const {
   VARIANT_OPTS,
   CANVAS_W,
   CANVAS_H,
-} = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
+} = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform');
 
 describe('word-cloud', () => {
   // ── clampWeight ─────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ describe('word-cloud', () => {
 // any legitimate re-tune of the canvas, teaching the next editor to update the
 // number rather than to check the derivation.
 describe('word-cloud: the portrait size scale is derived from the pack boxes', () => {
-  const wc = require('../../../lib/components/chart/word-cloud/word-cloud.transform.js');
+  const wc = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform.js');
   // Its own fixture — the dispatch suite's `WC_SECTION` is scoped to that describe.
   const SECTION = '<section id="1" class="word-cloud" data-lattice-slide="1"><h2>Q1</h2>' +
     '<ul><li>velocity <code>12</code></li><li>ownership <code>9</code></li>' +

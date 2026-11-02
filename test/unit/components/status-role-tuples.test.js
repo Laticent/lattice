@@ -17,7 +17,7 @@ const FILES = [
   'lib/components/inventory/checklist/checklist.styles.css',
   'lib/components/comparison/verdict-grid/verdict-grid.styles.css',
   'lib/components/legal/obligation-matrix/obligation-matrix.styles.css',
-  'lib/components/chart/roadmap/roadmap.styles.css',
+  'lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css',
 ];
 
 const ROLE_SETS = new Set([

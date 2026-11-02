@@ -10,8 +10,8 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const engine = require('../../../lib/engine');
-const { transformSection, payload } = require('../../../lib/components/chart/flowchart/flowchart.transform');
-const { browserJs, installFlowchartLayout } = require('../../../lib/components/chart/flowchart/flowchart.layout');
+const { transformSection, payload } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.transform');
+const { browserJs, installFlowchartLayout } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
 const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 
 const render = (body, cls = 'flowchart') => String((engine.render(`<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`)).html);
@@ -149,7 +149,7 @@ describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', ()
   const svg = document.querySelector('svg.flowchart-svg');
 
   test('its status marks are the kernel\'s', () => {
-    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/components/chart/flowchart/flowchart.layout.js'), 'utf8');
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js'), 'utf8');
     const kernel = require('../../../lib/core/status-marks.js');
     for (const name of ['STATUS_MARK', 'MARK_PATH']) {
       const block = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`).exec(src)[1];

@@ -433,7 +433,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
   const { unwrapFlatSheet } = await import('../lib/export/unwrap-flat-sheet.mjs');
   const { collectBaseSelectors, scopeReHostedCss } = require('../lib/export/player-prune.js');
   const REHOSTED = new Set(['svg', 'flow', 'spatial']);
-  const bakeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'components', 'chart', '_chart-family', 'standalone-svg.js'), 'utf8');
+  const bakeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'plugins', 'chart-family', 'shared', 'standalone-svg.js'), 'utf8');
   const baseLatticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
   const lpCss = playerCss();
 

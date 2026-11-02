@@ -36,7 +36,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadAll, manifestBucket } = require('../lib/components');
+const { componentDir: libComponentDir, loadAll, manifestBucket } = require('../lib/components');
 const { MARKER_CLASS } = require('../lib/core/checks-registry');
 const { axisNoun } = require('../lib/authoring/lint-core');
 const { resolveAnatomy } = require('./anatomy-catalog');
@@ -438,8 +438,23 @@ function emitDocsVariants(m, lines) {
   }
   lines.push('## Universal modifiers');
   lines.push('');
-  lines.push('This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.');
+  lines.push(`This component accepts all universal variants (\`dark\`, \`compact\`, \`accent\`, state markers, treatments). See [design/design-system.md §6.5](${linkFrom(m, path.join(ROOT, 'design', 'design-system.md'))}#65-universal-variants--three-tiers) for the catalog.`);
   lines.push('');
+}
+
+/**
+ * A relative link from component `m`'s own docs.md to `target` (absolute), wherever the component lives.
+ * Between two bucket components it keeps the canonical `../../<bucket>/<name>/<name>.docs.md` shape every
+ * shipped doc carries (a plain relative path would shorten a same-bucket link to `../<name>/…`); a plugin
+ * kind on either end gets the real relative path.
+ */
+function linkFrom(m, target) {
+  const from = libComponentDir(m, COMPONENTS_DIR);
+  const inBuckets = (p) => path.relative(COMPONENTS_DIR, p).split(path.sep).length >= 2 && !path.relative(COMPONENTS_DIR, p).startsWith('..');
+  if (inBuckets(from) && inBuckets(target) && path.relative(COMPONENTS_DIR, target).split(path.sep).length === 3) {
+    return `../../${path.relative(COMPONENTS_DIR, target).split(path.sep).join('/')}`;
+  }
+  return path.relative(from, target).split(path.sep).join('/');
 }
 
 function emitDocsPointers(m, lines) {
@@ -448,7 +463,7 @@ function emitDocsPointers(m, lines) {
     lines.push('');
     for (const r of m.related) {
       const b = bucketOf(r.name);
-      const href = b ? `../../${b}/${r.name}/${r.name}.docs.md` : `../${r.name}/${r.name}.docs.md`;
+      const href = b ? linkFrom(m, path.join(libComponentDir(r.name, COMPONENTS_DIR, b), `${r.name}.docs.md`)) : `../${r.name}/${r.name}.docs.md`;
       lines.push(`- [\`${r.name}\`](${href}) — ${r.when}`);
     }
     lines.push('');
@@ -826,7 +841,7 @@ function expectedGallerySlideCount(m) {
 function componentDir(m) {
   const bucket = manifestBucket(m);
   const candidates = [
-    bucket ? path.join(COMPONENTS_DIR, bucket, m.name) : null,
+    bucket ? libComponentDir(m, COMPONENTS_DIR) : null,
     path.join(COMPONENTS_DIR, m.name),
   ].filter(Boolean);
   for (const c of candidates) {

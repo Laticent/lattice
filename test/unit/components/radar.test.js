@@ -30,7 +30,7 @@ const {
   polar,
   readRadarAxis,
   transformSection,
-} = require('../../../lib/components/chart/radar/radar.transform');
+} = require('../../../lib/plugins/chart-family/kinds/radar/radar.transform');
 
 // ── Fixtures ────────────────────────────────────────────────────────────
 
@@ -349,7 +349,7 @@ test('buildRadar in a pane: the rim labels are WRAPPED at the scaled size the CS
 });
 
 test('radar.styles.css multiplies the rim, sector and tick sizes by the kernel\'s scales', () => {
-  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/components/chart/radar/radar.styles.css'), 'utf8');
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/chart-family/kinds/radar/radar.styles.css'), 'utf8');
   const sizeOf = (sel) => (css.match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*font-size:\\s*([^;]+);`)) || [])[1];
   assert.equal(sizeOf(':is(section.radar, figure.chart-frame) .radar-axis-label'), 'calc(var(--radar-axis-label-size) * var(--radar-type-scale, 1))');
   assert.equal(sizeOf(':is(section.radar, figure.chart-frame) .radar-sector-label'), 'calc(9px * var(--radar-type-scale, 1))');

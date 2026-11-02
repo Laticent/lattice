@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/bullet/bullet.transform.js — kernel for the
+ * Unit: lib/plugins/chart-family/kinds/bullet/bullet.transform.js — kernel for the
  * `bullet` chart-family member (Stephen Few's bullet graph).
  *
  * Section dispatch and the chart-frame wrap live in the family dispatcher; this
@@ -16,7 +16,7 @@
  *   4. The CSS mirror — the kernel's `FS` table against the stylesheets that
  *      actually paint those labels.
  *
- * The shared substrate (`_chart-family/cartesian.js`) has its own suite; nothing
+ * The shared substrate (`chart-family/shared/cartesian.js`) has its own suite; nothing
  * here re-tests scales, ticks or affix formatting.
  */
 
@@ -27,9 +27,9 @@ const path = require('node:path');
 const {
   parseBullet, buildBullet, transformSection,
   FS, ROW, GUT, BAND_FRACTIONS, PLAN_HEADROOM, MAGNITUDE_SPREAD,
-} = require('../../../lib/components/chart/bullet/bullet.transform');
+} = require('../../../lib/plugins/chart-family/kinds/bullet/bullet.transform');
 
-const COMPONENT_DIR = path.join(__dirname, '../../../lib/components/chart/bullet');
+const COMPONENT_DIR = path.join(__dirname, '../../../lib/plugins/chart-family/kinds/bullet');
 const STYLES = fs.readFileSync(path.join(COMPONENT_DIR, 'bullet.styles.css'), 'utf8');
 const FAMILY_STYLES = fs.readFileSync(
   path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8',
@@ -525,7 +525,7 @@ describe('bullet kernel', () => {
 // four of its assertions passed for a reason other than the invariant they were
 // named for. These arms assert VALUES, on the emitted output.
 describe('bullet — defects the adversarial trio confirmed', () => {
-  const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+  const cart = require('../../../lib/plugins/chart-family/shared/cartesian');
   const manifest = JSON.parse(
     fs.readFileSync(path.join(COMPONENT_DIR, 'bullet.manifest.json'), 'utf8'));
   const CTX = { classTokens: ['bullet'] };

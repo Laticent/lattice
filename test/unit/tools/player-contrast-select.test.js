@@ -7,8 +7,8 @@ const assert = require('node:assert/strict');
 const { selectGalleries, readGalleries, sampleExamples, NON_RENDER } = require('../../../tools/player-contrast-select.js');
 
 const G = [
-	{ file: 'lib/components/chart/bar/bar.gallery.md', dir: 'lib/components/chart/bar/', theme: 'indaco' },
-	{ file: 'lib/components/chart/line/line.gallery.md', dir: 'lib/components/chart/line/', theme: 'indaco' },
+	{ file: 'lib/plugins/chart-family/kinds/bar/bar.gallery.md', dir: 'lib/plugins/chart-family/kinds/bar/', theme: 'indaco' },
+	{ file: 'lib/plugins/chart-family/kinds/line/line.gallery.md', dir: 'lib/plugins/chart-family/kinds/line/', theme: 'indaco' },
 	{ file: 'lib/components/statement/quote/quote.gallery.md', dir: 'lib/components/statement/quote/', theme: 'cuoio' },
 ];
 const pick = (changed, opts) => selectGalleries(changed, G, opts).files;
@@ -18,8 +18,8 @@ test('--full selects every gallery whatever changed', () => {
 });
 
 test('a change under a component selects that gallery only', () => {
-	assert.deepEqual(pick(['lib/components/chart/bar/bar.styles.css']), ['lib/components/chart/bar/bar.gallery.md']);
-	assert.deepEqual(pick(['lib/components/chart/bar/bar.styles.css', 'lib/components/chart/line/line.transform.js']).length, 2);
+	assert.deepEqual(pick(['lib/plugins/chart-family/kinds/bar/bar.styles.css']), ['lib/plugins/chart-family/kinds/bar/bar.gallery.md']);
+	assert.deepEqual(pick(['lib/plugins/chart-family/kinds/bar/bar.styles.css', 'lib/plugins/chart-family/kinds/line/line.transform.js']).length, 2);
 });
 
 test('a theme selects the galleries on it and on its dark or light partner', () => {
@@ -36,13 +36,13 @@ test('an unclassified path selects EVERY gallery — the default is the safe dir
 });
 
 test('paths that cannot change a player select nothing', () => {
-	for (const p of ['docs/src/x.astro', 'engineering/workflow.md', 'test/unit/a.test.js', 'changelog.d/a.fixed.md', 'followups.d/a.md', 'examples/a.md', '.github/workflows/ci.yml', 'README.md', 'lib/authoring/README.md', 'lib/components/chart/bar/bar.docs.md', 'tools/check-ownership.js', 'tools/script-docs/x.md', 'lib/conformance/run.js', 'lib/playground/index.js', 'themes/README.md', 'backlog.d/1.md']) {
+	for (const p of ['docs/src/x.astro', 'engineering/workflow.md', 'test/unit/a.test.js', 'changelog.d/a.fixed.md', 'followups.d/a.md', 'examples/a.md', '.github/workflows/ci.yml', 'README.md', 'lib/authoring/README.md', 'lib/plugins/chart-family/kinds/bar/bar.docs.md', 'tools/check-ownership.js', 'tools/script-docs/x.md', 'lib/conformance/run.js', 'lib/playground/index.js', 'themes/README.md', 'backlog.d/1.md']) {
 		assert.deepEqual(pick([p]), [], `${p} must select nothing`);
 	}
 });
 
 test('a gallery is a deck, not prose: editing one selects it', () => {
-	assert.deepEqual(pick(['lib/components/chart/bar/bar.gallery.md']), ['lib/components/chart/bar/bar.gallery.md']);
+	assert.deepEqual(pick(['lib/plugins/chart-family/kinds/bar/bar.gallery.md']), ['lib/plugins/chart-family/kinds/bar/bar.gallery.md']);
 });
 
 test('one unclassified path among harmless ones still selects everything', () => {
@@ -52,7 +52,7 @@ test('one unclassified path among harmless ones still selects everything', () =>
 test('the real tree: 75 galleries, each owned by a directory that exists', () => {
 	const real = readGalleries();
 	assert.ok(real.length >= 75, `only ${real.length} galleries`);
-	for (const g of real) assert.match(g.file, /^lib\/components\/[^/]+\/([^/]+)\/\1\.gallery\.md$/);
+	for (const g of real) assert.match(g.file, /^lib\/(?:components\/[^/]+|plugins\/[^/]+\/kinds)\/([^/]+)\/\1\.gallery\.md$/);
 	assert.ok(real.every((g) => g.theme), 'every gallery resolves a theme (default indaco)');
 	assert.ok(NON_RENDER.length > 0);
 });

@@ -187,10 +187,11 @@ const CATALOGS = [
 function relocate(text) {
   return (
     String(text)
-      // A sibling component doc — `../../comparison/verdict-grid/verdict-grid.docs.md`
+      // A sibling component doc — `../../comparison/verdict-grid/verdict-grid.docs.md`, or a plugin kind's
+      // (`../../../plugins/chart-family/kinds/bar/bar.docs.md`)
       // (and the `_family` directories) — is one flat file here.
-      .replace(/\]\(\.\.\/\.\.\/[a-z-]+\/_?([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./$1.md)')
-      .replace(/\]\(\.\.\/\.\.\/[a-z-]+\/_([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./_$1.md)')
+      .replace(/\]\((?:\.\.\/)+(?:[a-z0-9-]+\/)*_?([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./$1.md)')
+      .replace(/\]\((?:\.\.\/)+(?:[a-z0-9-]+\/)*_([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./_$1.md)')
       // The rendered-gallery PDFs are not in the kit (they are ~1 MB each and the
       // kit is text). Drop the sentence rather than leave a link to nothing.
       .replace(/^See \[[a-z0-9-]+\.gallery\.[a-z]+\.pdf\]\([^)]*\)[^\n]*\n/gm, '')
@@ -245,11 +246,11 @@ function demoDeckLink(text, bucket, name) {
 }
 
 function componentDocs() {
-  const { loadAll, manifestBucket } = require(path.join(ROOT, 'lib', 'components'));
+  const { componentDir, loadAll, manifestBucket } = require(path.join(ROOT, 'lib', 'components'));
   const out = [];
   for (const m of loadAll()) {
     const bucket = manifestBucket(m);
-    const src = path.join(ROOT, 'lib', 'components', bucket, m.name, `${m.name}.docs.md`);
+    const src = path.join(componentDir(m), `${m.name}.docs.md`);
     if (!existsSync(src)) continue;
     out.push({
       name: m.name,
@@ -272,6 +273,17 @@ function componentDocs() {
       if (!existsSync(src)) continue;
       out.push({ name: `_${family}`, bucket, family: true, body: Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8') });
     }
+  }
+  // A plugin that owns kinds (the chart family) documents their shared kernel in its `shared/README.md`.
+  const { pluginKindFolders } = require(path.join(ROOT, 'lib', 'packages', 'fs.js'));
+  const owners = new Map();
+  for (const k of pluginKindFolders(path.join(ROOT, 'lib', 'components'))) {
+    const pluginDir = path.dirname(k.parent);
+    if (!owners.has(pluginDir)) owners.set(pluginDir, manifestBucket(loadAll().find((m) => m.name === k.name)));
+  }
+  for (const [pluginDir, bucket] of owners) {
+    const src = path.join(pluginDir, 'shared', 'README.md');
+    if (existsSync(src)) out.push({ name: `_${path.basename(pluginDir)}`, bucket, family: true, body: Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8') });
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;

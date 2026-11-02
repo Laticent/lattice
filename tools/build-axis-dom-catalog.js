@@ -26,7 +26,7 @@
  * review of PR #892): `kanban` renders every text field CSS-truncated
  * (`.kanban-title-text{-webkit-line-clamp:2}`,
  * `.kanban-card-body{text-overflow:ellipsis}` —
- * lib/components/chart/kanban/kanban.styles.css), so a card's word count is
+ * lib/plugins/chart-family/kinds/kanban/kanban.styles.css), so a card's word count is
  * decoupled from its rendered height entirely; a genuinely overflowing
  * kanban board is a CARD-COUNT problem (`capacity`, not `density`), which
  * neither case addresses. Without this exclusion, Case B would tag some

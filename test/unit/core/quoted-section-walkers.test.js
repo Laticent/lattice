@@ -53,7 +53,7 @@ test('scene: a </section> quoted in the placard keeps the whole slide in the wra
 });
 
 test('word-cloud: a <section quoted on an earlier slide leaves the cloud transformed', () => {
-  const { applyToRenderedHtml } = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
+  const { applyToRenderedHtml } = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform');
   const html = `<section id="1" class="title"><h1>Deck</h1>${QUOTE_OPEN}</section>`
     + '<section id="2" class="word-cloud"><h2>Q1</h2><ul><li>alpha 5</li><li>beta 3</li><li>gamma 2</li></ul></section>';
   assert.match(applyToRenderedHtml(html), /<div class="word-cloud-canvas"/);

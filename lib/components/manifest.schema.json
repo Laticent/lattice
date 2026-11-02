@@ -349,7 +349,7 @@
           "description": "Where this chart's `@callout` notes sit when the author does not say: `under` the figure (the default; omit the field) or `beside` it. An author overrides it per slide with `side=under` / `side=beside` (or the bare word) in the `@callout` span."
         }
       },
-      "description": "Callout defaults for a chart that draws `@callout{…}` notes (lib/components/chart/_chart-family/callout-layer.js). DECLARED HERE so the author's default and the chart's own default come from one place: the builder compiles this into lib/core/callout-catalog.generated.js, which the placement reads. OMIT the field for a chart that wants the shared default (notes under the figure)."
+      "description": "Callout defaults for a chart that draws `@callout{…}` notes (lib/plugins/chart-family/shared/callout-layer.js). DECLARED HERE so the author's default and the chart's own default come from one place: the builder compiles this into lib/core/callout-catalog.generated.js, which the placement reads. OMIT the field for a chart that wants the shared default (notes under the figure)."
     },
     "axisSet": {
       "type": "object",
@@ -1806,7 +1806,7 @@
             },
             "quotes": {
               "type": "boolean",
-              "description": "A `>` blockquote indented under one of the chart's LIST rows is that row's description, read with the row's value-less nested bullets as its detail: shown on hover and tap and in the speaker note (lib/components/chart/_chart-family/mark-detail.js). False on a table chart, whose cells carry no list row, and on progress, whose nested note shows on the slide face."
+              "description": "A `>` blockquote indented under one of the chart's LIST rows is that row's description, read with the row's value-less nested bullets as its detail: shown on hover and tap and in the speaker note (lib/plugins/chart-family/shared/mark-detail.js). False on a table chart, whose cells carry no list row, and on progress, whose nested note shows on the slide face."
             },
             "nested": {
               "enum": ["point-unless-valued", "detail"],

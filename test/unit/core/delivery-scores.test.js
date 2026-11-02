@@ -21,7 +21,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { narrateChartScript } = require('../../../lib/core/chart-narration.js');
-const { loadAll } = require('../../../lib/components');
+const { componentDir, loadAll } = require('../../../lib/components');
 const { gestureOf } = require('../../../lib/core/gesture.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -30,10 +30,9 @@ const DELIVERIES = ['restrained', 'expressive', 'somber'];
 const bless = process.env.UPDATE_DELIVERY_SCORES === '1';
 
 function firstBoundSlide(m) {
-	// Found by folder: a third of the manifests declare no `bucket`.
-	const buckets = path.join(ROOT, 'lib', 'components');
-	const file = fs.readdirSync(buckets).map((b) => path.join(buckets, b, m.name, `${m.name}.gallery.md`)).find((f) => fs.existsSync(f));
-	if (!file) return null;
+	// Found by folder (`componentDir`): a third of the manifests declare no `bucket`, and a chart kind lives in its plugin.
+	const file = path.join(componentDir(m), `${m.name}.gallery.md`);
+	if (!fs.existsSync(file)) return null;
 	const src = fs.readFileSync(file, 'utf8');
 	const fm = src.match(/^---\n[\s\S]*?\n---\n/)[0];
 	for (const md of src.slice(fm.length).split(/\n---\n/)) {
@@ -83,9 +82,8 @@ const { JSDOM } = require('jsdom');
 const parser = new new JSDOM('').window.DOMParser();
 
 function galleryOf(m) {
-	const buckets = path.join(ROOT, 'lib', 'components');
-	const file = fs.readdirSync(buckets).map((b) => path.join(buckets, b, m.name, `${m.name}.gallery.md`)).find((f) => fs.existsSync(f));
-	return file ? fs.readFileSync(file, 'utf8') : null;
+	const file = path.join(componentDir(m), `${m.name}.gallery.md`);
+	return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
 }
 
 async function firstProseBoundSlide(m) {

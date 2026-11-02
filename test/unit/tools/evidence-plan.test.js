@@ -53,5 +53,5 @@ test('a path in the platform-suites registry plans a dispatch for that suite', (
 });
 
 test('a component doc alone owes no render tier', () => {
-  assert.ok(!surfaces(['lib/components/chart/bar/bar.docs.md']).some((x) => /integration tier/.test(x)));
+  assert.ok(!surfaces(['lib/plugins/chart-family/kinds/bar/bar.docs.md']).some((x) => /integration tier/.test(x)));
 });

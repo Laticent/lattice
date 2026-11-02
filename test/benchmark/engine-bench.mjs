@@ -138,7 +138,7 @@ function stressDeck(times) {
 }
 
 function hubSpokeDeck(tieredCopies) {
-  const gallery = readFileSync(join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.gallery.md'), 'utf8');
+  const gallery = readFileSync(join(ROOT, 'lib/plugins/chart-family/kinds/hub-spoke/hub-spoke.gallery.md'), 'utf8');
   const tiered = gallery.split('\n---\n').find((s) => /_class: hub-spoke tiered/.test(s));
   if (!tiered) throw new Error('hub-spoke.gallery.md has no tiered slide — the hub-spoke dataset would measure the wrong thing');
   return gallery + Array.from({ length: tieredCopies }, () => `\n---\n${tiered}`).join('');
@@ -513,7 +513,7 @@ async function flowchartTier() {
   // kernel's old home in the chart family, so a base arm cut from an older main still runs.
   const kernelPath = [
     join(ROOT, 'docs/src/lib/trama/dist/index.cjs'),
-    join(ROOT, 'lib/components/chart/_chart-family/graph-layout.js'),
+    join(ROOT, 'lib/plugins/chart-family/shared/graph-layout.js'),
   ].find((p) => existsSync(p));
   if (!kernelPath) return { summary: [] };
   req(join(ROOT, 'lib/core/dagre-layout.js'));

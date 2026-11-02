@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/scatter/scatter.transform.js — kernel for the
+ * Unit: lib/plugins/chart-family/kinds/scatter/scatter.transform.js — kernel for the
  * `scatter` chart-family member.
  *
  * Section dispatch and chart-frame wrapping live in chart-family.dispatch.js; this
@@ -31,9 +31,9 @@ const {
   pearson, trendNote, leastSquares, bubbleRadius, pickVariant,
   clipToPlot, niceFloor,
   FS, GUTTER, DOT_R, BUBBLE, TREND_MIN_POINTS, SCATTER_MODIFIERS,
-} = require('../../../lib/components/chart/scatter/scatter.transform');
+} = require('../../../lib/plugins/chart-family/kinds/scatter/scatter.transform');
 
-const ROOT = path.join(__dirname, '../../../lib/components/chart');
+const ROOT = path.join(__dirname, '../../../lib/plugins/chart-family/kinds');
 
 // The <ul> inner HTML the dispatcher hands the kernel, matching Marp Core /
 // emulator output: `<li>Label <code>x</code> <code>y</code></li>`.

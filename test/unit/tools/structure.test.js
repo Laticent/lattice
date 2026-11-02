@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
 const { analyze, partOf, isSeam, structureProblems } = require('../../../tools/structure.js');
 
 // Synthetic graphs carry none of the live tree's sanctions, so a run starts with an empty list.
-const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, requires: new Map(), hostApi: new Map(), ...opts });
+const run = (g, opts = {}) => analyze(g, { pluginSanctioned: {}, entrySanctioned: {}, requires: new Map(), hostApi: new Map(), ...opts });
 
 /** A graph from `[from, [to…]]` pairs, in dependency-cruiser's JSON shape. */
 const graph = (pairs) => ({

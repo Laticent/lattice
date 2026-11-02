@@ -40,7 +40,7 @@ const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 
-const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'components', 'chart');
+const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
 const COMPONENTS = fs
 	.readdirSync(CHART_DIR)
 	.filter((d) => !d.startsWith('_') && fs.existsSync(path.join(CHART_DIR, d, `${d}.manifest.json`)))

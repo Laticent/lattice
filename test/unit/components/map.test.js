@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/map/map.transform.js — kernel for the `map`
+ * Unit: lib/plugins/chart-family/kinds/map/map.transform.js — kernel for the `map`
  * chart-family member, the one component on the `spatial` form.
  *
  * Section dispatch + chart-frame wrapping live in chart-family.dispatch.js (map is one
@@ -28,7 +28,7 @@ const {
   WORLD_ROBINSON_BASEMAP,
   MIX_FLOOR,
   MIX_CEIL,
-} = require('../../../lib/components/chart/map/map.transform');
+} = require('../../../lib/plugins/chart-family/kinds/map/map.transform');
 const {
   findUnknownMapRegions,
   nearestRegion,

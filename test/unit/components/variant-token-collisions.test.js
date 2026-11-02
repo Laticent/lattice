@@ -33,6 +33,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '../../..');
 const COMPONENTS = path.join(ROOT, 'lib/components');
+// The charts plugin's kinds are components too (lib/plugins/chart-family/kinds/<name>/).
+const KINDS = path.join(ROOT, 'lib/plugins/chart-family/kinds');
 
 /** Every component id in the tree — a directory holding `<id>.manifest.json`. */
 function componentIds() {
@@ -46,6 +48,7 @@ function componentIds() {
     }
   };
   walk(COMPONENTS);
+  walk(KINDS);
   return ids;
 }
 
@@ -68,6 +71,7 @@ function variantTokens() {
     }
   };
   walk(COMPONENTS);
+  walk(KINDS);
   return out;
 }
 
@@ -107,7 +111,7 @@ const KNOWN_COLLISIONS = {
     variantOwner: 'list',
     componentOwner: 'bullet',
     status: 'guarded',
-    guardedFile: 'lib/components/chart/bullet/bullet.styles.css',
+    guardedFile: 'lib/plugins/chart-family/kinds/bullet/bullet.styles.css',
     guard: ':where(:not(.list))',
     selectorsChecked: 11,
     // Measured 0 before AND 0 after: this one was LATENT, and it is guarded anyway.
@@ -141,7 +145,7 @@ const KNOWN_COLLISIONS = {
     variantOwner: 'journey',
     componentOwner: 'heatmap',
     status: 'guarded',
-    guardedFile: 'lib/components/chart/heatmap/heatmap.styles.css',
+    guardedFile: 'lib/plugins/chart-family/kinds/heatmap/heatmap.styles.css',
     guard: ':where(:not(.journey))',
     // 17, and the trip through 6 is the reason this comment is long. The in-cell
     // value was withdrawn (taking `.heatmap-value`, its `[data-ink="flip"]` pair and
@@ -174,7 +178,7 @@ const KNOWN_COLLISIONS = {
     variantOwner: 'radar',
     componentOwner: 'quadrant',
     status: 'guarded',
-    guardedFile: 'lib/components/chart/quadrant/quadrant.styles.css',
+    guardedFile: 'lib/plugins/chart-family/kinds/quadrant/quadrant.styles.css',
     guard: ':where(:not(.radar))',
     selectorsChecked: 37,
     // Measured: 3 of 42 before, 1 after. The one left is `chart-family.styles.css`'s

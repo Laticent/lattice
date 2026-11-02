@@ -47,7 +47,7 @@ const path = require('node:path');
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { loadAll } = require('../../../lib/components');
+const { componentDir, loadAll } = require('../../../lib/components');
 const engine = require('../../../lib/engine');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -109,11 +109,8 @@ function asPortrait(src) {
  *  at both canvas orientations. */
 function ownedSurfaces(m) {
 	const out = [m.sample, m.stressDoc?.sample].filter(Boolean);
-	for (const bucket of fs.readdirSync(path.join(ROOT, 'lib', 'components'), { withFileTypes: true })) {
-		if (!bucket.isDirectory()) continue;
-		const gallery = path.join(ROOT, 'lib', 'components', bucket.name, m.name, `${m.name}.gallery.md`);
-		if (fs.existsSync(gallery)) out.push(fs.readFileSync(gallery, 'utf8'));
-	}
+	const gallery = path.join(componentDir(m), `${m.name}.gallery.md`);
+	if (fs.existsSync(gallery)) out.push(fs.readFileSync(gallery, 'utf8'));
 	return [...out, ...out.map(asPortrait)];
 }
 

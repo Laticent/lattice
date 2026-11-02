@@ -14,7 +14,7 @@ const {
 	narrateChart, narrateProgress, narrateTimelineList, narrateKanban, narrateGantt,
 } = require('../../../lib/core/chart-narration.js');
 const { spokenStatus, chartStatus } = require('../../../lib/core/chart-status.js');
-const { chartStatus: kernelStatus, CHART_STATUS } = require('../../../lib/components/chart/_chart-family/transform-utils.js');
+const { chartStatus: kernelStatus, CHART_STATUS } = require('../../../lib/plugins/chart-family/shared/transform-utils.js');
 
 const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n${body}`;
 

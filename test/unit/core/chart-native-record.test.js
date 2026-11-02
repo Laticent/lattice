@@ -263,7 +263,7 @@ describe('review round (2026-10-23): shapes the native readers must leave as the
     assert.equal(rows.recordFields('waterfall', '{20, Total}'), null);
   });
   test('matrix-grid: a claimed cell the decoder left is read through the schema and shows the marker it spells', () => {
-    const kernel = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform.js');
+    const kernel = require('../../../lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform.js');
     const table = '<table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td> <code data-lat-record="">{done}</code> </td><td><code>x</code> <code data-lat-record="">{done}</code></td></tr></tbody></table>';
     const out = kernel.buildMatrixGridSection(`<h2>T</h2>${table}`, { cls: 'matrix-grid' }).html;
     assert.match(out, /<td> \[x\] <\/td>/);
@@ -274,13 +274,13 @@ describe('review round (2026-10-23): shapes the native readers must leave as the
 describe('scatter and quadrant: a record followed by a no-break space entity is not the row\'s trailing span (checker, 2026-10-23)', () => {
   const stamped = (r, tail) => `<code data-lat-record="">${r}</code>${tail}`;
   test('scatter drops the point, as the old reader did', () => {
-    const { parseScatter } = require('../../../lib/components/chart/scatter/scatter.transform.js');
+    const { parseScatter } = require('../../../lib/plugins/chart-family/kinds/scatter/scatter.transform.js');
     const ul = (tail) => `<li>Atlas ${stamped('{4.2, 62}', tail)}</li><li>B ${stamped('{2.1, 38}', '')}</li><li>C ${stamped('{3, 51}', '')}</li>`;
     assert.equal(parseScatter(ul('')).points.length, 3);
     assert.equal(parseScatter(ul('&nbsp;')).points.length, 2);
   });
   test('quadrant puts the item at the origin, as the old reader did', () => {
-    const { parseItemPills } = require('../../../lib/components/chart/quadrant/quadrant.transform.js');
+    const { parseItemPills } = require('../../../lib/plugins/chart-family/kinds/quadrant/quadrant.transform.js');
     assert.equal(parseItemPills(`Alpha ${stamped('{3, 70}', '')}`).pills.length, 1);
     assert.equal(parseItemPills(`Alpha ${stamped('{3, 70}', '&nbsp;')}`).pills.length, 0);
   });

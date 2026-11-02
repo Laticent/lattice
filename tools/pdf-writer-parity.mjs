@@ -53,7 +53,7 @@ const flagsWithValue = new Set(['--jobs', '--fuzz', '--montages', '--out', '--or
 let decks = argv.filter((a, i) => !a.startsWith('--') && !flagsWithValue.has(argv[i - 1]));
 if (argv.includes('--galleries')) {
 	const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.gallery.md') ? [path.join(d, e.name)] : []));
-	decks = decks.concat(walk(path.join(ROOT, 'lib', 'components')));
+	decks = decks.concat(walk(path.join(ROOT, 'lib', 'components')), walk(path.join(ROOT, 'lib', 'plugins')));
 }
 if (!decks.length) {
 	console.error('usage: node tools/pdf-writer-parity.mjs [--galleries] [deck.md …]');

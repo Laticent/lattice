@@ -18,7 +18,7 @@ const path = require('node:path');
 const { build, F, KANBAN_CODE_CAP, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
 const { loadAll } = require('../../../lib/components');
 
-const OUT = path.join(__dirname, '../../../lib/components/chart/_chart-family/marks.generated.css');
+const OUT = path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.generated.css');
 const css = build();
 
 /** Every rule's selector list, one entry per selector. */
@@ -94,7 +94,7 @@ describe('marks.generated.css', () => {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, e.name);
         if (e.isDirectory()) walk(full);
-        else if (e.name.endsWith('.css') && e.name !== 'marks.generated.css' && /\.marks-(pigment|etch|tone)\b/.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(path.join(__dirname, '../../..'), full));
+        else if (e.name.endsWith('.css') && !e.name.endsWith('.styles.generated.css') && /\.marks-(pigment|etch|tone)\b/.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(path.join(__dirname, '../../..'), full));
       }
     };
     for (const r of roots) walk(r);
@@ -136,7 +136,7 @@ describe('marks.generated.css', () => {
     assert.match(body, /--state-fill: light-dark\(color-mix\(in oklab, var\(--state-color\) var\(--finish-status-text\), var\(--finish-status-base\)\)/);
     assert.match(body, /--state-glyph-mark: var\(--finish-ink\)/);
     assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
-    const member = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/roadmap/roadmap.styles.css'), 'utf8');
+    const member = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css'), 'utf8');
     assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
   });
 
@@ -289,7 +289,7 @@ describe('marks.generated.css', () => {
   });
 
   test('the heatmap value steps are the heatmap\'s own --mix defaults', () => {
-    const member = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/heatmap/heatmap.styles.css'), 'utf8');
+    const member = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/heatmap/heatmap.styles.css'), 'utf8');
     const own = [...member.matchAll(/--heatmap-step(\d),\s*([\d.]+%)\)/g)].map((m) => [m[1], m[2]]);
     assert.equal(own.length, 5);
     for (const [step, pct] of own) assert.ok(css.includes(`var(--heatmap-step${step}, ${pct})`), `step ${step} is ${pct} in heatmap.styles.css`);
@@ -339,7 +339,7 @@ describe('marks.generated.css', () => {
 
   test('every status mark\'s member declares the hue and ink the status table reads', () => {
     const cssOf = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.css')).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n');
-    const chart = path.join(__dirname, '../../../lib/components/chart');
+    const chart = path.join(__dirname, '../../../lib/plugins/chart-family/kinds');
     const all = fs.readdirSync(chart).map((d) => path.join(chart, d)).filter((d) => fs.statSync(d).isDirectory()).map(cssOf).join('\n')
       + fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/chart-family.styles.css'), 'utf8');
     for (const s of STATUS_MARKS) {
@@ -363,7 +363,7 @@ describe('marks.generated.css', () => {
     // lines, and a `bg` rule would paint a box behind a line.
     assert.ok(!STATUS_MARKS.some((m) => m.sel.includes('.fc-key-swatch') && m.sel.endsWith(':not([data-s])')));
     // The channel each companion reads is declared by the member, not borrowed from a theme token.
-    const gantt = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/gantt/gantt.styles.css'), 'utf8');
+    const gantt = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/gantt/gantt.styles.css'), 'utf8');
     assert.match(gantt, /--fill-hue: var\(--state-mute-hue\)/);
   });
 
@@ -371,7 +371,7 @@ describe('marks.generated.css', () => {
     const rows = STATUS_MARKS.filter((m) => m.sel.startsWith('.progress-fill'));
     assert.equal(rows.length, 2, 'stated and unstated');
     for (const r of rows) assert.equal(r.bears, false, r.sel);
-    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/progress/progress.manifest.json'), 'utf8'));
+    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/progress/progress.manifest.json'), 'utf8'));
     assert.equal(manifest.kernel.marks.find((m) => m.class === 'progress-fill').bears, false, 'the manifest agrees with the status table');
     // At bears:true pigment took the 40%/46% text level, which in dark mode is near-black on the slide.
     // Pigment paints every body with its concept's SOLID at full strength: the member's hue channel itself, at the
@@ -456,7 +456,7 @@ describe('marks.generated.css', () => {
     assert.ok(!headed('tone').some((x) => x.sel.includes('wc-word') && /--seq-/.test(x.body)), 'no --seq-* step');
     assert.ok(headed('etch').some((x) => x.sel.includes('wc-word[data-tier="5"]')), 'etch steps the words too');
     assert.ok(!serving('pigment').some((r) => r.sel.includes('wc-word')), 'pigment does not repaint a word');
-    const { tierOf } = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
+    const { tierOf } = require('../../../lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform');
     assert.deepEqual([5, 4.5, 4.49, 3.5, 2.5, 1.5, 1.49, 1].map(tierOf), [5, 5, 4, 4, 3, 2, 1, 1]);
   });
 
@@ -597,7 +597,7 @@ describe('marks.generated.css', () => {
   // table must set it there too. Without it the rule resolved to nothing and, under tone, the key
   // went hollow beside filled tiles (seen on a rendered page; the CSS rule itself was present).
   test('the state chart sets its status hue on the key swatch a finish repaints', () => {
-    const sc = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/state-chart/state-chart.styles.css'), 'utf8');
+    const sc = fs.readFileSync(path.join(__dirname, '../../../lib/plugins/chart-family/kinds/state-chart/state-chart.styles.css'), 'utf8');
     for (const s of ['on-track', 'at-risk', 'blocked', 'live', 'deferred']) {
       assert.match(sc, new RegExp(`section\\.state-chart :is\\([^)]*\\.fc-key-swatch\\)[^{]*data-s="${s}"`), s);
     }
@@ -634,7 +634,7 @@ describe('marks.generated.css', () => {
   // a finish repainted its rows and left its key at the plain status paint. The row now keys on
   // the key's own `data-chart`, which both variants write.
   test('the state chart key row reaches the key of both variants', () => {
-    const { transformSection } = require('../../../lib/components/chart/state-chart/state-chart.transform');
+    const { transformSection } = require('../../../lib/plugins/chart-family/kinds/state-chart/state-chart.transform');
     const inner = '<h2>T</h2><ul><li>A <code>AT-RISK</code><ul><li>-&gt; B</li></ul></li><li>B</li></ul>';
     // One row per chart that uses the shared graph key, scoped by the key's `data-chart`, because each chart names its
     // status hue in its own channel (`--fill-*` on the state chart, `--fc-*` on the flowchart).

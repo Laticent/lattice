@@ -77,6 +77,8 @@ function discoverDecks() {
   walk(path.join(ROOT, 'exemplars'), (n) => n.endsWith('.md'));
   walk(path.join(ROOT, 'test', 'integration', 'baseline-decks'), (n) => n.endsWith('.md'));
   walk(path.join(ROOT, 'lib', 'components'), (n) => n.endsWith('.gallery.md'));
+  // A plugin's kinds keep their galleries beside them (lib/plugins/<plugin>/kinds/<name>/).
+  walk(path.join(ROOT, 'lib', 'plugins'), (n) => n.endsWith('.gallery.md'));
   walk(path.join(ROOT, 'lib', 'integrations'), (n) => n.endsWith('.gallery.md'));
   return [...new Set(out)];
 }

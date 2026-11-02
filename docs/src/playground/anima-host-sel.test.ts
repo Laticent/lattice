@@ -181,7 +181,7 @@ describe('a plain line chart is a motion target (the real engine, not a fixture)
     const root = resolve(__dirname, '../../..');
     const req = createRequire(join(root, 'package.json'));
     const engine = req('./lib/engine');
-    const { sample } = JSON.parse(readFileSync(join(root, 'lib/components/chart/line/line.manifest.json'), 'utf8'));
+    const { sample } = JSON.parse(readFileSync(join(root, 'lib/plugins/chart-family/kinds/line/line.manifest.json'), 'utf8'));
     const html = engine.render(`---\nmarp: true\n---\n\n${sample}`, 'indaco', { preview: true }).html;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const sec = Array.from(doc.querySelectorAll('section')).find((s) => s.querySelector('svg.line-svg'));

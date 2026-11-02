@@ -107,7 +107,7 @@ function stageTree() {
 }
 
 function dropChart(projection = DROP_MANIFEST.projection) {
-  const dir = path.join(SCRATCH, 'lib', 'components', 'chart', DROP_NAME);
+  const dir = path.join(SCRATCH, 'lib', 'plugins', 'chart-family', 'kinds', DROP_NAME);
   fs.mkdirSync(dir, { recursive: true });
   const manifest = projection === null
     ? Object.fromEntries(Object.entries(DROP_MANIFEST).filter(([k]) => k !== 'projection'))
@@ -260,7 +260,7 @@ test('a chart added by folder-drop alone', async (t) => {
   await t.test('FORGETTING the declaration goes RED — the arm the six rosters lacked', () => {
     dropChart(null);
     const dropped = JSON.parse(fs.readFileSync(path.join(
-      SCRATCH, 'lib', 'components', 'chart', DROP_NAME, `${DROP_NAME}.manifest.json`), 'utf8'));
+      SCRATCH, 'lib', 'plugins', 'chart-family', 'kinds', DROP_NAME, `${DROP_NAME}.manifest.json`), 'utf8'));
     assert.equal(dropped.projection, undefined, 'the fixture still declares a projection');
 
     // The LOADER accepts it: absence is a coverage question, not a shape error, and

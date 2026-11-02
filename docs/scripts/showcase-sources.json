@@ -1,11 +1,11 @@
 {
 	"bar.light": {
-		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
+		"src": "lib/plugins/chart-family/kinds/bar/bar.gallery.light.pdf",
 		"page": 2,
 		"srcSha256": "c83f1bdf249d2484c202fe29cf5475c5f9f5f1334aa5fee62e9679eff4a2aa73"
 	},
 	"bar.dark": {
-		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
+		"src": "lib/plugins/chart-family/kinds/bar/bar.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "120ce93d950655d5d0ca1decb5e36a51c465ce14ca1de4f8efabdd530008add0"
 	},
@@ -70,12 +70,12 @@
 		"srcSha256": "971eacc5b2a7f0894ed43f9514f23c03b174c60199837ab1f25ed883145ca298"
 	},
 	"funnel.light": {
-		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
+		"src": "lib/plugins/chart-family/kinds/funnel/funnel.gallery.light.pdf",
 		"page": 2,
 		"srcSha256": "edef74b95ebdbf21f252cc34c270281c1813c8f277ee4c787666ed691d73a7ba"
 	},
 	"funnel.dark": {
-		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
+		"src": "lib/plugins/chart-family/kinds/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "675b9b2c50cff9fbe0a1dc46d68a8678133bc3d0db5f141edb355a98739d0aa3"
 	},
@@ -130,22 +130,22 @@
 		"srcSha256": "4f7b6b608a7e49cb83fe976eadbc8666065dfda8631ecb723a65c855d7e0ac26"
 	},
 	"radar.light": {
-		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
+		"src": "lib/plugins/chart-family/kinds/radar/radar.gallery.light.pdf",
 		"page": 2,
 		"srcSha256": "256b60abbd9654f0cda82a787b0240d67bdc0945854ba7e210d96c8eb28d8f14"
 	},
 	"radar.dark": {
-		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
+		"src": "lib/plugins/chart-family/kinds/radar/radar.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "af89ce547e9a934e703b6dc5afc7c0a3b53799e0b96e2bf576ce75c98510c4c1"
 	},
 	"roadmap.light": {
-		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
+		"src": "lib/plugins/chart-family/kinds/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
 		"srcSha256": "d3a1317daea710f08c3e7d422f51e63ccb47d39f66035731b223823dad3fcd66"
 	},
 	"roadmap.dark": {
-		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
+		"src": "lib/plugins/chart-family/kinds/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "d564ab3ae01bfba946722427e0e0f10851d42b443cc2f4f7dbb40593eec718ce"
 	},
@@ -170,12 +170,12 @@
 		"srcSha256": "3c75fe86f821b4d6b8a97da4128d1f95a5c191cab80dbc911cc9ee2e807c09b8"
 	},
 	"waterfall.light": {
-		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
+		"src": "lib/plugins/chart-family/kinds/waterfall/waterfall.gallery.light.pdf",
 		"page": 2,
 		"srcSha256": "66f4424d8ef455b6453a28e90c37472760023f77b74694c3dd51f13141c6054e"
 	},
 	"waterfall.dark": {
-		"src": "lib/components/chart/waterfall/waterfall.gallery.dark.pdf",
+		"src": "lib/plugins/chart-family/kinds/waterfall/waterfall.gallery.dark.pdf",
 		"page": 2,
 		"srcSha256": "45a79db79d7951403d88347e13c44101602f9d527d5506e355a91ba6371e30ce"
 	}

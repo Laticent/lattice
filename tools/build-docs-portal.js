@@ -52,7 +52,7 @@
 const fs = require('node:fs');
 const { themeEntries } = require('../lib/theme/files.js');
 const path = require('node:path');
-const { loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
+const { componentDir, loadAll, groupByBucket, BUCKETS, manifestBucket } = require('../lib/components');
 const {
   FUNCTIONS, FORMS, SUBSTANCES, TAG_GROUPS,
   UNIVERSAL_GROUPS, UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, EXCLUSIVE_AXES, effectiveVariants,
@@ -852,7 +852,7 @@ function bucketTagline(bucket) {
 /** Relative path (from dist/docs/) to a component's light gallery PDF, or null. */
 function galleryHref(m) {
   const bucket = manifestBucket(m);
-  const abs = path.join(COMPONENTS_DIR, bucket, m.name, `${m.name}.gallery.light.pdf`);
+  const abs = path.join(componentDir(m, COMPONENTS_DIR, bucket), `${m.name}.gallery.light.pdf`);
   if (!fs.existsSync(abs)) return null;
   return path.relative(DOCS_DIR, abs).split(path.sep).join('/');
 }
@@ -875,7 +875,7 @@ function galleryHref(m) {
  *  No current component trips any of these — the exact-set assertion in
  *  test/unit/tools/headline-default.test.js is the rot-guard that catches it if one ever does. */
 function headlineDefault(m) {
-  const abs = path.join(COMPONENTS_DIR, manifestBucket(m), m.name, `${m.name}.styles.css`);
+  const abs = path.join(componentDir(m, COMPONENTS_DIR), `${m.name}.styles.css`);
   if (!fs.existsSync(abs)) return 'left';
   const css = fs.readFileSync(abs, 'utf8');
   const variants = documentedVariants(m);
@@ -920,11 +920,11 @@ function rewriteLinks(md, m) {
   // Related-component links are emitted in-place-correct as cross-bucket
   // paths (../../<bucket>/<name>/<name>.docs.md); collapse to in-page anchors
   // for the single-file portal.
-  let out = md.replace(/\]\(\.\.\/\.\.\/[a-z0-9-]+\/([a-z0-9-]+)\/\1\.docs\.md\)/g, '](#$1)');
-  // The design-system pointer is emitted four levels up (in-place-correct for
-  // lib/components/<bucket>/<name>/); the portal sits at dist/docs/, so root
+  let out = md.replace(/\]\((?:\.\.\/)+(?:[a-z0-9-]+\/)*([a-z0-9-]+)\/\1\.docs\.md\)/g, '](#$1)');
+  // The design-system pointer is emitted relative to the component's own folder (four levels up for
+  // lib/components/<bucket>/<name>/, five for a plugin kind); the portal sits at dist/docs/, so root
   // is two levels up.
-  out = out.replace(/\]\(\.\.\/\.\.\/\.\.\/\.\.\/design\//g, '](../../design/');
+  out = out.replace(/\]\((?:\.\.\/){4,5}design\//g, '](../../design/');
   out = out.replace(/\]\(\.\.\/\.\.\/docs\/([^)]+)\)/g, '](./$1)');
   const gh = galleryHref(m);
   if (gh) out = out.replace(/\]\(\.\/[a-z0-9-]+\.gallery\.light\.pdf\)/g, `](${gh})`);

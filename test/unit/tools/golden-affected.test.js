@@ -16,8 +16,8 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 
 const GALLERIES = [
   'lib/base/_logo/logo.gallery.md',
-  'lib/components/chart/bar/bar.gallery.md',
-  'lib/components/chart/bullet/bullet.gallery.md',
+  'lib/plugins/chart-family/kinds/bar/bar.gallery.md',
+  'lib/plugins/chart-family/kinds/bullet/bullet.gallery.md',
   'lib/components/chart/chart.gallery.md',
   'lib/components/statement/quote/quote.gallery.md',
   'lib/components/statement/statement.gallery.md',
@@ -33,17 +33,17 @@ const run = (changed, cap) => affectedGoldens(changed, { galleries: GALLERIES, d
 describe('golden-affected — targeted changes', () => {
   test('a component file renders its gallery and its bucket gallery', async () => {
     await load();
-    const r = run(['lib/components/chart/bar/bar.styles.css']);
-    assert.deepEqual(r.galleries, ['lib/components/chart/chart.gallery.md', 'lib/components/chart/bar/bar.gallery.md']);
+    const r = run(['lib/plugins/chart-family/kinds/bar/bar.styles.css']);
+    assert.deepEqual(r.galleries, ['lib/components/chart/chart.gallery.md', 'lib/plugins/chart-family/kinds/bar/bar.gallery.md']);
     assert.equal(r.scope, 'targeted');
   });
-  test('a bucket-shared directory (_chart-family) renders every gallery in that bucket', async () => {
+  test("a plugin's shared kernel renders every gallery of its kinds, and their bucket gallery", async () => {
     await load();
-    const r = run(['lib/components/chart/_chart-family/axis.js']);
+    const r = run(['lib/plugins/chart-family/shared/axis.js']);
     assert.deepEqual(r.galleries.sort(), [
-      'lib/components/chart/bar/bar.gallery.md',
-      'lib/components/chart/bullet/bullet.gallery.md',
       'lib/components/chart/chart.gallery.md',
+      'lib/plugins/chart-family/kinds/bar/bar.gallery.md',
+      'lib/plugins/chart-family/kinds/bullet/bullet.gallery.md',
     ]);
   });
   test('a gallery markdown renders that gallery', async () => {
@@ -118,7 +118,7 @@ describe('golden-affected — shared changes', () => {
 describe('golden-affected — nothing to render', () => {
   for (const f of [
     'lib/authoring/lint-core.js',
-    'lib/components/chart/bar/bar.docs.md',
+    'lib/plugins/chart-family/kinds/bar/bar.docs.md',
     'docs/src/pages/index.astro',
     'engineering/workflow.md',
     'test/unit/x.test.js',

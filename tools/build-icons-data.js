@@ -178,8 +178,8 @@ const MARKS_END = '  /* ── END GENERATED STATUS MARKS ── */';
 /** The SVG charts' mark table: the kernel, and the two self-contained layout passes that copy it. */
 const MARK_PATH_FILES = Object.freeze([
   path.join(ROOT, 'lib', 'core', 'status-marks.js'),
-  path.join(ROOT, 'lib', 'components', 'chart', 'flowchart', 'flowchart.layout.js'),
-  path.join(ROOT, 'lib', 'components', 'chart', 'state-chart', 'state-chart.layout.js'),
+  path.join(ROOT, 'lib', 'plugins', 'chart-family', 'kinds', 'flowchart', 'flowchart.layout.js'),
+  path.join(ROOT, 'lib', 'plugins', 'chart-family', 'kinds', 'state-chart', 'state-chart.layout.js'),
 ]);
 const PATHS_BEGIN = '// BEGIN GENERATED MARK PATHS';
 const PATHS_END = '// END GENERATED MARK PATHS';

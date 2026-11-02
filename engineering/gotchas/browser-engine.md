@@ -74,7 +74,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   and a day it can be retired.
 - **Mitigation:** Repeat the value on every `<tspan>`. The shared kernel does it
   for any caller that declares a baseline
-  (`lib/components/chart/_chart-family/svg-label.js`); the graph charts' browser
+  (`lib/plugins/chart-family/shared/svg-label.js`); the graph charts' browser
   passes (`state-chart.layout.js`, `flowchart.layout.js`) do it themselves; each stylesheet that
   owns a baseline carries a companion `… tspan` rule. Pinned by
   `test/unit/components/svg-tspan-baseline.test.js` at the source level and

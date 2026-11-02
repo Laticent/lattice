@@ -156,7 +156,7 @@ describe('checkChartMarks — what it fires on', () => {
     assert.equal(ring.encodes, byClass.get('scatter-bubble').encodes);
   });
 
-  // The family-wide legend swatch comes from _chart-family/svg-legend.js and
+  // The family-wide legend swatch comes from chart-family/shared/svg-legend.js and
   // lands inside six members' sections. It was declared by none of them, and
   // the source-side gate cannot see an omission at all.
   test('every member that renders a chart-key-swatch declares one', () => {

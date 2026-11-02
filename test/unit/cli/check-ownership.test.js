@@ -2672,7 +2672,7 @@ describe('check-ownership', () => {
     // it, then asserts the clean case stays silent.
 
     test('checkCatInkDeclared BITES: a palette owning a mark cycle but no ink cycle is named', () => {
-      const { checkCatInkDeclared } = require('../../../tools/check-ownership.js');
+      const { checkCatInkDeclared } = require('../../../tools/check-ownership');
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-declared-'));
       try {
         const cycle = Array.from({ length: 12 }, (_, i) => `  --cat-${i + 1}-mark: #123456;`).join('\n');
@@ -2695,7 +2695,7 @@ describe('check-ownership', () => {
     });
 
     test('the ink collapse arm BITES: inks that coincide where their marks do not', () => {
-      const { catInkCollapsePairs } = require('../../../tools/check-ownership.js');
+      const { catInkCollapsePairs } = require('../../../tools/check-ownership');
       // Twelve well-separated marks…
       const marks = ['#B03030', '#30B030', '#3030B0', '#B0B030', '#B030B0', '#30B0B0',
                      '#8A4520', '#20458A', '#458A20', '#8A2045', '#208A45', '#452080'];
@@ -2716,7 +2716,7 @@ describe('check-ownership', () => {
     });
 
     test('checkCatInkFallback BITES: a bare read, and a mismatched slot number', () => {
-      const { checkCatInkFallback } = require('../../../tools/check-ownership.js');
+      const { checkCatInkFallback } = require('../../../tools/check-ownership');
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-fallback-'));
       try {
         const at = path.join(dir, 'x.styles.css');
@@ -2947,7 +2947,7 @@ describe('check-ownership: checkCommittedPdfs (#1279)', () => {
     assert.ok(rule.test(`lib/base/_${known}/${known}.gallery.light.pdf`), 'the known gallery is claimed');
     assert.equal(rule.test('lib/base/_foo/foo.gallery.light.pdf'), false,
       'an unbuilt lib/base gallery must fall through to the orphan check');
-    assert.ok(rule.test('lib/components/chart/kanban/kanban.gallery.dark.pdf'), 'components are claimed');
+    assert.ok(rule.test('lib/plugins/chart-family/kinds/kanban/kanban.gallery.dark.pdf'), 'components are claimed');
   });
 
   test('the examples rule does not silently claim the chart-theme reviewer decks', () => {
@@ -2985,7 +2985,7 @@ describe('theme manifest gates', () => {
   });
 
   test('checkThemeManifestCoverage BITES: a theme with no manifest, and a manifest with no theme', () => {
-    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership.js');
+    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership');
     const dir = fixture({ 'probe.css': BASE_CSS, 'ghost.manifest.json': baseManifest({ name: 'ghost' }) });
     try {
       const errors = [];
@@ -2997,7 +2997,7 @@ describe('theme manifest gates', () => {
   });
 
   test('checkThemeManifestCoverage BITES: a manifest whose name disagrees with its filename', () => {
-    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership.js');
+    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership');
     const dir = fixture({ 'probe.css': BASE_CSS, 'probe.manifest.json': baseManifest({ name: 'other' }) });
     try {
       const errors = [];
@@ -3011,7 +3011,7 @@ describe('theme manifest gates', () => {
   // enforced by nothing, so deleting it from indaco.manifest.json dropped the DEFAULT
   // palette out of the Studio picker with every gate green.
   test('checkThemeManifestShape BITES: a missing required field, a bad enum, and an unknown key', () => {
-    const { checkThemeManifestShape } = require('../../../tools/check-ownership.js');
+    const { checkThemeManifestShape } = require('../../../tools/check-ownership');
     const noTier = baseManifest(); delete noTier.tier;
     for (const [label, manifest, pattern] of [
       ['missing tier', noTier, /missing required field `tier`/],
@@ -3036,7 +3036,7 @@ describe('theme manifest gates', () => {
   });
 
   test('checkThemeRoles BITES: a lying role, a second @import, and a base with no tokens', () => {
-    const { checkThemeRoles } = require('../../../tools/check-ownership.js');
+    const { checkThemeRoles } = require('../../../tools/check-ownership');
     const cases = [
       ['variant-dark that declares tokens',
         { 'probe.css': ":root{--bg:#fff;}\n@import 'other';\n", 'probe.manifest.json': baseManifest({ role: 'variant-dark', extends: 'other', tier: undefined, darkCounterpart: undefined, order: undefined, swatch: undefined }) },
@@ -3067,7 +3067,7 @@ describe('theme manifest gates', () => {
   });
 
   test('checkThemeModes BITES: a declared face the CSS does not provide, and a phantom counterpart', () => {
-    const { checkThemeModes } = require('../../../tools/check-ownership.js');
+    const { checkThemeModes } = require('../../../tools/check-ownership');
     const flat = ":root{\n  --bg: #1A1A1C;\n}\n@import 'lattice';\n:where(:root) { color-scheme: dark; }\n";
     const dir = fixture({ 'probe.css': flat, 'probe.manifest.json': baseManifest({ modes: ['light', 'dark'] }) });
     try {
@@ -3090,7 +3090,7 @@ describe('theme manifest gates', () => {
   // `light-dark(var(--x), var(--x))` reads as TWO DIFFERENT arms and a palette that
   // lost its second face keeps its declared one with the gate green.
   test('splitLightDark handles nested parens and commas — the degenerate-arm false negative', () => {
-    const { splitLightDark, themeArmsDiffer } = require('../../../tools/check-ownership.js');
+    const { splitLightDark, themeArmsDiffer } = require('../../../tools/check-ownership');
     assert.deepEqual(splitLightDark('light-dark(#FFF, #000)'), ['#FFF', '#000']);
     assert.deepEqual(splitLightDark('light-dark(var(--x), var(--x))'), ['var(--x)', 'var(--x)']);
     assert.deepEqual(
@@ -3108,7 +3108,7 @@ describe('theme manifest gates', () => {
   });
 
   test('themeRootScheme distinguishes a zero-specificity default from a pin', () => {
-    const { themeRootScheme } = require('../../../tools/check-ownership.js');
+    const { themeRootScheme } = require('../../../tools/check-ownership');
     assert.deepEqual(themeRootScheme(':where(:root) { color-scheme: light; }'), { mode: 'light', pinned: false });
     assert.deepEqual(themeRootScheme(':root { color-scheme: dark; }'), { mode: 'dark', pinned: true });
     assert.deepEqual(themeRootScheme(':root:root { color-scheme: light; }'), { mode: 'light', pinned: true });
@@ -3116,7 +3116,7 @@ describe('theme manifest gates', () => {
   });
 
   test('listThemeManifests refuses a non-object manifest by name, not by TypeError', () => {
-    const { listThemeManifests } = require('../../../tools/check-ownership.js');
+    const { listThemeManifests } = require('../../../tools/check-ownership');
     for (const [body, shape] of [['null', 'null'], ['[]', 'an array'], ['42', 'number']]) {
       const dir = fixture({ 'probe.manifest.json': body });
       try {
@@ -3130,7 +3130,7 @@ describe('no-safe-default token gate (#1457)', () => {
   const {
     noSafeDefaultTokens, rootScopedTokens, slideScopedTokens, isUnconditionalRoot, isSlideRoot,
     bareVarReads, mermaidMapTokenReads,
-  } = require('../../../tools/check-ownership.js');
+  } = require('../../../tools/check-ownership');
 
   // BITE-TESTS, not smoke tests. The arm this replaces would have passed while the
   // Studio shipped themes that painted solid black Mermaid clusters, so each test
@@ -3224,7 +3224,7 @@ describe('no-safe-default token gate (#1457)', () => {
   // that makes taking the exit a recorded decision — and, like every allowlist in this
   // file, that it fails on a STALE entry as well as an unlisted one.
   describe('fallbackOnlyTokens — the ledger for the cheap exit', () => {
-    const { fallbackOnlyTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership.js');
+    const { fallbackOnlyTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership');
     const chainRead = (where, chain) => [{ where, kind: 'css', rootRead: false, chain }];
 
     test('REPORTS a theme token whose only rescue is a fallback chain', () => {
@@ -3261,7 +3261,7 @@ describe('no-safe-default token gate (#1457)', () => {
       // token and every OTHER arm stays green — the chain still resolves, the token is
       // still fallback-only, the sanction is still live — while the recorded justification
       // silently becomes false. That is the --cat-N-ink construction.
-      const { checkNoSafeDefaultTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership.js');
+      const { checkNoSafeDefaultTokens, SANCTIONED_FALLBACK_READS } = require('../../../tools/check-ownership');
       const entry = SANCTIONED_FALLBACK_READS.find((e) => e.token === 'cat-1-texture');
       assert.ok(entry, 'expected a --cat-1-texture sanction to mutate');
       const real = entry.fallback;
@@ -3314,7 +3314,7 @@ describe('no-safe-default token gate (#1457)', () => {
     test('a synthetic themesDir does not drag the global ledger in with it', () => {
       // The seam exists so the gate can be bitten with synthetic input. Comparing a
       // repo-wide constant against a made-up palette would emit one stale error per row.
-      const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+      const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership');
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-seam-'));
       fs.writeFileSync(path.join(dir, 'synthetic.css'), ':root { --accent: red; --bg: white; }\n');
       const errors = [];
@@ -3349,7 +3349,7 @@ describe('no-safe-default token gate (#1457)', () => {
   });
 
   test('parseVarChain reads the chain, and a literal terminal ends it', () => {
-    const { parseVarChain } = require('../../../tools/check-ownership.js');
+    const { parseVarChain } = require('../../../tools/check-ownership');
     assert.deepEqual(parseVarChain('--x'), { token: 'x', chain: [], endsLiteral: false });
     assert.deepEqual(parseVarChain('--x, '), { token: 'x', chain: [], endsLiteral: false });
     assert.deepEqual(parseVarChain('--x, red'), { token: 'x', chain: [], endsLiteral: true });
@@ -3378,7 +3378,7 @@ describe('no-safe-default token gate (#1457)', () => {
   // models: parsePaletteVars matches /:root\s*\{/, so :root must sit immediately
   // before the brace.
   test('isExportParsedRoot matches what the export path actually parses', () => {
-    const { isExportParsedRoot } = require('../../../tools/check-ownership.js');
+    const { isExportParsedRoot } = require('../../../tools/check-ownership');
     const parsed = (sel) => new RegExp(`${sel}\\s*\\{`).source && /:root\s*\{/.test(`${sel} {`);
     for (const sel of [':root', ':root:root', 'section, :root']) {
       assert.equal(isExportParsedRoot(sel), true, sel);
@@ -3467,7 +3467,7 @@ describe('no-safe-default token gate (#1457)', () => {
   // Every input is an intersection term, so an empty one makes the gate report clean.
   // A gate that cannot fail is also a claim.
   test('the assembled gate FAILS LOUD when a scan comes back empty', () => {
-    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-safe-default-'));
     try {
       // A themes dir whose only palette declares nothing at :root.
@@ -3480,7 +3480,7 @@ describe('no-safe-default token gate (#1457)', () => {
   });
 
   test('the shipped tree is clean — REQUIRED_TOKENS covers every no-safe-default token', () => {
-    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership');
     const errors = [];
     checkNoSafeDefaultTokens(errors);
     assert.deepEqual(errors, []);
@@ -3491,7 +3491,7 @@ describe('no-safe-default token gate (#1457)', () => {
 // A gate only proves something if you can watch it fail, so every direction is driven
 // against a synthetic tree rather than only asserting the shipped one is clean.
 describe('check-ownership: checkE2ESleeps (#1575)', () => {
-  const { checkE2ESleeps, e2eSleepCensus, SANCTIONED_E2E_SLEEPS } = require('../../../tools/check-ownership.js');
+  const { checkE2ESleeps, e2eSleepCensus, SANCTIONED_E2E_SLEEPS } = require('../../../tools/check-ownership');
   const mkTree = (files) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-sleeps-'));
     for (const [name, body] of Object.entries(files)) {
@@ -4066,7 +4066,7 @@ describe('check-ownership: checkDanglingTokenReads (#1688)', () => {
 });
 
 describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)', () => {
-  const { rootDeclSites, checkPackedRootReach } = require('../../../tools/check-ownership.js');
+  const { rootDeclSites, checkPackedRootReach } = require('../../../tools/check-ownership');
   const fsx = require('node:fs');
   const osx = require('node:os');
   const pathx = require('node:path');

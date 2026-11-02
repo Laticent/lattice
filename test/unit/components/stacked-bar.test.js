@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/stacked-bar/stacked-bar.transform.js — kernel for
+ * Unit: lib/plugins/chart-family/kinds/stacked-bar/stacked-bar.transform.js — kernel for
  * the `stacked-bar` chart-family member.
  *
  * Section dispatch and the chart-frame wrap live in chart-family.dispatch.js; the shared
@@ -30,11 +30,11 @@ const {
   buildStackedBar,
   sharePercents,
   GUTTER,
-} = require('../../../lib/components/chart/stacked-bar/stacked-bar.transform');
-const cart = require('../../../lib/components/chart/_chart-family/cartesian');
+} = require('../../../lib/plugins/chart-family/kinds/stacked-bar/stacked-bar.transform');
+const cart = require('../../../lib/plugins/chart-family/shared/cartesian');
 
 const CSS = path.join(
-  __dirname, '../../../lib/components/chart/stacked-bar/stacked-bar.styles.css',
+  __dirname, '../../../lib/plugins/chart-family/kinds/stacked-bar/stacked-bar.styles.css',
 );
 
 // The <ul> inner HTML the dispatcher hands the kernel, in the two authored

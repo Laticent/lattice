@@ -13,7 +13,7 @@ const path = require('node:path');
 
 require('../../../lib/core/dagre-layout.js');
 const trama = require('@laticent/trama');
-const { flowchartAdapter, browserJs } = require('../../../lib/components/chart/flowchart/flowchart.layout.js');
+const { flowchartAdapter, browserJs } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js');
 
 const DIST = path.join(__dirname, '../../../docs/src/lib/trama/dist/index.cjs');
 

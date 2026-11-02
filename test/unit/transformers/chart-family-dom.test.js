@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const chartFamily = require('../../../lib/transformers/chart-family');
 const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
-const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
+const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 const notesCore = require('../../../lib/authoring/notes-core');
 
 function makeDoc(bodyHtml) {

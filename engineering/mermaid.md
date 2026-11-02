@@ -61,7 +61,7 @@ the two things a Mermaid SVG leans on — the `<style>` mermaid injects into it,
 smuggled into the SVG namespace: the mXSS shape we keep shut, HARD RULE #22). So
 before assembly each diagram is flattened into a self-styled SVG whose labels are
 native `<text>` (`flattenSvgStyles(svg, win, { foreignObjectLabels: 'text' })`,
-`lib/components/chart/_chart-family/standalone-svg.js`), driven by the CLI's own
+`lib/plugins/chart-family/shared/standalone-svg.js`), driven by the CLI's own
 player capture and by the Studio's `bakeDeckSections`. Charts are deliberately NOT
 flattened — they are token-driven and the player ships the CSS that drives them, so
 freezing their computed colors would pin them to the export-time scheme and kill both

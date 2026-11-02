@@ -39,6 +39,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execSync, execFileSync, spawn } = require('node:child_process');
+const { pluginKindFolders } = require('../lib/packages/fs.js');
 
 const { EXTRA_NAMES } = require('./build-bucket-galleries');
 
@@ -142,6 +143,9 @@ function classify(file) {
     if (segs.length === 2 && segs[0] === stem) return { kind: 'bucket', name: stem };
     if (segs.length === 3 && segs[1] === stem) return { kind: 'component', name: stem };
   }
+  //   lib/plugins/<plugin>/kinds/<name>/<name>.gallery.md → component (a plugin's kind)
+  m = file.match(/^lib\/plugins\/[^/]+\/kinds\/([a-z][a-z0-9-]*)\/\1\.gallery\.md$/);
+  if (m) return { kind: 'component', name: m[1] };
   return null;
 }
 
@@ -204,6 +208,11 @@ function globGallery(_pattern, name, _bucket) {
         path.relative(ROOT, path.join(dir, `${name}.gallery.dark.pdf`)),
       ];
     }
+  }
+  const kind = pluginKindFolders(base).find((k) => k.name === name);
+  if (kind) {
+    const dir = path.join(kind.parent, name);
+    return [path.relative(ROOT, path.join(dir, `${name}.gallery.light.pdf`)), path.relative(ROOT, path.join(dir, `${name}.gallery.dark.pdf`))];
   }
   return [];
 }

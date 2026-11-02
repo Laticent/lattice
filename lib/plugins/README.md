@@ -56,6 +56,12 @@ lib/plugins/<name>/
                           and motion roles. IN-TREE ONLY: the one subfolder the plugin kind admits
                           (lib/packages/kinds.js `plugin.codeDirs`); the importers read top-level
                           files only, so a zip's copy is dropped, never installed
+  styles.generated.css    a stylesheet a build tool writes, bundled right after styles.css (the chart
+                          finishes' rules, tools/build-marks-css.js)
+  kinds/<name>/           the component packages the plugin OWNS, one folder each (manifest, transform,
+                          styles, docs, gallery), read and gated as components (lib/packages/kinds.js
+                          `plugin.kindsDir`, lib/packages/fs.js `listComponentFolders`). The chart family's
+                          28 chart kinds live here; the catalog still lists each on its own line
 ```
 
 The grammar and the renderers are separate files on purpose: the boundary parser and the docs

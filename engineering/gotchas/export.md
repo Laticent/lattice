@@ -202,7 +202,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `themeDualMode` only ever read `<style>` BLOCKS, and two chart components write their
   gradient stops as an inline `style` ATTRIBUTE
   (`lib/plugins/chart-family/chart-family.dispatch.js`,
-  the state chart's browser pass, now `lib/components/chart/state-chart/state-chart.layout.js`). Those shipped verbatim — 22
+  the state chart's browser pass, now `lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js`). Those shipped verbatim — 22
   of them in `examples/data-viz-gallery.md` — so the fill was decided by the element's
   `color-scheme` and the page by `data-lp-scheme`. The two agree only because the player's
   script writes an inline `color-scheme` onto `<html>`; wherever that coupling does not hold
@@ -314,7 +314,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Fix:** the halo is matched against the same follow-set (`followToken`), so it ships as
   `fill:var(--bg)` and moves with the toggle. When a halo matches NO token (an author's own
   background) the ink above it is frozen to its bake-time literal and marked `lp-own-ink`
-  instead — frozen together. `lib/components/chart/_chart-family/standalone-svg.js`.
+  instead — frozen together. `lib/plugins/chart-family/shared/standalone-svg.js`.
 - **The general shape:** in a document with a runtime theme toggle, "frozen" and
   "following" are both fine; a frozen surface under a following ink is not. Freezing on
   ambiguity is not the safe default here — it was measured as strictly worse than the bug.

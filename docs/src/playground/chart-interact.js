@@ -480,7 +480,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
     const tpl = detailsEl?.querySelector(`template.chart-detail[data-mark="${i}"]`);
     // The template's OWN items only. A row's `>` description (the first item) is rich Markdown
     // and may hold a list; `querySelectorAll('li')` also took that list's items and spread them
-    // into the meta line. lib/components/chart/_chart-family/mark-detail.js writes the payload.
+    // into the meta line. lib/plugins/chart-family/shared/mark-detail.js writes the payload.
     const lis = tpl ? [...tpl.content.children].filter((n) => n.tagName === 'LI').map((n) => n.innerHTML.trim()) : [];
     const body = lis[0] || '';
     const meta = lis.slice(1).join(' · ');

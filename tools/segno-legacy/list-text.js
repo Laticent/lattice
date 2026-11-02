@@ -20,7 +20,7 @@ const LEADING_MARKER_PREFIX_RE = new RegExp(`^\\[(${MARKER_CLASS})\\]\\s*`);
 // lib/core/chart-narration.js (markedCell, without its cleanLabel pass)
 const MARKED_CELL = new RegExp(`^(?:<[^>]+>\\s*)?\\[(${MARKER_CLASS})\\]\\s*(.*)$`);
 
-// lib/components/chart/roadmap/roadmap.transform.js
+// lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js
 const CELL_MARKER_RE = new RegExp(`^\\s*(?:<[^>]+>\\s*)?\\[(${MARKER_CLASS})\\]\\s*`);
 const CELL_MARKER_STRIP_RE = new RegExp(`^\\s*(<[^>]+>\\s*)?\\[${MARKER_CLASS}\\]\\s*`);
 

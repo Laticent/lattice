@@ -1630,15 +1630,12 @@ test('narrateJourneyMood: mirrors the transform’s clampMood, so it cannot stat
 // rewrites its sample fails HERE rather than shipping an unread narration.
 const fs = require('node:fs');
 const path = require('node:path');
-const COMPONENTS = path.join(__dirname, '../../../lib/components');
+const { componentDir } = require('../../../lib/components');
 function manifestSample(name) {
-  for (const bucket of fs.readdirSync(COMPONENTS)) {
-    const file = path.join(COMPONENTS, bucket, name, `${name}.manifest.json`);
-    if (!fs.existsSync(file)) continue;
-    const m = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return String(m.sample || m.skeleton || '').trim();
-  }
-  throw new Error(`no manifest for ${name}`);
+  const file = path.join(componentDir(name), `${name}.manifest.json`);
+  if (!fs.existsSync(file)) throw new Error(`no manifest for ${name}`);
+  const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return String(m.sample || m.skeleton || '').trim();
 }
 
 test('narrateDataSeries: returns null for a component that is not picture-bound data', () => {
@@ -2215,7 +2212,7 @@ test('narrateDataSeries: a bracketed list cannot invent more axes than the compo
 });
 
 test('an unnamed axis (a `[, y]` placeholder) binds its value with no dangling comma', () => {
-  const { narrateChart: narrate } = require('../../../lib/core/chart-narration');
+  const { narrateChart: narrate } = require('../../../lib/core/chart-narration.js');
   const md = ['<!-- _class: scatter -->', '', '`[, Teams adopting]`', '', '## Cost against adoption.', '',
     '- Atlas `{$420k, 18%}`', '- Borealis `{$310k, 24%}`', '- Cardinal `{$180k, 52%}`'].join('\n');
   const out = narrate(md);

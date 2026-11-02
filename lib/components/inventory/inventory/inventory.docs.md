@@ -152,7 +152,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`cards-grid`](../../inventory/cards-grid/cards-grid.docs.md) — you want a fixed cards grid with nested-bullet authoring
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — the items carry an explicit sequence
 - [`list-tabular`](../../inventory/list-tabular/list-tabular.docs.md) — more than six rows, or a meta column per row
-- [`timeline-list`](../../chart/timeline-list/timeline-list.docs.md) — a vertical dated timeline rather than a parallel register
+- [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — a vertical dated timeline rather than a parallel register
 
 ## Demo deck
 

@@ -22,7 +22,7 @@
  *   · `tools/` may fetch a CDN at BUILD time and vendor the result (that is the
  *     wanted pattern — `build-basemap.js`), so it is not
  *     scanned. The output is committed and served from our own origin.
- *   · `lib/components/chart/map/map.basemap.json` carries a `sourceUrl` as
+ *   · `lib/plugins/chart-family/kinds/map/map.basemap.json` carries a `sourceUrl` as
  *     PROVENANCE metadata for a vendored 21KB file. Also not scanned, also fine.
  *   · This file names the hosts it bars, so it is excluded from its own scan.
  *

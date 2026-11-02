@@ -8,7 +8,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { removeTags, stripTags, plainText } = require('@laticent/markup');
-const { detailNote } = require('../../../lib/components/chart/_chart-family/mark-detail');
+const { detailNote } = require('../../../lib/plugins/chart-family/shared/mark-detail');
 const { stripDebugAttrs } = require('../../../lib/engine/index.js');
 
 test('removeTags strips to a fixed point, so a stripped tag cannot splice a new one together', () => {
@@ -29,10 +29,10 @@ test('the chart kernels\' local strippers all go through removeTags', () => {
   const path = require('node:path');
   const ROOT = path.resolve(__dirname, '../../..');
   for (const f of [
-    'lib/components/chart/_chart-family/svg-legend.js',
-    'lib/components/chart/journey/journey.transform.js',
-    'lib/components/chart/map/map.transform.js',
-    'lib/components/chart/word-cloud/word-cloud.transform.js',
+    'lib/plugins/chart-family/shared/svg-legend.js',
+    'lib/plugins/chart-family/kinds/journey/journey.transform.js',
+    'lib/plugins/chart-family/kinds/map/map.transform.js',
+    'lib/plugins/chart-family/kinds/word-cloud/word-cloud.transform.js',
     'lib/components/connect/_qr-card/qr-card.js',
     'lib/core/bg-image.js',
     'lib/core/carousel.js',

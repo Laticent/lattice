@@ -182,7 +182,7 @@ describe('every label that names one mark links to it, in every chart gallery', 
   const fs = require('node:fs');
   const path = require('node:path');
   const engine = require('../../../lib/engine');
-  const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'components', 'chart');
+  const CHART_DIR = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
   // A tick that happens to read like a task name ("Q4"), and a key of SERIES, name no single mark.
   const NOT_A_NAME = '.gantt-tick, .cart-tick:not(.sbar-part), .cart-axis-title, .chart-key-label, .chart-key-value';
   const charts = fs.readdirSync(CHART_DIR)

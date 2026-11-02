@@ -363,7 +363,7 @@ describe('every emitted geometry mark declares its motion role', () => {
     const { readFileSync, readdirSync, existsSync } = await import('node:fs');
     const { resolve, join } = await import('node:path');
     const root = resolve(__dirname, '../../..');
-    const chartDir = join(root, 'lib/components/chart');
+    const chartDir = join(root, 'lib/plugins/chart-family/kinds');
     const { createRequire } = await import('node:module');
     const req = createRequire(join(root, 'package.json'));
     const engine = req('./lib/engine');
@@ -372,7 +372,7 @@ describe('every emitted geometry mark declares its motion role', () => {
       .filter((d) => !d.startsWith('_') && !d.startsWith('.'))
       .map((d) => join(chartDir, d, `${d}.gallery.md`))
       .filter((f) => existsSync(f));
-    decks.push(join(chartDir, 'chart.gallery.md'));
+    decks.push(join(root, 'lib/components/chart/chart.gallery.md'));
     expect(decks.length, 'the gallery sweep must actually find decks').toBeGreaterThan(8);
 
     const offenders: string[] = [];

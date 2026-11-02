@@ -21,6 +21,9 @@
 // it drops is counted and reported, never silently skipped (HARD RULE #25).
 
 // Paths that cannot change how any golden renders.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 const RENDER_IRRELEVANT = [
   /^lib\/authoring\//, // the deck linter
   /^lib\/diagnostics\//,
@@ -97,6 +100,19 @@ export function renderRelevantChanges(changed, readBase, readHead) {
 export const DEFAULT_RENDER_CAP = 40;
 
 const COMPONENT_RE = /^lib\/components\/([^/]+)\/([^/]+)\//;
+// A plugin's kind (lib/plugins/<plugin>/kinds/<name>/…) and a plugin's shared kernel (…/shared/…).
+const KIND_RE = /^lib\/plugins\/([^/]+)\/kinds\/([^/]+)\//;
+const PLUGIN_SHARED_RE = /^lib\/plugins\/([^/]+)\/shared\//;
+const REPO = fileURLToPath(new URL('../../', import.meta.url));
+
+/** The bucket a plugin kind belongs to, from its manifest (the chart kinds are in `chart`). */
+function kindBucket(plugin, name) {
+  try {
+    return JSON.parse(readFileSync(`${REPO}lib/plugins/${plugin}/kinds/${name}/${name}.manifest.json`, 'utf8')).bucket || null;
+  } catch {
+    return null;
+  }
+}
 const BUCKET_FILE_RE = /^lib\/components\/([^/]+)\/[^/]+$/;
 
 /**
@@ -154,6 +170,25 @@ export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT
         add(galleryOf(bucket, dir));
         add(bucketGallery(bucket));
       }
+      continue;
+    }
+    const kind = f.match(KIND_RE);
+    if (kind) {
+      const [, plugin, name] = kind;
+      add(`lib/plugins/${plugin}/kinds/${name}/${name}.gallery.md`);
+      const bucket = kindBucket(plugin, name);
+      if (bucket) add(bucketGallery(bucket));
+      continue;
+    }
+    // A plugin's shared kernel, when the plugin owns kinds: every gallery of its kinds and their bucket's
+    // gallery (what a bucket-shared `_` folder renders). A plugin with no kinds falls through to shared.
+    const pluginShared = f.match(PLUGIN_SHARED_RE);
+    if (pluginShared && galleries.some((g) => g.startsWith(`lib/plugins/${pluginShared[1]}/kinds/`))) {
+      const kinds = galleries.filter((g) => g.startsWith(`lib/plugins/${pluginShared[1]}/kinds/`));
+      for (const g of kinds) add(g);
+      const buckets = new Set(kinds.map((g) => kindBucket(pluginShared[1], g.split('/')[4])).filter(Boolean));
+      for (const b of buckets) add(bucketGallery(b));
+      reasons.push(`${f} is shared by the ${pluginShared[1]} plugin's kinds`);
       continue;
     }
     const bucketFile = f.match(BUCKET_FILE_RE);

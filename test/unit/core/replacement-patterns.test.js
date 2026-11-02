@@ -60,7 +60,7 @@ describe('author text is used as written, never as a replacement pattern', () =>
   });
 
   test('roadmap: a status cell and a horizon card', async () => {
-    const { applyStatusMarkers, applyHorizons } = require('../../../lib/components/chart/roadmap/roadmap.transform.js');
+    const { applyStatusMarkers, applyHorizons } = require('../../../lib/plugins/chart-family/kinds/roadmap/roadmap.transform.js');
     // Cells reach the transform as rendered HTML; this text has no `<`, so it passes through raw.
     const table = (t) => '<table><thead><tr><th>Stream</th><th>Now</th><th>Next</th></tr></thead>'
       + `<tbody><tr><td>${t}</td><td>Ship it [x]</td><td>Plan [ ]</td></tr></tbody></table>`;

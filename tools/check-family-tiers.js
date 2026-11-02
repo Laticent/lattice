@@ -198,12 +198,12 @@ let CANDIDATE_CACHE = null;
 function galleryCandidates(c) {
   if (!CANDIDATE_CACHE) {
     CANDIDATE_CACHE = new Map();
-    const { loadAll, manifestBucket } = require('../lib/components');
+    const { componentDir, loadAll, manifestBucket } = require('../lib/components');
     const gallery = fs.readFileSync(path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md'), 'utf8');
     const baseline = gallery.split(/^---\s*$/m).map((s) => ({ s, tokens: classTokens(s) }));
     for (const m of loadAll()) {
       const own = [];
-      const p = path.join(ROOT, 'lib', 'components', manifestBucket(m), m.name, `${m.name}.gallery.md`);
+      const p = path.join(componentDir(m, path.join(ROOT, 'lib', 'components')), `${m.name}.gallery.md`);
       if (fs.existsSync(p)) {
         for (const s of fs.readFileSync(p, 'utf8').split(/^---\s*$/m)) {
           const tokens = classTokens(s);

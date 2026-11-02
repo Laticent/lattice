@@ -107,7 +107,7 @@ describe('build-css', () => {
   // on-disk file is 1,594,354 CHARACTERS against bundle()'s 1,595,126 — the byte
   // counts are 1,636,084 and 1,636,862, because the bundle is full of multi-byte
   // punctuation and `.length` is not `wc -c`. The whole 772-character delta is
-  // one hunk of lib/components/chart/journey/journey.styles.css that fbb6287
+  // one hunk of lib/plugins/chart-family/kinds/journey/journey.styles.css that fbb6287
   // changed: a nine-line comment added above
   // `section.journey .journey-mood-key-label`, less the `opacity: 0.85` line the
   // same commit deleted from the rule. In that same tree `npm run build:check`

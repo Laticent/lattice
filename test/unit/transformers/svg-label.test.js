@@ -1,6 +1,6 @@
 /**
  * Unit: the UPPERCASE label estimate in
- * lib/components/chart/_chart-family/svg-label.js (`upperAdvance`).
+ * lib/plugins/chart-family/shared/svg-label.js (`upperAdvance`).
  *
  * WHY THIS TEST EXISTS. The estimate it pins is a claim about the real world —
  * how wide a string paints in a real browser, in a real face — and the whole
@@ -60,10 +60,10 @@ const assert = require('node:assert/strict');
 const {
   upperAdvance, measureLabel, wrapSvgLabel, charBudget,
   GLYPH_UPPER, GLYPH_UPPER_MAX, ADVANCE,
-} = require('../../../lib/components/chart/_chart-family/svg-label');
+} = require('../../../lib/plugins/chart-family/shared/svg-label');
 // The greedy line-breaker the emitter uses, so the "untightened wrap" below is
 // the real one rather than a re-implementation that could disagree.
-const { wrapLabelToLines } = require('../../../lib/components/chart/_chart-family/svg-legend');
+const { wrapLabelToLines } = require('../../../lib/plugins/chart-family/shared/svg-legend');
 
 // [string, clean, hand] — measured, as described above. Deliberately spans the
 // whole reachable range rather than sampling the pretty middle: the four

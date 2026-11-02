@@ -809,8 +809,8 @@ const { exportGlobalCss } = require('./lib/export/author-css');
 const { splitKatexSheet } = require('./lib/export/katex-inline');
 const { readClassAttr, splitSections } = require('@laticent/markup');
 // The label-drop channel's READER half — same grammar as the writer, one module
-// (lib/components/chart/_chart-family/label-drops.js), so the two cannot drift.
-const { decodeLabelDrops } = require('./lib/components/chart/_chart-family/label-drops');
+// (lib/plugins/chart-family/shared/label-drops.js), so the two cannot drift.
+const { decodeLabelDrops } = require('./lib/plugins/chart-family/shared/label-drops');
 const {
   ENGINE_SCRIPT_ATTR,
   INSTALL_AUTHOR_DEFERRAL_PROBE_SRC,
@@ -2878,7 +2878,7 @@ const hasStateChart = highlightedSlides.some(s => s.includes('state-chart-figure
 let needsDagre = false;
 if (hasStateChart) {
   try {
-    const { htmlNeedsDagre } = require('./lib/components/chart/state-chart/state-chart.adoption.js');
+    const { htmlNeedsDagre } = require('./lib/plugins/chart-family/kinds/state-chart/state-chart.adoption.js');
     needsDagre = htmlNeedsDagre(highlightedSlides);
   } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
 }
@@ -2899,7 +2899,7 @@ let calloutsEmbedded = false;   // the placer rides in the first script that nee
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js');
     // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
     // reading-order grid with no dagre at all, and most shipped machines are chains, so
     // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
@@ -2937,7 +2937,7 @@ const hasFlowchart = highlightedSlides.some(s => s.includes('flowchart-figure'))
 let flowchartScript = '';
 if (hasFlowchart) {
   try {
-    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/components/chart/flowchart/flowchart.layout.js');
+    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js');
     let dagreIife = '';
     if (!(hasStateChart && needsDagre)) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
@@ -4349,7 +4349,7 @@ async function renderBody(browser, g, closeBrowser) {
       // pin them to the export-time scheme — killing the player's own dark/light toggle
       // and the Read·Article re-host's `figure.chart-frame` recolor. Mermaid has no
       // such dependency (it bakes its colors at render time either way).
-      const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+      const { flattenSvgStyles: flattenPlayerSvg } = require('./lib/plugins/chart-family/shared/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenPlayerSvg.toString()};`), 'player capture: inject svg flattener');
       // The motion roles the live runtime writes on every drawn diagram. The CLI's diagrams come
       // from a plugin's bake, not the runtime, so they arrive untagged; tagging the baked copy here
@@ -4684,7 +4684,7 @@ async function renderBody(browser, g, closeBrowser) {
             const idxs = allIdxs.filter((idx) => rb.bakedBand(idx) !== lookMode);
             if (idxs.length) {
               if (!QUIET) process.stdout.write(`  re-rendering ${idxs.length} ${rb.noun}(s) → ${lookMode}...`);
-              const { flattenSvgStyles: flatten } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+              const { flattenSvgStyles: flatten } = require('./lib/plugins/chart-family/shared/standalone-svg.js');
               const parts = [];
               const authorKept = new Set();   // sets its own colors — the look can't override (intended, benign)
               const renderFailed = new Set(); // mmdc fell back — no look render; keeps the slide-scheme bake (may be WRONG)
@@ -4778,7 +4778,7 @@ async function renderBody(browser, g, closeBrowser) {
       }
 
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
-        require('./lib/components/chart/_chart-family/standalone-svg.js');
+        require('./lib/plugins/chart-family/shared/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
       const raw = await g(() => page.evaluate(({ KEYED, FIGURES }) => {
         const ser = new XMLSerializer();
@@ -5523,7 +5523,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {

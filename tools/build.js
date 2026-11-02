@@ -134,7 +134,7 @@ const STEPS = [
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
   // The marks rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
-  { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-marks-css.js' },
+  { label: 'chart finish rules (lib/plugins/chart-family/shared)', script: 'build-marks-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice.js — those bundles
@@ -153,7 +153,7 @@ const STEPS = [
   // rather than uncommitted: `present-guide.ts` imports it as an ordinary module, so a missing
   // file is a docs-site build error rather than a degraded feature.
   { label: 'guide handles (docs studio)', script: 'build-guide-handles.js' },
-  { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
+  { label: 'chart dispatch registry (lib/plugins/chart-family/kinds)', script: 'build-chart-registry.js' },
   // Also ahead of the bundles: lib/export/image-set.js and lib/authoring/scorecard.js
   // `require()` this catalog and both are inlined by esbuild, and three docs-site
   // modules import it. It replaces nine hand-maintained rosters — see

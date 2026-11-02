@@ -94,6 +94,22 @@ change; the owner approved amending both (HARD RULE #7 now reads "every lint rul
 gather plugin rules through a generated table, as it already gathers inline kinds' `diagnose`, and the rules stay
 pure and synchronous, on the `lintCoreGz` budget.
 
+## 8. The folder move, as built (#2997 step 12a, 2026-11-02)
+
+The 28 kinds now live in `lib/plugins/chart-family/kinds/<kind>/`, and the shared kernel (`_chart-family/*.js`) in the
+plugin's `shared/`. The plugin is renamed `charts` in its own slice. Five calls this step made:
+
+| Call | Why |
+|---|---|
+| A plugin may carry `kinds/`, and each folder in it is a component package (`lib/packages/kinds.js` `kindsDir`). `listComponentFolders` walks `plugins/*/kinds/` beside a `components` root, so `loadAll`, the package index, the schema sweep and the conformance contract all find a kind where its plugin keeps it | One walk, so no catalog can miss a kind (axis B, C) |
+| `componentDir(m)` (`lib/components/index.js`) answers where a component lives. The tools that built `lib/components/<bucket>/<name>` paths by hand ask it instead | A kind's path stops being an assumption every tool repeats |
+| The bucket-wide `chart.gallery.md` stays in `lib/components/chart/` | The bucket is still a catalog concept, and its generator, the six-gallery set and ten tools address it there. Per-kind galleries move with their kinds |
+| `_chart-family/marks.generated.css` became the plugin role `styles.generated.css`; its docs became `shared/README.md`; its style principles became `design/chart-palette.md` | A plugin's `shared/` holds modules and a README only. The CSS bundle names the sheet in the same slot, so the minified CSS is byte-identical; the full bundle differs only in its `/* === path === */` comments |
+| `SANCTIONED_PLUGIN_REACH` (`chart-family -> lib/core`) and a new `SANCTIONED_PLUGIN_ENTRY` list (`tools/structure.js`) admit the edges the move carried over, each marked MID-MOVE | The work lands in verified slices; 12b-12e remove every entry before #2997 merges |
+
+Verified at 12a: 348 decks of engine HTML byte-identical; `lint:deck --all` the same 490 files and the same findings,
+listed with the kind galleries after the rest of `lib/components`; unit suite, docs vitest, tsc and `build:check` green.
+
 ## References
 
 - `engineering/decisions/2026-11-01-plugin-contract-alignment-audit.md` (Q3).

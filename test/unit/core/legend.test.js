@@ -222,7 +222,7 @@ test('CALLOUT_READERS names only real slide classes', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   for (const name of CALLOUT_READERS) {
-    assert.ok(fs.existsSync(path.join(__dirname, `../../../lib/components/chart/${name}/${name}.manifest.json`)), name);
+    assert.ok(fs.existsSync(path.join(__dirname, `../../../lib/plugins/chart-family/kinds/${name}/${name}.manifest.json`)), name);
   }
 });
 

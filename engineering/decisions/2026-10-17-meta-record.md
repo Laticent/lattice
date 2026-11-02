@@ -769,7 +769,7 @@ Only strip, skip, tokenize or escape (18):
 - `docs/src/lib/deck-outline/deck-outline.ts`
 - `docs/src/lib/playground-controller.ts`
 - `lib/authoring/fact-check-core.js`
-- `lib/components/chart/_chart-family/mark-detail.js`
+- `lib/plugins/chart-family/shared/mark-detail.js`
 - `lib/core/closed-comments.js`
 - `lib/core/flowchart-html.js`
 - `lib/core/heading-split-core.mjs`

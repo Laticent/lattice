@@ -77,7 +77,7 @@ const CENSUS = [
   ['docs/src/lib/deck-outline/deck-outline.ts', S, 'only strips, skips or tokenizes comments'],
   ['docs/src/lib/playground-controller.ts', S, 'only strips, skips or tokenizes comments'],
   ['lib/authoring/fact-check-core.js', S, 'only skips comment lines; its class read is already shared'],
-  ['lib/components/chart/_chart-family/mark-detail.js', S, 'only strips, skips or tokenizes comments'],
+  ['lib/plugins/chart-family/shared/mark-detail.js', S, 'only strips, skips or tokenizes comments'],
   ['lib/core/closed-comments.js', S, 'the linear comment tokenizer'],
   ['lib/core/flowchart-html.js', S, 'only strips, skips or tokenizes comments'],
   ['lib/core/heading-split-core.mjs', S, 'only strips, skips or tokenizes comments'],

@@ -77,9 +77,9 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 ## Related components
 
 - [`code`](../../code/code/code.docs.md) — the implementation, not the topology, is the argument
-- [`quadrant`](../../chart/quadrant/quadrant.docs.md) — items positioned by two numeric attributes
-- [`radar`](../../chart/radar/radar.docs.md) — options rated across several criteria
-- [`timeline-list`](../../chart/timeline-list/timeline-list.docs.md) — the graph is a sequence in time, not a topology
+- [`quadrant`](../../../plugins/chart-family/kinds/quadrant/quadrant.docs.md) — items positioned by two numeric attributes
+- [`radar`](../../../plugins/chart-family/kinds/radar/radar.docs.md) — options rated across several criteria
+- [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — the graph is a sequence in time, not a topology
 - [`content`](../../statement/content/content.docs.md) — the diagram is one element in a prose slide
 
 ## Demo deck

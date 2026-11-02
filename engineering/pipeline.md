@@ -747,7 +747,7 @@ every slide + thumbnail blob in browser memory at once, so a big deck can exhaus
 mobile/Safari tab — the CLI (Node, no per-tab ceiling) has no such limit.
 The per-slide raster differs by surface (headless Chromium screenshots here;
 `html-to-image` → `canvas` in the browser); the standalone SVGs reuse the
-chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`,
+chart-SVG flatten kernel (`lib/plugins/chart-family/shared/standalone-svg.js`,
 the same one behind "download chart as SVG"), extended to Mermaid diagrams, with
 fonts embedded so each `.svg` opens anywhere.
 

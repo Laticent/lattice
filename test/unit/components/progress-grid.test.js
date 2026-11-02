@@ -35,7 +35,7 @@ describe('progress — one grid for every row', () => {
   });
 
   test('the list owns three columns and the pane narrows them on the list', () => {
-    const own = fs.readFileSync(path.join(LIB, 'components/chart/progress/progress.styles.css'), 'utf8');
+    const own = fs.readFileSync(path.join(LIB, 'plugins/chart-family/kinds/progress/progress.styles.css'), 'utf8');
     assert.match(own, /\.progress-bars \{[^}]*grid-template-columns: 18\.75cqi 1fr minmax\(7\.5cqi, max-content\)/);
     const pane = fs.readFileSync(path.join(LIB, 'forms/cell/pane/pane.css'), 'utf8');
     assert.match(pane, /lat-pane\[data-pane="progress"\][^{]*\.progress-bars \{[^}]*grid-template-columns:[^;]*minmax\(/);

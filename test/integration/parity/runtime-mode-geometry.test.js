@@ -39,7 +39,7 @@ const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'js
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
 const engine = require('../../../lib/plugins/chart-family/chart-family.dispatch');
-const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
+const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),

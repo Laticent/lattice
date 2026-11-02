@@ -22,7 +22,7 @@ Triaged 2026-09-24 against `main` at 6110a1e: still open.
                    nothing in the tree would notice.
        where     — test/integration/parity/ (label-set-key-runtime.test.js is the pattern:
                    real Chromium, shipped dist/lattice-runtime.js). The lesson to encode is in
-                   lib/components/chart/matrix-grid/matrix-grid.transform.js `syncCellSrLabels`.
+                   lib/plugins/chart-family/kinds/matrix-grid/matrix-grid.transform.js `syncCellSrLabels`.
        done when — a deck authoring a label-set override is asserted to announce the SAME words
                    it displays, read from the accessibility tree (CDP
                    Accessibility.getFullAXTree), not from the DOM.

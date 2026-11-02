@@ -1,0 +1,214 @@
+{
+  "$schema": "../../../../components/manifest.schema.json",
+  "name": "piechart",
+  "focusAxes": [
+    "mark"
+  ],
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "slices",
+      "detail"
+    ]
+  },
+  "callout": {
+    "side": "beside"
+  },
+  "function": "evidence",
+  "bucket": "chart",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "renderNote": "Wedges, their radial gradients, the percentages and the legend are all one `<svg>`. A wedge is an arc path, and keeping the legend inside the same drawing means a swatch hue can never drift from the slice it names.",
+  "kernel": {
+    "figureClass": "piechart-figure",
+    "marks": [
+      {
+        "class": "wedge",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each wedge is that item's share of the whole",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": { "claims": ["trailing-paragraph"] },
+  "tags": [
+    "donut",
+    "proportion",
+    "percentage"
+  ],
+  "description": "Pie or donut chart with legend — proportional wedges.",
+  "purpose": "Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.",
+  "variants": [
+    "donut"
+  ],
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading framing the breakdown."
+    },
+    "slices": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values)."
+    },
+    "detail": {
+      "selector": "li > ul",
+      "required": false,
+      "description": "Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class=\"chart-detail\">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered."
+    }
+  },
+  "skeleton": "<!-- _class: piechart donut -->\n\n`Eyebrow · context`\n\n## What the breakdown shows.\n\n- First slice `40%`\n- Second slice `30%`\n- Third slice `20%`\n- Fourth slice `10%`\n",
+  "anatomyBlock": "piechart-canvas",
+  "sample": "<!-- _class: piechart -->\n\n`H1 2026 · 1,840 person-hours`\n\n## The pie gives each share one wedge.\n\nNearly half went to producing decks; the deciding itself was the smallest slice.\n\n- Deck production `46%`\n  - 92 decks, averaging 18 slides each\n  - Most of it review-cycle churn\n- Meetings about meetings `22%`\n- Realigning on priorities `18%`\n- Stakeholder management `9%`\n- Actually deciding `5%`\n",
+  "stressDoc": {
+    "summary": "Eleven slices — the legend's limit.",
+    "sample": "<!-- _class: piechart -->\n\n`FY2026 · 1,840 person-hours`\n\n## Stress test — eleven slices, long-tail distribution, none of it on the roadmap.\n\n- Signal Intake engineering `28%`\n- Scoring policy work `16%`\n- Decision Log integration `13%`\n- Per-team calibration `11%`\n- Explaining the framework to stakeholders `9%`\n- Pilot and team support `7%`\n- Documentation and gallery `5%`\n- Adoption dashboard `4%`\n- Auditor export `3%`\n- Incident response `2%`\n- Miscellaneous toil `2%`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "Three to six parts of a whole",
+      "body": "Time allocation, budget breakdown, mix-of-business. Past six slices the wedges become unreadable and the legend overwhelms — split or pick the top five plus an `Other` slice."
+    },
+    {
+      "title": "Proportions matter more than precision",
+      "body": "Pie charts are good at 'roughly a third', bad at 'is it 28% or 31%?'. If exact differences are the argument, reach for a bar chart (`progress`) where the eye can compare lengths directly."
+    },
+    {
+      "title": "Donut for executive decks",
+      "body": "The `donut` modifier hollows the center — cleaner, less crowded, and the hole reads as composed rather than as a missing slice. Default to donut for board / investor decks; reserve solid pies for analyst working sessions."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Slices that don't sum to a whole",
+      "body": "A pie of unrelated metrics is meaningless — the visual implies parts of a whole. If your values are independent measures, use stats or a bar chart instead."
+    },
+    {
+      "title": "Two slices",
+      "body": "A two-slice pie is just a percentage with extra steps. Use big-number or split-panel metric — the audience can read '38% / 62%' faster than they can decode a half-and-half disc."
+    },
+    {
+      "title": "Comparing two pies",
+      "body": "Side-by-side pies force the audience to compare wedge angles across two figures — humans are bad at this. Use grouped bars or a slope chart to land the comparison cleanly."
+    }
+  ],
+  "related": [
+    {
+      "name": "progress",
+      "when": "comparable parts but precise differences matter"
+    },
+    {
+      "name": "stats",
+      "when": "the values are independent metrics, not a partition"
+    },
+    {
+      "name": "big-number",
+      "when": "the headline is one slice, not the breakdown"
+    },
+    {
+      "name": "kpi",
+      "when": "the slices need status framing and targets"
+    }
+  ],
+  "variantDocs": {
+    "donut": {
+      "label": "donut",
+      "summary": "The center carries the total.",
+      "sample": "<!-- _class: piechart donut -->\n\n`H1 2026 · 1,840 person-hours`\n\n## donut opens the center for the total.\n\nThe toil-and-on-call slice is the one nobody put in the roadmap.\n\n- Signal Intake build `46%`\n- Scoring policy work `22%`\n- Decision Log integration `18%`\n- Explaining the framework to stakeholders `9%`\n- Toil and on-call `5%`\n\nRefreshed weekly · figures from the time-tracking export\n"
+    }
+  },
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center."
+    },
+    {
+      "variant": "donut",
+      "useWhen": "Board/investor decks by default — the hollow center reads as composed rather than as a missing slice. The hole itself stays visually empty; a per-slice `detail` sublist surfaces via the interactive popover and the PDF speaker note either way, not inside the hole."
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Slice values mix formats, e.g. some as `40%` and others as `120 hrs` in the same chart.",
+      "fix": "Every slice pill in one chart shares the same unit/format. Mixing formats breaks the part-to-whole read the wedges are supposed to communicate."
+    },
+    {
+      "mistake": "A `detail` sublist under a slice authored as a numbered list.",
+      "fix": "Detail sublists must be bullet (`-`/`*`) lists, not numbered — the shared chart-family detail substrate (funnel/map/quadrant/radar too) only picks up bullet lists."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Author slices in descending value order; the engine draws wedges in source order and never auto-sorts — a shuffled list scatters the visual hierarchy the wedges are supposed to carry.",
+    "Keep every slice label to 1-3 words — long labels wrap and crowd the legend, which sits in a right rail beside the wedges in a landscape box or stacks below them in a portrait box (the portrait layout budgets a wider label column, but short labels still read cleanest in both).",
+    "Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong 2011 / IBM Carbon, calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th."
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 25,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "measured",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "note": "hard sits at or below the ceiling tools/calibrate-capacity.js --pane measured at half the slide density, where a step fails when it clips OR stops being legible (text under the type floor, or a label the chart declines to paint): side 50%: 21, text under the type floor at 22; stack 50/50: 9, under the floor at 10. sweet sits at or below it."
+    },
+    "review": "stack 40 measured, 50 reviewed: a chart in a band under half the stage is a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "part",
+    "units": {
+      "mark": {
+        "select": "path.wedge[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "largest"
+  },
+  "segno": {
+    "row": {
+      "label": "a pie slice",
+      "positional": [
+        {
+          "name": "value",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "params": {},
+      "rows": {
+        "shape": "fields",
+        "quotes": true,
+        "nested": "detail",
+        "legacy": [
+          "value"
+        ],
+        "native": true
+      }
+    }
+  }
+}

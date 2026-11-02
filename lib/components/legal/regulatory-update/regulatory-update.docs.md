@@ -212,7 +212,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 
 ## Related components
 
-- [`timeline-list`](../../chart/timeline-list/timeline-list.docs.md) — dated entries with a status read and a sentence each, but no citation per row
+- [`timeline-list`](../../../plugins/chart-family/kinds/timeline-list/timeline-list.docs.md) — dated entries with a status read and a sentence each, but no citation per row
 - [`authority-chain`](../../legal/authority-chain/authority-chain.docs.md) — single rule walked from statute to regulation to guidance to case
 - [`list`](../../inventory/list/list.docs.md) — `takeaway numbered`: flat enumeration of requirements without dates or citations
 - [`list-steps`](../../progression/list-steps/list-steps.docs.md) — lighter dots-on-a-spine sequence — the `timeline` variant

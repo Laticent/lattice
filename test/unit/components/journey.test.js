@@ -1,5 +1,5 @@
 /**
- * Unit: lib/components/chart/journey/journey.transform.js — user-journey diagram transforms.
+ * Unit: lib/plugins/chart-family/kinds/journey/journey.transform.js — user-journey diagram transforms.
  *
  * Parser:    nested <ul> with one `{who=…, mood=…, volume=…}` step record per <code> token
  *            → { sections: [{ name, tasks: [{ label, actors, mood, volume }] }] }
@@ -24,7 +24,7 @@ const {
   transformJourneySection,
   applyToRenderedHtml,
   JOURNEY_ACTOR_PALETTE,
-} = require('../../../lib/components/chart/journey/journey.transform');
+} = require('../../../lib/plugins/chart-family/kinds/journey/journey.transform');
 
 describe('journey', () => {
   // ── clampMood ─────────────────────────────────────────────────────────
@@ -402,7 +402,7 @@ describe('journey', () => {
 // default, and an author renames them.
 
 describe('the mood scale label set', () => {
-  const journey = require('../../../lib/components/chart/journey/journey.transform');
+  const journey = require('../../../lib/plugins/chart-family/kinds/journey/journey.transform');
   const { labelSetFor } = require('../../../lib/core/label-set');
 
   const LIST = '<ul>'

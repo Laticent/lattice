@@ -122,7 +122,7 @@ not everything jscpd finds is a refactor candidate.
 **Dead exports/files** (`knip`, `knip.json`) needed explicit `entry` points
 for anything only reachable through a *generated* string entry rather than a
 real file import — several browser-bundle cores (`lib/theme`, `lib/layout`,
-`lib/authoring`, `lib/exemplars`, `lib/components/chart/_chart-family`,
+`lib/authoring`, `lib/exemplars`, `lib/plugins/chart-family/shared`,
 `lib/core`) are esbuild-bundled from a template-literal entry point
 (`tools/build-theme-core.js` and siblings), which static analysis can't
 trace into. Those directories are listed as `entry` globs so their files

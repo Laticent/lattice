@@ -10,7 +10,7 @@ swimlane: engineering/decisions/2026-06-19-chart-adaptive-sizing.md
 # roadmap.styles.css says `check:chart-fit` is wired to no CI job
 
 ```text
-  P3 · [no ticket] The comment at lib/components/chart/roadmap/roadmap.styles.css:760-763 says
+  P3 · [no ticket] The comment at lib/plugins/chart-family/kinds/roadmap/roadmap.styles.css:760-763 says
        `check:chart-fit` "is wired to NO CI job (`grep -rn chart-fit .github/` is empty)". False since #2045:
        integration-nightly.yml runs it in its `chartfit` step.
        why now   — a reader trusts it and skips running the gate.

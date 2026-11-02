@@ -84,8 +84,8 @@ const P = (p) => path.join(ROOT, p);
 // caller destructures these functions at ITS OWN require time. Patch after and
 // the callers hold the originals and the census measures nothing. `node --test`
 // gives each test file its own process, so the mutated cache cannot leak.
-const labelMod = require(P('lib/components/chart/_chart-family/svg-label.js'));
-const cartMod = require(P('lib/components/chart/_chart-family/cartesian.js'));
+const labelMod = require(P('lib/plugins/chart-family/shared/svg-label.js'));
+const cartMod = require(P('lib/plugins/chart-family/shared/cartesian.js'));
 
 /** Names dropped by the render currently under way, or null when not counting. */
 let dropped = null;

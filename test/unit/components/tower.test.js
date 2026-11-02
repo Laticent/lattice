@@ -1,5 +1,5 @@
 /**
- * tower — the reinsurance program kernel (lib/components/chart/tower/).
+ * tower — the reinsurance program kernel (lib/plugins/chart-family/kinds/tower/).
  *
  * Pins the parse (the market's `limit xs attachment` notation, the retention,
  * shares), the one-color-per-reinsurer rule, the Open remainder, the fold past
@@ -10,9 +10,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { parseTower, buildTower, FS } = require('../../../lib/components/chart/tower/tower.transform');
+const { parseTower, buildTower, FS } = require('../../../lib/plugins/chart-family/kinds/tower/tower.transform');
 
-const STYLES = path.join(__dirname, '../../../lib/components/chart/tower/tower.styles.css');
+const STYLES = path.join(__dirname, '../../../lib/plugins/chart-family/kinds/tower/tower.styles.css');
 
 // The <ul> inner HTML the dispatcher hands the kernel. A layer is
 // [label, size, [[reinsurer, share], …]].

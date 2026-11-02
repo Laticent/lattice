@@ -23,7 +23,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { narrateChartScript } = require('../../../lib/core/chart-narration.js');
-const { loadAll } = require('../../../lib/components');
+const { componentDir, loadAll } = require('../../../lib/components');
 const { ARCHETYPES, gestureOf } = require('../../../lib/core/gesture.js');
 const { execSync } = require('node:child_process');
 
@@ -46,7 +46,7 @@ const loose = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
  * unmarked roadmap bet), each of which would have left its slide dark.
  */
 function corpusSlides() {
-	const files = execSync("git ls-files 'lib/components/**/*.md' 'examples/*.md' 'test/integration/baseline-decks/*.md'", { cwd: ROOT }).toString().trim().split('\n');
+	const files = execSync("git ls-files 'lib/components/**/*.md' 'lib/plugins/*/kinds/**/*.md' 'examples/*.md' 'test/integration/baseline-decks/*.md'", { cwd: ROOT }).toString().trim().split('\n');
 	const out = [];
 	for (const f of files) {
 		const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -169,7 +169,7 @@ test('every component\'s gesture finds its structure on every gallery slide', ()
 	for (const m of loadAll()) {
 		const g = SCENES[m.name];
 		if (!g) continue; // the declaration test above reports it
-		const dir = fs.readdirSync(path.join(ROOT, 'lib', 'components')).map((b) => path.join(ROOT, 'lib', 'components', b, m.name)).find((d) => fs.existsSync(d));
+		const dir = componentDir(m);
 		const file = dir && path.join(dir, `${m.name}.gallery.md`);
 		if (!file || !fs.existsSync(file)) {
 			problems.push(`${m.name}: no gallery to check its structure against`);

@@ -20,8 +20,8 @@ const { splitSections } = require('@laticent/markup');
 // trailing material — the rule-6 gate below appends its sentinels at the SAME position
 // rather than guessing one (HARD RULE #15).
 const { extractStage } = require('../../../lib/core/below-note');
-const { transformSection: journeyTransform } = require('../../../lib/components/chart/journey/journey.transform');
-const { buildKanbanBoard } = require('../../../lib/components/chart/kanban/kanban.transform');
+const { transformSection: journeyTransform } = require('../../../lib/plugins/chart-family/kinds/journey/journey.transform');
+const { buildKanbanBoard } = require('../../../lib/plugins/chart-family/kinds/kanban/kanban.transform');
 const { topLevelElements } = require('../../../lib/core/split-envelope');
 // The engine's own beat ORDER — the sentinels below are assembled from it, not typed in an
 // order someone remembered (HARD RULE #15).

@@ -165,7 +165,7 @@ describe('showcase galleries', () => {
       // The headline of #2253: engine CSS moves every rendered slide and no manifest, so
       // the markdown compare is byte-identical while the PDF is stale. The reason must
       // NAME the input, or the assertion would pass on any unrelated dirty file.
-      const st = buildFreshnessWith(['lib/components/chart/gantt/gantt.styles.css']);
+      const st = buildFreshnessWith(['lib/plugins/chart-family/kinds/gantt/gantt.styles.css']);
       assert.equal(st.fresh, false, 'a changed render input must not read as fresh');
       assert.match(st.reason, /gantt\.styles\.css/, 'the reason must name the input it saw');
     });
@@ -203,11 +203,11 @@ describe('showcase galleries', () => {
       // ORDER and a zero-content-change tree reports stale — and a DELETED input stats as
       // absent, sorts oldest, and reads fresh. The sound fix is content-addressed and is
       // its own change. This test pins the CURRENT answer so that change has to move it.
-      const both = ['lib/components/chart/gantt/gantt.styles.css', 'examples/data-viz-gallery.light.pdf'];
+      const both = ['lib/plugins/chart-family/kinds/gantt/gantt.styles.css', 'examples/data-viz-gallery.light.pdf'];
       assert.equal(buildFreshnessWith(both).fresh, true,
         'a dirty PDF still short-circuits to fresh — change this line when content-addressing lands');
       // …while the same input change WITHOUT a dirty PDF is caught, which is the fix.
-      const st = buildFreshnessWith(['lib/components/chart/gantt/gantt.styles.css']);
+      const st = buildFreshnessWith(['lib/plugins/chart-family/kinds/gantt/gantt.styles.css']);
       assert.equal(st.fresh, false, 'a changed input over a clean PDF must be stale');
     });
 

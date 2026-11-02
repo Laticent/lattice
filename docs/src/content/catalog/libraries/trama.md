@@ -22,7 +22,7 @@ reference:
     href: https://github.com/Laticent/lattice/blob/main/docs/src/lib/trama/types.ts
     note: The model, the options, the geometry it returns and the ten quality counts.
   - label: A worked adapter
-    href: https://github.com/Laticent/lattice/blob/main/lib/components/chart/flowchart/flowchart.layout.js
+    href: https://github.com/Laticent/lattice/blob/main/lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js
     note: How Lattice's flowchart reads, measures and paints through Trama.
   - label: Why we built it
     href: https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-09-27-trama-graph-chart-library.md

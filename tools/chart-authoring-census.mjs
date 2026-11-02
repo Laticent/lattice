@@ -90,12 +90,13 @@ function corpus() {
     ...walk(join(ROOT, 'examples'), isMd),
     ...walk(join(ROOT, 'test/integration/baseline-decks'), isMd),
     ...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.gallery.md')),
+    ...walk(join(ROOT, 'lib/plugins'), (p) => p.endsWith('.gallery.md')),
     ...walk(join(ROOT, 'exemplars'), isMd),
     ...walk(join(ROOT, 'kit'), isMd),
     ...walk(join(ROOT, 'design'), (p) => p.endsWith('.gallery.md')),
   ].sort().map((f) => ({ file: relative(ROOT, f), kind: 'deck', source: readFileSync(f, 'utf8') }));
   const docs = [];
-  for (const f of walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md')).sort()) {
+  for (const f of [...walk(join(ROOT, 'lib/components'), (p) => p.endsWith('.docs.md')), ...walk(join(ROOT, 'lib/plugins'), (p) => /\/kinds\/[^/]+\/[^/]+\.docs\.md$/.test(p))].sort()) {
     const src = readFileSync(f, 'utf8');
     let n = 0;
     for (const t of md.parse(src, {})) {
@@ -107,7 +108,7 @@ function corpus() {
   // directive) are the text the Insert menu, the catalog and agents copy, so a codemod that
   // misses them keeps inserting the old syntax.
   const manifests = [];
-  for (const f of walk(join(ROOT, 'lib/components/chart'), (p) => p.endsWith('.manifest.json')).sort()) {
+  for (const f of walk(join(ROOT, 'lib/plugins/chart-family/kinds'), (p) => p.endsWith('.manifest.json')).sort()) {
     const visit = (v, key) => {
       if (typeof v === 'string') { if (/_class:/.test(v)) manifests.push({ file: `${relative(ROOT, f)}#${key}`, kind: 'manifest', source: v }); return; }
       if (Array.isArray(v)) v.forEach((x, i) => { visit(x, `${key}[${i}]`); });

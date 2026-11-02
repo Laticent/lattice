@@ -50,7 +50,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadAll, effectiveVariants, manifestBucket } = require('../lib/components');
+const { componentDir, loadAll, effectiveVariants, manifestBucket } = require('../lib/components');
 
 const argv = process.argv.slice(2);
 const rootFlag = argv.indexOf('--root');
@@ -136,6 +136,7 @@ function build() {
       name: m.name,
       figureClass: m.kernel.figureClass,
       variants: effectiveVariants(m),
+      dir: componentDir(m, COMPONENTS_DIR),
     })));
 
   // Two charts claiming one figure class would make the chart-frame wrap find
@@ -148,7 +149,7 @@ function build() {
   // become unloadable, at step 3 of a build whose step 2c already wrote the broken
   // file. Fail here instead, naming the manifest.
   for (const c of charts) {
-    const rel = path.join('lib', 'components', SLOT.bucket, c.name, `${c.name}.${SLOT.role}.js`);
+    const rel = path.relative(ROOT, path.join(c.dir, `${c.name}.${SLOT.role}.js`));
     if (!fs.existsSync(path.join(ROOT, rel))) {
       throw new Error(
         `[build-chart-registry] ${c.name} declares a \`kernel\` block but ${rel} does not ` +
@@ -172,12 +173,12 @@ function build() {
   lines.push(`   Source: the ${SLOT.plugin} plugin's \`kernel\` extension point (lib/plugins/extension-points.generated.json)`);
   lines.push(`   and its fills, the \`kernel\` block of every ${SLOT.bucket}-bucket component manifest.`);
   lines.push('   Rebuild: node tools/build-chart-registry.js */');
-  // `../../../components/<bucket>/<name>/<name>.transform` is the kernel's address relative to
-  // the generated file in `lib/plugins/<plugin>/shared/`. The loader restricts `kernel` to the slot's bucket,
-  // so the folder layout that makes this path right is the one the validator
-  // enforces — not an assumption this script makes on its own.
+  // Each kernel's address relative to the generated file in `lib/plugins/<plugin>/shared/`: the
+  // folder `componentDir` reports (the plugin's own `kinds/<name>/`), so the registry follows a kind
+  // wherever the catalog finds it.
   for (const c of charts) {
-    lines.push(`const ${localName(c.name)} = require('../../../components/${SLOT.bucket}/${c.name}/${c.name}.${SLOT.role}');`);
+    const spec = path.relative(path.dirname(OUT_FILE), path.join(c.dir, `${c.name}.${SLOT.role}`)).split(path.sep).join('/');
+    lines.push(`const ${localName(c.name)} = require('${spec.startsWith('.') ? spec : `./${spec}`}');`);
   }
   lines.push('');
   lines.push('// Layout tokens in DISPATCH order — the class list a chart section is matched');
