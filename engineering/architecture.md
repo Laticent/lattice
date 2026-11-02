@@ -145,7 +145,7 @@ resolution logic, but operates against the live DOM:
 1. On load, read CSS custom properties from `document.documentElement`
    (which has the palette's `:root` block applied via the loaded
    `<link rel=stylesheet>`). It supplies those reads as the `readToken`
-   port to the shared `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`
+   port to the shared `MERMAID_VAR_MAP` in `lib/plugins/mermaid/shared/mermaid-theme-map.js`
    — feeding only themeVariables, not themeCSS.
 2. Watch the DOM for `<pre><code class="language-mermaid">` and
    `<marp-pre><code>` blocks (Marp preview emits the latter). Upgrade
@@ -164,7 +164,7 @@ the same palette file. Both produce visually equivalent output.
 
 A theme author edits one file (`themes/<n>.css`); both paths update.
 The structural mapping (`MERMAID_VAR_MAP`) lives ONCE, in
-`lib/core/mermaid-theme-map.js`, and each path supplies only a `readToken` —
+`lib/plugins/mermaid/shared/mermaid-theme-map.js`, and each path supplies only a `readToken` —
 `getComputedStyle` in the browser, offline token resolution in Node. It used to
 be duplicated, on the reasoning that the two target different runtime
 environments; the duplication drifted to 38 differing values before anything

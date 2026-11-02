@@ -36,7 +36,7 @@ const {
 } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
 const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
 // The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
-const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/core/diagram-vocabulary.js');
+const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');
 const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
 
 const REPO = path.join(__dirname, '..', '..', '..');
@@ -102,9 +102,9 @@ function liftPreviewBuild(tokensBySection, fallbackSection, captured = {}) {
   const factoryOut = eval(
     `(function (document, getComputedStyle, diagramScopeKey, TEXT_VALUE_TOKENS, buildDiagramTheme) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
   )(fakeDocument, fakeGetComputedStyle, diagramScopeKey,
-    require('../../../lib/core/mermaid-theme-map').textValueTokens(),
+    require('../../../lib/plugins/mermaid/shared/mermaid-theme-map').textValueTokens(),
     // The pass reads the map from its ctx (ctx.vocabulary.diagram); the block closes over it under this name.
-    require('../../../lib/core/mermaid-theme-map').buildDiagramTheme);
+    require('../../../lib/plugins/mermaid/shared/mermaid-theme-map').buildDiagramTheme);
   captured.probeEl = probeEl;
   captured.close = factoryOut.closeSectionReaders;
   const ports = factoryOut.diagramThemePorts();

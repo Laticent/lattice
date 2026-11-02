@@ -59,7 +59,7 @@ import { themeEntries } from '../lib/theme/files.js';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const { buildDiagramTheme } = require(path.join(ROOT, 'lib/core/mermaid-theme-map.js'));
+const { buildDiagramTheme } = require(path.join(ROOT, 'lib/plugins/mermaid/shared/mermaid-theme-map.js'));
 const { resolveTokenExpr } = require(path.join(ROOT, 'lib/core/resolve-token-expr.js'));
 
 const argv = process.argv.slice(2);

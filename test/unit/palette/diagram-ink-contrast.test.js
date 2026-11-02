@@ -34,7 +34,7 @@ const { themeEntries } = require('../../../lib/theme/files.js');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
+const { MERMAID_VAR_MAP } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
 const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr');
 
 const REPO = path.join(__dirname, '..', '..', '..');
@@ -406,7 +406,7 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
         assert.deepEqual(failures, [],
           `${theme} (${scheme}) bakes diagram ink below AA:\n  ${failures.join('\n  ')}\n` +
           'A Mermaid SVG bakes its colors, so no CSS can fix this after the fact. Either the key is fed ' +
-          'from the wrong tier in lib/core/mermaid-theme-map.js, or the palette needs to curate the token.');
+          'from the wrong tier in lib/plugins/mermaid/shared/mermaid-theme-map.js, or the palette needs to curate the token.');
       });
     }
   }

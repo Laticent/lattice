@@ -12,7 +12,7 @@
  * missing key would at least fall back to a Mermaid default; a wrong value is
  * confidently wrong.
  *
- * The gap is now closed by CONSTRUCTION (lib/core/mermaid-theme-map.js): there is
+ * The gap is now closed by CONSTRUCTION (lib/plugins/mermaid/shared/mermaid-theme-map.js): there is
  * one map, so a key exists on both paths or on neither. What this file guards is
  * the seam that remains — each path still supplies its own `readToken`, and each
  * still assembles the object at its own call site. Feed BOTH the same fake
@@ -39,10 +39,10 @@ const {
   textValueTokens,
   buildDiagramTheme,
   diagramThemeTokens,
-} = require('../../../lib/core/mermaid-theme-map');
+} = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map');
 const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
 // The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
-const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/core/diagram-vocabulary.js');
+const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');
 const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
 const { diagramScopeKey } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
 
@@ -211,7 +211,7 @@ describe('diagram theme parity — both render paths, one map', () => {
     // `DIVERGENT_KEYS` is gone from the module. Asserting its ABSENCE keeps the
     // retirement deliberate: re-exporting it — even as an empty list — would restore the
     // "some keys may differ" affordance this change removed.
-    const map = require(path.join(REPO, 'lib', 'core', 'mermaid-theme-map.js'));
+    const map = require(path.join(REPO, 'lib', 'plugins', 'mermaid', 'shared', 'mermaid-theme-map.js'));
     assert.equal('DIVERGENT_KEYS' in map, false,
       'DIVERGENT_KEYS was retired in #1674 — a divergence that stops diverging is deleted, '
       + 'not left as a standing license. Re-adding one needs its own decision record.');

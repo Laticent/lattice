@@ -1543,7 +1543,7 @@ try {
 // See engineering/decisions/2026-05-12-diagram-tokens.md for the architecture.
 
 // ── Mermaid theme variables — structural map only ───────────────────────
-// THE map lives in lib/core/mermaid-theme-map.js, imported by this path and by
+// THE map lives in lib/plugins/mermaid/shared/mermaid-theme-map.js, imported by this path and by
 // the runtime (#1332 step 2, HARD RULE #1). It used to live HERE, with a second
 // copy in lib/runtime/index.js kept in sync by comment; the two held the same 166
 // slots but 38 different VALUES. They are now one object, so a key exists on both
@@ -1604,7 +1604,7 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
 }
 
 // ── Build the Mermaid themeVariables object from the map + CSS vars ──────
-// This path's half of the port (lib/core/mermaid-theme-map.js): read one token
+// This path's half of the port (lib/plugins/mermaid/shared/mermaid-theme-map.js): read one token
 // out of the OFFLINE-resolved palette. The render worker is a separate process, so
 // there is no live DOM to ask — `parsePaletteVars` has already collapsed light-dark() and
 // chased every var() chain to a literal for the scheme being baked.

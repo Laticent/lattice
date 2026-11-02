@@ -3431,7 +3431,7 @@ describe('no-safe-default token gate (#1457)', () => {
     // Sourced from the map's own diagramThemeTokens(), so a `joinVars` entry — which
     // travels through the same readToken and the same black sentinel — cannot be
     // missed the way a `{ var: '…' }` regex missed it.
-    const { diagramThemeTokens } = require('../../../lib/core/mermaid-theme-map.js');
+    const { diagramThemeTokens } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');
     const tokens = diagramThemeTokens();
     assert.ok(tokens.includes('c-container'), 'the map must still read the containment fill');
     assert.ok(tokens.includes('cat-1-mark'), 'and a joinVars-only token must be present');

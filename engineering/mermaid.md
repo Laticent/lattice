@@ -532,7 +532,7 @@ labels under the floor gets the export's `⚠ TYPE FLOOR` line and, at
 ER chain in a wide slot (`mermaid-sketch-labels` slide 5) measures 5.5px and is tagged. Only a
 label with no laid-out box still reads "not measured".
 
-**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/core/mermaid-theme-map.js`
+**A pie's text is set in the diagram's own units, so the slot scales it.** `lib/plugins/mermaid/shared/mermaid-theme-map.js`
 sets `pieLegendTextSize` to 20px and `pieSectionTextSize` to 22px. A Mermaid pie is 450 units tall and
 the slide hands it a height, so on a `diagram` slide with a Key Insight callout (a 273px-tall pie on a
 720px slide, scale 0.607) the legend draws at 12.1px and the wedge percentages at 13.4px. They were 13px
@@ -744,7 +744,7 @@ paths. Hand-copying freezes a snapshot of one palette: the diagram then ignores 
 theme switch, a dark slide, and the print look.
 
 **One map, two readers.** Which Mermaid variable is fed by which palette token is
-decided once, in `lib/core/mermaid-theme-map.js`. Each path supplies only a
+decided once, in `lib/plugins/mermaid/shared/mermaid-theme-map.js`. Each path supplies only a
 `readToken` — `getComputedStyle(section)` in the preview, offline token
 resolution against the palette text in the PDF path — and `buildDiagramTheme`
 does the rest. Before that, the two paths held separate copies of the same map
@@ -761,7 +761,7 @@ merge kernel spliced it in ahead of yours. It renders in a page the engine owns 
 (`lib/plugins/mermaid/shared/render-worker.js`), so the kernel is gone and the merge is
 Mermaid's own.
 
-The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
+The mapping is `MERMAID_VAR_MAP` in `lib/plugins/mermaid/shared/mermaid-theme-map.js`, imported by
 both paths. `test/unit/mermaid/mermaid-var-map.test.js` asserts every token it
 names resolves in every self-declaring palette;
 `test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against

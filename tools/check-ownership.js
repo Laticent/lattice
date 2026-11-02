@@ -4505,7 +4505,7 @@ function checkThemeTokenParity(errors) {
 //
 // So the omission surfaced as a render bug instead. Measured on the export CLI:
 // `--c-container` / `--c-container-edge` are read through
-// `lib/core/mermaid-theme-map.js`, whose PDF-path reader warns and substitutes a
+// `lib/plugins/mermaid/shared/mermaid-theme-map.js`, whose PDF-path reader warns and substitutes a
 // BLACK SENTINEL that ships — solid black subgraph boxes on 5 of 8 slides of
 // examples/containment-tier.md. `--spectrum` is read bare inside `background:`
 // shorthands, so a miss invalidates the whole declaration at computed-value time
@@ -4548,7 +4548,7 @@ function checkThemeTokenParity(errors) {
 // both are cheap: derive it (add the contract row), or give the read its
 // `var(--x, <fallback>)` — which is the same choice `--cat-N-ink` already made,
 // and why that family does not appear here despite having no :root default.
-const NO_SAFE_DEFAULT_MAP_READERS = ['lib/core/mermaid-theme-map.js'];
+const NO_SAFE_DEFAULT_MAP_READERS = ['lib/plugins/mermaid/shared/mermaid-theme-map.js'];
 
 /**
  * `{ selector, body }` rule blocks, brace-aware, comments stripped — RECURSING
@@ -7014,7 +7014,7 @@ const CLASS_OR_CLASS_ONLY_PSEUDO = String.raw`(?:\.[\w-]+|:(?:not|is|where)\((?:
 const DIAGRAM_SCOPE_SAFE_SELECTOR = new RegExp(`^(?:(?::root)+|section${CLASS_OR_CLASS_ONLY_PSEUDO}*)$`);
 
 function diagramTokenClosure() {
-  const { diagramThemeTokens } = require('../lib/core/mermaid-theme-map');
+  const { diagramThemeTokens } = require('../lib/plugins/mermaid/shared/mermaid-theme-map');
   // SOURCES, not just the built bundle: `dist/lattice.css` is generated, so scanning it
   // alone lets a violation in `lib/**.css` pass on a stale tree. The bundle is kept in the
   // list because it also carries the base-layer defaults the closure walks through.
