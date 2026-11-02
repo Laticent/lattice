@@ -147,9 +147,12 @@ host hands it everything else through `ctx`. Code outside reaches it through the
 table. An in-tree plugin may also list files in `hostApi` for the linter, editors, Marp export and
 Studio, a bridge that only shrinks (`followups.d/2630-p2-host-tools-read-plugins-as-data.md`).
 
-A renderer is `(token, ctx, env) → string`. `ctx` is frozen: `ctx.name`, `ctx.options` (this
-plugin's `createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box
-family). Keep no state in closures — the engine reuses its parser across renders.
+A renderer is `(token, ctx) → string`. `token` is a frozen view of the markdown-it token (`type`,
+`content`, `markup`, `info`, `map`, `block`, `hidden`), never the token array or `env`. `ctx` is
+frozen and carries everything the host offers: `ctx.name`, `ctx.options` (this plugin's
+`createEngine({ plugins: { options: { <name>: … } } })`), `ctx.family` (the deck's box family),
+`ctx.report`, `ctx.service`, `ctx.data()` and the rest (`spec/LPM.md` §5.1). Keep no state in
+closures — the engine reuses its parser across renders; `ctx.scratch()` is the per-render memo.
 
 ## Fences
 
@@ -163,7 +166,7 @@ A plugin claims fence names in `contributes.fences` and exports a renderer per n
 The host owns `md.renderer.rules.fence` ONCE — a table from every fence name and alias to its
 plugin's renderer, and everything else to the code renderer (below). It replaced the old
 wrapper chain, where each fence plugin wrapped the previous rule and registration order decided who
-won. A fence renderer is `(token, ctx, env) → string`, `token.content` the body; a fence with a
+won. A fence renderer is `(token, ctx) → string`, `token.content` the body; a fence with a
 browser half returns `<div class="…" ${ctx.hydrateAttrs(token.content)}></div>`. A name two plugins
 claim, or one a code language owns (every highlight.js name and alias), fails the build — with one
 exception: when a highlight.js upgrade later adds a language named like a fence the committed
@@ -174,7 +177,7 @@ must declare. A fence counts as use: the host derives a plugin's `detect` probe 
 
 Every fence no plugin claims goes to ONE plugin that declares `contributes.codeRenderer`: today
 `code` (`lib/plugins/code/`). Its `<name>.render.js` exports `codeRenderer`,
-`{ highlighter, render(token, ctx, env, base) }`:
+`{ highlighter, render(token, ctx, base, info) }`:
 
 - `base(highlight)` is markdown-it's own fence rule, run with that `highlight` callback (null for
   plain text). Every fence's markup (`<pre><code class="language-x">`, its attributes, the escaping
