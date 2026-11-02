@@ -103,6 +103,7 @@
     "intent:judge": "node tools/intent-bakeoff/judge-eval.mjs",
     "intent:tune": "node tools/intent-bakeoff/tune-fit.mjs",
     "equiv:bless": "node tools/slice-equivalence.mjs --bless",
+    "identity:check": "node tools/render-identity.mjs",
     "equiv:check": "node tools/slice-equivalence.mjs --check",
     "sweep:guide": "node tools/sweep-guide-gestures.mjs",
     "mutate:guide": "node tools/mutate-guide-gestures.mjs",
