@@ -25,5 +25,7 @@ done when — every workspace library `lib/` imports lives under packages/; `@la
             yet the engine requires it at runtime, so a `npm publish --workspaces` would skip it and leave the
             published engine unresolvable; the other eight workspace libraries are unpublished but not private
             (red team on #2997).
+            Also: tools/library-prepack.js (every library's `prepack`) refuses to run outside docs/src/lib/,
+            so the move must update its folder check, or every library publishes with no dist/ built.
 evidence  — npm run identity:check (0 differ); npm pack --dry-run before and after; route budget measured
 verify    — npm run build:check; npm test; checker on the diff (it moves every library import path)
