@@ -60,7 +60,7 @@ const libBanner = (from, readers) =>
 const ROW_BANNER = libBanner('flowchart-row-grammar.js', '`splitRow` in flowchart-grammar.js reads it.');
 // The CSS parser scans for control characters (a NUL is CSS input like any other), which biome's regex rule flags.
 const CSS_BANNER = `// biome-ignore-all lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n${libBanner('css-ref-grammar.js', '`cssRefSpans` in remote-ref.js reads it.')}`;
-const HTML_BANNER = `// biome-ignore-all lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n${libBanner('html-ref-grammar.js', 'html-ref-reader.js reads it (remote-ref.js `scanHtml` on the R3 switch).')}`;
+const HTML_BANNER = `// biome-ignore-all lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n${libBanner('html-ref-grammar.js', '`scanHtml` in remote-ref.js reads it, through html-ref-reader.js.')}`;
 const LIST_BANNER = libBanner('list-text-grammar.js', 'The checks plugin\'s leading.js, matrix-grid-cells.js, track-spec.js and cell-marker-edit.mjs read it.');
 
 /** Segno's code generator and the Segno API, bundled from source and loaded in-process. */

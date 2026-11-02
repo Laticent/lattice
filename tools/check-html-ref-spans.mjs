@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 /**
- * check-html-ref-spans — would switching remote-ref.js's `scanHtml` to the grammar-driven reader (Segno R3:
- * lib/core/html-ref.generated.js and html-ref-reader.js) leave the sanitizer's answers byte-identical, and
- * do the readers read markup the way a spec parser does?
+ * check-html-ref-spans — does remote-ref.js's grammar-driven `scanHtml` (Segno R3: lib/core/html-ref.generated.js
+ * and html-ref-reader.js) leave the sanitizer's answers byte-identical, and does it read markup the way a spec
+ * parser does?
  *
  * The R3 gate of engineering/decisions/2026-10-27-segno-reports-facts-callers-decide.md, on every deck
  * markdown the golden corpus covers (the set tools/check-css-ref-spans.mjs reads), each as written and
  * as the engine renders it; with `--fuzz N`, on N seeded inputs of each of three streams instead (the
  * web-reference fuzz's HTML, token soups and foreign-content structures, test/fixtures/html-ref-soups.js).
- * "The reader" is remote-ref.js with R3 switched on (tools/lib/wired-remote-ref.mjs):
- *   1. Byte identity. `blockWebImages` from the switched copy and from the working tree return the same
- *      JSON, with no origin allowed and with one, `fonts` off and on, with no spec parser and with jsdom's
- *      (on the fuzz, no origin and no spec parser). On the corpus, `--ref` (default e6c3a4a, the last
- *      commit before R3's work) must return it too, except on a text the working tree is newly `risky`
- *      on, where asking the spec parser is the fix.
- *   2. The oracle. The reader's tags equal the live scanner's, and it is unsure exactly where that
- *      scanner is `risky`.
+ *   1. Byte identity. On the corpus, `blockWebImages` from the working tree and from `--ref` (default
+ *      e6c3a4a, the last commit before R3's work) return the same JSON, with no origin allowed and with one,
+ *      `fonts` off and on, with no spec parser and with jsdom's, except on a text the working tree is newly
+ *      `risky` on, where asking the spec parser is the fix.
+ *   2. The oracle. The reader's tags equal the hand-written scanner's it replaced (frozen in
+ *      tools/segno-legacy/scan-html-fixed.js), and it is unsure exactly where that scanner is `risky`.
  *   3. The platform-parser differential. parse5 (a WHATWG tree builder, scripting on, as every surface
  *      that shows a deck runs scripts) parses each text as a body fragment. Every element it builds
  *      outside raw text, `<template>` contents included, must be a tag the reader read AT THE SAME
@@ -37,7 +35,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deckGoldenPdfs } from './lib/golden-set.mjs';
-import { wiredRemoteRef } from './lib/wired-remote-ref.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -56,13 +53,9 @@ for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'c
   }
 }
 const oldMod = require(path.join(dir, 'remote-ref.js'));
-const wired = wiredRemoteRef();
-// remote-ref.js with R3 switched on (tools/lib/wired-remote-ref.mjs: the switch waits on a route-budget
-// ceiling), and the working tree's own, which must also match the old answers on the corpus.
-const newMod = require(wired);
-// Both copies are loaded; nothing reads the folders again.
-for (const d of [dir, path.dirname(wired)]) fs.rmSync(d, { recursive: true, force: true });
-const liveMod = require('../lib/core/remote-ref.js');
+fs.rmSync(dir, { recursive: true, force: true });
+const newMod = require('../lib/core/remote-ref.js');
+const fixed = require('./segno-legacy/scan-html-fixed.js');
 const legacy = require('./segno-legacy/scan-html.js');
 const engine = require('../lib/engine/index.js');
 const parse5 = require('parse5');
@@ -121,7 +114,7 @@ const key = (name, attrs) => {
   const n = pre(name).toLowerCase();
   return `${n === 'image' ? 'img' : n} ${JSON.stringify(attrs.map(([a, v]) => [pre(a).toLowerCase(), v]))}`;
 };
-const OPTIONS = fuzz ? [[[], false, null], [[], true, null]] : [[], ['https://allowed.example']].flatMap((a) => [false, true].flatMap((f) => [null, DOMParser].map((p) => [a, f, p])));
+const OPTIONS = fuzz ? [] : [[], ['https://allowed.example']].flatMap((a) => [false, true].flatMap((f) => [null, DOMParser].map((p) => [a, f, p])));
 
 const diffs = [];
 const missed = [];
@@ -133,23 +126,18 @@ let blockedTotal = 0;
 let newlyRisky = 0;
 for (const [name, html] of texts) {
   const r = newMod.scanHtml(html);
-  const l = liveMod.scanHtml(html);
+  const l = fixed.scanHtml(html);
   const o = fuzz ? null : legacy.scanHtml(html);
   if (o && l.risky && !o.risky) newlyRisky++;
   // 1. Byte identity.
   for (const [allowed, fonts, parser] of OPTIONS) {
     const opts = { fonts, DOMParser: parser };
-    const b = JSON.stringify(newMod.blockWebImages(html, allowed, opts));
-    const c = JSON.stringify(liveMod.blockWebImages(html, allowed, opts));
+    const c = JSON.stringify(newMod.blockWebImages(html, allowed, opts));
     const label = `allowed ${allowed.length}, fonts ${fonts}, parser ${parser ? 'jsdom' : 'none'}`;
-    if (b !== c) diffs.push(`${name} (R3 against the working tree, ${label})`);
-    if (o && !(l.risky && !o.risky)) {
-      const a = JSON.stringify(oldMod.blockWebImages(html, allowed, opts));
-      if (a !== c) diffs.push(`${name} (working tree against ${ref}, ${label})`);
-    }
+    if (!(l.risky && !o.risky) && JSON.stringify(oldMod.blockWebImages(html, allowed, opts)) !== c) diffs.push(`${name} (working tree against ${ref}, ${label})`);
     if (!fonts && !parser && !allowed.length) blockedTotal += JSON.parse(c).blocked.length;
   }
-  // 2. The oracle: the live scanner, with nothing left out.
+  // 2. The oracle: the hand-written scanner R3 replaced, with nothing left out.
   if (JSON.stringify([l.tags, l.risky]) !== JSON.stringify([r.tags, r.unsure.length > 0])) diffs.push(`${name} (tags)`);
   // 4. The unsure rate.
   if (r.unsure.length) {

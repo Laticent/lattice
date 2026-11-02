@@ -1,13 +1,12 @@
 /**
- * Segno R3 reads markup through a generated Segno parser (lib/core/html-ref-grammar.js) and a reader
- * over its tape (lib/core/html-ref-reader.js), built to replace remote-ref.js's hand-written `scanHtml`.
- * Two promises are held here:
- *   1. R3 equals the LIVE scanner: the same tags, field for field, and an `unsure` span exactly where the
- *      live scanner says `risky`. No exceptions, so a rule added to one and not the other fails here. A tag
- *      R3 drops is a fetch the sanitizer would stop seeing on the switch (HARD RULE #22).
- *   2. The live scanner equals the frozen one (tools/segno-legacy/scan-html.js, e6c3a4a) on tags, and its
- *      `risky` only ever adds to the frozen one's: the rules R3's work added (a CDATA section and the
- *      integration points in foreign content) ask the spec parser more often, never less.
+ * remote-ref.js reads markup through a generated Segno parser (lib/core/html-ref-grammar.js) and a reader
+ * over its tape (lib/core/html-ref-reader.js): Segno R3. Two promises are held here:
+ *   1. R3 equals the hand-written scanner it replaced, frozen at 065bbfe with the six fixes R3's work found
+ *      (tools/segno-legacy/scan-html-fixed.js): the same tags, field for field, and an `unsure` span exactly
+ *      where that scanner says `risky`. No exceptions. A tag R3 drops is a fetch the sanitizer stops seeing
+ *      (HARD RULE #22).
+ *   2. That scanner equals the one before the fixes (tools/segno-legacy/scan-html.js, e6c3a4a) on tags, and
+ *      its `risky` only ever adds to it: the fixes ask the spec parser more often, never less.
  *
  * Inputs: hand-picked markup for each state the readers depend on, every deck and fixture in the repo,
  * seeded token soups, and seeded foreign-content structures (an `<svg>`/`<math>`, an integration point,
@@ -22,26 +21,27 @@ const { makeScanHtml, NEEDED } = require('../../../lib/core/html-ref-reader.js')
 const real = require('../../../lib/core/html-ref.generated.js');
 const scanHtml = makeScanHtml(real);
 const live = require('../../../lib/core/remote-ref.js');
+const fixed = require('../../../tools/segno-legacy/scan-html-fixed.js');
 const legacy = require('../../../tools/segno-legacy/scan-html.js');
 
 const show = (html) => JSON.stringify(html.length > 200 ? `${html.slice(0, 200)}…` : html);
-/** R3 (`scan`) against the live scanner, with nothing left out. */
+/** R3 (`scan`) against the hand-written scanner it replaced, with nothing left out. */
 const differs = (scan, html) => {
-  const o = live.scanHtml(html);
+  const o = fixed.scanHtml(html);
   const r = scan(html);
   const want = JSON.stringify([o.tags, o.risky]);
   const got = JSON.stringify([r.tags, r.unsure.length > 0]);
-  return want === got ? null : `${show(html)}\n  live ${want.slice(0, 300)}\n  R3   ${got.slice(0, 300)}`;
+  return want === got ? null : `${show(html)}\n  fixed ${want.slice(0, 300)}\n  R3    ${got.slice(0, 300)}`;
 };
 const same = (html) => differs(scanHtml, html);
 /**
- * The live scanner against the frozen one: `risky` never dropped, and the same tags, except that where the
- * frozen scanner gave up at an unterminated CDATA section the live one reads on (and is risky): then the
- * frozen tags are where the live ones start.
+ * The fixed scanner against the one before the fixes: `risky` never dropped, and the same tags, except that
+ * where the earlier scanner gave up at an unterminated CDATA section the fixed one reads on (and is risky):
+ * then the earlier tags are where the fixed ones start.
  */
 const regresses = (html) => {
   const o = legacy.scanHtml(html);
-  const l = live.scanHtml(html);
+  const l = fixed.scanHtml(html);
   if (o.risky && !l.risky) return `${show(html)}: risky dropped`;
   const a = JSON.stringify(o.tags);
   if (a === JSON.stringify(l.tags)) return null;
@@ -50,7 +50,7 @@ const regresses = (html) => {
 
 const { rng, gen, genForeign } = require('../../fixtures/html-ref-soups.js');
 
-describe('the R3 reader returns the live scanner\'s tags, and the live scanner keeps the frozen one\'s', () => {
+describe('the R3 reader returns the hand-written scanner\'s tags, and the fixes keep the earlier one\'s', () => {
   const PICKED = [
     '', '<', '<<', '</', '</>', '<!', '<?', '<a', '<a ', '<a b', '<a b=', '<a b="', "<a b='x", '<a b=c', '<a b=c>', '<a/', '<a/>',
     '<p a=1><svg><style>x</style></svg>', '<img src="x" alt=\'y\' / >', '<a b c=d e = "f"/>', '<a b / = c>', '<a ==x>', '<a "b"=c \'d\'>', '<a b="x"c=d>', '<a b=x/>', '<svg a=/>', '<svg / >',
@@ -169,7 +169,12 @@ describe('the R3 reader returns the live scanner\'s tags, and the live scanner k
     assert.deepEqual(scanHtml('<svg><![CDATA[a < b]]></svg>').unsure, []);
   });
 
-  test('integration points reach the spec parser (the live scanner, fixed with R3)', () => {
+  test('remote-ref.js reads markup through R3', () => {
+    const html = '<p a=1><svg><desc><x></desc></svg><select><img src=a>';
+    assert.deepEqual(live.scanHtml(html), { ...scanHtml(html), risky: true });
+  });
+
+  test('integration points reach the spec parser (fixed with R3)', () => {
     const { JSDOM } = require('jsdom');
     const { DOMParser } = new JSDOM('').window;
     // Each fetched in Chromium 131 as written; the frozen scanner was sure of every one.
@@ -180,7 +185,7 @@ describe('the R3 reader returns the live scanner\'s tags, and the live scanner k
       ['<svg><desc><title><!--</title><img src=https://evil.test/a>--></desc></svg>', 'https://evil.test/a'],
     ];
     for (const [html, url] of cases) {
-      assert.equal(legacy.scanHtml(html).risky, false, `the frozen scanner was sure of ${html}`);
+      assert.equal(legacy.scanHtml(html).risky, false, `the e6c3a4a scanner was sure of ${html}`);
       assert.deepEqual(live.blockWebImages(html, [], { fonts: true, DOMParser }).blocked.map((b) => b.url), [url], html);
     }
   });
@@ -198,7 +203,7 @@ describe('the R3 reader returns the live scanner\'s tags, and the live scanner k
 
   test('linear on hostile input, both readers', () => {
     const hostile = ['<a '.repeat(100_000), '<!--'.repeat(50_000), '<!-- -'.repeat(50_000), '<!-- x -->'.repeat(40_000), '<!-- --!>'.repeat(40_000), '<style>'.repeat(30_000), '<svg><![CDATA['.repeat(30_000), '<svg><desc><![CDATA[>'.repeat(20_000), `<a b="${'x'.repeat(500_000)}`, '</'.repeat(100_000)];
-    for (const [name, scan] of [['R3', scanHtml], ['live', (h) => live.blockWebImages(h, [], { DOMParser: null })]]) {
+    for (const [name, scan] of [['R3', scanHtml], ['blockWebImages', (h) => live.blockWebImages(h, [], { DOMParser: null })]]) {
       for (const html of hostile) {
         const t = process.hrtime.bigint();
         scan(html);
