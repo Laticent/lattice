@@ -126,7 +126,7 @@ describe('the R3 reader returns the hand-written scanner\'s tags, and the fixes 
     const source = fs.readFileSync(file, 'utf8');
     const cut = source.replace(/foreign\.push\(\{ name: t\.name, points: \[\] \}\)/g, 'undefined');
     assert.equal((source.match(/foreign\.push\(/g) || []).length, 2, 'the reader pushes onto its foreign stack in a new place; update this mutant');
-    assert.notEqual(cut, source);
+    assert.equal((cut.match(/foreign\.push\(/g) || []).length, 0, 'the mutant left a push onto the foreign stack in place');
     const mod = { exports: {} };
     new Function('module', 'exports', 'require', cut)(mod, mod.exports, require);
     const reader = mod.exports.makeScanHtml(real);

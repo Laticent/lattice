@@ -299,7 +299,7 @@ test below, and to a spec parser by a differential the scanner never had. The wo
 address got past the sanitizer, all older than R3; the hand-written scanner got all six fixes first, and R3
 is held to that fixed scanner. It was built on 2026-10-30 and held unwired for two days because the parser
 crossed the Studio's route-budget ceiling (D9); the owner's 5 KB raise in #3001 (for #2997) left room for it,
-so it is switched on with no ceiling moved.
+so the session switched it on with no ceiling moved, for the owner to confirm at the merge (D9).
 
 - **What is built.** `lib/core/html-ref-grammar.js` is a Segno grammar for the WHATWG tokenizer's data
   state: tags, attributes, comments (the dash-counting states of §13.2.5.43-52, written as a regular
@@ -407,12 +407,15 @@ built so far is hard to undo.
   starts only after R2's gate (433-deck byte identity, fuzz at 0 requests in three engines, the
   failing arm still failing) has run green. R4 stays one PR per consumer.
 
-- **D9. The Studio ceiling for R3. Answered by the ceiling the owner set on 2026-11-02.** Switching R3 on
-  added about 2.5 KB gzip to the Studio's eager JavaScript (2,495 bytes locally, 2,701 in CI), which then sat
-  164 bytes under its 562,200-byte ceiling, so the switch waited (built on 2026-10-30, unwired). The owner raised that ceiling by 5 KB in #3001
-  for #2997's 0.2 KB, which leaves room for R3 (CI: 551.6 KB against 554.5 KB), so the switch shipped with no
-  ceiling moved. The bytes are declared in the route budget's explanation file. Overturning it is one
-  revert: the hand-written scanner, with the six fixes, is frozen in tools/segno-legacy/scan-html-fixed.js.
+- **D9. The Studio ceiling for R3. Decided by the session on 2026-11-02, for the owner to confirm at the
+  merge of #3002.** Switching R3 on adds about 2.5 KB gzip to the Studio's eager JavaScript (2,495 bytes
+  locally, 2,701 in CI), which sat 164 bytes under its 562,200-byte ceiling, so on 2026-10-30 the switch was
+  held and the question put to the owner, with B (do not switch) as the default if silent. The owner did not
+  answer it. On 2026-11-02 the owner raised the ceiling by 5 KB in #3001 for #2997's 0.2 KB, and the session
+  switched R3 on inside that room (CI: 551.6 KB against 554.5 KB), declaring the bytes and moving no ceiling.
+  That spends about 2.7 KB of headroom raised for another PR, which is the owner's to accept: merging #3002
+  accepts it, and holding it keeps B. Overturning it later is one revert of the switch commit; the
+  hand-written scanner, with the six fixes, is frozen in tools/segno-legacy/scan-html-fixed.js.
 
 ## Not decided here
 
