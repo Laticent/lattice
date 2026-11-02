@@ -117,8 +117,9 @@ or declared host API.
 ## 7. Delivery: small PRs on trunk
 
 1. **#2997 merges at the folder move plus the host-run frame.** The remaining edges stay as named debt that can
-   only shrink: the plugin-reach sanction becomes a ceiling on the count of `lib/core` imports (failing above and
-   below the count, like `HOST_API_CEILING`), and each inbound edge stays listed with the step that removes it.
+   only shrink: every sanctioned import, the kinds' `lib/core` imports and the inbound edges, is listed one by one in
+   `tools/structure.sanctioned.json`, so a new one fails by name and a gone one must be pruned, each entry naming
+   the step that removes it.
 2. **The id prefix** (§5), its own PR, export sign-off.
 3. **The tree and one ctx** (§2, §3), with the host able to call either contract: a kind that exports `read` and
    `draw` gets the tree, one that exports `transformSection` gets HTML. A gate counts the kinds still on the old

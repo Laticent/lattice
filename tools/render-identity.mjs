@@ -12,9 +12,13 @@
  *   npm run identity:check -- --ref <commit>   # against any commit
  *   npm run identity:check -- --json           # machine-readable result
  *
+ *   npm run identity:check -- --strict        # also fail when any deck does not pair by its source
+ *
  * Exit 0 when every paired deck renders identically and lint reports the same findings; exit 1 with the decks that
- * differ. A deck whose source exists in only one tree is listed (added or removed), not failed: a refactor that adds
- * a deck is not a regression of the others.
+ * differ. A deck whose source exists in only one tree is listed, not failed: one at the same path in both trees as
+ * "source changed", the rest as added or removed. A feature PR adds and edits decks on purpose; a refactor that must
+ * not move output runs `--strict`, which fails on any of the three, so a deck edited alongside the code it exercises
+ * cannot leave the comparison unseen.
  *
  * The other tree is checked out with `git worktree add --detach` into the OS temp directory. It shares this repo's
  * third-party node_modules, so the comparison is not of dependency versions, but it resolves the workspace libraries
@@ -23,7 +27,6 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -34,8 +37,7 @@ const argv = process.argv.slice(2);
 const refAt = argv.indexOf('--ref');
 const REF = refAt >= 0 ? argv[refAt + 1] : 'origin/main';
 const JSON_OUT = argv.includes('--json');
-
-const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 16);
+const STRICT = argv.includes('--strict');
 
 /** The child script: render and lint every deck of the tree at `root`, print one JSON object. */
 const CHILD = `
@@ -140,22 +142,31 @@ for (const [key, a] of Object.entries(here.decks)) {
   }
 }
 for (const [key, b] of Object.entries(there.decks)) if (!here.decks[key]) removed.push(b.path);
+// A deck at the same path in both trees whose source changed: not comparable by content, so it is named, not hidden
+// among the added and removed.
+const sourceChanged = added.filter((p) => removed.includes(p));
+for (const p of sourceChanged) {
+  added.splice(added.indexOf(p), 1);
+  removed.splice(removed.indexOf(p), 1);
+}
 const lintSame = JSON.stringify(here.lint) === JSON.stringify(there.lint);
 
 const result = {
   ref: REF,
   decks: Object.keys(here.decks).length,
   paired: Object.keys(here.decks).filter((k) => there.decks[k]).length,
-  changed, added, removed, lintSame,
+  changed, sourceChanged, added, removed, lintSame, strict: STRICT,
   lintFindings: { here: here.lint.length, there: there.lint.length },
 };
 if (JSON_OUT) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 else {
   console.log(`render-identity vs ${REF}: ${result.paired} paired decks, ${changed.length} differ; ` +
-    `${added.length} added, ${removed.length} removed; lint ${lintSame ? 'identical' : 'DIFFERS'} ` +
+    `${sourceChanged.length} source changed, ${added.length} added, ${removed.length} removed; lint ${lintSame ? 'identical' : 'DIFFERS'} ` +
     `(${result.lintFindings.here} findings here, ${result.lintFindings.there} there).`);
   for (const c of changed) console.log(`  differs: ${c.path}${c.was !== c.path ? ` (was ${c.was})` : ''}${c.html ? ' html' : ''}${c.css ? ' css' : ''}${c.error ? ` error: ${c.error}` : ''}`);
+  for (const p of sourceChanged) console.log(`  source changed: ${p}`);
   for (const p of added) console.log(`  added:   ${p}`);
   for (const p of removed) console.log(`  removed: ${p}`);
 }
-process.exit(changed.length || !lintSame ? 1 : 0);
+const unpaired = sourceChanged.length + added.length + removed.length;
+process.exit(changed.length || !lintSame || (STRICT && unpaired) ? 1 : 0);

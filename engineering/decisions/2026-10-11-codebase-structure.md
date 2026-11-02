@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: lib/ was one 13-part import loop and the docs site a 5-part one; both are now acyclic layers, plugins reach the engine only through ctx and generated tables (lib/plugin-kit, the interim kit, was deleted 2026-11-02; chart-family's remaining reach is a counted sanction), and build:check holds it with tools/structure.js.
+summary: lib/ was one 13-part import loop and the docs site a 5-part one; both are now acyclic layers, plugins reach the engine only through ctx and generated tables (lib/plugin-kit, the interim kit, was deleted 2026-11-02; chart-family's remaining reach is a sanction listed import by import), and build:check holds it with tools/structure.js.
 ---
 
 # Codebase structure: layered parts and a plugin boundary (2026-10-11)
@@ -115,12 +115,14 @@ interim channel; the Hollywood contract (`2026-11-01-plugin-contract-hollywood.m
 offered into `ctx` and the workspace libraries, and #2997 deleted it. The kit paragraphs below are
 the record of that interim.)*
 
-**One plugin is excepted by name, and the exception is counted.** chart-family holds the chart
+**One plugin is excepted by name, and the exception is listed import by import.** chart-family holds the chart
 kinds (`kinds/`, `2026-11-01-charts-one-plugin.md` §8), and they still read the engine's HTML with
 the engine's readers in `lib/core`. `SANCTIONED_PLUGIN_REACH` in `tools/structure.js` admits that
 reach, and `SANCTIONED_PLUGIN_ENTRY` admits the few host files that import the plugin's folder
-directly. Each entry carries the exact number of imports it admits: more fail as growth, fewer fail
-until the number is lowered, so the debt can only fall. Each names the follow-up that removes it
+directly. The exact imports each entry admits are listed in `tools/structure.sanctioned.json`: an
+import that is not listed fails by name (so one cannot be swapped for another), a listed one that is
+gone fails until it is pruned (`node tools/structure.js --prune-sanctions`, which never adds), so the
+debt can only fall. Each names the follow-up that removes it
 (`2026-11-02-slide-facts-for-kinds.md` §7). A seam inside a plugin
 folder exempts nothing: the first version of the gate let this registry pass silently, and the trio
 caught it. The plugins meant to move to npm are the others: math, Mermaid, function-plot, icons and

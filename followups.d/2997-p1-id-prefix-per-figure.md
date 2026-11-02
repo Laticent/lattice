@@ -17,4 +17,5 @@ where     — lib/core/render-ids.js (module globals become a per-render object 
 done when — no kind or shared module imports render-ids; two panes of one kind on one slide and two charts in the
             browser runtime mint no duplicate id; dark and light demo exports signed off by the owner
 evidence  — the two-pane and runtime fixtures; the before/after id diff on the corpus; the signed-off exports
-verify    — the characterization test (every deck) shows only id-spelling changes; npm test
+verify    — `npm run identity:check` names every deck whose output moved (it compares hashes and shows no diff), and the
+            corpus diff with ids normalized away shows nothing else moved; npm test

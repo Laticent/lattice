@@ -153,36 +153,41 @@ test('a seam inside a plugin folder does not exempt the plugin: its reach needs 
     ['lib/components/x.js', []],
   ]);
   assert.equal(run(g, { pluginSanctioned: {} }).pluginOut.length, 1);
-  const one = { 'lib/plugins/math -> lib/components': { imports: 1, why: 'reason' } };
+  const one = { 'lib/plugins/math -> lib/components': { why: 'reason', edges: ['lib/plugins/math/shared/table.generated.js -> lib/components/x.js'] } };
   assert.deepEqual(run(g, { pluginSanctioned: one }).pluginOut, []);
   assert.deepEqual(structureProblems(run(g, { pluginSanctioned: one })), []);
   const stale = run(graph([['lib/core/a.js', []]]), { pluginSanctioned: one });
   assert.match(structureProblems(stale)[0], /stale .*SANCTIONED_PLUGIN_REACH/);
 });
 
-test('a sanction admits an exact count of imports: more fail as growth, fewer fail until the count is lowered', () => {
+test('a sanction admits exactly the imports it lists: a swapped import fails, and a gone one must be pruned', () => {
   const g = graph([
     ['lib/plugins/math/a.js', ['lib/core/x.js', 'lib/core/y.js']],
     ['lib/core/x.js', []],
     ['lib/core/y.js', []],
+    ['lib/core/z.js', []],
   ]);
-  const at = (n) => structureProblems(run(g, { pluginSanctioned: { 'lib/plugins/math -> lib/core': { imports: n, why: 'reason' } } }));
-  assert.deepEqual(at(2), []);
-  assert.match(at(1).join('\n'), /sanctioned debt grew: lib\/plugins\/math -> lib\/core has 2 imports, over the 1 SANCTIONED_PLUGIN_REACH admits/);
-  assert.match(at(3).join('\n'), /sanctioned debt shrank: .* lower its `imports` in SANCTIONED_PLUGIN_REACH .* from 3 to 2/);
+  const key = 'lib/plugins/math -> lib/core';
+  const at = (edges) => structureProblems(run(g, { pluginSanctioned: { [key]: { why: 'reason', edges } } })).join('\n');
+  assert.equal(at(['lib/plugins/math/a.js -> lib/core/x.js', 'lib/plugins/math/a.js -> lib/core/y.js']), '');
+  // Same count, different import: the swap is caught by name.
+  const swapped = at(['lib/plugins/math/a.js -> lib/core/x.js', 'lib/plugins/math/a.js -> lib/core/z.js']);
+  assert.match(swapped, /a new import under a sanctioned pair .*: lib\/plugins\/math\/a\.js -> lib\/core\/y\.js/);
+  assert.match(swapped, /a sanctioned import is gone; remove its line .*: lib\/plugins\/math\/a\.js -> lib\/core\/z\.js/);
   const entry = graph([
     ['lib/transformers/t.js', ['lib/plugins/math/m.js']],
     ['lib/plugins/math/m.js', []],
   ]);
-  const inAt = (n) => structureProblems(run(entry, { entrySanctioned: { 'lib/transformers -> lib/plugins/math': { imports: n, why: 'reason' } } }));
-  assert.deepEqual(inAt(1), []);
-  assert.match(inAt(2).join('\n'), /sanctioned debt shrank: .* SANCTIONED_PLUGIN_ENTRY .* from 2 to 1/);
+  const inKey = 'lib/transformers -> lib/plugins/math';
+  const inAt = (edges) => structureProblems(run(entry, { entrySanctioned: { [inKey]: { why: 'reason', edges } } })).join('\n');
+  assert.equal(inAt(['lib/transformers/t.js -> lib/plugins/math/m.js']), '');
+  assert.match(inAt([]), /a new import under a sanctioned pair \(lib\/transformers -> lib\/plugins\/math\)/);
 });
 
-test('every committed sanction names the follow-up that removes it, with a positive count', () => {
+test('every committed sanction names the follow-up that removes it and lists its imports', () => {
   for (const list of [SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY]) {
     for (const [key, v] of Object.entries(list)) {
-      assert.ok(Number.isInteger(v.imports) && v.imports > 0, `${key}: imports must be a positive count`);
+      assert.ok(Array.isArray(v.edges) && v.edges.length > 0, `${key}: list its imports in tools/structure.sanctioned.json`);
       assert.match(v.why, /followups\.d\/[\w-]+\.md/, `${key}: name the follow-up that removes it`);
       assert.ok(fs.existsSync(path.join(__dirname, '../../..', v.why.match(/followups\.d\/[\w-]+\.md/)[0])), `${key}: the follow-up exists`);
     }
@@ -293,7 +298,7 @@ test('importing the repository by its own package name is a problem: Node resolv
   assert.equal(run(sub).selfImports.length, 1);
 });
 
-test('lib/core may not grow a single-consumer file past its ceiling; fewer pass', () => {
+test('the lib/core single-consumer ceiling fails in both directions', () => {
   // lib/core needs 50+ files to be measured: 50 used inside core, plus one file only the engine uses.
   const pairs = [['lib/core/hub.js', Array.from({ length: 50 }, (_, i) => `lib/core/f${i}.js`)]];
   for (let i = 0; i < 50; i++) pairs.push([`lib/core/f${i}.js`, []]);
@@ -301,7 +306,7 @@ test('lib/core may not grow a single-consumer file past its ceiling; fewer pass'
   const g = graph(pairs);
   assert.equal(run(g).coreSingleConsumer, 1);
   assert.deepEqual(structureProblems(run(g, { coreSingleConsumerCeiling: 1 })), []);
-  assert.deepEqual(structureProblems(run(g, { coreSingleConsumerCeiling: 5 })), []);
+  assert.match(structureProblems(run(g, { coreSingleConsumerCeiling: 5 })).join('\n'), /lower CORE_SINGLE_CONSUMER_CEILING in tools\/structure\.js from 5 to 1/);
   assert.match(structureProblems(run(g, { coreSingleConsumerCeiling: 0 })).join('\n'), /lib\/core grew a single-consumer file: 1 files .* CORE_SINGLE_CONSUMER_CEILING \(0\)/);
 });
 

@@ -15,5 +15,5 @@ why now   — proves the contract on three different kinds before 25 more move
 where     — lib/plugins/chart-family/kinds/{bar,heatmap,journey}; the shared readers they use convert with them
 done when — go or no-go recorded against the criteria written before it starts: byte-identical on the corpus and every
             path; no HTML parsing and no lib/ import in the three; no chart name added to the engine. A no-go reverts the three
-evidence  — the characterization test; committed JSON snapshots of each kind's read(tree) model
+evidence  — `npm run identity:check -- --strict` (0 differ, 0 unpaired); committed JSON snapshots of each kind's read(tree) model
 verify    — npm test; npm run equiv:check; the applyToDom and two-pane fixtures

@@ -171,49 +171,33 @@ function namesPath(src, file) {
 }
 
 /**
- * A plugin reaching past the kit, admitted on purpose: `plugin -> part`, with the exact number of file imports it
- * admits and its reason. The count is a ratchet like HOST_API_CEILING: more imports than `imports` fail (the debt
- * grew), and so do fewer, until `imports` is lowered to match, so a removed import cannot quietly come back. An entry
- * nothing matches is stale and fails too.
+ * A plugin reaching past its folder, or code outside importing a plugin's folder, admitted on purpose. Each entry is
+ * keyed `from-part -> to-part` with its reason, and the EXACT imports it admits live in
+ * tools/structure.sanctioned.json, one `file -> file` line each. The gate fails on an import under a sanctioned pair
+ * that is not listed (new debt, even if another import went away), on a listed import that no longer exists (prune it:
+ * `node tools/structure.js --prune-sanctions` removes those lines and never adds one), and on an entry nothing matches.
+ * Adding a line is a hand edit a reviewer sees as the exact new import.
  *
- * chart-family is the one today. Its kinds moved in from the chart bucket with their lib/core imports intact (12a,
- * engineering/decisions/2026-11-01-charts-one-plugin.md §8); each conversion to the slide tree removes some, and
- * the last one deletes the entry (engineering/decisions/2026-11-02-slide-facts-for-kinds.md §6, §7).
+ * chart-family is the one plugin today. Its kinds moved in from the chart bucket with their lib/core imports intact
+ * (12a, engineering/decisions/2026-11-01-charts-one-plugin.md §8); each conversion to the slide tree removes some, and
+ * the last one deletes the entries (engineering/decisions/2026-11-02-slide-facts-for-kinds.md §6, §7).
  */
+const SANCTIONED_EDGES_FILE = path.join(ROOT, 'tools', 'structure.sanctioned.json');
+const SANCTIONED_EDGES = fs.existsSync(SANCTIONED_EDGES_FILE) ? JSON.parse(fs.readFileSync(SANCTIONED_EDGES_FILE, 'utf8')).edges : {};
 const FOLLOWUP_READERS = 'followups.d/2997-p2-chart-shared-readers-and-grammars.md';
-const SANCTIONED_PLUGIN_REACH = {
-  'lib/plugins/chart-family -> lib/core': {
-    imports: 93,
-    why: `the chart kinds read the engine's HTML with the engine's readers; each kind that moves to the slide tree drops its imports (${FOLLOWUP_READERS})`,
-  },
-};
+const withEdges = (list) => Object.fromEntries(Object.entries(list).map(([k, why]) => [k, { why, edges: SANCTIONED_EDGES[k] || [] }]));
+const SANCTIONED_PLUGIN_REACH = withEdges({
+  'lib/plugins/chart-family -> lib/core': `the chart kinds read the engine's HTML with the engine's readers; each kind that moves to the slide tree drops its imports (${FOLLOWUP_READERS})`,
+});
 
-/**
- * Code outside a plugin importing the plugin's folder directly, admitted on purpose: `importer part -> plugin`, with
- * the exact number of file imports and the reason. Counted and checked for staleness like the list above.
- */
-const SANCTIONED_PLUGIN_ENTRY = {
-  'lattice.js -> lib/plugins/chart-family': {
-    imports: 5,
-    why: `the CLI reaches the chart layout engines, the SVG export and the label drops; they become plugin roles (${FOLLOWUP_READERS})`,
-  },
-  'lib/runtime -> lib/plugins/chart-family': {
-    imports: 2,
-    why: `the browser runtime imports the state-chart and flowchart layout engines; they become a plugin role (${FOLLOWUP_READERS})`,
-  },
-  'lib/playground -> lib/plugins/chart-family': {
-    imports: 1,
-    why: `the playground preloads the callout placer; it loads through the plugin table (${FOLLOWUP_READERS})`,
-  },
-  'lib/authoring -> lib/plugins/chart-family': {
-    imports: 2,
-    why: `the linter reads the map basemaps; map lint moves into the plugin's lint role (${FOLLOWUP_READERS})`,
-  },
-  'site/playground -> lib/plugins/chart-family': {
-    imports: 2,
-    why: `the Playground's map completion reads the basemaps; they are served as plugin data (${FOLLOWUP_READERS})`,
-  },
-};
+/** Code outside a plugin importing the plugin's folder directly: same rules, same file. */
+const SANCTIONED_PLUGIN_ENTRY = withEdges({
+  'lattice.js -> lib/plugins/chart-family': `the CLI reaches the chart layout engines, the SVG export and the label drops; they become plugin roles (${FOLLOWUP_READERS})`,
+  'lib/runtime -> lib/plugins/chart-family': `the browser runtime imports the state-chart and flowchart layout engines; they become a plugin role (${FOLLOWUP_READERS})`,
+  'lib/playground -> lib/plugins/chart-family': `the playground preloads the callout placer; it loads through the plugin table (${FOLLOWUP_READERS})`,
+  'lib/authoring -> lib/plugins/chart-family': `the linter reads the map basemaps; map lint moves into the plugin's lint role (${FOLLOWUP_READERS})`,
+  'site/playground -> lib/plugins/chart-family': `the Playground's map completion reads the basemaps; they are served as plugin data (${FOLLOWUP_READERS})`,
+});
 
 /**
  * Upward imports admitted on purpose. Each entry is `from -> to` (part names) with its reason;
@@ -234,11 +218,12 @@ const HOST_API_CEILING = 14;
 /**
  * How many lib/core files serve exactly one other part and no file in core: each is a candidate to
  * move beside its one user. Same-layer imports are free, so core is the gate's easiest way out
- * (decision note §5, the "two consumers" rule); this holds that rule as a ceiling. It fails on growth
- * only, since an honest change elsewhere can give a core file its second consumer; lower it when
- * `npm run structure` shows fewer.
+ * (decision note §5, the "two consumers" rule); this holds that rule as a ratchet like HOST_API_CEILING.
+ * More fail; fewer fail too, until the number is lowered to match (an honest change elsewhere that gives
+ * a core file its second consumer just lowers it), so a file that left cannot quietly come back.
+ * `npm run structure` lists them.
  */
-const CORE_SINGLE_CONSUMER_CEILING = 50;
+const CORE_SINGLE_CONSUMER_CEILING = 47;
 
 /** The repository's own package name: a self-import by name resolves at runtime but not in the graph. */
 const SELF_NAME = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).name;
@@ -467,18 +452,30 @@ function pluginManifests(dir = path.join(ROOT, 'lib', 'plugins')) {
 const pluginRequires = (dir) => pluginManifests(dir).requires;
 
 /**
- * Split `edges` by a counted sanction list (`{ [key]: { imports, why } }`): the edges no entry admits, the entries
- * nothing matches, and the entries whose count moved (`found` over or under `imports`).
+ * Split `edges` by a listed sanction (`{ [key]: { why, edges: ['file -> file', …] } }`): the edges no entry admits, the
+ * entries nothing matches, the imports under a sanctioned pair that are not listed (`added`), and the listed imports
+ * that no longer exist (`gone`).
  */
-function counted(edges, sanctions, keyOf) {
+function listed(edges, sanctions, keyOf) {
+  const line = (e) => `${e.from} -> ${e.to}`;
   const found = new Map();
-  for (const e of edges) if (Object.hasOwn(sanctions, keyOf(e))) found.set(keyOf(e), (found.get(keyOf(e)) || 0) + 1);
+  for (const e of edges) {
+    const k = keyOf(e);
+    if (Object.hasOwn(sanctions, k)) (found.get(k) || found.set(k, new Set()).get(k)).add(line(e));
+  }
+  const added = [];
+  const gone = [];
+  for (const [k, v] of Object.entries(sanctions)) {
+    const live = found.get(k) || new Set();
+    const list = new Set(v.edges || []);
+    for (const l of live) if (!list.has(l)) added.push({ key: k, edge: l });
+    if (live.size) for (const l of list) if (!live.has(l)) gone.push({ key: k, edge: l });
+  }
   return {
     unsanctioned: edges.filter((e) => !Object.hasOwn(sanctions, keyOf(e))),
     stale: Object.keys(sanctions).filter((k) => !found.has(k)),
-    drift: Object.entries(sanctions)
-      .filter(([k, v]) => found.has(k) && found.get(k) !== v.imports)
-      .map(([key, v]) => ({ key, imports: v.imports, found: found.get(key) })),
+    added,
+    gone,
   };
 }
 
@@ -534,13 +531,13 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
   // from npm, as it would on any package, so reaching it is not reaching past the kit.
   const declared = (e) => e.b.plugin && !!requires.get(e.a.name)?.has(e.b.name);
   const pluginReach = edges.filter((e) => e.a.plugin && e.a.name !== e.b.name && !e.b.library && !declared(e));
-  const reach = counted(pluginReach, pluginSanctioned, reachKey);
+  const reach = listed(pluginReach, pluginSanctioned, reachKey);
   // A host tool importing a file the plugin lists in `hostApi` (the bridge, see pluginManifests). Host
   // tools sit on HOST_TOOL_LAYER or above: the linter, the exports, the CLI, the site. The engine (layer
   // 5) renders every plugin through tables and services, so it asks for a service like code below it.
   const viaHostApi = (e) => !e.a.plugin && e.b.plugin && e.a.layer >= HOST_TOOL_LAYER && !!hostApi.get(e.b.name)?.has(e.to);
   const pluginInAll = edges.filter((e) => e.b.plugin && e.a.name !== e.b.name && !isSeam(e.from) && e.a.name !== 'tools' && !declared(e) && !viaHostApi(e));
-  const entry = counted(pluginInAll, entrySanctioned, reachKey);
+  const entry = listed(pluginInAll, entrySanctioned, reachKey);
   // A listed file nothing outside imports is stale: the list only shrinks, so the entry goes.
   const hostApiUsed = new Set(edges.filter(viaHostApi).map((e) => e.to));
   const staleHostApi = [...hostApi.values()].flatMap((set) => [...set]).filter((f) => !hostApiUsed.has(f)).sort();
@@ -574,7 +571,8 @@ function analyze(graph, { sanctioned = SANCTIONED_UPWARD, pluginSanctioned = SAN
     loops,
     upward: unsanctioned.map((e) => `${e.from} (${e.a.name}, layer ${e.a.layer}) -> ${e.to} (${e.b.name}, layer ${e.b.layer})`),
     staleSanctions: [...staleSanctions, ...reach.stale.map((k) => `${k} (SANCTIONED_PLUGIN_REACH)`), ...entry.stale.map((k) => `${k} (SANCTIONED_PLUGIN_ENTRY)`)],
-    sanctionDrift: [...reach.drift.map((d) => ({ ...d, list: 'SANCTIONED_PLUGIN_REACH' })), ...entry.drift.map((d) => ({ ...d, list: 'SANCTIONED_PLUGIN_ENTRY' }))],
+    sanctionAdded: [...reach.added, ...entry.added],
+    sanctionGone: [...reach.gone, ...entry.gone],
     unread: graph.unread || [],
     // A relative import that resolves to nothing: a file that moved and an importer that did not.
     // A path into node_modules is a dependency question, not a structure one (and is absent where a
@@ -665,16 +663,14 @@ function structureProblems(result) {
   for (const u of result.upward) problems.push(`upward import: ${u}`);
   for (const s of result.staleSanctions) problems.push(`stale sanction (no import matches it any more): ${s}`);
   for (const e of result.pluginOut) problems.push(`plugin reaches outside its folder (take it through ctx, a service or a workspace library): ${e}`);
-  for (const d of result.sanctionDrift || []) {
-    problems.push(d.found > d.imports
-      ? `sanctioned debt grew: ${d.key} has ${d.found} imports, over the ${d.imports} ${d.list} admits; read it through the plugin contract instead`
-      : `sanctioned debt shrank: ${d.key} has ${d.found} imports; lower its \`imports\` in ${d.list} (tools/structure.js) from ${d.imports} to ${d.found}, so it cannot grow back`);
-  }
+  for (const d of result.sanctionAdded || []) problems.push(`a new import under a sanctioned pair (${d.key}), not in tools/structure.sanctioned.json; take it through ctx, a service or a workspace library instead: ${d.edge}`);
+  for (const d of result.sanctionGone || []) problems.push(`a sanctioned import is gone; remove its line (\`node tools/structure.js --prune-sanctions\`), so it cannot come back: ${d.edge}`);
   for (const e of result.pluginIn) problems.push(`code imports a plugin's folder directly (use the registry or a service): ${e}`);
   for (const f of result.staleHostApi || []) problems.push(`stale hostApi entry (nothing outside the plugin imports it, or the file is gone; remove it from the manifest): ${f}`);
   if (result.hostApiCeiling != null && result.hostApiCount > result.hostApiCeiling) problems.push(`hostApi grew: the manifests list ${result.hostApiCount} files, over HOST_API_CEILING (${result.hostApiCeiling}); the bridge only shrinks, so read the plugin through a service or its manifest instead`);
   if (result.hostApiCeiling != null && result.hostApiCount < result.hostApiCeiling) problems.push(`hostApi shrank to ${result.hostApiCount} files: lower HOST_API_CEILING in tools/structure.js from ${result.hostApiCeiling} to ${result.hostApiCount}, so it cannot grow back`);
   if (result.coreSingleConsumerCeiling != null && result.coreSingleConsumer > result.coreSingleConsumerCeiling) problems.push(`lib/core grew a single-consumer file: ${result.coreSingleConsumer} files there serve exactly one other part, over CORE_SINGLE_CONSUMER_CEILING (${result.coreSingleConsumerCeiling}); keep a file beside its one user, and move it down when a second part needs it (\`npm run structure\` lists them)`);
+  if (result.coreSingleConsumerCeiling != null && result.coreSingleConsumer < result.coreSingleConsumerCeiling) problems.push(`lib/core has fewer single-consumer files (${result.coreSingleConsumer}): lower CORE_SINGLE_CONSUMER_CEILING in tools/structure.js from ${result.coreSingleConsumerCeiling} to ${result.coreSingleConsumer}, so they cannot come back`);
   for (const e of result.selfImports || []) problems.push(`imports the repository by its package name, which the gate cannot follow; import it by path: ${e}`);
   for (const e of result.excludedImports || []) problems.push(`imports a file the gate does not read (tests, examples and other excluded trees hide their edges; only tools/ may): ${e}`);
   for (const f of result.unmapped) problems.push(`file belongs to no part (add it to PARTS in tools/structure.js): ${f}`);
@@ -698,6 +694,13 @@ if (require.main === module) {
   const result = analyze(cruise());
   if (args.has('--json')) {
     console.log(JSON.stringify(result, null, 2));
+  } else if (args.has('--prune-sanctions')) {
+    // Removes listed imports that no longer exist. Never adds one: a new sanctioned import is a hand edit.
+    const gone = new Set((result.sanctionGone || []).map((d) => d.edge));
+    const file = JSON.parse(fs.readFileSync(SANCTIONED_EDGES_FILE, 'utf8'));
+    for (const k of Object.keys(file.edges)) file.edges[k] = file.edges[k].filter((l) => !gone.has(l));
+    fs.writeFileSync(SANCTIONED_EDGES_FILE, `${JSON.stringify(file, null, 2)}\n`);
+    console.log(`pruned ${gone.size} import(s) from ${path.relative(ROOT, SANCTIONED_EDGES_FILE)}`);
   } else if (args.has('--bless')) {
     const snapshot = {
       note: 'Per-part size and shape, from `node tools/structure.js --bless`. A record, not a gate: build:check fails on loops, upward imports and plugin-boundary breaks only. engineering/decisions/2026-10-11-codebase-structure.md.',

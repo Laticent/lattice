@@ -92,8 +92,12 @@ lib/plugins/<name>/
   (§3.3). The build checks both directions.
 - **What a plugin may import.** Its own folder, the workspace libraries (`@laticent/*`) and the
   plugins its manifest `requires`; everything else comes through `ctx` (§5). `tools/structure.js`
-  holds this in `build:check`. The one exception is counted: the chart-family kinds' remaining
-  imports of `lib/core`, a number that can only fall.
+  holds this in `build:check`. The exceptions are listed import by import in
+  `tools/structure.sanctioned.json` and can only shrink: the chart-family kinds' remaining imports of
+  `lib/core`, and the few host files (the CLI, the runtime, the Playground, the linter) that still import
+  the chart-family folder directly. Host tools may also import the files a plugin lists in `hostApi`
+  (§3.1). One computed `require` the gate cannot see reaches the chart registry
+  (`followups.d/2630-p3-computed-require-into-chart-registry.md`).
 
 ## 3. The manifest
 
@@ -371,8 +375,8 @@ A language highlight.js already knows by that name is left alone.
 ### 4.7 `dispatch.js` — an extension point's fillers (in-tree)
 
 CommonJS, present exactly when the plugin offers an extension point (§3.3). The build wires it into
-`lib/plugins/dispatch.generated.js`, the table by plugin name through which the host reaches it; no
-host code imports a plugin's folder. The host keeps everything common to the fillers and the dispatch
+`lib/plugins/dispatch.generated.js`, the table by plugin name through which the host reaches it (the
+host imports a plugin's folder only through the listed exceptions in §2). The host keeps everything common to the fillers and the dispatch
 keeps only what is the plugin's own. For the chart-family plugin, the one offerer today:
 
 - **The host** (`lib/transformers/chart-frame.js`) walks the deck's sections, bridges each slide's
@@ -382,11 +386,12 @@ keeps only what is the plugin's own. For the chart-family plugin, the one offere
   `CHART_PLUGIN`, frozen from the kinds' manifests) and `run(kind, html, ctx) → { built, drops }`:
   it calls the kind and returns its result with the encoded record of every label the drawing
   declined to paint (`drops`, `''` when none), which the host writes as `data-label-drops`.
-- **A kind** exports `transformSection(html, ctx) → html | { html, cls } | null`. `html` is the
-  section's inner HTML; `ctx` is `{ cls, classTokens, orientation, aspect, paneView, pluginsOff }`;
-  `null` declines and leaves the author's list. This contract is being replaced by a parsed tree and
+- **A kind** exports `transformSection(html, ctx) → html | { html, cls } | null`: the section's
+  inner HTML and the kind ctx the host frame builds, returning the rewritten section, or `null` to
+  decline and leave the author's list. The fields of that ctx are described once, in the dispatch's
+  header (`lib/plugins/chart-family/chart-family.dispatch.js`). This contract is being replaced by a parsed tree and
   one manifest-built ctx (`engineering/decisions/2026-11-02-slide-facts-for-kinds.md`); until then a
-  kind may import `lib/core` only within the counted sanction (§2).
+  kind may import `lib/core` only where `tools/structure.sanctioned.json` lists the import (§2).
 
 ## 5. The host API (`api: 1`)
 
