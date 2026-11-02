@@ -92,33 +92,11 @@ link and no notice.
 - **Export to Marp.** A lone record becomes an ordinary Markdown link on its own line, recorded in the fidelity ledger. A record
   Lattice cannot be sure of (inside a quote, a list or a fence) is left as code, so nothing is rewritten wrongly.
 
-## Migrating a `video` slide
-
-Before, the address was a bare bullet:
-
-```markdown
-<!-- _class: video companion -->
-
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- A guided walkthrough `caption`
-```
-
-Now it is a record. The class stays; the bullets go:
-
-```markdown
-<!-- _class: video companion -->
-
-`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="A guided walkthrough"}`
-```
-
-`lint:deck` flags the old form on a `video` slide as `video-bullet`, and `lint:deck --fix` moves a lone address bullet into a
-record. A slide with a `caption` or `poster` bullet needs the move by hand.
-
 ## What the linter says
 
 | Finding | When |
 |---|---|
-| `video-bullet` | A `video` slide that still names its clip as a bullet, or has no record. |
+| `video-no-record` | A `video` slide with no record, which draws no clip. |
 | `video-not-alone` | A record in running text, or touching a line of text above or below it. |
 | `video-literal` | A record whose address is not one of the four providers. |
 | `video-slide-class` | A lone record on a slide that is not a `video` slide. |

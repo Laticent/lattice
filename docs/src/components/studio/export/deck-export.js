@@ -53,7 +53,7 @@ import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/s
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
-import bakedFigureCore from '../../../../../lib/plugins/mermaid/shared/baked-figure-tag.js';
+import { bakedFigureOpenTag } from '../../../../../lib/plugins/mermaid/shared/baked-figure-tag.mjs';
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -67,7 +67,6 @@ import { sharedPictureEncoder } from './picture-encoder-pool.js';
 import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
-const { bakedFigureOpenTag } = bakedFigureCore;
 const { equalizeCardTags } = cardTagEqualizeCore;
 const { authorPinsTheme } = initDirectiveCore;
 
@@ -783,7 +782,7 @@ async function slideChannelRecord(html) {
 /** Each top-level slide's `style` attribute as the engine wrote it (null when it has none), in
  *  order, read with the depth-aware section walker so a `<section>` nested in a slide is not a slide. */
 // EVERY DRAWN MERMAID FIGURE LEAVES IN THE `figure-baked` SHAPE, the CLI's (lib/plugins/mermaid/
-// shared/baked-figure-tag.js): one `div.mermaid-svg[data-lattice-figure][data-mmd-idx]` holding the baked
+// shared/baked-figure-tag.mjs): one `div.mermaid-svg[data-lattice-figure][data-mmd-idx]` holding the baked
 // svg, in place of the live pair the browser pass draws into (the source `<pre>` and its sibling
 // `.mermaid`). The pair shipped here until 2026-10-17, and it was the only difference left between
 // the two hosts' files for a deck with diagrams (decisions/2026-10-16-player-as-library-audit.md

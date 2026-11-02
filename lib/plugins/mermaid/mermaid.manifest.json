@@ -17,7 +17,7 @@
     ]
   },
   "hostApi": [
-    "shared/baked-figure-tag.js",
+    "shared/baked-figure-tag.mjs",
     "shared/init-directive.js",
     "shared/label-length.js"
   ],

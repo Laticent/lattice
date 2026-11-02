@@ -28,7 +28,7 @@ const CASES = [
   ['unknown-map-region', `${FM}<!-- _class: map -->\n\n## Offices\n\n- Atlantis \`3\`\n`, '- Atlantis `3`'],
   ['statement-ol-bold', `${FM}<!-- _class: principles -->\n\n## Rules\n\n1. a **bold** span\n`, '1. a **bold** span'],
   ['check-label-code', `${FM}<!-- _class: verdict-grid -->\n\n## Grid\n\n- Acme\n  - [x] Residency \`@check{fail}\` text\n  - Body.\n`, '  - [x] Residency `@check{fail}` text'],
-  ['video-bullet', `${FM}<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n`, '- https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+  ['video-no-record', `${FM}<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n`, '- https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
 ];
 
 describe('no lint rule reports a line inside a code fence', () => {
@@ -50,8 +50,8 @@ describe('no lint rule reports a line inside a code fence', () => {
     // Only a live record draws a clip; a fenced one is the docs showing the syntax.
     const rec = '`@video{"https://youtu.be/dQw4w9WgXcQ"}`';
     const src = `${FM}<!-- _class: video -->\n\n## Clip\n\n${rec}\n`;
-    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => f.rule === 'video-bullet'), []);
-    assert.equal(core.lintTextWith(fence(src, rec), vocab).filter((f) => f.rule === 'video-bullet').length, 1);
+    assert.deepEqual(core.lintTextWith(src, vocab).filter((f) => f.rule === 'video-no-record'), []);
+    assert.equal(core.lintTextWith(fence(src, rec), vocab).filter((f) => f.rule === 'video-no-record').length, 1);
   });
 });
 

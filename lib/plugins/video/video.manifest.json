@@ -121,7 +121,7 @@
     ],
     "lint": [
       "video-not-alone",
-      "video-bullet",
+      "video-no-record",
       "video-slide-class",
       "video-extra-record"
     ]
