@@ -85,16 +85,19 @@ Guide can point inside a diagram, which today it cannot.
 
 ## 4. Delivery: neither the kind nor the core
 
-A kind declares what can be revealed; it never knows when. Delivery is its own layer:
+A kind declares what can be said and revealed; it never knows when. The rest is split by craft
+(`2026-11-02-regia-narrator.md`):
 
-1. **Intent** (the author): which steps (`_build`, `_focus`), and the deck's `pace:`.
-2. **The plan** (the host): one ordered **delivery plan** per slide, built from the kind's steps, the author's intent
-   and the narration's refs — step, what is revealed, what is said, where the Guide points.
-3. **Scheduling** (each surface): Present plays the plan live; the narrated player and its timing track (LTT) bake it;
-   a static PDF shows the final state. Pace numbers live in one place, not in the engine and Cadenza both.
+1. **What is said**: Regia, the narrator library, turns the tree and the kind's speech declaration into beats
+   (`{ act, targets, text, anchor }`), applying the author's density, register and variants.
+2. **When**: Cadenza times the beats and owns pace.
+3. **The timeline**: the Lattice Timing Track carries every cue with its act and targets (a new optional delivery
+   layer), file or in memory.
+4. **Performing**: Suono speaks, Vetrina points (and owns the delivery character), the surface reveals; a static PDF
+   shows the end state.
 
 This keeps every chart working unchanged on every surface, and lets a new surface (an AI presenter, a video export)
-consume the same plan.
+read the same timeline.
 
 ## 4a. Speech: declared phrases with slots, facts from a function
 
@@ -178,9 +181,9 @@ The author controls both **at the deck and at the slide** (owner decision, 2026-
 ### Owner decisions (2026-11-02)
 
 - **Q1:** every capability reads the **emitted semantic tree**.
-- **Q3:** delivery belongs to **a separate internal library** that puts the pieces together through a well-defined,
-  generic contract, usable in other domains: Cadenza (text to a timed caption track) and Suono (clocked audio
-  playback) exist, but nothing composes them. Its design is its own note (§4 sketches the role).
+- **Q3:** delivery is split by craft, with no scheduler library: **Regia is the narrator** ("our Vetrina for
+  narration"), Cadenza times and owns pace, LTT carries each cue's act and targets, and Suono and Vetrina perform. An
+  earlier proposal for a delivery scheduler was rejected as tight coupling (`2026-11-02-regia-narrator.md`).
 - **Q4:** **#2997 holds for all of it**: the plugin contract, the charts plugin with per-kind manifests, the semantics
   contract, and every capability moved onto it, in one PR.
 - **Q2:** data plus named functions, in the shape of §4a: phrases with slots filled from the tree, and a function per
