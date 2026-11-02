@@ -10,7 +10,13 @@ const dispatcher = require('../../../lib/core/inline-code-directives.js');
 const engine = require('../../../lib/engine');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 const { applyAllFixes } = require('../../../lib/authoring/lint-core.js');
-const { migrateVideoBullets } = require('../../../lib/core/video-migrate.js');
+const { migrateSlideLines } = require('../../../lib/plugins/video/shared/migrate.js');
+// The fix the `video-bullet` rule offers, for ONE slide's source, with the host's matcher over the plugin's providers.
+const VIDEO_PROVIDER = require('../../../lib/core/plugin-ctx.js').ctxFor('video').provider;
+const fixSlide = (src) => {
+  const r = migrateSlideLines(src.split('\n'), VIDEO_PROVIDER);
+  return { source: r ? r.lines.join('\n') : src, changed: r ? 1 : 0, skipped: r ? 0 : 1 };
+};
 
 const render = (md) => engine.createEngine().render(md, 'indaco').html;
 const SPAN = '@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", title="Tour"}';
@@ -105,7 +111,7 @@ describe('what the inversion found', () => {
   test('every bullet shape that drew a clip before migrates with the URL token, and keeps the author\'s words as the title', () => {
     const cases = [['<https://youtu.be/dQw4w9WgXcQ>', ''], ['**https://youtu.be/dQw4w9WgXcQ**', ''], ['Watch the [clip](https://youtu.be/dQw4w9WgXcQ) here', 'Watch the clip here'], ['https://youtu.be/dQw4w9WgXcQ (two minutes)', '(two minutes)'], ['Our keynote: https://youtu.be/dQw4w9WgXcQ.', 'Our keynote:']];
     for (const [b, title] of cases) {
-      const r = migrateVideoBullets(`<!-- _class: video -->\n\n- ${b}\n`);
+      const r = fixSlide(`<!-- _class: video -->\n\n- ${b}\n`);
       assert.equal(r.changed, 1, b);
       assert.ok(r.source.includes(`\`@video{"https://youtu.be/dQw4w9WgXcQ"${title ? `, title="${title}"` : ''}}\``), `${b} -> ${r.source}`);
     }
@@ -133,14 +139,13 @@ describe('what the red team found', () => {
     const src = deck('- Built for the Q3 review\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     const fixed = applyAllFixes(src, buildVocab());
     assert.match(render(typeof fixed === 'string' ? fixed : fixed.source), /data-lattice-media="video"/);
-    const r = migrateVideoBullets(src);
-    assert.match(render(r.source), /data-lattice-media="video"/, 'and so does the sweep');
+    assert.match(render(fixSlide(src).source), /data-lattice-media="video"/, 'and so does the slide fix itself');
   });
 
   test('a clip with caption and poster bullets is not offered as a one-line autofix; a backtick in a title is refused', () => {
     const f = lintText(deck('- https://youtu.be/dQw4w9WgXcQ\n- Tour `caption`')).find((x) => x.rule === 'video-bullet');
     assert.equal(f.autofixable, undefined);
-    assert.equal(migrateVideoBullets('<!-- _class: video -->\n\n- https://youtu.be/dQw4w9WgXcQ\n- The `best` clip `caption`\n').skipped, 1);
+    assert.equal(fixSlide('<!-- _class: video -->\n\n- https://youtu.be/dQw4w9WgXcQ\n- The `best` clip `caption`\n').skipped, 1);
   });
 
   test('video-not-alone: a record under a paragraph line warns; a quote or numbered record does not', () => {
@@ -154,7 +159,7 @@ describe('what the red team found', () => {
 describe('what the checker found', () => {
   test('Export-to-Marp rewrites a lone record to a plain link, and leaves a fenced or unreadable one alone', () => {
     // The Marp rewrite as the host calls it: with the video plugin's ctx (lib/core/plugin-ctx.js).
-    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/plugins/host-export.js').exportCtxFor('video'));
+    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/core/plugin-ctx.js').ctxFor('video'));
     const out = withVideoLinks(`a\n\n\`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}\`\n\n- \`@video{"https://attacker.example/x"}\`\n\n\`\`\`\n\`${SPAN}\`\n\`\`\`\n`);
     assert.match(out, /^\[Tour\]\(https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ\)$/m);
     assert.match(out, /`@video\{"https:\/\/attacker\.example\/x"\}`/);
@@ -163,7 +168,7 @@ describe('what the checker found', () => {
 
   test('a bullet inside a fenced example is not migrated; the real one below it is', () => {
     const src = '<!-- _class: video -->\n\n```md\n- https://vimeo.com/1\n```\n\n- https://vimeo.com/1084537\n';
-    const r = migrateVideoBullets(src);
+    const r = fixSlide(src);
     assert.match(r.source, /```md\n- https:\/\/vimeo\.com\/1\n```/);
     assert.match(r.source, /`@video\{"https:\/\/vimeo\.com\/1084537"\}`/);
   });
@@ -171,7 +176,7 @@ describe('what the checker found', () => {
 
 describe('what the second checker found', () => {
   // The Marp rewrite as the host calls it: with the video plugin's ctx (lib/core/plugin-ctx.js).
-    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/plugins/host-export.js').exportCtxFor('video'));
+    const withVideoLinks = (md, opts) => require('../../../lib/plugins/video/shared/video-marp-export.js').withVideoLinks(md, opts, require('../../../lib/core/plugin-ctx.js').ctxFor('video'));
   const REC = (u, extra = '') => `\`@video{"${u}"${extra}}\``;
 
   test('Marp: a link destination cannot end early, so one record never adds a second link', () => {
@@ -229,27 +234,25 @@ describe('what the second checker found', () => {
   });
 
   test('the migration reads fences by character, and an address is never shortened', () => {
-    const r = migrateVideoBullets('<!-- _class: video -->\n\n~~~\n```js\n~~~\n\n- https://youtu.be/dQw4w9WgXcQ\n');
+    const r = fixSlide('<!-- _class: video -->\n\n~~~\n```js\n~~~\n\n- https://youtu.be/dQw4w9WgXcQ\n');
     assert.equal(r.changed, 1);
-    const id = migrateVideoBullets('<!-- _class: video -->\n\n- https://youtu.be/abcdefghij_\n');
+    const id = fixSlide('<!-- _class: video -->\n\n- https://youtu.be/abcdefghij_\n');
     assert.match(id.source, /"https:\/\/youtu\.be\/abcdefghij_"/, 'an id may end in an underscore');
   });
 });
 
-describe('migrateVideoBullets', () => {
-  test('rewrites caption and poster bullets into one record, and only on a video slide', () => {
-    const src = '<!-- _class: video -->\n\n## T\n\n- https://vimeo.com/1084537\n- A caption `caption`\n- sample:video-poster.svg `poster`\n\n---\n\n<!-- _class: content -->\n\n- https://vimeo.com/1084537\n';
-    const r = migrateVideoBullets(src);
+describe('the video-bullet fix (migrateSlideLines)', () => {
+  test('rewrites caption and poster bullets into one record', () => {
+    const src = '<!-- _class: video -->\n\n## T\n\n- https://vimeo.com/1084537\n- A caption `caption`\n- sample:video-poster.svg `poster`\n';
+    const r = fixSlide(src);
     assert.equal(r.changed, 1);
     assert.match(r.source, /`@video\{"https:\/\/vimeo\.com\/1084537", title="A caption", poster="sample:video-poster\.svg"\}`/);
-    assert.match(r.source, /<!-- _class: content -->\n\n- https:\/\/vimeo\.com\/1084537\n/, 'a content slide is left alone');
   });
 
-  test('a value the record cannot carry leaves the slide as written and counts it skipped', () => {
+  test('a value the record cannot carry leaves the slide as written', () => {
     const src = '<!-- _class: video -->\n\n- https://vimeo.com/1084537\n- say "hi" `caption`\n';
-    const r = migrateVideoBullets(src);
+    const r = fixSlide(src);
     assert.equal(r.changed, 0);
-    assert.equal(r.skipped, 1);
     assert.equal(r.source, src);
   });
 });

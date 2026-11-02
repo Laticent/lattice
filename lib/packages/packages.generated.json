@@ -1577,6 +1577,7 @@
         "docs.md",
         "fixtures.md",
         "inline.js",
+        "lint.js",
         "manifest.json",
         "syntax.mjs"
       ],

@@ -200,6 +200,13 @@
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9]*$"}
         },
+        "lint": {
+          "type": "array",
+          "description": "The lint rule ids this plugin's `<name>.lint.js` reports (HARD RULE #7, amended 2026-11-01). The role exports `lint`, a factory of the plugin's ctx returning `(deck) => findings`: pure and synchronous, run by lib/authoring/lint-core.js through lib/plugins/lint.generated.js over a deck view the host builds. A finding whose `rule` is not listed here is refused. In-tree only.",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+        },
         "providers": {
           "type": "array",
           "description": "Media providers declared as DATA (2026-11-01-plugin-contract-hollywood.md §2 `video` row): which hosts a provider owns, how a video id is read from the PARSED url, and the templates its links are built from. The host owns the one matcher over this table (lib/core/video-providers.mjs), because matching an address is a trust check: it matches the parsed host, never a substring, and builds a player src only from a validated id. In-tree only.",

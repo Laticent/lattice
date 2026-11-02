@@ -118,6 +118,12 @@
         "embed": "https://www.instagram.com/p/{id}/embed/",
         "shape": "portrait"
       }
+    ],
+    "lint": [
+      "video-not-alone",
+      "video-bullet",
+      "video-slide-class",
+      "video-extra-record"
     ]
   },
   "render": {

@@ -104,6 +104,7 @@ const DATA_PROBE_FILE = path.join(PLUGINS_DIR, 'data-probe.generated.mjs');
 const META_FILE = path.join(PLUGINS_DIR, 'meta.generated.mjs');
 const DETECT_FILE = path.join(PLUGINS_DIR, 'detect.generated.mjs');
 const PROVIDERS_FILE = path.join(PLUGINS_DIR, 'providers.generated.mjs');
+const LINT_FILE = path.join(PLUGINS_DIR, 'lint.generated.js');
 
 /** Every `lib/plugins/<folder>/` holding a `*.manifest.json`, `_`-prefixed folders skipped. */
 function listPlugins() {
@@ -216,6 +217,12 @@ async function readExports(folder, name, manifest) {
     const inline = exported(PROBE_CTX);
     out.inline = Object.keys(inline);
     out.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row || {}).filter((f) => typeof row[f] === 'function')]));
+  }
+  const lintPath = path.join(dir, `${name}.lint.js`);
+  if (fs.existsSync(lintPath)) {
+    const exported = require(lintPath).lint;
+    if (typeof exported !== 'function') throw new Error(`${name}.lint.js: \`lint\` must be a factory of the plugin's ctx, \`(ctx) => (deck) => findings\``);
+    out.hasLint = true;
   }
   const servicesPath = path.join(dir, `${name}.services.js`);
   if (fs.existsSync(servicesPath)) {
@@ -403,6 +410,21 @@ const ident = (name) => `p_${name.replace(/-/g, '_')}`;
  * (lib/core/video-providers.mjs) reads them, so it never imports a plugin's folder and a plugin never ships the matcher.
  * ESM, data only: Node requires it (require(esm)) and the docs site imports it.
  */
+/**
+ * The plugins' LINT roles (`contributes.lint`), in dependency order: lib/authoring/lint-core.js runs each over the deck
+ * view it builds and refuses a finding whose rule the manifest does not declare. Light, like the inline kinds: the
+ * linter bundles it into every surface that lints.
+ */
+function renderLint(ordered) {
+  const lines = ordered.filter((p) => (p.manifest.contributes.lint || []).length)
+    .map((p) => `  Object.freeze({ plugin: ${JSON.stringify(p.manifest.name)}, rules: Object.freeze(${JSON.stringify(p.manifest.contributes.lint)}), lint: require('./${p.folder}/${p.manifest.name}.lint.js').lint }),`);
+  return `${HEADER('The plugins\' LINT roles, in dependency order: what lib/authoring/lint-core.js runs over its deck view.')}
+const PLUGIN_LINT = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { PLUGIN_LINT };
+`;
+}
+
 function renderProviders(ordered) {
   const rows = ordered.filter((p) => (p.manifest.contributes.providers || []).length)
     .map((p) => `  ${JSON.stringify(p.manifest.name)}: ${JSON.stringify(p.manifest.contributes.providers)},`);
@@ -1084,6 +1106,7 @@ async function build(opts = {}) {
       [META_FILE, renderMeta(ordered)],
       [DETECT_FILE, renderDetect(ordered, exportsByName)],
       [PROVIDERS_FILE, renderProviders(ordered)],
+      [LINT_FILE, renderLint(ordered)],
     ],
   };
 }
@@ -1104,7 +1127,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers,lint}.generated.*\n`);
 }
 
 if (require.main === module) {

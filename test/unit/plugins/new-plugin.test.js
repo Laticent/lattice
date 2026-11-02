@@ -67,6 +67,7 @@ describe('the plugin scaffold', () => {
         s.exports.inline = Object.keys(inline);
         s.exports.inlineFns = Object.fromEntries(Object.entries(inline).map(([k, row]) => [k, Object.keys(row).filter((f) => typeof row[f] === 'function')]));
       }
+      if (fs.existsSync(pluginFile(name, 'lint.js'))) s.exports.hasLint = typeof require(pluginFile(name, 'lint.js')).lint === 'function';
       if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(built(require(pluginFile(name, 'services.js')).services));
       s.exports.hasData = fs.existsSync(pluginFile(name, 'data.generated.js'));
       // The draw role files (manifest `draw`), read the way tools/build-plugin-registry.js reads them; the two `.mjs` halves by presence.
