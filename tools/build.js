@@ -18,7 +18,7 @@
  *   1. lattice.css            tools/build-css.js
  *   2. lattice-default.css    tools/build-default-bundle.js  (engine + default palette)
  *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
- *   2c. chart dispatch registry tools/build-chart-registry.js (lib/components/chart/, before step 3)
+ *   2c. chart dispatch registry tools/build-chart-registry.js (lib/plugins/chart-family/kinds/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
  *   4. lattice.js    tools/build-cli.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
