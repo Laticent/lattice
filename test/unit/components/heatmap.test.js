@@ -10,6 +10,7 @@
  * zero, and where the ramp starts.
  */
 
+const { tagsOf } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -122,7 +123,7 @@ describe('heatmap — a missing cell is not a zero', () => {
     const svg = buildHeatmap(model, {});
     assert.match(svg, /heatmap-cell--empty/, 'the absent crossing needs its own class');
     // And the empty cell carries NO --mix, so it cannot land on the ramp.
-    const empty = svg.match(/<rect class="heatmap-cell heatmap-cell--empty"[^>]*>/)[0];
+    const empty = tagsOf(svg, 'rect').find((t) => t.attrs.class === 'heatmap-cell heatmap-cell--empty').raw;
     assert.doesNotMatch(empty, /--mix/, 'an empty cell must not sit at the bottom of the ramp');
   });
 
@@ -203,9 +204,11 @@ describe('heatmap — the quantized ramp', () => {
 
   test('every cell and every value carries a step, and they agree', () => {
     const svg = buildHeatmap(parseHeatmapTable(GRID), {});
-    const cells = [...svg.matchAll(/<rect class="heatmap-cell"[^>]*data-step="(\d+)"[^>]*data-value="([^"]*)"/g)];
+    const cells = tagsOf(svg, 'rect').filter((t) => t.attrs.class === 'heatmap-cell' && /^\d+$/.test(t.attrs['data-step'] ?? '') && 'data-value' in t.attrs)
+      .map((t) => [t.raw, t.attrs['data-step'], t.attrs['data-value']]);
     assert.ok(cells.length > 0, 'no cells carried a step');
-    const values = [...svg.matchAll(/<text class="heatmap-value"[^>]*data-step="(\d+)"/g)];
+    const values = tagsOf(svg, 'text').filter((t) => t.attrs.class === 'heatmap-value' && /^\d+$/.test(t.attrs['data-step'] ?? ''))
+      .map((t) => [t.raw, t.attrs['data-step']]);
     assert.ok(values.length > 0, 'no printed value carried a step');
     for (const [, step] of [...cells, ...values]) {
       const n = Number(step);

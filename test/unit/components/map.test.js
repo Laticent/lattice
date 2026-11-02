@@ -15,6 +15,7 @@
  *   5. Basemap integrity: the baked asset has 51 regions and a valid viewBox.
  */
 
+const { tagsOf } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
@@ -99,7 +100,8 @@ describe('map kernel', () => {
     test('emits a --mix percentage per named region, monotonic with value', () => {
       const m = parseMap(ul([['California', '100'], ['Texas', '50'], ['Florida', '0']]));
       const html = buildMap(m, 'choropleth');
-      const mixes = [...html.matchAll(/map-region--on"[^>]*style="--mix:(\d+)%"/g)].map((x) => +x[1]);
+      const mixes = tagsOf(html).filter((t) => (t.attrs.class ?? '').endsWith('map-region--on') && /^--mix:\d+%$/.test(t.attrs.style ?? ''))
+        .map((t) => +t.attrs.style.slice('--mix:'.length, -1));
       // Three named regions, drawn in basemap order; values span the full ramp.
       assert.equal(mixes.length, 3);
       assert.ok(Math.max(...mixes) <= MIX_CEIL && Math.min(...mixes) >= MIX_FLOOR);
@@ -275,7 +277,9 @@ describe('map kernel', () => {
     test('grouped modifier clusters the legend by continent', () => {
       const m = parseMap(wul([['Brazil', '1'], ['Japan', '2'], ['European Union', '3']]), WORLD_BASEMAP);
       const html = buildMap(m, 'highlight', ['map', 'world', 'grouped']);
-      const heads = [...html.matchAll(/chart-key-head"[^>]*><tspan[^>]*>([^<]+)</g)].map((x) => x[1]);
+      const heads = tagsOf(html).filter((t) => (t.attrs.class ?? '').endsWith('chart-key-head'))
+        .map((t) => html.slice(t.end)).filter((rest) => rest.startsWith('<tspan'))
+        .map((rest) => { const sp = tagsOf(rest, 'tspan')[0]; return rest.slice(sp.end, rest.indexOf('<', sp.end)); }).filter(Boolean);
       assert.ok(heads.includes('South America') && heads.includes('Asia') && heads.includes('Groups'));
     });
   });

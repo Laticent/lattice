@@ -20,9 +20,35 @@ export function removeTags(s: unknown): string {
   let prev: string;
   do {
     prev = out;
-    out = out.replace(/<[^>]+>/g, '');
+    out = stripOnce(out);
   } while (out !== prev);
   return out;
+}
+
+/**
+ * One left-to-right pass of `/<[^>]+>/g` → '', in linear time. The regex retried from every `<` and scanned to the
+ * end of the string when no `>` followed, which is quadratic on text holding many `<` (CodeQL js/polynomial-redos).
+ * Same matches: from a `<`, the tag runs to the first `>` after it and needs at least one character between; `<>`
+ * is no tag, and once no `>` remains, no later `<` can open one.
+ */
+function stripOnce(src: string): string {
+  let out = '';
+  let at = 0;
+  let from = 0;
+  for (;;) {
+    const lt = src.indexOf('<', from);
+    if (lt < 0) break;
+    const gt = src.indexOf('>', lt + 1);
+    if (gt < 0) break;
+    if (gt === lt + 1) {
+      from = lt + 1;
+      continue;
+    }
+    out += src.slice(at, lt);
+    at = gt + 1;
+    from = gt + 1;
+  }
+  return out + src.slice(at);
 }
 
 export function stripTags(s: unknown): string {

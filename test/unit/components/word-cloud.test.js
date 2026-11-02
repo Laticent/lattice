@@ -10,6 +10,7 @@
  *      — idempotent HTML-string rewrite.
  */
 
+const { tagsOf } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
@@ -391,7 +392,8 @@ describe('word-cloud', () => {
     const out = buildCanvas(items, 'default');
     // Discipline is weight 4.5, rank 2 — it doesn't get accent; Execution is 5, rank 1 → accent
     // Match the rank-1 <text> specifically
-    const rank1 = out.match(/<text class="wc-word"[^>]*data-weight="5" data-rank="1"[^>]*>/);
+    const rank1Tag = tagsOf(out, 'text').find((t) => t.attrs.class === 'wc-word' && t.attrs['data-weight'] === '5' && t.attrs['data-rank'] === '1');
+    const rank1 = rank1Tag ? [rank1Tag.raw] : null;
     assert.ok(rank1, 'rank 1 text present');
     assert.match(rank1[0], /--wc-color:var\(--accent\)/);
   });

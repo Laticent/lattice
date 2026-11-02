@@ -132,7 +132,7 @@ test('narrateFunnel: strips a Markdown link label from a stage name', () => {
   const md = '<!-- _class: funnel -->\n\n## Stages.\n\n- [Visitors](https://x.example/report) `100`\n- Signups `50`';
   const out = narrateFunnel(md);
   assert.ok(out.includes('Visitors: one hundred'));
-  assert.ok(!out.includes('https://x.example'));
+  assert.doesNotMatch(out, /https?:/, 'the link target is not read aloud');
   assert.ok(!out.includes('['));
 });
 
