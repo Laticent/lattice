@@ -106,7 +106,10 @@ function renderTree(root) {
 function buildTree(dir, label) {
   const steps = fs.readdirSync(path.join(dir, 'tools')).filter((f) => /^build-[a-z]+-lib\.js$/.test(f)).sort();
   if (fs.existsSync(path.join(dir, 'tools/build-segno-grammar.js'))) steps.unshift('build-segno-grammar.js');
+  // The CSS bundle, then the default bundles built from it (lattice-default*.css, slides.css), so every stylesheet
+  // compared below is fresh in both trees.
   steps.push('build-css.js');
+  if (fs.existsSync(path.join(dir, 'tools/build-default-bundle.js'))) steps.push('build-default-bundle.js');
   for (const step of steps) {
     try {
       execFileSync(process.execPath, [path.join(dir, 'tools', step)], { cwd: dir, encoding: 'utf8', stdio: 'pipe', maxBuffer: 64 * 1024 * 1024 });
