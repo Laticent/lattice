@@ -1,5 +1,5 @@
 ---
-status: accepted (pilot first)
+status: in-progress
 summary: >
   A chart kind stops reading its content back out of the engine's HTML. The engine describes each chart slide as
   plain data, built by the slide-facts parser code packages already use, and hands a kind its own versioned input
