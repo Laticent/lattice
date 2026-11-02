@@ -96,6 +96,63 @@ A kind declares what can be revealed; it never knows when. Delivery is its own l
 This keeps every chart working unchanged on every surface, and lets a new surface (an AI presenter, a video export)
 consume the same plan.
 
+## 4a. Speech: declared phrases with slots, facts from a function
+
+A kind declares, per act, the sentences it may say, as **phrases with slots** filled from the semantic tree:
+
+```json
+"speech": {
+  "key":     "verdict",
+  "visit":   ["series", "mark"],
+  "frame":   ["Each bar is one quarter's revenue.", "Revenue by quarter."],
+  "series":  ["{name}."],
+  "mark":    ["{name}: {value}.", "{name} comes in at {value}.", "{value} for {name}."],
+  "verdict": { "facts": "speak.verdict", "say": ["{top.name} is the largest, {top.lead} above {next.name}."] }
+}
+```
+
+- **Slots only.** A phrase interpolates named values (`{name}`, `{value}`, `{top.lead}`) and nothing else: no
+  conditionals, no loops, no arithmetic. That is the no-DSL rule applied to narration.
+- **Values come from the tree,** spoken through the host's shared grammar (numbers, money, lists; later, other
+  languages), so a value reads the same in every chart and in the screen reader's description.
+- **Insight is a function that returns facts, never words.** `speak.verdict(model)` returns
+  `{ top, next, lead }` or nothing when there is nothing worth saying; the declared phrase says it. The kind decides
+  what is notable; the manifest decides how it is said.
+- **Several phrasings per act,** chosen deterministically (seeded by deck and slide, so exports, captions and goldens
+  are stable) with no phrasing repeated on consecutive beats. A phrasing may carry a register (`formal`,
+  `conversational`) that a delivery style selects.
+- **The kind names its key act** (the one beat the slide is about), as the 2026-09-27 delivery-styles note already
+  requires; a brief delivery says at least that.
+
+## 4b. One beat drives speech and gesture
+
+Filling a phrase yields one **beat**: `{ act, units: [{ unit, id }], text, anchor }`. The narrator speaks `text`; the
+Guide resolves `units` through the semantic tree and gestures at them; `anchor` is the slot where the unit is named,
+so the delivery layer starts the gesture on that word (from Cadenza's word timings). Speech and gesture come from the
+same record and cannot point at different things. This is the binding layer of
+`2026-09-27-delivery-styles-and-component-scenes.md` (§2, §5), now produced from the declaration instead of from
+per-chart narrator code. Which gesture expresses an act (focus, point, trace, sweep) is the delivery style's choice,
+never the kind's.
+
+## 4c. Delivery styles and the author's control
+
+Delivery is policy over acts, owned by the delivery layer, never by a kind. It has **two axes**, each a register:
+
+| Register | Axis | Values | Exists |
+|---|---|---|---|
+| `delivery:` | **Character**: how each act looks and moves (focus, point, ink, stillness) | `restrained` (default), `expressive`, `somber` | yes, `lib/core/resolve-delivery.mjs` (2026-09-25 presets, 2026-09-27 styles) |
+| `narrate:` | **Density**: which acts are spoken, and which are switched off | `full` (default: frame, enter, visits, verdict), `brief` (the key act), `insight` (verdict, peak, compare); then `-act` to switch any act off | new |
+
+A new style touches no kind; a new kind gets every style.
+
+The author controls both **at the deck and at the slide** (owner decision, 2026-11-02):
+
+- Deck: `delivery: expressive` and `narrate: full -note` in front matter.
+- Slide: `_delivery: somber` and `_narrate: brief` (or `_narrate: -frame`) on one slide, overriding the deck for that
+  slide only.
+- The delivery layer adds one rule of its own: a `frame` is skipped when the slide before framed the same kind, so a
+  deck of five bar charts explains bars once.
+
 ## 5. Why this is stable
 
 - **One versioned contract per kind** (`kind.schema.json` + the semantic tree vocabulary), conformance-tested per kind
@@ -126,7 +183,9 @@ consume the same plan.
   playback) exist, but nothing composes them. Its design is its own note (§4 sketches the role).
 - **Q4:** **#2997 holds for all of it**: the plugin contract, the charts plugin with per-kind manifests, the semantics
   contract, and every capability moved onto it, in one PR.
-- **Q2** (data plus named hooks) is still open: the owner asked for it to be explained further.
+- **Q2:** data plus named functions, in the shape of §4a: phrases with slots filled from the tree, and a function per
+  computed act that returns facts, never words.
+- **Speech and gesture** are one beat (§4b); **delivery** is controlled at the deck and the slide (§4c).
 
 ## References
 
