@@ -362,6 +362,26 @@ function excludedImports(graph) {
  * does not read: a component or layout in an `.astro` file sits on its folder's layer like any other
  * file, so its imports are held to the same rules.
  */
+/**
+ * The bodies of every `<script …>` element, found by scanning a lower-cased copy for the open and close tags (any
+ * case, attributes, whitespace before `>`), not by a pattern: an HTML filter written as a regex misses `</SCRIPT >`.
+ */
+function scriptBodies(text) {
+  const lower = text.toLowerCase();
+  const bodies = [];
+  for (let at = lower.indexOf('<script'); at >= 0; at = lower.indexOf('<script', at + 7)) {
+    const next = lower[at + 7];
+    if (next !== '>' && !/\s/.test(next || '')) continue;
+    const open = lower.indexOf('>', at);
+    if (open < 0) break;
+    const close = lower.indexOf('</script', open + 1);
+    bodies.push(text.slice(open + 1, close < 0 ? text.length : close));
+    if (close < 0) break;
+    at = close;
+  }
+  return bodies.join('\n');
+}
+
 function astroModules() {
   const out = [];
   const walk = (dir) => {
@@ -384,7 +404,7 @@ function astroModules() {
     const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
     // The front matter runs at build time; a `<script>` block is bundled for the browser. Both import
     // (the red team counted 43 imports in script blocks the gate did not read, #2997).
-    const scripts = [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n');
+    const scripts = scriptBodies(text);
     const fm = `${/^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? ''}\n${scripts}`;
     const deps = [];
     SPECIFIER.lastIndex = 0;

@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { loadAll } = require('../../../lib/components');
@@ -25,8 +25,9 @@ const dom = (html) => parser.parseFromString(html, 'text/html');
 /** Every slide of every tracked deck: the galleries and component docs, `examples/`, the baselines. */
 function corpusSlides() {
 	// Every component root, the plugins' kinds (the chart kinds) included.
-	const roots = componentCorpusRoots().map((r) => `'${path.relative(ROOT, r).split(path.sep).join('/')}/**/*.md'`);
-	const files = execSync(`git ls-files ${roots.join(' ')} 'examples/*.md' 'test/integration/baseline-decks/*.md'`, { cwd: ROOT }).toString().trim().split('\n');
+	const roots = componentCorpusRoots().map((r) => `${path.relative(ROOT, r).split(path.sep).join('/')}/**/*.md`);
+	// Arguments, not a shell string: no path reaches a shell.
+	const files = execFileSync('git', ['ls-files', ...roots, 'examples/*.md', 'test/integration/baseline-decks/*.md'], { cwd: ROOT }).toString().trim().split('\n');
 	assert.ok(files.includes('lib/plugins/chart-family/kinds/gantt/gantt.gallery.md'), 'the corpus walk misses the plugin kinds (gantt)');
 	const out = [];
 	for (const f of files) {
