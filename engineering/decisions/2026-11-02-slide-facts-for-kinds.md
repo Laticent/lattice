@@ -172,7 +172,7 @@ dispatcher's record bridging, so the plugin keeps no `lib/` edge for it.
 ## Found on the way (off-path)
 
 `risk-band` ids (`risk-matrix.transform.js:126`) are minted through `nextRenderSeq`, but the family is missing from
-the anti-squat probe in `render-ids.js` (`FAMILIES`). Logged in `followups.d/2997-p4-risk-band-anti-squat.md`.
+the anti-squat probe in `render-ids.js` (`FAMILIES`). Logged in `followups.d/2997-p3-risk-band-anti-squat.md`.
 
 ## References
 
