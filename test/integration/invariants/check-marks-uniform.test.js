@@ -75,7 +75,9 @@ function measure() {
   for (const sec of document.querySelectorAll('section')) {
     const slide = sec.querySelector('h2')?.textContent.trim();
     for (const pill of sec.querySelectorAll('.lat-pill')) {
-      const lead = pill.querySelector(':scope > .lat-pill-lead > .lat-state, :scope > .lat-pill-icon');
+      // An icon is drawn as its <svg> or its Lattice Icons glyph box (`icon: font`, the default), one of them hidden: measure the one
+      // that renders. Both take the same box (engineering/decisions/2026-11-01-icon-font.md).
+      const lead = [...pill.querySelectorAll(':scope > .lat-pill-lead > .lat-state, :scope > .lat-pill-icon, :scope > .lat-pill-glyph')].find((e) => e.getClientRects().length);
       if (!lead) continue;
       const pr = pill.getBoundingClientRect(); const lr = lead.getBoundingClientRect();
       const o = lead.classList.contains('lat-state') ? outer(lead) : 0;

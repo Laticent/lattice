@@ -74,5 +74,11 @@ import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
  * @returns {string}
  */
 export function previewCspMeta({ katexUrl = '', webOrigins = [], blocked = [] } = {}) {
-	return subresourceCspMeta({ katexUrl, webOrigins, blocked });
+	// The site's own origin for fonts: the frame is `srcdoc`, and Firefox does not read its `'self'` as this origin, so
+	// it refused every face the site serves (the text faces fell back; Lattice Icons drew nothing). Same-origin only.
+	// Not in the build's jsdom bake (scripts/bake-newcomer-frame.mjs): its `location` is a stand-in no visitor shares, and a
+	// baked document must not name it.
+	const baking = typeof navigator !== 'undefined' && /\bjsdom\//.test(navigator.userAgent || '');
+	const self = !baking && typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? [location.origin] : [];
+	return subresourceCspMeta({ katexUrl, webOrigins, blocked, fontOrigins: self });
 }

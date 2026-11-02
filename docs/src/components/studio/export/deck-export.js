@@ -1074,12 +1074,13 @@ async function sectionsOf(frame, fonts) {
 	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
 	// Icons too: no machine has our icon font, so under `system` the page shows each icon's <svg> instead (lib/plugins/icons/icons.styles.css;
 	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
+	// The Studio scopes the engine's CSS to each slide (`:root` becomes `article.lattice > :where(section)`), so the switch
+	// is the slide's own `icon-svg` class, the one `icon: svg` stamps, rather than the command line's attribute on <html>.
 	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') {
 		doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
-		doc.documentElement.setAttribute('data-lattice-icons', 'svg');
+		for (const s of sections) s.classList.add('icon-svg');
 	} else {
 		doc.documentElement.removeAttribute('data-lattice-omit-fonts');
-		doc.documentElement.removeAttribute('data-lattice-icons');
 	}
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };

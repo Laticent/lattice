@@ -81,10 +81,13 @@ describe('icons — both render paths', () => {
   test('the glyph is never document text: a pill\'s label, a title or a copy reads only what the author wrote', () => {
     // It is the `::before` of a span (`content: attr(data-glyph)`), as the <svg> was no text either. A text node made
     // the bucket's private-use codepoint part of the pill's label (LFM conformance, `inline-notation`).
+    // Parsed, not tag-stripped: the parser decodes the entity in `data-glyph`, so a glyph in any text node would show.
     for (const html of [icons.iconHtml('^{bucket}'), pills.pillHtml('{S3, icon=bucket, c4}')]) {
-      const text = html.replace(/<[^>]*>/g, '');
-      assert.doesNotMatch(text, /&#x|[\uE000-\uF8FF]/, html);
+      const text = doc.createRange().createContextualFragment(html).textContent;
+      assert.doesNotMatch(text, /[\uE000-\uF8FF]/, html);
     }
+    // The DOM path too.
+    for (const el of [icons.iconElement(doc, '^{bucket}'), pills.pillElement(doc, '{S3, icon=bucket, c4}')]) assert.doesNotMatch(el.textContent, /[\uE000-\uF8FF]/);
   });
   test('the pill\'s two paths agree with an icon', () => {
     for (const s of ['{S3, icon=bucket, c4}', '{icon=db}', '{Primary, icon=database, tag, lg}']) {
