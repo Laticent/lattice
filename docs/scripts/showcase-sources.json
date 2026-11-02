@@ -2,12 +2,12 @@
 	"bar.light": {
 		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "c83f1bdf249d2484c202fe29cf5475c5f9f5f1334aa5fee62e9679eff4a2aa73"
+		"srcSha256": "4fb8523cebc194ea97a8b846c9082f4a039672b06b784d45f3c2f57b08214c98"
 	},
 	"bar.dark": {
 		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "120ce93d950655d5d0ca1decb5e36a51c465ce14ca1de4f8efabdd530008add0"
+		"srcSha256": "09645ea189b22e229a3359b0d4d529f897b0eb7348c035b61ab0f5c4889c30ee"
 	},
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
@@ -62,22 +62,22 @@
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "41e21ae4c9dbb0f0d42ab63f577d35fdab51c3548210043bd932d954815e42f1"
+		"srcSha256": "b2ad3f408b4fa6c59d2f9d9e5ffef01cc3701742bc468491585a60e89564f29c"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "971eacc5b2a7f0894ed43f9514f23c03b174c60199837ab1f25ed883145ca298"
+		"srcSha256": "22146509baa098519477e77425eab37975498ec65e8d6d25f2f125400c71cae7"
 	},
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "edef74b95ebdbf21f252cc34c270281c1813c8f277ee4c787666ed691d73a7ba"
+		"srcSha256": "06be5de7e56f8e780fe239da3dc3607b28f7d083ec46d41f99d58b53cdd99773"
 	},
 	"funnel.dark": {
 		"src": "lib/components/chart/funnel/funnel.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "675b9b2c50cff9fbe0a1dc46d68a8678133bc3d0db5f141edb355a98739d0aa3"
+		"srcSha256": "9c03ef5c7d04b6e6813badaf705897c458c2cf32032d3c89b66dbcbba82ef720"
 	},
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
@@ -152,12 +152,12 @@
 	"topic.light": {
 		"src": "lib/components/anchor/topic/topic.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "4c4ae1ccf1d8e47eb6c587291b4685651c196cf04b8bc4334f5d7c4f996edeba"
+		"srcSha256": "a4b3f2611c190b267b7a174aec489fa9863779bce43718e58c56d200ed3a3ccb"
 	},
 	"topic.dark": {
 		"src": "lib/components/anchor/topic/topic.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "ff0776dab61430bd4b4766ea6b15a25ef4fc6a65cef0f2db4ee68ce5bce6188c"
+		"srcSha256": "ab896adfe80c048e6f9f3917c6defef861b4044d428abe835360b23947b58767"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
