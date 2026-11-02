@@ -31,6 +31,7 @@ import emojiCore from '../../../lib/fonts/emoji-faces.js';
 // Vite bundles each .woff2 and resolves the import to its served URL.
 import faceRuleCore from '../../../lib/fonts/face-rule.js';
 import iconFacesCore from '../../../lib/fonts/icon-faces.js';
+import iconFallbackCore from '../../../lib/fonts/icon-fallback.js';
 import textFacesCore from '../../../lib/fonts/text-faces.js';
 import caveat400 from './fonts/caveat-400.woff2';
 import caveat700 from './fonts/caveat-700.woff2';
@@ -169,8 +170,13 @@ function buildIconFontCss() {
 	}
 	return iconCssPromise;
 }
-/** True when the text holds a Lattice Icons glyph (a private-use codepoint the icon map names). */
+/**
+ * True when the export draws a Lattice Icons glyph. `text` is either a page's text, where a glyph is its character (the
+ * Studio's camera reads each `data-glyph`), or the engine's markup, where it is a glyph box, its character written as a
+ * reference (`&#xE019;`) and hidden under an `icon-svg` slide (lib/fonts/icon-fallback.js).
+ */
 function drawsIcons(text) {
+	if (iconFallbackCore.drawsIconGlyphs(text)) return true;
 	for (const hex of Object.values(iconFacesCore.ICON_CODEPOINTS)) if (text.includes(String.fromCodePoint(Number.parseInt(hex, 16)))) return true;
 	return false;
 }

@@ -77,7 +77,7 @@ section .lat-icon > .lat-icon-svg {
 }
 
 /* THE GLYPH. Each icon carries its <svg> and its Lattice Icons glyph; `icon: font` (the default) shows the glyph,
- * `icon: svg` the <svg>, and an export under `fonts: emoji: system` sets data-lattice-icons="svg" on its page, since
+ * `icon: svg` the <svg>, and an export under `fonts: emoji: system` puts `icon-svg` on every slide (lib/fonts/icon-fallback.js), since
  * no machine has our icons (engineering/decisions/2026-11-01-icon-font.md). The glyph takes the drawing's box: the
  * font's em IS the 24-unit grid, its top at the ascender, so a line-height-1 line of that font fills the box. Color is
  * the box's own (`color:var(--icon-line)`), as the <svg>'s stroke is; the line weight is the face (`--icon-weight`:
@@ -111,6 +111,8 @@ section .lat-icon > .lat-icon-glyph {
 /* In a pill the <svg> covers a box the drawing's width (1.15em) and the capitals' height, centered on the capitals;
  * the glyph's line, 1.15em tall, is centered on that same box. */
 section .lat-pill > .lat-pill-glyph {
+  /* The pill's line weight, on the glyph's own box: set on the sibling <svg> alone, the glyph took the label's weight. */
+  --icon-weight:500;
   position:relative;
   display:inline-block;
   box-sizing:content-box;
@@ -127,11 +129,10 @@ section .lat-pill > .lat-pill-glyph > span {
   line-height:1;
 }
 section .lat-pill[role='img'] > .lat-pill-glyph { padding-right:0; }
-:is(section:not(.icon-svg) .lat-icon > .lat-icon-svg, section:not(.icon-svg) .lat-pill > .lat-pill-icon) { display:none; }
+/* One switch: an icon inside any `icon-svg` section draws its <svg>, every other icon its glyph. (`section:not(.icon-svg) X`
+ * would match through a nested section too, and an icon with both rules against it drew nothing.) */
+:is(section .lat-icon > .lat-icon-svg, section .lat-pill > .lat-pill-icon):not(section.icon-svg *) { display:none; }
 :is(section.icon-svg .lat-icon-glyph, section.icon-svg .lat-pill-glyph) { display:none; }
-:root[data-lattice-icons='svg'] :is(section .lat-icon > .lat-icon-svg) { display:block; }
-:root[data-lattice-icons='svg'] :is(section .lat-pill > .lat-pill-icon) { display:inline-block; }
-:root[data-lattice-icons='svg'] :is(section .lat-icon-glyph, section .lat-pill-glyph) { display:none; }
 
 /* `bare` — no tile: ink lines, as tall as the text's capitals and a little more (1.15em at md). */
 :is(section.icon-bare .lat-icon:not([data-frame='framed'], [data-corners]), section .lat-icon[data-icon][data-frame='bare']) {

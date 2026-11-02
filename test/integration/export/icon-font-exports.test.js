@@ -7,32 +7,37 @@
  *   system  under `fonts: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
  *         `icon: svg` page.
  *   PPTX / ODP  each icon is a text run in "Lattice Icons", and the face is embedded.
- *   HTML  the player carries the faces cut to the deck's icons.
+ *   HTML  the player carries the faces cut to the deck's icons; under `system` the page and the player show each
+ *         <svg>, and under `icon: svg` neither carries the font.
+ *   hidden  no `display:none` <svg> is drawn into the PDF (they once printed at the page's top-left corner).
  *
  * FALSIFIABLE: with the glyph hidden (the default `svg`), no format embeds the font and the copy text loses its labels.
  * Needs Chromium and poppler.
  */
-const { test, describe, after } = require('node:test');
+const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawnSync, execFileSync } = require('child_process');
 const JSZip = require('jszip');
+const puppeteer = require('puppeteer');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const { ICON_CODEPOINTS } = require(path.join(ROOT, 'lib', 'fonts', 'icon-faces.js'));
 
 const BODY = ['## Icons', '', 'Storage `^{database, c3}` and `{S3, icon=bucket, c4}` and `{icon=lock}` done.', ''];
-const deck = (extra) => ['---', 'theme: indaco', ...extra, '---', '', ...BODY].join('\n');
+const deck = (extra, body = BODY) => ['---', 'theme: indaco', ...extra, '---', '', ...body].join('\n');
 
 describe('icon-font-exports', () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-icon-font-'));
-	after(() => fs.rmSync(dir, { recursive: true, force: true }));
-	const render = (name, extra, out, args = []) => {
+	let browser;
+	before(async () => { browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] }); });
+	after(async () => { await browser?.close(); fs.rmSync(dir, { recursive: true, force: true }); });
+	const render = (name, extra, out, args = [], body = BODY) => {
 		const md = path.join(dir, `${name}.md`);
-		fs.writeFileSync(md, deck(extra));
+		fs.writeFileSync(md, deck(extra, body));
 		const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, out), ...args], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
 		assert.equal(r.status, 0, `${out}: ${r.stderr}`);
 		return path.join(dir, out);
@@ -93,6 +98,19 @@ describe('icon-font-exports', () => {
 		assert.ok(off < 20, `${off} photo pixels differ: a glyph is in the photo`);
 	});
 
+	test('no hidden <svg> is drawn: a bare icon\'s page is pixel for pixel its `icon: svg` page, the top-left corner included', () => {
+		// Each icon's <svg> is `display:none` while its glyph shows. The reader once drew those shapes anyway, under the
+		// identity matrix, so every icon also printed at the page's top-left corner: a bare one in ink.
+		const body = ['## Storage `^{database}` overview', '', ...BODY.slice(2)];
+		const a = pixels(render('bare-svg', ['icon: bare svg'], 'bare-svg.pdf', [], body), 'baresvg');
+		const b = pixels(render('bare-font', ['icon: bare'], 'bare-font.pdf', [], body), 'barefont');
+		let corner = 0;
+		for (let y = 0; y < 120; y++) for (let x = 0; x < 120; x++) if (Math.abs(a.px[y * a.w + x] - b.px[y * b.w + x]) > 24) corner++;
+		assert.equal(corner, 0, `${corner} pixels in the top-left corner differ: a hidden icon was drawn there`);
+		const ia = ink(a), ib = ink(b);
+		assert.ok(Math.abs(ib.n / ia.n - 1) < 0.02, `ink ${(100 * ib.n / ia.n).toFixed(1)}% of the svg page`);
+	});
+
 	test('under `fonts: system-emoji` no icon font travels and the page is the `icon: svg` page', () => {
 		assert.doesNotMatch(fontsOf(systemPdf), /LatticeIcons/);
 		const a = pixels(svgPdf, 'svg2');
@@ -123,5 +141,31 @@ describe('icon-font-exports', () => {
 		const faces = [...html.matchAll(/@font-face\{font-family:'Lattice Icons'[^}]*base64,([A-Za-z0-9+/=]+)/g)];
 		assert.ok(faces.length > 0, 'no Lattice Icons face in the player');
 		for (const f of faces) assert.ok(f[1].length * 0.75 < 4000, `a face is ${Math.round(f[1].length * 0.75)} bytes: not cut to the deck's icons`);
+	});
+
+	test('the HTML player and page show each icon\'s <svg> under `fonts: system-emoji`, and carry no icon font under `icon: svg`', async () => {
+		// The player writes an <html> of its own, so the switch must ride on the slides: an attribute on the page's root was
+		// lost there, and the player drew the glyph in no font at all.
+		const shown = async (file) => {
+			const page = await browser.newPage();
+			await page.goto(`file://${file}`, { waitUntil: 'load' });
+			const r = await page.evaluate(() => {
+				const on = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).length;
+				return { svg: on('section .lat-icon-svg, section .lat-pill-icon'), glyph: on('section [data-glyph]'), all: document.querySelectorAll('section .lat-icon, section .lat-pill-icon').length };
+			});
+			await page.close();
+			return r;
+		};
+		for (const args of [['--player'], []]) {
+			const file = render('system', ['fonts: system-emoji'], `system${args.length ? '-player' : ''}.html`, args);
+			const html = fs.readFileSync(file, 'utf8');
+			assert.doesNotMatch(html, /font-family:\s*'?Lattice Icons'?[^}]*base64/, `${args[0] || '.html'}: an icon face travelled under system`);
+			const r = await shown(file);
+			assert.ok(r.all > 0, 'no icon on the page');
+			assert.equal(r.glyph, 0, `${args[0] || '.html'}: ${r.glyph} glyphs shown with no font to draw them`);
+			assert.ok(r.svg >= 3, `${args[0] || '.html'}: only ${r.svg} icon <svg> shown`);
+		}
+		const svgHtml = fs.readFileSync(render('svg', ['icon: svg'], 'svg.html', ['--player']), 'utf8');
+		assert.doesNotMatch(svgHtml, /font-family:\s*'?Lattice Icons'?[^}]*base64/, '`icon: svg` draws no glyph, so it carries no icon font');
 	});
 });

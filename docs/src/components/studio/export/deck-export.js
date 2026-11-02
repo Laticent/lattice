@@ -1052,7 +1052,12 @@ export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 // which `textContent` never holds (an emoji set only there lost its slice and drew in a fallback face).
 // The icon glyphs too: each is a `::before` drawn from `data-glyph` (lib/plugins/icons/icons.inline.js), so it is in no text node,
 // and the font supply needs to see it to carry the Lattice Icons faces (playground/font-embed.js).
-const glyphTextOf = (doc) => [...(doc?.body?.querySelectorAll('[data-glyph]') || [])].map((el) => el.getAttribute('data-glyph') || '').join('');
+// The glyphs the camera will draw: an `icon-svg` slide draws its icons' <svg> instead (icons.styles.css).
+const glyphTextOf = (doc) =>
+	[...(doc?.body?.querySelectorAll('[data-glyph]') || [])]
+		.filter((el) => !el.closest('section.icon-svg'))
+		.map((el) => el.getAttribute('data-glyph') || '')
+		.join('');
 const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}\n${glyphTextOf(doc)}`;
 
 async function sectionsOf(frame, fonts) {

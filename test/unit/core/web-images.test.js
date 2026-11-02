@@ -208,4 +208,9 @@ test('the host may name its own origin for fonts, and only an exact origin gets 
   assert.match(p, /font-src 'self' data: https:\/\/lattice\.example;/);
   assert.doesNotMatch(p, /script-src|unsafe-inline|a\.com/);
   assert.match(subresourceCspPolicy({}), /font-src 'self' data:;/, 'without it, nothing changes');
+  // A KaTeX sheet served from another origin adds that origin; it does not replace the host's own.
+  assert.match(
+    subresourceCspPolicy({ fontOrigins: ['https://lattice.example'], katexUrl: 'https://cdn.example/katex.css' }),
+    /font-src 'self' data: https:\/\/lattice\.example https:\/\/cdn\.example;/,
+  );
 });

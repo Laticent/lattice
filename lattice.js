@@ -1183,6 +1183,7 @@ const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // Hoisted ABOVE the plugins' bakes, which run at module-evaluation time (the font plumbing is
 // declared further down; reaching it early is a TDZ throw).
 const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { drawIconsAsSvg, drawsIconGlyphs } = require('./lib/fonts/icon-fallback.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
@@ -2819,9 +2820,11 @@ const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, de
 // Lattice Icons: an icon draws as a glyph of our font beside its <svg>, and CSS shows the glyph (`icon: font`, the default).
 // The Emoji font setting decides whether the file carries the font: under `system` it does not, and since no machine has our
 // icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
-const usesIconGlyphs = highlightedSlides.some((s) => s.includes('lat-icon-glyph') || s.includes('lat-pill-glyph'));
-const iconsAsSvg = usesIconGlyphs && FONT_POLICY.emoji === 'system';
-const iconCss = usesIconGlyphs && !iconsAsSvg ? iconFaceCss(PKG_ROOT) : '';
+// Under `system` every slide takes `icon-svg`, the class `icon: svg` stamps, so the player and every format built from this
+// page keep the switch (lib/fonts/icon-fallback.js). A deck that draws no glyph (`icon: svg`) carries no icon font.
+const iconsAsSvg = FONT_POLICY.emoji === 'system';
+const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
+const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;
 // `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
@@ -3025,7 +3028,7 @@ const a11yTextureDefs = texturePatternDefs(
   texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
 );
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeAttr(deckLang)}"${iconsAsSvg ? ' data-lattice-icons="svg"' : ''}><head><meta charset="utf-8">
+<html lang="${escapeAttr(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${docFonts}
 ${katexCssTag}
@@ -3035,7 +3038,7 @@ ${deckStyle}
 <a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}
 <main id="deck" tabindex="-1">
-${slidesWithMeta2}
+${deckSlidesHtml}
 </main>
 ${pluginHydrateScript}
 ${stateChartScript}
