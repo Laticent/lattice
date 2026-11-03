@@ -15,7 +15,6 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
-import overflowProbe from '../../../lib/core/overflow-probe.js';
 
 /** What a live surface remembers between renders of one slide or deck (`nextMemory`). */
 export type FitMemory = Record<string, { split: boolean; sizes?: number[] }>;
@@ -34,6 +33,8 @@ export interface MeasuredSplitInput {
 	split: (html: string, plan: Record<string, unknown> | 'whole' | null) => SplitResult;
 	/** The full frame document for a document string, built as the host builds its own frame. */
 	buildDoc: (html: string) => string;
+	/** The engine's fit verdict config (`window.LatticePlayground.fitVerdictConfig()`): the CLI's probes, selectors and tolerance. */
+	verdictConfig: unknown;
 	/** The slide box, for the hidden frame's viewport. */
 	width: number;
 	height: number;
@@ -55,20 +56,13 @@ export interface MeasuredSplitOutput extends SplitResult {
 	ms: number;
 }
 
-const VERDICT_CFG = {
-	probeSrc: overflowProbe.PROBE_SRC,
-	ccSrc: overflowProbe.CONTENT_CLIPPED_SRC,
-	clipSel: overflowProbe.CLIP_CELL_SELECTOR,
-	ignoreSel: overflowProbe.IGNORED_CLIP_SELECTOR,
-	bearerSel: overflowProbe.IGNORED_BEARER_SELECTOR,
-	tol: overflowProbe.FRAME_TOLERANCE,
-};
 // The slides of a PREVIEW frame. The export's finder (lib/core/deck-slides.js) reads the export's
 // own document, whose slides sit directly under `main#deck` or `body`; a preview frame wraps them
 // in its own container. A slide here is a stamped section not inside another section, which keeps
 // the finder's one rule: a section an author pasted inside a slide is not a slide.
 const PREVIEW_SLIDES_SRC = String((doc: Document) => [...doc.querySelectorAll('section[data-lattice-slide]')].filter((s) => !s.parentElement?.closest('section')));
-const PROBE_ARGS = `(${fitMeasure.FIT_VERDICT_SRC}), ${JSON.stringify(VERDICT_CFG)}, (${PREVIEW_SLIDES_SRC})`;
+/** The probe arguments for one verdict config (the engine's `fitVerdictConfig()`, so the probes and selectors are the CLI's). */
+const probeArgs = (cfg: unknown) => `(${fitMeasure.FIT_VERDICT_SRC}), ${JSON.stringify(cfg)}, (${PREVIEW_SLIDES_SRC})`;
 
 /** The measured split could not read the frame it built: the host keeps today's split and its memory. */
 export class UnmeasuredError extends Error {}
@@ -152,7 +146,9 @@ function inFrame<T>(frame: HTMLIFrameElement, expr: string): T | null {
  */
 export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<MeasuredSplitOutput> {
 	const t0 = performance.now();
-	const { html, split, buildDoc, width, height, packer = 'knuth-plass', memory = null, settleMs = 4000, cancelled = () => false } = input;
+	const { html, split, buildDoc, verdictConfig, width, height, packer = 'knuth-plass', memory = null, settleMs = 4000, cancelled = () => false } = input;
+	if (!verdictConfig) throw new UnmeasuredError('this engine bundle has no fit verdict config');
+	const PROBE_ARGS = probeArgs(verdictConfig);
 	const frame = document.createElement('iframe');
 	frame.setAttribute('aria-hidden', 'true');
 	frame.tabIndex = -1;

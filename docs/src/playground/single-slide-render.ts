@@ -1904,6 +1904,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 								html: out.html,
 								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
 								// The geometry the frame is written with below (`geom`, declared after this split).
+								verdictConfig: PG.fitVerdictConfig?.(),
 								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
 								width: out.width || DEFAULT_W,
 								height: out.height || DEFAULT_H,

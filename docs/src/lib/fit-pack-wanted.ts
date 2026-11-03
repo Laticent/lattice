@@ -6,7 +6,9 @@
  * It reads the key with the engine's own reader (`frontMatterName`), the one the CLI's `fitPacks`
  * calls, so case, indentation, quoting, comments and a repeated key resolve the same on both sides.
  */
-import { frontMatterName } from '../../../lib/core/front-matter-key.js';
+import frontMatterKey from '../../../lib/core/front-matter-key.js';
+
+const { frontMatterName } = frontMatterKey;
 
 export function measuredSplitWanted(source: string): boolean {
 	const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(source);

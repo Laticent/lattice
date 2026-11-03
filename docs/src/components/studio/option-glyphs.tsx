@@ -13,6 +13,7 @@ import {
 	GraduationCap,
 	Heading2,
 	Laptop,
+	Layers,
 	Link2,
 	type LucideIcon,
 	MousePointer2,
@@ -153,6 +154,7 @@ const GLYPHS = {
 		report: { icon: Flag },
 		heal: { icon: Wrench },
 		trim: { icon: Scissors },
+		pack: { icon: Layers },
 	},
 	/** Chart motion speed — a level, drawn as a meter. */
 	speed: {

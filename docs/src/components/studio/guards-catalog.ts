@@ -42,6 +42,10 @@ export const GUARDS: GuardsEntry[] = [
 		name: 'trim', label: 'Heal and trim',
 		blurb: 'Also lets the engine cut the tail of text that does not fit its box.',
 		swatch: { background: lines('30%') },
+	},	{
+		name: 'pack', label: 'Heal and pack',
+		blurb: 'Heal, and measure the split: a slide that fits stays one page, and one that overflows puts as many items on each page as fit.',
+		swatch: { background: lines('64%') },
 	},
 ];
 

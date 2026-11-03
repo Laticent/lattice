@@ -399,7 +399,7 @@ describe('front-matter registers — keys and values', () => {
 	});
 
 	it('completes fit: and cards: values from the engine vocabulary', () => {
-		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim']);
+		expect(done('---\nfit: ')).toEqual(['report', 'heal', 'trim', 'pack']);
 		expect(done('---\ncards: sp')).toEqual(['center', 'stretch', 'top', 'spread']);
 		expect(done('---\nclaim: ')).toContain('bleed');
 		expect(done('---\nspectrum-trim: ')).toContain('restrained');

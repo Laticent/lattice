@@ -231,6 +231,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 						.measuredSplitInFrame({
 							html: out.html,
 							split: (h, plan) => (PGref.splitForPreview as NonNullable<typeof PGref.splitForPreview>)(h, source, geom.w, geom.h, { plan }),
+							verdictConfig: PGref.fitVerdictConfig?.(),
 							buildDoc: (h) => measureDoc({ html: sz.sanitizeSlideHtml(h), css: out.css, mode: deckMode, geom, runtimeUrl, ...(assets.dagreUrl ? { dagreUrl: assets.dagreUrl } : {}), ...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}), previewFonts: true, gap: 16 }),
 							width: geom.w,
 							height: geom.h,
