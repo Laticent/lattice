@@ -5,7 +5,7 @@ recorded: 2026-11-03
 area: website
 severity: medium
 swimlane: followups.d/2959-p3-mac-edit-menu-undo-after-reload.md
-deferred: off-path — WebKit's undo command on the iPad Simulator, not the probes' editor-pane race #3004 fixes; main's nightly logged the same failure (41301950082)
+deferred: blocked — cause unknown for both shapes: the iPad undo (also on main's nightly 41301950082) and the iPhone redo (not yet seen on main, whose runs carried no event log); the probe was ruled out, Studio and WebKit not yet separated
 source: https://github.com/Laticent/lattice/pull/3004
 ---
 
@@ -20,9 +20,10 @@ why now   — `ios-safari-undo` failed on the iPad at 6d3250c (run 41562206550):
             because the failure message did not carry the event log until 3004's last commit added it.
             A second shape at 273f9f2 (run 41568447188), now with the event log: on the iPhone, undo worked
             ("undo: enabled true after 61 ms, beforeinput:historyUndo, prevented true"), but WebKit's redo never
-            became enabled ("redo: enabled false after 3033 ms"), so execCommand('redo') had nothing to send. The
-            Studio prevents the native historyUndo and applies its own, which may leave WebKit's own redo list
-            empty: whether a person's shake-to-redo then reaches the Studio on an iPhone is the open question.
+            became enabled ("redo: enabled false after 3033 ms"), so execCommand('redo') had nothing to send. Preventing
+            the undo is not the cause on its own: every passing session, the iPhone included, shows the same
+            `prevented true` and then redo enabled within 0 to 4 ms (one outlier at 751 ms). Something intermittent
+            leaves redo disabled; whether a person's shake-to-redo then reaches the Studio is the open question.
 where     — docs/scripts/ios-safari/undo-probe.js `command()` and the historyUndo step; the Studio's
             beforeinput handling for history (docs/src/lib/filo, the editor's undo bridge).
 done when — the cause is named for both shapes from the event log the failure now prints (never enabled,
