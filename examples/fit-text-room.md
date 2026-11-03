@@ -37,17 +37,6 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 
 ---
 
-<!-- _class: list principles -->
-<!-- _footer: "list principles" -->
-
-## Three house rules.
-
-1. State each rule as an imperative.
-2. Keep rules under ten words.
-3. Retire a rule you keep breaking.
-
----
-
 <!-- _class: list-steps chevron -->
 <!-- _footer: "list-steps chevron" -->
 
@@ -109,6 +98,20 @@ A story post projected in a hall leaves about 28 characters a line. Every layout
 2. Regulation
    - `16 C.F.R. Part 312`
    - FTC implementing rule, 2013 rewrite.
+
+---
+
+<!-- _class: cards-grid three -->
+<!-- _footer: "cards-grid three" -->
+
+## Three peers, one column.
+
+- Reach
+  - Who sees the post, and where.
+- Recall
+  - What they remember a day later.
+- Response
+  - What they do about it.
 
 ---
 

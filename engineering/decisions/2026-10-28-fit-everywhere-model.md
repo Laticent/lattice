@@ -656,3 +656,111 @@ fall into five families that reflow differently: list-shaped charts, grids, time
 diagrams, and plotted charts, which clip almost nothing but shrink their labels below reading size, a
 failure the fit probe does not yet measure. Options per family, mockups and a recommended order:
 `2026-10-30-chart-reflow-narrow-boxes.md`, waiting on the owner's pick.
+
+## 16. The packing bake-off: measure, then pack (2026-11-03)
+
+**The question (owner, 2026-11-03).** Stop splitting at one member a page. Measure what fits,
+keep a slide whole when it fits, and pack an overflowing slide by measured height. Bake off the
+packers from the owner's catalog, remembering that a split run always has a cover and may have a
+closing page.
+
+**What is built.** It is one path, shared by every packer:
+
+1. **Measure.** The CLI renders the deck whole at its box and venue. `lib/core/fit-measure.js`
+   then reads, for each authored slide that does not fit, its members' natural heights and the
+   room a body page leaves for them. The members are the first list's items or the first table
+   body's rows.
+2. **Pack.** The pure packer `@laticent/fluido` `pack` (`docs/src/lib/fluido/pack.ts`) turns the
+   heights into page sizes.
+3. **Build.** `splitDoc` builds those pages through today's builders (`{ plan }`, keyed by slide
+   number). Cover, closing page and carousel chrome stay as they are. A plan that does not place
+   every member exactly once is refused, and that slide falls back to today's split.
+4. **Verify.** A body page that still does not fit tightens its slide's room and plans again, for
+   at most three rounds. After that the slide falls back to today's split, so the measured path
+   is never worse than today's on any slide.
+
+The CLI exposes it as `--fit-pack greedy|balanced|knuth-plass`. The harness scores it as the
+`measured-<packer>` arms (`--fit-packs`), through the same CLI.
+
+**One fit verdict.** The first full run (6,948 slide-cells) found 35 new clipped slides and 115
+new unreadable ones. The cause: the measured split decided "fits whole" with the overflow probe
+alone, while the harness also fails a page whose content is clipped inside the frame or whose
+prose is crammed (§12). The harness's verdict moved into `lib/core/fit-measure.js`, and the
+harness and the measured split now both call it (#1). With it, the counts against today's split
+are 0 new clipped, 0 new unreadable and 0 new lost slides, under every packer.
+
+**Results.** The 94 galleries at square, portrait and story, laptop and hall, authored slides
+only (6,948 slide-cells):
+
+| Arm | Pages | Clipped | Unreadable | Lost | Body pages under 40% full |
+|---|---|---|---|---|---|
+| today's split | 18,066 | 848 | 6 | 246 | 8,806 of 11,118 (79%) |
+| measured greedy | 12,610 | 840 | 6 | 153 | 2,889 of 5,662 (51%) |
+| measured balanced | 12,589 | 841 | 6 | 153 | 2,791 of 5,641 (49%) |
+| measured Knuth–Plass | 12,581 | 840 | 6 | 153 | 2,777 of 5,633 (49%) |
+
+Per cell, the measured split cuts pages by 12% (portrait@hall) to 50% (square@laptop). It fixes
+7 to 8 clipped slides and 93 that lose content today, and makes nothing worse on any hard rule.
+Today's split reproduces the earlier run to the slide, except for the square@hall cell that
+flaps by one (848 against 847, see "Blessed on a runner" above).
+
+**Jank, without memory.** These arms are stateless: each render packs from scratch. A sample
+with ±10% text edits (agenda, list-steps, cards-grid, checklist; portrait and story; laptop and
+hall) reads:
+
+| Arm | Jank | Pair flips | Pages |
+|---|---|---|---|
+| today's split | 0.0% | 0.0% | 1,136 |
+| hysteresis-0-30 (the owner's pick, §11) | 3.5% | 7.0% | 787 |
+| measured greedy | 11.0% | 5.8% | 509 |
+| measured balanced | 11.0% | 12.5% | 509 |
+| measured Knuth–Plass | 12.0% | 13.2% | 510 |
+
+An export is rendered once, so jank is an editing-surface property: it is what the Studio would
+show if it packed with no memory. A live surface owes the §11 memory on top of whichever packer
+ships: the split decision on the undo stack, rejoin at 30% spare, and members-per-page kept while
+they still fit. Knuth–Plass rebalances the whole run on every edit, so it flips member pairs
+across pages more than twice as often as greedy.
+
+**Timing.** For 250 members, a pack takes 0.04 ms (greedy), 0.32 ms (Knuth–Plass) and 0.62 ms
+(balanced): all far inside a live edit's budget. The cost of the measured path is the render: a
+whole render plus one re-split, and one more re-split per verify round that tightens.
+
+**Not in this round.** Guillotine/BSP belongs to the component CSS layer. Skyline, Cassowary,
+FM/KL, spectral and SMAWK were excluded in the catalog itself.
+
+**The judge's read.** An independent judge scored contact sheets: agenda, cards-grid and
+list-steps at story@laptop and portrait@hall in indaco, plus cards-grid and list-steps at story in
+indaco-dark and cuoio. Today's split scored 3 everywhere, the measured split 5 to 8. Greedy and
+Knuth–Plass rendered byte-identical sheets in 3 of 6 cells. Where they differed, Knuth–Plass won
+on runs greedy ends with a lone member (2 + 2 against 3 + 1, 2 + 3 against 4 + 1). It lost where it
+put the lone member first (1 + 2) or in the middle (2 + 1 + 2). The judge saw no theme-specific
+defect. It found three things to fix:
+
+1. **Knuth–Plass's lone member.** A lone member now costs twice as much on any page but the last,
+   so three members that cannot share a page pack as 2 + 1 and five as 2 + 2 + 1
+   (`pack.ts`, `ORPHAN`).
+2. **cards-grid `three` and `four` crammed at narrow boxes.** The N-up card widths applied on every
+   box, so two cards on a story page sat side by side at about 230 px and read as crammed. The
+   verdict rightly failed those pages, and the slide fell back to one card a page; every gallery's
+   anti-pattern slide (`cards-grid three`) did the same. The N-up widths now step down at the
+   shared text-room thresholds: 2-up under 34em (one column where the box's family already
+   stacks), one column under 23em. At story, cards-grid goes from 20 pages to 13, with `three`,
+   `four` and the anti-pattern slide whole and readable. A 16:9 box never reaches either
+   threshold.
+3. **"See also." clips at portrait** in today's split too. It has no members to pack, and §15
+   already tracks it as tier 2.
+
+Timeline variants still split one dot a page, because a horizontal axis overflows sideways and
+packing cannot fix that. They belong to the chart-reflow note (§15, "time axes").
+
+**The pick: Knuth–Plass.** With the lone-member fix it reads at least as well as greedy wherever
+the two differ, and it ties on every hard rule and on page count. Its one cost, twice greedy's
+pair flips, applies to a live surface without memory, and the §11 memory removes it there. The
+export path renders once and is unaffected.
+
+**Shipped opt-in.** `--fit-pack` changes the bytes of an exported deck, so making it the default
+waits on the owner's sign-off of dark and light renders (CLAUDE.md, export changes). The Studio
+and Playground preview still split structurally. They owe the same measure, pack and verify
+path in the preview frame, plus the §11 memory, before the measured split can be the default
+anywhere (HARD RULE #1).
