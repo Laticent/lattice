@@ -2257,6 +2257,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// user edited, and writing a row identical to the canonical source is a far cheaper mistake
 	// than dropping a real one.
 	const dirty = React.useRef(false);
+	// Which deck `sourceRef` holds the text of: set with every `setDeck` that switches decks, in the same statement
+	// that moves `sourceRef`, so it never trails it (flushActiveDeck, below).
+	const sourceOwnerRef = React.useRef(deck.id);
 	// The pending debounced save, so a departure flush can cancel it (below).
 	const autosaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	React.useEffect(() => {
@@ -2286,6 +2289,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 * `shouldNudgeBackup`.
 	 */
 	const flushActiveDeck = React.useCallback(() => {
+		// `sourceRef` moves to the next deck's text the moment a switch writes it, while `deck.id` here is the
+		// last COMMITTED deck. A switch that lands outside an event (an import after an await, a live session's
+		// callback) commits a task later, and a flush in that gap would write the new deck's text under the old
+		// id. Every switch path flushed the old deck before it wrote the new text, so there is nothing to save.
+		if (sourceOwnerRef.current !== deck.id) return;
 		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
 		const latest = sourceRef.current;
 		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) {
@@ -2838,6 +2846,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// retitled by an edit (titles derive from the heading), and the switcher shows
 		// stored titles for every deck but the active one.
 		setDecks(loadDeckList());
+		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		{
 			const text = loadSource(d.id) ?? deckSource(d);
@@ -2854,6 +2863,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		flushActiveDeck();
 		const d = createDeck();
 		setDecks(loadDeckList());
+		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		setSource(deckSource(d), LOAD);
 		goToChunk(0, { after: deckSource(d) });
@@ -2888,6 +2898,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 		const d = createDeck(DEMO_FIRST_DECK_TITLE);
 		setDecks(loadDeckList());
+		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		setSource('', LOAD); // a blank canvas — the demo types the board deck into it
 		// Clear the editor doc SYNCHRONOUSLY too. `setSource('')` only reaches the editor
@@ -2961,6 +2972,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// or fail silently after a success toast.
 		if (comments) importComments(d.id, comments);
 		setDecks(loadDeckList());
+		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		setSource(text, LOAD);
 		goToChunk(0, { after: text });
@@ -3152,6 +3164,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setDecks(list);
 		if (id === deck.id) {
 			const next = list[0] ?? DECKS[0];
+			sourceOwnerRef.current = next.id;
 			setDeck(next);
 			const text = loadSource(next.id) ?? deckSource(next);
 			setSource(text, LOAD);
@@ -4345,6 +4358,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const d = existing ?? createDeck(title, shared);
 			if (existing) saveSource(d.id, shared);
 			setDecks(loadDeckList());
+			sourceOwnerRef.current = d.id;
 			setDeck(d);
 			setSource(shared, LOAD);
 			goToChunk(0, { after: shared });

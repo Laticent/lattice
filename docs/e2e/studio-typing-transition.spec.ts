@@ -81,4 +81,32 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`typing in flight 
 		});
 		expect(await persistedSource(page), 'the save on leaving wrote text without the last keystrokes').toContain('SAVEME');
 	});
+	test('a deck switch that commits a task later never saves the new deck under the old one', async ({ page }) => {
+		// `sourceRef` takes the next deck's text the moment a switch writes it; `deck.id` changes only when React
+		// commits, which for a switch outside an event (this import resolves after an await) is a task later. A
+		// departure in that gap must not write the imported text under the deck being left (StudioShell.tsx
+		// flushActiveDeck, `sourceOwnerRef`). The microtask lands after the import's synchronous writes and before
+		// React's commit, which is the gap.
+		await gotoStudio(page);
+		await setEditorContent(page, DECK);
+		await expect.poll(() => editorDoc(page)).toBe(DECK);
+		const oldId = await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-active') || '{}').deckId as string);
+		const stored = (id: string) => page.evaluate((k) => JSON.parse(localStorage.getItem(`lattice-studio-src-${k}`) || '""') as string, id);
+		await expect.poll(() => stored(oldId), { message: 'the edit was never autosaved' }).toBe(DECK);
+		await page.evaluate(() => {
+			const orig = Storage.prototype.setItem;
+			let armed = true;
+			Storage.prototype.setItem = function (k: string, v: string) {
+				const r = orig.call(this, k, v);
+				if (armed && k === 'lattice-studio-deck-index') {
+					armed = false;
+					queueMicrotask(() => window.dispatchEvent(new Event('pagehide')));
+				}
+				return r;
+			};
+		});
+		await page.locator('input[type="file"][accept*=".lattice"]').first().setInputFiles({ name: 'imported.md', mimeType: 'text/markdown', buffer: Buffer.from('# Imported deck\n\nIMPORTED-7f2c\n') });
+		await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-active') || '{}').deckId as string)).not.toBe(oldId);
+		expect(await stored(oldId), 'the deck being left was overwritten with the imported text').toBe(DECK);
+	});
 });
