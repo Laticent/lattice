@@ -66,7 +66,7 @@ describe('the CSS scanners list every spelling', () => {
       // A `<style>` inside `<svg>` is where the gate's reader is unsure (the tree builder decodes references and drops
       // comments there), so the gallery is refused whole rather than its address listed (Segno R4, D7).
       const refs = galleryRemoteRefs(md);
-      if (/^<svg><style>/.test(asHtml(p))) assert.ok(refs.includes(`${UNSURE}foreign-content)`), p.name);
+      if (/^<svg><style>/.test(asHtml(p))) assert.ok(refs.some((u) => u.startsWith(`${UNSURE}foreign-content, at character `)), p.name);
       else assert.ok(refs.some((u) => holds(normalized(u), `${BASE}/${p.name}`)), p.name);
     }
   });

@@ -393,31 +393,45 @@ the CLI, `DOMParser` in the Studio) to walk every element. Both now hand the ren
 consumers to three: export, linter and narrator.
 
 - **What `remoteRefsInHtml` does.** It reads the markup with `scanHtml` and turns each tag into the element
-  `remoteRefsInElements` already judged: names lowercased, values decoded once, NUL read as U+FFFD (as the tokenizer
-  does), and `text` the body of a raw-text element (as written, or decoded for `<title>` and
+  `remoteRefsInElements` already judged: names lowercased, attribute values decoded once with a NUL read as U+FFFD
+  (as the tokenizer does), and `text` the body of a raw-text element (as written, or decoded for `<title>` and
   `<textarea>`).
-- **`unsure` is a refusal (D7).** Each reason becomes one `policy:` finding, so the gate asks no parser and needs
-  none. This is the "refused" half of D7, not the "ask the platform parser" half: the gate's job is to refuse, and a
-  sample slide has no need for HTML inside `<svg>`, a `<select>` or a `<noscript>`.
+- **`unsure` is a refusal (D7).** Each reason becomes one `policy:` finding that names where its first span starts
+  (`foreign-content, at character 9`), so the gate asks no parser and needs none. This is the "refused" half of D7,
+  not the "ask the platform parser" half. It costs real packages something: a sample slide with an inline SVG that
+  carries a `<style>` (the usual output of a design tool's SVG export), a `<foreignObject>`, a `<select>` or a
+  `<noscript>` is now refused, where parse5 admitted it. No shipped gallery has one. If a third-party package needs
+  one, the answer is the other half of D7 (ask a spec parser on the unsure spans), not a looser reader.
 - **A diagram's text is read exactly or refused.** The runtime draws an element whose class names Mermaid from its
-  text content, which is not a raw-text body. `diagramText` reads it only where the reader can know it: a `<code>`,
-  `<pre>` or `<div>` holding text and balanced `<span>`s up to its own end tag, which is what a fence renders
-  (highlight.js spans). Anything else is a `policy:` finding. Two first tries failed the differential and are
-  recorded so nobody retries them: reading every diagram's text as ONE run to the end of the markup (concatenating
-  two diagrams' text changes how the CSS reader tokenizes the second, and lost `background:ur` on a seeded soup),
-  and keeping comments in the text (`img<!---->:` is `img:` to the runtime). Balanced spans also rule out the clone
-  the tree builder makes when an ancestor closes a `<code>` early (`<span><code class=mermaid></span>img: x`).
-- **Differential.** `test/unit/core/gallery-html-differential.test.js` holds the new reader to the parse5 one,
-  frozen in `tools/segno-legacy/gallery-elements.js`. On all 447 rendered decks and galleries in the repo (every
-  `gallery.md`, `examples/`, the baseline decks) the two return the same references, 0 differences. On 60,000 seeded
-  inputs (token soups, foreign-content structures and diagram soups) the new one refuses wherever the old one
-  does, and where it is neither unsure nor refusing a diagram it lists every reference the old one did. The failing
-  arm (the reader with its diagram classes renamed away) admits what parse5 refuses on more than 50 of 2,000
-  diagram soups.
-- **What it costs.** No shipped gallery is newly refused. The gate refuses more hostile markup than before, on
-  purpose: 28,453 of the 90,000 soups in the exploration run (32%) were refused where parse5 found nothing, 23,617 of them for `unsure` and the rest for a diagram holding markup. Floods
-  stay linear (1.1 MB of diagram hosts in 0.44 s). `_astro/remote-ref.js` grows by about 560 gzip bytes measured
-  locally, declared in `docs/route-budget.d/r4-gallery-gate-scan-html.md`; no ceiling moves.
+  text content, which is not a raw-text body. Only a `<code>`, `<pre>` or `<div>` may carry the class (any other
+  element gets its own finding), and `diagramText` reads its text only where the reader can know it: text and
+  balanced `<span>`s up to its own end tag, which is what a fence renders (highlight.js spans). Anything else is a
+  `policy:` finding, so an HTML `<div class="mermaid">` with a `<br>` in a label is refused. In that text a NUL is
+  dropped (the tree builder never inserts one in body) and a legacy reference with no `;` decodes before a letter
+  (`&ltimg` is `<img` in text). Both were found by the red team on this PR: the first admitted
+  `img\0:` (latent, since markdown-it turns NUL into U+FFFD first), the second admitted `&ltimg` end to end from a
+  `gallery.md`; both now have tests and soup pieces. Two first tries failed the differential and are recorded so
+  nobody retries them: reading every diagram's text as ONE run to the end of the markup (concatenating two diagrams'
+  text changes how the CSS reader tokenizes the second, and lost `background:ur` on a seeded soup), and keeping
+  comments in the text (`img<!---->:` is `img:` to the runtime). Balanced spans also rule out the clone the tree
+  builder makes when an ancestor closes a `<code>` early (`<span><code class=mermaid></span>img: x`); a picked case
+  holds that, since the checker's mutations showed the soups do not.
+- **Differential.** `test/unit/core/gallery-html-differential.test.js` holds the new reader to the CLI's parse5
+  reader, frozen in `tools/segno-legacy/gallery-elements.js` (the Studio's `DOMParser` walker was not frozen; it read
+  the same shape). On the 446 rendered decks and galleries in the repo (96 component and chart-kind
+  `*.gallery.md`, `examples/`, the baseline decks) the two return the same references, 0 differences. On 60,000
+  seeded inputs (token soups, foreign-content structures and diagram soups) the new one refuses wherever the old one
+  does, and where it is neither unsure nor refusing a diagram it lists every reference the old one did. Two arms must
+  fail and do: the reader with its diagram classes renamed away (caught on more than 50 of 2,000 diagram soups), and
+  the reader with its unsure findings dropped (more than 20 of 2,000 foreign-content structures).
+- **What it costs.** No shipped gallery is newly refused: the gate itself, alone and as inserted, admits every
+  shipped gallery (`gallery-remote-refs.test.js`). The gate refuses more hostile markup than before, on purpose: in
+  an exploration run (not committed), 28,453 of 90,000 soups (32%) were refused where parse5 found nothing, 23,617 of
+  them for `unsure` and the rest for a diagram holding markup. Floods stay linear: 1 to 5 MB of diagram hosts or
+  spans in 0.4 to 2.5 s, roughly in proportion to size. `_astro/remote-ref.js` grows by about 560 gzip bytes measured
+  locally (esbuild, minified), declared in `docs/route-budget.d/r4-gallery-gate-scan-html.md`; no ceiling moves.
+  That code is the gate's and it now loads on every route that loads `remote-ref.js`; moving it to a module of its
+  own is blocked by the dev shim, which inlines only require-free siblings of `remote-ref.js`.
 - **Not done:** export, linter and narrator keep their own scans, one PR each (D8).
 
 ## Decisions for the owner

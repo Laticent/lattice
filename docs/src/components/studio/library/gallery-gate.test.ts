@@ -33,7 +33,7 @@ describe('galleryRemoteRefs reads the markup with remote-ref.js scanHtml', () =>
 
 	it('refuses markup the tree builder could read differently (an SVG <style>)', async () => {
 		renderMarkdown.mockImplementation(async () => ({ html: '<section><svg><style>p{background:url&lpar;https://evil.example/b.png&rpar;}</style></svg></section>', css: '' }));
-		expect(await galleryRemoteRefs('# a\n')).toContain('policy:markup a browser may build differently from how the check reads it (foreign-content)');
+		expect((await galleryRemoteRefs('# a\n')).some((u) => u.startsWith('policy:markup a browser may build differently from how the check reads it (foreign-content, at character '))).toBe(true);
 	});
 
 	it('reads a highlighted Mermaid fence as its text', async () => {

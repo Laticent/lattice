@@ -9,7 +9,7 @@
  *      structures and diagram soups. Where the new one is neither unsure nor refusing a diagram, it lists
  *      every reference the old one did. A gate that refuses less is a beacon the gate stopped seeing
  *      (HARD RULE #22).
- * The arm that must fail: the new reader with its diagram text cut out.
+ * The arms that must fail: the new reader with its diagram text cut out, and one that ignores its unsure spans.
  */
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,10 +24,10 @@ const ROOT = path.resolve(__dirname, '../../..');
 const { remoteRefsInHtml } = remoteRef;
 const show = (html) => JSON.stringify(html.length > 200 ? `${html.slice(0, 200)}…` : html);
 const UNSURE = 'policy:markup a browser may build differently';
-const DIAGRAM = /^policy:a <.+?> diagram holding markup/;
+const DIAGRAM = /^policy:a <.+?> (?:diagram holding markup|marked as a Mermaid diagram)/;
 
 // Diagram hosts as a render and an author write them, with highlight spans, comments and misnesting.
-const DIAGRAM_PIECES = ['<code class="language-mermaid">', '<pre class=mermaid>', '<div class="mermaid">', '</code>', '</pre>', '</div>', '<p>', '</p>', '<b>', '</b>', '<span class="hljs-string">', '</span>', 'img: x', 'https://x.test/m.png', '&#58;', '//x.test/n', '<!--', '-->', '<style>a{}</style>', '<td>', '<table>', 'text ', '"', '<br>', '&quot;', '&lt;img&gt;'];
+const DIAGRAM_PIECES = ['<code class="language-mermaid">', '<pre class=mermaid>', '<div class="mermaid">', '</code>', '</pre>', '</div>', '<p>', '</p>', '<b>', '</b>', '<span class="hljs-string">', '</span>', 'img: x', 'https://x.test/m.png', '&#58;', '//x.test/n', '<!--', '-->', '<style>a{}</style>', '<td>', '<table>', 'text ', '"', '<br>', '&quot;', '&lt;img&gt;', '&ltimg ', 'img\0: x', '&ampcolon;'];
 const genDiagram = (r) => {
   let out = '';
   const n = 2 + Math.floor(r() * 14);
@@ -53,8 +53,9 @@ describe('the gallery gate reads markup with remoteRefsInHtml (Segno R4)', () =>
     const engine = require('../../../lib/engine/index.js').createEngine();
     const files = execFileSync('git', ['ls-files', '*.md'], { cwd: ROOT, encoding: 'utf8' })
       .split('\n')
-      .filter((f) => /(?:^|\/)gallery\.md$|^examples\/|^test\/integration\/baseline-decks\//.test(f));
-    assert.ok(files.length > 300, `only ${files.length} files`);
+      .filter((f) => /\.gallery\.md$|(?:^|\/)gallery\.md$|^examples\/|^test\/integration\/baseline-decks\//.test(f));
+    assert.ok(files.length > 400, `only ${files.length} files`);
+    assert.ok(files.filter((f) => f.endsWith('.gallery.md')).length > 90, 'the component and chart-kind galleries are missing');
     const bad = [];
     for (const f of files) {
       const { html } = engine.render(fs.readFileSync(path.join(ROOT, f), 'utf8'));
@@ -93,6 +94,21 @@ describe('the gallery gate reads markup with remoteRefsInHtml (Segno R4)', () =>
     // Raw text is not decoded; RCDATA is.
     assert.deepEqual(remoteRefsInHtml('<style>a{b:url(&#x2f;/x.test/a)}</style>'), []);
     assert.ok(remoteRefsInHtml('<img src="&#x2f;/x.test/a">').includes('//x.test/a'));
+    // The tree builder drops a NUL from text, so `img\0:` is `img:` to the runtime (the red team's input).
+    assert.ok(remoteRefsInHtml('<code class="language-mermaid">A@{ img\0: "/\0/evil.test/a.png" }</code>').includes('policy:an image shape (`img:`)'));
+    // A legacy reference with no `;` decodes in text even before a letter: `&ltimg` is `<img`.
+    assert.ok(remoteRefsInHtml('<div class="mermaid">A["&ltimg alt=x&gt;"]</div>').includes('policy:an HTML media tag in a label'));
+    // A Mermaid class on an element the runtime does not draw says so, and the unsure reason says where.
+    assert.ok(remoteRefsInHtml('<span class=mermaid>x</span>')[0].includes('marked as a Mermaid diagram'));
+    assert.ok(remoteRefsInHtml('<p>x<svg><style>a{}</style></svg>')[0].endsWith('(foreign-content, at character 9)'));
+  });
+
+  test('the failing arm: a reader that ignores unsure spans admits what parse5 refuses', () => {
+    const blind = (html) => remoteRefsInHtml(html).filter((u) => !u.startsWith(UNSURE));
+    const r = rng(22);
+    let caught = 0;
+    for (let k = 0; k < 2000; k++) if (weaker(blind, genForeign(r))) caught++;
+    assert.ok(caught > 20, `the arm caught ${caught} of 2,000`);
   });
 
   test('the failing arm: a reader with its diagram text cut out admits what parse5 refuses', () => {
