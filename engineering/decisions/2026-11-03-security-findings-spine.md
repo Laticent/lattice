@@ -118,9 +118,12 @@ A `build:check` rule fails on two things outside the sanctioned readers and the 
 - a private reader: a regex over `src=`, `href=`, `url(` or `background` applied to markup or a style;
 - a private copy of a policy list: a literal set of fetch attributes, stripped tags or handlers.
 
-Its allowlist fails on a stale entry, like HARD RULE #22's. Day one it lists two entries, each with
-its reason: `lib/export/html-player.js` (the R4 migration left, `followups.d/2909-p4-…`) and lint-core's
-Markdown image regexes (until the deck pipeline's P4). It changes what an existing gate finds and adds
+Its allowlist fails on a stale entry, like HARD RULE #22's. Day one it lists one entry, with its
+reason: lint-core's Markdown image regexes (until the deck pipeline's P4). `lib/export/html-player.js`,
+the R4 migration this note first listed, moved onto `cssRefSpans` in #3024. The readers R4's census never
+counted (`player-prune.js` `namesRemoteResource`, `css-scan.js`, `door-attr.mjs`, `slide-camera.mjs`,
+`svg-intake.ts`) are what this rule will find first: `followups.d/3024-p2-segno-census-readers-outside-the-list.md`
+records each, with which one decides a refusal. It changes what an existing gate finds and adds
 no CI job or step.
 
 ## Cost, measured

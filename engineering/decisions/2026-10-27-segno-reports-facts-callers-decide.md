@@ -181,7 +181,7 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
 | **R3** (shipped 2026-11-02) | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
-| **R4** (gallery gate, Studio export and narrator shipped 2026-11-03; the CLI export left) | Consumers migrate one at a time (gallery gate, export, linter, narrator, and the CLI's HTML export, found later); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate", "R4: the export" and "R4: the narrator, and the linter" below. The linter had no reader to migrate. |
+| **R4** (the listed consumers shipped 2026-11-03: gallery gate, Studio export, narrator and the CLI export) | Consumers migrate one at a time (gallery gate, export, linter, narrator, and the CLI's HTML export, found later); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate", "R4: the export", "R4: the narrator, and the linter" and "R4: the CLI export" below. The linter had no reader to migrate. Every listed consumer is moved; the CLI export's review found readers outside the list, recorded there. |
 
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
 tokenizer is about 80 states; tree construction is deliberately out of scope behind `unsure`). Nothing in R0-R2 depends on R3.
@@ -566,8 +566,107 @@ change found a fifth reader that no list had named, in the CLI's HTML export (be
 - **Left: the CLI's HTML export.** `lib/export/html-player.js` `inlineDocAssets` embeds a deck's local files into
   the self-contained HTML, and finds them with a CSS reader of its own (`mapCssUrls`, with its own `cssString`,
   `cssUnescape` and `mapSrcset`). It matches only a literal `url(`, so it misses `u\72l(a.png)`, which `cssRefSpans`
-  reads. It was never on the phasing table's list, so the census was short by one. It moves in its own PR with its
-  own differential, like the others (D8): `followups.d/2909-p4-segno-reference-model-css-and-html-islands.md`.
+  reads. It was never on the phasing table's list, so the census was short by one. It moved in its own change with its
+  own differential, like the others (D8): see "R4: the CLI export" below.
+
+### R4: the CLI export (2026-11-03)
+
+The last consumer the census named moves. `lib/export/html-player.js` `inlineDocAssets` embeds a deck's local
+pictures into the CLI's self-contained HTML. It found them in CSS with a tokenizer of its own (`mapCssUrls`, with
+`cssString`, `cssUnescape`, `escapeEnd` and `matchingParen`). This PR deletes the tokenizer and has `mapCssUrls` read
+each `url()` and each `image-set()` string with `cssRefSpans`. Every consumer the census listed now reads through
+the shared readers. The census was a hand-kept list, though, and the review of this PR found more readers outside it
+(below, "Readers the census never counted").
+
+- **Markup needs no move.** The followup asked for `scanHtml` "where it reads tags". `inlineDocAssets` reads no tags
+  from text: it walks the DOM jsdom already parsed for the assembler, so the parser decides what a tag and an
+  attribute are. Only its CSS was read by hand.
+- **One new fact in the shared reader.** `cssRefSpans` did not say whether a string sits inside `image-set()`, where
+  a bare string is an address the browser fetches. `makeCssRefSpans(parser, helpers, { imageSet: imageSetBlock })` now
+  adds an `imageSet` field to each span. It is true inside an `image-set(` or `-webkit-image-set(` at any depth (a `var()`
+  fallback there is substituted and fetched), except directly inside a `type()`, whose string is a MIME type. The
+  function's name is not on the tape (the grammar keeps only the `(`), so `imageSetBlock`
+  (`lib/export/css-image-set-block.js`) reads it from the stretch the tape skipped before the `(`, forward and once,
+  escapes decoded. It is its own file because the reader's chunk is eager on three docs-site routes and the Studio
+  never asks for the fact. Every other caller asks for nothing and gets the
+  spans as before, so the frozen tokenizer's differential still compares field for field, and no generated parser
+  changes. The first version marked only the innermost block, which missed the `var()` fallback that the old
+  reader baked and Chromium fetches. The inversion review caught it; `test/unit/core/css-ref-image-set.test.js` pins
+  the field.
+- **What it reads differently, on purpose.** Each is a place the old tokenizer disagreed with Chromium:
+  - An escaped `u\72l(` is a `url()` (missed before, so its local path shipped in the shared file).
+  - An escaped `image-s\65t(` is the function, so its strings are addresses (missed before).
+  - An unquoted `url(` or an `image-set()` string that the end of the text closes is fetched, so it is embedded
+    (missed before). A quoted `url("…` the end closes is still missed, by both (below, "Left").
+  - A string inside a `type()` inside `image-set()` is a MIME type, not an address. The old reader tried to embed
+    it and listed it as "not a picture".
+  - An attribute selector never fetches, so it is not read. The old reader rewrote an unquoted
+    `a[x=url(file:///a.png)]`.
+- **Two fixes in the shared reader.** The checker found that both read JavaScript's whitespace where CSS has its
+  own. `isValidUrlToken` excluded `\s` from a bare url, so `url(a<NBSP>b.png)`, which Chromium fetches, read as a
+  bad url and was not embedded. The unquoted branch trimmed its value with `trim()`, which also drops a no-break
+  space, so `url(photo.jpg<NBSP>)` read as `photo.jpg`. Both now use CSS whitespace (space, tab, the three newlines),
+  and the trim is a loop, since a `\s+$` regex backtracks on a long inner run of spaces (200,000 spaces read in
+  32 ms).
+- **A leak found on this path, fixed.** `resolveRelative` wrote a resolved address back as written, so a deck folder
+  named `Decks (2024)` or `Bob's decks` turned `url(a.jpg)` into a bad-url token, or `url('a.jpg')` into a string
+  the folder's quote ended. It was never baked and never reported, and the author's absolute folder path shipped in
+  the shared file. The red team showed it on the real CLI. The old reader did the same. Such an address is now
+  written as a `"` string with `"` and `\` escaped.
+- **What it keeps.** A font source in a `<style>` is still read, as before: only picture types are ever embedded
+  (`fileToDataUri`), so the export's `missing` list stays the same. `mapSrcset` stays in the file. It reads an HTML
+  `srcset` value by the HTML spec's algorithm, not CSS, and no other module reads `srcset` that way (`remote-ref.js`
+  splits at every comma, as a refusal may). The engine's `--background-image` string copy is still dropped by its
+  pattern: it is the engine's own output, matched whole, not a reading of author CSS.
+- **Differential.** `test/unit/export/html-player-inline-differential.test.js` holds the new reader to the old
+  one, frozen in `tools/segno-legacy/html-player-inline.js`.
+  - **The decks.** The 446 rendered decks and galleries, rendered as the CLI renders them (`sample:` art as
+    `file://`, a deck-relative picture left relative and resolved against the deck's folder). 45 decks name a local
+    picture and 192 pictures are baked. The two return the same bytes, count and `missing` list: 0 differences. This
+    reaches only the `style` attribute path: no rendered deck has a `<style>` with a `url()`, an `image-set()` or a
+    CSS escape.
+  - **The stylesheets.** So every tracked `.css` file, plus the built `dist/lattice.css` when the install built it
+    (192 sheets, 24 with a `url()`), is baked as a `<style>` body by both: 0 differences.
+  - **Picked cases.** Twelve spellings, each with the load count Chromium gives it (the checker loaded each in
+    Chromium and the counts match). The frozen reader gets the four escaped or end-closed forms wrong, which is the
+    failing arm. Two more cases pin the folder-name fix (a paren and a quote, four spellings each).
+  - **Chromium.** `test/integration/export/inliner-browser-oracle.test.js` loads 500 seeded CSS soups and 160 markup
+    cases in headless Chromium and checks that every picture Chromium loads is one the inliner reads. This PR adds
+    four pieces to its CSS soups: `u\72l(`, `image-s\65t(`, a `type()` and a `var()` fallback in `image-set()`. The
+    new reader passes. `INLINER_ORACLE_LEGACY=1` runs the frozen reader instead, and it fails on the two escaped
+    forms: that is the committed failing arm. `INLINER_ORACLE_ENGINE=webkit|firefox` drives Playwright's WebKit or
+    Gecko instead of Chromium (Gecko reads the files from a loopback server, since Playwright reports no request for
+    a `file://` load there; only the folder prefix changes, so every escape is read as written). In all three
+    engines the new reader passes and the frozen one fails the CSS test, each on 28 pictures from the escaped forms.
+- **Floods.** The name check reads each stretch before a `(` once, so the reader stays linear. A 220 KB style of
+  `image-set()`, `url()` and comments bakes in about 200 ms (the test's bound is 3 s, for slow runners), and the
+  red team's hostile megabyte inputs ran in 1-81 ms each. On the real 2.8 MB `dist/lattice.css` the new reader
+  takes about 57 ms to the old one's 24 ms.
+- **Bytes.** `css-ref-reader.js` minified and gzipped goes from 1,348 to 1,501 bytes (+153): the CSS-whitespace
+  fixes, the trim loop and the block-stack hook. Its chunk (`remote-ref`) is eager on the Studio, Playground and home
+  routes, all above their soft targets, so the growth is declared in `docs/route-budget.d/3024-r4-cli-export-css.md`.
+  The first version kept the name check in the reader and cost those routes 380 bytes; it moved to
+  `lib/export/css-image-set-block.js`, which only the Node export loads. The export's speech-projection bundle carries the narrator's copy of the reader and is regenerated with it.
+  `html-player.js` runs in Node only. `tools/structure.js`'s single-consumer ceiling drops from 44
+  to 43: `css-ref-reader.js` now has two consumers.
+- **Readers the census never counted.** The inversion review searched the tree for readers that decide a fetch, an
+  embed or a refusal and found these, none on any list. They are recorded, not moved here
+  (`followups.d/3024-p2-segno-census-readers-outside-the-list.md`):
+  - `lib/export/player-prune.js` `namesRemoteResource` drops a deck declaration naming a remote resource before the
+    CSS reaches the Studio's Reading view, which has no subresource policy. It matches a literal `url\(`, so
+    `u\72l(https://…)` survives the prune. Whether author CSS can reach that sheet unsanitized was not traced.
+  - `lib/core/css-scan.js` `findAddressStrings`, a full CSS tokenizer behind the theme, layout and package gates. It
+    decodes escaped names; no bypass was found.
+  - `lib/core/door-attr.mjs` `cssRefTargets`, the code door's CSS walk. No bypass was found.
+  - `lib/core/slide-camera.mjs` `CSS_URL` / `REL_URL`, which pick what the photo layer inlines. They miss `u\72l(`,
+    which costs a missing picture, not a leak.
+  - `docs/src/components/studio/motion/svg-intake.ts` `EXTERNAL_URL_RE`, a refusal on SVG intake. Not traced.
+- **Left in the shared reader.** The red team found three spellings Chromium fetches that every `cssRefSpans`
+  consumer reads as a plain string, old and new alike: a quoted `url("…" foo)` with a modifier or a comment before
+  `)`; a quoted `url("…` the end of the text closes; and a string that reaches `image-set()` through a custom
+  property (`--a:"…"` then `image-set(var(--a))`). The refusal side already treats every string as an address, so
+  only the embedders miss them. They are a grammar change with their own differential
+  (`followups.d/3024-p3-segno-url-modifiers-and-end-closed-strings.md`).
 
 ## Decisions for the owner
 
