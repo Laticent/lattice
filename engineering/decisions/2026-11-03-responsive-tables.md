@@ -137,6 +137,22 @@ The switch widths stay low (20em, 24em, 18em) in this change. With the fit check
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
 
+## What comes next
+
+Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
+
+1. The slide frame's header, footer and page number wrap when narrow (69 of 79 components spill).
+2. One shared wrapping grid for the card and list components (about 20 at once).
+3. The table-owning components declare their kind: `glossary` (pairs), `statute-stack` lane and
+   `obligation-matrix` (cards), `math` derivation.
+4. The other table kinds' layouts (prototyped in tools/frame-lab/proto/).
+5. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
+6. Narrow forms for side-by-side components (redline, compare-code, split-panel).
+7. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+
+Each reuses this change's pattern: one narrow layout for both hosts, triggered by width in a continuous
+host and by width plus the fit check on a slide.
+
 ## Verification
 
 - **No existing deck changes.** Every tracked deck that holds a table (85: examples, baseline decks,
