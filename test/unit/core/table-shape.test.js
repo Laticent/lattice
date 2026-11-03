@@ -239,3 +239,9 @@ test('a raw <table> keeps its shape on the engine path and in the mirror alike',
   applyToDom(doc);
   assert.equal(doc.querySelector('table').getAttribute('data-lat-reflow'), 'none', 'the mirror leaves it alone too');
 });
+
+test('the mirror judges only the tables reflow can apply to, never a figure\'s own table', () => {
+  const doc = domOf(`<section class="heatmap"><div class="cell-stage"><div class="chart-body">
+    <div class="chart-sr-only">${tableHtml(KINDS.records)}</div></div></div></section>`);
+  assert.equal(doc.querySelector('table').hasAttribute('data-lat-reflow'), false);
+});
