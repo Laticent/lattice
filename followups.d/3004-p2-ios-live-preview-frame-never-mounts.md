@@ -5,14 +5,14 @@ recorded: 2026-11-03
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-08-10-preview-pinch-zoom.md
-deferred: off-path — the Studio's live preview mount on the iOS Simulator, not the probes' editor-pane race #3004 fixes; the probe's wait is unchanged from main
+deferred: blocked — cause unknown, and not yet shown on main: main's iPhone photo runs died earlier, at the editor wait #3004 fixes, so they never reached this one
 source: https://github.com/Laticent/lattice/pull/3004
 ---
 
 # On the iOS Simulator, the Studio's live preview frame sometimes never mounts
 
-why now   — `ios-safari-photo` timed out on the first preview render in three device runs of the
-            suite, at `1b3b32b` (iPad), `deca0cb` and `3c72050` (both iPhone). In each, the Studio had
+why now   — `ios-safari-photo` timed out on the first preview render at `deca0cb` and `3c72050` (both iPhone), with the
+            diagnostics below; an iPad run at `1b3b32b` timed out on the same wait before those diagnostics existed. In each, the Studio had
             hydrated (render metrics present; at `3c72050` every pane button visible and none inert) and the
             screenshot shows the first slide drawn, but `[aria-label="Live deck preview"] iframe.live` never
             appeared within 90 s: "preview box present; iframes none", or the frame's document unreadable.

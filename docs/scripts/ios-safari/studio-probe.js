@@ -76,16 +76,41 @@ async function latticeStudioProbe() {
 			document.execCommand('insertText', false, text);
 		}
 		if (narrow) {
-			const prev = await until(() => button('Preview'), 15000, 'the Preview button');
-			prev.click();
+			// Back to the Preview pane, and make sure the tap took: re-tap every 2 s until the button reads pressed. One tap,
+			// unchecked, is the pattern behind #2911's editor timeouts; an iPhone run then waited 60 s on a preview it never showed.
+			let tapped = 0;
+			await until(() => {
+				const prev = button('Preview');
+				if (prev?.getAttribute('aria-pressed') === 'true') return true;
+				if (prev && Date.now() - tapped > 2000) {
+					tapped = Date.now();
+					prev.click();
+				}
+				return false;
+			}, 30000, 'the Preview pane (its button pressed)');
 		}
+	};
+
+	/** What the preview holds, for a timeout's message: the frames, which one is `.live`, and what its document has. */
+	const previewState = () => {
+		const box = document.querySelector('[aria-label="Live deck preview"]');
+		const frames = [...(box?.querySelectorAll('iframe') ?? [])];
+		const doc = frameDoc();
+		return [
+			`preview box ${box ? 'present' : 'absent'}`,
+			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w]`).join(' ') || 'none'}`,
+			`live doc ${doc ? `${doc.readyState}, ${doc.querySelectorAll('section').length} sections, first heading "${doc.querySelector('h1, h2')?.textContent?.trim().slice(0, 40) ?? ''}"` : 'unreadable'}`,
+			`Preview pressed ${button('Preview')?.getAttribute('aria-pressed') ?? 'n/a'}`,
+		].join('; ');
 	};
 
 	const check = async (when) => {
 		const doc = await until(() => {
 			const d = frameDoc();
 			return d?.querySelector('.lattice section li span[title]') ? d : null;
-		}, 60000, `${when}: the payload slide in the preview frame`);
+		}, 60000, `${when}: the payload slide in the preview frame`).catch((e) => {
+			throw new Error(`${e.message} (${previewState()})`);
+		});
 		await until(() => doc.querySelector('.lattice section li .lat-run'), 15000, `${when}: the inline-run wrapper`);
 		step(`${when}: inline-run wrapped the item`, true);
 		const title = doc.querySelector('.lattice section li span[title]').getAttribute('title');
