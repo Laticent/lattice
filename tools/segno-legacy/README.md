@@ -35,3 +35,7 @@ oracle; nothing in `lib/` may.
 `lib/core/data-uri.js`'s two functions inlined, so it adds no consumer to `lib/core`), before
 its regex walker was replaced by `remote-ref.js` `scanHtml` and `cssRefSpans`. `test/unit/export/inline-url-media-differential.test.js`
 reads it as the oracle and as a failing arm; nothing in `lib/` may.
+
+`poster-in-style.js` joined at Segno R4 (the narrator): the regex `lib/transformers/prose-projection.mjs` read a video
+embed's poster with, at c0cbc52, before `posterInStyle` read the style with `cssRefSpans`.
+`test/unit/transformers/prose-projection-poster.test.js` reads it as the oracle and as a failing arm; nothing in `lib/` may.

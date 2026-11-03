@@ -181,7 +181,7 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
 | **R3** (shipped 2026-11-02) | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
-| **R4** (gallery gate and export shipped 2026-11-03) | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate" and "R4: the export" below. |
+| **R4** (gallery gate, Studio export and narrator shipped 2026-11-03; the CLI export left) | Consumers migrate one at a time (gallery gate, export, linter, narrator, and the CLI's HTML export, found later); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate", "R4: the export" and "R4: the narrator, and the linter" below. The linter had no reader to migrate. |
 
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
 tokenizer is about 80 states; tree construction is deliberately out of scope behind `unsure`). Nothing in R0-R2 depends on R3.
@@ -504,7 +504,70 @@ consumers to two: linter and narrator.
 - **Not moved:** `webPictureOrigins` in the same file. It reads deck SOURCE, not markup, to decide whether the
   export panel shows its "Embed pictures from other sites" switch, and it is generous on purpose (a false yes shows a
   harmless switch). It decides no fetch and no refusal, so it is not a reference reader in the census's sense.
-- **Not done:** the linter and narrator keep their own scans, one PR each (D8).
+- **Not done:** the linter and narrator (done next, below).
+
+### R4: the narrator, and the linter (2026-11-03)
+
+The narrator moves, and the linter is found to have nothing to move. R4 is NOT closed: the inversion review of this
+change found a fifth reader that no list had named, in the CLI's HTML export (below, "Left").
+
+- **The linter had none.** The phasing table listed it as a consumer, but `lib/authoring/lint-core.js`,
+  `lint.js` and the CLI lint never read a web address out of markup or CSS. Their nearest matches are the `qr` payload
+  check (it looks for a URL scheme in a bullet's text) and the author `<script>` body scan (it finds a script, not an
+  address). So it had nothing to migrate, and the census went from two consumers to one when this was checked. What the
+  linter SHOULD say about unsafe content is a separate question, written up where it is asked (not here).
+- **The narrator.** `lib/transformers/prose-projection.mjs` rebuilds a video slide as a link card in the Reading view
+  and the export's article, and takes the poster from the embed's inline `style`. It read that with
+  `/background-image\s*:\s*url\((['"]?)(.*?)\1\)/i`. It now calls `posterInStyle`, which reads the style with
+  `cssRefSpans` and returns the first `url()` of the last `background-image` or `background` declaration, the one the
+  browser applies. It splits declarations at a `;` outside every span, comment and `(` block, decodes escapes in the
+  property name, lets `!important` beat a later declaration, and skips a declaration the browser drops: an empty
+  value, a bad url token, or a `background-image` value that is not a list of images. `safePosterUrl` and the card's
+  `cssSafe` check still decide what is written back, so a wrong reading costs a picture, not a fetch.
+- **Shared pieces it needed.** `cssEscape` and `cssString` moved from `remote-ref.js` into `lib/core/css-token-readers.js`
+  (not `css-escapes.js`, which the engine imports, so the engine's bundles do not carry them). The narrator builds
+  `cssRefSpans` from the same three parts `remote-ref.js` does (`css-ref-reader.js` `makeCssRefSpans`, the generated
+  parser, the token readers), so it reads CSS without loading the HTML scanner. Each part requires nothing, on purpose:
+  the docs dev server and the plugin code door's sanitizer page load a CommonJS `lib/` file only when every require in
+  it names a require-free sibling. A first version that had `css-ref-reader.js` require the other two broke both
+  (`vite-cjs-lib-dev.test.ts` and the code-door integration tests caught it). The export's check for a valid url token
+  moved into `css-ref-reader.js` as `isValidUrlToken`, and both callers use it.
+- **A bug the move found.** That check read an escape as one character after the backslash, so it called
+  `url(k\29 .png)` a bad url token. A hex escape takes one space after its digits, and Chromium paints that picture.
+  The fix is in the shared check, so the export now embeds such a picture too. No deck in the repo has one: the
+  export differential still returns the same bytes on all 446. The red team then found the first version of that
+  fix backtracking exponentially: as `[0-9a-fA-F]{1,6}`, each run of hex digits after a backslash could split six
+  ways against the plain-character branch, so a 10-escape bad url took 1.6 s to refuse and a 12-escape one 60 s,
+  in the Reading view and in the Webpage export alike. The digits are now matched atomically (a lookahead takes the
+  longest run, a backreference consumes exactly it), and 2,000 escapes refuse in under a millisecond. The test
+  times it.
+- **Differential.** `test/unit/transformers/prose-projection-poster.test.js` holds `posterInStyle` to the regex,
+  frozen in `tools/segno-legacy/poster-in-style.js`.
+  - **The corpus.** Every `style` attribute in the 462 rendered decks, galleries and fixtures: 14,277 of them. 124
+    name a background and 117 give a poster, video embeds among them. 0 differences.
+  - **Chromium (a scratch run, not committed).** A seeded run set 30,000 styles (three seeds of 10,000, from property, value and separator pieces)
+    on an element in a real Chromium and read `style.backgroundImage`. The new reader agreed on 29,329 (97.8%), the
+    regex on 12,921 (43%). Every one of the rest is a function left unclosed (`url("o.png"` or `garbage(` with no `)`),
+    which the browser closes at the end of input. `cssRefSpans` reports an unclosed `url("…"` as a string span, not a
+    url, so the card shows no poster there. The refusal scanner still refuses it, since it treats every string as a
+    possible address. That run lives in no committed tool, so it cannot be repeated from the tree; what is durable is
+    18 of its cases, pinned in the test with the value Chromium painted. The frozen regex gets 9 of them wrong (the
+    failing arm). Three more cases run the whole video card (`prose-projection.test.js`): an escaped `u\72l(`, the
+    last of two declarations, and an escaped `javascript:` that `safeHref` still drops.
+  - **Floods.** A 64 KB style, 2,000 escapes in a bad url and 32,000 declarations each read in well under a second
+    (timed in the test). The first version filtered every span once per declaration, so 32,000 declarations took 2.8 s;
+    a cursor over the spans, which come in source order, reads them once.
+- **The scanners still hold.** `npm run fuzz:web-refs` (seed 1, 2,000 inputs per engine) on this tree: 0 requests
+  after the rewrite in Chromium 153, WebKit 26 and Firefox 142, with 17-19% of the inputs fetching as written.
+- **Bytes.** The narrator now loads the CSS reader. The export's speech-projection bundle
+  (`lib/export/speech-projection-bundle.generated.mjs`, evaluated in the export's own Chromium page, never shipped to a
+  reader) grows from 55.0 KB to 74.8 KB, or 19.9 KB to 24.0 KB gzipped. No engine or Studio startup bundle changes.
+
+- **Left: the CLI's HTML export.** `lib/export/html-player.js` `inlineDocAssets` embeds a deck's local files into
+  the self-contained HTML, and finds them with a CSS reader of its own (`mapCssUrls`, with its own `cssString`,
+  `cssUnescape` and `mapSrcset`). It matches only a literal `url(`, so it misses `u\72l(a.png)`, which `cssRefSpans`
+  reads. It was never on the phasing table's list, so the census was short by one. It moves in its own PR with its
+  own differential, like the others (D8): `followups.d/2909-p4-segno-reference-model-css-and-html-islands.md`.
 
 ## Decisions for the owner
 
