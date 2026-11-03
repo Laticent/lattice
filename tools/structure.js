@@ -225,7 +225,16 @@ const HOST_API_CEILING = 14;
  * a core file its second consumer just lowers it), so a file that left cannot quietly come back.
  * `npm run structure` lists them.
  */
-const CORE_SINGLE_CONSUMER_CEILING = 47;
+const CORE_SINGLE_CONSUMER_CEILING = 44;
+/**
+ * The grammar compiler. A lib/core file this script imports, and nothing outside tools/ imports, is a grammar
+ * source, compiled into a `*.generated.js` parser that sits beside it and that core's own reader imports.
+ * It is not counted as single-consumer: it belongs beside the parser it defines and ships with it in the
+ * npm package (the same convention as tree-sitter's grammar.js, ANTLR's .g4 and Lezer's .grammar). Counting
+ * it pushed lib/core/html-ref-grammar.js out to tools/ on #3002, splitting the four grammars and dropping
+ * one from the package; the owner chose this refinement (#3002), which also lowered the ceiling from 47.
+ */
+const GRAMMAR_COMPILER = 'tools/build-segno-grammar.js';
 
 /** The repository's own package name: a self-import by name resolves at runtime but not in the graph. */
 const SELF_NAME = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).name;
@@ -677,14 +686,17 @@ function insideParts(edges, files) {
     if (members.length < 50) continue;
     const set = new Set(members);
     const adj = new Map(members.map((f) => [f, new Set()]));
-    const importers = new Map(members.map((f) => [f, { inside: 0, parts: new Set() }]));
+    const importers = new Map(members.map((f) => [f, { inside: 0, parts: new Set(), from: new Set() }]));
     for (const e of edges) {
       if (!set.has(e.to)) continue;
       if (set.has(e.from)) {
         adj.get(e.from).add(e.to);
         adj.get(e.to).add(e.from);
         importers.get(e.to).inside += 1;
-      } else if (e.a.name !== name) importers.get(e.to).parts.add(e.a.name);
+      } else if (e.a.name !== name) {
+        importers.get(e.to).parts.add(e.a.name);
+        importers.get(e.to).from.add(e.from);
+      }
     }
     const seen = new Set();
     const sizes = [];
@@ -705,8 +717,12 @@ function insideParts(edges, files) {
       sizes.push(n);
     }
     sizes.sort((x, y) => y - x);
+    // A grammar the grammar compiler reads, and nothing outside tools/ imports, is a build input, not runtime
+    // code parked in core: the compiler writes its parser beside it, and core's own reader imports that
+    // (GRAMMAR_COMPILER above). A benchmark in tools/ that also reads it (the parser bake-off) does not change that.
+    const buildInput = (f) => importers.get(f).from.has(GRAMMAR_COMPILER) && [...importers.get(f).parts].every((x) => x === 'tools');
     const singleConsumer = members
-      .filter((f) => importers.get(f).inside === 0 && importers.get(f).parts.size === 1)
+      .filter((f) => importers.get(f).inside === 0 && importers.get(f).parts.size === 1 && !buildInput(f))
       .map((f) => `${f} <- ${[...importers.get(f).parts][0]}`)
       .sort();
     out[name] = { files: members.length, islands: sizes.length, largestIsland: sizes[0], isolated: sizes.filter((n) => n === 1).length, singleConsumer };

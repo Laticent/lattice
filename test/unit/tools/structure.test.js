@@ -334,6 +334,23 @@ test('the lib/core single-consumer ceiling fails in both directions', () => {
   assert.match(structureProblems(run(g, { coreSingleConsumerCeiling: 0 })).join('\n'), /lib\/core grew a single-consumer file: 1 files .* CORE_SINGLE_CONSUMER_CEILING \(0\)/);
 });
 
+test('a grammar the grammar compiler reads is a build input, not a single-consumer file (#3002)', () => {
+  const pairs = [['lib/core/hub.js', Array.from({ length: 50 }, (_, i) => `lib/core/f${i}.js`)]];
+  for (let i = 0; i < 50; i++) pairs.push([`lib/core/f${i}.js`, []]);
+  pairs.push(
+    ['lib/core/x-grammar.js', []],
+    ['tools/build-segno-grammar.js', ['lib/core/x-grammar.js']],
+    ['tools/parser-bakeoff/x.mjs', ['lib/core/x-grammar.js']],
+    ['lib/core/only-tools.js', []],
+    ['tools/other.js', ['lib/core/only-tools.js']],
+  );
+  const single = run(graph(pairs)).inside['lib/core'].singleConsumer.map((x) => x.split(' <- ')[0]);
+  // Read by the compiler and a benchmark, both in tools/: a build input.
+  assert.ok(!single.includes('lib/core/x-grammar.js'), single.join(', '));
+  // Read by another tool, not the compiler: still counted.
+  assert.ok(single.includes('lib/core/only-tools.js'), single.join(', '));
+});
+
 test('hostApi only shrinks: an entry nothing outside imports is stale', () => {
   const hostApi = new Map([['lib/plugins/pills', new Set(['lib/plugins/pills/pills.inline.js'])]]);
   const r = run(graph([['lib/plugins/pills/pills.inline.js', []]]), { hostApi });

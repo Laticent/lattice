@@ -1,5 +1,5 @@
 /**
- * remote-ref.js reads markup through a generated Segno parser (tools/lib/html-ref-grammar.js) and a reader
+ * remote-ref.js reads markup through a generated Segno parser (lib/core/html-ref-grammar.js) and a reader
  * over its tape (lib/core/html-ref-reader.js): Segno R3. Two promises are held here:
  *   1. R3 equals the hand-written scanner it replaced, frozen at 065bbfe with the six fixes R3's work found
  *      (tools/segno-legacy/scan-html-fixed.js): the same tags, field for field, and an `unsure` span exactly
@@ -110,7 +110,7 @@ describe('the R3 reader returns the hand-written scanner\'s tags, and the fixes 
   });
 
   test('the fuzz can fail: a parser whose comment ends at `--!` is caught', () => {
-    const grammar = require('../../../tools/lib/html-ref-grammar.js');
+    const grammar = require('../../../lib/core/html-ref-grammar.js');
     // Generated from a mutated grammar, not patched into the committed code, so the mutant cannot go stale.
     const S = loadSegno();
     const reader = makeScanHtml(generatedFrom(S, mutatedSpec(S, grammar)));
