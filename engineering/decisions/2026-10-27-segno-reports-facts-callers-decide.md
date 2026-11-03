@@ -181,7 +181,7 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
 | **R3** (shipped 2026-11-02) | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
-| **R4** (gallery gate shipped 2026-11-03) | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate" below. |
+| **R4** (gallery gate and export shipped 2026-11-03) | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate" and "R4: the export" below. |
 
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
 tokenizer is about 80 states; tree construction is deliberately out of scope behind `unsure`). Nothing in R0-R2 depends on R3.
@@ -432,7 +432,79 @@ consumers to three: export, linter and narrator.
   locally (esbuild, minified), declared in `docs/route-budget.d/r4-gallery-gate-scan-html.md`; no ceiling moves.
   That code is the gate's and it now loads on every route that loads `remote-ref.js`; moving it to a module of its
   own is blocked by the dev shim, which inlines only require-free siblings of `remote-ref.js`.
-- **Not done:** export, linter and narrator keep their own scans, one PR each (D8).
+- **Not done:** export (moved next, below), linter and narrator kept their own scans, one PR each (D8).
+
+### R4: the export (2026-11-03)
+
+The Studio's player export was the second consumer to move. `lib/export/inline-url-media.mjs` embeds every picture a
+deck names by URL as a `data:` URI (the player's policy loads nothing else), and it found those pictures with four
+regular expressions of its own: a start tag, an attribute, a `<style>` element and a `url(`. This PR deletes the four
+and has the module read tags with `scanHtml` and each `url()` with `cssRefSpans`. The census goes from three
+consumers to two: linter and narrator.
+
+- **Why not `remoteRefsInHtml`.** The gallery gate asks "which addresses does this markup fetch", and
+  `remoteRefsInHtml` answers with a list of strings. The export REWRITES each address in place, so it needs where
+  each one is: the tag's attribute offsets (`vq`, `vFrom`, `vTo`) and each `url()` span. Those are the facts
+  `remoteRefsInHtml` is built from, so the export reads the same reading one level down, as `blockWebImages` does.
+- **What it keeps.** On every deck in the repo the output is byte-for-byte the same. A picture attribute and a
+  `style` attribute are written back whole and double-quoted, a `url()` keeps its quote (or gains one when a data URI
+  needs it), and a font source and an attribute selector stay. The engine's string copy of a background
+  (`--background-image:"url(\"…\")"`) is a string span, which the export never reads.
+- **What it reads differently, on purpose.** Each of these was a place the old patterns disagreed with the browser.
+  - A tag inside a comment is not a tag (the walker fetched it and rewrote the comment).
+  - An escaped `u\72l(` is a `url()` (missed before).
+  - Entities in raw `<style>` text stay as written, as the CSS parser reads them (the walker decoded them).
+  - Only the first of two same-named attributes is read (the walker rewrote every copy).
+  - An HTML `<image src>` is an `<img>` to the tree builder, so it is embedded (missed before). The reader builds no
+    tree, so it cannot tell an SVG `<image>` from an HTML one and embeds every picture attribute of either. An extra
+    embed is an own-origin fetch the author allowed, written into an attribute that loads nothing.
+  - A bad-url token (`url(/a(b.png)`, `url(/a.png x)`) is not embedded: the browser never fetches one.
+    `cssRefSpans` reports it anyway, because a refusal errs that way.
+  - A custom property's `url()` is embedded whatever its name. The walker embedded only `--logo-mask`'s, and a
+    comment or string holding `--x:` hid a real `url()` after it. Deleting that rule changes 0 bytes on the corpus.
+- **An inline SVG `<style>`.** In foreign content a `<style>` holds markup, not raw text, and `scanHtml` gives it no
+  body. The export reads its text the way the tree builder builds it: the runs between the tags, comments and CDATA
+  markers inside it, a CDATA section as written and other text with references decoded, and a replacement written
+  back with `&` and `<` escaped outside CDATA. The red team, the inversion review and the checker each found the
+  first version skipping these, which the regex walker had embedded. That is the usual output of a design tool's SVG
+  export, so the fix is in this PR, with a picked test for each form.
+- **`unsure` is not a refusal here.** This pass only embeds pictures from origins the author allowed. Where
+  `scanHtml` is unsure it embeds what it reads, and `blockWebImages`, which runs right after it, refuses every other
+  site's address there (D7). A picture of our own it misses there is not refused by that pass: a relative address is
+  no web origin to it, and the completion warning leaves our own origin out. So that picture ships blank with no
+  warning. This was true of the walker too. The cases left are markup the reader cannot model, which no deck in the
+  repo has (0 of 446 are unsure).
+- **Differential.** `test/unit/export/inline-url-media-differential.test.js` holds the new reader to the regex walker,
+  frozen in `tools/segno-legacy/inline-url-media.mjs`.
+  - **The corpus.** The 446 rendered decks and galleries in the repo, rendered with the Studio's `samplesUrl` so
+    `sample:` art is a real address. Each runs with and without other sites allowed, against a transport that fails
+    one picture in five and returns both encodings. The two return the same bytes, count and `missing` list: 0
+    differences. Of the 446, 47 name a picture by URL, giving 389 picture references over the two runs. None has a
+    `<style>` with a `url()`, a poster or a `srcset`.
+  - **The soups.** That gap is covered by four seeded streams: picture soups, style soups (a `<style>` block of
+    picture CSS around a picture soup), token soups and foreign-content structures. On every input the reader is
+    not unsure of, three things are checked:
+    1. It fetches exactly the pictures parse5 finds. The CSS that parse5 finds is read by the same CSS reader, so
+       only the markup reading is compared.
+    2. After it embeds everything, parse5 finds no picture left to fetch.
+    3. The document parse5 builds is unchanged apart from the pictures (`shape`).
+  - **The counts.** The unit test runs 15,000 inputs. `INLINE_MEDIA_FUZZ=30000` runs 30,000 per stream, which
+    compared 24,624 picture soups, 23,342 style soups, 26,847 token soups and 2,365 foreign-content structures. The
+    new reader had 0 failures. The frozen walker disagreed with parse5 on 11,395, 21,166, 107 and 183 of them.
+  - **The arms.** Three arms must fail, and do on 2,000 inputs each:
+    - the frozen walker, caught on 776;
+    - an embed that eats the `<` of `</style>`, caught on 520 by the shape check alone;
+    - the new reader blind to `<style>` elements, caught on 103.
+- **Floods.** The first version checked each `url()`'s custom property with an unanchored search back to the last
+  `{` or `;`, which the red team made quadratic: a 64 KB `style` attribute held the export for 64 s. That check is
+  gone with the rule, and a unit test times the input at well under a second.
+- **Bytes.** `WebpageOptionsPanel.tsx` imports `webPictureOrigins` from the module statically, so it loads with the
+  Share sheet, which the Studio loads lazily. That sheet already imported `remote-ref.js`, and neither module is in
+  any route's eager JavaScript, so no route budget moves.
+- **Not moved:** `webPictureOrigins` in the same file. It reads deck SOURCE, not markup, to decide whether the
+  export panel shows its "Embed pictures from other sites" switch, and it is generous on purpose (a false yes shows a
+  harmless switch). It decides no fetch and no refusal, so it is not a reference reader in the census's sense.
+- **Not done:** the linter and narrator keep their own scans, one PR each (D8).
 
 ## Decisions for the owner
 
