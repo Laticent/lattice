@@ -1,153 +1,125 @@
 ---
 status: proposed
 summary: >
-  The layers that enforce security (the web-reference scanner, the sanitizers, the code door) should
-  also REPORT what they removed, as findings with a slide, a place and a reason, and every surface
-  (lint:deck, the Studio's Coach and editor marks, the export dialog) should show those findings instead of deciding anything
-  itself. The linter gets no security policy of its own; it renders the deck (3.9 ms median on 349
-  decks, against its own 17.0 ms) and translates the render's findings into a fix. A census rule in
-  build:check keeps private reference readers from coming back. Open for the owner: D1 to D4.
+  Security has one policy (remote-ref.js), two enforcing walls (the sanitizers, then the browser's
+  policy) and no way to tell the author what was blocked. Lint stays a SOURCE check: lint:deck flags
+  the unsafe things an author wrote, reading HTML and CSS through the shared readers (scanHtml,
+  cssRefSpans) and judging addresses with the shared check (media-sources isRemoteRef), never a policy
+  of its own. Separately, the enforcing layers return findings of what they removed, which the Studio
+  and the exports show. A build:check census rule keeps private address readers out. D1 to D4
+  answered by the owner 2026-11-03; D5, the lint-core byte budget, is open.
 ---
 
-# Security findings: the layers that enforce also report, and every surface reads the same report
+# Security findings: lint the source with the shared readers, and have the enforcing layers report
 
-**Answer.** Lattice already has one place that decides what is unsafe and two walls that enforce it.
-What it lacks is a way to TELL the author. Today a refused picture becomes a gray placeholder, a
-stripped `onerror=` disappears without a word, and the linter says nothing, because it never sees
-what the render removes. This note proposes one finding shape that the enforcing layers return
-alongside their output, and has every surface show those findings rather than run a policy of its
-own. The linter's job becomes explaining the render's verdict in the author's words, with a fix.
+**Answer.** Lattice decides what is unsafe in one place and enforces it twice, but tells the author
+nothing: a refused picture is a gray box, a stripped `onerror=` vanishes, and `lint:deck` is silent.
+The fix has two halves that share one policy:
+
+1. **Lint reads the source.** `lint:deck` flags what the author wrote: a web picture, a click-time
+   beacon, a script or an event handler, a style that breaks out of its element. It reads raw HTML
+   with `scanHtml`, CSS with `cssRefSpans`, and judges each address with the same check the scanner
+   uses. It renders nothing and has no policy of its own.
+2. **The enforcing layers report.** The scanner, the sanitizers and the code door return a list of
+   what they removed beside their output. The Studio and the exports already render, so they show
+   those findings at no extra cost. This half covers what the ENGINE writes, which is not in the
+   source.
 
 ## Why this note exists
 
 The owner asked, after Segno R4 (#3018): "what should the linter be doing to make sure things are
 flagged as insecure, and more broadly, a shared spine that all use to ensure security is built in?"
-R4 had just shown the cost of the other answer. Four consumers each kept a private reader of
-markup or CSS, each disagreed with the browser in its own way, and a fifth
-(`lib/export/html-player.js`) was found only because the inversion review went looking. A linter
-with its own idea of "unsafe" would be a sixth.
+R4 had just shown the cost of private readers. Four consumers each read markup or CSS their own way,
+each disagreed with the browser somewhere, and a fifth (`lib/export/html-player.js`) was found only
+because a review went looking.
+
+A first draft of this note had `lint:deck` render the deck and lint the output. The owner rejected
+that: a linter works on sources. The draft also called a source check "a second reading of the
+policy". It is not, as long as the source check uses the shared readers and the shared address check;
+what R4 removed was private READERS, not the act of checking source.
 
 ## What exists today (read from the tree, 2026-11-03)
 
 | Layer | Where | What it returns |
 |---|---|---|
-| **Read** the addresses in markup and CSS | `scanHtml`, `cssRefSpans` (Segno R2, R3) | Spans with offsets, and `unsure` spans with a reason |
-| **Decide** what is refused | `lib/core/remote-ref.js` (`blockWebImages`, `blockWebCss`, `remoteRefsInHtml`) | The rewritten text, plus `blocked: [{ url, origin, kind }]`. No slide and no place in the source |
-| **Enforce**, wall one: rewrite the markup | `sanitizeSlideHtml` (`lib/core/sanitize-slide-html.mjs`), `sanitizeStyleText` (`lib/core/sanitize-style-text.mjs`), `sanitize-diagram-svg.mjs` | The cleaned text only. What DOMPurify removed is not reported |
-| **Enforce**, wall two: the browser | `lib/core/subresource-csp.mjs` (the content-security policy), sandboxed frames | Nothing to the author; a refusal shows in the browser console |
-| **Plugins** | the code door (`lib/core/code-door-core.mjs`, `lib/packages/code-door-fence.mjs`) | A visible note in the slide (`data-package-error`) with the reason |
-| **Gates** on our own code | HARD RULE #22's four checks in `tools/check-ownership.js` | A build failure naming the sink |
+| **Read** markup and CSS | `scanHtml`, `cssRefSpans` (Segno R2, R3) | Spans with offsets, and `unsure` spans with a reason |
+| **Judge** an address | `lib/core/media-sources.js` `isRemoteRef` (re-exported as remote-ref's `isRemoteUrl`) | Whether the address is a fetch to another site |
+| **Decide** what a rendered document may keep | `lib/core/remote-ref.js` (`blockWebImages`, `blockWebCss`, `remoteRefsInHtml`) | Rewritten text, plus `blocked: [{ url, origin, kind }]` with no slide or place |
+| **Enforce**, wall one | `sanitizeSlideHtml`, `sanitizeStyleText`, `sanitize-diagram-svg.mjs` | Cleaned text only. DOMPurify keeps a `removed` list per call; nothing reads it |
+| **Enforce**, wall two | `lib/core/subresource-csp.mjs`, sandboxed frames | A browser console line |
+| **Plugins** | the code door (`code-door-core.mjs`, `code-door-fence.mjs`) | A note in the slide (`data-package-error`) with the reason |
 
-Who reads the scanner's `blocked` list now:
-- the preview frame's policy (`docs/src/components/studio/present/stage-window.js`);
-- the export's missing-picture warning (`share-export.ts`, `describeMissingMedia`);
-- the Studio's web-image count (`web-images.ts`);
-- the gallery gate, which turns `remoteRefsInHtml`'s findings into a refusal with a reason.
-
-The linter (`lib/authoring/lint-core.js`) reads deck SOURCE only. No rule reads a web address,
-a script, an event handler or a style break-out. The nearest are `unknown-plugin`,
-`plugin-fence-attributes`, `shell-fence-is-script` and `author-script-defers`.
-
-So the spine has four layers, and the fourth is the gap:
-
-1. **Read**: one reader per language (done by R4, except the CLI export).
-2. **Decide**: one policy table (`remote-ref.js`).
-3. **Enforce**: two independent walls (sanitizers, then the browser's policy).
-4. **Report**: tell the author what was removed, where, and how to fix it. **Missing**, except for
-   the code door's note and the gallery gate's refusal.
-
-## The axes
-
-- **Where the linter's findings come from**: the deck source, or the rendered HTML.
-- **Who decides**: each surface, or only the enforcing layers.
-- **The shape of a finding**: free text per surface, or one record every surface reads.
-- **What keeps it honest**: discipline, or a gate that fails when a private reader appears.
-
-## Candidate moves
-
-- **A. Lint the source.** Run `scanHtml` over raw HTML blocks in the Markdown and refuse what the
-  policy refuses. Cheap, no render. But it misses everything the engine itself writes: a Markdown
-  image `![](https://…)`, a `![bg](…)`, a video poster, a chart's own markup. It is also a second
-  reading of the same policy at a different stage, which is the drift R4 removed.
-- **B. Lint the render.** `lint:deck` renders the deck, runs the same policy the preview and the
-  export run, and maps each finding back to its slide. One verdict everywhere. Costs a render.
-- **C. Report from the enforcing layers, read everywhere.** B, and every enforcing layer returns
-  findings in one shape, so the Studio's Coach, the export dialog and the linter show the
-  same records.
-- **D. Do nothing new.** Keep placeholders and the console. Authors keep learning about refusals
-  by noticing a gray box.
-
-**Recommended: C.** B is its first step.
+The linter (`lib/authoring/lint-core.js`) reads source and has no security rule. Its security-adjacent
+rules are `unknown-plugin`, `plugin-fence-attributes`, `shell-fence-is-script` and
+`author-script-defers`. It reads Markdown images with regexes of its own (`BG_LINE_RE` at
+`lint-core.js:986`, and others), which is the deck pipeline's to replace: its P3 and P4 move lint-core's
+own scanners onto the shared document model (`2026-10-22-segno-deck-pipeline.md`).
 
 ## The design
 
-### 1. One finding shape
+### 1. Lint: source rules over the shared readers
 
-Every enforcing layer returns its output and a `findings` array:
+| What the author wrote | How lint reads it | What it says |
+|---|---|---|
+| `![](https://…)`, `![bg](https://…)`, a reference definition | lint-core's Markdown image reading today; the deck model's inline structure once P4 ships | "loads from another site: the preview shows a placeholder and the export leaves it out" |
+| Raw HTML: `<img src>`, `srcset`, `<video poster>`, an SVG `<image href>` | `scanHtml` over each raw HTML block and inline HTML span | the same |
+| `ping=`, `<form action>`, `formaction=` | `scanHtml` | "sends a request when clicked; the preview removes it" |
+| `<script>`, an `on…=` handler, a `javascript:` link | `scanHtml` | "the preview strips it; it never runs" |
+| A `style` attribute or `<style>` naming a web address, or holding `</style>` | `cssRefSpans`, and the test `sanitizeStyleText` applies | the web-address message, or "ends the style early; the preview neutralizes it" |
+| Markup `scanHtml` reports as `unsure` | `scanHtml`'s `unsure` spans | "a browser may build this differently from the preview" |
+| A plugin that is not approved | `unknown-plugin`, unchanged | unchanged |
+
+Every address goes through `isRemoteRef` and the deck's allowed origins, the same inputs the scanner
+uses, so the linter and the render cannot disagree about which address is a web address. Each rule
+lives in `lint-core.js` (HARD RULE #7), is a warning (D2), and carries a fix.
+
+### 2. Report: the enforcing layers say what they removed
+
+The scanner, the sanitizers and the code door return `findings` beside their output:
 
 ```js
-{
-  layer: 'remote-ref' | 'sanitize-html' | 'sanitize-style' | 'code-door',
-  rule: 'web-image' | 'click-beacon' | 'script-stripped' | 'handler-stripped' | 'style-breakout' | 'unsure' | …,
-  slide: 3,                // 1-based, from the section the span sits in
-  at: { from: 812, to: 861 }, // offsets into the rendered slide, so a surface can point at it
-  what: '<img src="https://example.com/a.png">', // the construct, shortened
-  why: 'loads from another site; the preview shows a placeholder and the export leaves it out',
-  fix: 'allow example.com in the export, or use a local picture',
-}
+{ layer, rule, slide, at: { from, to }, what, why, fix }
 ```
 
-- `remote-ref.js` already has `blocked` (url, origin, kind) and `scanHtml` spans with offsets; a
-  finding adds the slide and the text.
-- The sanitizers report what they removed. DOMPurify keeps a `removed` list after each call; the
-  slide sanitizer copies it out. `sanitizeStyleText` reports each `</style>` it neutralized.
-- The code door already writes a note; it also returns the same record.
-- `rule` names are a closed table in one kernel, beside the policy, so a surface can group and
-  translate them and a test can list them.
+- `remote-ref.js` adds the slide and the place to what `blocked` already has.
+- The slide sanitizer copies DOMPurify's `removed` list out (D3). `sanitizeStyleText` reports each
+  `</style>` it neutralized.
+- The code door returns the record its note already prints.
 
-### 2. Every surface reads; none decides
+The Studio's Coach and editor marks, and each export's completion warning, show these. They are the
+same `rule` names the linter uses, from one table beside the policy, so an author sees one message
+for one problem whichever surface shows it.
 
-| Surface | What it shows |
-|---|---|
-| `lint:deck` | One warning per finding, on the slide, with `fix`. It renders the deck to get them (D1) |
-| The Studio | The same findings in the Coach ("check this deck") and as editor marks, where lint findings already show |
-| The Webpage, PDF and PPTX exports | The existing completion warning, built from findings instead of its own count |
-| The package gallery gate | Unchanged in behavior: it refuses on any finding, and now prints the record |
+**Why both halves.** Lint catches what the author can fix in the source, before any render. The
+report catches what only the render knows, such as a picture a plugin or a chart writes. Neither
+decides policy; both read the one table.
 
-The policy stays in `remote-ref.js` and the sanitizers. A surface that wants to know "is this
-safe" asks the layer and reads its findings; it never matches markup itself.
+### 3. A census gate, so private readers stay gone (D4)
 
-### 3. What the author is told
-
-- a picture, font or stylesheet from another site;
-- a link or form that sends a request when clicked (`ping`, `action`, `formaction`);
-- script the sanitizer strips: `<script>`, an `on…=` handler, a `javascript:` link;
-- a `<style>` that would end early (`</style>` inside it), which `sanitizeStyleText` neutralizes;
-- markup the reader is unsure of (`unsure` spans), which may draw differently in a browser;
-- a plugin that is not approved, or that the code door refused (the linter's `unknown-plugin`
-  stays and reads the door's record).
-
-### 4. A census gate, so private readers stay gone
-
-A `build:check` rule fails when code outside `lib/core` reads addresses out of markup or CSS with
-a pattern of its own: a regex over `src=`, `href=`, `url(` or `background` applied to markup or a
-style, outside the sanctioned readers. It ships with an allowlist that fails on a stale entry, like
-HARD RULE #22's four. Day one it lists `lib/export/html-player.js`, the one reader R4 has left, so
-the rule starts green and the entry is removed by that migration. This adds a rule to an existing
-gate; it adds no CI job or step.
+A `build:check` rule fails when code outside the sanctioned readers reads addresses out of markup or
+CSS with a pattern of its own (a regex over `src=`, `href=`, `url(` or `background` applied to markup
+or a style). Its allowlist fails on a stale entry, like HARD RULE #22's. Day one it lists two entries,
+each with its reason: `lib/export/html-player.js` (the R4 migration left, `followups.d/2909-p4-…`) and
+lint-core's Markdown image regexes (until the deck pipeline's P4). It changes what an existing gate
+finds, and adds no CI job or step.
 
 ## Cost, measured
 
-On the 349 decks under `examples/`, warm, one machine (2026-11-03):
+Gzip sizes of each piece bundled alone (esbuild, minified, level 9; 2026-11-03):
 
-| Step | Median | 90th percentile |
+| Piece | Gzip | Already in the engine bundle? |
 |---|---|---|
-| `lint:deck`'s own rules (`lintText`) | 17.0 ms | 23.3 ms |
-| Rendering the deck (`createEngine().render`) | 3.9 ms | 12.1 ms |
-| `blockWebImages` on the render | 0.5 ms | 1.9 ms |
+| `media-sources.js` (`isRemoteRef`) | 1.2 KB | **Yes**: `lattice-playground.js` carries it, so it costs lint-core nothing |
+| `html-ref-reader.js` + `html-ref.generated.js` (`scanHtml`) | 1.9 KB + 3.1 KB | No |
+| `css-ref-reader.js` + `css-ref.generated.js` (`cssRefSpans`) | 1.4 KB + 2.5 KB | No |
 
-So B adds about a quarter to the linter's time per deck. The Studio already renders and already
-runs the scanner on every keystroke's preview, so it pays nothing new except carrying the records.
+`lintCoreGz` counts lint-core and its imports beyond the engine's own closure. It measured 123.5 KB
+against a 124.3 KB ceiling on #3018's head, so 0.8 KB is left. The HTML and CSS readers add up to
+about 8.9 KB, which does not fit (D5). The exact figure is S1's to measure in the real build: a piece
+the Studio's lint chunk already shares with another chunk may cost less.
+
+The report half costs nothing new in time: the Studio and the exports already render and already run
+the scanner.
 
 ## Phasing
 
@@ -155,32 +127,38 @@ Each phase ships alone and reverts alone.
 
 | Phase | What | Evidence it owes |
 |---|---|---|
-| **S0** | The finding shape and the `rule` table in one kernel; `remote-ref.js` returns findings beside `blocked` | Every current consumer's output byte-identical on the corpus; one test per rule |
-| **S1** | `lint:deck` renders and reports the scanner's findings (warnings) | The 349 decks: findings listed and reviewed; time measured against the table above |
-| **S2** | The sanitizers report what they removed | A seeded stream: every removal DOMPurify makes appears as a finding, and nothing else does |
-| **S3** | The Studio's Coach and editor marks, and the export warning, read findings | The real Studio, three widths and WebKit; the export warning text before and after |
-| **S4** | The census rule in `build:check` | Its failing arm: a planted regex reader in `docs/src` fails the build |
-
-The CLI export's migration (`followups.d/2909-p4-…`) can land before or after; S4 lists it until then.
+| **S0** | The `rule` table and finding shape in one kernel | One test per rule |
+| **S1** | Lint's source rules (section 1), over `scanHtml`, `cssRefSpans` and `isRemoteRef` | Every rule fires on a picked case and is silent on the 349 decks under `examples/` except where a deck really holds the construct; each such hit reviewed; lint time and `lintCoreGz` measured before and after |
+| **S2** | `remote-ref.js` returns findings beside `blocked` | Every current consumer's output byte-identical on the corpus |
+| **S3** | The sanitizers report what they removed | A seeded stream: every removal appears as a finding, and nothing else does |
+| **S4** | The Studio's Coach and editor marks, and the export warning, show render findings | The real Studio at three widths and in WebKit; the export warning before and after |
+| **S5** | The census rule in `build:check` | Its failing arm: a planted regex reader in `docs/src` fails the build |
 
 ## Decisions for the owner
 
-- **D1. Should `lint:deck` render the deck to get findings?** *Recommended: yes (B).* It is the
-  only way the linter sees what the engine writes, and it costs about a quarter of the linter's
-  time. The alternative, A, lints raw HTML in the source only: cheaper, but blind to Markdown
-  images, `![bg]`, posters and charts, and a second reading of the policy.
-- **D2. How severe is a security finding in `lint:deck`?** *Recommended: a warning, never a block.*
-  The render already enforces; the finding explains. Decks keep HARD RULE #29's posture ("warns and
-  never blocks"). The package gallery gate keeps refusing, as now.
-- **D3. Do the sanitizers report what they remove (S2)?** *Recommended: yes.* Without it the
-  author is told about web addresses but not about a stripped `onerror=`, which is the case most
-  likely to confuse them. The cost is one array copied out per sanitize call.
-- **D4. Add the census rule to `build:check` (S4)?** *Recommended: yes.* It is how
-  `html-player.js` would have been found without a review. It changes what an existing gate finds,
-  not what CI runs.
+Answered by the owner on 2026-11-03:
+
+- **D1. Where lint reads. Answered: the source.** "Linting works on sources." `lint:deck` renders
+  nothing; it reads the source with the shared readers and judges addresses with the shared check.
+  What only the render knows is reported by the enforcing layers (section 2), not linted.
+- **D2. Severity. Answered: a warning, never a block.** The render already enforces; the warning
+  explains and gives the fix. The package gallery gate keeps refusing, as now.
+- **D3. The sanitizers report what they remove. Answered: yes.**
+- **D4. The census rule in `build:check`. Answered: yes.**
+
+Open:
+
+- **D5. The lint-core byte budget.** Lint's HTML and CSS rules need `scanHtml` and `cssRefSpans`,
+  about 8.9 KB gzipped bundled alone, and `lintCoreGz` has 0.8 KB left under its ceiling.
+  *Recommended:* in S1, measure the real cost in the Studio build and raise the `lintCoreGz` ceiling
+  by that measured amount, declared in `docs/route-budget.d/`. *Alternatives:* ship only the rules
+  that need neither reader first (Markdown images, judged with `isRemoteRef`, which costs nothing),
+  and add the HTML and CSS rules when the deck pipeline's model carries those readers anyway; or load
+  the security rules lazily in the Studio only, which breaks lint-core's "synchronous, shared by CLI,
+  `validate()` and browser" contract (HARD RULE #7) and is not recommended.
 
 ## Not decided here
 
-- The exact wording of each `rule`'s `why` and `fix`. That is S1's work, against real decks.
-- Whether a finding ever blocks a deck export. This note says no; a later note can argue otherwise.
+- The exact wording of each rule's message and fix. That is S1's, against real decks.
+- Whether a finding ever blocks an export. This note says no.
 - The CLI export's reader itself, which is the 2909-p4 follow-up.
