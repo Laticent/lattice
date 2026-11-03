@@ -510,6 +510,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
+- **Office files in Apple's importer:** `office-quicklook` (`tools/office-quicklook.mjs`, dispatch and nightly only) exports a deck
+  as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
+  ignores embedded fonts and drew grouped icon shapes as specks: `decisions/2026-11-01-icon-font.md` § 3.6). It also renders rewritten
+  variants of the same file (icons ungrouped, icons in their own group), so one run compares ways of writing a slide. The PNGs land in
+  the run's `platform-suite-office-quicklook-macos-latest` artifact.
 - **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
   serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).

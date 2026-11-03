@@ -163,3 +163,6 @@ tools/dom-bakeoff/speed.json
 
 # The code-package sandbox check writes its report where the tester started (tools/verify-code-sandbox.mjs).
 code-sandbox-report-*.md
+
+# Platform-suite evidence (screenshots, renders); CI uploads it, and a local run leaves it here.
+platform-suite-artifacts/
