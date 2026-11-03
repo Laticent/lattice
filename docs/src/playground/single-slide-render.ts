@@ -45,7 +45,7 @@ import { math as MATH } from '../../../lib/plugins/detect.generated.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { pluginDataMissing } from '../lib/ensure-plugin-data';
-import { measuredSplitWanted } from '../lib/fit-pack-wanted';
+import { mayWantMeasuredSplit } from '../lib/fit-pack-wanted';
 import { ensureEngine } from '../lib/load-engine';
 import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
@@ -1044,27 +1044,6 @@ export const __swapSharedSheetForTest = swapSharedSheet;
 // The page of a split run each preview host last showed, so a caret line that places nowhere (a
 // blank line between bullets) keeps the page instead of flashing the cover. Keyed by host, and
 // scoped to the deck and slide it was picked on.
-// THE MEASURED SPLIT'S MEMORY (§11 of 2026-10-28-fit-everywhere-model.md), per shown slide. The
-// live decision is keyed by deck and slide, so an edit keeps the slide's pages while they still fit.
-// Fix B (the decision rides the undo stack) is kept by TEXT: each slide's decision is also recorded
-// against the exact source it was made for, so undoing back to that source restores that decision
-// rather than whatever the later edits left in the live memory. Bounded, oldest first out.
-type FitMemoryEntry = Record<string, { split: boolean; sizes?: number[] }>;
-const fitMemoryLive = new Map<string, FitMemoryEntry>();
-const fitMemoryByText = new Map<string, FitMemoryEntry>();
-const FIT_MEMORY_CAP = 400;
-const fitTextKey = (key: string, source: string) => `${key}\u0000${source}`;
-function fitMemoryFor(key: string, source: string): FitMemoryEntry | null {
-	return fitMemoryByText.get(fitTextKey(key, source)) ?? fitMemoryLive.get(key) ?? null;
-}
-function rememberFit(key: string, source: string, memory: FitMemoryEntry): void {
-	fitMemoryLive.set(key, memory);
-	const k = fitTextKey(key, source);
-	if (!fitMemoryByText.has(k)) {
-		fitMemoryByText.set(k, memory);
-		while (fitMemoryByText.size > FIT_MEMORY_CAP) fitMemoryByText.delete(fitMemoryByText.keys().next().value as string);
-	}
-}
 const splitPageByHost = new WeakMap<HTMLElement, { deck: string; slide: number; page: number }>();
 
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
@@ -1892,13 +1871,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// §11 memory so a slide does not re-split as the author types. Only a slide the
 					// structural split cuts can need it; the module loads on the first such slide. A failed
 					// load, or a frame that cannot be measured, keeps today's split.
-					if (r.changed && measuredSplitWanted(slideSource)) {
+					if (r.changed && mayWantMeasuredSplit(slideSource)) {
 						const ms = await import('../lib/measured-split').catch((e) => {
 							console.warn('lattice: the measured split could not load, so this slide keeps the structural split', e);
 							return null;
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-						if (ms) {
+						if (ms?.measuredSplitWanted(slideSource)) {
 							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
 							const measured = await ms.measuredSplitInFrame({
 								html: out.html,
@@ -1908,7 +1887,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
 								width: out.width || DEFAULT_W,
 								height: out.height || DEFAULT_H,
-								memory: fitMemoryFor(key, slideSource),
+								memory: ms.fitMemoryFor(key, slideSource),
 								cancelled: () => disposed || !host.isConnected,
 							}).catch((e) => {
 								console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
@@ -1916,7 +1895,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							});
 							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 							if (measured) {
-								rememberFit(key, slideSource, measured.memory);
+								ms.rememberFit(key, slideSource, measured.memory);
 								r = measured;
 							}
 						}

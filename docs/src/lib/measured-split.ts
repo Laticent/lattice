@@ -15,6 +15,21 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
+import frontMatterKey from '../../../lib/core/front-matter-key.js';
+
+const { frontMatterName } = frontMatterKey;
+
+/**
+ * Does a deck ask for the measured split? `fit: pack` in its front matter, read with the engine's
+ * own reader (`frontMatterName`), the one the CLI's `fitPacks` calls, so case, indentation, quoting,
+ * comments and a repeated key resolve alike on every surface (HARD RULE #1).
+ */
+export function measuredSplitWanted(source: string): boolean {
+	const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+	if (!fm) return false;
+	const fit = frontMatterName(fm[1], 'fit') as string | null;
+	return typeof fit === 'string' && fit.trim().toLowerCase() === 'pack';
+}
 
 /** What a live surface remembers between renders of one slide or deck (`nextMemory`). */
 export type FitMemory = Record<string, { split: boolean; sizes?: number[] }>;
@@ -194,5 +209,26 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 		};
 	} finally {
 		frame.remove();
+	}
+}
+
+// THE STUDIO'S MEMORY (§11 of 2026-10-28-fit-everywhere-model.md), per shown slide, kept here so it
+// costs the eager bundle nothing. The live decision is keyed by deck and slide, so an edit keeps the
+// slide's pages while they still fit. Fix B (the decision rides the undo stack) is kept by TEXT: each
+// slide's decision is also recorded against the exact source it was made for, so undoing back to that
+// source restores it. Bounded, oldest first out.
+const fitMemoryLive = new Map<string, FitMemory>();
+const fitMemoryByText = new Map<string, FitMemory>();
+const FIT_MEMORY_CAP = 400;
+const fitTextKey = (key: string, source: string) => `${key}\u0000${source}`;
+export function fitMemoryFor(key: string, source: string): FitMemory | null {
+	return fitMemoryByText.get(fitTextKey(key, source)) ?? fitMemoryLive.get(key) ?? null;
+}
+export function rememberFit(key: string, source: string, memory: FitMemory): void {
+	fitMemoryLive.set(key, memory);
+	const k = fitTextKey(key, source);
+	if (!fitMemoryByText.has(k)) {
+		fitMemoryByText.set(k, memory);
+		while (fitMemoryByText.size > FIT_MEMORY_CAP) fitMemoryByText.delete(fitMemoryByText.keys().next().value as string);
 	}
 }

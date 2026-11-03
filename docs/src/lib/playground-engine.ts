@@ -11,7 +11,7 @@
 
 import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
-import { measuredSplitWanted } from './fit-pack-wanted';
+import { mayWantMeasuredSplit } from './fit-pack-wanted';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
@@ -223,10 +223,10 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// Loaded only for a deck that asks for it; a failed load or an unmeasurable frame keeps today's split.
 			// A fresh deck (a load, an example, a reset) starts with no memory: decisions belong to one deck.
 			if (fresh) fitMemory = null;
-			if (PGref.splitForPreview && html !== out.html && measuredSplitWanted(source)) {
+			if (PGref.splitForPreview && html !== out.html && mayWantMeasuredSplit(source)) {
 				const [ms, sz] = await Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]).catch(() => [null, null]);
 				const measureDoc = DPref.measureDoc;
-				if (ms && sz && measureDoc) {
+				if (ms && sz && measureDoc && ms.measuredSplitWanted(source)) {
 					const measured = await ms
 						.measuredSplitInFrame({
 							html: out.html,

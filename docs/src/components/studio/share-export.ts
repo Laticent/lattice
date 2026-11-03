@@ -9,7 +9,7 @@
 // than a toast.
 
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
-import { measuredSplitWanted } from '@/lib/fit-pack-wanted';
+import { mayWantMeasuredSplit } from '@/lib/fit-pack-wanted';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
@@ -471,9 +471,9 @@ export async function shareHtmlPlayer(
 	// the strip-notes candidate below (same slides, same numbers), so both cut alike. Loaded only for a
 	// deck that asks; a failed load or an unmeasurable frame keeps today's split, as the CLI does.
 	let exportPlan: Record<string, unknown> | null = null;
-	if (PG.splitForPreview && measuredSplitWanted(source)) {
+	if (PG.splitForPreview && mayWantMeasuredSplit(source)) {
 		const [ms, dp, sz] = await Promise.all([import('@/lib/measured-split'), import('@/playground/deck-preview.js'), import('@/lib/sanitize-slide-html.js')]).catch(() => [null, null, null]);
-		if (ms && dp && sz) {
+		if (ms && dp && sz && ms.measuredSplitWanted(source)) {
 			const w = out.width || 1280;
 			const h = out.height || 720;
 			const measured = await ms
