@@ -242,6 +242,24 @@ describe('icon-font-exports', () => {
 		assert.match(slide.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?<p:ph type="title"[\s\S]*?<\/p:sp>/)[0], /<a:t>Storage<\/a:t>/, 'the title is the first piece');
 	});
 
+	// Apple's Office importer (iPhone Preview, macOS Quick Look) draws custom geometry inside a group as a speck at the
+	// group's corner; the same shape at the slide's top level draws right (tools/office-quicklook.mjs, run 41562260174).
+	// So an icon is written after its card's group, never in it, and the card stays a group.
+	test('no icon shape sits inside a group, and its card is still a group', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('cards', [], 'cards.pptx', ['--editable'], ['<!-- _class: cards-grid -->', '', '## Cards', '', '- Gateway `{icon=gateway, c2}`', '  - Hands out the URL.', '- Store `{icon=bucket, c4}`', '  - Keeps each file.', ''])));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		let depth = 0;
+		let grouped = 0;
+		for (const [tok] of slide.matchAll(/<p:grpSp>|<\/p:grpSp>|<a:custGeom>/g)) {
+			if (tok === '<p:grpSp>') depth++;
+			else if (tok === '</p:grpSp>') depth--;
+			else if (depth > 0) grouped++;
+		}
+		assert.ok((slide.match(/<a:custGeom>/g) || []).length >= 2, 'the icons are shapes');
+		assert.equal(grouped, 0, 'an icon shape sits inside a group');
+		assert.ok(slide.includes('<p:grpSp>'), 'the cards are still groups');
+	});
+
 	test('`office-icons: font` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
 		const glyphs = ['database', 'bucket', 'lock'].map((n) => String.fromCodePoint(Number.parseInt(ICON_CODEPOINTS[n], 16)));
 		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.pptx', ['--editable'])));

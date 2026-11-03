@@ -1,0 +1,1 @@
+- In an editable PowerPoint, icons and check marks draw in iPhone Preview and macOS Quick Look again: Apple's Office importer drew every one that sat inside a card's group as a speck, so each is now written just after its card's group. Moving a card in PowerPoint no longer carries its icon unless both are selected.

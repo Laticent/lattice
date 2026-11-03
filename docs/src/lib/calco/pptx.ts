@@ -456,7 +456,18 @@ export function groupShapes(xml: string): string {
 		);
 	};
 	// A card's members, with each run of one sub-group's shapes nested into a group of its own.
-	const wrapCard = (group: string, members: Array<{ sub: string | null; sp: string }>) => {
+	// A drawn MARK (an icon's outline, a pill's check mark) is kept OUT of every group and written right after the card's
+	// group, so it still paints above its tile: Apple's Office importer (iPhone Preview, macOS Quick Look) draws
+	// custom geometry inside a group as a speck at the group's corner, while the same shape at the slide's top level draws
+	// right (tools/office-quicklook.mjs, engineering/decisions/2026-11-01-icon-font.md § 3.6). Moving a card in PowerPoint then
+	// leaves its icon behind unless both are selected; that is the price of the icon drawing at all on an iPhone.
+	// Only a mark (Calco names it `Mark`: a stroked path, never a fill) leaves its group. A tab or a card with per-corner
+	// radii is custom geometry too, but it is filled, and written after the group it would cover the card's text.
+	const isMark = (sp: string) => sp.includes('<a:custGeom>') && /<p:cNvPr id="\d+" name="[^"]*Mark \d+\.\d+"/.test(sp);
+	const wrapCard = (group: string, all: Array<{ sub: string | null; sp: string }>) => {
+		const lifted = all.filter((m) => isMark(m.sp)).map((m) => m.sp);
+		const members = all.filter((m) => !isMark(m.sp));
+		if (!members.length) return lifted.join('');
 		const parts: string[] = [];
 		for (let i = 0; i < members.length; ) {
 			const { sub } = members[i];
@@ -466,7 +477,8 @@ export function groupShapes(xml: string): string {
 			parts.push(sub !== null && run.length > 1 ? wrap(`${group}.${sub}`, run) : run.join(''));
 			i = j;
 		}
-		return wrap(group, parts);
+		// A card that lifting left with one member is written as that member (a group of one only moved the icon's tile).
+		return (members.length > 1 || !lifted.length ? wrap(group, parts) : parts.join('')) + lifted.join('');
 	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
 	// there is polynomial in the number of adjacent shapes (CodeQL). A group's members are shapes and
