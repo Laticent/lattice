@@ -107,13 +107,43 @@ test('@smoke a deck-only photo renders in its own deck, and flipping it to share
 	await setEditorContent(page, '# Mine\n\n![mine](asset:mine)\n');
 	const img = livePreview(page).locator('img[alt="mine"]').first();
 	await expect(img).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
-	const before = await img.getAttribute('src');
+	// The preview may show a preview-sized copy of the photo once it is made (src/lib/preview-image-scale.ts),
+	// with the Library's own address kept beside it: let the picture settle on whichever it shows first.
+	let before = await img.getAttribute('src');
+	await expect
+		.poll(
+			async () => {
+				const now = await img.getAttribute('src');
+				const settled = now === before;
+				before = now;
+				return settled;
+			},
+			{ intervals: [1500], timeout: 30_000 },
+		)
+		.toBe(true);
+
+	// The photo's own address: the Library's object URL, kept beside a copy when the preview shows one.
+	const photo = (el: HTMLImageElement) => el.getAttribute('data-lattice-original') || el.getAttribute('src');
+	const own = await img.evaluate(photo);
+	expect(own).toMatch(/^blob:/);
 
 	await card.getByRole('button', { name: /Share to all decks/ }).click();
 	await expect(card.getByText('All decks', { exact: true })).toBeVisible();
-	// Same name, same object URL: a scope flip must not blink the picture out and back.
-	await expect(img).toHaveAttribute('src', before as string);
-	expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(800);
+	// Same name, same object URL: a scope flip must not blink the picture out and back. Compared as the photo's
+	// own address (the Library's, kept beside a copy): the preview may swap one copy for another of a different
+	// size as its box changes, and a copy already made stands in meanwhile, so the picture never leaves.
+	await expect.poll(() => img.evaluate(photo)).toBe(own);
+	expect(await img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), 'the picture blinked out').toBe(true);
+	// The photo itself is the Library's 800px picture (measured from its own address when a copy shows).
+	const width = await img.evaluate(async (el: HTMLImageElement) => {
+		const own = el.getAttribute('data-lattice-original');
+		if (!own) return el.naturalWidth;
+		const probe = new Image();
+		probe.src = own;
+		await probe.decode();
+		return probe.naturalWidth;
+	});
+	expect(width).toBe(800);
 });
 
 // The collage reads each photo's SHAPE to pack them edge to edge. Library photos are blob: URLs the

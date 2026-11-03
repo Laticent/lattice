@@ -47,7 +47,8 @@ async function latticeStudioProbe() {
 			await sleep(100);
 		}
 	};
-	const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+	// Not inside an `inert` subtree: the pre-paint skeleton draws look-alike buttons with the same labels that do nothing.
+	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const frame = () => document.querySelector('[aria-label="Live deck preview"] iframe.live');
 	const frameDoc = () => {
@@ -61,14 +62,8 @@ async function latticeStudioProbe() {
 
 	/** Replace the deck source the way a person pasting does: one insertText into the focused editor. */
 	const setDeck = async (text) => {
-		if (narrow) {
-			const src = await until(() => button('Markdown source'), 15000, 'the Markdown source button');
-			src.click();
-		}
-		const el = await until(() => {
-			const e = document.querySelector('[aria-label="Deck source"]');
-			return visible(e) ? e : null;
-		}, 15000, 'a visible Deck source editor');
+		// Re-taps the Markdown source pane until the editor shows, and never taps the inert skeleton (show-editor.js, #2911).
+		const el = await latticeShowDeckEditor();
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) {
 			el.select();
@@ -81,16 +76,41 @@ async function latticeStudioProbe() {
 			document.execCommand('insertText', false, text);
 		}
 		if (narrow) {
-			const prev = await until(() => button('Preview'), 15000, 'the Preview button');
-			prev.click();
+			// Back to the Preview pane, and make sure the tap took: re-tap every 2 s until the button reads pressed. One tap,
+			// unchecked, is the pattern behind #2911's editor timeouts; an iPhone run then waited 60 s on a preview it never showed.
+			let tapped = 0;
+			await until(() => {
+				const prev = button('Preview');
+				if (prev?.getAttribute('aria-pressed') === 'true') return true;
+				if (prev && Date.now() - tapped > 2000) {
+					tapped = Date.now();
+					prev.click();
+				}
+				return false;
+			}, 30000, 'the Preview pane (its button pressed)');
 		}
+	};
+
+	/** What the preview holds, for a timeout's message: the frames, which one is `.live`, and what its document has. */
+	const previewState = () => {
+		const box = document.querySelector('[aria-label="Live deck preview"]');
+		const frames = [...(box?.querySelectorAll('iframe') ?? [])];
+		const doc = frameDoc();
+		return [
+			`preview box ${box ? 'present' : 'absent'}`,
+			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w]`).join(' ') || 'none'}`,
+			`live doc ${doc ? `${doc.readyState}, ${doc.querySelectorAll('section').length} sections, first heading "${doc.querySelector('h1, h2')?.textContent?.trim().slice(0, 40) ?? ''}"` : 'unreadable'}`,
+			`Preview pressed ${button('Preview')?.getAttribute('aria-pressed') ?? 'n/a'}`,
+		].join('; ');
 	};
 
 	const check = async (when) => {
 		const doc = await until(() => {
 			const d = frameDoc();
 			return d?.querySelector('.lattice section li span[title]') ? d : null;
-		}, 60000, `${when}: the payload slide in the preview frame`);
+		}, 60000, `${when}: the payload slide in the preview frame`).catch((e) => {
+			throw new Error(`${e.message} (${previewState()})`);
+		});
 		await until(() => doc.querySelector('.lattice section li .lat-run'), 15000, `${when}: the inline-run wrapper`);
 		step(`${when}: inline-run wrapped the item`, true);
 		const title = doc.querySelector('.lattice section li span[title]').getAttribute('title');
@@ -103,7 +123,9 @@ async function latticeStudioProbe() {
 	};
 
 	try {
-		await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor and its render metrics');
+		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
+		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
+		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		const paths = [];
 		window.__latticeRenderMetrics.on((s) => paths.push(String(s.writePath)));
 

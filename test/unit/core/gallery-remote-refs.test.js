@@ -1,8 +1,9 @@
 /**
  * A component package's sample slide may not fetch from the network (HARD RULE #22;
  * followups.d/2336-p3-packages-trio-followups.md item 2). `lib/cli/gallery-gate.js`
- * renders the gallery through the engine, parses the result with parse5 and hands every
- * element to `lib/core/remote-ref.js`.
+ * renders the gallery through the engine and reads the result with `lib/core/remote-ref.js`
+ * `remoteRefsInHtml` (Segno R4; the parse5 reader it replaced is held to it by
+ * gallery-html-differential.test.js).
  *
  * The FETCHES rows include every spelling the adversarial pass on this change found a
  * source-regex scan missing — each is a place where a regex disagreed with markdown-it, the

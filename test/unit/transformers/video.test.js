@@ -218,11 +218,14 @@ describe('video poster painting (runtime)', () => {
     const timers = [];
     win.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
     win.clearTimeout = (n) => { if (timers[n - 1]) timers[n - 1].fn = () => {}; };
-    const decodes = [];
+    const decodes = []; // one per probe: `res` fires its load, `rej` its error
     win.Image = class {
       set src(v) { this._src = v; this.complete = cached; if (cached) this.naturalWidth = 1280; }
       get src() { return this._src; }
-      decode() { return new Promise((res, rej) => decodes.push({ res, rej })); }
+      addEventListener(type, fn) {
+        if (type === 'load') decodes.push({ res: fn, rej: () => {} });
+        else if (type === 'error') decodes.at(-1).rej = fn;
+      }
     };
     const a = win.document.querySelector('a.video-poster');
     return { win, a, timers, decodes };

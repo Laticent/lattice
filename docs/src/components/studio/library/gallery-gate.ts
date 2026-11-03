@@ -1,13 +1,14 @@
 // Does a component package's sample slide (`gallery.md`) fetch anything from the network?
-// The Studio's half of the check; the CLI's is `lib/cli/gallery-gate.js`, and both hand
-// the parsed elements to the same `lib/core/remote-ref.js` scan (HARD RULE #22).
+// The Studio's half of the check; the CLI's is `lib/cli/gallery-gate.js`, and both read the
+// rendered markup with the same `lib/core/remote-ref.js` `remoteRefsInHtml` (HARD RULE #22).
 //
 // Insert makes a gallery the user's own deck content, so a remote image in it is a beacon in
 // every preview and every export. The gallery is RENDERED through the Studio's own engine and
-// parsed with `DOMParser` — an inert document: nothing in it loads, and no script runs —
-// because that is the markup the preview frame will load, after front matter, directives,
-// component transforms and both parsers have had their say. `remote-ref.js`'s header lists
-// the eleven source spellings a regex scan missed.
+// read by `scanHtml`, the reader the preview and every export already use, because that is the
+// markup the preview frame will load, after front matter, directives, component transforms and
+// markdown-it have had their say. Where the HTML tree builder could read it differently, the
+// gallery is refused (Segno R4). `remote-ref.js`'s header lists the eleven source spellings a
+// regex scan missed.
 //
 // Loaded by `import()` from the import gate, so the Studio's eager bundle carries none of it.
 
@@ -16,7 +17,7 @@ import { renderMarkdown } from '@/lib/render-engine';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-const { remoteRefsInElements, mermaidRemoteRefs, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
+const { remoteRefsInHtml, mermaidRemoteRefs, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
 // The Mermaid plugin's own fence matcher, asked through the host (its `fences` service). FAILS CLOSED: with the plugin not
 // here the gate cannot read the gallery's diagrams, so it refuses the gallery (2026-11-01-plugin-contract-hollywood.md §2a).
 type FenceService = (md: string) => { body: string }[];
@@ -40,17 +41,6 @@ async function engine() {
 	}
 }
 
-function* elements(root: ParentNode): Generator<{ tag: string; attrs: [string, string][]; text: string }> {
-	for (const el of root.querySelectorAll('*')) {
-		yield {
-			tag: el.localName.toLowerCase(),
-			attrs: [...el.attributes].map((a) => [a.name.toLowerCase(), a.value] as [string, string]),
-			text: el.localName === 'style' || el.localName === 'script' || /mermaid/i.test(el.getAttribute('class') || '') ? el.textContent || '' : '',
-		};
-		if (el instanceof HTMLTemplateElement) yield* elements(el.content);
-	}
-}
-
 /** The remote fetch targets in a gallery, rendered. Unique, in document order. */
 export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	// Line endings as the CLI reads a deck: a CRLF fence the fence walker would not match raw is
@@ -63,7 +53,6 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	// `warmDraw: false`: this render is read as markup and never shown, so it must not reopen a draw frame
 	// the preview closed (web-images.ts scans the same way).
 	const { html } = await renderMarkdown(pg, md, CHECK_THEME, { assetUrls: {}, warmDraw: false });
-	const doc = new DOMParser().parseFromString(html, 'text/html');
 	// A reference definition renders nothing where it is written, yet resolves an image in the
 	// deck the slide is inserted into, so every one is read too.
 	const defined = pg.referenceTargets(md).filter((t) => isRemoteUrl(t));
@@ -73,12 +62,12 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	const fenced = found ? found.flatMap((f) => mermaidRemoteRefs(f.body) as string[]) : [MERMAID_UNREADABLE];
 	// Read it twice: alone, and AS INSERTED. Insert splices the gallery after a slide and a
 	// `---`, so its front matter stops being front matter and renders.
-	const inserted = new DOMParser().parseFromString((await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME, { assetUrls: {}, warmDraw: false })).html, 'text/html');
+	const inserted = (await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME, { assetUrls: {}, warmDraw: false })).html;
 	const fm = frontMatterOf(md) as string | null;
 	return [
 		...new Set([
-			...(remoteRefsInElements(elements(doc)) as string[]),
-			...(remoteRefsInElements(elements(inserted)) as string[]),
+			...(remoteRefsInHtml(html) as string[]),
+			...(remoteRefsInHtml(inserted) as string[]),
 			...defined,
 			...fenced,
 			...(fm == null ? [] : (frontMatterRemoteRefs(fm) as string[])),

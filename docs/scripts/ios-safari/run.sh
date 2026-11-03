@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The `ios-safari-*` platform suites (.github/platform-suites.json): a probe in REAL Mobile
 # Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
-# preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
+# preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=export-photo exports a phone-photo PowerPoint there and reads it in the page (export-photo-probe.js); PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
 # simulators and then in the Mac's own Safari. Run from the repo root after `npm ci` and `npm run build` (the
@@ -31,8 +31,8 @@ case "$xcode" in
 esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
-if [ "$PROBE" = jpeg ]; then
-  # A blank page on an http origin is all the JPEG probe needs.
+if [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
+  # A blank page on an http origin is all the JPEG probe needs; the photo-memory probe serves its own pages.
   page="$RUNNER_TEMP/jpeg-probe-page"
   mkdir -p "$page"
   printf '<!doctype html><title>jpeg probe</title>\n' > "$page/index.html"
@@ -127,7 +127,13 @@ for family in $families; do
         # place, 20 s on, as run.mjs would have.
         if [ "$rc" = 3 ]; then
           echo "$family: one more session attempt in place"
-          sleep 20
+          # Relaunch Safari in the simulator first: a session that timed out (or a safaridriver that died) leaves Safari
+          # paired with it, and the next session is then refused with "The Safari instance is already paired with another
+          # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
+          xcrun simctl terminate "$udid" com.apple.mobilesafari || true
+          sleep 2
+          xcrun simctl launch "$udid" com.apple.mobilesafari || true
+          sleep 18
           if start_driver; then
             rc=0
             SESSION_ATTEMPTS=1 PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?

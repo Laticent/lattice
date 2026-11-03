@@ -105,6 +105,7 @@
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/studio-probe.js",
         "docs/scripts/ios-safari/panes-probe.js",
+        "docs/scripts/ios-safari/show-editor.js",
         "docs/scripts/ios-safari/seed-settings.js",
         "docs/src/playground/single-slide-render.ts",
         "lib/core/pane-css.js",
@@ -115,6 +116,22 @@
       ],
       "run": "bash docs/scripts/ios-safari/run.sh",
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device.",
+      "on_pull_request": false
+    },
+    {
+      "name": "ios-safari-photo-memory",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/src/lib/preview-image-scale.ts",
+        "lib/core/remote-ref.js"
+      ],
+      "run": "PROBE=photo-memory bash docs/scripts/ios-safari/run.sh",
+      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad and an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload.",
       "on_pull_request": false
     },
     {
@@ -142,6 +159,7 @@
         "docs/scripts/ios-safari/run.sh",
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/photo-probe.js",
+        "docs/scripts/ios-safari/show-editor.js",
         "docs/scripts/ios-safari/seed-settings.js",
         "docs/src/components/studio/coach/photo-contrast-watch.ts",
         "docs/src/components/studio/photo-verdict.ts",
@@ -154,6 +172,28 @@
       ],
       "run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device.",
+      "on_pull_request": false
+    },
+    {
+      "name": "ios-safari-export-photo",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/export-photo-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/export/*",
+        "docs/src/components/studio/download*.js",
+        "lib/core/slide-camera.mjs",
+        "lib/core/lanczos*",
+        "lib/core/image-aspect.js",
+        "lib/core/css-url.js",
+        "lib/transformers/image-adaptive.js"
+      ],
+      "run": "PROBE=export-photo bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, exports a PowerPoint of three 12-megapixel photos through the Studio's Share sheet and reads the file in the page: the photo is measured (a regex Safari gave up on left it unmeasured), every slide picture differs and none is blank (a WebKit export repeated and blanked pictures), and the pictures and the file stay under the photo-size gate's ceilings (engineering/decisions/2026-11-03-pictures-at-drawn-size.md). Playwright's WebKit on Linux runs the same check nightly; this is the iOS half. A simulator runs on the Mac's hardware, so it is not a physical device.",
       "on_pull_request": false
     },
     {
