@@ -7,8 +7,9 @@ summary: >
   the SOURCE through the spine and warns; the renderer reads its OUTPUT through the spine and blocks.
   Neither calls the other or reads the other's results; they agree because they ask the same questions
   of the same facts. A build:check census rule keeps private readers and private copies of the table
-  out. D1, D2 and D4 answered by the owner 2026-11-03; D3 is re-asked under this model; D5 (lint-core
-  bytes) is open.
+  out. D1 to D5 answered by the owner 2026-11-03: lint reads source, warnings only, the sanitizer's
+  lists join the table, the census rule goes in, and the table and Markdown rules ship first with room
+  to raise the lint-core budget for the HTML and CSS rules.
 ---
 
 # One security spine: the linter warns, the renderer blocks, and neither depends on the other
@@ -153,29 +154,23 @@ It checks, offline, that the two consumers reach the same verdict from the same 
 
 ## Decisions for the owner
 
-Answered by the owner on 2026-11-03:
+All answered by the owner on 2026-11-03.
 
 - **D1. Where lint reads. Answered: the source.** "Linting works on sources."
 - **D2. Severity. Answered: a warning, never a block.** The renderer blocks; the linter explains.
 - **D4. The census rule. Answered: yes.** Under this model it also catches a private copy of a policy
   list, not only a private reader.
 
-Re-asked, because the model changed under it:
-
-- **D3. The sanitizers' strip list.** It was asked as "should the sanitizers report what they remove?".
-  Under this model the renderer reports to no one, so the question becomes: *should the sanitizer's
-  lists (stripped tags, stripped attributes, event handlers, script in styles) move into the shared
-  table, so the linter can warn on them?* *Recommended: yes.* Without it, the linter warns about web
-  addresses but not about a stripped `onerror=`, which is the case most likely to confuse an author.
-
-Open:
-
-- **D5. The lint-core byte budget for S2.** The HTML and CSS readers are about 8.9 KB gzipped bundled
-  alone, against 0.8 KB of headroom. *Recommended:* ship S0 and S1 first (no new bytes), then in S2
-  measure the real cost in the Studio build and raise the `lintCoreGz` ceiling by that amount, declared
-  in `docs/route-budget.d/`. *Alternative:* hold S2 until the deck pipeline's model brings those readers
-  into lint-core anyway. Loading them lazily is not offered: it would break lint-core's "synchronous,
-  shared by CLI, `validate()` and browser" contract (HARD RULE #7).
+- **D3. The sanitizer's lists move into the shared table. Answered: yes.** Asked first as "should the
+  sanitizers report what they remove?", and re-asked when the model changed: the renderer reports to no
+  one, so the question became whether the stripped tags, stripped attributes, event handlers and style
+  tests move into `content-policy.js`, so the linter can warn on them. They do.
+- **D5. Order and bytes. Answered: the table and the Markdown rules first, and the budget may rise.**
+  S0 (the table) and S1 (Markdown-address warnings, no new bytes) ship first. S2 (the HTML and CSS rules)
+  follows, and the owner is comfortable raising the `lintCoreGz` ceiling to make room. S2 measures the
+  real cost in the Studio build and raises the ceiling by that measured amount, declared in
+  `docs/route-budget.d/`. Loading the readers lazily stays off the table: it would break lint-core's
+  "synchronous, shared by CLI, `validate()` and browser" contract (HARD RULE #7).
 
 ## Not decided here
 
