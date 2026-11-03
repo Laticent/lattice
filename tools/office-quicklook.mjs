@@ -14,10 +14,12 @@
  *   report.json                     what was rendered, and anything that failed
  *
  * VARIANTS rewrite the exported file's slide XML to compare ways of writing the same slide, so one run judges them all:
- *   as-exported   the file as Calco writes it
- *   ungrouped     every icon shape (a custom-geometry outline) moved out of its group to the slide's top level
- *   own-group     every grouped icon wrapped in a group of its own, inside its card's group
- * All three draw the same pixels in LibreOffice; only an importer that reads groups differently tells them apart.
+ *   as-exported   the file as Calco writes it (a mark, `Mark n.i`, is written just after its card's group)
+ *   ungrouped     every custom-geometry shape still inside a group moved after its outermost group (tabs, rules)
+ *   regrouped     each mark Calco wrote after a group put back inside it, as Calco wrote it before 8a75123
+ *   regrouped-normpath regrouped, with each custom path drawn in a 21600-unit space instead of the shape's EMU size
+ * They draw the same pixels in LibreOffice; only an importer that reads groups differently tells them apart.
+ * `--custgeom-only` renders just the slides that hold custom geometry (for a big deck such as the gallery).
  *
  * Usage (macOS):  node tools/office-quicklook.mjs [deck.md ...]      default: examples/inline-icons.md
  * Elsewhere it still exports and cuts the files (so the XML rewrite is testable) and skips the render, saying so.
@@ -31,7 +33,10 @@ const require = createRequire(import.meta.url);
 const JSZip = require('jszip');
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OUT = path.join(ROOT, 'platform-suite-artifacts', 'office-quicklook');
-const decks = process.argv.slice(2).length ? process.argv.slice(2) : ['examples/inline-icons.md'];
+const args = process.argv.slice(2);
+const custgeomOnly = args.includes('--custgeom-only');
+const deckArgs = args.filter((a) => !a.startsWith('--'));
+const decks = deckArgs.length ? deckArgs : ['examples/inline-icons.md'];
 const onMac = process.platform === 'darwin';
 const report = { platform: process.platform, rendered: [], failed: [], skipped: onMac ? null : 'not macOS: qlmanage is not here' };
 
@@ -70,24 +75,30 @@ function ungroup(xml) {
 	return out + xml.slice(i);
 }
 
-/** Every grouped icon in a group of its own (its child space equal to its frame). */
-function ownGroup(xml) {
-	let depth = 0;
-	return xml.replace(/<p:grpSp>|<\/p:grpSp>|<p:sp>(?:(?!<\/p:sp>)[\s\S])*?<\/p:sp>/g, (tok) => {
-		if (tok === '<p:grpSp>') depth++;
-		else if (tok === '</p:grpSp>') depth--;
-		else if (depth > 0 && tok.includes('<a:custGeom>')) {
-			const off = tok.match(/<a:off x="(-?\d+)" y="(-?\d+)"\s*\/>/);
-			const ext = tok.match(/<a:ext cx="(\d+)" cy="(\d+)"\s*\/>/);
-			if (!off || !ext) return tok;
-			const xf = `<a:xfrm><a:off x="${off[1]}" y="${off[2]}"/><a:ext cx="${ext[1]}" cy="${ext[2]}"/><a:chOff x="${off[1]}" y="${off[2]}"/><a:chExt cx="${ext[1]}" cy="${ext[2]}"/></a:xfrm>`;
-			return `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="0" name="Icon group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr>${xf}</p:grpSpPr>${tok}</p:grpSp>`;
-		}
-		return tok;
+/** Each mark written right after a group (`</p:grpSp>` then a `Mark n.i` shape) put back as the group's last member. */
+function regroup(xml) {
+	const mark = /<\/p:grpSp>((?:<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="[^"]*Mark \d+\.\d+"(?:(?!<\/p:sp>)[\s\S])*?<\/p:sp>)+)/g;
+	let prev;
+	let out = xml;
+	do {
+		prev = out;
+		out = out.replace(mark, (_, marks) => `${marks}</p:grpSp>`);
+	} while (out !== prev);
+	return out;
+}
+
+/** Every custom path redrawn in a 21600 x 21600 space (the units Office's own presets use), scaled to match. */
+function normPath(xml) {
+	return regroup(xml).replace(/<a:path w="(\d+)" h="(\d+)"([^>]*)>([\s\S]*?)<\/a:path>/g, (m, w, h, rest, body) => {
+		const sx = 21600 / Number(w);
+		const sy = 21600 / Number(h);
+		if (!Number.isFinite(sx) || !Number.isFinite(sy)) return m;
+		const pts = body.replace(/<a:pt x="(-?\d+)" y="(-?\d+)"\s*\/>/g, (_, x, y) => `<a:pt x="${Math.round(Number(x) * sx)}" y="${Math.round(Number(y) * sy)}"/>`);
+		return `<a:path w="21600" h="21600"${rest}>${pts}</a:path>`;
 	});
 }
 
-const VARIANTS = { 'as-exported': (x) => x, ungrouped: ungroup, 'own-group': ownGroup };
+const VARIANTS = { 'as-exported': (x) => x, ungrouped: ungroup, regrouped: regroup, 'regrouped-normpath': normPath };
 
 /** Unique shape ids again after `own-group` adds groups with id 0. */
 function renumber(xml) {
@@ -124,6 +135,7 @@ for (const deck of decks) {
 		fs.mkdirSync(dir, { recursive: true });
 		fs.writeFileSync(path.join(dir, `${name}.pptx`), await zip.generateAsync({ type: 'nodebuffer' }));
 		for (const n of slides) {
+			if (custgeomOnly && !(await original.file(`ppt/slides/slide${n}.xml`).async('string')).includes('<a:custGeom>')) continue;
 			const file = path.join(dir, `slide-${String(n).padStart(2, '0')}.pptx`);
 			const buf = await oneSlide(zip, n);
 			if (!buf) {
