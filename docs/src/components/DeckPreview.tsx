@@ -305,7 +305,9 @@ export function DeckPreview({
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
 	// The FIRST render's arguments, held so a StrictMode remount can rebuild the renderer from
 	// inside an effect (see `runRenderRef`) without reading a later render's `options`.
-	const makeEngineRef = React.useRef(() => createSingleSlideRenderer(specimen || chromeless || liveLayout ? { ...options, ...(specimen ? { specimen: true } : {}), ...(chromeless ? { chromeless: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) } : options));
+	// `scaleImages`: this host re-renders on `lattice:preview-images-ready` (the effect below), so it
+	// may show preview-sized photo copies (./lib/preview-image-scale.ts).
+	const makeEngineRef = React.useRef(() => createSingleSlideRenderer({ ...options, scaleImages: true, ...(specimen ? { specimen: true } : {}), ...(chromeless ? { chromeless: true } : {}), ...(liveLayout ? { liveLayout: true } : {}) }));
 	if (engineRef.current === null) engineRef.current = makeEngineRef.current();
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
@@ -867,6 +869,16 @@ export function DeckPreview({
 		const rerender = () => schedulerRef.current?.schedule();
 		window.addEventListener('lattice:plugin-defaults', rerender);
 		return () => window.removeEventListener('lattice:plugin-defaults', rerender);
+	}, []);
+
+	// A preview-sized copy of a photo this host is showing the Underpainting for has landed
+	// (lib/preview-image-scale.ts): re-render, through the scheduler like every other trigger.
+	React.useEffect(() => {
+		const host = stageRef.current;
+		if (!host) return;
+		const onReady = () => schedulerRef.current?.schedule();
+		host.addEventListener('lattice:preview-images-ready', onReady);
+		return () => host.removeEventListener('lattice:preview-images-ready', onReady);
 	}, []);
 
 	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab).

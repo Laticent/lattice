@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -456,6 +456,79 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		// its frames would pass every count assertion above and fix nothing at all.
 		expect(unmounts, `${unmounts} frames were torn down; a pooled frame must outlive the tile it shows`).toBe(0);
 		expect(mounts, `the pool mounted ${mounts - mountedOnce} extra frames instead of re-pointing`).toBe(mountedOnce);
+		unmount();
+	});
+
+	// A free slot is hidden, but its document still holds the last slide it showed — photos
+	// included, ~48MB decoded per 12MP photo. A kept-mounted surface that closes frees every slot,
+	// so the pool PARKS a slot that stays free: a blank slide into the SAME frame.
+	it('parks a slot that stays free on a blank slide, in the same frame, and wakes it on reuse', () => {
+		const { container, unmount } = render(<Grid n={4} />);
+		for (let i = 0; i < 2; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		expect(showing(container).sort()).toEqual(['# 0', '# 1']);
+		const mounted = mounts;
+		// The surface closes: every tile leaves the band.
+		for (let i = 0; i < 2; i++) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
+		settle(RELEASE_GRACE + APPLY_MS + 40);
+		expect(showing(container).sort(), 'parked before PARK_MS: a scroll that comes back would pay a re-point').toEqual(['# 0', '# 1']);
+		settle(PARK_MS + 100);
+		expect(showing(container), 'a free slot still holds its last slide').toEqual([' ', ' ']);
+		expect(unmounts, 'parking tore a frame down').toBe(0);
+		expect(mounts).toBe(mounted);
+		expect(reshapes, 'parking changed the frame shape: a full srcdoc write').toBe(0);
+		// Reopened: the same frames show the tiles again.
+		onScreen(face(container, 3));
+		intersect(face(container, 3), true);
+		settle();
+		expect(showing(container)).toContain('# 3');
+		expect(mounts).toBe(mounted);
+		unmount();
+	});
+
+	it('parks a free slot on time even while passes keep running (a scrolling grid)', () => {
+		const { container, unmount } = render(<Grid n={6} />);
+		for (let i = 0; i < 2; i++) {
+			onScreen(face(container, i));
+			intersect(face(container, i), true);
+		}
+		settle();
+		for (let i = 0; i < 2; i++) {
+			offScreen(face(container, i));
+			intersect(face(container, i), false);
+		}
+		settle(RELEASE_GRACE + APPLY_MS + 40);
+		// Other tiles keep coming and going faster than PARK_MS: each one runs a pass. The timer used to be
+		// re-armed at now + PARK_MS by every pass, so the free slots were never parked.
+		const steps = Math.ceil((PARK_MS * 2) / 1000);
+		for (let k = 0; k < steps; k++) {
+			const t = face(container, 2);
+			onScreen(t);
+			intersect(t, k % 2 === 0);
+			settle(1000);
+		}
+		expect(showing(container).filter((x) => x === ' ').length, 'a free slot was never parked').toBeGreaterThan(0);
+		unmount();
+	});
+
+	it('does not park a slot whose tile comes back inside PARK_MS', () => {
+		const { container, unmount } = render(<Grid n={2} />);
+		onScreen(face(container, 0));
+		intersect(face(container, 0), true);
+		settle();
+		offScreen(face(container, 0));
+		intersect(face(container, 0), false);
+		settle(RELEASE_GRACE + APPLY_MS + 40);
+		onScreen(face(container, 0));
+		intersect(face(container, 0), true);
+		settle(PARK_MS + 100);
+		expect(showing(container)).toEqual(['# 0']);
 		unmount();
 	});
 

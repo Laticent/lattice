@@ -31,8 +31,8 @@ case "$xcode" in
 esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
-if [ "$PROBE" = jpeg ]; then
-  # A blank page on an http origin is all the JPEG probe needs.
+if [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
+  # A blank page on an http origin is all the JPEG probe needs; the photo-memory probe serves its own pages.
   page="$RUNNER_TEMP/jpeg-probe-page"
   mkdir -p "$page"
   printf '<!doctype html><title>jpeg probe</title>\n' > "$page/index.html"

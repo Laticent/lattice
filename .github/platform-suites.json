@@ -118,6 +118,22 @@
       "on_pull_request": false
     },
     {
+      "name": "ios-safari-photo-memory",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/photo-memory.mjs",
+        "docs/src/lib/preview-image-scale.ts",
+        "lib/core/remote-ref.js"
+      ],
+      "run": "PROBE=photo-memory bash docs/scripts/ios-safari/run.sh",
+      "why": "Measures what ten 12MP photos cost real Mobile Safari, in an iPad and an iPhone iOS Simulator, shown by their own addresses and through the Studio's preview-sized copies (docs/src/lib/preview-image-scale.ts, #2998): the physical footprint of the simulator's WebKit processes, read on the Mac with vmmap. It fails when the originals cost under 60 MB (the reader is not reading Safari) or the copies cost more than 60% of them; CI has read 86 to 117 MB against 17 to 34 MB. It was part of ios-safari-studio until it took that job to 27.6 of its 30 minutes. A simulator has no memory limit, so it shows the cost, not the tab reload.",
+      "on_pull_request": false
+    },
+    {
       "name": "ios-safari-undo",
       "os": [
         "macos-latest"
