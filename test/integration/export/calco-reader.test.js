@@ -205,6 +205,10 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .rtlgap i, .justgap i, .indentgap i { display: inline-block; width: 30px; }
   .justgap { left: 460px; top: 400px; width: 260px; font-size: 16px; text-align: justify; }
   .indentgap { left: 760px; top: 400px; width: 300px; font-size: 16px; text-indent: 40px; }
+  .hicon { left: 40px; top: 600px; font-size: 20px; }
+  .calm { left: 460px; top: 560px; width: 400px; font-size: 16px; line-height: 24px; }
+  .emsp { left: 900px; top: 600px; font-size: 16px; }
+  .hicon i, .calm i { display: inline-block; width: 30px; height: 16px; }
   .rpill::after { content: ""; display: inline-block; width: 30px; height: 12px; background: #600; }
 </style></head><body>
 <section id="r">
@@ -231,6 +235,9 @@ third</pre>
   <p class="justgap">Justified words spread across the line so each gap is wide and wider still here at the end.</p>
   <p class="indentgap">An indented first line starts late, and the lines after it start at the column edge.</p>
   <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
+  <h2 class="hicon">Our <i></i> storage costs fell</h2>
+  <p class="calm">alpha one<br>beta two<br>gamma <i></i> three<br>delta four</p>
+  <p class="emsp">Price:&emsp;&emsp;$40 per seat</p>
 </section></body></html>`;
 
 describe('calco reader: the review cases', () => {
@@ -286,6 +293,27 @@ describe('calco reader: the review cases', () => {
       assert.ok(f, `${first} was read`);
       assert.ok(plain(f).includes(last), `${first} split: its box holds ${JSON.stringify(plain(f))}`);
     }
+  });
+
+  // The red team's three regressions of the split (PR 2992): a heading is never split, so the title placeholder holds the
+  // whole heading; only the line something takes room in is cut, so the lines around it stay one box; and spaces alone
+  // (an em space, non-breaking spaces) are never room, so a paragraph with no icon stays whole.
+  test('a heading with an icon stays one box: the title holds the whole heading', () => {
+    const h = find(/^Our/);
+    assert.ok(h && plain(h).includes('storage costs fell'), `the heading split: ${JSON.stringify(h && plain(h))}`);
+  });
+
+  test('only the line an icon takes room in is cut; the lines before it stay one box', () => {
+    const calm = find(/^alpha one/);
+    assert.ok(calm && plain(calm).includes('beta two'), `the calm lines split apart: ${JSON.stringify(calm && plain(calm))}`);
+    const g = find(/^gamma/);
+    assert.ok(g && !plain(g).includes('three'), 'the line with the icon is cut at it');
+    assert.ok(find(/^delta four$/), 'the line after it is its own box');
+  });
+
+  test('spaces alone are not room: a paragraph held by em spaces stays one box', () => {
+    const p = find(/^Price:/);
+    assert.ok(p && plain(p).includes('$40 per seat'), `split at spaces: ${JSON.stringify(p && plain(p))}`);
   });
 
   test('a heading whose glyph box overhangs a clipping stage is still read', () => {

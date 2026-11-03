@@ -994,6 +994,10 @@ const EDITABLE = !!flags.editable && (OUT_FORMAT === 'odp' || OUT_FORMAT === 'pp
 if (flags.editable && !EDITABLE) {
   console.warn(`  ⚠ --editable applies only to .odp and .pptx output — ignoring.`);
 }
+// --no-icon-shapes decides how an EDITABLE office file draws its icons; anywhere else it would change nothing, silently.
+if (flags['no-icon-shapes'] && !EDITABLE) {
+  console.warn(`  ⚠ --no-icon-shapes applies only with --editable to .odp or .pptx — ignoring.`);
+}
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
 // instead of the default slide-sized MediaBox, keeping the PDF VECTOR (selectable text).

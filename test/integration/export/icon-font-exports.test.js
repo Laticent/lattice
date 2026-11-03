@@ -277,6 +277,18 @@ describe('icon-font-exports', () => {
 		assert.ok(Object.keys(odp.files).some((n) => /^Fonts\//.test(n)), 'the ODP embeds its faces');
 	});
 
+	test('an icon\'s label travels as its shape\'s description, in the .pptx and the .odp', async () => {
+		const body = ['## Labels', '', 'Hosts `^{server, label="Primary & backup DB"}` here.', ''];
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('label', [], 'label.pptx', ['--editable'], body)));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		const mark = slide.match(/<p:cNvPr id="\d+" name="[^"]*Mark [^"]*"[^>]*>/);
+		assert.ok(mark, 'the icon is a shape');
+		assert.match(mark[0], /descr="Primary &amp; backup DB"/, `no description: ${mark[0]}`);
+		assert.doesNotMatch(slide, /calco-descr-/, 'the tag is gone from the name');
+		const odp = await JSZip.loadAsync(fs.readFileSync(render('label', [], 'label.odp', ['--editable'], body)));
+		assert.match(await odp.file('content.xml').async('string'), /<svg:desc>Primary &amp; backup DB<\/svg:desc>/);
+	});
+
 	test('`--no-icon-shapes` under `icon: svg` still gives shapes: the page shows the drawing, not the glyph', async () => {
 		const pptx = await JSZip.loadAsync(fs.readFileSync(render('svg-noshapes', ['icon: svg'], 'svg.pptx', ['--editable', '--no-icon-shapes'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');

@@ -306,7 +306,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			return `<draw:rect draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}${radius}>${text}</draw:rect>`;
 		}
 		return (
-			`<draw:custom-shape draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}>${text}` +
+			`<draw:custom-shape draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}>${shape.alt && !label ? `<svg:desc>${xmlEscape(shape.alt)}</svg:desc>` : ''}${text}` +
 			`<draw:enhanced-geometry svg:viewBox="0 0 ${Math.round(geom.w * 100)} ${Math.round(geom.h * 100)}" draw:type="non-primitive" draw:enhanced-path="${pathOf(geom)}"/></draw:custom-shape>`
 		);
 	};

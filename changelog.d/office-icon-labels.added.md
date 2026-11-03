@@ -1,0 +1,1 @@
+- In an editable PowerPoint or ODP, an icon's name (its `label=`, or the icon's own) is now the icon shape's description, so PowerPoint's Alt Text and a screen reader name it.

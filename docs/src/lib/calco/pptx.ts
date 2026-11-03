@@ -68,6 +68,8 @@ const gradTag = (g: Gradient | undefined) => (g ? `${GRAD_TAG}${g.angle}~${g.sto
 const LOCK_TAG = 'calco-lock|';
 /** A picture that also has an SVG (`Shape.svg`): `calco-svg-<index into the deck's list>|`, read and removed by `addSvgPictures`. */
 const SVG_TAG = 'calco-svg-';
+/** A shape's description (alt text), URI-encoded into its name: PptxGenJS writes `descr` for pictures only. */
+const DESCR_TAG = 'calco-descr-';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
 const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
 /** The layout's title placeholder: PptxGenJS numbers a layout's first placeholder 100. */
@@ -322,7 +324,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				}
 				const geom = shapeGeometry(item.shape);
 				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
-				const name = `${tag}${subTag(item.shape.sub)}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${gradTag(item.shape.gradient)}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
+				const name = `${tag}${subTag(item.shape.sub)}${item.shape.alt && !item.label ? `${DESCR_TAG}${encodeURIComponent(item.shape.alt)}|` : ''}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${gradTag(item.shape.gradient)}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
 					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
@@ -717,7 +719,7 @@ function replaceSelfClosing(xml: string, tag: string, replacement: string): stri
 }
 
 export function applyRoles(xml: string): string {
-	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes('hasCustomPrompt')) return xml;
+	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes(DESCR_TAG) && !xml.includes('hasCustomPrompt')) return xml;
 	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
 	// object nobody means to drag, and the first one a stray touch grabs.
 	xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) =>
@@ -730,6 +732,9 @@ export function applyRoles(xml: string): string {
 		if (sp.includes('hasCustomPrompt="1"') && sp.includes('<a:endParaRPr') && !sp.includes('<a:t>')) return '';
 		// A gradient fill: PptxGenJS writes a flat color only, so the name carries the gradient.
 		if (sp.includes(GRAD_TAG)) sp = withGradient(sp);
+		// A shape's description: out of the name and into `descr`, where PowerPoint's Alt Text and a screen reader find it.
+		const d = sp.match(/(<p:cNvPr id="\d+" name=")([^"]*?)calco-descr-([^|"]*)\|([^"]*)"/);
+		if (d) sp = sp.replace(d[0], `${d[1]}${d[2]}${d[4]}" descr="${xmlSafe(decodeURIComponent(d[3])).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}"`);
 		// A path's stroke ends and corners: PptxGenJS cannot write them, so the name carries a marker.
 		if (sp.includes(ROUND_TAG)) {
 			return sp

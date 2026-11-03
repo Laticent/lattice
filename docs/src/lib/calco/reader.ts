@@ -910,26 +910,58 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// A gap counts as room when it is wider than its space by more than 0.6 em: an icon is about 1.2 em, the padding
 		// of an inline code chip about 0.3 em (that one keeps its spacer, and the sentence stays one box).
 		const ROOM_EM = 0.6;
+		// Room is taken only by something DRAWN in the line: a picture or drawing, an inline box (an icon, a pill, a
+		// spark), or an inline run with a painted background. A run of spaces (an em space, non-breaking spaces holding a
+		// column) is the paragraph's own text and keeps its spacer, so a deck with no icon is never split.
+		const drawn: Array<{ x: number; y: number; w: number; h: number }> = [];
+		for (const el of Array.from(block.querySelectorAll('*'))) {
+			const tag = String(el.localName).toLowerCase();
+			const ecs = win.getComputedStyle(el);
+			const painted = ecs.display === 'inline' && ((ecs.backgroundImage && ecs.backgroundImage !== 'none') || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(ecs.backgroundColor));
+			if (!['img', 'svg', 'canvas', 'video', 'picture'].includes(tag) && !/^inline-(block|flex|grid|table)$/.test(ecs.display) && !painted) continue;
+			for (const r of Array.from(el.getClientRects())) if (r.width > 0 && r.height > 0) drawn.push({ x: (r.left - origin.left) / scale, y: (r.top - origin.top) / scale, w: r.width / scale, h: r.height / scale });
+		}
+		const drawnIn = (x0: number, x1: number, wd: Word) => drawn.some((r) => r.x < x1 - 0.5 && r.x + r.w > x0 + 0.5 && r.y < wd.y + wd.h && r.y + r.h > wd.y);
 		const roomBefore = (line: Word[], i: number) => {
 			const before = line[i - 1];
 			const word = line[i];
 			const from = word.leadFromPrev ? before.style : word.style;
 			const expected = word.lead ? advance(' ', from) : 0;
 			const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
-			return gap - expected > ROOM_EM * word.style.size;
+			return gap - expected > ROOM_EM * word.style.size && drawnIn(before.x + before.w, word.x, word);
 		};
 		// The first line's own indent is not room something took.
 		const indent = Number.parseFloat(bcs.textIndent) || 0;
-		const roomAhead = (line: Word[]) => align === 'left' && line.length > 0 && line[0].x - x - (line === lines[0] ? indent : 0) > ROOM_EM * line[0].style.size;
+		const roomAhead = (line: Word[]) => align === 'left' && line.length > 0 && line[0].x - x - (line === lines[0] ? indent : 0) > ROOM_EM * line[0].style.size && drawnIn(x, line[0].x, line[0]);
+		const hasRoom = (line: Word[]) => roomAhead(line) || line.some((_w, i) => i > 0 && roomBefore(line, i));
 		// Not split, and held by the spacer as before: right-to-left text, and a line that mixes directions (its words stop
 		// running left to right, so a "gap" is reordering, not room); justified text and extra word-spacing, whose wide spaces
 		// are the paragraph's own; and math, whose gaps are its layout (splitting it cut an equation into pieces).
 		const mixed = lines.some((l) => l.some((wd, i) => i > 0 && wd.x < l[i - 1].x));
 		const spaced = /justify/.test(bcs.textAlign) || (Number.parseFloat(bcs.wordSpacing) || 0) > 0;
 		const math = words.some((wd) => !!wd.node.parentElement?.closest('math, .katex, mjx-container'));
-		const splittable = !preformatted && !rtl && !mixed && !spaced && !math;
-		if (splittable && lines.some((l) => roomAhead(l) || l.some((_w, i) => i > 0 && roomBefore(l, i)))) {
+		// A heading is never split: it is the slide's title (or an outline entry) as ONE object, which PowerPoint's outline,
+		// navigation and a screen reader read whole. Its icon keeps the spacer.
+		const heading = !!block.closest('h1, h2, h3, h4, h5, h6');
+		const splittable = !preformatted && !rtl && !mixed && !spaced && !math && !heading;
+		if (splittable && lines.some(hasRoom)) {
+			// Only a line something took room in is cut into pieces; the lines around it stay one box together.
+			let calm: Word[][] = [];
+			const flushCalm = () => {
+				if (!calm.length) return;
+				const top = minOf(calm[0].map((wd) => wd.y));
+				const bot = maxOf(calm[calm.length - 1].map((wd) => wd.y + wd.h));
+				if (frameBlocks.includes(block)) splitFrames.add(frames.length);
+				frameBlocks.push(block);
+				frames.push({ x, y: top, w, h: bot - top, firstLineHeight: maxOf(calm[0].map((wd) => wd.h)), lineHeight, align, lines: calm.map((l) => runsOf(l, x, align)) });
+				calm = [];
+			};
 			for (const line of lines) {
+				if (!hasRoom(line)) {
+					calm.push(line);
+					continue;
+				}
+				flushCalm();
 				let seg: Word[] = [];
 				const flush = (next?: Word) => {
 					if (!seg.length) return;
@@ -951,6 +983,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				});
 				flush();
 			}
+			flushCalm();
 			continue;
 		}
 		frameBlocks.push(block);
@@ -2016,6 +2049,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const shape: Shape = { ...base, stroke: { ...color, width: round(units * scale) } };
 			if (first.strokeLinecap === 'round' || first.strokeLinecap === 'square') shape.cap = first.strokeLinecap;
 			if (first.strokeLinejoin === 'round' || first.strokeLinejoin === 'bevel') shape.join = first.strokeLinejoin;
+			// The icon's name (its `label=`, or the icon's own) rides along as the shape's description: the <svg> is
+			// aria-hidden, and the span around it is the image a screen reader announces.
+			const label = (svg.closest('[role="img"]')?.getAttribute('aria-label') || '').trim();
+			if (label) shape.alt = label;
 			return shape;
 		};
 		// A pseudo-element as a candidate: a plain box, or a mark. Null keeps it in the picture.
