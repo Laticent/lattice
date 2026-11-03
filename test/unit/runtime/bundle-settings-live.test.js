@@ -86,3 +86,32 @@ test('VS Code preview: a class typed at the TOP lands once saved, and leaves aga
   assert.ok(w.document.querySelectorAll('section')[3].classList.contains('content'));
   closeQuietly(w);
 });
+
+// A host may patch a slide IN PLACE (VS Code's preview diffs the new HTML onto the old elements), so
+// the same <section> can carry a deck token the runtime stamped and, after the author's edit, the same
+// token as the slide's own `_class`. The runtime must then never take the author's token back.
+// (Found by the maker-checker pass: the provenance records outlived the patch.)
+test('VS Code preview: a token the slide wrote itself survives the deck dropping the same token', { skip }, async () => {
+  let saved = '---\nmarp: true\nclass: no-progress\n---\n# T\n';
+  const fetchImpl = async () => ({ ok: true, text: async () => saved });
+  const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
+    + '<meta id="vscode-markdown-preview-data" data-settings="{}">';
+  const w = await boot(`<article class="lattice">${slides(block('split: rule'))}</article>`, { head, fetchImpl });
+  await new Promise((r) => setTimeout(r, 300));
+  const plain = w.document.querySelectorAll('section')[2];
+  assert.ok(plain.classList.contains('no-progress'), 'the deck stamped it');
+  // The author adds `<!-- _class: no-progress -->` to this slide; the host patches the element in
+  // place — morphdom sets its attributes to the new HTML's, which carry only the author's class — and
+  // writes a fresh settings block.
+  for (const a of [...plain.attributes]) plain.removeAttribute(a.name);
+  plain.setAttribute('class', 'no-progress');
+  w.document.querySelector('section').insertAdjacentHTML('afterbegin', block('split: rule'));
+  await new Promise((r) => setTimeout(r, 500));
+  // Then removes `class:` from the top and saves.
+  saved = '---\nmarp: true\n---\n# T\n';
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(plain.classList.contains('no-progress'), 'the slide\'s own token is kept');
+  assert.equal(plain.querySelector('.tile-progress'), null, 'and the slide still opts out of the rail');
+  assert.ok(w.document.querySelectorAll('section')[3].querySelector('.tile-progress'), 'while a slide that relied on the deck gets it back');
+  closeQuietly(w);
+});

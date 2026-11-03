@@ -235,7 +235,13 @@ describe('deck front matter — the export bundle carries it', () => {
   test('folding the bundle back gives Lattice the deck it exported, at the same line numbers', () => {
     const out = withRuntimeScripts(DECK);
     const folded = foldSettingsBlock(out);
-    assert.equal(readFrontMatterBlock(folded), 'marp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg');
+    const fm = readFrontMatterBlock(folded);
+    for (const k of ['marp: true', 'theme: indaco', 'paginate: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
+      assert.match(fm, new RegExp(`^${k}$`, 'm'), k);
+      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k), `${k} keeps its line`);
+    }
     assert.equal(folded.split('\n').indexOf('# A'), out.split('\n').indexOf('# A'), 'the first slide keeps its line');
+    assert.equal(foldSettingsBlock(out, { keepLines: false }).split('\n').slice(0, 7).join('\n'),
+      '---\nmarp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
   });
 });

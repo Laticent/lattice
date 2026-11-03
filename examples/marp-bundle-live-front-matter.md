@@ -43,7 +43,7 @@ _A deck class reaches every slide that names no class of its own._
 - Before
   - Marp let a slide's `_class` drop the deck class, bringing the rail back.
 - Now
-  - The slide's classes add to the deck's. The rail stays off, as on every other slide.
+  - The slide's classes add to the deck's, so the rail stays off here too.
 
 ---
 

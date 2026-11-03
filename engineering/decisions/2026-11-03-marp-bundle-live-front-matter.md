@@ -87,8 +87,11 @@ So: the deck **body** is the only channel every host renders live from the open 
 5. **The rail reconciles** instead of only injecting, so a class that lands after first paint takes
    the rail with it (and back).
 6. **Back into Lattice:** `foldSettingsBlock` at the engine's three doors (render, geometry,
-   paneOrientations) and first thing on re-export, keeping every later line on its number so editor
-   line mapping does not shift. Re-export is byte-identical.
+   paneOrientations), in lint (`lintTextWith`, and `fixLineIndex` for fixes), and first thing on
+   re-export. The fold keeps EVERY line on its number, front matter included: the seam becomes YAML
+   comments and `</script>` the closing fence, and a key the top shares with the block is commented
+   out at the top. So a lint finding on a block key, and the fix that edits it by line, land where
+   the author sees it. Re-export uses the compact merged form and is byte-identical.
 
 ## Verified
 
@@ -104,6 +107,18 @@ patch of the preview. All four had TWO preview frames: VS Code restored a stale 
 `User/globalStorage/storage.json`, and the probe read it. Clearing that file gave one frame and 3/3
 correct runs. Count the frames before believing a VS Code result.
 
+## What the maker-checker pass found, and what changed
+
+An independent checker reviewed the diff and confirmed five defects; all are fixed in this change:
+
+| finding | fix |
+|---|---|
+| The in-browser exporter's test sliced from the old trailer marker, so it went red and its second half passed vacuously | repointed at the settings block, with the block's presence asserted first |
+| Runtime provenance lived in a side table, so a host that patched a slide IN PLACE could leave a record naming a token the slide now wrote itself; a later restamp removed the author's token | the record lives ON the slide (`data-lattice-deck-tokens`), so the host's attribute rewrite erases it with the class list it describes. Clearing the whole table on re-render was tried first and failed the other way: slides the host did not touch could never lose their stamped token |
+| A column-0 comment inside a nested map split the map across the top and the block, breaking Marp's YAML | blank and comment lines wait for the next real line; indented ⇒ still inside the key |
+| `class: >-` leaked `>-` as a class token; `'a#b'` lost its `#b` | the token reader follows YAML's comment and block-scalar rules |
+| Lint never saw a bundle's block (a regression: before, its keys were on top) | lint folds the block, line for line; fixes locate on the folded text |
+
 ## What this does not cover
 
 - VS Code's **Strict** preview level runs no scripts at all, so nothing the runtime draws (the rail
@@ -111,5 +126,8 @@ correct runs. Count the frames before believing a VS Code result.
 - VS Code in **Restricted Mode** prints raw HTML as text, which now includes the settings block on
   slide 1 (it already printed the runtime tags on the last slide). The README's step 2 (trust the
   folder) is the remedy, as before.
-- A `class:` typed at the **top** and exported with VS Code's own Export command before saving is
-  not seen: that command reads only the block, which is where the README sends deck settings.
+- A `class:` typed at the **top** and exported with VS Code's own Export command is not seen: that
+  command reads only the block, which is where the README sends deck settings.
+- The VS Code save-watcher re-stamps the deck-wide CLASS registers (`class:`, `color-mode:`,
+  `finish:`, `mode:`, …). A `logo:`, `meta:` or `marks:` typed at the top instead of in the block
+  lands on the next edit, when VS Code re-renders. In the block, every key is live as typed.

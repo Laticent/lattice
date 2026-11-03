@@ -56,6 +56,17 @@ test('foldSettingsBlock gives back one front matter and keeps every later line o
   const fm = readFrontMatterBlock(folded);
   for (const k of ['marp: true', 'theme: indaco', 'class: no-progress', 'color-mode: dark', 'logo: assets/x.png']) assert.ok(fm.includes(k), k);
   assert.equal(folded.split('\n').indexOf('Body'), src.split('\n').indexOf('Body'));
+  // EVERY line keeps its number, keys included — a lint fix edits by line, so a key must be where the
+  // author sees it (an earlier draft compacted the front matter and moved them).
+  assert.equal(folded.split('\n').length, src.split('\n').length);
+  for (const k of ['color-mode: dark', 'logo: assets/x.png']) assert.equal(folded.split('\n').indexOf(k), src.split('\n').indexOf(k), k);
+  // A key the top shares with the block: the block wins, `class` is the union, and the top's line is
+  // commented out in place.
+  const both = src.replace('theme: indaco\n', 'theme: indaco\nclass: lead\ncolor-mode: light\n');
+  const f2 = readFrontMatterBlock(foldSettingsBlock(both));
+  assert.match(f2, /^class: lead no-progress$/m);
+  assert.match(f2, /^#color-mode: light$/m);
+  assert.match(f2, /^color-mode: dark$/m);
   assert.equal(foldSettingsBlock('# no front matter\n'), '# no front matter\n');
   assert.equal(foldSettingsBlock('---\ntheme: a\n---\n# A\n'), '---\ntheme: a\n---\n# A\n', 'no block, no change');
   // A deck that SHOWS a bundle in a fenced example: the example's fences and block are slide content.
@@ -95,4 +106,15 @@ test('every Marp-native key in the directive registry stays on top (pinned again
     assert.ok(MARP_FRONT_MATTER_KEYS.has(key), `${key} is a Marp directive in meta.manifest.json but would move into the settings block`);
   }
   assert.ok(!MARP_FRONT_MATTER_KEYS.has('class'));
+});
+
+test('lint reads a bundle deck\'s settings block as front matter, and reports a key at its own line', () => {
+  const { lintText } = require('../../../lib/authoring/lint');
+  const { applyFix } = require('../../../lib/authoring/lint-core');
+  const src = withBundleFrontMatter('---\ntheme: indaco\nfinish: atriumm\n---\n\n# A\n');
+  const f = lintText(src).find((x) => x.rule === 'unknown-finish');
+  assert.ok(f, 'the bad finish inside the block is found');
+  // …and its fix edits THAT line, in the block, in the source the author has: the fix locates by
+  // line on the folded text, whose lines are the source's.
+  assert.equal(applyFix(src, f), src.replace('finish: atriumm', 'finish: atrium'));
 });
