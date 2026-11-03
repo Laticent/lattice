@@ -50,8 +50,8 @@ Two earlier drafts of this note got the shape wrong, and the corrections are the
 | Is this address another site? | `lib/core/media-sources.js` `isRemoteRef` | the scanner (as `isRemoteUrl`) |
 | Which attributes fetch on render | `RENDER_FETCH_ATTRS` in `lib/core/remote-ref.js:804` | the scanner only |
 | Which attributes fetch on a click | `CLICK_FETCH_ATTRS` in `remote-ref.js:812` | the scanner only |
-| Which attributes name an address at all | `FETCH_ATTRS` in `remote-ref.js:90` (exported) | the scanner, the gallery gate |
-| Which tags and attributes are stripped | `FORBID_TAGS`, `FORBID_ATTR` in `lib/core/sanitize-slide-html.mjs:39` | the sanitizer only |
+| Which attributes name an address at all | `FETCH_ATTRS` in `remote-ref.js:90` (exported) | the scanner, the gallery gate, the code door (`lib/core/door-attr.mjs:14`) |
+| Which tags and attributes are stripped | `FORBID_TAGS`, `FORBID_ATTR` in `lib/core/sanitize-slide-html.mjs:40-41` | the sanitizer only |
 | Which style text is script or ends early | `STYLE_SCRIPT_RE` in `sanitize-slide-html.mjs:105`; `sanitizeStyleText` | the sanitizers only |
 
 The readers are already shared: `scanHtml` and `cssRefSpans` (Segno R2, R3, R4). The Markdown side is
@@ -135,7 +135,8 @@ Gzip sizes of each piece bundled alone (esbuild, minified, level 9; 2026-11-03):
 | `cssRefSpans` (`css-ref-reader.js` + `css-ref.generated.js`) | 1.4 KB + 2.5 KB | No |
 
 `lintCoreGz` counts lint-core and its imports beyond the engine's own closure. It measured 123.5 KB
-against its 124.3 KB ceiling on #3018, so 0.8 KB is left. The two readers come to about 8.9 KB bundled
+against its 124.3 KB ceiling (127,248 bytes in `docs/route-budget.json`) in #3018's `docs-build` run
+41681169802 (job 126075346272, on `9567c54`), so 0.8 KB is left. The two readers come to about 8.9 KB bundled
 alone, which does not fit (D5). S2 measures the real figure in the Studio build.
 
 ## Phasing
