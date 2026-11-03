@@ -175,6 +175,28 @@
       "on_pull_request": false
     },
     {
+      "name": "ios-safari-export-photo",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/export-photo-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/export/*",
+        "docs/src/components/studio/download*.js",
+        "lib/core/slide-camera.mjs",
+        "lib/core/lanczos*",
+        "lib/core/image-aspect.js",
+        "lib/core/css-url.js",
+        "lib/transformers/image-adaptive.js"
+      ],
+      "run": "PROBE=export-photo bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, exports a PowerPoint of three 12-megapixel photos through the Studio's Share sheet and reads the file in the page: the photo is measured (a regex Safari gave up on left it unmeasured), every slide picture differs and none is blank (a WebKit export repeated and blanked pictures), and the pictures and the file stay under the photo-size gate's ceilings (engineering/decisions/2026-11-03-pictures-at-drawn-size.md). Playwright's WebKit on Linux runs the same check nightly; this is the iOS half. A simulator runs on the Mac's hardware, so it is not a physical device.",
+      "on_pull_request": false
+    },
+    {
       "name": "ios-safari-jpeg",
       "os": [
         "macos-latest"

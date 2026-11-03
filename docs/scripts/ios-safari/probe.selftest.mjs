@@ -6,6 +6,7 @@
  *
  *   node scripts/ios-safari/probe.selftest.mjs
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
+ *   PROBE=export-photo node scripts/ios-safari/probe.selftest.mjs   # the photo export probe: a phone-photo PowerPoint
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,11 +18,17 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const SHOW_EDITOR = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
 const withEditorHelper = (source) => `${SHOW_EDITOR}\n${source}`;
 // The Studio suite's page-side probes, as run.mjs runs them in Mobile Safari: each on a fresh page.
-const PROBES = [
-	{ file: 'studio-probe.js', fn: 'latticeStudioProbe' },
-	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
-	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
-].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
+// PROBE=export-photo runs the photo export probe alone (export-photo-probe.js): three 12-megapixel exports per page shape take
+// minutes, which the default run should not pay for every probe change.
+const PROBES = (
+	process.env.PROBE === 'export-photo'
+		? [{ file: 'export-photo-probe.js', fn: 'latticeExportPhotoProbe' }]
+		: [
+				{ file: 'studio-probe.js', fn: 'latticeStudioProbe' },
+				{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
+				{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
+			]
+).map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
 

@@ -1,7 +1,8 @@
 /**
  * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then panes-probe.js, in the
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
- * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
+ * on pages of their own (PROBE=photo-memory), export-photo-probe.js, a phone-photo PowerPoint export read in the page
+ * (PROBE=export-photo), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), or undo-probe.js, the Filo undo checks across a reload (PROBE=undo). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
@@ -101,7 +102,7 @@ try {
 	if (MAC && !platform.startsWith('mac')) throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'export-photo' ? await runExportPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -234,6 +235,21 @@ async function runPhotoMemory(id) {
 }
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
+}
+
+/**
+ * The photo export suite (PROBE=export-photo): export-photo-probe.js makes three 12-megapixel photos in the page, exports a
+ * PowerPoint through the real Share sheet and reads the file where the Studio made it
+ * (engineering/decisions/2026-11-03-pictures-at-drawn-size.md). Building those photos and the export take minutes in a simulator,
+ * so this page alone gets a 10-minute script timeout; the session's 240 s stays for every other probe.
+ */
+async function runExportPhotoProbe(id) {
+	await wd('POST', `/session/${id}/timeouts`, { script: 600000 });
+	try {
+		return await studioPage(id, 'export-photo-probe.js', 'latticeExportPhotoProbe');
+	} finally {
+		await wd('POST', `/session/${id}/timeouts`, { script: 240000 }).catch(() => {});
+	}
 }
 
 /**
