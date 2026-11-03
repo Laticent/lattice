@@ -245,6 +245,15 @@ sign-in modal first, or it covers the preview. Opening the preview needs a comma
 `onStartupFinished` (pass it with `--extensionDevelopmentPath`).
 
 **What the harness needed (2026-10-16), and the traps that cost time:**
+- **Count the preview frames before believing a result (2026-11-03).** VS Code restores the last
+  window's editors, preview tabs included, from `<user-data-dir>/User/globalStorage/storage.json`,
+  which survives clearing `workspaceStorage` and `Backups`. A restored preview is a SECOND
+  `marp-vscode` frame that never receives an update, and a probe that reads the first frame it finds
+  reports a stale slide. Four runs looked like the runtime breaking VS Code's patch of the preview;
+  every one had two frames. Delete `storage.json` between runs.
+- **Saving does not re-render the preview (2026-11-03).** VS Code re-renders when the TEXT changes,
+  not on save, so anything the runtime reads from the saved file (the bundle's top front matter,
+  `readDeckText`) needs its own trigger: the runtime re-reads while the preview is visible.
 - **Run the Electron binary, not `bin/code`.** `bin/code` hands off to a launcher, and
   `--remote-debugging-port` never opens.
 - **Install outside `/tmp/claude-0/…`.** From the scratchpad path, VS Code refuses its

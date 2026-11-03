@@ -8422,7 +8422,7 @@ const SANCTIONED_PURITY_HITS = [
     name: 'fetch',
     count: 2,
     justification:
-      'the runtime fetches the deck\u2019s OWN markdown (`mdUrl`, same document) to read front matter, in the viewer\u2019s page; the `typeof fetch` guard and the call are the two uses. No stored data or key reaches it (note \u00a74, checked 2026-10-16).',
+      'the runtime fetches the deck\u2019s OWN markdown to read front matter, in the viewer\u2019s page: the `.md` beside an `.html` (`mdUrl`), or, in VS Code\u2019s Markdown preview, the deck file the preview\u2019s own base URL names, re-read while the preview is visible because a save does not re-render it (`readDeckText`, engineering/decisions/2026-11-03-marp-bundle-live-front-matter.md). The `typeof fetch` guard and the one call in `readDeckText` are the two uses. No stored data or key reaches it (note \u00a74, checked 2026-10-16).',
   },
 ];
 

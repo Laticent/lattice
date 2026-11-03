@@ -122,7 +122,7 @@ test('the engine writes the LIVE front matter into the trailer, replacing the ba
   const { engine } = load();
   const rules = [];
   const md = {
-    core: { ruler: { push: (name, fn) => rules.push(fn) } },
+    core: { ruler: { push: (_name, fn) => rules.push(fn) } },
     renderer: { rules: { html_block: () => 'SANITIZED' } },
   };
   engine({ marp: { use(p) { p(md); return this; } } });
@@ -151,6 +151,18 @@ test('the engine writes the LIVE front matter into the trailer, replacing the ba
   const tokens = [{ content: `<pre>\ncode\n${baked}\n` }];
   assert.equal(md.renderer.rules.html_block(tokens, 0), 'SANITIZED');
   assert.match(tokens[0].content, /front-matter/, 'the token is restored after the call');
+});
+
+test('the settings block passes as an escaped data block, never as the markup a person typed', () => {
+  const { engine } = load();
+  const md = { core: { ruler: { push() {} } }, renderer: { rules: { html_block: () => 'SANITIZED' } } };
+  engine({ marp: { use(p) { p(md); return this; } } });
+  const render = (content) => md.renderer.rules.html_block([{ content }], 0, {}, {}, {});
+  assert.equal(render('<script type="application/lattice-settings">\nclass: no-progress\nmeta: "a < b"\n</script>\n'),
+    '<script type="application/lattice-settings">"class: no-progress\\nmeta: \\"a \\u003c b\\""</script>\n');
+  // Anything that only resembles it — markup after the close, a different type — goes to the allowlist.
+  assert.equal(render('<script type="application/lattice-settings">\nx: 1\n</script><img src=x onerror=y>\n'), 'SANITIZED');
+  assert.equal(render('<script type="application/lattice-setting">\nx: 1\n</script>\n'), 'SANITIZED');
 });
 
 test('a host whose markdown-it cannot take the rule keeps the baked copy byte for byte', () => {

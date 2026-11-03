@@ -357,19 +357,26 @@ opt an individual slide out with a `_class` token.
 |---|---|---|---|
 | Running header | `header: "Acme — Q3"` | `no-header` | no — appears once you give it text |
 | Running footer | `footer: "Confidential"` | `no-footer` | no — appears once you give it text |
-| Page number | `paginate: false` (turns it **off**) | `no-pagination` | yes — except title, divider and closing |
-| Section rail | `class: no-progress` (turns it **off**) | `no-progress` | on when the deck has dividers |
+| Page number | `paginate: false` (turns it **off**) | `no-pagination` off · `with-pagination` back on | yes — except title, divider and closing |
+| Section rail | `class: no-progress` (turns it **off**) | `no-progress` off · `with-progress` back on | on when the deck has dividers |
 
 The header and footer ride front-matter keys, so a running band turns **on** by
 giving it text and **off** by removing the line. Page numbers are on unless the
 front matter says `paginate: false`; title, divider and closing slides drop
 theirs through their component manifest.
 The section rail has no such directive, so its deck-wide off-switch is the
-`no-progress` class, which propagates to every slide. Want the rail gone
-everywhere? Add `class: no-progress` to the front matter. Want it back on one
-slide? That direction is rarer — reach for a per-slide `<!-- _header: -->` /
-`<!-- _footer: -->` comment, or the `with-pagination` class, when you need to turn
-a band *on* for a single slide against a deck that leaves it off.
+`no-progress` class. A front-matter `class:` reaches **every** slide, including
+one that sets its own `<!-- _class: … -->`: the slide's classes are added to the
+deck's, never swapped for them. So `class: no-progress` takes the rail off
+everywhere, and one slide brings it back with `<!-- _class: content with-progress -->`.
+The same goes for the other bands: a per-slide `<!-- _header: -->` /
+`<!-- _footer: -->` comment, or the `with-pagination` class, turns a band *on*
+for a single slide against a deck that leaves it off.
+
+**In an Export-to-Marp bundle** the deck-wide settings (`class:`, `color-mode:`,
+`finish:`, `logo:`, …) sit in a settings block directly under the front matter,
+and that is where you change them. Every place that opens the bundle (marp-cli,
+the VS Code preview, VS Code's Export command) reads that block as you edit it.
 
 A header, footer or page-number comment on a slide sets **that slide only**, with
 or without the underscore: `<!-- header: "Appendix" -->` on slide 12 puts the text
