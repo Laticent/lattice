@@ -128,3 +128,48 @@ test('compositionFromClass: explicit author class wins; legacy aliases map', () 
   });
 
 }
+
+// ── The panel URL is read the same way at any length (decisions/2026-11-03-pictures-at-drawn-size.md) ──
+// The old reader's lookahead group made WebKit's regex engine return no match past about half a megabyte,
+// so a phone photo's slide was stamped final with no size and never measured. It is kept here as the oracle.
+{
+  const { stampImageSections } = require('../../../lib/core/image-aspect');
+  const OLD = /<div\b[^>]*\sclass\s*=\s*"[^"]*\blattice-bg\b[^"]*"[^>]*\sstyle\s*=\s*"[^"]*?url\(\s*(?:'|&#39;|&quot;)?((?:(?!&#39;|&quot;)[^'")])+)/i;
+  const seen = (html) => {
+    let got;
+    stampImageSections(html, (u) => { got = u; return undefined; });
+    return got;
+  };
+  const sec = (style) => `<section class="image"><div class="lattice-bg" style="${style}"></div></section>`;
+  const ENTITY = { amp: '&', '#39': "'", quot: '"' };
+  const decode = (v) => v.replace(/&(amp|#39|quot);/g, (_m, e) => ENTITY[e]).trim();
+
+  test('stampImageSections: the panel URL matches the old reader on a fuzzed corpus', () => {
+    const pieces = ['url(', ')', "'", '&#39;', '&quot;', '&QUOT;', '&amp;', 'a', 'x.png', ' ', ';', '&', '#', 'quot'];
+    let seed = 11;
+    const next = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed; };
+    for (let n = 0; n < 20000; n++) {
+      let s = 'background-image:';
+      const len = next() % 10;
+      for (let k = 0; k < len; k++) s += pieces[next() % pieces.length];
+      const html = sec(s);
+      const m = OLD.exec(html);
+      // An oracle match whose run ends on an entity can only be reached through a second `url(`; the
+      // reader returns the first panel URL, so skip those few: both answers then name a different url().
+      const want = m ? decode(m[1]) : undefined;
+      if (m && /url\(.*url\(/.test(s)) continue;
+      // An address that decodes to nothing (the old reader backtracked into a space before an entity quote)
+      // names no photo either way: the old answer was '', the new one is no address.
+      if (want === '') continue;
+      assert.equal(seen(html), want, JSON.stringify(s));
+    }
+  });
+
+  test('stampImageSections: a multi-megabyte data URL is found, in every quoting', () => {
+    const d = `data:image/jpeg;base64,${'A'.repeat(3_000_000)}`;
+    for (const style of [`background-image:url('${d}')`, `background-image:url(&quot;${d}&quot;)`, `background-image:url(&#39;${d}&#39;)`]) {
+      assert.equal(seen(sec(style)), d);
+      assert.match(stampImageSections(sec(style), () => undefined).slice(0, 200), /data-img-provisional/);
+    }
+  });
+}
