@@ -96,7 +96,7 @@ try {
 	if (MAC && !platform.startsWith('mac')) throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'office' ? await runOfficeProbe(id) : PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -341,4 +341,34 @@ async function runJpegProbe(id) {
 	}
 	if (result.total) console.log(`${LABEL}: Safari's encoder ${result.total.native} B, ours ${result.total.ours} B over ${result.rows.length} pictures`);
 	return result;
+}
+
+/**
+ * The office probe (PROBE=office): each one-slide editable .pptx that tools/office-quicklook.mjs cut (its index.json),
+ * opened in Mobile Safari, which previews an Office file with the same importer as Preview in the Files app, and
+ * captured. One screenshot a slide, under office/ in the artifacts: the review is by eye against LibreOffice and Quick
+ * Look, so a step fails only when Safari could not open the file or capture it.
+ */
+async function runOfficeProbe(id) {
+	const index = JSON.parse(fs.readFileSync(process.env.OFFICE_INDEX, 'utf8'));
+	const dir = path.join(OUT, 'office');
+	fs.mkdirSync(dir, { recursive: true });
+	await wd('POST', `/session/${id}/timeouts`, { pageLoad: 60000 });
+	const steps = [];
+	for (const f of index) {
+		const name = `${f.deck} slide ${f.slide}`;
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${BASE}/${f.path}` });
+			// The preview lays the slide out after the load event; give it a moment to draw.
+			await new Promise((r) => setTimeout(r, 4000));
+			const png = await wd('GET', `/session/${id}/screenshot`);
+			fs.writeFileSync(path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`), Buffer.from(png, 'base64'));
+			steps.push({ name, pass: true });
+		} catch (e) {
+			steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
+		}
+	}
+	const ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] }).catch(() => '');
+	const failed = steps.filter((s) => !s.pass).length;
+	return { ok: steps.length > 0 && failed === 0, error: failed ? `${failed} of ${steps.length} slides did not open` : undefined, steps, width: 0, ua };
 }

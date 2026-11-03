@@ -35,6 +35,7 @@ const custgeomOnly = args.includes('--custgeom-only');
 const deckArgs = args.filter((a) => !a.startsWith('--'));
 const decks = deckArgs.length ? deckArgs : ['examples/inline-icons.md'];
 const onMac = process.platform === 'darwin';
+const index = [];
 const report = { platform: process.platform, rendered: [], failed: [], skipped: onMac ? null : 'not macOS: qlmanage is not here' };
 
 const SLIDE = /^ppt\/slides\/slide(\d+)\.xml$/;
@@ -79,17 +80,19 @@ for (const deck of decks) {
 				continue;
 			}
 			fs.writeFileSync(file, buf);
+			// Kept beside its render: the iOS probe (docs/scripts/ios-safari/run.sh, PROBE=office) opens each cut in Safari.
+			index.push({ deck: name, slide: n, variant, path: path.relative(OUT, file) });
 			if (!onMac) continue;
 			const r = spawnSync('qlmanage', ['-t', '-s', '1920', '-o', dir, file], { encoding: 'utf8', timeout: 120000 });
 			const png = `${file}.png`;
 			if (r.status === 0 && fs.existsSync(png)) {
 				fs.renameSync(png, file.replace(/\.pptx$/, '.png'));
-				fs.rmSync(file);
 				report.rendered.push({ deck: name, variant, slide: n });
 			} else report.failed.push({ deck: name, variant, slide: n, why: (r.stderr || r.stdout || `exit ${r.status}`).trim().slice(0, 400) });
 		}
 	}
 }
+fs.writeFileSync(path.join(OUT, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
 fs.writeFileSync(path.join(OUT, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
 console.log(`office-quicklook: ${report.rendered.length} slides rendered, ${report.failed.length} failed${report.skipped ? ` (${report.skipped})` : ''} → ${path.relative(ROOT, OUT)}`);
 if (onMac && (report.failed.length || !report.rendered.length)) process.exit(1);

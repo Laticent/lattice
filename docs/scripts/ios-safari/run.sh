@@ -4,7 +4,8 @@
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
-# simulators and then in the Mac's own Safari. Run from the repo root after `npm ci` and `npm run build` (the
+# simulators and then in the Mac's own Safari. PROBE=office opens each one-slide editable .pptx that
+# tools/office-quicklook.mjs cut, in the iPhone simulator's Safari (the Office importer Preview uses), and captures it. Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
 #
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
@@ -31,7 +32,15 @@ case "$xcode" in
 esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
-if [ "$PROBE" = jpeg ]; then
+if [ "$PROBE" = office ]; then
+  # The one-slide editable .pptx files tools/office-quicklook.mjs cut, served with PowerPoint's media type so Safari
+  # previews them (python's table may not know .pptx).
+  page="$ROOT/platform-suite-artifacts/office-quicklook"
+  test -f "$page/index.json" || { echo "no $page/index.json: run tools/office-quicklook.mjs first" >&2; exit 1; }
+  (cd "$page" && python3 -c 'import http.server as h; H=h.SimpleHTTPRequestHandler; H.extensions_map[".pptx"]="application/vnd.openxmlformats-officedocument.presentationml.presentation"; h.test(HandlerClass=H, port='"$PORT"', bind="127.0.0.1")' > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/index.json"
+elif [ "$PROBE" = jpeg ]; then
   # A blank page on an http origin is all the JPEG probe needs.
   page="$RUNNER_TEMP/jpeg-probe-page"
   mkdir -p "$page"
@@ -81,6 +90,8 @@ families='iPad iPhone'
 # The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
 # is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
 [ "$PROBE" = focus-sync ] && families='iPad'
+# The office probe stands in for the owner's iPhone (Preview, opened from Files): the iPhone alone, to fit the job.
+[ "$PROBE" = office ] && families='iPhone'
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
 for family in $families; do
@@ -130,7 +141,7 @@ for family in $families; do
           sleep 20
           if start_driver; then
             rc=0
-            SESSION_ATTEMPTS=1 PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+            SESSION_ATTEMPTS=1 OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
           fi
         fi
         break
@@ -149,7 +160,7 @@ for family in $families; do
     rc=0
     attempts=3
     [ "$start" = 1 ] && attempts=2
-    SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+    SESSION_ATTEMPTS=$attempts OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
     [ "$rc" = 3 ] || break
     why='no session'
   done
