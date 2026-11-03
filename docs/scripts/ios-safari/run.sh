@@ -81,6 +81,10 @@ families='iPad iPhone'
 # The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
 # is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
 [ "$PROBE" = focus-sync ] && families='iPad'
+# The photo export probe makes three 12-megapixel photos and exports a PowerPoint: on one device that is about 13 minutes of
+# the job's 30 with the runner's setup, and both devices ran it out (run 41686135852: the iPad passed, the iPhone never
+# started). The iPhone is the device the owner exports from, and its one-pane layout is the harder path, so it runs there.
+[ "$PROBE" = export-photo ] && families='iPhone'
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
 for family in $families; do
