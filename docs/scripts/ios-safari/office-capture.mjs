@@ -25,12 +25,24 @@ const dir = path.join(OUT, 'office');
 fs.mkdirSync(dir, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Show one file (a path inside the app's own sandbox, or none) in QLProbe and capture the screen once it has drawn. */
-async function capture(file, out, wait) {
+/**
+ * Show one file (a path inside the app's own sandbox, or none) in QLProbe and capture the screen once the preview has
+ * SETTLED: two captures 3 s apart that match. A fixed wait caught slides mid-load ("Loading…", the slide still faded in)
+ * on the first app run; the spinner animates, so a settled screen is a finished one. At most `budget` ms.
+ */
+async function capture(file, out, budget) {
 	simctl('launch', '--terminate-running-process', UDID, BUNDLE, file);
-	await sleep(wait);
+	await sleep(3000);
 	simctl('io', UDID, 'screenshot', out);
-	return PNG.sync.read(fs.readFileSync(out));
+	let last = PNG.sync.read(fs.readFileSync(out));
+	for (let waited = 3000; waited < budget; waited += 3000) {
+		await sleep(3000);
+		simctl('io', UDID, 'screenshot', out);
+		const now = PNG.sync.read(fs.readFileSync(out));
+		if (changed(now, last).share < 0.002) return now;
+		last = now;
+	}
+	return last;
 }
 
 /**
@@ -77,14 +89,14 @@ const root = path.dirname(process.env.OFFICE_INDEX);
 const inApp = (f) => path.join(docs, `${f.deck}-slide-${String(f.slide).padStart(2, '0')}.pptx`);
 for (const f of index) fs.copyFileSync(path.join(root, f.path), inApp(f));
 // The baseline: the viewer with nothing to show. Twice, so a first launch's settling is not in it.
-await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 6000);
-const baseline = await capture('none', path.join(dir, `${LABEL}-baseline.png`), 4000);
+await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 15000);
+const baseline = await capture('none', path.join(dir, `${LABEL}-baseline.png`), 15000);
 const steps = [];
 for (const f of index) {
 	const name = `${f.deck} slide ${f.slide}`;
 	const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
 	try {
-		const shot = await capture(inApp(f), file, 6000);
+		const shot = await capture(inApp(f), file, 30000);
 		const { share, colors } = changed(shot, baseline);
 		// The slide's own background is on screen: the dominant color of the same cut's Quick Look render (made by
 		// tools/office-quicklook.mjs earlier in this job) covers a real share of the screen. A download prompt (a dimmed
