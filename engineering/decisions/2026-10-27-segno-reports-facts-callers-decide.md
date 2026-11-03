@@ -525,10 +525,13 @@ change found a fifth reader that no list had named, in the CLI's HTML export (be
   value, a bad url token, or a `background-image` value that is not a list of images. `safePosterUrl` and the card's
   `cssSafe` check still decide what is written back, so a wrong reading costs a picture, not a fetch.
 - **Shared pieces it needed.** `cssEscape` and `cssString` moved from `remote-ref.js` into `lib/core/css-token-readers.js`
-  (not `css-escapes.js`, which the engine imports, so the engine's bundles do not carry them), and `css-ref-reader.js` now exports the
-  shared `cssRefSpans` (and `remote-ref.js` re-exports it). So the narrator
-  reads CSS without loading the HTML scanner. The export's check for a valid url token moved there too, as
-  `isValidUrlToken`, and both callers use it.
+  (not `css-escapes.js`, which the engine imports, so the engine's bundles do not carry them). The narrator builds
+  `cssRefSpans` from the same three parts `remote-ref.js` does (`css-ref-reader.js` `makeCssRefSpans`, the generated
+  parser, the token readers), so it reads CSS without loading the HTML scanner. Each part requires nothing, on purpose:
+  the docs dev server and the plugin code door's sanitizer page load a CommonJS `lib/` file only when every require in
+  it names a require-free sibling. A first version that had `css-ref-reader.js` require the other two broke both
+  (`vite-cjs-lib-dev.test.ts` and the code-door integration tests caught it). The export's check for a valid url token
+  moved into `css-ref-reader.js` as `isValidUrlToken`, and both callers use it.
 - **A bug the move found.** That check read an escape as one character after the backslash, so it called
   `url(k\29 .png)` a bad url token. A hex escape takes one space after its digits, and Chromium paints that picture.
   The fix is in the shared check, so the export now embeds such a picture too. No deck in the repo has one: the
@@ -558,7 +561,7 @@ change found a fifth reader that no list had named, in the CLI's HTML export (be
   after the rewrite in Chromium 153, WebKit 26 and Firefox 142, with 17-19% of the inputs fetching as written.
 - **Bytes.** The narrator now loads the CSS reader. The export's speech-projection bundle
   (`lib/export/speech-projection-bundle.generated.mjs`, evaluated in the export's own Chromium page, never shipped to a
-  reader) grows from 55.0 KB to 74.7 KB, or 19.9 KB to 24.1 KB gzipped. No engine or Studio startup bundle changes.
+  reader) grows from 55.0 KB to 74.8 KB, or 19.9 KB to 24.0 KB gzipped. No engine or Studio startup bundle changes.
 
 - **Left: the CLI's HTML export.** `lib/export/html-player.js` `inlineDocAssets` embeds a deck's local files into
   the self-contained HTML, and finds them with a CSS reader of its own (`mapCssUrls`, with its own `cssString`,
