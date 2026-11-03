@@ -26,3 +26,7 @@ and `tools/check-html-ref-spans.mjs` read it to show the live fixes only add `ri
 
 `scan-html-fixed.js` joined when R3 was switched on: the hand-written `scanHtml` at 065bbfe, with the six fixes R3's
 work found. It is the oracle R3 is held to, read by the same test and tool.
+
+`gallery-elements.js` joined at Segno R4 (the gallery gate): the CLI gate's parse5 reader as it was at 96f3c3a, before
+both gates moved onto `remote-ref.js` `remoteRefsInHtml`. `test/unit/core/gallery-html-differential.test.js` reads it as the
+oracle; nothing in `lib/` may.

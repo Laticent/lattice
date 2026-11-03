@@ -612,8 +612,9 @@ it is the record of what was wrong.
   which holds a component STYLESHEET to `#fragment` and `data:` only.)
   - **A component's sample slide is refused on import when it fetches.** The gate RENDERS the
     gallery through the engine and parses the result with a spec HTML parser — parse5 in the
-    CLI (`lib/packages/gallery-gate.js`), `DOMParser` in the Studio
-    (`library/gallery-gate.ts`) — then reads every element: an attribute that loads (`src`,
+    CLI (`lib/cli/gallery-gate.js`), `DOMParser` in the Studio
+    (`library/gallery-gate.ts`); since Segno R4 (2026-11-03) both read it with `remote-ref.js`
+    `remoteRefsInHtml` instead, which refuses wherever that reader is unsure — then reads every element: an attribute that loads (`src`,
     `srcset`, `href` on anything but a link, `xlink:href`, `poster`…), a `url()` or string in
     a style, a presentation attribute or a `<style>` body, a SMIL `<set>`/`<animate>` that
     sets `href`, a meta refresh, and the text of a Mermaid fence (its `img:` shapes and

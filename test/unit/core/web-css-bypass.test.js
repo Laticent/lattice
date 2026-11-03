@@ -19,6 +19,7 @@ const { webRefBeacons, asHtml } = require('../../fixtures/web-ref-beacons.js');
 
 const { blockWebCss, blockWebImages, verifyWithParser, remoteCssRefs, cssRefSpans, decodeEntities } = remoteRef;
 const BASE = 'https://evil.example';
+const UNSURE = 'policy:markup a browser may build differently from how the check reads it (';
 const PAYLOADS = webRefBeacons(BASE);
 const { DOMParser } = new JSDOM('').window;
 /** A reference as the HTML parser decodes it in an attribute value. */
@@ -62,7 +63,11 @@ describe('the CSS scanners list every spelling', () => {
         assert.ok(galleryRemoteRefs(md).some((u) => u.startsWith('policy:')), p.name);
         continue;
       }
-      assert.ok(galleryRemoteRefs(md).some((u) => holds(normalized(u), `${BASE}/${p.name}`)), p.name);
+      // A `<style>` inside `<svg>` is where the gate's reader is unsure (the tree builder decodes references and drops
+      // comments there), so the gallery is refused whole rather than its address listed (Segno R4, D7).
+      const refs = galleryRemoteRefs(md);
+      if (/^<svg><style>/.test(asHtml(p))) assert.ok(refs.includes(`${UNSURE}foreign-content)`), p.name);
+      else assert.ok(refs.some((u) => holds(normalized(u), `${BASE}/${p.name}`)), p.name);
     }
   });
 
