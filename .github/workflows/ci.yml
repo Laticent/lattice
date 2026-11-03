@@ -318,7 +318,7 @@ jobs:
   # instead of ~1 min.
   unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, PR #2993): node 22 runs took 14m01s-14m25s on main and one PR run was cancelled at 15m03s
+    timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
     strategy:
       fail-fast: false
       matrix:
