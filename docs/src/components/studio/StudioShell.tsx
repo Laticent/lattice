@@ -2257,6 +2257,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// user edited, and writing a row identical to the canonical source is a far cheaper mistake
 	// than dropping a real one.
 	const dirty = React.useRef(false);
+	// The pending debounced save, so a departure flush can cancel it (below).
+	const autosaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	React.useEffect(() => {
 		if (loadedFor.current?.id !== deck.id) {
 			loadedFor.current = { id: deck.id, src: source };
@@ -2265,8 +2267,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 		if (!dirty.current && source === loadedFor.current.src) return; // a StrictMode replay, not an edit
 		dirty.current = true;
-		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
-		return () => clearTimeout(id);
+		const id = setTimeout(() => { autosaveTimer.current = null; saveSourceGuarded(deck.id, source); }, 400);
+		autosaveTimer.current = id;
+		return () => { clearTimeout(id); if (autosaveTimer.current === id) autosaveTimer.current = null; };
 	}, [source, deck.id, saveSourceGuarded]);
 	/**
 	 * Write the active deck through NOW, skipping the debounce — but only if it was edited.
@@ -2285,7 +2288,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const flushActiveDeck = React.useCallback(() => {
 		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
 		const latest = sourceRef.current;
-		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) saveSourceGuarded(deck.id, latest);
+		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) {
+			// A save armed from an earlier render carries the text that render saw. Typing is a transition, so that can
+			// trail `latest`, and a page that lives on (a hidden tab, a back-forward cache restore) would let it land
+			// after this write and put the older text back. The next commit re-arms the timer with the newest text.
+			if (autosaveTimer.current !== null) { clearTimeout(autosaveTimer.current); autosaveTimer.current = null; }
+			saveSourceGuarded(deck.id, latest);
+		}
 	}, [deck.id, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
