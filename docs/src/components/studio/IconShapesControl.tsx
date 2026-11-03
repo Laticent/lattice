@@ -28,7 +28,8 @@ export function IconShapesControl({ deckId, busy }: { deckId?: string; busy?: bo
 	}, [on, deckId]);
 	return (
 		<div className="mt-3 flex items-start justify-between gap-3 border-t border-border pt-3">
-			<span>
+			{/* The text column of the card's title above it: its icon (size-4) plus the gap (gap-2). */}
+			<span className="pl-6">
 				<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Icons for every app</span>
 				<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 					{on
