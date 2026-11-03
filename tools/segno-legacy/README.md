@@ -19,3 +19,10 @@ nothing reads it.
 `css-ref-spans.js` joined at Segno R2: `cssRefSpans` and its helpers as they were at 242de4a, before the
 generated CSS parser replaced the tokenizer. `test/unit/core/css-ref-spans-differential.test.js` and
 `tools/check-css-ref-spans.mjs` read it as the oracle; nothing in `lib/` may.
+
+`scan-html.js` joined at Segno R3: `scanHtml` and its helpers as they were at e6c3a4a, before R3's work fixed
+the hand-written scanner and replaced it with the generated HTML reader. `test/unit/core/html-ref-differential.test.js`
+and `tools/check-html-ref-spans.mjs` read it to show the live fixes only add `risky`; nothing in `lib/` may.
+
+`scan-html-fixed.js` joined when R3 was switched on: the hand-written `scanHtml` at 065bbfe, with the six fixes R3's
+work found. It is the oracle R3 is held to, read by the same test and tool.

@@ -56,7 +56,7 @@ async function bundle() {
   if (scannerFile) return F.bundleRemoteRef(path.resolve(scannerFile), { withCompose });
   if (!ref) return F.bundleRemoteRef(undefined, { withCompose });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
-  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js']) {
+  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-ref-reader.js', 'html-ref.generated.js', 'html-ref-reader.js']) {
     try {
       fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
     } catch {

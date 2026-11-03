@@ -63,7 +63,7 @@ function scanner() {
   if (scannerFile) return local(path.resolve(scannerFile));
   if (!ref) return local('../lib/core/remote-ref.js');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
-  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js']) {
+  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-ref-reader.js', 'html-ref.generated.js', 'html-ref-reader.js']) {
     try {
       fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
     } catch {

@@ -55,6 +55,8 @@ theme: indaco
 <span style="background-image:url(https://${ATTACKER}/bg.png)">shaded</span>
 
 <span style="background-image:url(\\68ttps://${ATTACKER}/escaped.png)">escaped</span>
+
+<table background="https://${ATTACKER}/table.png"><tr><td>cell</td></tr></table>
 `;
 
 test('a deck cannot beacon out of the Playground preview frame', async ({ page }) => {
@@ -99,12 +101,14 @@ test('a deck cannot beacon out of the Playground preview frame', async ({ page }
 	expect(await preview.locator(`img[data-lattice-web-src*="${ATTACKER}"]`).count()).toBe(2);
 	expect(await preview.locator(`img[src*="${ATTACKER}"]`).count()).toBe(0);
 	expect(await preview.locator(`[style*="${ATTACKER}/bg.png"]`).count()).toBe(0);
-	expect(await preview.locator('span[style*="repeating-linear-gradient"]').count()).toBe(1);
-	// THE POLICY, ALONE. A CSS escape is a spelling the rewrite cannot read, so this one stays in
-	// the markup, and only the frame's content-security policy stands between it and the network.
-	// Without this arm, every payload above is rewritten and "no requests" would pass with the
-	// policy deleted.
-	expect(await preview.locator(`span[style*="${ATTACKER}/escaped.png"]`).count()).toBe(1);
+	// The CSS escape (`\68ttps:`) is read too, since the scanner's CSS reader decodes escapes (Segno R2).
+	expect(await preview.locator('span[style*="repeating-linear-gradient"]').count()).toBe(2);
+	expect(await preview.locator(`span[style*="${ATTACKER}/escaped.png"]`).count()).toBe(0);
+	// THE POLICY, ALONE. With a policy behind the frame the rewrite leaves the other render-time fetch
+	// attributes to it (`blockWebImages` without `fonts`), so a `<table background>` stays in the markup
+	// and only the frame's content-security policy stands between it and the network. Without this arm,
+	// every payload above is rewritten and "no requests" would pass with the policy deleted.
+	expect(await preview.locator(`table[background*="${ATTACKER}/table.png"]`).count()).toBe(1);
 
 	// THE CLAIM.
 	expect(hits, `the preview frame fetched ${hits.length} remote subresource(s): ${hits.join(', ')}`).toEqual([]);

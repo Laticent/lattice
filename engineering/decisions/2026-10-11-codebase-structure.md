@@ -243,7 +243,12 @@ These are measured, not guessed, and none of them blocks anything:
   only when two or more parts use it; otherwise it goes beside its one user, as `qr.js` did. After
   the rebase onto main the count was 50 (76 islands), and the gate now holds it as a ceiling,
   `CORE_SINGLE_CONSUMER_CEILING` in `tools/structure.js`: it fails when core gains one, and is lowered
-  as they move out (#2997, from the inversion lens). The core split, and moving the 50, are follow-ups. `site/lib` shows the same pattern early: 57
+  as they move out (#2997, from the inversion lens). The core split, and moving the 50, are follow-ups. On #3002 (owner's choice, 2026-11-03) the gate stopped counting a grammar source the grammar compiler
+  (`tools/build-segno-grammar.js`) reads and nothing outside `tools/` imports: it is a build input that belongs
+  beside the `*.generated.js` parser it defines and ships with it in the npm package, as tree-sitter's
+  `grammar.js`, ANTLR's `.g4` and Lezer's `.grammar` do. The rule counted four such grammars (CSS, flowchart
+  row, list text, and #3002's HTML one) and had pushed the newest out to `tools/`; with them uncounted the
+  ceiling went from 47 to 44 (`GRAMMAR_COMPILER` in `tools/structure.js`). `site/lib` shows the same pattern early: 57
   islands across 95 files.
 - **Some parts are glue, not parts**: `lib/integrations` and `lib/plugin-kit` (cohesion 0.00, by
   design for the kit), `lib/runtime` (0.03) and `lib/cli` (0.07) are thin shells over the parts

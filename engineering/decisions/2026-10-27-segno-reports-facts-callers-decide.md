@@ -180,7 +180,7 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | **R0** | Policy table inside `remote-ref.js`, including the `ping`/`action`/`formaction` rows (A). No new reader. | Export before/after (dark and light) for sign-off; `--wide` plain run drops to 0; fuzz default stream unchanged. |
 | **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
-| **R3** | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
+| **R3** (shipped 2026-11-02) | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
 | **R4** | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. |
 
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
@@ -292,6 +292,98 @@ D1 A on #2980 (raise the Studio ceiling by about 2.5 KB and switch now), and the
   failing to allocate that tape.
 - **Not done:** R3 (the HTML island) and R4 (each consumer deletes its scanner) stay open, as D8 says.
 
+### R3 landed (2026-11-02)
+
+`scanHtml` reads markup through a generated parser, held to the hand-written scanner it replaced by every
+test below, and to a spec parser by a differential the scanner never had. The work found six ways a web
+address got past the sanitizer, all older than R3; the hand-written scanner got all six fixes first, and R3
+is held to that fixed scanner. It was built on 2026-10-30 and held unwired for two days because the parser
+crossed the Studio's route-budget ceiling (D9); the owner's 5 KB raise in #3001 (for #2997) left room for it,
+so it is switched on with no ceiling moved, which the owner confirmed (D9 A).
+
+- **What is built.** `lib/core/html-ref-grammar.js` is a Segno grammar for the WHATWG tokenizer's data
+  state: tags, attributes, comments (the dash-counting states of §13.2.5.43-52, written as a regular
+  grammar), bogus comments, doctypes and `</>`. `tools/build-segno-grammar.js` generates
+  `lib/core/html-ref.generated.js`; `lib/core/html-ref-reader.js` (`makeScanHtml`) walks its tape and
+  returns the tags `scanHtml` returns. The scanner as it was at e6c3a4a is frozen in
+  `tools/segno-legacy/scan-html.js`.
+- **The open question, answered.** The note left open how tree-construction facts belong in a generated
+  grammar. They do not: the grammar stops wherever what follows depends on state it does not own, the
+  same mechanism R2 used for `url(`. Four stop kinds: `rtn` (the name of a raw-text start tag, whose
+  content the reader ends with an end-tag search), `copen` and `cend` (a comment, read by its own rule),
+  and `cdo` (`<![CDATA[`, a CDATA section or a bogus comment by the reader's foreign-content stack). The
+  rules a stop hands over end on stops of their own (`rgt`, `cdx`, `bog`). The foreign-content stack, and
+  the integration points open inside each foreign element, stay in the reader, as the block stack did in R2.
+  One trap: the generated parser's tape is module state, so a sub-parse overwrites the tape the reader is
+  walking. The first version read two offsets after a sub-parse and silently stopped scanning after
+  `<svg><title><![CDATA[x]]>` (the inversion review found it); every branch now reads its offsets first.
+- **`unsure` replaces `risky`.** The reader returns `unsure`, spans with a reason (`comment-unterminated`,
+  `foreign-content`, `foreign-breakout`, `integration-point`, `select`, `noscript`, `escaped-script`,
+  `foreign-cdata`), declared in the island's package (D6). Switched on, `blockWebImages` fails closed on any
+  of them by asking the spec parser (D7), as it does on `risky`.
+- **The switch.** `remote-ref.js` builds `scanHtml` from the reader over the generated parser, returning
+  `{ tags, risky, unsure }` (`risky` is whether any span is unsure), so `blockWebImages` reads it unchanged.
+  The hand-written scanner is frozen in `tools/segno-legacy/scan-html-fixed.js` as the oracle. Before the
+  switch, every gate below ran on a copy with the switch applied, so the evidence is for this code. The
+  docs-site dev shim and the code-door sanitizer page inline require-free siblings already (both new files
+  are require-free).
+- **What the work found, fixed in the hand-written scanner before the switch, each with a test.** Each fetched in Chromium
+  131 as written, and the sanitizer passed it:
+  1. A CDATA section inside an integration point: Chromium (131), WebKit (26.0) and parse5 read `<![CDATA[`
+     there as a bogus comment that ends at its first `>`, so `<math><mi><![CDATA[<picture><source srcset=…>]]>`
+     builds a live `<source>`. Firefox (142) reads a CDATA section, as the standard's text says. Found by
+     the parse5 differential.
+  2. The same section with no `]]>`: the scanner stopped reading at it (the checker found it).
+  3. `</svg>` or `</math>` inside an integration point: `desc` and `mi` are special to the HTML rules that
+     run there, so the end tag is ignored and the content stays foreign, and
+     `<svg><desc><x></svg></x></desc><style><img src=…>` has markup, not raw text, in its `<style>` (the
+     red team found it).
+  4. A start tag inside an integration point is HTML: `<svg><desc><title><!--</title><img src=…>-->` has a
+     `<title>` of text and a live `<img>` (the inversion review found it, live in all three engines).
+  5. Comments were quadratic: 400 KB of `<!-- x -->` took 29 s (the `--!>` search ran to the end once per
+     comment). The scanner now remembers its last search: 9 ms.
+  6. A stray `<body>` (or `<html>`) start tag gives its attributes to the page's own body, and the spec
+     parser's check (`verifyWithParser`) visited only the body's descendants, so on risky markup
+     `<select></select><table><td><table><BODY background=…>` went out unchanged and fetched in all three
+     engines (the browser fuzz found it, input fb-43615 of seed 11; it fetches at e6c3a4a too). The check
+     now refuses those attributes and re-serializes, which drops them.
+  The scanner does not track the current node, so 1 to 4 set `risky` where the readings can part (the
+  spec parser decides): a `>` before the `]]>` or no `]]>`; a `</svg>` or `</math>` while an integration
+  point is open; any start tag inside one. Lattice's own chart SVG has a `<title>` and a `<desc>` with
+  text only, so none of these touch a deck: 0 of 860 corpus texts are newly risky.
+- **Differential.** `test/unit/core/html-ref-differential.test.js` holds R3 to the fixed hand-written
+  scanner with nothing left out (the same tags field for field, `unsure` exactly where `risky` is). It also
+  holds the fixed scanner to the e6c3a4a one: the same tags, `risky` never dropped (where the earlier scanner
+  gave up at an unterminated CDATA section, its tags are where the fixed ones start). Inputs: 117 picked, one per state the readers depend on; every markdown, HTML and SVG
+  file under `lib`, `themes`, `examples`, the baseline decks and the test fixtures; 60,000 seeded token
+  soups and 30,000 seeded foreign-content structures (`test/fixtures/html-ref-soups.js`). Two arms must
+  fail and do: a parser generated from a grammar whose comment ends at `--!`, and the reader's own source
+  with its foreign stack cut out (caught on more than a quarter of 2,000 structures).
+- **Corpus.** `npm run check:html-ref-spans`: 430 decks, 860 texts (each as written and as rendered).
+  `blockWebImages` from the working tree and from e6c3a4a return the same bytes with no origin allowed and
+  with one, `fonts` off and on, with no spec parser and with jsdom's: 0 differences, 0 texts newly risky.
+- **Platform-parser differential.** The same tool parses every text with parse5 (a WHATWG tree builder,
+  scripting on) and requires every element it builds to be the reader's tag at the same source offset, with
+  the same attributes: 195,641 elements on the corpus, 0 missed. `--fuzz N --seed S` runs it on N inputs
+  of each of three streams; see the PR body for the run at 100,000 per stream.
+- **The `unsure` rate.** 0 of 860 corpus texts. On the hostile streams it is high on purpose, since they
+  are built from the constructs that raise it: see the PR body, by stream and by reason. No deck asks the
+  spec parser.
+- **Cost.** On the 443 rendered decks (13.6 MB) the reader takes 183 ms against the old scanner's 144 ms
+  (median of five). Both are linear on hostile input now (the unit test times both on ten floods).
+- **Bytes.** Measured with `docs/scripts/measure-route-base.sh` against main and the branch's docs build:
+  `_astro/remote-ref.js` grows by 2,701 gzip bytes on studio, playground and home as CI measures it (2,495 locally; the parser is 3,172 bytes
+  minified and gzipped; the reader 1,810 against the old scanner's 1,374), declared in
+  `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz measures 551.6 KB in CI against the
+  554.5 KB (567,832-byte) ceiling. Playground and home stay under theirs.
+- **Browser fuzz.** `npm run fuzz:web-refs -- --seed 11` in Chromium 131, WebKit 26.0 and Firefox 142, run in
+  resumable 3,000-input chunks (`--from`/`--count`), on the shipped scanner (`lib/` identical from 9498c3a to
+  513d0ef): 100,000 inputs per engine, 0 leaks, 0 unattributed requests, 0 hung inputs, 0 scanner errors;
+  17,125 (Chromium), 16,373 (WebKit) and 16,648 (Firefox) of them fetch as written. An earlier run, on the code
+  before the stray-`<body>` fix, found that leak (fb-43615, closed and replayed clean in all three). The failing arm, `--ref 3780dc9` (the
+  scanner before #2909's fuzz fixes), leaked 142 times in 2,400 inputs.
+- **Not done:** R4. Each consumer (gallery gate, export, linter, narrator) still keeps its own scan.
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
@@ -315,6 +407,14 @@ built so far is hard to undo.
   starts only after R2's gate (433-deck byte identity, fuzz at 0 requests in three engines, the
   failing arm still failing) has run green. R4 stays one PR per consumer.
 
+- **D9. The Studio ceiling for R3. Answered by the owner on 2026-11-02 on #3002: A, keep R3 switched on.** Switching R3 on adds about 2.5 KB gzip to the Studio's eager JavaScript (2,495 bytes
+  locally, 2,701 in CI), which sat 164 bytes under its 562,200-byte ceiling, so on 2026-10-30 the switch was
+  held and the question put to the owner, with B (do not switch) as the default if silent. The owner did not
+  answer it. On 2026-11-02 the owner raised the ceiling by 5 KB in #3001 for #2997's 0.2 KB, and the session
+  switched R3 on inside that room (CI: 551.6 KB against 554.5 KB), declaring the bytes and moving no ceiling.
+  That spends about 2.7 KB of headroom raised for another PR; the owner accepted it ("go with A"). Overturning it later is one revert of the switch commit; the
+  hand-written scanner, with the six fixes, is frozen in tools/segno-legacy/scan-html-fixed.js.
+
 ## Not decided here
 
-How tree construction facts (foreign content, templates) are best expressed in a generated grammar is the open design question of R3; the note commits only to the soundness invariant and to `unsure` as the escape. The connection-with-no-request oracle cannot fail in headless Chromium today (the control opens no attributable idle connection), so `fetch/hint` has no measured coverage until that oracle is fixed.
+How tree construction facts (foreign content, templates) are best expressed in a generated grammar was the open design question of R3. R3 answered it with stops and a reader that keeps the state ("R3 landed"). The connection-with-no-request oracle cannot fail in headless Chromium today (the control opens no attributable idle connection), so `fetch/hint` has no measured coverage until that oracle is fixed.
