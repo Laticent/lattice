@@ -17,7 +17,7 @@ import { CHROME, gotoStudio, livePreview, setEditorContent } from './studio-fixt
 const GALLERY = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../lib/components/chart/chart.gallery.md'), 'utf8');
 
 /** Per chart figure: how many drawn SVG shapes it has, how many compute to opaque black, and
- *  whether its status pills (flow charts) kept their pill ground. */
+ *  whether its status pills (flow charts) kept their pill ground (a color or an image). */
 function figurePaints(page: import('@playwright/test').Page) {
 	return page.locator('article.st-read-article').evaluate((article) => {
 		const out: { chart: string; shapes: number; black: number; pills: number; bare: number; markers: number; unmarked: number }[] = [];
@@ -35,8 +35,15 @@ function figurePaints(page: import('@playwright/test').Page) {
 			// writes `:before`, and the prune once read that as a class and dropped every marker.
 			const markers = [...fig.querySelectorAll('.cell-state-text, .roadmap-legend-mark')];
 			const unmarked = markers.filter((m) => getComputedStyle(m, '::before').content === 'none').length;
+			// A pill's ground is a flat status color (#2905 retired the gradient it was drawn with), or an image under
+			// a texture. It is bare when it paints neither: no image and a fully transparent color. Judging by
+			// `background-image` alone read every flat pill as bare, and kept the nightly red from #2905 on.
 			const pills = [...fig.querySelectorAll('.chart-status')];
-			const bare = pills.filter((p) => getComputedStyle(p).backgroundImage === 'none').length;
+			const transparent = (c: string) => c === 'transparent' || /^rgba\([^)]*,\s*0\)$/.test(c) || /\/\s*0\)$/.test(c);
+			const bare = pills.filter((p) => {
+				const cs = getComputedStyle(p);
+				return cs.backgroundImage === 'none' && transparent(cs.backgroundColor);
+			}).length;
 			out.push({ chart, shapes, black, pills: pills.length, bare, markers: markers.length, unmarked });
 		}
 		return out;
