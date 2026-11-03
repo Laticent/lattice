@@ -224,6 +224,8 @@ async function latticePhotoProbe() {
 		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
 		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
+		// A phone shows one pane: make sure it is the preview before waiting on the preview's frame (#2911).
+		await latticeShowPreview();
 		await until(() => shown() !== '', 90000, 'the first preview render').catch((e) => {
 			// Say what the frame held: an iPad run once timed out here with the slide drawn on screen (#2911).
 			throw new Error(`${e.message} (${previewState()})`);
