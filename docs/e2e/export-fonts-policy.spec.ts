@@ -90,8 +90,13 @@ async function pdfFontFiles(page: Page, text?: string): Promise<number> {
 }
 
 onEveryEngine('@smoke Share → PDF embeds the deck faces by default, and System embeds none', async ({ page }) => {
+	// The vector writer runs in a worker (deck-export.js `writePdfOffThread`). Its main-thread fallback writes the same
+	// bytes, so only this warning tells a worker that never ran on this engine from one that did.
+	const fallbacks: string[] = [];
+	page.on('console', (m) => { if (/PDF write worker failed/.test(m.text())) fallbacks.push(m.text()); });
 	const embedded = await pdfFontFiles(page);
 	const none = await pdfFontFiles(page, 'system');
+	expect(fallbacks, 'the PDF writer left its worker for the main thread').toEqual([]);
 	expect(embedded, 'the default carries the deck’s faces').toBeGreaterThan(0);
 	expect(none, 'System leaves the engine’s faces out of the PDF').toBeLessThan(embedded);
 });
