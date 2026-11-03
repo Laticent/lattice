@@ -1784,6 +1784,11 @@ test('video card: a non-http poster or link is dropped, and a quote cannot leave
 	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /lp-video-thumb/, 'a javascript: poster projects no thumbnail');
 	assert.doesNotMatch(card('https://ok.example/v', "background-image:url(&quot;https://x.example/a'b.jpg&quot;)"), /lp-video-thumb/, 'a poster that could close the CSS string is dropped');
 	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
+	// The poster is read with cssRefSpans (Segno R4): an escaped call and the last declaration, as the slide paints it,
+	// and an escaped scheme is still decoded before safeHref judges it.
+	assert.match(card('https://ok.example/v', 'background-image:u\\72l(https://ok.example/p.jpg)'), /lp-video-thumb" style="background-image:url\('https:\/\/ok\.example\/p\.jpg'\)"/);
+	assert.match(card('https://ok.example/v', 'background-image:url(a.jpg);background-image:url(b.jpg)'), /url\('b\.jpg'\)/);
+	assert.doesNotMatch(card('https://ok.example/v', 'background-image:url(\\6a avascript:alert\\28 1\\29 )'), /lp-video-thumb/, 'an escaped javascript: poster projects no thumbnail');
 });
 
 test('video card: a figure inside a plugin\'s drawing, or one without the plugin\'s marker, projects no card', () => {
