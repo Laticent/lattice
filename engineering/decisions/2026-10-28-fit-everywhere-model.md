@@ -724,7 +724,17 @@ across pages more than twice as often as greedy.
 
 **Timing.** For 250 members, a pack takes 0.04 ms (greedy), 0.32 ms (Knuth–Plass) and 0.62 ms
 (balanced): all far inside a live edit's budget. The cost of the measured path is the render: a
-whole render plus one re-split, and one more re-split per verify round that tightens.
+whole render plus one re-split, and one more re-split per verify round that tightens. Measured on
+one sandbox, one run each, while another suite ran (about ±10%): measuring a deck takes 25 to
+200 ms on a component gallery and 0.5 s on the 98-slide mixed gallery, and planning every slide
+takes under 4 ms. A whole export with Knuth–Plass runs as fast as today's split or faster on a
+component gallery, because it renders fewer pages (agenda at portrait@laptop: 7.0 s and 109 pages
+against 4.9 s and 22). On the mixed gallery it costs 22 s against 29 s (+32%), from a second split
+round and four slides that go back on today's split. A slide whose tighter room packs the same
+pages now falls back at once instead of using the remaining rounds, which took the mixed gallery
+from three split rounds to two. The CLI prints the measure time, plan time, split rounds and
+fallbacks on every measured render. Re-rendering only the slides a round changed would remove
+most of what is left.
 
 **Not in this round.** Guillotine/BSP belongs to the component CSS layer. Skyline, Cassowary,
 FM/KL, spectral and SMAWK were excluded in the catalog itself.

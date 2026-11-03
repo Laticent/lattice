@@ -3914,7 +3914,12 @@ async function renderBody(browser, g, closeBrowser) {
       // chrome, or crammed prose. A slide the overflow probe alone passed could still clip or cram.
       const verdictCfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
       const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), ${JSON.stringify(verdictCfg)}, (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
+      const t0 = performance.now();
       const facts = await g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs})`), 'measure fit') || [];
+      const tMeasure = performance.now() - t0;
+      let tPlan = 0;
+      let rounds = 0;
+      let fellBack = 0;
       const room = Object.fromEntries(facts.filter((f) => f.over && f.members).map((f) => [f.slide, f.capacity]));
       const planFor = () => {
         const plan = {};
@@ -3927,8 +3932,15 @@ async function renderBody(browser, g, closeBrowser) {
         }
         return plan;
       };
-      let plan = planFor();
+      const timedPlan = () => {
+        const t = performance.now();
+        const out = planFor();
+        tPlan += performance.now() - t;
+        return out;
+      };
+      let plan = timedPlan();
       for (let round = 0; round < 3; round++) {
+        rounds += 1;
         r = await splitOnce(plan);
         const over = await g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit') || {};
         // Only a slide whose pages the plan set can be helped by a tighter plan (splitDoc's `planned`).
@@ -3937,14 +3949,24 @@ async function renderBody(browser, g, closeBrowser) {
         if (!tighten.length) break;
         // A known excess tightens by itself; a clip or a cram with no excess, by a tenth of the room.
         for (const n of tighten) room[n] -= over[n] > 0 ? over[n] + 2 : Math.ceil(room[n] * 0.1);
-        if (round === 2) {
-          for (const n of tighten) delete plan[n];
+        const next = timedPlan();
+        // A slide whose tighter room packs the same pages cannot be helped by another round (a
+        // sideways overflow, a cram no page break fixes): it goes back on today's split now, not
+        // after the last round. So does every slide still failing after the third round.
+        const stuck = tighten.filter((n) => round === 2 || JSON.stringify(next[n]) === JSON.stringify(plan[n]));
+        for (const n of stuck) delete next[n];
+        fellBack += stuck.length;
+        plan = next;
+        if (stuck.length === tighten.length) {
+          rounds += 1;
           r = await splitOnce(plan);
           break;
         }
-        plan = planFor();
       }
-      if (!QUIET) console.log(`  auto-split (measured, ${FIT_PACK}): ${r.changed} slide(s) split, ${facts.filter((f) => !f.over).length} kept whole`);
+      if (!QUIET) {
+        console.log(`  auto-split (measured, ${FIT_PACK}): ${r.changed} slide(s) split, ${facts.filter((f) => !f.over).length} kept whole`);
+        console.log(`    measure ${tMeasure.toFixed(0)} ms, plan ${tPlan.toFixed(2)} ms, ${rounds} split round(s), ${fellBack} slide(s) back on today's split`);
+      }
     } else {
       r = await splitOnce(null);
       if (r.changed && !QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
