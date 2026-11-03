@@ -2,7 +2,7 @@
 origin: 2992
 priority: P2
 recorded: 2026-11-03
-area: studio
+area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-01-icon-font.md
 deferred: large — a new feature with its own design round and PR (HARD RULE #17); the owner asked for it on PR 2992
