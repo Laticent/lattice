@@ -461,8 +461,11 @@ export function groupShapes(xml: string): string {
 	// custom geometry inside a group as a speck at the group's corner, while the same shape at the slide's top level draws
 	// right (tools/office-quicklook.mjs, engineering/decisions/2026-11-01-icon-font.md § 3.6). Moving a card in PowerPoint then
 	// leaves its icon behind unless both are selected; that is the price of the icon drawing at all on an iPhone.
-	// Only a mark (Calco names it `Mark`: a stroked path, never a fill) leaves its group. A tab or a card with per-corner
-	// radii is custom geometry too, but it is filled, and written after the group it would cover the card's text.
+	// Only a mark leaves its group: Calco names every unlabeled path shape `Mark` (an icon's outline, a masked check, dot
+	// or triangle; stroked or filled). A mark sits in its own small box, so painting it after the card's later members
+	// changes nothing a reader sees unless one overlaps it. A tab or a card with per-corner radii is custom geometry too,
+	// but it spans the card, and written after the group it would cover the card's text, so it stays in. The ODP writer
+	// keeps marks in draw:g: Apple's importers do not open .odp.
 	const isMark = (sp: string) => sp.includes('<a:custGeom>') && /<p:cNvPr id="\d+" name="[^"]*Mark \d+\.\d+"/.test(sp);
 	const wrapCard = (group: string, all: Array<{ sub: string | null; sp: string }>) => {
 		const lifted = all.filter((m) => isMark(m.sp)).map((m) => m.sp);

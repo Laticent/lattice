@@ -86,6 +86,47 @@ describe('calco shapes — draw order', () => {
 });
 
 describe('calco shapes — pptx', () => {
+  // Apple's Office importer (iPhone Preview, Quick Look) draws custom geometry inside a group as a speck, so a MARK
+  // (an unlabeled path: an icon's outline, a check) is written just after its card's group. Filled custom geometry that
+  // spans the card (a tab with per-corner radii) stays in, or it would cover the card's text. ODP keeps both in draw:g.
+  const mark = { kind: 'path', x: 360, y: 110, w: 12, h: 8.5, path: [['M', 0, 4.1], ['L', 4, 8.1], ['L', 12, 0]], closed: false, stroke: { color: '#16a34a', alpha: 1, width: 2.5 }, cap: 'round', join: 'round', group: 0 };
+  const marked = () => ({ width: 1280, height: 720, slides: [{ ...slide(), shapes: [card, accent, tag, mark, rule] }] });
+  const at = (xml, re) => xml.search(re);
+
+  test('a mark is written just after its card\'s group; the tab and the text stay in it', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, marked(), 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    const group = xml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0];
+    assert.doesNotMatch(group, /name="Mark /, 'no mark inside the group');
+    assert.match(group, /<a:custGeom>/, 'the filled tab (per-corner radii) stays in');
+    assert.match(group, /Owns the policy\./);
+    const end = xml.indexOf('</p:grpSp>') + '</p:grpSp>'.length;
+    const m = at(xml, /<p:sp><p:nvSpPr><p:cNvPr id="\d+" name="Mark /);
+    assert.ok(m >= end, 'the mark paints after its card');
+    assert.ok(m < at(xml, /prst="line"/), 'and before what the slide draws next');
+    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (x) => x[1]);
+    assert.equal(new Set(ids).size, ids.length);
+  });
+
+  test('a card left with one member is that member, and a card of marks alone is no group', async () => {
+    const one = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [], shapes: [card, mark] }] };
+    const xml1 = await (await JSZip.loadAsync(await writePptx(PptxGenJS, one, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml1, /<p:grpSp>/, 'a group of one only moved the icon\'s tile');
+    assert.ok(at(xml1, /prst="roundRect"/) < at(xml1, /name="Mark /), 'the mark still paints over its tile');
+    const alone = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [], shapes: [mark, { ...mark, x: 380 }] }] };
+    const xml2 = await (await JSZip.loadAsync(await writePptx(PptxGenJS, alone, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml2, /<p:grpSp>/);
+    assert.equal(xml2.match(/name="Mark /g).length, 2);
+  });
+
+  test('the .odp keeps the mark in its card\'s draw:g (Apple\'s importers do not open .odp)', async () => {
+    const zip = await JSZip.loadAsync(await writeOdp(JSZip, marked(), 'nodebuffer'));
+    const xml = await zip.file('content.xml').async('string');
+    const g = xml.match(/<draw:g[\s\S]*?<\/draw:g>/)[0];
+    assert.match(g, /draw:custom-shape/);
+    assert.equal((g.match(/draw:custom-shape/g) || []).length >= 2, true, 'the tab and the mark');
+  });
+
   test('presets, custom geometry and a rule, the card grouped in a p:grpSp', async () => {
     const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
