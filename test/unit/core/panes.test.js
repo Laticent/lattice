@@ -308,7 +308,8 @@ test('theme rules keyed to a component reach a pane (the a11y texture channel)',
 test('a table in a pane renders with the same table classes as a table slide', () => {
   const html = render('## T\n\n<!-- pane: list -->\n\n- a\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n');
   const pane = html.slice(html.indexOf('data-pane="table"'));
-  assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?">/);
+  // The row-label verdict leads; the reflow stamp (lib/core/table-shape.js) may follow it.
+  assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?(?: lat-reflow-[a-z]+)?"/);
 });
 
 test('the spine between panes is on by default and `no-rule` turns it off', () => {

@@ -1,0 +1,146 @@
+/* Table reflow — a table that runs out of width changes shape instead of squeezing.
+ *
+ * lib/core/table-shape.js names each table's narrow layout and the two render paths stamp
+ * it (`lat-reflow-cards` / `lat-reflow-pairs`, plus each body cell's column header as
+ * `data-lat-col`). This sheet does the rest, and only inside a container query, so a table at
+ * full slide width renders exactly as it did. The query reads the table's OWN box, not the
+ * screen: a table in a half pane switches the same way one on a phone does.
+ *
+ *   cards — each row becomes a card: the first cell is its title, every other cell a
+ *           "LABEL value" line. Record lists and prose registers.
+ *   pairs — each label moves above its value. Two-column key-value tables.
+ *
+ * THE CONTAINER IS THE CONTENT AREA (`.cell-stage`), not a wrapper. The universal treatment
+ * (base.elements.css) only styles a table that is a direct child of `.cell-stage` or of the
+ * slide, so the stage already holds exactly the table we mean, and no `> table` selector
+ * anywhere had to learn about a new element. An unwrapped slide has no stage; there the
+ * slide itself (already a size container) answers the query. The pane twins come from
+ * lib/core/pane-css.js, which twins every `section` rule that reaches through `.cell-stage`,
+ * inside `@container` blocks as well.
+ *
+ * A CONTAINER CHANGES WHAT `cqi` MEANS INSIDE IT. Every type and spacing token is drawn in
+ * `--_sec-1cqi`, a px value the engine stamps on the slide, so they are unaffected. A raw
+ * `cqi` inside a stage that holds a reflow table would now measure the stage. None of the
+ * rules that style a table or its stage siblings uses one (checked when this landed).
+ *
+ * WHEN IT SWITCHES, in `em` of the stage's text: a card table of up to four columns below
+ * 20em, one of five or more below 24em, a pair table below 18em. ONLY WHERE THE TABLE REALLY
+ * BREAKS, because a slide has a fixed height: a card is taller than the row it replaces, so a
+ * switch that fires merely where a table gets tight trades a readable table for a clipped
+ * slide. A half pane on a 16:9 slide is about 26em and a full-width slide about 54em, so
+ * neither ever switches; a narrow pane, a portrait canvas or a phone does. The first cut
+ * switched at 8em per column and clipped a four-column table in a half pane that fit on
+ * `main`; that is why the numbers are this low. Hand-set from the Frame Lab sweep
+ * (tools/frame-lab/), not measured per table.
+ *
+ * The same deny list as the universal treatment: the six components that style `<table>`
+ * themselves own their tables. See engineering/decisions/2026-11-03-responsive-tables.md. */
+
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > .cell-stage:has(> table.lat-reflow-cards, > table.lat-reflow-pairs) {
+  container-type: inline-size;
+}
+
+/* ── cards: tables of up to four columns switch below 20em ── */
+@container (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > thead { display: none; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody {
+    display: grid; gap: var(--sp-xs);
+    grid-template-columns: repeat(auto-fill, minmax(min(16em, 100%), 1fr));
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody > tr {
+    display: flex; flex-direction: column; gap: 0.2em;
+    padding: var(--sp-xs) var(--sp-sm); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: none;
+  }
+  /* The first cell is the card's title, in the split reshape's card language (table.styles.css). */
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody > tr > td:first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody > tr > td:first-child {
+    display: block; padding: 0 0 var(--sp-2xs); border: 0;
+    font-weight: 600; color: var(--text-heading);
+    background: var(--spectrum-structure) bottom / 100% 2px no-repeat;
+  }
+  /* Every other cell is one line of the card: its label, inline, then its value. The cell stays
+   * ONE box, so bold, a link, code or a pill inside it stays in that line's flow. (An earlier cut
+   * dissolved the cells into a two-column grid to line the labels up; every inline element in a
+   * cell then became a grid item of its own and the label/value pairs slid out of line.) */
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody > tr > td:not(:first-child) { display: block; padding: 0; border: 0; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-col);
+    font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label);
+    padding-inline-end: var(--sp-xs);
+  }
+  /* A missing value stays visible: an empty cell reads as a dash, never as a gap. */
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+}
+
+/* ── cards: tables of five or more columns switch earlier, below 24em ── */
+@container (width < 24em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > thead { display: none; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody {
+    display: grid; gap: var(--sp-xs);
+    grid-template-columns: repeat(auto-fill, minmax(min(16em, 100%), 1fr));
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr {
+    display: flex; flex-direction: column; gap: 0.2em;
+    padding: var(--sp-xs) var(--sp-sm); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:first-child {
+    display: block; padding: 0 0 var(--sp-2xs); border: 0;
+    font-weight: 600; color: var(--text-heading);
+    background: var(--spectrum-structure) bottom / 100% 2px no-repeat;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child) { display: block; padding: 0; border: 0; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-col);
+    font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label);
+    padding-inline-end: var(--sp-xs);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-cards:has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+}
+
+/* ── pairs: a two-column table puts each label above its value below 18em ── */
+@container (width < 18em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs > tbody,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs > tbody { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs > thead { display: none; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs > tbody > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs > tbody > tr {
+    display: flex; flex-direction: column; gap: 0.15em;
+    padding: var(--sp-xs) 0; border-bottom: 1px solid var(--border); background: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs > tbody > tr > td,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs > tbody > tr > td { display: block; padding: 0; border: 0; }
+  /* The label takes the table header's look, so it reads as a label and not as a value. */
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table.lat-reflow-pairs > tbody > tr > td:first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table.lat-reflow-pairs > tbody > tr > td:first-child {
+    font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600;
+    letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label);
+  }
+}
