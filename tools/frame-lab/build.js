@@ -50,6 +50,8 @@ const FRAME_SCRIPT = `
 (function(){
   var REF = 1280;
   var root = document.documentElement;
+  // The lab is a continuous host: the slide grows, so a narrow layout never has to be held.
+  root.setAttribute('data-lattice-flow', 'continuous');
   var secs = Array.prototype.slice.call(document.querySelectorAll('#deck > section'));
   function measure(){
     var hold = root.getAttribute('data-lab-type') !== 'follow';

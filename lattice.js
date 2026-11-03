@@ -1183,6 +1183,7 @@ const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // declared further down; reaching it early is a TDZ throw).
 const { fontFaceCss, emojiFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
+const { HOLD_UNFIT_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
 // This was open-coded here as `/\bguards-strict\b/.test(cls) && !/\bguards-loose\b/`,
@@ -3979,6 +3980,17 @@ async function renderBody(browser, g, closeBrowser) {
     // clips honestly. Reported rather than swallowed: a silent revert would make
     // `guards: strict` look like it simply did not apply.
     console.warn(`  ✂ TRIM REVERTED — the planned cut did not make pages ${trimmed.reverted.join(', ')} fit; they clip unchanged.`);
+  }
+  // A table whose narrow layout (cards, label/value pairs) makes its slide overflow is held in
+  // its table form, so a slide never comes out worse than it did before reflow existed
+  // (lib/core/table-reflow-fit.js). BEFORE the measurement, so the warnings report the held DOM.
+  const heldReflow = await g(() => page.evaluate(({ holdSrc, probeSrc, clipSel, ignoreSel, tol }) => {
+    const probe = new Function('return (' + probeSrc + ')')();
+    const hold = new Function('return (' + holdSrc + ')')();
+    return hold(document, probe, clipSel, ignoreSel, tol);
+  }, { holdSrc: HOLD_UNFIT_REFLOW_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, tol: FRAME_TOLERANCE }), 'hold unfit table reflow') || [];
+  if (heldReflow.length && !QUIET) {
+    console.warn(`  ⓘ A narrow table layout did not fit, so the table keeps its table form: page${heldReflow.length > 1 ? 's' : ''} ${heldReflow.join(', ')}.`);
   }
   const overflow = await measureOverflow();
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)

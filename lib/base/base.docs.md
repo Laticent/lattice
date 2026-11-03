@@ -899,8 +899,11 @@ narrow layout:
 
 It switches only where the table genuinely breaks, measured against the
 table's own box: a narrow pane, a portrait canvas or a phone. A table on a
-full-width 16:9 slide, or in a half pane on one, never switches, because a
-card is taller than the row it replaces and a slide does not grow.
+full-width 16:9 slide, or in a half pane on one, never switches. And on a
+slide it switches only if the new layout FITS: a card is taller than the row
+it replaces and a slide does not grow, so when the cards would make the slide
+overflow, the table keeps its table form (the export prints an `ⓘ` line
+naming the page). On a continuous page there is no such limit.
 
 You do not need to do anything. Overrule the engine when it guessed wrong:
 `table-cards` forces the card layout, `table-pairs` the label/value layout,

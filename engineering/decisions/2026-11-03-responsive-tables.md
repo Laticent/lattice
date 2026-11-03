@@ -111,14 +111,31 @@ have fed hundreds of column headers into that matcher. The ownership gate caught
   keeps it.
 - **The split system's portrait cover-cards** still runs where it ran.
 
-## The open question this change surfaced: paged and continuous
+## Paged and continuous: one layout, two triggers
 
 On a slide, height is fixed, and pure CSS cannot know whether the cards still fit: the checker showed a
-6-row table in a 30% pane that fits on `main` and clips with this change. The owner's direction (2026-11-03):
-one component must work jank-free in both a paged host (slides) and a continuous one (long-form decks,
-document variants, continuous pages). So the narrow layouts stay the same in both, and only the trigger
-differs: in a continuous host, the width alone; in a paged host, the width AND an engine fit check, so a
-slide can never get worse than `main`. That fit check is the next commit on this branch.
+record table in a 30% pane turning into cards that clipped. The owner's direction (2026-11-03): a component
+must work without jank in both a PAGED host (slides) and a CONTINUOUS one (long-form decks, document
+variants, continuous pages). So the narrow layouts are the same in both, and only the trigger differs:
+
+- **Continuous** (`data-lattice-flow="continuous"` on the root): the width alone. The page grows. Today only
+  the Frame Lab declares it; the fluid and document views will.
+- **Paged** (everything else, today every export): the width AND a fit check. lib/core/table-reflow-fit.js
+  measures each slide whose table switched, with the shared overflow probe, and if the slide now overflows it
+  holds that slide's tables in their table form (`lat-reflow-held`). A slide therefore never comes out worse
+  than the table form it had before reflow existed. The CLI runs it in the export page before it measures
+  overflow (and prints an `ⓘ` line naming the pages); the runtime runs it for live previews.
+
+Measured on a deck with a six-row and a three-row record table, each in a 30% pane: on `main` both slides
+clip in table form. With this change the six-row slide is held, so it clips exactly as on `main`; the
+three-row slide switches to cards and NO LONGER CLIPS.
+
+What it cannot reach: a plain `.html` deliverable, which the CLI writes before the page renders (the same gap
+the guards trim has); a held table is not re-judged if its box later widens in a live preview.
+
+The switch widths stay low (20em, 24em, 18em) in this change. With the fit check in place they could rise,
+which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
+a separate, reviewed step.
 
 ## Verification
 
