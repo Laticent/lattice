@@ -43,14 +43,40 @@ async function capture(url, file, wait) {
 	return PNG.sync.read(fs.readFileSync(file));
 }
 
-/** The share of pixels (every 4th) that differ clearly from the baseline capture. */
+/**
+ * How a capture differs from the baseline: the share of pixels (every 4th) that differ clearly, and how many distinct
+ * colors (4 bits a channel) those pixels hold. A slide is many colors; a dimmed screen under a download prompt is a few
+ * (the probe's first runner run counted that prompt as 70% "drawn").
+ */
 function changed(a, b) {
-	if (a.width !== b.width || a.height !== b.height) return 1;
+	if (a.width !== b.width || a.height !== b.height) return { share: 1, colors: 0 };
 	let n = 0;
+	const colors = new Set();
 	for (let i = 0; i < a.data.length; i += 16) {
-		if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 60) n++;
+		if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 60) {
+			n++;
+			colors.add(((a.data[i] >> 4) << 8) | ((a.data[i + 1] >> 4) << 4) | (a.data[i + 2] >> 4));
+		}
 	}
-	return n / ((a.width * a.height) / 4);
+	return { share: n / ((a.width * a.height) / 4), colors: colors.size };
+}
+
+/** The most common color of an image (4 bits a channel, every 4th pixel), as the bin's middle. */
+function dominant(img) {
+	const counts = new Map();
+	for (let i = 0; i < img.data.length; i += 16) {
+		const k = ((img.data[i] >> 4) << 8) | ((img.data[i + 1] >> 4) << 4) | (img.data[i + 2] >> 4);
+		counts.set(k, (counts.get(k) || 0) + 1);
+	}
+	const top = [...counts].sort((x, y) => y[1] - x[1])[0][0];
+	return [((top >> 8) & 15) * 16 + 8, ((top >> 4) & 15) * 16 + 8, (top & 15) * 16 + 8];
+}
+
+/** The share of an image's pixels (every 4th) within a small distance of a color. */
+function near(img, [r, g, b]) {
+	let n = 0;
+	for (let i = 0; i < img.data.length; i += 16) if (Math.abs(img.data[i] - r) + Math.abs(img.data[i + 1] - g) + Math.abs(img.data[i + 2] - b) < 30) n++;
+	return n / ((img.width * img.height) / 4);
 }
 
 // Safari launched first, as the other suites launch it, so the first URL has an app to land in.
@@ -65,8 +91,17 @@ for (const f of index) {
 	const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
 	try {
 		const shot = await capture(`${BASE}/${f.path}`, file, 6000);
-		const share = changed(shot, baseline);
-		steps.push({ name, pass: share > 0.05, detail: `${(share * 100).toFixed(1)}% of the screen differs from a blank page` });
+		const { share, colors } = changed(shot, baseline);
+		// The slide's own background is on screen: the dominant color of the same cut's Quick Look render (made by
+		// tools/office-quicklook.mjs earlier in this job) covers a real share of the screen. A download prompt (a dimmed
+		// gray screen) or an empty page holds no slide's cream or navy; for a near-white slide, the dim gray is ruled out.
+		const ref = path.join(path.dirname(process.env.OFFICE_INDEX), f.path.replace(/\.pptx$/, '.png'));
+		const bg = fs.existsSync(ref) ? dominant(PNG.sync.read(fs.readFileSync(ref))) : null;
+		const cover = bg ? near(shot, bg) : 0;
+		const dim = near(shot, [153, 153, 153]);
+		const white = bg?.every((v) => v > 235);
+		const pass = share > 0.05 && colors >= 24 && dim < 0.3 && (bg === null || white || cover > 0.08);
+		steps.push({ name, pass, detail: `${(share * 100).toFixed(1)}% differs from a blank page in ${colors} colors; slide background ${bg ? `rgb(${bg.join(',')})` : 'unknown'} covers ${(cover * 100).toFixed(1)}%, prompt gray ${(dim * 100).toFixed(1)}%` });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
 	}

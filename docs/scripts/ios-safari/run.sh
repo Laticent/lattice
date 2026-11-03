@@ -39,7 +39,19 @@ if [ "$PROBE" = office ]; then
   page="$ROOT/platform-suite-artifacts/office-quicklook"
   test -f "$page/index.json" || { echo "no $page/index.json: run tools/office-quicklook.mjs first" >&2; exit 1; }
   printf '<!doctype html><title>blank</title>\n' > "$page/blank.html"
-  (cd "$page" && python3 -c 'import http.server as h; H=h.SimpleHTTPRequestHandler; H.extensions_map[".pptx"]="application/vnd.openxmlformats-officedocument.presentationml.presentation"; h.test(HandlerClass=H, port='"$PORT"', bind="127.0.0.1")' > "$OUT/preview.log" 2>&1) &
+  # `Content-Disposition: inline` asks Safari to show the file, not offer it as a download: without it iOS Safari asks
+  # "Do you want to download …? View / Download" and waits for a tap (the probe's first runner run).
+  cat > "$RUNNER_TEMP/office-serve.py" <<'PY'
+import http.server as h, sys
+class H(h.SimpleHTTPRequestHandler):
+    extensions_map = {**h.SimpleHTTPRequestHandler.extensions_map, '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'}
+    def end_headers(self):
+        if self.path.endswith('.pptx'):
+            self.send_header('Content-Disposition', 'inline')
+        super().end_headers()
+h.test(HandlerClass=H, port=int(sys.argv[1]), bind='127.0.0.1')
+PY
+  (cd "$page" && python3 "$RUNNER_TEMP/office-serve.py" "$PORT" > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/index.json"
 elif [ "$PROBE" = jpeg ]; then
