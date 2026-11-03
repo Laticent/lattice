@@ -166,7 +166,9 @@ async function latticePanesProbe() {
 	};
 
 	try {
-		await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor and its render metrics');
+		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
+		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
+		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		// On a cold page the first insert into a freshly hydrated editor can lose its opening characters (Playwright's
 		// WebKit dropped the deck's leading `---`, which turned the front matter into a fifth slide). So check the deck
 		// landed whole, by its slide count, and put it in again if it did not.
