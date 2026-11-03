@@ -252,7 +252,7 @@ way) or **estimated**. **Owner's call** marks the ones CLAUDE.md routes to the o
 3. **Fix the runtime's per-section layout thrash.** Read every section's width and height first, then write
    the variables; skip sections that did not change. *Measured:* 238 ms of self time over 40 keys at 4x,
    forced layouts included. **Owner's call:** `lattice-runtime-min.js` ships inside exports, so the export
-   sign-off applies.
+   sign-off applies. **Tried and dropped 2026-11-03 (§8):** batching the reads saved nothing measurable.
 4. **One shared preview pool with a global cap that releases idle frames on Chromium.** *Measured:* +280-315 MB for
    the slide map on a gallery deck, still resident after close. Also consider drawing the map's tiles in one
    document instead of one frame per tile.
@@ -310,6 +310,29 @@ reuse by design. Not a leak to fix in this code.
 
 **Measured and not changed:** the activity table's other rows, before against after, sit inside the spread of one
 run each (§1).
+
+## 8. Follow-up, 2026-11-03: item 3 measured, and dropped
+
+The owner asked to measure item 3 before deciding, so it was built (branch `claude/export-capture-speed`, not merged)
+and timed. `patchSectionGeometry` now read every section's size before writing any, so the browser laid the page out
+twice per pass instead of once per section. It changed the count and not the time:
+
+| Case, 40 gallery slides, 4x CPU | before | after |
+|---|---|---|
+| Forced layouts while a deck loads | 22 | 10 |
+| Their layout time | 21 ms | 14 ms |
+| Runtime's own CPU time over 40 typed keys (3 runs) | 400 / 358 / 388 ms | 358 / 387 / 269 ms |
+| Layout time over 40 typed keys | 162 / 199 / 204 ms | 216 / 179 / 197 ms |
+| Main thread busy during a 40-slide PDF export (2 runs) | 72 / 80 s | 78 / 78 s |
+
+The typing rows come from one docs build with only the preview's `lattice-runtime.js` swapped, both bundles built from
+`main` at 3555b79. Every row except the first sits inside run-to-run spread. The 238 ms in §2 is the work of sizing
+40 sections on each patch, not the order of the reads, so reordering cannot remove it. The owner dropped the change
+(it would also have changed the Export to Marp bundle's bytes). What would cut the cost is doing less of the work:
+skip a section whose size did not change since the last pass.
+
+The same branch cached the PDF camera's font-face filtering per document (`lib/core/slide-camera.mjs`). The export rows
+above include it, and it moved nothing either.
 
 ## What was not measured
 

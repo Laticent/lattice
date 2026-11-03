@@ -24,8 +24,8 @@ source: https://github.com/Laticent/lattice/pull/2984
                    docs/public/sw.js (navigation preload and cache refresh, item 7).
        order     — the note's §6. Done in PR 2984: 1(a) re-aimed at the vector writer,
                    1(d) investigated (no leak), 7's cache-scope fix, and 10 (the bench).
-                   Item 2 is PR 2993. Item 3 is measured on branch
-                   claude/export-capture-speed and waits on the owner's call.
+                   Item 2 is PR 2993. Item 3 was measured and dropped (the
+                   note's §8); a pass that skips unchanged sections is open.
        done when — each item lands with before/after numbers from the same harness
                    (HARD RULE #19), or the owner declines it.
 ```
