@@ -28,6 +28,12 @@ function remember(url: string, bucket: string | null) {
 	if (IMAGE_BUCKETS.size > IMAGE_BUCKETS_MAX) IMAGE_BUCKETS.delete(IMAGE_BUCKETS.keys().next().value as string);
 }
 
+/** Remember a photo's size from outside a frame: a preview-sized copy knows its own
+ *  (./preview-image-scale.ts), so the section that shows it stamps final on its first paint. */
+export function rememberSize(url: string, width: number, height: number) {
+	remember(url, imageAspect.bucketForAspect(width, height));
+}
+
 /** Fold in every size the frame's own pass measured. */
 function learn(fr: HTMLIFrameElement | null | undefined) {
 	try {
@@ -54,7 +60,7 @@ export async function stampKnownSizes(html: string, geom: Geom, live: HTMLIFrame
  * origin the reader allowed (`allow`); the frame's own policy then rules on it and on every
  * redirect, exactly as it would when the slide is shown. At most 24 per call.
  */
-export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: string, allow: string[], webOrigin: (u: string) => string | null) {
+export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: string, allow: string[], webOrigin: (u: string) => string | null, warm?: (url: string, prose?: boolean) => boolean) {
 	const W = fr?.contentWindow as (Window & typeof globalThis) | null | undefined;
 	if (!W || typeof W.Image !== 'function') return;
 	const allowed = new Set(allow);
@@ -65,6 +71,9 @@ export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: str
 		const origin = webOrigin(url);
 		if (!origin || !allowed.has(origin)) continue;
 		if (++started > 24) break;
+		// A preview-sized copy is being made instead (./preview-image-scale.ts): it measures the
+		// photo too, and the frame never holds the original.
+		if (warm?.(url)) continue;
 		IMAGE_PENDING.add(url);
 		// A frame torn down mid-load never fires either handler; let the address be tried again.
 		setTimeout(() => IMAGE_PENDING.delete(url), 15_000);
@@ -78,5 +87,15 @@ export function prefetch(fr: HTMLIFrameElement | null | undefined, markdown: str
 			remember(url, null);
 		};
 		img.src = url;
+	}
+	// A prose photo (`![alt](url)`, what the Compose picker and the chat agent write) has no size to
+	// measure for, but its preview-sized copy is made ahead the same way, so the slide the reader turns
+	// to next shows the copy and never decodes the original.
+	if (!warm) return;
+	for (const m of String(markdown).matchAll(/!\[(?!\s*bg\b)[^\]]*\]\(\s*<?(https?:\/\/[^\s)>]+)/gim)) {
+		const origin = webOrigin(m[1]);
+		if (!origin || !allowed.has(origin)) continue;
+		if (++started > 24) break;
+		warm(m[1], true);
 	}
 }

@@ -1,6 +1,7 @@
 /**
  * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js, then panes-probe.js, in the
- * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), jpeg-probe.js, the shared JPEG encoder
+ * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
+ * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), or undo-probe.js, the Filo undo checks across a reload (PROBE=undo). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
@@ -96,7 +97,7 @@ try {
 	if (MAC && !platform.startsWith('mac')) throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -130,7 +131,8 @@ async function studioPage(id, file, fn) {
  * each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
- * on a slow runner.
+ * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
+ * one they took the job to 27.6 minutes of its 30.
  */
 async function runStudioProbe(id) {
 	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
@@ -143,6 +145,87 @@ async function runStudioProbe(id) {
 		width: panes.width ?? preview.width,
 		steps: [...named('preview', preview), ...named('panes', panes)],
 	};
+}
+
+/** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */
+async function runPhotoMemoryProbe(id) {
+	const memory = await runPhotoMemory(id);
+	const page = await wd('POST', `/session/${id}/execute/sync`, { script: 'return { ua: navigator.userAgent, width: innerWidth };', args: [] }).catch(() => ({}));
+	return { ...memory, ua: page?.ua, width: page?.width };
+}
+
+/**
+ * The photo memory arms (photo-memory.mjs, #2998): ten distinct 12MP photos in ten preview-sized frames, first by their own
+ * addresses, then through the preview-sized copies, each arm on its own origin so Safari gives it a fresh content process. The
+ * memory is the physical footprint of the simulator's WebKit content and GPU processes, read on the Mac 6 s after the photos land, as
+ * each process's growth over a read taken on the arm's empty page (growthMB: memory another process frees meanwhile does not
+ * cancel it). The copies run first, each arm on its own site (photo-memory.mjs). Checks: the original arm costs at least
+ * 60 MB (CI has read 86 to 117 MB; under that, the reader is not reading Safari's processes and the last check would pass on
+ * nothing), and the copies cost at most 60% of it (Linux WebKit: 27%; CI: 15 to 32%).
+ */
+async function runPhotoMemory(id) {
+	const { startPhotoMemoryFixture, simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const FRAMES = 10;
+	const TILE = 180;
+	const fixture = await startPhotoMemoryFixture(FRAMES);
+	console.log(`${LABEL}: photo-memory fixture ready in ${fixture.buildMs} ms (${fixture.madePhotos} photos made, the rest reused)`);
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	const arms = [];
+	const driverUp = () => fetch(`${WD}/status`).then((r) => r.ok, () => false);
+	const runArm = async (i, scaled) => {
+		await wd('POST', `/session/${id}/url`, { url: fixture.origins[i] });
+		await sleep(3000);
+		const r0 = Date.now();
+		const base = await simulatorWebContentMB();
+		const readMs = Date.now() - r0;
+		const t = Date.now();
+		const ran = await wd('POST', `/session/${id}/execute/async`, {
+			script: `const done = arguments[arguments.length - 1]; window.run(${FRAMES}, ${scaled}, ${TILE}, window.devicePixelRatio).then(done, (e) => done({ error: String(e) }));`,
+			args: [],
+		});
+		const settledMs = Date.now() - t;
+		await sleep(6000);
+		const g = growthMB(base, await simulatorWebContentMB());
+		return { arm: scaled ? 'scaled' : 'original', baseMB: g.baseMB, aboveBaseMB: g.grew, freedMB: g.freed, settledMs, readMs, copies: !!ran?.copies, error: ran?.error };
+	};
+	try {
+		// The copies first: a run's leftovers lower the NEXT arm's reading as they are freed, and the
+		// originals arm is the one that must clear a floor.
+		for (const [i, scaled] of [true, false].entries()) {
+			const name = scaled ? 'scaled' : 'original';
+			// A WebDriver call can drop mid-arm (an iPhone run lost safaridriver's connection, ECONNRESET, inside the
+			// arm's script). That once threw out of the whole run and its results. Now the arm is tried once more while
+			// safaridriver still answers, and otherwise fails as a named step with the error.
+			for (let attempt = 1; ; attempt++) {
+				try {
+					const a0 = Date.now();
+					const arm = await runArm(i, scaled);
+					console.log(`${LABEL}: memory arm ${name}: ${arm.aboveBaseMB} MB above ${arm.baseMB} MB (others freed ${arm.freedMB} MB), photos settled in ${arm.settledMs} ms, one memory read ${arm.readMs} ms, arm ${Date.now() - a0} ms${arm.error ? `, page error ${arm.error}` : ''}`);
+					arms.push(arm);
+					break;
+				} catch (e) {
+					const message = `${String(e.message || e).slice(0, 200)}${e.cause?.code ? ` (${e.cause.code})` : ''}`;
+					const up = await driverUp();
+					console.log(`${LABEL}: memory arm ${name} attempt ${attempt} lost its WebDriver call: ${message}; safaridriver ${up ? 'still answers' : 'is gone'}`);
+					if (attempt < 2 && up) continue;
+					arms.push({ arm: name, error: `the WebDriver call failed: ${message}` });
+					break;
+				}
+			}
+			if (arms.at(-1).error && arms.at(-1).aboveBaseMB === undefined) break;
+		}
+	} finally {
+		fixture.close();
+	}
+	const scaled = arms.find((a) => a.arm === 'scaled') ?? { error: 'not run' };
+	const orig = arms.find((a) => a.arm === 'original') ?? { error: 'not run' };
+	const steps = [
+		{ name: 'the original photos cost the simulator WebKit at least 60 MB', pass: orig.aboveBaseMB >= 60 && !orig.error, detail: orig.aboveBaseMB === undefined ? orig.error : `${orig.aboveBaseMB} MB above ${orig.baseMB} MB (other processes freed ${orig.freedMB} MB), settled in ${orig.settledMs} ms` },
+		{ name: 'the frames showed preview-sized copies', pass: !!scaled.copies && !scaled.error, detail: scaled.error || '' },
+		{ name: 'the copies cost at most 60% of the originals', pass: scaled.aboveBaseMB !== undefined && orig.aboveBaseMB !== undefined && scaled.aboveBaseMB <= orig.aboveBaseMB * 0.6, detail: `${scaled.aboveBaseMB ?? '?'} MB vs ${orig.aboveBaseMB ?? '?'} MB (other processes freed ${scaled.freedMB ?? '?'} MB), settled in ${scaled.settledMs ?? '?'} ms` },
+	];
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, arms, steps };
 }
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');

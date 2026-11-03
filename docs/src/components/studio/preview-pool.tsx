@@ -306,6 +306,25 @@ export const APPLY_MS = 220;
 /** How long a tile keeps its slot after leaving the band. Absorbs an edge flicker, and covers
  *  the common "scroll a little and come back" without a re-point. */
 export const RELEASE_GRACE = 600;
+/**
+ * How long a slot sits with no tile before its frame is PARKED: re-pointed at a blank slide of the
+ * same shape. A free slot is hidden but its document still holds the last slide it showed, photos
+ * and all — and a photo is the expensive part of a frame, ~48MB decoded for a 12MP one against
+ * ~6-12MB for the document itself. A surface that is kept mounted but closed (the settings dock,
+ * Present's overview, the Print drawer, Add slide) frees EVERY slot, so without parking it held
+ * the decoded photos of its last screenful for the rest of the session. Parking is one patch into
+ * the same document, never a new one, so it costs none of what the pool exists to avoid. Long
+ * enough that a scroll which comes back re-uses the slide still in the frame.
+ */
+export const PARK_MS = 5000;
+
+/** When a slot is due to be parked: free, holding a slide, not parked yet; else never. */
+const parkDue = (s: { tileId: number | null; props: unknown; parked?: boolean; freeSince?: number | null }) => (s.tileId === null && s.props && !s.parked && s.freeSince != null ? s.freeSince + PARK_MS : Number.POSITIVE_INFINITY);
+/** A parked slot's props: nothing to load. The caller keeps the slot's own `drawn` flag, so the
+ *  shape is unchanged and the park and the next re-point both take the patch path. */
+function parkedProps(p: PooledPreviewProps): PooledPreviewProps {
+	return { ...p, sample: ' ', slideIndex: undefined, slideCount: undefined, slideMarkdown: undefined };
+}
 
 /**
  * Owns one grid's frames. Wrap the grid's scroll CONTENT — the element whose height is the
@@ -337,7 +356,11 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
 	// slot index → the tile it currently shows, and the shape its document was last built for.
-	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number }[]>([]);
+	const [slots, setSlots] = React.useState<{ tileId: number | null; rect: Rect; props: PooledPreviewProps | null; key: string; id: string; gen: number; freeSince?: number | null; parked?: boolean }[]>([]);
+	/** The pending park pass (see PARK_MS). */
+	const parkTimer = React.useRef<number | null>(null);
+	/** The pass that runs when the last grace window ends. */
+	const graceTimer = React.useRef<number | null>(null);
 	const slotsRef = React.useRef(slots);
 	slotsRef.current = slots;
 	const pending = React.useRef<number | null>(null);
@@ -441,6 +464,24 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 	 * slot is not taken away from a tile until that tile has been out of band for RELEASE_GRACE.
 	 * Tiles you are actually looking at are unaffected — they hold their slots throughout.
 	 */
+	const armPark = React.useCallback((list: typeof slots) => {
+		window.clearTimeout(parkTimer.current as number);
+		const at = Math.min(...list.map(parkDue));
+		if (at === Number.POSITIVE_INFINITY) return;
+		parkTimer.current = window.setTimeout(
+			() => {
+				if (!alive.current) return;
+				const now = Date.now();
+				setSlots((cur) => {
+					const out = cur.map((s) => (parkDue(s) <= now ? { ...s, parked: true } : s));
+					armPark(out); // the ones freed later than the oldest are due later
+					return out;
+				});
+			},
+			at - Date.now() + 50, // a past due time is a 0 delay
+		);
+	}, []);
+
 	const schedule = React.useCallback(() => {
 		if (!alive.current || pending.current !== null) return;
 		const wait = Math.max(0, APPLY_MS - (Date.now() - lastApply.current));
@@ -495,7 +536,10 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 			const wantIds = new Set(want.map((t) => t.id));
 			for (const s of next) {
 				if (s.tileId !== null && wantIds.has(s.tileId)) held.add(s.tileId);
-				else s.tileId = null;
+				else {
+					if (s.tileId !== null) s.freeSince = now;
+					s.tileId = null;
+				}
 			}
 			// 2. Everything else takes a free slot, preferring one whose document is already the
 			//    right SHAPE so the render patches instead of rewriting.
@@ -554,11 +598,26 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 				slot.props = t.props;
 				slot.key = k;
 				slot.rect = rectOf(t.el);
+				slot.freeSince = null;
+				slot.parked = false;
 			}
 			setSlots(next);
+			// A tile held only by its grace window loses its slot when the window ends — but only if a
+			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
+			// stayed held by tiles nobody could see, for good, and none of them was ever parked.
+			let graceLeft = Number.POSITIVE_INFINITY;
+			for (const t of want) if (!t.inBand && leftAt.current.has(t.id)) graceLeft = Math.min(graceLeft, RELEASE_GRACE - (now - (leftAt.current.get(t.id) as number)));
+			if (graceLeft !== Number.POSITIVE_INFINITY) {
+				window.clearTimeout(graceTimer.current as number);
+				graceTimer.current = window.setTimeout(schedule, graceLeft + 10);
+			}
+			// Park what stays free (see PARK_MS). One timer for the pool, armed for the OLDEST free slot's
+			// due time: re-arming at now+PARK_MS on every pass meant a pool whose passes came faster than
+			// that (a scrolling grid) never parked anything.
+			armPark(next);
 			onSettleRef.current?.({ capacity: ceilingRef.current, slots: next.length, held: next.filter((x) => x.tileId !== null).length });
 		}, wait);
-	}, [rectOf]);
+	}, [rectOf, armPark]);
 
 	/** Scrollers BETWEEN a tile and the layer — the ones whose scrolling moves tiles under a layer
 	 *  that stays still. Counted once per element and released with the pool. */
@@ -759,6 +818,8 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 			alive.current = false;
 			if (pending.current !== null) window.clearTimeout(pending.current);
 			pending.current = null;
+			window.clearTimeout(parkTimer.current as number);
+			window.clearTimeout(graceTimer.current as number);
 			if (raf.current) window.cancelAnimationFrame(raf.current);
 			raf.current = 0;
 			for (const off of nested.current.values()) off();
@@ -814,7 +875,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden onRender={() => slotRendered(i)} /> : null}
+									{s.props ? <DeckPreview {...(s.parked ? parkedProps(s.props) : s.props)} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden onRender={() => slotRendered(i)} /> : null}
 								</div>
 							</div>
 						);

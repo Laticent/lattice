@@ -369,7 +369,7 @@ test('a photo that fails to load marks the section unloaded; a later load clears
 // THE PANEL PAINTS UNTIL THE PICTURE DOES (the owner's iPhone, PR #2471): the size frees the text
 // long before the photo paints, and the panel showed as an empty card for ~3 s in between. The
 // panel carries `data-lattice-painting` (the Underpainting) until the photo has DECODED.
-test('the panel paints until the photo decodes, not just until its size is known', async () => {
+test('the panel paints until the photo loads, not just until its size is known', async () => {
   const prev = global.Image;
   let decoded;
   const panel = { style: { backgroundImage: "url('venue.png')" }, attrs: new Map() };
@@ -380,7 +380,7 @@ test('the panel paints until the photo decodes, not just until its size is known
   global.Image = class {
     constructor() { this.naturalWidth = 0; this.naturalHeight = 0; this.complete = false; }
     set src(_v) {}
-    decode() { return new Promise((r) => { decoded = r; }); }
+    addEventListener(type, fn) { if (type === 'load') decoded = fn; }
   };
   try {
     const view = timedView(false);
@@ -390,7 +390,7 @@ test('the panel paints until the photo decodes, not just until its size is known
     assert.equal(panel.getAttribute('data-lattice-painting'), '', 'the panel paints while the photo loads');
     decoded();
     await new Promise((r) => setImmediate(r));
-    assert.equal(panel.getAttribute('data-lattice-painting'), 'done', 'it fades once the photo has decoded');
+    assert.equal(panel.getAttribute('data-lattice-painting'), 'done', 'it fades once the photo has loaded');
   } finally { global.Image = prev; }
 });
 
@@ -408,7 +408,7 @@ const loadingImage = () => class {
   constructor() { this.complete = false; this.naturalWidth = 0; this.naturalHeight = 0; }
   set src(v) { this._src = v; }
   get src() { return this._src; }
-  decode() { return new Promise(() => {}); }
+  addEventListener() {}
 };
 
 test('a section a host stamped final paints until its picture decodes, and paints still if it will not load', () => {
