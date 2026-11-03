@@ -79,7 +79,7 @@ describe('ExportOptionsPanel', () => {
 		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: true });
 	});
 
-	it('editable text shows "Icons for every app", on by default; off reaches the exporter and is remembered per deck', () => {
+	it('editable text shows "Icons for every app", on by default; off reaches the export store and is remembered per deck (the e2e icon-font-studio spec follows it into the file)', () => {
 		const { unmount } = render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={() => {}} />);
 		expect(screen.queryByRole('switch', { name: /icons for every app/i })).toBeNull();
 		fireEvent.click(screen.getByRole('switch', { name: /editable text/i }));

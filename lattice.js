@@ -314,6 +314,11 @@ OPTIONS
                           edited in LibreOffice or PowerPoint. Charts, diagrams
                           and equations stay part of the picture. Both
                           embed the deck's fonts.
+      --no-icon-shapes    With --editable: send icons as characters of our
+                          embedded icon font instead of native shapes. They flow
+                          with the text, but only desktop PowerPoint (and
+                          LibreOffice, from an .odp) draws them; apps that ignore
+                          the file's fonts, like Google Slides, do not.
       --paper <size>      Fit each slide onto a standard sheet — auto | letter |
                           legal | a4 — instead of the default slide-sized page,
                           so the PDF prints correctly on office paper (baked

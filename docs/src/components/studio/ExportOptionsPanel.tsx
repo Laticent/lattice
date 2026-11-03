@@ -134,7 +134,7 @@ export function ExportOptionsPanel({
 							</span>
 							<Switch className="mt-0.5" aria-label="Editable text" checked={editable} disabled={busy} onCheckedChange={setEditable} />
 						</div>
-						{editable && <IconShapesControl key={`icon-shapes-${deckId}`} deckId={deckId} busy={busy} />}
+						{editable && <IconShapesControl key={`icon-shapes-${deckId}`} deckId={deckId} busy={busy} format={format === 'odp' ? 'odp' : 'pptx'} />}
 					</div>
 				)}
 
