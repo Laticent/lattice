@@ -314,19 +314,20 @@ run each (§1).
 ## 8. Follow-up, 2026-11-03: item 3 measured, and dropped
 
 The owner asked to measure item 3 before deciding, so it was built (branch `claude/export-capture-speed`, not merged)
-and timed. `patchSectionGeometry` now read every section's size before writing any, so the browser laid the page out
-twice per pass instead of once per section. It changed the count and not the time:
+and timed. Its `patchSectionGeometry` reads every section's size before writing any, so the browser lays the page out
+twice per pass instead of once per section. That changed the count and not the time:
 
 | Case, 40 gallery slides, 4x CPU | before | after |
 |---|---|---|
-| Forced layouts while a deck loads | 22 | 10 |
-| Their layout time | 21 ms | 14 ms |
+| Forced layouts while a deck loads (5 runs) | 20-22 | 10 |
+| Their layout time (5 runs) | 16-33 ms | 12-24 ms |
 | Runtime's own CPU time over 40 typed keys (3 runs) | 400 / 358 / 388 ms | 358 / 387 / 269 ms |
 | Layout time over 40 typed keys | 162 / 199 / 204 ms | 216 / 179 / 197 ms |
 | Main thread busy during a 40-slide PDF export (2 runs) | 72 / 80 s | 78 / 78 s |
 
+The load rows load the CLI's HTML export of the gallery and inject each runtime bundle, built from `main` at e9703df.
 The typing rows come from one docs build with only the preview's `lattice-runtime.js` swapped, both bundles built from
-`main` at 3555b79. Every row except the first sits inside run-to-run spread. The 238 ms in §2 is the work of sizing
+`main` at 3555b79. Only the layout count separates the two; every timed row overlaps run to run. The 238 ms in §2 is the work of sizing
 40 sections on each patch, not the order of the reads, so reordering cannot remove it. The owner dropped the change
 (it would also have changed the Export to Marp bundle's bytes). What would cut the cost is doing less of the work:
 skip a section whose size did not change since the last pass.
