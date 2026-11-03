@@ -30,8 +30,9 @@ bilinear step, and was reported here as "closer to the ideal on every engine" (2
 score compared every picture at one fixed box position, and the misalignment flattered the softer
 picture. Aligned, the halving shrink kept 35 to 47% of the detail Lanczos keeps (sharpness 0.35 to 0.47,
 three photos), and a 12-megapixel photo came out at sharpness 0.24 in Chromium. It is replaced by a
-Lanczos-3 resize (`lib/core/lanczos.mjs`), which matches PIL's Lanczos to within 2 levels in 255
-(SSIM 0.999, sharpness 1.000) and runs in 0.6 s for a 5-megapixel photo and 1.0 s for 12 megapixels
+Lanczos-3 resize (`lib/core/lanczos.mjs`), which matches PIL's Lanczos to within 2 levels in 255 on
+photographs (SSIM 0.999, sharpness 1.000); at a hard-edged corner it differs by up to about 10, where
+PIL rounds its first pass to 8 bits and this keeps it in floating point and runs in 0.6 s for a 5-megapixel photo and 1.0 s for 12 megapixels
 in Node, streamed in 64-row strips.
 
 **The crossover.** The camera alone (scale 2, lossless PNG, so no JPEG in the way), the same photo
@@ -68,8 +69,8 @@ slide's SVG copy sits about 0.1 px from where the live page measured it. It was 
 | Engine | `main` | This change |
 |---|---:|---:|
 | Chromium | 583 KB / 175 KB | 491 KB / 145 KB |
-| WebKit | not measured: on `main` the gate stops at the unmeasured photo (cause 1) before it exports | 492 KB / 145 KB |
-| Firefox | not run on `main` | 518 KB / 154 KB |
+| WebKit | fails the layout check (cause 1) before it exports | 492 KB / 145 KB |
+| Firefox | 847 KB / 263 KB | 518 KB / 154 KB |
 
 (File / largest photo slide's picture.) WebKit now writes what Chromium writes, to within 0.3%. The owner's nine photos (1179 to 2062 px wide)
 sit at or under twice their boxes, so their exports keep `main`'s pictures; on WebKit they gain the
@@ -128,6 +129,11 @@ A 12-megapixel photo in a 552 x 345 box is shrunk about 3.6 times when the slide
 the BROWSER did that shrink, inside the SVG image. Chromium filters it, though not perfectly; WebKit
 left visible grain. Grain is detail a JPEG must spend bytes on, so the same slide's picture was larger
 from WebKit than from Chromium, and both were further from the photo than a proper resize.
+
+**EXIF orientation.** The camera reads the photo in 64-row strips by source rectangle, which is only
+right if the engine takes that rectangle in the photo's upright coordinates. Measured with a 400 x 300
+JPEG tagged Orientation 6: Chromium and WebKit 26 both report it as 300 x 400, and the strip read is
+byte-identical to one whole-image draw (0 differing bytes in each).
 
 **Phone cost.** Each large photo is decoded once more and resized on the main thread, about 1 s for 12
 megapixels in Node and more on a phone (not measured on a device); the source is read in 64-row strips,

@@ -94,3 +94,56 @@ test('lanczosResize: a fine stripe pattern averages out instead of aliasing', as
   const out = lanczosResize(src, sw, sh, 80, 1);
   for (let x = 2; x < 78; x++) assert.ok(Math.abs(out[x * 4] - 127.5) <= 3, `column ${x}: ${out[x * 4]}`);
 });
+
+test('resamplePicture: the camera reads the photo in strips and writes exactly what the whole-array resize writes', async () => {
+  // A mock canvas that copies the source 1:1 for a source-rectangle draw, as a browser does for an upright photo (an EXIF-rotated
+  // one too: measured in Chromium and WebKit, a strip read by source rectangle matches one whole-image draw byte for byte).
+  const { lanczosResize } = await import('../../../lib/core/lanczos.mjs');
+  const { resamplePicture } = await import('../../../lib/core/slide-camera.mjs');
+  const nw = 301;
+  const nh = 203; // three full 64-row strips and a short one of 11
+  const src = new Uint8ClampedArray(nw * nh * 4);
+  for (let i = 0; i < src.length; i++) src[i] = i % 4 === 3 ? 255 : (i * 7919) % 256;
+  const canvases = [];
+  let put = null;
+  const Real = globalThis.ImageData;
+  globalThis.ImageData = class {
+    constructor(d, w, h) {
+      assert.equal(d.length, w * h * 4);
+      this.data = d;
+      this.width = w;
+      this.height = h;
+    }
+  };
+  try {
+    const doc = {
+      createElement: () => {
+        const c = { width: 0, height: 0 };
+        let buf = null;
+        c.getContext = () => ({
+          clearRect() {
+            buf = new Uint8ClampedArray(c.width * c.height * 4);
+          },
+          drawImage(_img, sx, sy, sw, sh, dx, dy, dw, dh) {
+            assert.ok(sw === dw && sh === dh && sx === 0 && dx === 0 && dy === 0, 'a strip is a 1:1 copy');
+            for (let r = 0; r < sh; r++) buf.set(src.subarray((sy + r) * nw * 4, ((sy + r) * nw + sw) * 4), r * c.width * 4);
+          },
+          getImageData: (_x, _y, w, h) => ({ data: buf.slice(0, w * h * 4) }),
+          putImageData(d) {
+            put = d;
+          },
+          set imageSmoothingEnabled(_v) {},
+        });
+        canvases.push(c);
+        return c;
+      },
+    };
+    const out = resamplePicture({}, nw, nh, 100, 67, doc);
+    assert.deepEqual([...put.data], [...lanczosResize(src, nw, nh, 100, 67)]);
+    assert.equal(out.width, 100);
+    assert.equal(out.height, 67);
+    assert.deepEqual([canvases[0].width, canvases[0].height], [0, 0], 'the scratch canvas is released');
+  } finally {
+    globalThis.ImageData = Real;
+  }
+});

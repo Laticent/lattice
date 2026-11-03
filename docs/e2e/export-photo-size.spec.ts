@@ -14,8 +14,9 @@ test.describe.configure({ timeout: 600_000 });
 
 // Measured 2026-11-03 on this deck with the final camera (the largest photo slide's picture / the larger of the two files):
 // Chromium 145 KB / 491 KB, WebKit 145 KB / 492 KB, Firefox 154 KB / 518 KB. On main, Chromium wrote 175 KB / 583 KB, and WebKit
-// fails the layout check before it exports. The ceilings sit about 8% over the worst engine (Firefox) and under main's Chromium, so main
-// fails here on Chromium (size) and WebKit (layout). The deck is seeded; Chromium wrote identical bytes on two runs of the same code.
+// fails the layout check before it exports. The ceilings sit about 8% over the worst engine (Firefox). Run against main's code, this
+// spec fails on all three: Chromium 173 KB a photo slide, Firefox 262 KB (an 847 KB file), WebKit the layout check. The deck is seeded,
+// and each engine wrote the same picture sizes on two runs of the same code.
 const PHOTO_SLIDE_MAX = 168_000;
 const FILE_MAX = 560_000;
 const PHOTOS = 3;
