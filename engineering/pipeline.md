@@ -498,8 +498,8 @@ deck's world (`installPictureWriter`, editable office exports only): they encode
   poppler draw soft finishes and directional fades badly (`base.finish.css`, THE OPAQUE FLIP). That is a workaround for a
   viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
 - **Each picture at the pixels it covers.** Before the draw, the camera measures every `<img>` and CSS background on the
-  live slide (`object-fit`, `background-size`) and shrinks a picture with 1.25 times or more the pixels it covers to that size
-  itself (halving steps, then one exact step, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
+  live slide (`object-fit`, `background-size`) and shrinks a picture with twice or more the pixels it covers to that size itself
+  (a Lanczos-3 resize, `lib/core/lanczos.mjs`, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
   grain a JPEG cannot compress, and an iPhone's PowerPoint came out larger and further from the photo than Chromium's. Only the
   uses it measured get the shrunk copy, grouped by the picture's bytes so the largest use sets the size; any other use (a mask,
   a pseudo-element, a poster, the stylesheet) keeps the original (`decisions/2026-11-03-pictures-at-drawn-size.md`).

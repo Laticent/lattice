@@ -16,29 +16,52 @@ picture size ran on Chromium and Node, which are both V8.
 
 ## What was measured
 
-A deck of a title slide and two `image` slides, each holding a 4032 x 3024 photo-like JPEG (5.3 MB, a
-1/f noise field, the spectrum of a natural photograph), pasted into the Studio as `data:` URLs, the way
-the Library adds a photo. Exported to PowerPoint from the real Studio (`docs/e2e`, Playwright's
-Chromium 1243 and WebKit 26.0 builds), and from the command line.
+**The method.** Each slide picture is scored against an IDEAL: the original photo resized with a Lanczos
+filter to exactly the pixels the slide shows it at. Each picture is aligned to its own photo box first
+(size from the slide's layout in that engine, position searched to a quarter pixel), because WebKit
+places the box a few pixels from where Chromium does. Three numbers, all on the photo's interior:
 
-| Surface | Before: file / slide picture | After: file / slide picture |
-|---|---:|---:|
-| Studio, WebKit | 1,286 KB / 615 KB | see the PR |
-| Studio, Chromium | 817 KB / 382 KB | 648 KB / 298 KB |
-| Command line (Chromium) | 1.6 MB (four photo slides) | 1.2 MB |
+- **PSNR** (dB) and **SSIM** against the ideal: higher is closer to the photo;
+- **sharpness**: the picture's Laplacian variance over the ideal's. 1.00 is as sharp as the ideal, under 1
+  is softer, over 1 is grain that is not in the photo.
 
-Quality is measured against an ideal: the original photo resized with a Lanczos filter to exactly the
-pixels the slide shows it at (the box read from the rendered slide). PSNR of the slide picture's photo
-region against that ideal, higher is closer:
+**A retraction.** The first version of this change shrank with halving steps (2x2 averages) and one
+bilinear step, and was reported here as "closer to the ideal on every engine" (24.6 to 26.6 dB). That
+score compared every picture at one fixed box position, and the misalignment flattered the softer
+picture. Aligned, the halving shrink kept 35 to 47% of the detail Lanczos keeps (sharpness 0.35 to 0.47,
+three photos), and a 12-megapixel photo came out at sharpness 0.24 in Chromium. It is replaced by a
+Lanczos-3 resize (`lib/core/lanczos.mjs`), which matches PIL's Lanczos to within 2 levels in 255
+(SSIM 0.999, sharpness 1.000) and runs in 0.6 s for a 5-megapixel photo and 1.0 s for 12 megapixels
+in Node, streamed in 64-row strips.
 
-| Surface | Before | After |
-|---|---:|---:|
-| Studio, WebKit | 16.1 dB (wrong layout) | see the PR |
-| Studio, Chromium | 24.6 dB | 26.6 dB |
-| Command line | 24.6 dB | 26.6 dB (bicubic reference: 24.9 → 27.1) |
+**The crossover.** The camera alone (scale 2, lossless PNG, so no JPEG in the way), the same photo
+content at three ratios of photo to box, and two of the owner's photos, in Playwright's Chromium 1243
+and WebKit 26.0. "Browser only" is `main`: the photo drawn into the slide as it is.
 
-The pictures got smaller AND closer to the ideal on every surface: the grain an engine's shrink leaves
-is detail that was never in the photo, and it is what a JPEG cannot compress.
+| Photo | Photo ÷ box | Engine | Browser only (main): PSNR / SSIM / sharpness | Our Lanczos: PSNR / SSIM / sharpness |
+|---|---:|---|---|---|
+| 12MP content at 2.0x | 2.00x | chromium | 37.28 / 0.9745 / 0.70 | 40.54 / 0.9884 / 0.67 |
+| 12MP content at 2.0x | 2.00x | webkit | 39.06 / 0.9842 / 1.09 | 48.98 / 0.9984 / 1.00 |
+| 12MP content at 2.5x | 2.50x | chromium | 36.67 / 0.9713 / 0.62 | 40.60 / 0.9885 / 0.67 |
+| 12MP content at 2.5x | 2.50x | webkit | 33.17 / 0.9423 / 1.79 | 49.06 / 0.9985 / 1.00 |
+| 12MP content at 3.0x | 3.00x | chromium | 37.08 / 0.9739 / 0.91 | 40.69 / 0.9887 / 0.68 |
+| 12MP content at 3.0x | 3.00x | webkit | 27.63 / 0.8265 / 3.32 | 49.15 / 0.9985 / 1.00 |
+| yours: suede | 1.70x | chromium | 35.40 / 0.9781 / 0.89 | 43.13 / 0.9942 / 0.74 |
+| yours: suede | 1.70x | webkit | 41.34 / 0.9931 / 0.93 | 40.65 / 0.9914 / 0.73 |
+| yours: grain chukka | 1.34x | chromium | 34.10 / 0.9819 / 0.77 | 42.05 / 0.9958 / 0.75 |
+| yours: grain chukka | 1.34x | webkit | 41.79 / 0.9962 / 0.80 | 38.16 / 0.9901 / 0.76 |
+
+At 2x and above the camera's shrink is closer on both engines, every metric, every row; on WebKit by a
+wide margin (at 3x, 49.2 dB and SSIM 0.9985 against 27.6 dB and 0.827, with grain at 3.3 times the
+photo's own). Below 2x WebKit's own scaling is slightly closer (1.70x: 41.3 against 40.7 dB; 1.34x:
+41.8 against 38.2 dB), so the camera leaves those pictures to the browser, exactly as `main` did:
+`RESAMPLE_MIN_RATIO = 2`.
+
+**Why the camera's own picture is not perfect.** Straight out of the resize it matches the ideal
+(sharpness 1.000); drawn into the slide it measures 0.68 in Chromium. A photo box rarely starts on a whole
+device pixel (690.19 CSS px at 2x), and the browser blends each pixel with its neighbor to place it. An
+attempt to move the picture onto whole pixels was measured and changed nothing: the box inside the
+slide's SVG copy sits about 0.1 px from where the live page measured it. It was removed.
 
 ## Cause 1: a regex WebKit gives up on
 
@@ -94,20 +117,19 @@ the BROWSER did that shrink, inside the SVG image. Chromium filters it, though n
 left visible grain. Grain is detail a JPEG must spend bytes on, so the same slide's picture was larger
 from WebKit than from Chromium, and both were further from the photo than a proper resize.
 
-**Phone cost.** Each large photo is decoded once more and shrunk on the main thread; every intermediate
-canvas is released as soon as the next step is drawn (a phone caps a page's canvas memory), and the last
-six shrinks are kept, so a photo repeated across slides is shrunk once.
+**Phone cost.** Each large photo is decoded once more and resized on the main thread, about 1 s for 12
+megapixels in Node and more on a phone (not measured on a device); the source is read in 64-row strips,
+and the last six shrinks are kept, so a photo repeated across slides is shrunk once.
 
 **Fix.** The camera now shrinks each large picture itself, before the draw, to `ceil(natural x k x
 scale)` pixels, where `k` is what the box asks of the picture (`object-fit` for an `<img>`,
 `background-size` for a background; `cover` takes the larger ratio, so no part of the box is short of
-pixels). Halving steps first (each a 2x2 average, which every engine draws the same way), then one step
-to the exact size; the result is lossless PNG, so the shrink adds no compression of its own, and the
-slide then draws the picture at 1:1.
+pixels). A Lanczos-3 resize (`lib/core/lanczos.mjs`), read off the photo in 64-row strips so a phone never holds a
+second full copy of it; the result is lossless PNG, so the shrink adds no compression of its own.
 
 Left alone, deliberately:
 
-- a picture shown at or near its own size (it must have 1.25 times the pixels it covers, on each side);
+- a picture with less than twice the pixels it covers, on each side (measured above: below 2x the browser is as close or closer);
 - a vector picture (`data:image/svg+xml`);
 - any use the camera did not measure: only the `<img>` or background it sized gets the shrunk copy, and the
   same picture as a mask, a pseudo-element's background, a video poster or in the stylesheet keeps the
@@ -138,10 +160,12 @@ suite (`studio-e2e-nightly.yml`), not on every PR: the owner's call, 2026-11-03.
 - **Real Studio, three engines** (Playwright's Chromium, Firefox and WebKit builds): the gate, and the
   before/after probe above.
 - **Command line**: the four-photo deck, before and after, from `dist/lattice.js`.
-- **Unit**: the two address readers against their old regexes (fuzzed), the camera's geometry and its
-  halving steps.
+- **Unit**: the two address readers against their old regexes (fuzzed), the camera's geometry, and the
+  Lanczos resize (a flat color, a transparent edge, strips against the whole array, a stripe pattern).
+- **The owner's own photos**: nine, through the real Studio on both engines (the crossover table above
+  uses two of them).
 - **Not run on a real iPhone or Mac Safari.** Playwright's WebKit is not Safari. The iOS Simulator
   suite is the next surface.
-- **Not run on the owner's own deck.** Synthetic photos: real ones could not be downloaded here.
+- **Not run on the owner's own deck file**, only on photos they sent.
 - **Not opened** in desktop PowerPoint or LibreOffice: the parts are standard JPEG and PNG, and only
   their pixels changed.
