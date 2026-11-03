@@ -1,14 +1,14 @@
 /**
- * The office probe (run.sh, PROBE=office): each one-slide editable .pptx that tools/office-quicklook.mjs cut, opened in
- * the simulator's own Safari the way a tapped link opens it (`simctl openurl`), which previews an Office file with the
- * same importer as Preview in the Files app, and captured from the DEVICE's screen (`simctl io screenshot`).
+ * The office probe (run.sh, PROBE=office): each one-slide editable .pptx that tools/office-quicklook.mjs cut, shown by
+ * QLProbe (QLProbe.swift), a test app that hands one file to Apple's Quick Look viewer, the component the Files app's
+ * Preview uses, and captured from the DEVICE's screen (`simctl io screenshot`).
  *
- * No WebDriver: its automation tab is not the tab on screen, and its page screenshot does not see the layer Safari
- * draws an Office preview in (the first two runs captured 35 blank pages, then 35 empty start pages, and called them
- * passes). So the check is against a BASELINE: a blank page served the same way and captured first. A slide passes only
- * where its capture differs from the baseline over a real share of the screen.
+ * Not Safari: iOS Safari asks "Do you want to download …? View / Download" for a .pptx, even served inline, and waits
+ * for a tap; its WebDriver tab is not the tab on screen either. The probe's first runner runs captured blank pages,
+ * start pages and that prompt. So a slide passes only when its OWN background (the dominant color of the same cut's
+ * Quick Look render, made earlier in this job) covers a real share of the screen, and no prompt gray does.
  *
- *   SIM_UDID=<udid> SIM_LABEL=iPhone OFFICE_INDEX=<index.json> BASE=http://localhost:4321 ARTIFACT_DIR=<dir> node office-capture.mjs
+ *   SIM_UDID=<udid> SIM_LABEL=iPhone OFFICE_INDEX=<index.json> APP_DIR=<QLProbe.app> ARTIFACT_DIR=<dir> node office-capture.mjs
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -17,30 +17,20 @@ import { PNG } from 'pngjs';
 
 const UDID = process.env.SIM_UDID;
 const LABEL = process.env.SIM_LABEL || 'iPhone';
-const BASE = process.env.BASE || 'http://localhost:4321';
+const BUNDLE = 'com.laticent.qlprobe';
+const simctl = (...args) => execFileSync('xcrun', ['simctl', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const OUT = process.env.ARTIFACT_DIR || 'ios-safari-artifacts';
 const index = JSON.parse(fs.readFileSync(process.env.OFFICE_INDEX, 'utf8'));
 const dir = path.join(OUT, 'office');
 fs.mkdirSync(dir, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Open a URL in the device's Safari, retrying while a freshly booted device is not yet taking URLs (`simctl openurl`
- * exited 60 straight after boot on the first run), and capture the screen once it has had time to draw. */
-async function capture(url, file, wait) {
-	for (let attempt = 1; ; attempt++) {
-		try {
-			execFileSync('xcrun', ['simctl', 'openurl', UDID, url], { stdio: ['ignore', 'ignore', 'pipe'] });
-			break;
-		} catch (e) {
-			const why = `${e.status}: ${String(e.stderr || '').trim().slice(0, 300)}`;
-			if (attempt >= 5) throw new Error(`simctl openurl ${url} failed 5 times (${why})`);
-			console.log(`${LABEL}: openurl attempt ${attempt} failed (${why}); trying again in 10 s`);
-			await sleep(10000);
-		}
-	}
+/** Show one file (a path inside the app's own sandbox, or none) in QLProbe and capture the screen once it has drawn. */
+async function capture(file, out, wait) {
+	simctl('launch', '--terminate-running-process', UDID, BUNDLE, file);
 	await sleep(wait);
-	execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', file], { stdio: 'ignore' });
-	return PNG.sync.read(fs.readFileSync(file));
+	simctl('io', UDID, 'screenshot', out);
+	return PNG.sync.read(fs.readFileSync(out));
 }
 
 /**
@@ -79,23 +69,27 @@ function near(img, [r, g, b]) {
 	return n / ((img.width * img.height) / 4);
 }
 
-// Safari launched first, as the other suites launch it, so the first URL has an app to land in.
-execFileSync('xcrun', ['simctl', 'launch', UDID, 'com.apple.mobilesafari'], { stdio: 'ignore' });
-await sleep(8000);
-// Twice: the first open of Safari may show a first-run tip, which the second capture has dismissed or kept alike.
-await capture(`${BASE}/blank.html`, path.join(dir, `${LABEL}-baseline-0.png`), 6000);
-const baseline = await capture(`${BASE}/blank.html`, path.join(dir, `${LABEL}-baseline.png`), 4000);
+// The app installed, and every cut copied into its Documents, where the app may read it.
+simctl('install', UDID, process.env.APP_DIR);
+const docs = path.join(simctl('get_app_container', UDID, BUNDLE, 'data'), 'Documents');
+fs.mkdirSync(docs, { recursive: true });
+const root = path.dirname(process.env.OFFICE_INDEX);
+const inApp = (f) => path.join(docs, `${f.deck}-slide-${String(f.slide).padStart(2, '0')}.pptx`);
+for (const f of index) fs.copyFileSync(path.join(root, f.path), inApp(f));
+// The baseline: the viewer with nothing to show. Twice, so a first launch's settling is not in it.
+await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 6000);
+const baseline = await capture('none', path.join(dir, `${LABEL}-baseline.png`), 4000);
 const steps = [];
 for (const f of index) {
 	const name = `${f.deck} slide ${f.slide}`;
 	const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
 	try {
-		const shot = await capture(`${BASE}/${f.path}`, file, 6000);
+		const shot = await capture(inApp(f), file, 6000);
 		const { share, colors } = changed(shot, baseline);
 		// The slide's own background is on screen: the dominant color of the same cut's Quick Look render (made by
 		// tools/office-quicklook.mjs earlier in this job) covers a real share of the screen. A download prompt (a dimmed
 		// gray screen) or an empty page holds no slide's cream or navy; for a near-white slide, the dim gray is ruled out.
-		const ref = path.join(path.dirname(process.env.OFFICE_INDEX), f.path.replace(/\.pptx$/, '.png'));
+		const ref = path.join(root, f.path.replace(/\.pptx$/, '.png'));
 		const bg = fs.existsSync(ref) ? dominant(PNG.sync.read(fs.readFileSync(ref))) : null;
 		const cover = bg ? near(shot, bg) : 0;
 		const dim = near(shot, [153, 153, 153]);

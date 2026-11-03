@@ -5,8 +5,8 @@
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
 # simulators and then in the Mac's own Safari. PROBE=office opens each one-slide editable .pptx that
-# tools/office-quicklook.mjs cut, in the iPhone simulator's own Safari (the Office importer Preview uses), and captures
-# the device screen (office-capture.mjs; no WebDriver). Run from the repo root after `npm ci` and `npm run build` (the
+# tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
+# and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
 #
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
@@ -34,24 +34,18 @@ esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
 if [ "$PROBE" = office ]; then
-  # The one-slide editable .pptx files tools/office-quicklook.mjs cut, served with PowerPoint's media type so Safari
-  # previews them (python's table may not know .pptx).
+  # The one-slide editable .pptx files tools/office-quicklook.mjs cut, shown by QLProbe, a test app that hands each to
+  # Apple's Quick Look viewer (the component the Files app's Preview uses). Built here with swiftc for the simulator and
+  # signed ad hoc, as a simulator requires. A plain server answers run.sh's readiness check.
   page="$ROOT/platform-suite-artifacts/office-quicklook"
   test -f "$page/index.json" || { echo "no $page/index.json: run tools/office-quicklook.mjs first" >&2; exit 1; }
-  printf '<!doctype html><title>blank</title>\n' > "$page/blank.html"
-  # `Content-Disposition: inline` asks Safari to show the file, not offer it as a download: without it iOS Safari asks
-  # "Do you want to download …? View / Download" and waits for a tap (the probe's first runner run).
-  cat > "$RUNNER_TEMP/office-serve.py" <<'PY'
-import http.server as h, sys
-class H(h.SimpleHTTPRequestHandler):
-    extensions_map = {**h.SimpleHTTPRequestHandler.extensions_map, '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'}
-    def end_headers(self):
-        if self.path.endswith('.pptx'):
-            self.send_header('Content-Disposition', 'inline')
-        super().end_headers()
-h.test(HandlerClass=H, port=int(sys.argv[1]), bind='127.0.0.1')
-PY
-  (cd "$page" && python3 "$RUNNER_TEMP/office-serve.py" "$PORT" > "$OUT/preview.log" 2>&1) &
+  app="$RUNNER_TEMP/QLProbe.app"
+  mkdir -p "$app"
+  xcrun --sdk iphonesimulator swiftc -parse-as-library -target "$(uname -m)-apple-ios17.0-simulator" \
+    -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" docs/scripts/ios-safari/QLProbe.swift -o "$app/QLProbe"
+  cp docs/scripts/ios-safari/QLProbe-Info.plist "$app/Info.plist"
+  codesign --force --sign - "$app"
+  (cd "$page" && python3 -m http.server $PORT --bind 127.0.0.1 > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/index.json"
 elif [ "$PROBE" = jpeg ]; then
@@ -130,13 +124,13 @@ for family in $families; do
     com.apple.mobilesafari:WebKitRemoteAutomationEnabled; do
     xcrun simctl spawn "$udid" defaults write "${key%%:*}" "${key#*:}" -bool true
   done
-  # The office probe opens each file in the device's own Safari and captures the screen: no WebDriver session
+  # The office probe shows each file in QLProbe and captures the screen: no WebDriver session, no Safari
   # (docs/scripts/ios-safari/office-capture.mjs says why).
   if [ "$PROBE" = office ]; then
     xcrun simctl shutdown "$udid" || true
     xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b
     SIM_UDID="$udid" SIM_LABEL="$family" OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" \
-      BASE="http://localhost:$PORT" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || status=1
+      APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || status=1
     xcrun simctl shutdown "$udid" || true
     left=$((left - 1))
     continue
