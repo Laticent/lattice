@@ -769,8 +769,69 @@ the two differ, and it ties on every hard rule and on page count. Its one cost, 
 pair flips, applies to a live surface without memory, and the §11 memory removes it there. The
 export path renders once and is unaffected.
 
-**Shipped opt-in.** `--fit-pack` changes the bytes of an exported deck, so making it the default
-waits on the owner's sign-off of dark and light renders (CLAUDE.md, export changes). The Studio
-and Playground preview still split structurally. They owe the same measure, pack and verify
-path in the preview frame, plus the §11 memory, before the measured split can be the default
-anywhere (HARD RULE #1).
+**Shipped opt-in.** The measured split changes the bytes of an exported deck, so making it the
+default (`heal` gaining packing) waits on the owner's sign-off of dark and light renders
+(CLAUDE.md, export changes). Until then a deck asks for it with `fit: pack`, on every surface at
+once (below).
+
+**Every surface, one switch: `fit: pack` (2026-11-03).** A measured split in the CLI alone would make
+the Studio and the PDF disagree about one deck (HARD RULE #1), so the measured split became a value
+of the `fit:` register rather than a CLI flag. `fit: pack` is `heal` with a measured split. The CLI
+reads it (`lib/core/resolve-guards.js` `fitPacks`; `--fit-pack` still picks the packer for any
+deck), and so do the three browser surfaces: the Studio's live preview, the Playground and the
+Studio's webpage export. Each one renders as before, then `docs/src/lib/measured-split.ts` writes
+the deck, stamped but unsplit (`splitForPreview`'s `plan: 'whole'`), into a hidden frame built and
+sanitized exactly as its own frame is. It measures with the shared `measureFit`, and plans and
+verifies with the shared `measuredSplit` loop (`lib/core/fit-measure.js`), so all four surfaces
+make the same decision from the same code. The module loads only for a `fit: pack` deck, because
+the eager bundles sit at their byte ceilings. Two findings from driving the real Studio: the
+export's slide finder reads only the export's document (`main#deck`, `body`), so the preview frame
+passes its own (top-level stamped sections); and an unsplit browser render carries no slide
+numbers until the split pass stamps them, hence `plan: 'whole'`. Verified on the real Studio,
+Playground and webpage export, on Chromium, WebKit and Firefox (`docs/e2e/measured-split.spec.ts`):
+a fitting slide stays whole, and an 18-item square slide packs as 9 + 9 on every surface, as in
+the CLI.
+
+**The memory (§11), and headroom.** A live surface keeps what it decided last time
+(`nextMemory`): a slide that stops fitting splits at once (no entry margin); a split slide rejoins
+only when the whole slide fits with 30% of its content area spare (fix C); its items stay on their
+pages while they still fit; when they no longer do, it keeps its page count if any packing still
+can (`packInto`); and the Studio also records each slide's decision against its exact text, so undo
+restores the split a slide had for that text (fix B). The CLI takes the same memory through
+`--fit-memory FILE`, which is how it was measured. On agenda, list-steps, cards-grid and checklist
+at portrait and story, laptop and hall, with every slide rendered alone and edited ±10% (`nudgeUp`
+and `nudgeDown`, the harness's own edits):
+
+| Run | Jank, all slides | Jank, slides that split | Pages |
+|---|---|---|---|
+| stateless (the export renders once) | 12.7% | 14.6% | 926 |
+| memory | 8.4% | 7.3% | 933 |
+| memory, fresh pages packed to 90% | 4.4% | 0.4% | 980 |
+
+Every change left in the last row but one is a slide that fitted and, 10% longer, no longer fits: it
+must split or clip, and the owner chose no entry margin (§11). Memory alone left 18 runs gaining a
+page, because Knuth–Plass packs pages close to full and a full page has no room for a longer item.
+So a fresh pack now fills a page to 90% of its room (`HEADROOM`), and a page the memory keeps may
+fill to all of it. That costs about 6% more pages on this sample, and it applies to the CLI too, so
+every surface keeps splitting a deck the same way.
+
+**The corpus again, as shipped (2026-11-03).** With the cards-grid step-down and the 90% fresh pack,
+`fit: pack` on the 94 galleries (6,948 slide-cells): 12,405 pages against today's 18,066; slides that
+lose content 153 against 246 (93 fixed, none new); clipped 841 against 847 and unreadable 6 against
+6, with no slide newly unreadable. One slide reads newly clipped: the baseline gallery's state chart
+at square@hall, whose first cut lands 1px from both the footer line and the content, and which reads
+"footer" or "content" from run to run under every arm, the measured ones included (the cell that
+flaps between 847 and 848 in "Blessed on a runner" above). Body pages under 40% full: 46% against 79%.
+The 90% fresh pack cost nothing in pages here, because the cards-grid step-down removed more.
+
+**The jank numbers are the CLI's.** They were measured through `--fit-memory`, which keys memory by
+slide number. The Studio keys it by deck and slide index, plus each slide's text for undo, and
+applies it only to the same members (an item added or removed packs afresh). That is checked on the
+real Studio for one deck (an edit that wraps a line keeps the run's pages; undo restores them) on
+Chromium, WebKit and Firefox, not measured across a corpus.
+
+**Open: what the preview shows after edits.** Memory keeps a live slide's pages while the author
+types; the PDF and the webpage export render once without it. After a run of edits the preview can
+therefore show a split the export would not make (three pages kept for items that now fit on two).
+Three ways to close it were put to the owner: settle to the stateless plan when the author pauses,
+let the Studio's exports reuse the preview's decisions, or record the decision in the deck file.

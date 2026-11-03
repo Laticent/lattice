@@ -18,8 +18,9 @@ const {
   readFrontMatterFit, isKnownFit, isGuardsToken, fitLevel, guardsEnabled,
 } = require('../../../lib/core/resolve-guards');
 
-test('the vocabulary is report | heal | trim, and heal is the default with no token', () => {
-  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim']);
+test('the vocabulary is report | heal | trim | pack, and heal is the default with no token', () => {
+  assert.deepEqual([...FIT_NAMES], ['report', 'heal', 'trim', 'pack']);
+  assert.equal(fitClass('pack'), '', 'pack is heal with a measured split: no class of its own');
   assert.equal(fitClass('heal'), '');
   assert.equal(fitClass('report'), 'fit-report');
   assert.equal(fitClass('TRIM '), 'fit-trim');

@@ -140,6 +140,7 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
 | `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
+| `pack` | *(no class)* | Everything `heal` does, with a MEASURED split. A slide that fits its box and venue stays one page even past its component's item count, and one that overflows packs as many items a page as fit by measured height, instead of one a page. Every surface splits it the same way: the CLI, the Studio and Playground preview, and the webpage export. In the live preview a slide keeps its pages while you type, and goes back to one page only when it fits with 30% of its room spare. See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §16. |
 
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
 `trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`

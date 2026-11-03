@@ -716,6 +716,7 @@ const NO_SPLIT = !!flags['no-split'];
 // when it overflows at its box and venue, and its members are packed onto body pages by measured
 // height with this packer (`@laticent/fluido`'s `pack`). Unset, the split is today's structural one.
 const FIT_PACK = flags['fit-pack'] || null;
+const FIT_MEMORY = flags['fit-memory'] ? path.resolve(flags['fit-memory']) : null;
 if (FIT_PACK && !['greedy', 'balanced', 'knuth-plass'].includes(FIT_PACK)) {
   console.error(`✗ --fit-pack must be greedy, balanced or knuth-plass (got "${FIT_PACK}")`);
   process.exit(2);
@@ -3903,7 +3904,12 @@ async function renderBody(browser, g, closeBrowser) {
       return r;
     };
     let r;
-    if (FIT_PACK) {
+    // `fit: pack` in the deck's front matter asks for the measured split on every surface (the
+    // Studio, the Playground and the webpage export read the same key); `--fit-pack` picks the
+    // packer and turns it on for any deck.
+    const fmBody = (md.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+    const packer = FIT_PACK || (require('./lib/core/resolve-guards').fitPacks(fmBody) ? 'knuth-plass' : null);
+    if (packer) {
       // MEASURE on the whole render (already in the page), PLAN in Node with the pure packer,
       // SPLIT, then VERIFY: a body page that still overflows tightens its slide's room by the
       // overflow and plans again, at most three rounds. A slide still overflowing after that
@@ -3914,58 +3920,30 @@ async function renderBody(browser, g, closeBrowser) {
       // chrome, or crammed prose. A slide the overflow probe alone passed could still clip or cram.
       const verdictCfg = { probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
       const probeArgs = `(${require('./lib/core/fit-measure').FIT_VERDICT_SRC}), ${JSON.stringify(verdictCfg)}, (${require('./lib/core/deck-slides').DECK_SLIDES_SRC})`;
-      const t0 = performance.now();
-      const facts = await g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs})`), 'measure fit') || [];
-      const tMeasure = performance.now() - t0;
-      let tPlan = 0;
-      let rounds = 0;
-      let fellBack = 0;
-      const room = Object.fromEntries(facts.filter((f) => f.over && f.members).map((f) => [f.slide, f.capacity]));
-      const planFor = () => {
-        const plan = {};
-        for (const f of facts) {
-          if (!f.over) plan[f.slide] = 'whole';
-          else if (f.members && Object.hasOwn(room, f.slide)) {
-            const sizes = pack({ heights: f.members.heights, gap: f.members.gap, capacity: room[f.slide] }, FIT_PACK);
-            if (sizes) plan[f.slide] = sizes;
-          }
-        }
-        return plan;
-      };
-      const timedPlan = () => {
-        const t = performance.now();
-        const out = planFor();
-        tPlan += performance.now() - t;
-        return out;
-      };
-      let plan = timedPlan();
-      for (let round = 0; round < 3; round++) {
-        rounds += 1;
-        r = await splitOnce(plan);
-        const over = await g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit') || {};
-        // Only a slide whose pages the plan set can be helped by a tighter plan (splitDoc's `planned`).
-        const used = new Set(r.planned || []);
-        const tighten = Object.keys(over).filter((n) => used.has(n) && Array.isArray(plan[n]) && Object.hasOwn(room, n));
-        if (!tighten.length) break;
-        // A known excess tightens by itself; a clip or a cram with no excess, by a tenth of the room.
-        for (const n of tighten) room[n] -= over[n] > 0 ? over[n] + 2 : Math.ceil(room[n] * 0.1);
-        const next = timedPlan();
-        // A slide whose tighter room packs the same pages cannot be helped by another round (a
-        // sideways overflow, a cram no page break fixes): it goes back on today's split now, not
-        // after the last round. So does every slide still failing after the third round.
-        const stuck = tighten.filter((n) => round === 2 || JSON.stringify(next[n]) === JSON.stringify(plan[n]));
-        for (const n of stuck) delete next[n];
-        fellBack += stuck.length;
-        plan = next;
-        if (stuck.length === tighten.length) {
-          rounds += 1;
-          r = await splitOnce(plan);
-          break;
-        }
+      // MEMORY (--fit-memory FILE): what the last render of this deck decided, so an edit keeps
+      // its split and its members a page while they still fit (§11). A missing or unreadable file
+      // is no memory; the file is rewritten with this render's decisions.
+      let memory = null;
+      if (FIT_MEMORY && fs.existsSync(FIT_MEMORY)) {
+        try { memory = JSON.parse(fs.readFileSync(FIT_MEMORY, 'utf8')); } catch (_e) { memory = null; }
       }
+      const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
+      const t0 = performance.now();
+      const facts = await g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, ${JSON.stringify(remembered)})`), 'measure fit') || [];
+      const tMeasure = performance.now() - t0;
+      const run = await fm.measuredSplit({
+        facts, pack, packer, memory,
+        split: (plan) => splitOnce(plan),
+        verify: () => g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit'),
+      });
+      r = run.result;
+      if (FIT_MEMORY) fs.writeFileSync(FIT_MEMORY, `${JSON.stringify(fm.nextMemory(facts, run.plan))}\n`);
+      const tPlan = run.planMs;
+      const rounds = run.rounds;
+      const fellBack = run.fellBack;
       if (!QUIET) {
-        console.log(`  auto-split (measured, ${FIT_PACK}): ${r.changed} slide(s) split, ${facts.filter((f) => !f.over).length} kept whole`);
-        console.log(`    measure ${tMeasure.toFixed(0)} ms, plan ${tPlan.toFixed(2)} ms, ${rounds} split round(s), ${fellBack} slide(s) back on today's split`);
+        console.log(`  auto-split (measured, ${packer}): ${r.changed} slide(s) split, ${Object.values(run.plan).filter((v) => v === 'whole').length} kept whole`);
+        console.log(`    measure ${tMeasure.toFixed(0)} ms, plan ${tPlan.toFixed(0)} ms, ${rounds} split round(s), ${fellBack} slide(s) back on today's split`);
       }
     } else {
       r = await splitOnce(null);

@@ -71,3 +71,10 @@ describe('splitDoc reports which slides the plan set', () => {
     assert.deepEqual(plan, { 1: [3, 2, 2] }, 'the plan is read, never written');
   });
 });
+
+test('plan "whole" keeps every slide whole: the stamped, unsplit deck a browser host measures', () => {
+  const r = splitDoc(deck(7), cap, { plan: 'whole' });
+  assert.equal(r.changed, 0);
+  assert.equal(pages(r.html).length, 1);
+  assert.deepEqual(r.planned, []);
+});

@@ -9,6 +9,7 @@
 // than a toast.
 
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
+import { measuredSplitWanted } from '@/lib/fit-pack-wanted';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
@@ -464,8 +465,34 @@ export async function shareHtmlPlayer(
 	// Loud when the bundle lacks it: the export would quietly ship each multi-element slide as one
 	// crowded page, and a portrait deck as a different file from the CLI's.
 	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
+	// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the CLI measures the
+	// deck rendered whole and packs each overflowing slide by measured height, so this export does the
+	// same, in a hidden frame built as the preview's is, before the cut. The plan it finds is reused for
+	// the strip-notes candidate below (same slides, same numbers), so both cut alike. Loaded only for a
+	// deck that asks; a failed load or an unmeasurable frame keeps today's split, as the CLI does.
+	let exportPlan: Record<string, unknown> | null = null;
+	if (PG.splitForPreview && measuredSplitWanted(source)) {
+		const [ms, dp, sz] = await Promise.all([import('@/lib/measured-split'), import('@/playground/deck-preview.js'), import('@/lib/sanitize-slide-html.js')]).catch(() => [null, null, null]);
+		if (ms && dp && sz) {
+			const w = out.width || 1280;
+			const h = out.height || 720;
+			const measured = await ms
+				.measuredSplitInFrame({
+					html: out.html,
+					split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, source, w, h, { settle: false, plan }),
+					buildDoc: (html) => dp.buildSrcdoc({ html: sz.sanitizeSlideHtml(html), css: out.css, mode: 'light', geom: { w, h }, runtimeUrl: options.runtimeUrl, previewFonts: true }),
+					width: w,
+					height: h,
+				})
+				.catch((e) => {
+					console.warn('lattice: the measured split failed, so this export keeps the structural split', e);
+					return null;
+				});
+			if (measured) exportPlan = measured.plan;
+		}
+	}
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
-		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
+		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false, ...(exportPlan ? { plan: exportPlan } : {}) }).html } : r;
 	// The deck's `fonts:` line with the export panel's choice on top, the plan the command line runs.
 	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
 	// Under the Emoji font setting `system` the player carries no icon font, so every slide draws its icons' <svg>, as the
