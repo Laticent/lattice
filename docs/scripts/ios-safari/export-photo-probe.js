@@ -213,11 +213,22 @@ async function latticeExportPhotoProbe() {
 		step('a phone photo is measured (data-img-bucket)', bucket === 'wide', bucket);
 
 		// 2. Export PowerPoint through the Share sheet.
+		// A click that lands while the sheet is still opening, or while a 15 MB deck is still being drawn, can be lost: click the
+		// PowerPoint row again until its options step (and its Download button) is up.
 		const share = await until(() => byLabel('Share') || byText(/^Share$/), 30000, 'the Share button');
 		share.click();
-		const dialog = await until(() => [...document.querySelectorAll('[role="dialog"]')].find(visible), 15000, 'the Share sheet');
-		(await until(() => byText(/^PowerPoint/, dialog), 15000, 'the PowerPoint row')).click();
-		(await until(() => byText(/^Download PowerPoint/, document), 15000, 'Download PowerPoint')).click();
+		let downloadButton = null;
+		for (let i = 0; i < 4 && !downloadButton; i++) {
+			const dialog = await until(() => [...document.querySelectorAll('[role="dialog"]')].find(visible), 15000, 'the Share sheet');
+			const row = byText(/^PowerPoint/, dialog);
+			if (row) row.click();
+			downloadButton = await until(() => byText(/^Download PowerPoint/, document), 20000, 'Download PowerPoint').catch(() => null);
+		}
+		step('the PowerPoint options step opens', !!downloadButton, downloadButton ? '' : 'no Download PowerPoint button after four tries');
+		// The picture export (the default), as the photo-size gate exports it.
+		const editable = [...document.querySelectorAll('[role="switch"][aria-label="Editable text"]')].find(visible);
+		if (editable?.getAttribute('aria-checked') === 'true') editable.click();
+		downloadButton.click();
 		const t1 = Date.now();
 		const file = await until(() => saved.find((f) => /\.pptx$/i.test(f.name)), 360000, 'the PowerPoint file');
 		const exportMs = Date.now() - t1;
