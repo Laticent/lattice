@@ -8,7 +8,6 @@ import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
-import officeIconsCore from '../../../../../lib/core/office-icons.js';
 import sizesCore from '../../../../../lib/core/sizes.js';
 
 let override = { mode: 'deck', quality: '' };
@@ -35,17 +34,17 @@ export function applyFontsOverride(fromDeck) {
 	return fontsOverride ? fontPolicyCore.mergeFontsSettings(fromDeck, fontsOverride) : fromDeck;
 }
 
-// The export panel's choice for icons in an editable PowerPoint or LibreOffice file (lib/core/office-icons.js): '' defers to the
-// deck's `office-icons:` line; `shapes` or `font` overrides it, as `--office-icons` does on the command line.
-let officeIconsOverride = '';
+// The export panel's "Icons for every app" switch (lib/core/office-icons.js): on (the default) draws the icons of an
+// editable PowerPoint or LibreOffice file as native shapes; off carries them as our font, as `--no-icon-shapes` does on
+// the command line. An export choice, not a front-matter key: it depends on who opens the file.
+let iconShapes = true;
 
-export function setOfficeIconsOverride(next) {
-	officeIconsOverride = next === 'shapes' || next === 'font' ? next : '';
+export function setIconShapes(next) {
+	iconShapes = next !== false;
 }
 
-/** The deck's `office-icons:` line with the panel's choice on top: `shapes` or `font`. */
-export function applyOfficeIconsOverride(fromDeck) {
-	return officeIconsCore.resolveOfficeIcons(fromDeck, officeIconsOverride);
+export function iconShapesChoice() {
+	return iconShapes;
 }
 
 /** What the deck's own lines settle to with no panel choice on top: the value "Deck setting" lands on. */
@@ -54,7 +53,6 @@ export function deckPolicyOf(source) {
 	return {
 		images: imagePolicyCore.resolveImagePolicy(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images'))).mode,
 		fonts: fontPolicyCore.resolveFontPolicy(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts'))),
-		officeIcons: officeIconsCore.parseOfficeIcons(frontMatterKeyCore.frontMatterValue(fm, 'office-icons')).mode,
 	};
 }
 

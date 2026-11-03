@@ -98,9 +98,11 @@ An icon draws as a glyph of **Lattice Icons**, our own font of the curated icons
 lands within a third of a pixel of its drawing, and color, tile, look, corners and size all come from
 the same rules. What `font` adds is in the exports:
 
-- **PowerPoint and ODP:** the icon is a character in an embedded font, so the person you send the file to
-  can recolor, resize, move and copy it like a letter. PowerPoint draws it; LibreOffice draws it from an
-  `.odp`, but ignores the fonts embedded in a `.pptx`.
+- **PowerPoint and ODP:** an editable file draws each icon as a native outline shape, so Google Slides,
+  Keynote and iPhone Preview show it as PowerPoint does, and it recolors as a shape. Turn off "Icons for
+  every app" in the Studio's export (or pass `--no-icon-shapes`) to send it as a character of our embedded
+  font instead: it flows with the text and edits like a letter, but only desktop PowerPoint, and LibreOffice
+  from an `.odp`, draws it. A picture-per-slide file shows the slide as it is.
 - **PDF:** the icon is text in an embedded font, and copying it gives its label (`database`). An icon
   inside a pill beside its label copies as nothing, as a screen reader skips it.
 - **Size:** a file carries each icon once, about 0.3 KB, however often it is used, in every theme and

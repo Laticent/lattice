@@ -6,7 +6,7 @@
  *         `icon: svg` draws the <svg>: the same ink in the same place.
  *   system  under `fonts: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
  *         `icon: svg` page.
- *   PPTX / ODP  each icon is a native outline shape and no icon font travels; under `office-icons: font` each icon is a text
+ *   PPTX / ODP  each icon is a native outline shape and no icon font travels; under `--no-icon-shapes` each icon is a text
  *         run in "Lattice Icons", and the face is embedded. An icon's arcs become cubics that stay on the arc.
  *   HTML  the player carries the faces cut to the deck's icons; under `system` the page and the player show each
  *         <svg>, and under `icon: svg` neither carries the font.
@@ -123,7 +123,7 @@ describe('icon-font-exports', () => {
 
 	// Office files go where no export can follow (Google Slides, iPhone Preview), and those apps ignore embedded fonts: they
 	// draw our icon code points as boxes or another font's pictures. So by default each icon is a native outline shape
-	// (lib/core/office-icons.js), and the font is the author's opt-in (`office-icons: font`).
+	// (lib/core/office-icons.js), and the font is the export's opt-in (`--no-icon-shapes`).
 	test('an editable PowerPoint and ODP draw each icon as a native outline shape by default, and carry no icon font', async () => {
 		const pptx = await JSZip.loadAsync(fs.readFileSync(render('shapes', [], 'shapes.pptx', ['--editable'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
@@ -260,21 +260,28 @@ describe('icon-font-exports', () => {
 		assert.ok(slide.includes('<p:grpSp>'), 'the cards are still groups');
 	});
 
-	test('`office-icons: font` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
+	test('`--no-icon-shapes` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
 		const glyphs = ['database', 'bucket', 'lock'].map((n) => String.fromCodePoint(Number.parseInt(ICON_CODEPOINTS[n], 16)));
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.pptx', ['--editable'])));
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.pptx', ['--editable', '--no-icon-shapes'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		for (const g of glyphs) assert.ok(slide.includes(`<a:t>${g}</a:t>`), `no run for U+${g.codePointAt(0).toString(16)}`);
 		assert.match(slide, /typeface="Lattice Icons/);
 		assert.doesNotMatch(slide, /<a:custGeom>/, 'no icon shape beside the glyph');
 		const pres = await pptx.file('ppt/presentation.xml').async('string');
 		assert.match(pres, /<p:font typeface="Lattice Icons/, 'the face is in the embedded font list');
-		const odp = await JSZip.loadAsync(fs.readFileSync(render('font', ['office-icons: font'], 'font.odp', ['--editable'])));
+		const odp = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.odp', ['--editable', '--no-icon-shapes'])));
 		const content = await odp.file('content.xml').async('string');
 		for (const g of glyphs) assert.ok(content.includes(g), `the ODP lost U+${g.codePointAt(0).toString(16)}`);
 		const styles = await odp.file('styles.xml').async('string');
 		assert.match(content + styles, /Lattice Icons/);
 		assert.ok(Object.keys(odp.files).some((n) => /^Fonts\//.test(n)), 'the ODP embeds its faces');
+	});
+
+	test('`--no-icon-shapes` under `icon: svg` still gives shapes: the page shows the drawing, not the glyph', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('svg-noshapes', ['icon: svg'], 'svg.pptx', ['--editable', '--no-icon-shapes'])));
+		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
+		assert.doesNotMatch(slide, /typeface="Lattice Icons/);
+		assert.ok((slide.match(/<a:custGeom>/g) || []).length >= 2, 'the icons are shapes');
 	});
 
 	test('the HTML player carries the icon faces cut to the deck\'s icons', () => {

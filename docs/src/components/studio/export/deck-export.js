@@ -62,7 +62,7 @@ import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
-import { applyFontsOverride, applyImagesOverride, applyOfficeIconsOverride } from './images-override.js';
+import { applyFontsOverride, applyImagesOverride, iconShapesChoice } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 import { sharedPictureEncoder } from './picture-encoder-pool.js';
 import { settleSlideDraw } from './settled-canvas.js';
@@ -1074,7 +1074,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
 	// The Studio scopes the engine's CSS to each slide (`:root` becomes `article.lattice > :where(section)`), so the switch
 	// is the slide's own `icon-svg` class, the one `icon: svg` stamps, rather than the command line's attribute on <html>.
-	// An editable PowerPoint or LibreOffice draws its icons as native shapes unless the deck asks for the font (`office-icons: font`):
+	// An editable PowerPoint or LibreOffice draws its icons as native shapes unless the panel's "Icons for every app" is off:
 	// the slides show each icon's <svg>, which Calco lifts as one outline shape (lib/core/office-icons.js), as the command line does.
 	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') {
 		doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
@@ -2083,10 +2083,9 @@ export function deckFontSetting(source) {
 	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts')));
 }
 
-/** How an editable PowerPoint or LibreOffice draws the deck's icons (lib/core/office-icons.js), the panel's choice on top. */
-export function deckOfficeIcons(source) {
-	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return applyOfficeIconsOverride(frontMatterKeyCore.frontMatterValue(fm, 'office-icons'));
+/** The export panel's "Icons for every app" switch (images-override.js): true draws an editable file's icons as shapes. */
+export function deckIconShapes() {
+	return iconShapesChoice();
 }
 
 /** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
@@ -2454,7 +2453,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		// Only the editable file has text boxes for a glyph to ride in; a picture-per-slide file draws the page as it is.
-		const iconShapes = officeIconsCore.iconsAsShapes({ format, editable, mode: opts?.officeIcons, emojiTier: fontPolicyCore.resolveFontPolicy(opts?.fonts).emoji });
+		const iconShapes = officeIconsCore.iconsAsShapes({ format, editable, shapes: opts?.iconShapes, emojiTier: fontPolicyCore.resolveFontPolicy(opts?.fonts).emoji });
 		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts, { iconShapes });
 		await recordUnreachableAssets(sections, log);
 		if (record.length !== sections.length) {

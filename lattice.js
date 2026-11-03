@@ -2831,22 +2831,14 @@ const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, de
 // icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
 // Under `system` every slide takes `icon-svg`, the class `icon: svg` stamps, so the player and every format built from this
 // page keep the switch (lib/fonts/icon-fallback.js). A deck that draws no glyph (`icon: svg`) carries no icon font.
-// An editable PowerPoint or LibreOffice file draws its icons as native outline shapes unless the author asks for the font
-// (`office-icons: font`): apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs, so the
-// shapes are the default (lib/core/office-icons.js). The <svg> each slide then shows is what Calco lifts as a shape.
-const OFFICE_ICONS = (() => {
-  const { parseOfficeIcons, resolveOfficeIcons } = require('./lib/core/office-icons.js');
-  const flag = flags['office-icons'];
-  if (flag !== undefined && parseOfficeIcons(flag).unknown) {
-    console.error(`error: --office-icons: '${flag}' is not shapes or font`);
-    process.exit(1);
-  }
-  return resolveOfficeIcons(frontMatterValue(fm, 'office-icons'), flag);
-})();
+// An editable PowerPoint or LibreOffice file draws its icons as native outline shapes unless `--no-icon-shapes` asks for
+// the font: apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs, so the shapes are the
+// default (lib/core/office-icons.js). It is an export choice, not a front-matter key: it depends on who opens the file.
+// The <svg> each slide then shows is what Calco lifts as a shape.
 const iconsAsSvg = FONT_POLICY.emoji === 'system';
 // Shapes are switched on in the LIVE page just before Calco reads it (the office capture below), so the HTML this run
 // writes, and a player built from it, keep the font.
-const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE, mode: OFFICE_ICONS, emojiTier: FONT_POLICY.emoji });
+const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE, shapes: !flags['no-icon-shapes'], emojiTier: FONT_POLICY.emoji });
 const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
 const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;

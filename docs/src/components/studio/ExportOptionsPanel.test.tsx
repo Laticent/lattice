@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
+import { iconShapesChoice } from './export/images-override.js';
 import { addComment } from './slide-comments';
 
 const DECK = 'deck-panel';
@@ -76,6 +77,22 @@ describe('ExportOptionsPanel', () => {
 		fireEvent.click(sw);
 		fireEvent.click(screen.getByRole('button', { name: /download powerpoint/i }));
 		expect(onExport).toHaveBeenCalledWith({ commentsInPdf: false, commentScope: 'all', embedSource: false, editable: true });
+	});
+
+	it('editable text shows "Icons for every app", on by default; off reaches the exporter and is remembered per deck', () => {
+		const { unmount } = render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={() => {}} />);
+		expect(screen.queryByRole('switch', { name: /icons for every app/i })).toBeNull();
+		fireEvent.click(screen.getByRole('switch', { name: /editable text/i }));
+		const icons = screen.getByRole('switch', { name: /icons for every app/i });
+		expect(icons.getAttribute('aria-checked')).toBe('true');
+		expect(iconShapesChoice()).toBe(true);
+		fireEvent.click(icons);
+		expect(iconShapesChoice()).toBe(false);
+		unmount();
+		render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={() => {}} />);
+		const sw = screen.getByRole('switch', { name: /editable text/i });
+		if (sw.getAttribute('aria-checked') !== 'true') fireEvent.click(sw);
+		expect(screen.getByRole('switch', { name: /icons for every app/i }).getAttribute('aria-checked')).toBe('false');
 	});
 
 	it('LibreOffice offers editable text but not re-openable (an .odp cannot carry the source) or comments', () => {
