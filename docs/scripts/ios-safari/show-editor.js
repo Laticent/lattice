@@ -1,6 +1,6 @@
 /**
- * SHOW THE DECK EDITOR (and, below, the preview), shared by the Studio probes (studio-probe.js, panes-probe.js, undo-probe.js, photo-probe.js) and sent ahead of
- * each one by run.mjs and probe.selftest.mjs. Plain browser JS defining two globals, for the reason the probes are:
+ * SHOW THE DECK EDITOR, shared by the Studio probes (studio-probe.js, panes-probe.js, undo-probe.js, photo-probe.js) and sent ahead of
+ * each one by run.mjs and probe.selftest.mjs. Plain browser JS defining one global, for the reason the probes are:
  * WebDriver's execute-script sends source text, not a module.
  *
  * A phone shows one pane at a time and opens on the preview, so the editor mounts only once the "Markdown source" pane
@@ -52,35 +52,3 @@ globalThis.latticeShowDeckEditor = async function latticeShowDeckEditor(ms = 900
 	}
 };
 
-/**
- * SHOW THE PREVIEW, the other half of the same race: a phone shows one pane at a time, and a probe that waits on the
- * preview frame waits forever if the phone opened on the editor (an iPhone run timed out with "iframes none", #2911).
- * While `innerWidth <= 699`, tap the "Preview" pane button every 2 s until the live preview frame exists, for up to
- * 90 s. Wider screens show both panes, so it only waits there.
- *
- * @param {number} [ms] how long to wait, default 90 000: as long as the probes' first-render waits, because a slow
- *   Simulator can still be on the inert skeleton 30 s after the preview's first render (an iPhone run at deca0cb)
- * @returns {Promise<HTMLIFrameElement>} the live preview frame
- */
-globalThis.latticeShowPreview = async function latticeShowPreview(ms = 90000) {
-	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-	const frame = () => document.querySelector('[aria-label="Live deck preview"] iframe.live');
-	const t0 = Date.now();
-	let tapped = 0;
-	for (;;) {
-		const f = frame();
-		if (f) return f;
-		if (innerWidth <= 699 && Date.now() - tapped > 2000) {
-			const btn = [...document.querySelectorAll('button[aria-label="Preview"]')].find(visible);
-			if (btn) {
-				tapped = Date.now();
-				btn.click();
-			}
-		}
-		if (Date.now() - t0 > ms) {
-			const shown = [...document.querySelectorAll('button[aria-label]')].filter(visible).map((b) => b.getAttribute('aria-label')).slice(0, 24);
-			throw new Error(`timed out after ${ms} ms waiting for the live preview frame (taps ${tapped ? 'yes' : 'no'}; buttons: ${shown.join(' | ')})`);
-		}
-		await new Promise((r) => setTimeout(r, 100));
-	}
-};
