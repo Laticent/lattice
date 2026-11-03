@@ -285,6 +285,8 @@
     "fuzz:mermaid-refs": "node tools/fuzz-mermaid-refs.mjs",
     "parser:bakeoff": "node tools/parser-bakeoff/correctness.mjs",
     "parser:bakeoff:speed": "node tools/parser-bakeoff/speed.mjs",
+    "tables:bakeoff": "node tools/frame-lab/bakeoff/bakeoff.js",
+    "lab:build": "node tools/frame-lab/build.js",
     "parser:bakeoff:segno": "node tools/parser-bakeoff/segno.mjs",
     "parser:bakeoff:languages": "node tools/parser-bakeoff/languages.mjs",
     "parser:bakeoff:languages:browsers": "node tools/parser-bakeoff/languages-browsers.mjs",

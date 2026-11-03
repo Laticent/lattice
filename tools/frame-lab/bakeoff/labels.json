@@ -1,0 +1,1577 @@
+[
+ {
+  "id": "T001",
+  "type": 7,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "priority classes A-H in order; why column is prose"
+ },
+ {
+  "id": "T002",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "before/after pair; periods or options"
+ },
+ {
+  "id": "T003",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T004",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T005",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T006",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T007",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T008",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T009",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T010",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T011",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "surface by field-usage buckets, counts"
+ },
+ {
+  "id": "T012",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "one sentence column; record or prose"
+ },
+ {
+  "id": "T013",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T014",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T015",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T016",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "texture state by slide type, pixel counts"
+ },
+ {
+  "id": "T017",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "vision type by texture state; could be options"
+ },
+ {
+  "id": "T018",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T019",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T020",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T021",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T022",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T023",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T024",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "# column is enumeration, not rank"
+ },
+ {
+  "id": "T025",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "per-family stats; record or crosstab"
+ },
+ {
+  "id": "T026",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "long descriptive cells"
+ },
+ {
+  "id": "T027",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T028",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T029",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "site by marker, text cells"
+ },
+ {
+  "id": "T030",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T031",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "CI runs, loosely chronological"
+ },
+ {
+  "id": "T032",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T033",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T034",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T035",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T036",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "step by browser timings"
+ },
+ {
+  "id": "T037",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T038",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T039",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "before/after pair; periods or options"
+ },
+ {
+  "id": "T040",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T041",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T042",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T043",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T044",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "input sets with counts; record or crosstab"
+ },
+ {
+  "id": "T045",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T046",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T047",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T048",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T049",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T050",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T051",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T052",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T053",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T054",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T055",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T056",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T057",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "regions with metric fields; record or crosstab"
+ },
+ {
+  "id": "T058",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T059",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T060",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T061",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T062",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T063",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T064",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T065",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T066",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "element by scope; record or crosstab"
+ },
+ {
+  "id": "T067",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T068",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T069",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T070",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T071",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T072",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T073",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T074",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T075",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T076",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T077",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T078",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T079",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T080",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T081",
+  "type": 6,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T082",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T083",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T084",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T085",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "per-layout before/after meaning change"
+ },
+ {
+  "id": "T086",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T087",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T088",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T089",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T090",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T091",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T092",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T093",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T094",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T095",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T096",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T097",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T098",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T099",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T100",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T101",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "schema fields; meaning column is sentences"
+ },
+ {
+  "id": "T102",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T103",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T104",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T105",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T106",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T107",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T108",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T109",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T110",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T111",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T112",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T113",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "level definitions with long sentence cells"
+ },
+ {
+  "id": "T114",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T115",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "two sentence columns"
+ },
+ {
+  "id": "T116",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "dated changelog; change column is prose"
+ },
+ {
+  "id": "T117",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T118",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T119",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T120",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T121",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "dated changelog; change column is prose"
+ },
+ {
+  "id": "T122",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T123",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T124",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T125",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "alternative spellings as rows, compared by property"
+ },
+ {
+  "id": "T126",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T127",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T128",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T129",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "low",
+  "note": "columns mix two quarters with a region"
+ },
+ {
+  "id": "T130",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "low",
+  "note": "columns mix two quarters with a region"
+ },
+ {
+  "id": "T131",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T132",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T133",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T134",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "declared vs rendered per chrome element"
+ },
+ {
+  "id": "T135",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "before/after pair; periods or options"
+ },
+ {
+  "id": "T136",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "regions with metric fields; record or crosstab"
+ },
+ {
+  "id": "T137",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T138",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T139",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T140",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "context by size; sizes are ordered"
+ },
+ {
+  "id": "T141",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T142",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "type by size, plus one descriptive column"
+ },
+ {
+  "id": "T143",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T144",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T145",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "regions with metric fields; record or crosstab"
+ },
+ {
+  "id": "T146",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "two rendering settings compared per series"
+ },
+ {
+  "id": "T147",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T148",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T149",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "venues with measures; ordered by size"
+ },
+ {
+  "id": "T150",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "plan vs hired per function; record or crosstab"
+ },
+ {
+  "id": "T151",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T152",
+  "type": 5,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "verb by scope level; scope is ordered"
+ },
+ {
+  "id": "T153",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T154",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T155",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T156",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "segments with metric fields"
+ },
+ {
+  "id": "T157",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "time runs down rows; transposed periods"
+ },
+ {
+  "id": "T158",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "before/after pair; periods or options"
+ },
+ {
+  "id": "T159",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "ordered steps as rows"
+ },
+ {
+  "id": "T160",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T161",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T162",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T163",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "analogy mapping, phrase cells; record or prose"
+ },
+ {
+  "id": "T164",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "phrase cells; record or prose"
+ },
+ {
+  "id": "T165",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T166",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "alternatives as rows compared on criteria"
+ },
+ {
+  "id": "T167",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T168",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T169",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T170",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "several sentence cells"
+ },
+ {
+  "id": "T171",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "one sentence column; record or prose"
+ },
+ {
+  "id": "T172",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "one sentence column; record or prose"
+ },
+ {
+  "id": "T173",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T174",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "stages with owner and due week"
+ },
+ {
+  "id": "T175",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "time runs down rows; transposed periods"
+ },
+ {
+  "id": "T176",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "stages with owner and due week"
+ },
+ {
+  "id": "T177",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T178",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T179",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T180",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "was/now pair inside a record"
+ },
+ {
+  "id": "T181",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T182",
+  "type": 3,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T183",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T184",
+  "type": 1,
+  "rowlabels": true,
+  "confidence": "medium",
+  "note": "metric scorecard, target vs actual"
+ },
+ {
+  "id": "T185",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T186",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "time runs down rows; transposed periods"
+ },
+ {
+  "id": "T187",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T188",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T189",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T190",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T191",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T192",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T193",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "row positions described; record or keyvalue-like"
+ },
+ {
+  "id": "T194",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "ordinal row positions; record or ranked"
+ },
+ {
+  "id": "T195",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "phrase cells; record or prose"
+ },
+ {
+  "id": "T196",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "plan vs hired per function; record or crosstab"
+ },
+ {
+  "id": "T197",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T198",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T199",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T200",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "dated changelog; change column is prose"
+ },
+ {
+  "id": "T201",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "level definitions with long sentence cells"
+ },
+ {
+  "id": "T202",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "level definitions with long sentence cells"
+ },
+ {
+  "id": "T203",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "register reference; long value lists"
+ },
+ {
+  "id": "T204",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "register reference; long value lists"
+ },
+ {
+  "id": "T205",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "register reference; one sentence column"
+ },
+ {
+  "id": "T206",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T207",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "dated changelog; change column is prose"
+ },
+ {
+  "id": "T208",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "schema fields; value column often long prose"
+ },
+ {
+  "id": "T209",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "long sentence cells"
+ },
+ {
+  "id": "T210",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T211",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T212",
+  "type": 8,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "two long prose columns"
+ },
+ {
+  "id": "T213",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T214",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T215",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T216",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T217",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T218",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T219",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T220",
+  "type": 2,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ },
+ {
+  "id": "T221",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "schema fields; meaning column is sentences"
+ },
+ {
+  "id": "T222",
+  "type": 9,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "dated changelog; change column is prose"
+ },
+ {
+  "id": "T223",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "rule registry; one prose column, record or prose"
+ },
+ {
+  "id": "T224",
+  "type": 1,
+  "rowlabels": false,
+  "confidence": "medium",
+  "note": "segments with metric fields"
+ },
+ {
+  "id": "T225",
+  "type": 4,
+  "rowlabels": true,
+  "confidence": "high",
+  "note": ""
+ }
+]
