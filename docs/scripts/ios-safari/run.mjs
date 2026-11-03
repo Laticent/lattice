@@ -14,12 +14,10 @@
  * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
  * so run.sh restarts safaridriver, reboots the device and tries once more.
  */
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PNG } from 'pngjs';
 import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -98,7 +96,7 @@ try {
 	if (MAC && !platform.startsWith('mac')) throw new Error(`the session is not macOS Safari (platformName ${caps.platformName})`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'office' ? await runOfficeProbe(id) : PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -351,41 +349,3 @@ async function runJpegProbe(id) {
  * captured. One screenshot a slide, under office/ in the artifacts: the review is by eye against LibreOffice and Quick
  * Look, so a step fails only when Safari could not open the file or capture it.
  */
-/** The share of a screenshot's pixels that differ clearly from its top-left pixel: about 0 for a blank screen. */
-function inkShare(file) {
-	const { data, width, height } = PNG.sync.read(fs.readFileSync(file));
-	let ink = 0;
-	for (let i = 0; i < data.length; i += 16) {
-		if (Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1]) + Math.abs(data[i + 2] - data[2]) > 60) ink++;
-	}
-	return ink / (width * height / 4);
-}
-
-async function runOfficeProbe(id) {
-	const index = JSON.parse(fs.readFileSync(process.env.OFFICE_INDEX, 'utf8'));
-	const dir = path.join(OUT, 'office');
-	fs.mkdirSync(dir, { recursive: true });
-	await wd('POST', `/session/${id}/timeouts`, { pageLoad: 60000 });
-	const steps = [];
-	for (const f of index) {
-		const name = `${f.deck} slide ${f.slide}`;
-		try {
-			await wd('POST', `/session/${id}/url`, { url: `${BASE}/${f.path}` });
-			// The preview lays the slide out after the load event; give it a moment to draw.
-			await new Promise((r) => setTimeout(r, 5000));
-			// The DEVICE's screen, not WebDriver's page screenshot: Safari draws an Office preview in a layer of its own,
-			// which a page screenshot captures as blank white (the first run of this probe: 35 white captures).
-			const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
-			execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', file], { stdio: 'ignore' });
-			// A capture with no slide in it is not a pass: count the pixels that differ from the corner's (the page
-			// background). File size cannot tell (the first run's 35 white captures were 61 KB each).
-			const ink = inkShare(file);
-			steps.push({ name, pass: ink > 0.02, detail: `${(ink * 100).toFixed(1)}% of the screen drawn` });
-		} catch (e) {
-			steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
-		}
-	}
-	const ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] }).catch(() => '');
-	const failed = steps.filter((s) => !s.pass).length;
-	return { ok: steps.length > 0 && failed === 0, error: failed ? `${failed} of ${steps.length} slides did not open` : undefined, steps, width: 0, ua };
-}

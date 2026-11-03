@@ -200,7 +200,7 @@
         "lib/export/office-export.js",
         "lib/core/office-icons.js",
         "docs/scripts/ios-safari/run.sh",
-        "docs/scripts/ios-safari/run.mjs"
+        "docs/scripts/ios-safari/office-capture.mjs"
       ],
       "on_pull_request": false,
       "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
