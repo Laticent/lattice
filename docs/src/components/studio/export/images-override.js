@@ -34,19 +34,6 @@ export function applyFontsOverride(fromDeck) {
 	return fontsOverride ? fontPolicyCore.mergeFontsSettings(fromDeck, fontsOverride) : fromDeck;
 }
 
-// The export panel's "Icons for every app" switch (lib/core/office-icons.js): on (the default) draws the icons of an
-// editable PowerPoint or LibreOffice file as native shapes; off carries them as our font, as `--no-icon-shapes` does on
-// the command line. An export choice, not a front-matter key: it depends on who opens the file.
-let iconShapes = true;
-
-export function setIconShapes(next) {
-	iconShapes = next !== false;
-}
-
-export function iconShapesChoice() {
-	return iconShapes;
-}
-
 /** What the deck's own lines settle to with no panel choice on top: the value "Deck setting" lands on. */
 export function deckPolicyOf(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';

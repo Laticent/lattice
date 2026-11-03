@@ -99,10 +99,8 @@ lands within a third of a pixel of its drawing, and color, tile, look, corners a
 the same rules. What `font` adds is in the exports:
 
 - **PowerPoint and ODP:** an editable file draws each icon as a native outline shape, so apps that
-  ignore the file's fonts (Google Slides, iPhone Preview) still draw it, and it recolors as a shape. Turn off "Icons for
-  every app" in the Studio's export (or pass `--no-icon-shapes`) to send it as a character of our embedded
-  font instead: it flows with the text and edits like a letter, but only desktop PowerPoint, and LibreOffice
-  from an `.odp`, draws it. A picture-per-slide file shows the slide as it is.
+  ignore the file's fonts (Google Slides, iPhone Preview) still draw it, and it recolors as a shape. A
+  picture-per-slide file shows the slide as it is.
 - **PDF:** the icon is text in an embedded font, and copying it gives its label (`database`). An icon
   inside a pill beside its label copies as nothing, as a screen reader skips it.
 - **Size:** a file carries each icon once, about 0.3 KB, however often it is used, in every theme and

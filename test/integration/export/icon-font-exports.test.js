@@ -6,8 +6,8 @@
  *         `icon: svg` draws the <svg>: the same ink in the same place.
  *   system  under `fonts: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
  *         `icon: svg` page.
- *   PPTX / ODP  each icon is a native outline shape and no icon font travels; under `--no-icon-shapes` each icon is a text
- *         run in "Lattice Icons", and the face is embedded. An icon's arcs become cubics that stay on the arc.
+ *   PPTX / ODP  an editable file draws each icon as a native outline shape and no icon font travels. An icon's arcs
+ *         become cubics that stay on the arc, and a card holding a custom shape is written loose, never grouped.
  *   HTML  the player carries the faces cut to the deck's icons; under `system` the page and the player show each
  *         <svg>, and under `icon: svg` neither carries the font.
  *   hidden  no `display:none` <svg> is drawn into the PDF (they once printed at the page's top-left corner).
@@ -26,7 +26,6 @@ const puppeteer = require('puppeteer');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
-const { ICON_CODEPOINTS } = require(path.join(ROOT, 'lib', 'fonts', 'icon-faces.js'));
 
 const BODY = ['## Icons', '', 'Storage `^{database, c3}` and `{S3, icon=bucket, c4}` and `{icon=lock}` done.', ''];
 const deck = (extra, body = BODY) => ['---', 'theme: indaco', ...extra, '---', '', ...body].join('\n');
@@ -122,9 +121,9 @@ describe('icon-font-exports', () => {
 	});
 
 	// Office files go where no export can follow (Google Slides, iPhone Preview), and those apps ignore embedded fonts: they
-	// draw our icon code points as boxes or another font's pictures. So by default each icon is a native outline shape
-	// (lib/core/office-icons.js), and the font is the export's opt-in (`--no-icon-shapes`).
-	test('an editable PowerPoint and ODP draw each icon as a native outline shape by default, and carry no icon font', async () => {
+	// draw our icon code points as boxes or another font's pictures. So each icon is a native outline shape
+	// (lib/core/office-icons.js), always: there is no font mode for an editable file.
+	test('an editable PowerPoint and ODP draw each icon as a native outline shape, and carry no icon font', async () => {
 		const pptx = await JSZip.loadAsync(fs.readFileSync(render('shapes', [], 'shapes.pptx', ['--editable'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		const geoms = slide.match(/<a:custGeom>/g) || [];
@@ -242,11 +241,11 @@ describe('icon-font-exports', () => {
 		assert.match(slide.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?<p:ph type="title"[\s\S]*?<\/p:sp>/)[0], /<a:t>Storage<\/a:t>/, 'the title is the first piece');
 	});
 
-	// Apple's Office importer (iPhone Preview, macOS Quick Look) draws custom geometry inside a group as a speck at the
-	// group's corner; the same shape at the slide's top level draws right (tools/office-quicklook.mjs, run 41562260174).
-	// So an icon is written after its card's group, never in it, and the card stays a group.
-	test('no icon shape sits inside a group, and its card is still a group', async () => {
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('cards', [], 'cards.pptx', ['--editable'], ['<!-- _class: cards-grid -->', '', '## Cards', '', '- Gateway `{icon=gateway, c2}`', '  - Hands out the URL.', '- Store `{icon=bucket, c4}`', '  - Keeps each file.', ''])));
+	// Apple's Office importer (iPhone Preview, macOS Quick Look) drops custom geometry inside a group: an icon drew as a speck,
+	// a card with uneven corners lost its fill and border (tools/office-quicklook.mjs). So a card that holds any custom
+	// shape is written loose, in paint order, and a card of presets alone stays a group (the owner, 2026-11-03).
+	test('no custom shape sits inside a group; a card of presets alone is still a group', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('cards', [], 'cards.pptx', ['--editable'], ['<!-- _class: cards-grid -->', '', '## Cards', '', '- Gateway `{icon=gateway, c2}`', '  - Hands out the URL.', '- Store `{icon=bucket, c4}`', '  - Keeps each file.', '- Plain', '  - No icon in this one.', ''])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		let depth = 0;
 		let grouped = 0;
@@ -256,25 +255,8 @@ describe('icon-font-exports', () => {
 			else if (depth > 0) grouped++;
 		}
 		assert.ok((slide.match(/<a:custGeom>/g) || []).length >= 2, 'the icons are shapes');
-		assert.equal(grouped, 0, 'an icon shape sits inside a group');
-		assert.ok(slide.includes('<p:grpSp>'), 'the cards are still groups');
-	});
-
-	test('`--no-icon-shapes` keeps each icon a run in the embedded Lattice Icons face, for desktop PowerPoint and LibreOffice', async () => {
-		const glyphs = ['database', 'bucket', 'lock'].map((n) => String.fromCodePoint(Number.parseInt(ICON_CODEPOINTS[n], 16)));
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.pptx', ['--editable', '--no-icon-shapes'])));
-		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
-		for (const g of glyphs) assert.ok(slide.includes(`<a:t>${g}</a:t>`), `no run for U+${g.codePointAt(0).toString(16)}`);
-		assert.match(slide, /typeface="Lattice Icons/);
-		assert.doesNotMatch(slide, /<a:custGeom>/, 'no icon shape beside the glyph');
-		const pres = await pptx.file('ppt/presentation.xml').async('string');
-		assert.match(pres, /<p:font typeface="Lattice Icons/, 'the face is in the embedded font list');
-		const odp = await JSZip.loadAsync(fs.readFileSync(render('font', [], 'font.odp', ['--editable', '--no-icon-shapes'])));
-		const content = await odp.file('content.xml').async('string');
-		for (const g of glyphs) assert.ok(content.includes(g), `the ODP lost U+${g.codePointAt(0).toString(16)}`);
-		const styles = await odp.file('styles.xml').async('string');
-		assert.match(content + styles, /Lattice Icons/);
-		assert.ok(Object.keys(odp.files).some((n) => /^Fonts\//.test(n)), 'the ODP embeds its faces');
+		assert.equal(grouped, 0, 'a custom shape sits inside a group');
+		assert.ok(slide.includes('<p:grpSp>'), 'the plain card is still a group');
 	});
 
 	test('an icon\'s label travels as its shape\'s description, in the .pptx and the .odp', async () => {
@@ -289,8 +271,8 @@ describe('icon-font-exports', () => {
 		assert.match(await odp.file('content.xml').async('string'), /<svg:desc>Primary &amp; backup DB<\/svg:desc>/);
 	});
 
-	test('`--no-icon-shapes` under `icon: svg` still gives shapes: the page shows the drawing, not the glyph', async () => {
-		const pptx = await JSZip.loadAsync(fs.readFileSync(render('svg-noshapes', ['icon: svg'], 'svg.pptx', ['--editable', '--no-icon-shapes'])));
+	test('under `icon: svg` an editable file draws the same shapes and carries no icon face', async () => {
+		const pptx = await JSZip.loadAsync(fs.readFileSync(render('svg-office', ['icon: svg'], 'svg.pptx', ['--editable'])));
 		const slide = await pptx.file('ppt/slides/slide1.xml').async('string');
 		assert.doesNotMatch(slide, /typeface="Lattice Icons/);
 		assert.ok((slide.match(/<a:custGeom>/g) || []).length >= 2, 'the icons are shapes');

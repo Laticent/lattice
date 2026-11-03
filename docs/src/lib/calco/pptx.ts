@@ -458,21 +458,16 @@ export function groupShapes(xml: string): string {
 		);
 	};
 	// A card's members, with each run of one sub-group's shapes nested into a group of its own.
-	// A drawn MARK (an icon's outline, a pill's check mark) is kept OUT of every group and written right after the card's
-	// group, so it still paints above its tile: Apple's Office importer (iPhone Preview, macOS Quick Look) draws
-	// custom geometry inside a group as a speck at the group's corner, while the same shape at the slide's top level draws
-	// right (tools/office-quicklook.mjs, engineering/decisions/2026-11-01-icon-font.md § 3.6). Moving a card in PowerPoint then
-	// leaves its icon behind unless both are selected; that is the price of the icon drawing at all on an iPhone.
-	// Only a mark leaves its group: Calco names every unlabeled path shape `Mark` (an icon's outline, a masked check, dot
-	// or triangle; stroked or filled). A mark sits in its own small box, so painting it after the card's later members
-	// changes nothing a reader sees unless one overlaps it. A tab or a card with per-corner radii is custom geometry too,
-	// but it spans the card, and written after the group it would cover the card's text, so it stays in. The ODP writer
-	// keeps marks in draw:g: Apple's importers do not open .odp.
-	const isMark = (sp: string) => sp.includes('<a:custGeom>') && /<p:cNvPr id="\d+" name="[^"]*Mark \d+\.\d+"/.test(sp);
-	const wrapCard = (group: string, all: Array<{ sub: string | null; sp: string }>) => {
-		const lifted = all.filter((m) => isMark(m.sp)).map((m) => m.sp);
-		const members = all.filter((m) => !isMark(m.sp));
-		if (!members.length) return lifted.join('');
+	// A card that holds any CUSTOM GEOMETRY (an icon's outline, a check mark, a box with uneven corners, an accent rule
+	// that wraps a corner) is not grouped at all: its members are written loose, in the order they paint. Apple's Office
+	// importer (iPhone Preview, macOS Quick Look) drops custom geometry inside a group, so an icon drew as a speck and a
+	// whole card's fill and border vanished, while the same shapes at the slide's top level draw right. No other way of
+	// writing the group drew either (tools/office-quicklook.mjs; engineering/decisions/2026-11-01-icon-font.md § 3.6).
+	// Writing them loose keeps the paint order exactly, so every app draws the same picture; the price, the owner's call
+	// (2026-11-03), is that such a card does not move as one in PowerPoint. A card of presets alone stays a group. The
+	// ODP writer keeps every card in draw:g: Apple's importers do not open .odp.
+	const wrapCard = (group: string, members: Array<{ sub: string | null; sp: string }>) => {
+		if (members.some((m) => m.sp.includes('<a:custGeom>'))) return members.map((m) => m.sp).join('');
 		const parts: string[] = [];
 		for (let i = 0; i < members.length; ) {
 			const { sub } = members[i];
@@ -482,8 +477,7 @@ export function groupShapes(xml: string): string {
 			parts.push(sub !== null && run.length > 1 ? wrap(`${group}.${sub}`, run) : run.join(''));
 			i = j;
 		}
-		// A card that lifting left with one member is written as that member (a group of one only moved the icon's tile).
-		return (members.length > 1 || !lifted.length ? wrap(group, parts) : parts.join('')) + lifted.join('');
+		return wrap(group, parts);
 	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
 	// there is polynomial in the number of adjacent shapes (CodeQL). A group's members are shapes and

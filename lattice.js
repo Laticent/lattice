@@ -314,11 +314,6 @@ OPTIONS
                           edited in LibreOffice or PowerPoint. Charts, diagrams
                           and equations stay part of the picture. Both
                           embed the deck's fonts.
-      --no-icon-shapes    With --editable: send icons as characters of our
-                          embedded icon font instead of native shapes. They flow
-                          with the text, but only desktop PowerPoint (and
-                          LibreOffice, from an .odp) draws them; apps that ignore
-                          the file's fonts, like Google Slides, do not.
       --paper <size>      Fit each slide onto a standard sheet — auto | letter |
                           legal | a4 — instead of the default slide-sized page,
                           so the PDF prints correctly on office paper (baked
@@ -993,10 +988,6 @@ if (flags.raster && OUT_FORMAT !== 'pdf') {
 const EDITABLE = !!flags.editable && (OUT_FORMAT === 'odp' || OUT_FORMAT === 'pptx');
 if (flags.editable && !EDITABLE) {
   console.warn(`  ⚠ --editable applies only to .odp and .pptx output — ignoring.`);
-}
-// --no-icon-shapes decides how an EDITABLE office file draws its icons; anywhere else it would change nothing, silently.
-if (flags['no-icon-shapes'] && !EDITABLE) {
-  console.warn(`  ⚠ --no-icon-shapes applies only with --editable to .odp or .pptx — ignoring.`);
 }
 
 // --paper / --orientation: fit the deck onto a standard sheet (US Letter / Legal / A4)
@@ -2840,14 +2831,13 @@ const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, de
 // icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
 // Under `system` every slide takes `icon-svg`, the class `icon: svg` stamps, so the player and every format built from this
 // page keep the switch (lib/fonts/icon-fallback.js). A deck that draws no glyph (`icon: svg`) carries no icon font.
-// An editable PowerPoint or LibreOffice file draws its icons as native outline shapes unless `--no-icon-shapes` asks for
-// the font: apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs, so the shapes are the
-// default (lib/core/office-icons.js). It is an export choice, not a front-matter key: it depends on who opens the file.
-// The <svg> each slide then shows is what Calco lifts as a shape.
+// An editable PowerPoint or LibreOffice file always draws its icons as native outline shapes (lib/core/office-icons.js):
+// apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs. The <svg> each slide then
+// shows is what Calco lifts as a shape.
 const iconsAsSvg = FONT_POLICY.emoji === 'system';
 // Shapes are switched on in the LIVE page just before Calco reads it (the office capture below), so the HTML this run
 // writes, and a player built from it, keep the font.
-const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE, shapes: !flags['no-icon-shapes'], emojiTier: FONT_POLICY.emoji });
+const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE });
 const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
 const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;

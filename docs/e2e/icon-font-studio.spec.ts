@@ -8,7 +8,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test } 
 
 // Icons as a font on the REAL Studio (engineering/decisions/2026-11-01-icon-font.md): the live preview draws each icon
 // as a Lattice Icons glyph (its `::before`, from `data-glyph`) in our font, not a fallback; Share → PDF embeds the face,
-// an editable PowerPoint draws the icon as a native shape ("Icons for every app" off holds it as a run in the face), and Share → Webpage carries the face and draws the glyph in it.
+// an editable PowerPoint draws the icon as a native shape, and Share → Webpage carries the face and draws the glyph in it.
 // Under `fonts: system-emoji` no export carries it, since no machine has our icons: the PDF draws each icon's <svg>, and
 // so does the webpage. FALSIFIABLE: with the face not staged, no Lattice Icons face loads (a `document.fonts` entry,
 // not `fonts.check`, which says yes when no face of the family exists at all) and no export finds it to embed; with the
@@ -34,7 +34,7 @@ function pixelsOf(pdf: string) {
 	return { w: Number(head[1]), h: Number(head[2]), px: buf.subarray(head[0].length) };
 }
 
-async function download(page: Page, format: 'pdf' | 'pptx' | 'html', iconShapes = true): Promise<string> {
+async function download(page: Page, format: 'pdf' | 'pptx' | 'html'): Promise<string> {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	if (format === 'html') {
@@ -50,8 +50,6 @@ async function download(page: Page, format: 'pdf' | 'pptx' | 'html', iconShapes 
 		await dialog.getByRole('button', { name: /^PowerPoint/ }).click();
 		const editable = dialog.getByRole('switch', { name: 'Editable text' });
 		if ((await editable.getAttribute('aria-checked')) !== 'true') await editable.click();
-		const shapes = dialog.getByRole('switch', { name: 'Icons for every app' });
-		if ((await shapes.getAttribute('aria-checked')) !== String(iconShapes)) await shapes.click();
 	}
 	const dl = page.waitForEvent('download', { timeout: 240_000 });
 	if (format === 'pdf') await shareExport(page, 'pdf');
@@ -77,16 +75,13 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 
 		const pdf = await download(page, 'pdf');
 		expect(execFileSync('pdffonts', [pdf], { encoding: 'utf8' })).toMatch(/LatticeIcons/);
-		// An editable PowerPoint draws each icon as a native outline shape by default (lib/core/office-icons.js): apps that
-		// ignore embedded fonts (Google Slides, iPhone Preview) cannot draw the glyph. Turning "Icons for every app" off puts the glyph back.
+		// An editable PowerPoint always draws each icon as a native outline shape (lib/core/office-icons.js): apps that
+		// ignore embedded fonts (Google Slides, iPhone Preview) cannot draw the glyph.
 		const { default: JSZip } = await import('jszip');
 		const slideOf = async (file: string) => (await JSZip.loadAsync(readFileSync(file))).file('ppt/slides/slide1.xml')?.async('string');
 		const shapes = await slideOf(await download(page, 'pptx'));
 		expect(shapes).not.toMatch(/typeface="Lattice Icons/);
 		expect(shapes?.match(/<a:custGeom>/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
-		const font = await slideOf(await download(page, 'pptx', false));
-		expect(font).toMatch(/typeface="Lattice Icons/);
-		expect(font).not.toMatch(/<a:custGeom>/);
 	});
 
 	test(`under fonts: system-emoji the Studio's exports carry no icon font and draw the svg${tag}`, async ({ page }) => {

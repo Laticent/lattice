@@ -6,8 +6,8 @@
 // the page must not pull the Studio's exporter in to embed a font.
 // engineering/decisions/2026-10-06-calco-office-export-library.md.
 
-export async function calcoFontHost(textTier, emojiTier) {
-	const [{ FACES, ICON_FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }, { default: officePolicy }] = await Promise.all([
+export async function calcoFontHost(textTier) {
+	const [{ FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }, { default: officePolicy }] = await Promise.all([
 		import('../../../playground/font-embed.js'),
 		import('../../../../../lib/core/pdf-compose/font-subset.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
@@ -18,11 +18,10 @@ export async function calcoFontHost(textTier, emojiTier) {
 	return {
 		// Calco lists the faces the deck draws with; this decides what goes in the file for each (lib/core/office-export-policy.js `faceCut`).
 		async font(face) {
-			// Lattice Icons follows the EMOJI tier (engineering/decisions/2026-11-01-icon-font.md § 3.4).
-			const icons = face.family === 'Lattice Icons';
-			const cut = officePolicy.faceCut(icons ? emojiTier : textTier, face.chars);
+			// No icon face reaches here: an editable file draws its icons as shapes (lib/core/office-icons.js).
+			const cut = officePolicy.faceCut(textTier, face.chars);
 			if (cut === undefined) return 'system';
-			const hit = nearestFace(icons ? ICON_FACES : FACES, face);
+			const hit = nearestFace(FACES, face);
 			const res = hit ? await fetch(hit.url) : null;
 			if (!res?.ok) return null;
 			if (!subset) subset = await createFontSubsetter(await (await fetch(hbUrl)).arrayBuffer());

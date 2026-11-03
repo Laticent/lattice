@@ -1201,7 +1201,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source), iconShapes: ex.deckIconShapes() }), source);
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
