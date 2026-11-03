@@ -13,12 +13,15 @@ import { fileURLToPath } from 'node:url';
 import { devices, webkit } from '@playwright/test';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// The shared editor helper (show-editor.js, `latticeShowDeckEditor`, #2911), sent ahead of every Studio probe as run.mjs sends it.
+const SHOW_EDITOR = fs.readFileSync(path.join(here, 'show-editor.js'), 'utf8');
+const withEditorHelper = (source) => `${SHOW_EDITOR}\n${source}`;
 // The Studio suite's page-side probes, as run.mjs runs them in Mobile Safari: each on a fresh page.
 const PROBES = [
 	{ file: 'studio-probe.js', fn: 'latticeStudioProbe' },
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
-].map((p) => ({ ...p, source: fs.readFileSync(path.join(here, p.file), 'utf8') }));
+].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
 
@@ -30,7 +33,7 @@ const shapes = [
 ];
 let failed = 0;
 const browser = await webkit.launch();
-const UNDO = fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8');
+const UNDO = withEditorHelper(fs.readFileSync(path.join(here, 'undo-probe.js'), 'utf8'));
 const report = (label, file, result) => {
 	console.log(`${label} ${file}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);

@@ -45,10 +45,10 @@ async function latticePhotoProbe() {
 			await sleep(50);
 		}
 	};
-	const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+	// Not inside an `inert` subtree: the pre-paint skeleton draws look-alike buttons with the same labels that do nothing.
+	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const byLabel = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const byText = (re) => [...document.querySelectorAll('button')].find((b) => visible(b) && re.test(b.textContent.trim()));
-	const narrow = innerWidth <= 699;
 	const frameDoc = () => {
 		try {
 			return document.querySelector('[aria-label="Live deck preview"] iframe.live')?.contentDocument || null;
@@ -58,6 +58,17 @@ async function latticePhotoProbe() {
 	};
 	/** The heading of the slide the preview frame shows: the slide on screen, as the reader sees it. */
 	const shown = () => frameDoc()?.querySelector('section h1, section h2')?.textContent?.trim() ?? '';
+	/** What the preview holds, for a timeout's message: the frames, which one is `.live`, and what its document has. */
+	const previewState = () => {
+		const box = document.querySelector('[aria-label="Live deck preview"]');
+		const frames = [...(box?.querySelectorAll('iframe') ?? [])];
+		const doc = frameDoc();
+		return [
+			`preview box ${box ? 'present' : 'absent'}`,
+			`iframes ${frames.map((f) => `[${f.className || '-'} ${Math.round(f.getBoundingClientRect().width)}w]`).join(' ') || 'none'}`,
+			`live doc ${doc ? `${doc.readyState}, ${doc.querySelectorAll('section').length} sections, first heading "${doc.querySelector('h1, h2')?.textContent?.trim().slice(0, 40) ?? ''}", body ${doc.body?.innerHTML.length ?? 0} chars` : 'unreadable'}`,
+		].join('; ');
+	};
 	const editorText = () => document.querySelector('[aria-label="Deck source"]')?.textContent ?? '';
 	/** The Coach's photo finding, as text, and its fix button's label. */
 	const coachFinding = () => [...document.querySelectorAll('p')].find((p) => visible(p) && /^The text on this photo reads at/.test(p.textContent.trim()));
@@ -92,9 +103,9 @@ async function latticePhotoProbe() {
 			while (!closed() && Date.now() - t0 < 4000) await sleep(100);
 		}
 		await until(closed, 1000, 'the Coach sheet to close');
-		if (!narrow) return;
-		(await until(() => byLabel('Markdown source'), 15000, 'the Markdown source button')).click();
-		await until(() => visible(document.querySelector('[aria-label="Deck source"]')), 15000, 'the editor');
+		// On a phone, re-tap the Markdown source pane until the editor shows (a tap before hydration does nothing) and never
+		// the inert skeleton; at every width, return only once the editor is visible (show-editor.js, #2911).
+		await latticeShowDeckEditor();
 	};
 	const openCoach = async () => {
 		// A click that lands before the panel's code has loaded can be lost: click again until the panel is up.
@@ -208,10 +219,15 @@ async function latticePhotoProbe() {
 	};
 
 	try {
-		await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor');
+		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
+		// editor only when its pane is shown, which openSource does (#2911).
+		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
 		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
-		await until(() => shown() !== '', 90000, 'the first preview render');
+		await until(() => shown() !== '', 90000, 'the first preview render').catch((e) => {
+			// Say what the frame held: an iPad run once timed out here with the slide drawn on screen (#2911).
+			throw new Error(`${e.message} (${previewState()})`);
+		});
 		await sleep(1000);
 		await setDeck(DECK);
 

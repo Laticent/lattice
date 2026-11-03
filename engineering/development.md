@@ -518,7 +518,15 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   Coach finding and editor warning agree word for word, that the Coach's fix lands without the preview leaving the slide, and
   that a finding leaves with its slide (engineering/decisions/2026-10-26-photo-contrast-coach.md). The two were one suite
   until it ran out of its 30 minutes on a slow runner (#2961); split, each runs only when its own code changes. Each iOS
-  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs`, so a probe edit runs one suite, not all of them. Where the Coach is a sheet over the editor, the probe closes
+  suite's `paths` name its own probe plus the shared `run.sh` and `run.mjs` (and `show-editor.js` for the suites that load it), so a probe edit runs one suite, not all of them.
+  The Studio probes reach the editor through one helper, `show-editor.js` (`latticeShowDeckEditor`, sent ahead of each probe):
+  on a phone it taps the Markdown source pane every 2 s until the editor shows, because a tap before the Studio hydrates does
+  nothing, and it never taps a button inside the inert pre-paint skeleton, whose look-alike buttons do nothing. Each probe used
+  to tap once and wait 15 s, which timed out on and off on the simulator (#2911). The photo probe's first wait asks only that
+  the Studio has rendered (a phone mounts the editor when its pane is shown); the undo probe sends WebKit's undo or redo
+  command only once `queryCommandEnabled` says there is a step to take, as Edit → Undo is enabled for a person, since a
+  command sent before the typed step reached WebKit's undo stack raised nothing; and `run.sh`'s last in-place session
+  attempt relaunches Safari first, because a timed-out session leaves Safari paired with it and the next is refused. Where the Coach is a sheet over the editor, the probe closes
   it the way a person does: the phone's back button, or the sheet's own close button at iPad Safari's width (a synthetic
   Escape, the old way, was sometimes never honored in the iPad simulator; it is now the last resort). It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
