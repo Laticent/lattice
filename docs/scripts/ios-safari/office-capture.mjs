@@ -24,9 +24,20 @@ const dir = path.join(OUT, 'office');
 fs.mkdirSync(dir, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Open a URL in the device's Safari and capture the screen once it has had time to draw. */
+/** Open a URL in the device's Safari, retrying while a freshly booted device is not yet taking URLs (`simctl openurl`
+ * exited 60 straight after boot on the first run), and capture the screen once it has had time to draw. */
 async function capture(url, file, wait) {
-	execFileSync('xcrun', ['simctl', 'openurl', UDID, url], { stdio: 'ignore' });
+	for (let attempt = 1; ; attempt++) {
+		try {
+			execFileSync('xcrun', ['simctl', 'openurl', UDID, url], { stdio: ['ignore', 'ignore', 'pipe'] });
+			break;
+		} catch (e) {
+			const why = `${e.status}: ${String(e.stderr || '').trim().slice(0, 300)}`;
+			if (attempt >= 5) throw new Error(`simctl openurl ${url} failed 5 times (${why})`);
+			console.log(`${LABEL}: openurl attempt ${attempt} failed (${why}); trying again in 10 s`);
+			await sleep(10000);
+		}
+	}
 	await sleep(wait);
 	execFileSync('xcrun', ['simctl', 'io', UDID, 'screenshot', file], { stdio: 'ignore' });
 	return PNG.sync.read(fs.readFileSync(file));
@@ -42,6 +53,9 @@ function changed(a, b) {
 	return n / ((a.width * a.height) / 4);
 }
 
+// Safari launched first, as the other suites launch it, so the first URL has an app to land in.
+execFileSync('xcrun', ['simctl', 'launch', UDID, 'com.apple.mobilesafari'], { stdio: 'ignore' });
+await sleep(8000);
 // Twice: the first open of Safari may show a first-run tip, which the second capture has dismissed or kept alike.
 await capture(`${BASE}/blank.html`, path.join(dir, `${LABEL}-baseline-0.png`), 6000);
 const baseline = await capture(`${BASE}/blank.html`, path.join(dir, `${LABEL}-baseline.png`), 4000);
