@@ -4,7 +4,7 @@ priority: P1
 recorded: 2026-10-29
 area: website
 severity: high
-deferred: blocked — waits on the owner's calls named in the note (export sign-off for items 1 and 3, a design note for item 2); each item is its own PR
+deferred: large — each remaining item in the note's §6 is a PR-sized change of its own; 1(c) also needs the owner's export sign-off
 swimlane: engineering/decisions/2026-10-29-studio-activity-audit.md §6
 source: https://github.com/Laticent/lattice/pull/2984
 ---
@@ -18,13 +18,14 @@ source: https://github.com/Laticent/lattice/pull/2984
                    renderer at 1.6 GB; each keystroke is a 163-206 ms long task, about
                    60 ms of it React re-rendering the toolbar chrome; first panel opens
                    freeze 340-790 ms; the slide map's pool adds 280-315 MB.
-       where     — lib/core/slide-camera.mjs:495-516 and deck-export.js (export);
-                   StudioShell.tsx (keystroke re-render); lib/runtime/index.js:2406-2455
-                   (per-section layout); preview-pool.tsx (pools); Editor.tsx:545 and
-                   coach/coach-core.ts:76 (double lint); docs/public/sw.js:113-115
-                   (activate deletes the on-device model caches).
-       order     — the note's §6, items 1-10. Item 7's sw.js cache-scope fix is a
-                   correctness bug and needs no owner call.
+       where     — lib/core/slide-camera.mjs:495-516 (export capture, items 1b-1c);
+                   preview-pool.tsx (pools, item 4); first panel opens (item 5);
+                   Editor.tsx:545 and coach/coach-core.ts:76 (double lint, item 6);
+                   docs/public/sw.js (navigation preload and cache refresh, item 7).
+       order     — the note's §6. Done in PR 2984: 1(a) re-aimed at the vector writer,
+                   1(d) investigated (no leak), 7's cache-scope fix, and 10 (the bench).
+                   Item 2 is PR 2993. Item 3 is measured on branch
+                   claude/export-capture-speed and waits on the owner's call.
        done when — each item lands with before/after numbers from the same harness
                    (HARD RULE #19), or the owner declines it.
 ```
