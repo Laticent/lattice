@@ -463,7 +463,8 @@ type ScannedTag = { nameEnd: number; name: string; attrs: ScannedAttr[] };
 /** What the rewrite reads markup and CSS with, and decides what the frame may load with: remote-ref.js,
  *  handed in by the caller (which already loaded it), so this chunk does not carry a second copy. */
 export type RemoteRefLike = {
-	scanHtml: (html: string) => { tags: ScannedTag[]; risky: boolean };
+	// remote-ref.js declares its tags as plain objects (its JSDoc); they carry the ScannedTag fields.
+	scanHtml: (html: string) => { tags: object[]; risky: boolean };
 	decodeEntitiesMapped: (v: string, opts?: { attribute?: boolean }) => { text: string; map: number[] };
 	cssRefSpans: (css: string) => CssSpan[];
 	withOwnOrigin: (allowed: string[]) => string[];
@@ -520,7 +521,8 @@ function photoSpans(css: string, spans: CssSpan[]): boolean[] {
  */
 export function rewrite(html: string, tier: number, host: EventTarget, base: string, rr: RemoteRefLike, allow: string[], aspect = 0.5625): { html: string; pending: number } {
 	if (!tier || !supported() || !/url|\\|&|<img/i.test(html)) return { html, pending: 0 };
-	const { tags, risky } = rr.scanHtml(html);
+	const { tags: found, risky } = rr.scanHtml(html);
+	const tags = found as ScannedTag[];
 	if (risky) return { html, pending: 0 };
 	const origins = new Set(rr.withOwnOrigin(allow));
 	const allowed = (u: string) => u.startsWith('blob:') || origins.has(rr.webOrigin(u) ?? '');
