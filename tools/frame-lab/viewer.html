@@ -153,7 +153,9 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
   var COMPARE = [1280, 960, 640, 480, 360];
   var state = { view: 'overview', comp: null, w: 1280, type: 'hold', proto: 'on' };
   var comps = [];
-  var frames = {};
+  // A Map, never a plain object: frame ids arrive by postMessage, and a plain-object key
+  // could name a prototype property (CodeQL js/prototype-polluting-assignment).
+  var frames = new Map();
   var $ = function (id) { return document.getElementById(id); };
   var main = $('main');
 
@@ -168,7 +170,7 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
     edge.className = 'edge';
     box.appendChild(ifr); box.appendChild(edge);
     var f = { box: box, ifr: ifr, edge: edge, w: w, zoom: zoom, total: comp.slides * 600, slides: [] };
-    frames[key] = f;
+    frames.set(key, f);
     ifr.addEventListener('load', function () { send(f); });
     layout(f);
     return f;
@@ -196,15 +198,17 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
   }
   window.addEventListener('message', function (e) {
     var m = e.data || {};
-    if (m.lab !== 'size' || !frames[m.id]) return;
-    var f = frames[m.id];
+    if (m.lab !== 'size' || typeof m.id !== 'string') return;
+    var f = frames.get(m.id);
+    // Only the frame's own window may resize it.
+    if (!f || e.source !== f.ifr.contentWindow) return;
     f.total = m.total; f.slides = m.slides;
     layout(f);
   });
   function availWidth() { return Math.max(200, main.clientWidth || document.documentElement.clientWidth - 32); }
 
   function render() {
-    frames = {};
+    frames = new Map();
     main.textContent = '';
     ['overview','resize','compare'].forEach(function (v) { $('v-' + v).setAttribute('aria-pressed', String(state.view === v)); });
     $('t-hold').setAttribute('aria-pressed', String(state.type === 'hold'));
@@ -252,7 +256,7 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
     state.w = Math.max(280, Math.min(1280, w));
     $('w').value = String(state.w);
     readout();
-    var f = frames.resize; if (!f) return;
+    var f = frames.get('resize'); if (!f) return;
     f.w = state.w; layout(f);
   }
   function readout() {
@@ -365,7 +369,7 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
         state.type = t; save();
         $('t-hold').setAttribute('aria-pressed', String(t === 'hold'));
         $('t-follow').setAttribute('aria-pressed', String(t === 'follow'));
-        Object.keys(frames).forEach(function (k) { send(frames[k]); });
+        frames.forEach(send);
       });
     });
     ['on', 'off'].forEach(function (v) {
@@ -373,7 +377,7 @@ a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
         state.proto = v;
         $('pr-on').setAttribute('aria-pressed', String(v === 'on'));
         $('pr-off').setAttribute('aria-pressed', String(v === 'off'));
-        Object.keys(frames).forEach(function (k) { send(frames[k]); });
+        frames.forEach(send);
       });
     });
     ['overview','resize','compare'].forEach(function (v) {

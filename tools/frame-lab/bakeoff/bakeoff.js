@@ -28,7 +28,13 @@ const { tableShape } = require('../../../lib/core/table-shape.js');
 const TYPE = { 1: 'records', 2: 'keyvalue', 3: 'periods', 4: 'options', 5: 'crosstab', 6: 'lists', 7: 'ranked', 8: 'prose', 9: 'schedule', 0: 'other' };
 const LAYOUT = { records: 'cards', prose: 'cards', other: 'cards', periods: 'labels+run', crosstab: 'labels+run', options: 'labels+run', ranked: 'two-line', schedule: 'two-line', keyvalue: 'label-over-value', lists: 'blocks' };
 
-const strip = (s) => String(s).replace(/\*\*|__|`|\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/<[^>]+>/g, '').trim();
+// Cell text for the features: markdown emphasis and links unwrapped, inline HTML tags removed.
+// Repeated until nothing changes, so a tag split by another (`<b<i>>`) cannot survive one pass.
+const strip = (s) => {
+  let out = String(s).replace(/\*\*|__|`|\[([^\]]*)\]\([^)]*\)/g, '$1');
+  for (let prev = null; prev !== out;) { prev = out; out = out.replace(/<[^<>]*>/g, ''); }
+  return out.trim();
+};
 const words = (s) => strip(s).split(/\s+/).filter(Boolean).length;
 const NUM = /^[-+±~≈]?[$€£¥]?\s*[\d.,]+\s*(%|x|×|ms|s|kb|mb|gb|k|m|b|pt|px|em|rem|\$m|\$k)?$/i;
 const MARK = /^(✓|✔|✗|✕|×|—|–|-|yes|no|y|n|n\/a|partial|●|○|◐|✅|❌|⚠️?|true|false|on|off)$/i;

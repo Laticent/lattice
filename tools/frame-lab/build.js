@@ -35,6 +35,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
+const { JSDOM } = require('jsdom');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const HERE = __dirname;
@@ -160,9 +161,12 @@ function framePage(g, html, cssSeen, imgs) {
     links.push(`<link rel="stylesheet" href="../css/${hash}.css">`);
   }
   const htmlTag = (html.match(/<html[^>]*>/) || ['<html lang="en">'])[0];
-  // The first `<body` in the file can sit inside a CSS comment, so look after `</head>`.
-  let body = html.slice(html.indexOf('<body', html.indexOf('</head>')), html.lastIndexOf('</body>'));
-  body = body.replace(/^<body[^>]*>/, '').replace(/<script[\s\S]*?<\/script>/g, '');
+  // Parse rather than slice: the frame keeps the slides and drops every script (the runtime,
+  // which the lab replaces with its own frame script). A regex strip was case-sensitive and
+  // single-pass, so a parser is the honest tool even for our own CLI output.
+  const doc = new JSDOM(html).window.document;
+  for (const el of doc.querySelectorAll('script')) el.remove();
+  let body = doc.body.innerHTML;
   body = body.replace(SAMPLE_RE, (_, f) => { imgs.add(f); return `../img/${f}`; });
   const slides = (body.match(/<section[\s>]/g) || []).length;
   const proto = g.proto
