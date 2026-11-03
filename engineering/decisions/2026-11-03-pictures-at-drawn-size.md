@@ -77,9 +77,15 @@ WebKit records a canvas's drawing and runs it later. The Studio hands the slide 
 `createImageBitmap` for its encode workers, and that can take the canvas before the drawing has run: it
 then gets whatever the canvas's memory held, blank, or the previous slide when WebKit reused the memory.
 
-**Fix.** The camera reads one pixel back after the slide draw, and `encodeCanvas` does the same before a
-writer reads the rows (the worker draws the bitmap onto a fresh OffscreenCanvas and reads it at once).
-One pixel makes WebKit run the drawing. Both are in `lib/core/slide-camera.mjs`, so every host gets them.
+**Fix, in two parts.** The camera reads one pixel back after the slide draw, and `encodeCanvas` does the
+same before a writer reads the rows; one pixel makes WebKit run the drawing (`lib/core/slide-camera.mjs`,
+so every host gets it). That cured the repeated pictures but not the blank title slide: with the encode
+workers switched off the title was right, so the hand-off was at fault. The Studio's pool
+(`picture-encoder-pool.js`) sent each slide to a worker as an `ImageBitmap`, and on WebKit the first one a
+session sent arrived blank. It now sends the canvas's pixels (`getImageData`, the buffer transferred, not
+copied), which the worker puts on its OffscreenCanvas; no bitmap is made. The deflate and the JPEG
+encode, the expensive part, still run in the worker, and partial alpha now arrives exact (a bitmap's
+round trip premultiplied it).
 
 ## Cause 3: the engine shrinks the photo
 

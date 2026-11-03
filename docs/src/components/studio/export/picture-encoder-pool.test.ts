@@ -19,7 +19,6 @@ describe('createPictureEncoder', () => {
 	it('writes every request on the main thread once a worker fails, none left waiting', async () => {
 		vi.stubGlobal('Worker', FailingWorker);
 		vi.stubGlobal('OffscreenCanvas', class {});
-		vi.stubGlobal('createImageBitmap', async () => ({}));
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const { createPictureEncoder } = await import('./picture-encoder-pool.js');
 		const pool = createPictureEncoder({ size: 1 });
@@ -42,7 +41,6 @@ describe('createPictureEncoder', () => {
 		}
 		vi.stubGlobal('Worker', SilentWorker);
 		vi.stubGlobal('OffscreenCanvas', class {});
-		vi.stubGlobal('createImageBitmap', async () => ({}));
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const { createPictureEncoder } = await import('./picture-encoder-pool.js');
 		const pool = createPictureEncoder({ size: 1, deadlineMs: 50 });
@@ -64,7 +62,6 @@ describe('createPictureEncoder', () => {
 			terminate() {}
 		}
 		vi.stubGlobal('Worker', Recording);
-		vi.stubGlobal('createImageBitmap', async () => ({}));
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const { createPictureEncoder } = await import('./picture-encoder-pool.js');
 		// The pool uses workers only where OffscreenCanvas exists; then it goes, so the fallback reads through the test's own canvas.
@@ -74,6 +71,37 @@ describe('createPictureEncoder', () => {
 		const jpg = await pool.encode(canvas() as never, { type: 'jpeg', quality: 80 });
 		expect(sent).toEqual([{ type: 'jpeg', quality: 80 }]);
 		expect([...jpg.slice(0, 2), ...jpg.slice(-2)]).toEqual([0xff, 0xd8, 0xff, 0xd9]);
+		pool.dispose();
+	});
+
+	it('sends the worker the canvas PIXELS, transferred, never an ImageBitmap (WebKit delivered the first one blank)', async () => {
+		const got: Array<{ msg: Record<string, unknown>; transfer: unknown[] }> = [];
+		class Recording {
+			onmessage: ((e: { data: { id: number; bytes: Uint8Array } }) => void) | null = null;
+			onerror: ((e: unknown) => void) | null = null;
+			postMessage(msg: Record<string, unknown>, transfer: unknown[]) {
+				got.push({ msg, transfer });
+				queueMicrotask(() => this.onmessage?.({ data: { id: msg.id as number, bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) } }));
+			}
+			terminate() {}
+		}
+		vi.stubGlobal('Worker', Recording);
+		vi.stubGlobal('OffscreenCanvas', class {});
+		vi.stubGlobal('createImageBitmap', () => {
+			throw new Error('no bitmap may be made');
+		});
+		const { createPictureEncoder } = await import('./picture-encoder-pool.js');
+		const pool = createPictureEncoder({ size: 1 });
+		const c = canvas();
+		await pool.encode(c as never);
+		expect(got).toHaveLength(1);
+		const { msg, transfer } = got[0];
+		expect(msg.width).toBe(c.width);
+		expect(msg.height).toBe(c.height);
+		expect(msg.buffer).toBeInstanceOf(ArrayBuffer);
+		expect((msg.buffer as ArrayBuffer).byteLength).toBe(c.width * c.height * 4);
+		expect(transfer).toEqual([msg.buffer]);
+		expect('bitmap' in msg).toBe(false);
 		pool.dispose();
 	});
 
@@ -110,7 +138,6 @@ describe('sharedPictureEncoder', () => {
 		CountingWorker.ended = 0;
 		vi.stubGlobal('Worker', CountingWorker);
 		vi.stubGlobal('OffscreenCanvas', class {});
-		vi.stubGlobal('createImageBitmap', async () => ({}));
 		vi.stubGlobal('navigator', { hardwareConcurrency: 8 });
 		const { sharedPictureEncoder, poolSize } = await import('./picture-encoder-pool.js');
 		const pool = sharedPictureEncoder();
