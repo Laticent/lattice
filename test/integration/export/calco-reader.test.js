@@ -612,3 +612,44 @@ describe('calco reader: native shapes and what covers them', () => {
     assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'restore is exact');
   });
 });
+
+// A counter drawn by an in-flow ::before in its own grid cell (regulatory-update's "01"). In the gallery it cannot be read
+// as text: the row styles its title with `strong:first-child`, so any stand-in inserted before it restyles the title and
+// the reader rightly refuses the swap. Here a `lower-greek` counter, which the reader does not spell out, stays in the
+// picture the same way. Kept in the picture, it must cover its CELL, not its whole row: given the row's box,
+// it counted as covering every box in the row, so the row's pill stayed in the picture, written over the pill's label
+// (gallery slide 107, found on PR 2992).
+describe('calco reader: a grid-cell counter covers its cell, not its row', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font-family: sans-serif; }
+      section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+      ol { position: absolute; left: 64px; top: 100px; width: 1100px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+      li { display: grid; grid-template-columns: auto 1fr auto; column-gap: 16px; padding: 8px; counter-increment: n; background: #eee; border-left: 3px solid #865; }
+      li::before { content: counter(n, lower-greek); grid-column: 1; grid-row: 1; font: 20px monospace; color: #865; }
+      li > strong:first-child { grid-column: 2; grid-row: 1; font-size: 20px; }
+      li > span.pill { grid-column: 3; grid-row: 1; padding: 2px 12px; border-radius: 999px; background: rgb(255, 245, 197); border: 1px solid #865; font-size: 14px; }
+    </style></head><body><section id="g"><ol><li><strong>EU AI Act</strong><span class="pill">Effective Feb 2026</span></li></ol></section></body></html>`, { waitUntil: 'load' });
+    res = await (await page.$('#g')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('the counter stays in the picture at its own size', () => {
+    const counter = res.kept.find((k) => /::before/.test(k.kind));
+    assert.ok(counter, `no counter kept: ${JSON.stringify(res.kept)}`);
+    assert.ok(counter.w < 60 && counter.h < 40, `the counter covers ${counter.w}x${counter.h}, its row's box`);
+  });
+
+  test('the pill is a shape, and its label is text', () => {
+    const pill = res.shapes.find((sh) => sh.kind === 'box' && sh.x > 900);
+    assert.ok(pill, `the pill stayed in the picture: ${JSON.stringify(res.refused)}`);
+    assert.ok(res.frames.some((f) => f.lines.some((l) => l.some((r) => /Effective Feb 2026/.test(r.text)))), 'the label is not text');
+  });
+});
