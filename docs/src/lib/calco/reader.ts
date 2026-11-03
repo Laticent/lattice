@@ -1304,12 +1304,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			return out;
 		};
-		// Where a pseudo-element paints: its own box when it is absolutely placed in its
-		// element (a corner tag, an icon), else the element's box.
-		// The box of an item placed at numbered lines of its grid, from the grid's resolved tracks (`grid-template-*`
-		// computes to px in use), its gaps and its padding: the cell, then the item's own size where it is not stretched.
-		// Null for anything a track list cannot answer (a named or spanning-to-auto placement, an unresolved track).
+		// The cell an item placed at numbered lines of its grid occupies, from the grid's resolved tracks (`grid-template-*`
+		// computes to px in use), its gaps, border and padding. The whole cell, which holds the item however it aligns
+		// inside it. A right-to-left grid counts its columns from the right edge. Null wherever the sum of tracks is not
+		// where the cell paints: a vertical grid, tracks packed by `justify-content`/`align-content` anywhere but the
+		// start, a transformed host;
+		// and for anything a track list cannot answer (a named or open-ended placement, an unresolved track).
 		const gridCellOf = (ps: CSSStyleDeclaration, ecs: CSSStyleDeclaration, box: Rect): Rect | null => {
+			const startPacked = (v: string) => ['normal', 'start', 'flex-start', 'stretch', 'left'].includes(v);
+			if (ecs.writingMode !== 'horizontal-tb' || !startPacked(ecs.justifyContent) || !startPacked(ecs.alignContent)) return null;
+			if (ecs.transform && ecs.transform !== 'none') return null;
 			const tracks = (list: string) => (/^(\s*-?[\d.]+px)+\s*$/.test(list) ? list.trim().split(/\s+/).map(Number.parseFloat) : null);
 			const cols = tracks(ecs.gridTemplateColumns);
 			const rows = tracks(ecs.gridTemplateRows);
@@ -1324,13 +1328,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const cg = px(ecs.columnGap);
 			const rg = px(ecs.rowGap);
 			const at = (t: number[], gap: number, n: number) => t.slice(0, n - 1).reduce((a, v) => a + v + gap, 0);
-			const x = box.x + px(ecs.borderLeftWidth) + px(ecs.paddingLeft) + at(cols, cg, c0);
 			const y = box.y + px(ecs.borderTopWidth) + px(ecs.paddingTop) + at(rows, rg, r0);
 			const w = at(cols, cg, c1) - at(cols, cg, c0) - cg;
+			const x =
+				ecs.direction === 'rtl'
+					? box.x + box.w - px(ecs.borderRightWidth) - px(ecs.paddingRight) - at(cols, cg, c0) - w
+					: box.x + px(ecs.borderLeftWidth) + px(ecs.paddingLeft) + at(cols, cg, c0);
 			const h = at(rows, rg, r1) - at(rows, rg, r0) - rg;
 			if (!(w > 0 && h > 0)) return null;
 			return { x, y, w, h };
 		};
+		// Where a pseudo-element paints: its own box when it is absolutely placed in its element (a corner tag, an icon),
+		// its grid cell when it is an in-flow item of a grid (below), else the element's box.
 		const pseudoRect = (el: Element, which: '::before' | '::after', box: Rect): Rect => {
 			const ps = win.getComputedStyle(el, which);
 			const ecs = win.getComputedStyle(el);
@@ -1338,7 +1347,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// host: given the host's whole box, a row-sized "01" counted as covering every box in the row, which then
 			// stayed in the picture, written over the row's text (gallery slide 107's pill labels). The cell comes from
 			// the grid's resolved tracks, so nothing on the page has to move to measure it.
-			if (ps.position !== 'absolute' && /grid/.test(ecs.display)) return gridCellOf(ps, ecs, box) ?? box;
+			if (ps.position === 'static' && /grid/.test(ecs.display)) return gridCellOf(ps, ecs, box) ?? box;
 			if (ps.position !== 'absolute' || ecs.position === 'static') return box;
 			const n = [ps.left, ps.top, ps.width, ps.height].map((v) => (/px$/.test(v) ? Number.parseFloat(v) : Number.NaN));
 			if (n.some((v) => Number.isNaN(v))) return box;

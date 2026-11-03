@@ -158,6 +158,15 @@ describe('calco shapes — pptx', () => {
     assert.doesNotMatch(out, /calco-(group|sub)-/);
   });
 
+  test('a loose card keeps a pill of presets alone as its own group', () => {
+    const sp = (name, x, geom = '<a:prstGeom prst="rect"/>') => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm>${geom}</p:spPr></p:sp>`;
+    const xml = `<p:spTree>${sp('calco-group-1|Card', 2, '<a:custGeom></a:custGeom>')}${sp('calco-group-1|calco-sub-1|Pill', 3)}${sp('calco-group-1|calco-sub-1|Dot', 4)}${sp('calco-group-1|Other', 5)}</p:spTree>`;
+    const out = groupShapes(xml);
+    assert.equal(out.match(/<p:grpSp>/g).length, 1, 'only the pill is a group');
+    assert.match(out, /name="Card".*<p:grpSp>.*name="Pill".*name="Dot".*<\/p:grpSp>.*name="Other"/);
+    assert.doesNotMatch(out.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0], /custGeom/);
+  });
+
   test('groupShapes leaves a slide without tags as it was', () => {
     const xml = '<p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name="Text 1"/></p:nvSpPr></p:sp></p:spTree>';
     assert.equal(groupShapes(xml), xml);

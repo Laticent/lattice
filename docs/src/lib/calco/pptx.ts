@@ -466,18 +466,19 @@ export function groupShapes(xml: string): string {
 	// Writing them loose keeps the paint order exactly, so every app draws the same picture; the price, the owner's call
 	// (2026-11-03), is that such a card does not move as one in PowerPoint. A card of presets alone stays a group. The
 	// ODP writer keeps every card in draw:g: Apple's importers do not open .odp.
+	const custom = (sp: string) => sp.includes('<a:custGeom>');
 	const wrapCard = (group: string, members: Array<{ sub: string | null; sp: string }>) => {
-		if (members.some((m) => m.sp.includes('<a:custGeom>'))) return members.map((m) => m.sp).join('');
 		const parts: string[] = [];
 		for (let i = 0; i < members.length; ) {
 			const { sub } = members[i];
 			let j = i + 1;
 			while (sub !== null && j < members.length && members[j].sub === sub) j++;
 			const run = members.slice(i, j).map((m) => m.sp);
-			parts.push(sub !== null && run.length > 1 ? wrap(`${group}.${sub}`, run) : run.join(''));
+			// A sub-group (a pill) of presets alone stays a group even inside a loose card, so it still moves as one.
+			parts.push(sub !== null && run.length > 1 && !run.some(custom) ? wrap(`${group}.${sub}`, run) : run.join(''));
 			i = j;
 		}
-		return wrap(group, parts);
+		return members.some((m) => custom(m.sp)) ? parts.join('') : wrap(group, parts);
 	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
 	// there is polynomial in the number of adjacent shapes (CodeQL). A group's members are shapes and

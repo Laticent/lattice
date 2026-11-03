@@ -647,9 +647,40 @@ describe('calco reader: a grid-cell counter covers its cell, not its row', () =>
     assert.ok(counter.w < 60 && counter.h < 40, `the counter covers ${counter.w}x${counter.h}, its row's box`);
   });
 
+  // A behavior check, not the pin: on this small page the pill lifts with or without the fix; the size test above fails without it.
   test('the pill is a shape, and its label is text', () => {
     const pill = res.shapes.find((sh) => sh.kind === 'box' && sh.x > 900);
     assert.ok(pill, `the pill stayed in the picture: ${JSON.stringify(res.refused)}`);
     assert.ok(res.frames.some((f) => f.lines.some((l) => l.some((r) => /Effective Feb 2026/.test(r.text)))), 'the label is not text');
+  });
+});
+
+// A right-to-left grid counts its columns from the right edge: its counter's cell is on the right. Measured from the left,
+// the counter was cropped from the wrong side and lost (the checker on PR 2992 found the numbering gone from an RTL row).
+describe('calco reader: a right-to-left grid row measures its counter from the right', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font-family: sans-serif; }
+      section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+      ol { position: absolute; left: 64px; top: 100px; width: 1100px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+      li { direction: rtl; display: grid; grid-template-columns: auto 1fr auto; column-gap: 16px; padding: 8px; counter-increment: n; background: #eee; }
+      li::before { content: counter(n, lower-greek); grid-column: 1; grid-row: 1; font: 20px monospace; color: #865; }
+    </style></head><body><section id="r"><ol><li><strong>Row</strong><span>Tail</span></li></ol></section></body></html>`, { waitUntil: 'load' });
+    res = await (await page.$('#r')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('the counter is kept at its own cell, on the right where it paints', () => {
+    const counter = res.kept.find((k) => /::before/.test(k.kind));
+    assert.ok(counter, `no counter kept: ${JSON.stringify(res.kept)}`);
+    assert.ok(counter.x > 1000 && counter.x + counter.w <= 1165, `the counter's box is at ${counter.x}..${counter.x + counter.w}, not its right-hand cell`);
+    assert.ok(counter.w < 60, `the counter covers ${counter.w}px, its row`);
   });
 });
