@@ -1,0 +1,1 @@
+- `with-progress` turns the section rail back on for one slide in a deck that turns it off: `class: no-progress` in the front matter, then `<!-- _class: content with-progress -->` on the slide. It wins over a deck-wide `no-progress` and over `silent`, as `with-pagination` does for the page number.

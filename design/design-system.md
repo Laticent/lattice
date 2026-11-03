@@ -494,11 +494,14 @@ and opt individual slides out:
 | Running header | `no-header` | `header: "…"` (text present) | off |
 | Running footer | `no-footer` | `footer: "…"` (text present) | off |
 | Page number | `no-pagination` | `paginate: true` | on (Form) |
-| Section rail | `no-progress` | `class: no-progress` (propagated) | on (Form) |
+| Section rail | `no-progress` (off) · `with-progress` (back on) | `class: no-progress` (propagated) | on (Form) |
 
 Header / footer / pagination ride native Marp directives; the rail has no native
 directive, so its deck-wide off-switch is the `no-progress` class propagated to
-every slide. `silent` bundles header + footer + pagination off for a single
+every slide — including a slide that names its own `_class`, which ADDS to the
+deck's class and never replaces it. A slide opts back in with `with-progress`,
+which wins over the deck's `no-progress` (and over `silent`), as
+`with-pagination` does for the page number. `silent` bundles header + footer + pagination off for a single
 slide. The full matrix — and the Studio controls that emit it — is in the
 authoring guide (`docs/src/content/docs/guides/authoring.md`).
 
