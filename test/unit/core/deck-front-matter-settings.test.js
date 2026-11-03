@@ -118,3 +118,18 @@ test('lint reads a bundle deck\'s settings block as front matter, and reports a 
   // line on the folded text, whose lines are the source's.
   assert.equal(applyFix(src, f), src.replace('finish: atriumm', 'finish: atrium'));
 });
+
+// CodeQL js/polynomial-redos on PR #3023: `/[ \t\r]+$/` per line made the fold quadratic on a long run
+// of tabs (measured 2.2 s on 40 000). The fold, the block writer and the reader all trim with the
+// built-ins now; a hostile deck must stay linear.
+test('a long run of tabs or spaces cannot make the fold, the writer or the reader slow', () => {
+  const tabs = `${'\t'.repeat(60000)}x`;
+  const spaces = `${' '.repeat(60000)}x`;
+  const t0 = Date.now();
+  foldSettingsBlock(`---\na: 1\n---\n<script type="application/lattice-settings">\n${tabs}\n</script>\n`);
+  foldSettingsBlock(`---\na: 1\n---\n${' \t\r\n'.repeat(30000)}`);
+  settingsBlock(spaces);
+  withBundleFrontMatter(`---\nmeta: ${spaces}\n---\n`);
+  readSettingsBlock(new JSDOM(`<script type="application/lattice-settings">${spaces}</script>`).window.document);
+  assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`);
+});
