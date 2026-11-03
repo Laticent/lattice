@@ -189,7 +189,7 @@ async function latticeUndoProbe() {
 		await k.sleep(800);
 
 		const undoType = await k.command('undo');
-		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || 'no beforeinput');
+		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || `no beforeinput; events: ${(result.events || []).join(' ; ')}`);
 		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command').catch((e) => {
 			// Say where the undo went: one step too many (the paste gone too) or none, and what the Studio announced.
 			const now = k.deckText();
@@ -200,7 +200,7 @@ async function latticeUndoProbe() {
 		k.step('the Studio said what it undid', true, k.said().trim());
 
 		const redoType = await k.command('redo');
-		k.step('WebKit redo command raised historyRedo', redoType === 'historyRedo', redoType || 'no beforeinput');
+		k.step('WebKit redo command raised historyRedo', redoType === 'historyRedo', redoType || `no beforeinput; events: ${(result.events || []).join(' ; ')}`);
 		await k.until(() => k.deckText() === typed, 10000, 'the word back after redo');
 		k.step('the WebKit redo command brought it back', true);
 		// What the page saw during both commands, so a pass also shows whether Safari's own undo ran beside Filo's.
