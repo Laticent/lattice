@@ -63,6 +63,18 @@ device pixel (690.19 CSS px at 2x), and the browser blends each pixel with its n
 attempt to move the picture onto whole pixels was measured and changed nothing: the box inside the
 slide's SVG copy sits about 0.1 px from where the live page measured it. It was removed.
 
+**In the real Studio, PowerPoint** (the nightly gate's deck: three seeded 4032 x 3024 photos, `docs/e2e/export-photo-size.spec.ts`):
+
+| Engine | `main` | This change |
+|---|---:|---:|
+| Chromium | 583 KB / 175 KB | 491 KB / 145 KB |
+| WebKit | not measured: on `main` the gate stops at the unmeasured photo (cause 1) before it exports | 492 KB / 145 KB |
+| Firefox | not run on `main` | 518 KB / 154 KB |
+
+(File / largest photo slide's picture.) WebKit now writes what Chromium writes, to within 0.3%. The owner's nine photos (1179 to 2062 px wide)
+sit at or under twice their boxes, so their exports keep `main`'s pictures; on WebKit they gain the
+correct layout (cause 1).
+
 ## Cause 1: a regex WebKit gives up on
 
 The `image` layout picks its composition from the photo's shape. The Studio finds the photo's address

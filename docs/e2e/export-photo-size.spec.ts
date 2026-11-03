@@ -12,11 +12,12 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // under a ceiling measured on this deck. Nightly, with the rest of the e2e suite.
 test.describe.configure({ timeout: 600_000 });
 
-// Measured 2026-11-03 on this deck after the fix (the largest photo slide's picture / the larger of the two files):
-// Chromium 144 KB / 491 KB, Firefox 169 KB / 566 KB, WebKit 175 KB / 563 KB. The ceilings sit 20% over the worst engine,
-// so an encoder's jitter passes and a return of the old pictures does not (the PR records the old code failing this spec).
-const PHOTO_SLIDE_MAX = 210_000;
-const FILE_MAX = 680_000;
+// Measured 2026-11-03 on this deck with the final camera (the largest photo slide's picture / the larger of the two files):
+// Chromium 145 KB / 491 KB, WebKit 145 KB / 492 KB, Firefox 154 KB / 518 KB. On main, Chromium wrote 175 KB / 583 KB, and WebKit
+// fails the layout check before it exports. The ceilings sit about 8% over the worst engine (Firefox) and under main's Chromium, so main
+// fails here on Chromium (size) and WebKit (layout). The deck is seeded; Chromium wrote identical bytes on two runs of the same code.
+const PHOTO_SLIDE_MAX = 168_000;
+const FILE_MAX = 560_000;
 const PHOTOS = 3;
 
 // `@gecko` runs on Chromium desktop and Firefox, `@webkit-tablet` on real WebKit (export-images-policy.spec.ts).
