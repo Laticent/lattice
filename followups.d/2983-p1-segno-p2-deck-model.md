@@ -5,7 +5,7 @@ recorded: 2026-11-04
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-10-22-segno-deck-pipeline.md §Plan
-deferred: blocked — needs Segno deck pipeline P2, a new parser stage that no session, PR, issue or follow-up schedules
+deferred: large — a new parser stage (S0 and S1) that replaces four slide-boundary readers; a subsystem, not this docs-only PR
 source: https://github.com/Laticent/lattice/pull/2983
 ---
 
