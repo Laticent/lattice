@@ -11,4 +11,4 @@
 - Rendering a deck that uses a retired switch spelling now warns by name with the new spelling (`"finish-none" was renamed to "no-finish"`), including the four that were silent.
 - In an exported Marp bundle, removing `no-pagination` from the settings block after export brings the page numbers back, and a settings block that is hand-edited into the wrong shape is ignored rather than read differently by Lattice and Marp.
 - `with-period` no longer puts a period before a heading's trailing code or math (`Use .npm`).
-- In an exported Marp bundle, a collage, a statement image and a claim-bleed slide now hide their page number, as they do in Lattice. Marp's stylesheet processing removed the rules that hid it.
+- In an exported Marp bundle, a collage, a statement image and a claim-bleed slide now hide their page number, as they do in Lattice, and `mark-asterisks` draws its second cluster. Marp's stylesheet processing removed those rules. Marp draws its page number in the same place as that cluster, so a `mark-asterisks` slide shows no page number in Marp.

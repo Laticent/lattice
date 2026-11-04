@@ -541,7 +541,10 @@ section.mark-asterisks::before {
           mask: var(--m) center / contain no-repeat;
 }
 
-section.mark-asterisks::after {
+/* The `:where(…)` suffix keeps Marp's pagination mask off this rule (lib/base/base.variants.css
+ * explains it). In Marp, `section::after` is also the page number, so a `mark-asterisks` slide
+ * draws its second cluster there instead of a page number: the owner's call (PR #3023). */
+section.mark-asterisks:where(:not(* > .lat-never))::after {
   content: '';
   position: absolute;
   bottom: calc(5.8cqi + var(--_hold-b)); left: calc(4.6cqi + var(--_hold-l));

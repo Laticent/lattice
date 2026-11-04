@@ -21,14 +21,13 @@ const MARPIT_PAGINATION_MASK = /^section(?![\w-])[^\s>+~]*::?after$/;
 const masked = (selector) => MARPIT_PAGINATION_MASK.test(selector.replace(/\[.*?\]/g, ''));
 
 /**
- * Rules the mask still reaches, each with why it is allowed. `mark-asterisks` draws its second
- * cluster on `section::after`, which IS Marp's page number, so the two cannot both paint there:
- * in a Marp render the page number keeps the pseudo. Recorded in
- * followups.d/3023-p3-marp-mark-asterisks-page-number.md.
+ * Rules the mask may still reach, each with why. Empty since PR #3023: `mark-asterisks` was the last,
+ * and the owner ruled that its second cluster wins `section::after` over Marp's page number.
+ * A new entry goes in WITH its justification.
  */
-const SANCTIONED_MASKED = new Set(['section.mark-asterisks:after']);
+const SANCTIONED_MASKED = new Set();
 
-test('no content rule in the bundled sheet is masked by Marp, except the sanctioned ones', () => {
+test('no content rule in the bundled sheet is masked by Marp', () => {
   const sheet = path.join(__dirname, '../../../dist/lattice-min.css');
   const found = [];
   postcss.parse(fs.readFileSync(sheet, 'utf8')).walkRules((rule) => {

@@ -97,9 +97,13 @@ outside the mask. A leading `:is(section)` would have been tidier, but `tools/bu
 a leading `:is()` back to `section`. `test/unit/export/marp-pagination-mask.test.js` runs marpit's own
 test over the shipped `dist/lattice-min.css`, so a new masked `content` rule fails CI.
 
-One rule stays masked on purpose: `mark-asterisks` draws its second cluster on `section::after`, which
-in Marp IS the page number, so only one of them can paint there. Which one is the owner's call; the test
-sanctions it by name and `followups.d/3023-p3-marp-mark-asterisks-page-number.md` holds the options.
+`mark-asterisks` was the last masked rule, and the one with a real conflict: it draws its second
+cluster on `section::after`, which in Marp IS the page number, so only one of them can paint there. The
+options were (a) the asterisks win, (b) the page number wins, (c) redraw both clusters inside `::before`.
+**The owner picked (a)** (2026-11-04): the rule carries the same suffix, so a Marp render of a
+`mark-asterisks` slide draws both clusters as Lattice does and shows no page number. The engine draws its
+page number as a real element, so its render is pixel-identical before and after. The test's allowlist
+is now empty.
 
 ## Also fixed on the way
 
