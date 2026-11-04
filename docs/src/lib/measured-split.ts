@@ -233,3 +233,26 @@ export function rememberFit(key: string, source: string, memory: FitMemory): voi
 		while (fitMemoryByText.size > FIT_MEMORY_CAP) fitMemoryByText.delete(fitMemoryByText.keys().next().value as string);
 	}
 }
+
+// THE PLAN CACHE. The Studio re-renders a split slide for every page the author steps to, and a
+// render measured the whole slide again in a hidden frame: about a second a step on a phone, the
+// same plan every time (2026-10-28-fit-everywhere-model.md §17). A plan depends only on what was
+// laid out, so it is reused for the same slide TEXT in the same box, mode and stylesheet; any edit,
+// resize or theme change misses and measures again. Bounded, oldest first out.
+const planByLayout = new Map<string, Record<string, unknown>>();
+const PLAN_CACHE_CAP = 200;
+/** The layout a measured plan was made for: the slide's text, the box, and the stylesheet's shape. */
+export function layoutKey(key: string, source: string, layout: string): string {
+	return `${key}\u0000${layout}\u0000${source}`;
+}
+export function cachedPlan(k: string): Record<string, unknown> | null {
+	const plan = planByLayout.get(k) ?? null;
+	// The debug record says what the shown slide was split by, measured or reused (the e2e specs read it).
+	if (plan && typeof window !== 'undefined') (window as Window & { __latticeLastMeasuredSplit?: unknown }).__latticeLastMeasuredSplit = { plan, reused: true, remembered: [], facts: [], rounds: 0, fellBack: 0 };
+	return plan;
+}
+export function cachePlan(k: string, plan: Record<string, unknown>): void {
+	planByLayout.delete(k);
+	planByLayout.set(k, plan);
+	while (planByLayout.size > PLAN_CACHE_CAP) planByLayout.delete(planByLayout.keys().next().value as string);
+}

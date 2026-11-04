@@ -1879,7 +1879,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						if (ms?.measuredSplitWanted(slideSource)) {
 							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
-							const measured = await ms.measuredSplitInFrame({
+							// Stepping to another page of the same slide re-renders it: reuse the plan made for
+							// this exact text, box, mode and stylesheet instead of measuring again (§17).
+							const layout = ms.layoutKey(key, slideSource, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${out.css.length}|${extraCss?.length ?? 0}`);
+							const reuse = ms.cachedPlan(layout);
+							const measured = reuse
+								? { ...(PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(out.html, slideSource, out.width, out.height, { ...splitOpts, plan: reuse }), plan: reuse, memory: null }
+								: await ms.measuredSplitInFrame({
 								html: out.html,
 								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
 								// The geometry the frame is written with below (`geom`, declared after this split).
@@ -1895,7 +1901,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							});
 							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 							if (measured) {
-								ms.rememberFit(key, slideSource, measured.memory);
+								if (!reuse && measured.memory) {
+									ms.rememberFit(key, slideSource, measured.memory);
+									ms.cachePlan(layout, measured.plan);
+								}
 								r = measured;
 							}
 						}
