@@ -8,8 +8,8 @@
  * start pages and that prompt. So a slide passes only when its OWN background (the dominant color of the same cut's
  * Quick Look render, made earlier in this job) covers a real share of the screen, and no prompt gray does.
  *
- * Files of several slides (index entries with `slides`) are shown too: three in a row, and a whole short deck that
- * QLProbe scrolls through (`tour`), captured a screen at a time for a person to compare with the PDF.
+ * Files of three slides in a row (index entries with `slides`) are shown too, in each variant the tool wrote, for a
+ * person to compare: Quick Look runs out of process (QLHostRemoteView), so the app cannot scroll a whole deck.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPhone OFFICE_INDEX=<index.json> APP_DIR=<QLProbe.app> ARTIFACT_DIR=<dir> node office-capture.mjs
  */
@@ -92,37 +92,21 @@ simctl('install', UDID, process.env.APP_DIR);
 const docs = path.join(simctl('get_app_container', UDID, BUNDLE, 'data'), 'Documents');
 fs.mkdirSync(docs, { recursive: true });
 const root = path.dirname(process.env.OFFICE_INDEX);
-const stem = (f) => (f.slides ? `${f.deck}-${f.tour ? 'whole' : `slides-${f.slides.join('-')}`}` : `${f.deck}-slide-${String(f.slide).padStart(2, '0')}`);
+const stem = (f) => (f.slides ? `${f.deck}-${f.variant}-slides-${f.slides.join('-')}` : `${f.deck}-slide-${String(f.slide).padStart(2, '0')}`);
 const inApp = (f) => path.join(docs, `${stem(f)}.pptx`);
 for (const f of index) fs.copyFileSync(path.join(root, f.path), inApp(f));
 // The baseline: the viewer with nothing to show. Twice, so a first launch's settling is not in it.
 await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 15000);
 const baseline = (await capture('none', path.join(dir, `${LABEL}-baseline.png`), 15000)).img;
 const steps = [];
-// Runs of three slides, and the whole deck read by scrolling: evidence of what the viewer draws on a slide after other
-// slides (the owner's iPhone drew shapes from earlier slides onto later ones). Each capture is kept for a person to look
-// at; the run passes only on a settled screen, and the tour also on a scroll view QLProbe could drive.
+// Runs of three slides, each variant tools/office-quicklook.mjs wrote: evidence of what the viewer draws on a slide after
+// other slides (the owner's iPhone drew shapes from earlier slides onto later ones). Each capture is kept for a person
+// to compare across variants; a run passes on a settled screen.
 for (const f of index.filter((x) => x.slides)) {
-	const name = `${f.deck} ${f.tour ? 'whole deck, scrolled' : `slides ${f.slides.join(', ')}`}`;
+	const name = `${f.deck} ${f.variant} slides ${f.slides.join(', ')}`;
 	try {
-		if (!f.tour) {
-			const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000);
-			steps.push({ name, pass: settled, detail: settled ? 'settled' : 'never settled' });
-			continue;
-		}
-		const logFile = path.join(docs, 'qlprobe-log.txt');
-		fs.rmSync(logFile, { force: true });
-		simctl('launch', '--terminate-running-process', UDID, BUNDLE, inApp(f), 'tour');
-		// QLProbe scrolls a screen every 8 s, the first at 8 s: one capture in the middle of each still.
-		const shots = Math.ceil(f.slides.length / 3) + 3;
-		for (let i = 0; i < shots; i++) {
-			await sleep(i === 0 ? 6000 : 8000);
-			simctl('io', UDID, 'screenshot', path.join(dir, `${LABEL}-${stem(f)}-${String(i).padStart(2, '0')}.png`));
-		}
-		const log = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8') : '';
-		fs.writeFileSync(path.join(dir, `${LABEL}-${stem(f)}-log.txt`), log);
-		const drove = /^step 1: \S+ content/m.test(log);
-		steps.push({ name, pass: drove, detail: drove ? `${shots} captures; ${log.split('\n')[0]}` : `QLProbe found no scroll view to drive (see ${LABEL}-${stem(f)}-log.txt)` });
+		const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000);
+		steps.push({ name, pass: settled, detail: settled ? 'settled' : 'never settled' });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
 	}
