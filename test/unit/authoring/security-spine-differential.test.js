@@ -44,6 +44,8 @@ header: "![h2](https://last-header.example/2.png)"
 
 <picture><source srcset="https://set.example/a.png 1x, local.png 2x"><img src="ok.png" alt=""></picture>
 
+<img srcset="local.png 1x, https://set-second.example/b.png 2x" alt="">
+
 <video src="https://vid.example/v.mp4" poster="https://poster.example/p.jpg"></video>
 
 Text with <img src="//inline.example/i.png" alt=""> inline, and <img src="relative.png" alt=""> beside it.
@@ -131,7 +133,7 @@ describe('security spine S2: the linter warns on exactly what the renderer block
     const lint = [...new Set(linted().filter((f) => f.rule !== 'stripped-markup' && f.rule !== 'markup-unsure').map((f) => f.address))].sort();
     assert.deepEqual(lint, rendered);
     // The seed is not vacuous: every family is in it, and no near miss is.
-    for (const u of ['https://svg-style.example/s.png', 'https://dir-color.example/c.png', 'https://fm-color.example/a.png', 'https://img.example/1.png', 'https://entity.example/e.png', 'https://escape.example/e.png', 'https://smil.example/s', 'https://merm.example/m.png', 'https://refresh.example/', 'https://ping.example/p', 'https://video-poster.example/p.jpg', 'https://dir-bg.example/d.png', 'https://fm-bg.example/a.png']) {
+    for (const u of ['https://set-second.example/b.png', 'https://svg-style.example/s.png', 'https://dir-color.example/c.png', 'https://fm-color.example/a.png', 'https://img.example/1.png', 'https://entity.example/e.png', 'https://escape.example/e.png', 'https://smil.example/s', 'https://merm.example/m.png', 'https://refresh.example/', 'https://ping.example/p', 'https://video-poster.example/p.jpg', 'https://dir-bg.example/d.png', 'https://fm-bg.example/a.png']) {
       assert.ok(rendered.includes(u), `the renderer should block ${u}`);
     }
     for (const near of ['plain-link', 'code-span', 'fenced', 'comment', 'selector', 'link-ok']) assert.ok(!rendered.some((u) => u.includes(near)), `${near} is not a fetch`);
@@ -188,6 +190,35 @@ describe('security spine S2: the linter warns on exactly what the renderer block
     const all = linted();
     assert.ok(all.length > 20);
     for (const f of all) assert.equal(f.severity, 'warning', `${f.rule}: ${f.line}`);
+  });
+});
+
+describe('security spine S2: the front matter, read the way each consumer reads it', () => {
+  const lintAddresses = (src) => [...new Set(core.lintTextWith(src, vocab).filter((f) => SECURITY_RULES.has(f.rule) && f.address).map((f) => f.address))].sort();
+
+  test('a directive the engine reads from an indented line, and the last of a repeated key', () => {
+    // lib/engine/directives.js `parseFrontMatter` trims each line, so an indented key is a directive, and the last wins.
+    const src = '---\nmarp: true\nbackgroundImage: url(https://fm-a.example/a.png)\nfoo:\n  backgroundImage: url(https://fm-b.example/b.png)\n  header: "![x](https://nested.example/h.png)"\n---\n\n# A\n';
+    const { blocked } = blockWebImages(engine.render(src, 'indaco').html, [], { fonts: true, DOMParser: null });
+    assert.deepEqual(lintAddresses(src), [...new Set(blocked.map((b) => b.url))].sort());
+    assert.deepEqual(lintAddresses(src), ['https://fm-b.example/b.png', 'https://nested.example/h.png']);
+  });
+
+  test('`style:` as the CLI export pastes it: the first, at any indentation, quoted or a block', () => {
+    const { readGlobalStyle } = require('../../../lib/core/front-matter-key.js');
+    for (const fm of [
+      'style: "section{background:url(https://first.example/a.png)}"\nstyle: "section{color:red}"',
+      'foo:\n  style: "section{background:url(https://nested.example/n.png)}"',
+      'style: |\n  section { background: url(https://block.example/b.png); }',
+    ]) {
+      const pasted = readGlobalStyle(fm);
+      const linted = lintAddresses(`---\nmarp: true\n${fm}\n---\n\n# A\n`);
+      assert.equal(linted.length, 1, fm);
+      assert.ok(pasted.includes(linted[0]), `${fm}: the export pastes ${pasted}`);
+    }
+    // An unquoted one-line `style:` is not pasted at all, and lint stays silent on it.
+    assert.equal(readGlobalStyle('style: section{background:url(https://unq.example/u.png)}'), '');
+    assert.deepEqual(lintAddresses('---\nmarp: true\nstyle: section{background:url(https://unq.example/u.png)}\n---\n\n# A\n'), []);
   });
 });
 

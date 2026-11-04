@@ -5,7 +5,7 @@ recorded: 2026-11-03
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-11-03-security-findings-spine.md §Phasing
-deferred: blocked — the census's remaining readers: deck-export.js changes export bytes and waits on the owner's sign-off on a dark and a light render; the rest are hints and a closer that follow it
+deferred: off-path — pre-existing readers the S3 census found, each sanctioned with its reason; none is a defect this PR made. deck-export.js is also blocked: moving it changes export bytes, which waits on the owner's sign-off on a dark and a light render
 source: https://github.com/Laticent/lattice/pull/3022
 ---
 

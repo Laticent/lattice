@@ -7,7 +7,7 @@
  *
  * Two loads per engine, each against the web-reference fuzz's loopback beacon (test/helpers/web-ref-fuzz.js):
  *   sheets        every CSS input of the fuzz (test/fixtures/web-ref-fuzz.js) as a `<style>`, in its own frame, with
- *                 consumers that read `--q` and `--a` through `image-set(var(…))`. A sheet LEAKS when it fetched and
+ *                 one element per custom property the fuzz writes, each reading it alone through `image-set(var(…))`. A sheet LEAKS when it fetched and
  *                 the gate does not refuse it.
  *   declarations  each input cut at `{` and `}` into declarations, each set as a `style` attribute (with a child that
  *                 reads its custom properties), rechecked alone. One LEAKS when it fetched and the door would keep it.
@@ -40,10 +40,15 @@ const count = Number(arg('--count', 3000));
 const engines = arg('--engines', 'chromium,webkit,firefox').split(',');
 const TYPES = { chromium, firefox, webkit };
 
-const CONSUMERS = '<style>p,div,span,a{background-image:image-set(var(--q) 1x),image-set(var(--a) 1x);list-style-image:var(--q);border-image-source:var(--a)}</style>';
-const sheetDoc = (css) => `<!doctype html><style>${css}</style>${CONSUMERS}<p class="x">x</p><div><span>x</span></div><a href="#x">x</a>`;
+// One element per custom property the fuzz writes, each reading ONE variable in ONE declaration: a declaration that reads
+// two is invalid at computed-value time when either is undefined, so it fetches neither (the red team of P2: the first
+// cut put `--q` and `--a` in one `background-image`, which hid about a quarter of the custom-property inputs).
+const VARS = ['q', 'a', 'b', 'x', 'p'];
+const CONSUMERS = `<style>${VARS.map((v) => `.v-${v}{background-image:image-set(var(--${v}) 1x)}`).join('')}</style>`;
+const READERS = VARS.map((v) => `<i class="v-${v}">.</i>`).join('');
+const sheetDoc = (css) => `<!doctype html><style>${css}</style>${CONSUMERS}<p class="x">x</p><div><span>x</span></div><a href="#x">x</a>${READERS}`;
 const esc = (v) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-const declDoc = (d) => `<!doctype html>${CONSUMERS}<div style="${esc(d)}">x<span>y</span></div><svg width="9" height="9"><rect width="9" height="9" style="${esc(d)}"/></svg>`;
+const declDoc = (d) => `<!doctype html>${CONSUMERS}<div style="${esc(d)}">x<span>y</span>${READERS}</div><svg width="9" height="9"><rect width="9" height="9" style="${esc(d)}"/></svg>`;
 
 const refuses = (items) => items.some((a) => a.kind === 'var' || !scan.urlIsLocal(a.value));
 // The whole gate: the address reader plus its keyword rules. The old gate is the same rules with the old reader.

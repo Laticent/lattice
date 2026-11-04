@@ -267,6 +267,14 @@ one. And every directive the engine writes into a slide's `style` as a custom pr
 `backgroundPosition` …, read from `lib/core/meta-keys.js`), in a comment or the front matter, is read as CSS, not only
 `backgroundImage`. Not fixed: an `<iframe src>` to another site raises both `stripped-markup` and `web-image`, both true.
 
+**After the checker and the red team (2026-11-04).** Lint read the front matter its own way (top-level keys, the last
+wins), and two consumers read it differently: the engine's `parseFrontMatter` trims each line, so an indented key is a
+directive, and the CLI export's `readGlobalStyle` pastes the FIRST `style:`, at any indentation, quoted or a `|` block.
+Lint now asks each: directives through `parseFrontMatter`, and `style:` through `readGlobalStyle`, which moved from
+lib/export/export-scaffold.js into lib/core/front-matter-key.js so both read it. A `style:` address gets its own message:
+the export pastes it and the page's content policy refuses the load. The differential seeds both, and a `srcset` whose
+web candidate is second.
+
 **What lint still cannot see.** An address at the site's own origin, which the Studio allows (`withOwnOrigin`): lint
 reports it, the safe direction, and says so in `spec/diagnostics.md`. Markup the ENGINE writes (§3).
 
@@ -295,7 +303,13 @@ as `isAddressString`. `lib/core/web-ref-readers.js` became a factory that requir
 css-ref-reader.js does): S2's version required its parsers, which broke the two loaders that inline remote-ref.js's
 require-free siblings, the docs dev server and the code door's sanitizer page (found in this change, before merge).
 
-**A bypass, found and fixed.** The oracle below found a sheet both the old walk and the rebuilt reader let through, in
+**A door bypass the red team found, and fixed.** `attrRefTargets` read a value with `cssRefTargets` only when it held a
+literal `(` or `--`. CSS reads `\2d\2d q`, `-\-q` and `\2d-q` as the custom property `--q`, so a package's
+`\2d\2d q:"https://…"` passed the door, and Chromium, WebKit and Firefox fetched it through a child's
+`image-set(var(--q) 1x)`. Old and new door alike; the renderer's scanner still blocked a web address there by default, so
+this was a bypass of the door layer. The door now reads any value holding a backslash too (test/unit/cli/code-door.test.js).
+
+**A gate bypass, found and fixed.** The oracle below found a sheet both the old walk and the rebuilt reader let through, in
 all three engines: an address-shaped string inside `image()` in an `@font-face` `src`. `findAddressStrings` now also
 reports an address-shaped string inside any function (kind `function`). The address shape is the test, so
 `format("woff2")` and `type("image/png")` stay text; no shipped stylesheet (193) has a hit.
@@ -341,7 +355,7 @@ spine's own files (`content-policy.js`, `media-sources.js`, `web-ref-readers.js`
 | `list-copy` | a literal list of three or more names, most of them from one table list (fetch attributes, stripped tags, media elements, paint attributes) |
 
 Each count is held exactly to `SANCTIONED_SPINE_READERS` (file, shape, count, why): a new hit fails, and so does a stale
-entry. **Day one holds 54 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
+entry. **Day one holds 56 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
 the ones R4's hand-kept list named. Each says why it is not the spine's, in one of four kinds: it reads text the engine
 itself wrote in a fixed shape (18), it refuses on any `url(` and so fails closed (9), it reads Lattice's own font,
 `data:` or runtime references (13), or one of 13 others: the renderer's own element sets, one lint rule's script test,
@@ -350,13 +364,17 @@ and the readers that decide something on an author's text, each naming its follo
 (followups.d/3022). lint-core's Markdown image regexes, the one entry §4 named, are gone: S1 reads Markdown with the
 engine's parser.
 
+The checker and the red team found spellings the first cut missed (`URL\(` with `i`, `url[(]`, `url\x28`, `\ssrc=`,
+`src="(.*?)"`, `src=(\S+)`, a `'</style'` string); each now counts, which added two readers of the engine's own `<img src>`
+(bg-image.js, collage-stamp.js). A test pins that `run()`, the body of `build:check`'s ownership step, calls the census.
 **Its failing arms** (`test/unit/tools/security-spine-census.test.js`): a regex reader and a copy of the fetch attributes
 planted in a scratch tree each fail it; one more reader in a sanctioned file fails it; a stale entry fails it. A template
 literal that WRITES `url(${u})` or `<img src="${u}">`, a comment, and a whole `<style>…</style>` matcher do not count.
 The census takes 0.34 s per run.
 
-**Known limits.** A regex built from pieces at run time, a list split across helpers or keyed by tag (`{ img: ['src'] }`),
-and a reader written as a character scan are not seen. The census catches the shapes the tree has used.
+**Known limits.** A regex built from pieces at run time, a list split across helpers, built by `split()` or keyed by tag
+(`{ img: ['src'] }`), `.astro` files, and a reader written as a character scan are not seen; and a count cannot tell one
+reader swapped for another in a file already sanctioned at that count. The census catches the shapes the tree has used.
 
 ## Decisions for the owner
 

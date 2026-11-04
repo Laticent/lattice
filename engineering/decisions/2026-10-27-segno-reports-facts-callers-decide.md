@@ -825,7 +825,8 @@ have their exclusion written, with the reason, for the security spine's S3 censu
   span sits in. That is new state in a security reader, so it gets its own differential against these two walkers and
   the trio, which makes it work for its own change. No bypass is known in either (#3024's review).
   **Moved 2026-11-04** onto `cssRefSpans`' declaration channel (`decls`), with that differential and a three-browser
-  oracle; the oracle found one bypass in both, an address inside `image()`, now refused (security spine note, "P2, the
+  oracle; the oracle found one bypass in the gate, an address inside `image()`, and the red team one in the door, a
+  custom property spelled with escapes; both now refused (security spine note, "P2, the
   declaration channel, as built").
 - **`slide-camera.mjs` `CSS_URL` / `REL_URL`, excluded for now.** They choose which pictures a picture export inlines
   and make relative `url()`s absolute. That is not a refusal, and the known miss (`u\72l(`) costs a missing picture,

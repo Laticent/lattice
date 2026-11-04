@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — lint-core ceiling raised by the measured 137 B, by hand, for reading the front matter as its consumers do
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The checker and the red team of S2 found lint reading the front matter its own way; it now asks the engine's `parseFrontMatter` for directives and the CLI export's `readGlobalStyle` (moved into `lib/core/front-matter-key.js`) for `style:`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,415 -> 141,552 B (+137). The ceiling moves by exactly that; the soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 141586 |
+
 ### 2026-11-04 — lint-core ceiling raised by the measured 226 B, by hand, for the S2 review fixes
 
 Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The inversion review of S2 found lint missing a web address in a `<style>` inside `<svg>` and in the style directives other than `backgroundImage`, and raising a false warning on a clean SVG `<style>`; the fix reads both the renderer's way and takes the directive keys from `lib/core/meta-keys.js`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,189 -> 141,415 B (+226). The ceiling moves by exactly that; the soft target is unchanged.

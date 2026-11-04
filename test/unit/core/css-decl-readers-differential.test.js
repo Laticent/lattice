@@ -34,7 +34,16 @@ describe('declaration channel: the rebuilt refusal readers against the walks the
   const corpus = [...shipped(), ...fuzzed(7), ...fuzzed(11)];
   const refuses = (items) => items.some((a) => a.kind === 'var' || !scan.urlIsLocal(a.value));
   const drops = (targets) => targets.some((t) => !door.isPageOwnRef(t));
-  const inBrackets = (css) => declSpans(css).some((s) => s.selector);
+  // A refusal may be lost only where the reader puts THAT string inside a `[…]` block, judged per string, not per sheet.
+  const bracketed = (css) => declSpans(css).filter((s) => s.selector);
+  // The old walk indexes a `url(` from its name; the reader's span for the address in it may start a few characters on, at
+  // the string, so a span that covers the index or starts within the same token (before its `)`) is the same string.
+  const inBracketAt = (spans, index, css) => {
+    const close = css.indexOf(')', index);
+    const end = close < 0 ? css.length : close;
+    return spans.some((s) => (s.from <= index && index < s.to) || (s.from >= index && s.from < end));
+  };
+  const refusing = (a) => a.kind === 'var' || !scan.urlIsLocal(a.value);
 
   test('every theme, layout and package gate refusal stands, but one inside a `[…]` block', () => {
     const lost = [];
@@ -44,7 +53,11 @@ describe('declaration channel: the rebuilt refusal readers against the walks the
       const was = refuses(oldFind(m));
       const is = refuses(scan.findAddressStrings(m));
       if (was && is) both++;
-      if (was && !is && !inBrackets(m)) lost.push(name);
+      if (was && !is) {
+        const spans = bracketed(m);
+        // every refusing item the old walk made must sit in a bracket span of the new reader
+        for (const a of oldFind(m).filter(refusing)) if (!inBracketAt(spans, a.index, m)) lost.push(`${name}@${a.index}`);
+      }
     }
     assert.deepEqual(lost, []);
     assert.ok(both > 2000, `the corpus is not vacuous (${both} refused by both)`);
@@ -52,7 +65,12 @@ describe('declaration channel: the rebuilt refusal readers against the walks the
 
   test('every code door refusal stands, but one inside a `[…]` block', () => {
     const lost = [];
-    for (const [name, css] of corpus) if (drops(oldDoor(css)) && !drops(door.cssRefTargets(css)) && !inBrackets(css)) lost.push(name);
+    for (const [name, css] of corpus) {
+      if (!drops(oldDoor(css)) || drops(door.cssRefTargets(css))) continue;
+      // every lost target must be the value of a string the new reader puts inside a `[…]` block
+      const inside = new Set(bracketed(css).map((s) => s.value.trim()));
+      for (const t of oldDoor(css).filter((x) => !door.isPageOwnRef(x))) if (!inside.has(t)) lost.push(`${name}:${t}`);
+    }
     assert.deepEqual(lost, []);
   });
 

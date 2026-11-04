@@ -63,6 +63,21 @@ describe('security spine census (S3)', () => {
     assert.match(spineCensusFindings([], [s])[0], /^stale security-spine sanction/);
   });
 
+  test('build:check runs it: run() calls the census', () => {
+    // The planted-reader arm calls the check directly, so it cannot see the census dropped from the build (the checker).
+    const src = fs.readFileSync(path.join(__dirname, '../../../tools/check-ownership.js'), 'utf8');
+    const start = src.indexOf('\nfunction run() {');
+    const end = src.indexOf('\n}\n', start);
+    assert.ok(start > 0 && end > start, 'run() is where build:check runs every check');
+    assert.match(src.slice(start, end), /\n\s*checkSecuritySpineCensus\(errors\);/);
+  });
+
+  test('the spellings the review found missed are counted', () => {
+    for (const t of ['/URL\\(/i', '/url[(]/', '/url\\x28/']) assert.deepEqual(spineCensusHits(`const r = ${t};`), { 'url-reader': 1 }, t);
+    for (const t of ['/src="(.*?)"/', '/src=(\\S+)/', '/<img[^>]*\\ssrc=/']) assert.deepEqual(spineCensusHits(`const r = ${t};`), { 'attr-reader': 1 }, t);
+    assert.deepEqual(spineCensusHits('if (css.includes("</style")) return;'), { 'style-closer': 1 });
+  });
+
   test('every sanction says why', () => {
     for (const s of SANCTIONED_SPINE_READERS) assert.ok(s.why && s.why.length > 30, `${s.file} ${s.shape}`);
   });

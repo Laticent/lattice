@@ -21,8 +21,9 @@ done      — `lib/export/player-prune.js` `namesRemoteResource` (the Reading vi
             none through and strips everything the old one did (decision note, "R4: the four census readers").
             `lib/core/css-scan.js` `findAddressStrings` and `lib/core/door-attr.mjs` `cssRefTargets`, in the security spine
             S2/S3 PR: both read `cssRefSpans`' new declaration channel (`decls`). The differential and the three-browser
-            oracle are in the spine note, "P2, the declaration channel, as built"; the oracle found one bypass in both (an
-            address inside `image()`), now refused.
+            oracle are in the spine note, "P2, the declaration channel, as built"; the oracle found one bypass in the gate (an
+            address inside `image()`, which the door always listed), now refused. The red team then found one in the
+            door (a custom property spelled with escapes, `\2d\2d q`), also fixed.
 next      — `lib/core/slide-camera.mjs` `CSS_URL` / `REL_URL` (what a picture export inlines): not a refusal; its known
             miss (`u\72l(`) is a missing picture, not a leak. Moving it changes export bytes for such spellings, so it
             ships with a dark and a light render of a representative deck for the owner's sign-off (CLAUDE.md Quality Bar).
