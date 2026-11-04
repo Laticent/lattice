@@ -118,7 +118,11 @@ is in this PR. The ❓ decision card on the PR carries the options.
 1. **A supervisor for the iOS suites instead of in-job timers.** A `workflow_run` job re-runs, once, any iOS job that
    exited 3 (no session), and alerts only if the re-run fails too. That turns cause A from "red 4 nights in 15" into a
    re-run with no budget arithmetic, and lets `run.sh` drop its second-start budget logic. The alternative is building the
-   docs site once in its own job and sharing it, which gives each iOS job back about 5 minutes. Both add a job.
+   docs site once in its own job and sharing it. Measured from 23 iOS job logs, that build takes 65–94 s per job
+   (mean by suite), while one more session start takes 300–500 s (median 322 s for a failed attempt, 297 s for a
+   successful start, across 70 attempts). So sharing the build cannot pay for a retry. It is worth doing for cost, but
+   it does not fix cause A. Both options add a job. Ending a session request early does not help either: a failure
+   takes as long as a success.
 2. **Report "no runner" as not a failure.** Have `alert` skip jobs with 0 steps and no runner, and stop the evidence plan
    from dispatching a suite while one for the same commit is queued.
 3. **Deadlines and ceilings:** the iOS cold-start waits (cause C), the overflow sweep's 30 minutes (or shard it), the
