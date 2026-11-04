@@ -218,7 +218,15 @@ section.list-tabular.spec.stacked ol > li > .lat-pill[data-shape] {
 /* In block flow (narrow text room, below) the row is not a grid, so drop the placement
  * and let the pill sit in the text run like the meta shapes above it. */
 @container lattice (width < 23em) {
-  section.list-tabular.list-tabular ol > li > .lat-pill[data-shape] {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li > .lat-pill[data-shape] {
+    grid-column:auto; grid-row:auto;
+    justify-self:start;
+  }
+}
+/* `def` and `fit-name` keep their grid to ~35 characters a line: at square@hall their body
+   column still reads (owner, 2026-11-04; fit-everywhere-model.md §17). Same rules, one step later. */
+@container lattice (width < 17em) {
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li > .lat-pill[data-shape] {
     grid-column:auto; grid-row:auto;
     justify-self:start;
   }
@@ -508,33 +516,33 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    them. The doubled class `.list-tabular.list-tabular` reaches the variants' (0,2,N) weight
    and source order keeps it last. */
 @container lattice (width < 23em) {
-  section.list-tabular.list-tabular ol {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol {
     display: block;
     grid-template-columns: none;
   }
-  section.list-tabular.list-tabular ol > li {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li {
     display: block;
     grid-template-columns: none;
   }
-  section.list-tabular.list-tabular ol > li::before {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li::before {
     padding-right: var(--sp-sm);
   }
   /* meta code → inline after the name (no longer a right-aligned column). */
-  section.list-tabular.list-tabular ol > li > code {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li > code {
     display: inline-block;
     padding-left: var(--sp-sm);
     text-align: left;
   }
   /* description (nested list) → its own line below the name. */
-  section.list-tabular.list-tabular ol > li > ul { display: block; }
-  section.list-tabular.list-tabular ol > li > ul > li:first-child {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li > ul { display: block; }
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li > ul > li:first-child {
     display: block;
     padding-top: var(--sp-2xs);
   }
   /* the 3-line authoring contract carries meta as a second nested li (not inline
      `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
      it right-aligned, so left-align it onto its own line like the inline-code meta. */
-  section.list-tabular.list-tabular ol > li > ul > li:nth-child(2) {
+  section.list-tabular.list-tabular:not(.def):not(.fit-name) ol > li > ul > li:nth-child(2) {
     display: block;
     text-align: left;
     padding-top: var(--sp-2xs);
@@ -542,6 +550,36 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
   /* TIGHT, under ~35 characters a line: the meta stops riding after the name and takes its own
      line. Inline after "Scope", a mono meta of four words set three characters a line wide of it
      ("Retail and / commercial / deposits, twelve / markets" at story@hall, `flex-meta`). */
+}
+/* `def` and `fit-name` keep their grid to ~35 characters a line: at square@hall their body
+   column still reads (owner, 2026-11-04; fit-everywhere-model.md §17). Same rules, one step later. */
+@container lattice (width < 17em) {
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol {
+    display: block;
+    grid-template-columns: none;
+  }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li {
+    display: block;
+    grid-template-columns: none;
+  }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li::before {
+    padding-inline-end: var(--sp-sm);
+  }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li > code {
+    display: inline-block;
+    padding-inline-start: var(--sp-sm);
+    text-align: start;
+  }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li > ul { display: block; }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li > ul > li:first-child {
+    display: block;
+    padding-top: var(--sp-2xs);
+  }
+  section.list-tabular.list-tabular:is(.def, .fit-name) ol > li > ul > li:nth-child(2) {
+    display: block;
+    text-align: start;
+    padding-top: var(--sp-2xs);
+  }
 }
 @container lattice (width < 17em) {
   section.list-tabular.list-tabular ol > li > code {

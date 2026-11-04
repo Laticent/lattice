@@ -65,22 +65,12 @@ section.glossary h2 > .lat-pill[data-glossary-range] {
    `.glossary.glossary` clears the base table rules. */
 section.glossary > .cell-stage { container-type: inline-size; }
 
-/* The deck-shape trigger: a slide with under ~47 characters a line. This keyed on the `strip`
-   family (the `mobile` size) until 2026-10-29; `mobile` has the same room as `portrait` (20.7em
-   at laptop), so the two now behave alike, and square@hall (21.4em) joins them: at story@hall
-   "Capacity" left its definition eleven characters a line. The header row stays, as one line
-   of column names, so no text leaves the page. */
-@container lattice (width < 23em) {
-  section.glossary.glossary table,
-  section.glossary.glossary :is(thead, tbody, tr, td) { display: block; }
-  section.glossary.glossary thead tr { display: flex; flex-wrap: wrap; column-gap: var(--sp-lg); }
-  section.glossary.glossary thead th { padding-inline: var(--sp-sm); }
-  section.glossary.glossary tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
-  section.glossary.glossary td { padding: 0; }
-  section.glossary.glossary td:first-child { white-space: normal; padding: 0 0 0.15em; }
-}
+/* No step at ~47 characters a line: at square@hall (21.4em) and portrait@laptop the table's
+   definition column still reads about twenty-five characters a line, so the table stays, as at
+   hd. A block form here made the same glossary change shape between hd and square (owner,
+   2026-11-04; fit-everywhere-model.md §17). Under ~35 (below) the rows stack. */
 
-@container (width < 17em) {
+@container lattice (width < 17em) {
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) thead { display: none; }
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held),
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) tbody,
