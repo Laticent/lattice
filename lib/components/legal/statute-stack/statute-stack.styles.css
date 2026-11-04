@@ -431,3 +431,32 @@ section.statute-stack > .cell-stage > ol > li {
 section.statute-stack > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The default rails sit side by side at
+ * `flex: 1` and never wrap, so a narrow box squeezed each rail until its text clipped. Below
+ * 36em of the content area (a rail under about 11.5em) the rails stack, the form a tall deck
+ * gets. In the ROW variants the status pill is pinned to the header's right edge with no space
+ * reserved for it, so in a narrow card it landed on the label and the citation: below 24em the
+ * header wraps and the pill takes its place in the flow. */
+@container lat-cards (width < 36em) {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+    flex: var(--cards-grow) 0 auto;
+  }
+}
+/* A column card's header holds the label and the citation pill on one line, the pill pushed
+ * right; in a narrow card the pill ran past the card's edge. Below 24em the header wraps, so
+ * the citation drops under the label, still at the right. */
+@container lat-cards (width < 24em) {
+  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > strong:first-child {
+    flex-wrap: wrap; row-gap: var(--sp-2xs);
+  }
+}
+@container lat-cards (width < 24em) {
+  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child { flex-wrap: wrap; row-gap: var(--sp-2xs); }
+  section.statute-stack.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
+    position: static; transform: none;
+  }
+}

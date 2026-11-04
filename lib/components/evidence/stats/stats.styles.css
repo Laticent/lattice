@@ -246,3 +246,34 @@ section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"
  * per-value rule (`safe` is invalid with `stretch` and `space-evenly`, which is why it is not
  * folded into the token). */
 section.stats:where(:not(.math))[data-cards="center"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { justify-content: safe center; }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The wide row holds every number on one
+ * line and never wraps, so a narrow pane squeezed each label to a word per line. The numbers go
+ * two to a row (the square family's form, at the number's own size: a narrow box is not a reason
+ * to enlarge type) once a tile would drop under about 8em, so the width depends on the count:
+ * 26em of the content area for three, 35em for four, 44em for five, 51em for six (a full-width
+ * 16:9 content area is 53.9em in every theme, so six keeps a margin). Two tiles
+ * never wrap; they go one to a row below 18em. (A flat 40em first cut stacked three stats in a
+ * 33em pane that read fine as a row, on examples/panes.md at 4:3; the sweep caught it.) */
+@container lat-cards (width < 51em) {
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(6)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(6)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+}
+@container lat-cards (width < 44em) {
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(5)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(5)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+}
+@container lat-cards (width < 35em) {
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(4)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(4)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+}
+@container lat-cards (width < 26em) {
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(3)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(3)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box; }
+}
+/* One to a row, for any count: the `:has()` matches the count steps' weight, so this later rule
+ * wins (a first cut at a lighter weight lost to them for three or more tiles). */
+@container lat-cards (width < 18em) {
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(2)) > .cell-stage > ol:not(.lat-reflow-held) { flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1; }
+  section.stats.stats:where(:not(.math)):has(> .cell-stage > ol > li:nth-child(2)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 1 100%; box-sizing: border-box; }
+}

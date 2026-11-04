@@ -1066,3 +1066,34 @@ section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol { align-content: saf
 /* OWNER RULING 2026-10-16: the content-sized, centered composition recorded above as rejected by
  * looking is now the default (`cards: center`) for the register's sake; `cards-stretch` restores the
  * full-height hero, and `compliance` (a flex column with its own spacing) does not follow the register. */
+
+/* ── Width reflow (lib/base/base.card-reflow.css). Every variant tiles its metrics in a grid
+ * (hero beside supports, a 2×2, a row of four) at any width, so a narrow box squeezed each
+ * tile until its number clipped. Below 34em of the content area the metrics run down one
+ * column, the layout half of the tall-deck form, and the briefing hero's accent box becomes
+ * the lead row. Type keeps its size: the tall form also enlarges the hero, and a narrow box
+ * is not a reason to change type. */
+@container lat-cards (width < 34em) {
+  section.kpi.kpi.kpi > .cell-stage > :is(ol, ul):not(.lat-reflow-held) {
+    display: flex; flex-direction: column; justify-content: safe center;
+    gap: var(--sp-md); align-content: normal; --lat-narrow: 1;
+  }
+  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:not(.lat-reflow-held) > li:nth-child(1) {
+    background: none; border-inline-start: none; align-items: stretch; text-align: start; padding: var(--sp-sm) 0;
+  }
+  section.kpi.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol:not(.lat-reflow-held) > li:nth-child(2) {
+    border-top: 1px solid var(--border);
+  }
+}
+/* `compliance` is already one column of rows, but each row is a grid whose number column is at
+ * least four h1 numerals wide (`min-width: 4ch`), so in a narrow box the label and its pill ran
+ * past the slide's edge. Below 24em the row is one column: the number, then its label, then the
+ * meta line. Every item is placed again, because the wide grid places each one explicitly (a
+ * one-column template alone sent the labels into an implicit column on top of the numbers). */
+@container lat-cards (width < 24em) {
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > strong { grid-column: 1; grid-row: 1; min-width: 0; text-align: start; align-self: start; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:first-child { grid-column: 1; grid-row: 2; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(2) { grid-column: 1; grid-row: 3; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(n+3) { grid-column: 1; grid-row: auto; }
+}

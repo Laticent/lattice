@@ -187,3 +187,39 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
   flex-grow: var(--cards-grow);
 }
 
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The family rule above answers the deck's
+ * aspect; this answers the box's width, so a narrow pane stacks its tiers too. Three tiers
+ * stack below 36em of the content area (a tier under about 11.5em), two below 24em; four go
+ * two to a row below 46em and stack below 24em. A stacked tier spans the column: `width: auto`
+ * releases the per-tier share, which a column would otherwise keep as a third of its width. */
+@container lat-cards (width < 46em) {
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) { --lat-narrow: 1; }
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) > li {
+    width: calc(50% - var(--sp-md) / 2);
+  }
+}
+@container lat-cards (width < 36em) {
+  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) {
+    flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) > li {
+    width: auto; flex: 0 0 auto; flex-grow: var(--cards-grow);
+  }
+}
+@container lat-cards (width < 24em) {
+  /* The four-tier selectors repeat here because the `:has()` one above out-ranks a plain
+   * class chain; at equal weight this later block wins. */
+  section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held),
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) {
+    flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held) > li,
+  section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) > li {
+    width: auto; flex: 0 0 auto; flex-grow: var(--cards-grow);
+  }
+}

@@ -21,7 +21,39 @@ const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { JSDOM } = require('jsdom');
-const { inlineDocAssets } = require('../../../lib/export/html-player.js');
+// The failing arm: `INLINER_ORACLE_LEGACY=1` runs the CSS tokenizer html-player.js had before Segno R4 (frozen in
+// tools/segno-legacy/html-player-inline.js), and the CSS test fails on its `u\72l(` and `image-s\65t(` leaks.
+const { inlineDocAssets } = require(process.env.INLINER_ORACLE_LEGACY ? '../../../tools/segno-legacy/html-player-inline.js' : '../../../lib/export/html-player.js');
+
+// The engine: Chromium through puppeteer by default (the per-PR tier). `INLINER_ORACLE_ENGINE=webkit` or `=firefox`
+// drives Playwright's WebKit or Gecko instead, the same corpus and the same assertions, so the browser that decides
+// what a file loads is not always Chromium (#23). Playwright's browsers install themselves for the docs e2e suite.
+async function launchOracle() {
+  const engine = process.env.INLINER_ORACLE_ENGINE;
+  if (!engine || engine === 'chromium') {
+    return require('puppeteer').launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+  }
+  const pw = require(require.resolve('playwright', { paths: [path.join(__dirname, '../../../docs/node_modules'), __dirname] }));
+  // Gecko refuses a file:// page's loads of other files unless the strict file-origin policy is off.
+  return pw[engine].launch(engine === 'firefox' ? { firefoxUserPrefs: { 'security.fileuri.strict_origin_policy': false } } : {});
+}
+
+// Gecko under Playwright reports no request event for a `file://` load, so it would compare nothing. There the BROWSER
+// side reads the same files from a loopback server: only the folder prefix of each address changes, so every escape
+// in a file name is still the spelling the browser parses. The inliner still reads the `file://` original.
+async function servedFolder(dir) {
+  if (process.env.INLINER_ORACLE_ENGINE !== 'firefox') return { url: (f) => pathToFileURL(path.join(dir, f)).href, map: (v) => v, close: () => {} };
+  const server = require('node:http').createServer((req, res) => {
+    const name = decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/^\/+/, '');
+    const file = path.join(dir, path.basename(name));
+    if (!fs.existsSync(file)) return res.writeHead(404).end();
+    res.writeHead(200, { 'content-type': file.endsWith('.png') ? 'image/png' : 'text/html' }).end(fs.readFileSync(file));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${server.address().port}/`;
+  const prefix = `${pathToFileURL(dir).href}/`;
+  return { url: (f) => base + f, map: (v) => v.split(prefix).join(base), close: () => server.close() };
+}
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -59,7 +91,7 @@ function corpus(next, dir, count, ids) {
   };
   const piece = (prop) => {
     const a = spell(file());
-    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident', 'imageset-str', 'imageset-url', 'webkit-imageset', 'imageset-both'])) {
+    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident', 'imageset-str', 'imageset-url', 'webkit-imageset', 'imageset-both', 'esc-url', 'esc-imageset', 'imageset-type', 'imageset-var', 'url-mod', 'url-comment'])) {
       case 'bare': return `${prop}:url(${a});`;
       case 'dq': return `${prop}:url("${a}");`;
       case 'sq': return `${prop}:url('${a}');`;
@@ -79,6 +111,15 @@ function corpus(next, dir, count, ids) {
       case 'imageset-url': return `${prop}:image-set(url(${a}) 1x);`;
       case 'webkit-imageset': return `${prop}:-webkit-image-set(url("${a}") 1x);`;
       case 'imageset-both': return `${prop}:image-set(url(${a}) 1x, "${a}" 2x);`;
+      // Spellings only a CSS tokenizer reads (Segno R4, the CLI export): an escaped `url(` name and an escaped `image-set(` name.
+      case 'esc-url': return `${prop}:u\\72l(${a});`;
+      case 'esc-imageset': return `${prop}:image-s\\65t("${a}" 1x);`;
+      case 'imageset-type': return `${prop}:image-set("${a}" type("image/png"));`;
+      case 'imageset-var': return `${prop}:image-set(var(--no-such, "${a}") 1x);`;
+      // A quoted `url(` that does not close right after its string (followups 3024-p3): a modifier or a comment before
+      // the `)`. The third shape, the end of the text closing it, is appended below, last.
+      case 'url-mod': return `${prop}:url("${a}" crossorigin(anonymous));`;
+      case 'url-comment': return `${prop}:url("${a}" /*c*/);`;
       default: return `${prop}:myurl(${a});`;
     }
   };
@@ -86,6 +127,9 @@ function corpus(next, dir, count, ids) {
   for (let i = 0; i < count; i++) {
     let css = '';
     for (let j = 0; j < 1 + Math.floor(next() * 3); j++) css += pick(['', '/*x*/', ' ']) + piece(PROPS[j % PROPS.length]);
+    // `url("…` that the end of the text closes: fetched from an attribute, which ends there. In a `<style>` body the
+    // `}` after it joins the string, so the address ends in `}` and neither side reads a `uN.png`.
+    if (next() < 0.08) css += `content:url("${spell(file())}`; // a property no piece sets, so the cascade keeps it
     out.push(css);
   }
   return out;
@@ -120,11 +164,12 @@ function markup(next, dir, count, ids) {
 test('every file:// picture a real Chromium loads from markup is one the inliner reads', async () => {
   let browser;
   try {
-    browser = await require('puppeteer').launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+    browser = await launchOracle();
   } catch (e) {
     assert.fail(`no browser to act as the oracle: ${e.message}`);
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inliner-oracle-html-'));
+  let served;
   try {
     const page = await browser.newPage();
     const loaded = new Set();
@@ -134,11 +179,12 @@ test('every file:// picture a real Chromium loads from markup is one the inliner
     });
     const file = path.join(dir, 'page.html');
     fs.writeFileSync(file, '<!doctype html><body></body>');
-    await page.goto(pathToFileURL(file).href);
+    served = await servedFolder(dir);
+    await page.goto(served.url('page.html'));
     const cases = markup(rng(20261019), dir, 160, { n: 0 });
     await page.evaluate((cs) => {
       document.body.innerHTML = cs.join('');
-    }, cases);
+    }, cases.map(served.map));
     for (let last = -1, stable = 0; stable < 6; ) {
       await new Promise((r) => setTimeout(r, 250));
       if (loaded.size === last) stable++;
@@ -154,22 +200,22 @@ test('every file:// picture a real Chromium loads from markup is one the inliner
     assert.deepEqual(leaks, [], 'pictures the browser loads from markup and the inliner does not read');
     assert.ok(loaded.size > 100, `only ${loaded.size} browser loads were compared`);
   } finally {
+    served?.close();
     await browser.close();
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
 test('every file:// picture a real Chromium loads from CSS is one the inliner reads', async () => {
-  let puppeteer;
   let browser;
   try {
-    puppeteer = require('puppeteer');
-    browser = await puppeteer.launch({ headless: true, executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+    browser = await launchOracle();
   } catch (e) {
     // A browser the sandbox can install is a surface we can reach (HARD RULE #23): this is a failure, not a skip.
     assert.fail(`no browser to act as the oracle: ${e.message}`);
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inliner-oracle-'));
+  let servedCss;
   try {
     const page = await browser.newPage();
     const loaded = new Set();
@@ -179,14 +225,15 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
     });
     const html = path.join(dir, 'page.html');
     fs.writeFileSync(html, '<!doctype html><body></body>');
-    await page.goto(pathToFileURL(html).href);
+    servedCss = await servedFolder(dir);
+    await page.goto(servedCss.url('page.html'));
     const next = rng(20261018);
     const ids = { n: 0 }; // one counter for both channels: a file name is never reused, so the browser's cache cannot hide a load
     let total = 0;
     for (const channel of ['attr', 'body']) {
       const cases = corpus(next, dir, 250, ids);
       loaded.clear();
-      await page.evaluate((cs, ch) => {
+      await page.evaluate(([cs, ch]) => {
         cs.forEach((css, i) => {
           const d = document.createElement('div');
           d.id = `c${i}`;
@@ -199,7 +246,7 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
             document.head.appendChild(s);
           }
         });
-      }, cases, channel);
+      }, [cases.map(servedCss.map), channel]);
       // The corpus settles when no new request has arrived for 1.5 s.
       for (let last = -1, stable = 0; stable < 6; ) {
         await new Promise((r) => setTimeout(r, 250));
@@ -228,7 +275,12 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
       const leaks = [...loaded].filter((n) => !read.has(n));
       assert.deepEqual(leaks.map((n) => `${n}: ${JSON.stringify(caseOf(n))}`), [], `${channel}: pictures the browser loads and the inliner does not read (their local path would ship)`);
       const over = [...read].filter((n) => !loaded.has(n));
-      const unexplained = over.filter((n) => !/url\(''\),/.test(caseOf(n)) && !/url\(''\),/.test(cases.find((c) => c.includes(n)) ?? ''));
+      // The second explained shape: a quoted `url(` with a modifier. Whether a browser fetches it depends on its version, not
+      // only its engine: the sandbox's Chromium 153 does, CI's Chrome, WebKit 26 and Gecko 142 read the modifier as invalid
+      // and fetch nothing. Where it is not fetched the inliner embeds a picture the browser would not show. That is the side
+      // to err on: the alternative ships the author's local path in a file a browser that supports modifiers loads it from.
+      const explained = (c) => /url\(''\),/.test(c) || / crossorigin\(anonymous\)\)/.test(c);
+      const unexplained = over.filter((n) => !explained(caseOf(n)) && !explained(cases.find((c) => c.includes(n)) ?? ''));
       assert.ok(unexplained.length === 0, `${channel}: over-reads outside the one invalid-CSS shape: ${unexplained.slice(0, 3).map((n) => JSON.stringify(caseOf(n))).join(' | ')}`);
       total += loaded.size;
       await page.evaluate(() => {
@@ -238,6 +290,7 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
     }
     assert.ok(total > 400, `only ${total} browser loads were compared; the corpus did not exercise the browser`);
   } finally {
+    servedCss?.close();
     await browser.close();
     fs.rmSync(dir, { recursive: true, force: true });
   }

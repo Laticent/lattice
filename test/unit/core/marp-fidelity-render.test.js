@@ -265,6 +265,28 @@ const PROBES = {
     probe: marked('td .state'),
   },
 
+  // Each table's narrow layout and its cells' column labels. THREE tables, three different
+  // verdicts — cards, pairs and none — on a plain slide, because the reflow walker runs on
+  // every slide, unlike the row-label one. A mirror that stamped every table the same way, or
+  // labeled the cells of a table that does not reflow, reads differently from the engine here.
+  // The probe reads the verdict, the role, and every cell's label, not the class alone.
+  tableReflow: {
+    min: 3,
+    section: 'content',
+    body: [
+      '## Three tables, three layouts', '',
+      '| Name | Role | Location |', '|---|---|---|',
+      '| Ada Okafor | Engineering lead | Lagos |', '| Priya Raman | Design director | Bengaluru |', '',
+      '| Spec | Value |', '|---|---|',
+      '| Power | 180 W typical |', '| Size | 1U, 43 cm deep |', '',
+      '| Metric | Q1 | Q2 | Q3 |', '|---|---|---|---|',
+      '| Revenue | 40 | 44 | 51 |', '| Margin | 61% | 62% | 62% |',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('section table')].map((t) =>
+      `${t.getAttribute('data-lat-reflow')}|${t.getAttribute('role') || ''}|` +
+      [...t.querySelectorAll('td')].map((td) => td.getAttribute('data-lat-col') || '-').join(',')),
+  },
+
   // The stamp that turns first-column row-label emphasis on. TWO tables, and only
   // ONE of them earns it: the second is a year column, which lib/core/table-row-label.js
   // refuses. A mirror that stamped every table it found would pass a one-table probe

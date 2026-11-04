@@ -6,6 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — engine ceiling raised 1.5 KB by hand, for PR 3021's responsive tables
+
+Owner OK 2026-11-04 (asked in the PR 3021 session: "Raise ceiling 1.5 KB", chosen over lazy-loading the runtime's table code or dropping the card-line stamps from the Marp-path mirror). PR 3021 adds the table-kind detector (lib/core/table-shape.js), the markdown-it `tableReflow` plugin, the DOM mirror (lib/runtime/table-shape-dom.js) and the slide fit check (lib/core/table-reflow-fit.js); the detector ships in both bundles `engineJsGz` counts, the ESM engine and the preview runtime. Measured locally against main at c0cbc52: about +2.1 KB gzip in the engine and +2.9 KB in the runtime, 5.0 KB together, after moving the DOM mirror out of the engine (362 bytes given back). CI on f19e996 measured 759.8 KB against the 759.3 KB ceiling. The owner chose 1.5 KB rather than the tool's full reset (which would reset every soft target and re-slack each ceiling 10% over its measurement); it covers the 0.5 KB overage and this PR's last commit. Only the engineJsGz ceiling of the four routes that carry the engine moves, by 1536 bytes, from 777480 to 779016; the soft targets are untouched and no other metric changes.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707731 | 707731 | +0 | 779016 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 779016 |
+| home | engineJsGz | 707731 | 707731 | +0 | 779016 |
+| components | engineJsGz | 707731 | 707731 | +0 | 779016 |
+
 ### 2026-11-02 — 1 KB of ceiling moved from the engine to the lint core, by hand
 
 Owner OK 2026-11-02 (asked in the PR 2997 session: "Move 1 KB of ceiling", chosen over hunting 0.2 KB of savings in the lint chunk; first opened as its own PR, #3003, then folded into PR 2997 under the owner's budget exception: "need, soundness and without adding bloat"). PR 2997 moves the chart frame from the chart family plugin into the host (lib/transformers/chart-frame.js). The plugin's old dispatcher imported its own shared/transform-utils.js, which imports lib/core/chart-status and the chart value readers behind it, so they sat in the engine's static closure; the host frame does not import them, so they now count only in the lint chunk, which also reads them. Measured by CI on PR 2997 at 86fa12f against f4806f7: engineJsGz 756.4 -> 754.3 KB, lintCoreGz 123.1 -> 123.5 KB (ceiling 123.3). The bytes moved rather than grew, so the ceilings move by the same 1 KB in opposite directions; soft targets are unchanged.

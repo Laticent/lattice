@@ -1084,7 +1084,7 @@ describe('component-manifest', () => {
         'silent', 'no-header', 'no-footer', 'no-pagination', 'with-pagination', 'no-progress', 'no-logo', // chrome
         'no-note', 'note-warn', // note
         'safe', // social
-        'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', // table
+        'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', 'table-cards', 'table-pairs', 'no-table-reflow', // table
         'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state
         'tone-pass', 'tone-warn', 'tone-fail', 'tone-skip', // tone
         'insight-key', 'insight-recommendation', 'insight-takeaway', 'insight-verdict',

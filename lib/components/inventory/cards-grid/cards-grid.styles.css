@@ -20,7 +20,7 @@ section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
   list-style:none; padding:0; margin:0;
 }
 section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > ol > li {
-  box-sizing:border-box; width:calc(50% - var(--sp-md) / 2); min-height:0;
+  box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
@@ -31,7 +31,7 @@ section.cards-grid > .cell-stage > ul > li, section.cards-grid > .cell-stage > o
   font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
 }
 section.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-section.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd) { width:100%; }
+section.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
 /* — strong: backwards-compat shim (**Title** in existing slides renders identically) — */
 section.cards-grid > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
 /* — a pill pinned right on the title row. The author writes it with the pills plugin's notation
@@ -50,7 +50,7 @@ section.cards-grid .cards-grid-inner--ordered {
   gap:var(--sp-md); flex:1;
 }
 section.cards-grid .card {
-  box-sizing:border-box; width:calc(50% - var(--sp-md) / 2); min-height:0;
+  box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
@@ -58,7 +58,7 @@ section.cards-grid .card {
   justify-content:space-between;
   font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
 }
-section.cards-grid .cards-grid-inner > .card:last-child:nth-child(odd) { width:100%; }
+section.cards-grid .cards-grid-inner > .card:last-child:nth-child(odd) { width:var(--cards-last); }
 section.cards-grid .card > strong { flex:1 1 auto; min-width:0; }
 section.cards-grid .card > .lat-pill { flex:0 0 auto; }
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
@@ -92,7 +92,7 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
-  box-sizing:border-box; width:calc(50% - var(--sp-md) / 2); min-height:0;
+  box-sizing:border-box; width:calc(100% / var(--cards-cols) - (var(--cards-cols) - 1) * var(--sp-md) / var(--cards-cols)); min-height:0;
   background:var(--bg-alt); border:1px solid var(--border);
   border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);
   display:flex; flex-wrap:wrap; align-items:baseline; align-content:start; column-gap:var(--sp-xs);
@@ -101,7 +101,7 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
   font-weight:700; color:var(--text-heading);
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li:last-child:nth-child(odd),
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li:last-child:nth-child(odd) { width:100%; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li:last-child:nth-child(odd) { width:var(--cards-last); }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > strong { flex:1 1 auto; min-width:0; }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > .lat-pill,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > .lat-pill { flex:0 0 auto; }
@@ -137,34 +137,24 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li::before 
  * three-card decks render as 3 cards in 1 row, not 2 + 1 spanning.
  * ──────────────────────────────────────────────────────────────────────── */
 
-/* .three / .four — N-up instead of 2-up: set the per-card width (matrix `100%/N - (N-1)/N·gap`)
- * and cancel the last-odd full-width span (an odd card is just another N-col cell here). */
-section.cards-grid.three.cards-grid > .cell-stage > ul > li,
-section.cards-grid.three.cards-grid > .cell-stage > ol > li,
-section.cards-grid.three .cards-grid-inner > .card,
-section.cards-grid.three .cards-grid-inner--ordered > .card {
-  width: calc(100% / 3 - 2 * var(--sp-md) / 3);
+/* THE COLUMN COUNT IS ONE VARIABLE, `--cards-cols`, set on the list (2 by default, 3 for
+ * `.three`, 4 for `.four`), and every card reads its width from it: `100%/N - (N-1)/N·gap`, the
+ * matrix idiom. `--cards-last` is the width of a last card left alone on its row: in the 2-up
+ * grid it spans the row; in an N-up grid it is just another cell. One variable is what lets a
+ * family or a width rule change the count without out-ranking `.three` (a `three` grid used to
+ * outrank the tall/strip single-column rule and stay three across on a phone). */
+section.cards-grid > .cell-stage > :is(ul, ol),
+section.cards-grid .cards-grid-inner,
+section.cards-grid .cards-grid-inner--ordered { --cards-cols: 2; --cards-last: 100%; }
+section.cards-grid.three > .cell-stage > :is(ul, ol),
+section.cards-grid.three .cards-grid-inner,
+section.cards-grid.three .cards-grid-inner--ordered {
+  --cards-cols: 3; --cards-last: calc(100% / 3 - 2 * var(--sp-md) / 3);
 }
-section.cards-grid.four.cards-grid > .cell-stage > ul > li,
-section.cards-grid.four.cards-grid > .cell-stage > ol > li,
-section.cards-grid.four .cards-grid-inner > .card,
-section.cards-grid.four .cards-grid-inner--ordered > .card {
-  width: calc(100% / 4 - 3 * var(--sp-md) / 4);
-}
-/* Cancel the 2-up last-odd full-width span in N-up mode — its `:last-child:nth-child(odd)`
- * rule outranks the plain card-width rule above, so the last odd card must be reset back to
- * the N-col width at matching specificity. */
-section.cards-grid.three.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-section.cards-grid.three.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-section.cards-grid.three .cards-grid-inner > .card:last-child:nth-child(odd),
-section.cards-grid.three .cards-grid-inner--ordered > .card:last-child:nth-child(odd) {
-  width: calc(100% / 3 - 2 * var(--sp-md) / 3);
-}
-section.cards-grid.four.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-section.cards-grid.four.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-section.cards-grid.four .cards-grid-inner > .card:last-child:nth-child(odd),
-section.cards-grid.four .cards-grid-inner--ordered > .card:last-child:nth-child(odd) {
-  width: calc(100% / 4 - 3 * var(--sp-md) / 4);
+section.cards-grid.four > .cell-stage > :is(ul, ol),
+section.cards-grid.four .cards-grid-inner,
+section.cards-grid.four .cards-grid-inner--ordered {
+  --cards-cols: 4; --cards-last: calc(100% / 4 - 3 * var(--sp-md) / 4);
 }
 
 
@@ -215,9 +205,36 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * on the portrait side — nobody could see the result, since the whole square tier
  * was inert until #1218. matrix-2x2 always got this right ("a square box reads the
  * quadrants fine"); this is the same call. */
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol),
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) .cards-grid-inner,
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) .cards-grid-inner--ordered {
+  --cards-cols: 1; --cards-last: 100%;     /* single column, whatever `.three` or `.four` asked */
+}
 section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
 section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
-  width: 100%; min-height: 0;     /* single column */
+  min-height: 0;
+}
+
+/* ── Width reflow (engineering/decisions/2026-11-03-responsive-tables.md §card grids). The
+ * family rule above answers the deck's ASPECT; this answers the box's WIDTH, so a narrow pane
+ * or a narrow frame drops columns too. The content area is the container (base.card-reflow.css).
+ * Each step keeps a card at least about 11em wide, and none fires on a full-width 16:9 box
+ * (about 54em). `--lat-narrow: 1` tells the slide fit check (lib/core/table-reflow-fit.js) the
+ * narrow form is active; a held grid (`lat-reflow-held`) keeps its authored count. */
+@container lat-cards (width < 46em) {
+  section.cards-grid.four > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
+  section.cards-grid.four .cards-grid-inner:not(.lat-reflow-held),
+  section.cards-grid.four .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 2; --cards-last: 100%; --lat-narrow: 1; }
+}
+@container lat-cards (width < 36em) {
+  section.cards-grid.three > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
+  section.cards-grid.three .cards-grid-inner:not(.lat-reflow-held),
+  section.cards-grid.three .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 2; --cards-last: 100%; --lat-narrow: 1; }
+}
+@container lat-cards (width < 24em) {
+  section.cards-grid.cards-grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
+  section.cards-grid.cards-grid .cards-grid-inner:not(.lat-reflow-held),
+  section.cards-grid.cards-grid .cards-grid-inner--ordered:not(.lat-reflow-held) { --cards-cols: 1; --cards-last: 100%; --lat-narrow: 1; }
 }
 
 

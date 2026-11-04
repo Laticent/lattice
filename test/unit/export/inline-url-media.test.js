@@ -320,3 +320,31 @@ test('webPictureOrigins: the other sites a deck shows pictures from, sorted and 
 	assert.deepEqual(webPictureOrigins(md, own), ['https://a.example:8443', 'https://b.example']);
 	assert.deepEqual(webPictureOrigins('no pictures here', own), []);
 });
+
+test('a url( string with a modifier, a comment or the end of the text after it is embedded too (Segno R4, followups 3024-p3)', async () => {
+	const { inlineUrlMedia } = await load();
+	for (const [style, tail] of [
+		["background-image:url('/img/m.jpg' crossorigin(anonymous))", ' crossorigin(anonymous))'],
+		["background-image:url('/img/m.jpg' /*c*/)", ' /*c*/)'],
+		["background-image:url('/img/m.jpg", ''],
+	]) {
+		const fetchDataUri = fakeFetch({ 'https://studio.test/img/m.jpg': { dataUri: PNG } });
+		const r = await inlineUrlMedia(`<div style="${style}"></div>`, { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
+		assert.equal(r.count, 1, style);
+		assert.ok(r.html.includes(`url(&quot;${PNG}&quot;${tail}`), `${style} → ${r.html}`);
+		assert.doesNotMatch(r.html, /m\.jpg/, style);
+	}
+});
+
+test('a foreign <style> run a comment cuts short is not rewritten across the cut (the checker, 2026-11-04)', async () => {
+	const { inlineUrlMedia } = await load();
+	const fetchDataUri = fakeFetch({ 'https://studio.test/img/m.png': { dataUri: PNG } });
+	for (const cut of ['<!--c-->', '<![CDATA[]]>']) {
+		const html = `<svg><style>.a{background:url("/img/m.png${cut}")}.b{color:red}</style></svg>`;
+		const r = await inlineUrlMedia(html, { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
+		assert.equal(r.html, html, `${cut}: a run end is not the sheet's end`);
+	}
+	// The sheet's own end does close the string, and the picture is embedded there.
+	const r = await inlineUrlMedia('<svg><style>.a{background:url("/img/m.png</style></svg>', { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
+	assert.equal(r.html, `<svg><style>.a{background:url("${PNG}"</style></svg>`);
+});

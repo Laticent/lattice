@@ -1104,7 +1104,7 @@ const PRESETS_ONLY = process.argv.includes('--presets');
     fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, `---\nsize: ${s.size}\ntheme: indaco\n---\n\n` + DECK.split('---\ntheme: indaco\n---\n\n')[1]);
     const base = path.join(os.tmpdir(), `vf-${s.size}-${process.pid}`);
-    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--size', 'deck'],
+    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html', '--size', 'deck'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
     const page = await browser.newPage();
     await page.setViewport({ width: s.vp[0], height: s.vp[1] });

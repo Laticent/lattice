@@ -502,3 +502,14 @@ section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tal
 section.compare-prose:not(.vertical):not(.decision):not(:where([data-family="tall"], [data-family="strip"])) .compare-prose-inner > * {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). Two sides and a chevron on one line
+ * squeeze below 28em of the content area (a side under about 11.5em): there the pair stacks
+ * and the chevron points down, the form a tall deck gets. */
+@container lat-cards (width < 28em) {
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    flex-direction: column; gap: var(--sp-2xl); --lat-narrow: 1;
+  }
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { align-content: center; }
+  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::before { transform: rotate(90deg); }
+}

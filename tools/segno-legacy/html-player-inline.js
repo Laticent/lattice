@@ -1,0 +1,427 @@
+/**
+ * FROZEN. `inlineDocAssets` and the CSS reader it owned (`mapCssUrls`, `cssString`, `cssUnescape`, `escapeEnd`,
+ * `matchingParen`, `mapSrcset`), copied verbatim from lib/export/html-player.js at 326c319, before Segno R4 moved the
+ * CLI's HTML export onto `cssRefSpans` (engineering/decisions/2026-10-27-segno-reports-facts-callers-decide.md,
+ * "R4: the CLI export"). Only the `require` paths are adjusted, and the section comment above the readers is left out. test/unit/export/html-player-inline-differential.test.js
+ * reads it as the oracle and as a failing arm; nothing in `lib/` may. Do not fix bugs here.
+ */
+const fs = require('node:fs');
+const path = require('node:path');
+const { fileURLToPath } = require('node:url');
+
+const { bytesToDataUri } = require('../../lib/core/data-uri');
+const { WEB_IMAGE_PLACEHOLDER } = require('../../lib/core/media-sources');
+
+const MIME = {
+	'.svg': 'image/svg+xml',
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.gif': 'image/gif',
+	'.webp': 'image/webp',
+	'.avif': 'image/avif',
+};
+
+/** Read a local file and return a data: URI, or null if unreadable. */
+function fileToDataUri(absPath) {
+	try {
+		const ext = path.extname(absPath).toLowerCase();
+		// A picture type only. Any other file a deck names (`url(../notes.txt)`) is not embedded: a
+		// shared player is no place for a file the author did not mean as a picture.
+		const mime = MIME[ext];
+		if (!mime) return null;
+		// One encoding for both hosts (lib/core/data-uri.js): SVG as percent-encoded UTF-8, else base64.
+		return bytesToDataUri(fs.readFileSync(absPath), mime);
+	} catch {
+		return null;
+	}
+}
+
+
+const MAX_URL = 4096; // PATH_MAX-ish: a longer address is not one
+const CSS_STOP = /[/"'uUiI]/g;
+const isCssSpace = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f';
+const isHex = (c) => c !== undefined && /[0-9a-fA-F]/.test(c);
+const CSS_ESCAPE = /\\(?:([0-9a-fA-F]{1,6})(?:\r\n|[ \t\n\r\f])?|(\r\n|[\n\r\f])|([\s\S]))/g;
+
+/** A CSS address with its escapes read: `\2e ` and `\.` are `.`, and a backslash-newline inside a string is nothing. */
+function cssUnescape(raw) {
+	return raw.includes('\\')
+		? raw.replace(CSS_ESCAPE, (_m, hex, newline, other) => {
+				if (newline !== undefined) return '';
+				if (other !== undefined) return other;
+				const cp = Number.parseInt(hex, 16);
+				return cp === 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff) ? '�' : String.fromCodePoint(cp);
+			})
+		: raw;
+}
+
+/** The index just past the escape that starts at `at` (`css[at]` is a backslash). */
+function escapeEnd(css, at) {
+	const next = css[at + 1];
+	if (next === undefined) return at + 1;
+	if (isHex(next)) {
+		let j = at + 1;
+		while (j < at + 7 && isHex(css[j])) j++;
+		if (css[j] === '\r' && css[j + 1] === '\n') return j + 2; // one whitespace, and CRLF counts as one
+		return isCssSpace(css[j]) ? j + 1 : j;
+	}
+	return next === '\r' && css[at + 2] === '\n' ? at + 3 : at + 2;
+}
+
+/**
+ * Replace the `url(…)` tokens of an entity-decoded CSS text, in one forward pass that reads CSS the way a browser tokenizes
+ * it: a `/* … *\/` comment and a quoted string are skipped whole (a string ends at its quote, or at an unescaped newline, which
+ * makes it a bad string), so a `url(` written inside one is text; whitespace around the address is allowed
+ * (`url( "a.png" )`, `url( a.png )`); an escape in the address is read (`url(a\.png)`, `"a\2e png"`) and `fn` gets the decoded
+ * address; and an unquoted `url(` that holds a `(`, a quote or inner whitespace is one invalid token (CSS "bad url"), consumed
+ * up to its first unescaped `)`, so a `url(a/url(b))` nest never yields the inner address. Every character is looked at a
+ * bounded number of times.
+ * @param {string} css
+ * @param {(match: string, quote: string, ref: string) => string|null} fn  the replacement, or null to keep the token
+ */
+function mapCssUrls(css, fn) {
+	const n = css.length;
+	let out = '';
+	let last = 0;
+	let i = 0;
+	let imageSetEnd = -1; // inside `image-set( … )` a bare string is an address, as a browser reads it
+	while (i < n) {
+		CSS_STOP.lastIndex = i;
+		const m = CSS_STOP.exec(css);
+		if (m === null) break;
+		i = m.index;
+		const c = css[i];
+		if (c === '/') {
+			if (css[i + 1] !== '*') {
+				i++;
+				continue;
+			}
+			const close = css.indexOf('*/', i + 2);
+			i = close === -1 ? n : close + 2;
+			continue;
+		}
+		if (c === '"' || c === "'") {
+			const str = cssString(css, i);
+			if (i < imageSetEnd && str.close !== -1) {
+				const replaced = fn(css.slice(i, str.close + 1), c, cssUnescape(css.slice(i + 1, str.close)), 'string');
+				if (replaced !== null) {
+					out += css.slice(last, i) + replaced;
+					last = str.close + 1;
+				}
+			}
+			i = str.next;
+			continue;
+		}
+		if (c === 'i' || c === 'I') {
+			// `image-set(` and `-webkit-image-set(`: remember where the function ends, and read on inside it.
+			if (css[i + 5] === '-' && css.slice(i, i + 10).toLowerCase() === 'image-set(' && !/\w/.test(css[i - 1] ?? '')) {
+				imageSetEnd = matchingParen(css, i + 10);
+				i += 10;
+			} else i++;
+			continue;
+		}
+		// `u` / `U`: a `url(` function token, and not the tail of a longer name (`myurl(`).
+		const prev = css[i - 1];
+		if (css.slice(i, i + 4).toLowerCase() !== 'url(' || (prev !== undefined && /[\w-]/.test(prev))) {
+			i++;
+			continue;
+		}
+		let p = i + 4;
+		while (p < n && isCssSpace(css[p])) p++;
+		const quote = css[p] === '"' || css[p] === "'" ? css[p] : '';
+		let ref;
+		let end;
+		if (quote) {
+			const str = cssString(css, p);
+			if (str.close === -1) {
+				i = str.next; // a bad string: not a token
+				continue;
+			}
+			let q = str.close + 1;
+			while (q < n && isCssSpace(css[q])) q++;
+			if (str.close === p + 1 || css[q] !== ')') {
+				i = str.next; // an empty string, or a quoted url not closed by `)`: not a token
+				continue;
+			}
+			ref = cssUnescape(css.slice(p + 1, str.close));
+			end = q + 1;
+		} else {
+			let j = p;
+			let bad = false;
+			while (j < n && css[j] !== ')') {
+				const d = css[j];
+				if (isCssSpace(d)) {
+					let k = j;
+					while (k < n && isCssSpace(css[k])) k++;
+					if (css[k] !== ')') bad = true;
+					break;
+				}
+				if (d === '"' || d === "'" || d === '(') {
+					bad = true;
+					break;
+				}
+				j = d === '\\' ? escapeEnd(css, j) : j + 1;
+			}
+			const stop = j;
+			while (!bad && j < n && isCssSpace(css[j])) j++;
+			if (bad || css[j] !== ')' || stop === p) {
+				// A bad url: consume to its first unescaped `)` (or the end), so nothing inside it is read as a token.
+				while (j < n && css[j] !== ')') j = css[j] === '\\' ? escapeEnd(css, j) : j + 1;
+				i = Math.min(j + 1, n);
+				continue;
+			}
+			ref = cssUnescape(css.slice(p, stop));
+			end = j + 1;
+		}
+		const replaced = fn(css.slice(i, end), quote, ref, 'url');
+		if (replaced !== null) {
+			out += css.slice(last, i) + replaced;
+			last = end;
+		}
+		i = end;
+	}
+	return out + css.slice(last);
+}
+
+/** The index of the `)` that closes the `(` just before `from`, skipping strings, comments and escapes; the end of the text when it never closes. */
+function matchingParen(css, from) {
+	const n = css.length;
+	let depth = 1;
+	let i = from;
+	while (i < n) {
+		const c = css[i];
+		if (c === '"' || c === "'") i = cssString(css, i).next;
+		else if (c === '/' && css[i + 1] === '*') {
+			const close = css.indexOf('*/', i + 2);
+			i = close === -1 ? n : close + 2;
+		} else if (c === '\\') i = escapeEnd(css, i);
+		else {
+			if (c === '(') depth++;
+			else if (c === ')' && --depth === 0) return i;
+			i++;
+		}
+	}
+	return n;
+}
+
+/**
+ * The quoted string that opens at `at`. A backslash escapes the next character (an escaped newline continues the string, and a
+ * CRLF is one newline); an unescaped newline or the end of the text ends it unclosed (a CSS bad string).
+ * @returns {{ close: number, next: number }} `close`: index of the closing quote, or -1 when unclosed; `next`: where to resume
+ */
+function cssString(css, at) {
+	const quote = css[at];
+	let j = at + 1;
+	while (j < css.length) {
+		const c = css[j];
+		if (c === quote) return { close: j, next: j + 1 };
+		if (c === '\n' || c === '\r' || c === '\f') return { close: -1, next: j };
+		j = c === '\\' ? (css[j + 1] === '\r' && css[j + 2] === '\n' ? j + 3 : j + 2) : j + 1;
+	}
+	return { close: -1, next: css.length };
+}
+
+/** Replace each `url(file://…)` in a CSS text with what `inline(address)` returns (null keeps it). */
+function rewriteFileUrls(css, inline) {
+	return mapCssUrls(css, (_match, quote, ref) => {
+		if (!/^file:\/\//i.test(ref) || ref.length - 7 < 1 || ref.length - 7 > MAX_URL) return null;
+		const uri = inline(ref);
+		return uri ? `url(${quote}${uri}${quote})` : null;
+	});
+}
+
+/** Replace each plain `url(ref)` in a CSS text with `fn(match, quote, ref)`; the relative-path resolver of `inlineDocAssets`. */
+function replacePlainUrls(css, fn) {
+	return mapCssUrls(css, (match, quote, ref, kind) => {
+		const replaced = fn(match, quote, ref, kind);
+		return replaced === match ? null : replaced;
+	});
+}
+
+// The engine also writes each background as `--background-image:"url(\"file://…\")"`, a STRING that only looks like a
+// url() and that nothing reads (lib/engine/background-image.js). It would carry the author's local path into the shared
+// file and a second copy of the picture beside the real declaration, so it is dropped before the real
+// `background-image:url(…)` is inlined.
+const BACKGROUND_IMAGE_STRING = /--background-image:"url\(\\"file:\/\/(?:(?!").){0,4096}?\\"\)";?/gi;
+
+/**
+ * Map each candidate URL of an HTML `srcset` value through `fn`, leaving the separators and descriptors (`2x`, `480w`) as written.
+ * A candidate is a run of non-whitespace characters; a trailing comma on it ends the candidate, otherwise its descriptor runs to
+ * the next comma outside parentheses (https://html.spec.whatwg.org/#parse-a-srcset-attribute). One forward pass.
+ * @param {string} value
+ * @param {(url: string) => string} fn
+ */
+function mapSrcset(value, fn) {
+	const n = value.length;
+	let out = '';
+	let i = 0;
+	while (i < n) {
+		while (i < n && (isCssSpace(value[i]) || value[i] === ',')) out += value[i++];
+		if (i >= n) break;
+		let start = i;
+		while (i < n && !isCssSpace(value[i])) i++;
+		let url = value.slice(start, i);
+		const commas = /,+$/.exec(url);
+		if (commas) url = url.slice(0, -commas[0].length);
+		out += (url ? fn(url) : '') + (commas ? commas[0] : '');
+		if (commas) continue;
+		let depth = 0;
+		start = i;
+		while (i < n && !(value[i] === ',' && depth === 0)) {
+			if (value[i] === '(') depth++;
+			else if (value[i] === ')' && depth > 0) depth--;
+			i++;
+		}
+		out += value.slice(start, i);
+	}
+	return out;
+}
+
+const isPictureFile = (p) => {
+	try {
+		return fs.statSync(p).isFile();
+	} catch {
+		return false;
+	}
+};
+
+/**
+ * Bake every local picture the document names into the document, in place, and report what could not be.
+ *
+ * The picture positions a browser loads, on the parsed tree: an `<img src>`, the candidates of a `srcset` (on an `<img>` or a
+ * `<picture>`'s `<source>`), a `<video poster>`, an SVG `<image href>` / `xlink:href`, each `style` attribute and each `<style>` body
+ * (including a bare string inside `image-set()`). For
+ * `file://…` addresses in those it swaps the file's bytes in as a data: URI. With a `baseUrl` (the deck's folder, the CLI
+ * path) it also resolves a deck-relative `<img src>` and each relative `url()` in a `style` attribute against it first:
+ * the CLI renders with no base URL on purpose (its PDF resolves relative paths against the deck's folder), so a section
+ * background written by the engine reaches the player as `url("a.jpg")`, which points at nothing once the file leaves that
+ * folder. Absolute URLs, `data:`, fragments and the escaped `--background-image` string are left alone, a reference that
+ * resolves to nothing stays as the author wrote it (so the author's own folder path never rides into a file they send), and
+ * only picture types are ever embedded.
+ *
+ * TRUST BOUNDARY: this reads arbitrary local files a `file://` URL names and bakes their bytes into the shared file. That
+ * is BENIGN for the CLI (an author baking their OWN deck on their OWN machine — they already have those files). It would be a
+ * disclosure vector if this exporter is ever run SERVER-SIDE on an UNTRUSTED deck (`<img src="file:///etc/passwd">`). That is
+ * what `confine` is: the CLI passes a `createFileConfiner` (lib/core/file-confine.js) holding the deck folder and Lattice's
+ * install, and a file whose REAL path sits outside them is refused (the stand-in takes its place). Omit it and every `file://`
+ * is read.
+ *
+ * @param {Document} doc
+ * @param {{ baseUrl?: string, confine?: { allows: (p: string) => boolean } }} [opts]
+ * @returns {{ count: number, missing: string[] }}
+ */
+function inlineDocAssets(doc, { baseUrl, confine } = {}) {
+	const { resolveAssetUrl } = require('../../lib/core/bg-image');
+	const missing = [];
+	const gone = [];
+	const inlinedUrls = new Set();
+	const seen = new Map();
+	const inline = (fileUrl) => {
+		if (seen.has(fileUrl)) return seen.get(fileUrl);
+		let abs;
+		try {
+			abs = fileURLToPath(fileUrl.split(/[?#]/)[0]);
+		} catch {
+			// Remembered like every other answer: an address with no local path (a `file://host/…` share, or on Windows a
+			// path with no drive letter) repeated across a long `srcset` threw once per copy and listed each one as
+			// missing; on a windows-latest runner a 1 MB srcset of one such address took 3.3 s.
+			missing.push(fileUrl);
+			seen.set(fileUrl, null);
+			return null;
+		}
+		// A file whose REAL path leaves the allowed roots (a symlink in the deck folder, a typed `file:///etc/x`) is not read.
+		// The stand-in takes its place, so the author's local path does not ride into the shared file either (media note §4.11).
+		if (confine && !confine.allows(abs)) {
+			missing.push(`${fileUrl} (outside the deck folder, so not embedded)`);
+			seen.set(fileUrl, WEB_IMAGE_PLACEHOLDER);
+			return WEB_IMAGE_PLACEHOLDER;
+		}
+		const uri = fileToDataUri(abs);
+		if (uri) inlinedUrls.add(fileUrl);
+		// Say WHY: a file that is not a picture is refused by policy (`fileToDataUri`), not unreadable.
+		else missing.push(MIME[path.extname(abs).toLowerCase()] ? fileUrl : `${fileUrl} (not a picture, so not embedded)`);
+		seen.set(fileUrl, uri);
+		return uri;
+	};
+	// A relative `url()` becomes an absolute `file://` URL, but only for a file that is there; the inliner bakes it next.
+	const resolveRelative = (match, q, ref, kind) => {
+		const r = ref.trim();
+		if (!r || /^[a-z][a-z0-9+.-]*:/i.test(r) || r.startsWith('#') || r.startsWith('//')) return match;
+		try {
+			const href = new URL(r, baseUrl).href;
+			const picture = !!MIME[path.extname(new URL(href).pathname).toLowerCase()];
+			if (picture && isPictureFile(fileURLToPath(href))) return kind === 'string' ? `${q}${href}${q}` : `url(${q}${href}${q})`;
+			gone.push(picture ? r : `${r} (not a picture, so not embedded)`);
+			return match;
+		} catch {
+			return match;
+		}
+	};
+	// A picture address in an attribute: resolved against the deck folder (the CLI path), then baked when it is a `file://` address.
+	const bakeAddress = (src) => {
+		const v = baseUrl ? resolveAssetUrl(src, baseUrl) : src;
+		return /^file:\/\/[^"']+$/i.test(v) ? (inline(v) ?? v) : v;
+	};
+	const bakeAttr = (el, name, bake) => {
+		if (!el.hasAttribute(name)) return;
+		const value = el.getAttribute(name);
+		const v = bake(value);
+		if (v !== value) el.setAttribute(name, v);
+	};
+	const bakeCss = (css, relative) => {
+		let v = css.replace(BACKGROUND_IMAGE_STRING, '');
+		if (relative && baseUrl) v = replacePlainUrls(v, resolveRelative);
+		return rewriteFileUrls(v, inline);
+	};
+	// One walk over the elements (a tree walker is about four times faster than four selector scans on a multi-megabyte
+	// document, and a deck's `<style>` blocks make it one).
+	const visit = (root) => {
+		const walker = doc.createTreeWalker(root, 1 /* NodeFilter.SHOW_ELEMENT */);
+		for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+			const tag = el.localName;
+			// The picture positions a browser loads from markup: an `<img src>`, the candidates of a `srcset` (on an `<img>` or a
+			// `<picture>`'s `<source>`), a `<video poster>` and an SVG `<image>`'s `href` / `xlink:href`.
+			if (tag === 'img') bakeAttr(el, 'src', bakeAddress);
+			if (tag === 'img' || tag === 'source') bakeAttr(el, 'srcset', (v) => mapSrcset(v, bakeAddress));
+			if (tag === 'video') bakeAttr(el, 'poster', bakeAddress);
+			if (tag === 'image') {
+				bakeAttr(el, 'href', bakeAddress);
+				bakeAttr(el, 'xlink:href', bakeAddress);
+			}
+			if (el.hasAttribute('style')) {
+				const css = el.getAttribute('style');
+				const v = bakeCss(css, true);
+				if (v !== css) el.setAttribute('style', v);
+			}
+			if (tag === 'style') {
+				// A browser reads a `<style>`'s DIRECT text children as one stylesheet, so a url split by a child element (an SVG
+				// `<style>` may hold some) is still one url. Bake the joined text, keep the child elements, and put the result in
+				// the first text node.
+				const texts = [...el.childNodes].filter((node) => node.nodeType === 3);
+				if (texts.length) {
+					const css = texts.map((node) => node.data).join('');
+					const v = bakeCss(css, false);
+					if (v !== css) {
+						texts[0].data = v;
+						for (const extra of texts.slice(1)) extra.data = '';
+					}
+				}
+			}
+			if (tag === 'template' && el.content) visit(el.content);
+		}
+	};
+	visit(doc);
+	return { count: inlinedUrls.size, missing: [...missing, ...gone] };
+}
+
+/**
+ * Assemble the self-contained player HTML (the CLI path). Delegates the browser-safe
+ * assembly to the pure `player-core.mjs`, injecting the Node-locked capabilities.
+ *
+ * @param {object} opts  — see player-core.assemblePlayer's `data` (docHtml, source,
+ *   title, theme, config, notes, now, build, playerVersion).
+ * @returns {Promise<{ html: string, report: { images: number, missing: string[], strippedScripts: string[], math: boolean, fontBytesSaved: number, subsetApplied: boolean, assetsHoisted: number, assetBytesSaved: number } }>}
+ */
+
+module.exports = { inlineDocAssets, mapCssUrls, mapSrcset };
