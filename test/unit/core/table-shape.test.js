@@ -340,11 +340,13 @@ test('glossary declares its own narrow layout on both paths, and its range pill 
   assert.equal(m.querySelector('table.glossary-terms')?.getAttribute('data-lat-reflow'), 'pairs');
 });
 
-test('the reflow sheet admits obligation-matrix and the statute-stack lane, and keeps the four that draw their own', () => {
+test('the reflow sheet admits obligation-matrix, and keeps out the five that draw their own', () => {
+  // The statute-stack lane carries its own narrow cards from 34em (statute-stack.styles.css), so it
+  // leaves the shared cards as glossary and math derivation do (fit-everywhere-model.md §17).
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.table-reflow.css'), 'utf8');
-  const deny = ':where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap))';
-  assert.ok(css.includes(deny), 'the deny list is glossary, matrix-grid, math derivation and roadmap');
-  assert.ok(!/:not\(\.obligation-matrix\)|:not\(\.statute-stack\.lane\)/.test(css), 'obligation-matrix and the lane take the shared cards');
+  const deny = ':where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap):not(.statute-stack.lane))';
+  assert.ok(css.includes(deny), 'the deny list is glossary, matrix-grid, math derivation, roadmap and the lane');
+  assert.ok(!/:not\(\.obligation-matrix\)/.test(css), 'obligation-matrix takes the shared cards');
 });
 
 test('glossary and math derivation carry their own narrow rule, which respects a held table and no-table-reflow', () => {
