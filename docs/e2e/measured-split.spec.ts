@@ -90,6 +90,37 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 	});
 });
 
+test.describe('@crosswidth @webkit-tablet @gecko typing in a fit: pack slide', () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test('does not measure while the author types, and measures once after the pause (§17)', async ({ page }) => {
+		await gotoStudio(page);
+		await setEditorContent(page, deck('pack', 'square', 18));
+		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 20000 }).toEqual([9, 9]);
+		const count = () => page.evaluate(() => (window as unknown as { __latticeMeasureCount?: number }).__latticeMeasureCount ?? 0);
+		// Settled: the count holds across two reads half a second apart, so no measurement is in flight.
+		let last = -1;
+		await expect
+			.poll(async () => {
+				const c = await count();
+				const steady = c === last;
+				last = c;
+				return steady;
+			}, { intervals: [500], timeout: 15000 })
+			.toBe(true);
+		const before = await count();
+		await page.locator('.cm-line', { hasText: 'Item 3 on the agenda' }).first().click();
+		await page.keyboard.press('End');
+		// Twelve keystrokes, faster than the pause: the preview redraws each one with the slide's last plan.
+		await page.keyboard.type(' and more!!', { delay: 60 });
+		expect(await count(), 'no measurement while typing').toBe(before);
+		await expect(livePreview(page).locator('section').first()).toBeVisible();
+		// The pause measures once, and the pages settle on the plan for the new text.
+		await expect.poll(count, { timeout: 15000 }).toBe(before + 1);
+		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 15000 }).toEqual([9, 9]);
+	});
+});
+
 test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Playground', () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 

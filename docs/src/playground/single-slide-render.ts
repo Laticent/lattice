@@ -1882,31 +1882,36 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							// Stepping to another page of the same slide re-renders it: reuse the plan made for
 							// this exact text, box, mode and stylesheet instead of measuring again (§17).
 							const layout = ms.layoutKey(key, slideSource, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${out.css.length}|${extraCss?.length ?? 0}`);
-							const reuse = ms.cachedPlan(layout);
-							const measured = reuse
-								? { ...(PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(out.html, slideSource, out.width, out.height, { ...splitOpts, plan: reuse }), plan: reuse, memory: null }
-								: await ms.measuredSplitInFrame({
-								html: out.html,
-								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
-								// The geometry the frame is written with below (`geom`, declared after this split).
-								verdictConfig: PG.fitVerdictConfig?.(),
-								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
-								width: out.width || DEFAULT_W,
-								height: out.height || DEFAULT_H,
-								memory: ms.fitMemoryFor(key, slideSource),
-								cancelled: () => disposed || !host.isConnected,
-							}).catch((e) => {
-								console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
-								return null;
+							// The whole slide as rendered now: a pause measurement runs after this render has narrowed
+							// `out.html` to the one page it shows.
+							const wholeHtml = out.html;
+							const split = (html: string, plan: Record<string, unknown> | 'whole' | null) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan });
+							// Reuse, redraw while typing, or measure: measured-split.ts `studioPlan` (§17), lazy.
+							const measured = await ms.studioPlan({
+								host,
+								key,
+								source: slideSource,
+								layout,
+								split: (plan) => split(wholeHtml, plan),
+								alive: () => !disposed && host.isConnected,
+								measure: (isCancelled) =>
+									ms.measuredSplitInFrame({
+										html: wholeHtml,
+										split,
+										// The geometry the frame is written with below (`geom`, declared after this split).
+										verdictConfig: PG.fitVerdictConfig?.(),
+										buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
+										width: out.width || DEFAULT_W,
+										height: out.height || DEFAULT_H,
+										memory: ms.fitMemoryFor(key, slideSource),
+										cancelled: () => disposed || !host.isConnected || isCancelled(),
+									}).catch((e) => {
+										console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
+										return null;
+									}),
 							});
 							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-							if (measured) {
-								if (!reuse && measured.memory) {
-									ms.rememberFit(key, slideSource, measured.memory);
-									ms.cachePlan(layout, measured.plan);
-								}
-								r = measured;
-							}
+							if (measured) r = measured;
 						}
 					}
 					canSplit = r.applies === true;

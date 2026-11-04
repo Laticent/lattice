@@ -161,6 +161,11 @@ function inFrame<T>(frame: HTMLIFrameElement, expr: string): T | null {
  */
 export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<MeasuredSplitOutput> {
 	const t0 = performance.now();
+	// How many measurements this page has run: the e2e specs read it to pin that typing does not measure (§17).
+	if (typeof window !== 'undefined') {
+		const w = window as Window & { __latticeMeasureCount?: number };
+		w.__latticeMeasureCount = (w.__latticeMeasureCount ?? 0) + 1;
+	}
 	const { html, split, buildDoc, verdictConfig, width, height, packer = 'knuth-plass', memory = null, settleMs = 4000, cancelled = () => false } = input;
 	if (!verdictConfig) throw new UnmeasuredError('this engine bundle has no fit verdict config');
 	const PROBE_ARGS = probeArgs(verdictConfig);
@@ -248,11 +253,97 @@ export function layoutKey(key: string, source: string, layout: string): string {
 export function cachedPlan(k: string): Record<string, unknown> | null {
 	const plan = planByLayout.get(k) ?? null;
 	// The debug record says what the shown slide was split by, measured or reused (the e2e specs read it).
-	if (plan && typeof window !== 'undefined') (window as Window & { __latticeLastMeasuredSplit?: unknown }).__latticeLastMeasuredSplit = { plan, reused: true, remembered: [], facts: [], rounds: 0, fellBack: 0 };
+	// Only the plan changes: what the last measurement read (its facts, the slides it remembered) stays.
+	if (plan && typeof window !== 'undefined') {
+		const w = window as Window & { __latticeLastMeasuredSplit?: Record<string, unknown> };
+		w.__latticeLastMeasuredSplit = { remembered: [], facts: [], rounds: 0, fellBack: 0, ...(w.__latticeLastMeasuredSplit ?? {}), plan, reused: true };
+	}
 	return plan;
 }
 export function cachePlan(k: string, plan: Record<string, unknown>): void {
 	planByLayout.delete(k);
 	planByLayout.set(k, plan);
 	while (planByLayout.size > PLAN_CACHE_CAP) planByLayout.delete(planByLayout.keys().next().value as string);
+}
+
+// THE SLIDE'S LAST PLAN, by deck and slide, whatever text it was made for: what an edit redraws with
+// while the author types, until the pause measures the new text (§17). A plan whose member count no
+// longer matches is refused by the split (`groupSizes`), which then cuts the slide as it always has.
+const lastPlanByKey = new Map<string, Record<string, unknown>>();
+export function lastPlanFor(key: string): Record<string, unknown> | null {
+	return lastPlanByKey.get(key) ?? null;
+}
+export function notePlanFor(key: string, plan: Record<string, unknown>): void {
+	lastPlanByKey.delete(key);
+	lastPlanByKey.set(key, plan);
+	while (lastPlanByKey.size > PLAN_CACHE_CAP) lastPlanByKey.delete(lastPlanByKey.keys().next().value as string);
+}
+
+/** How long the author must pause before an edited `fit: pack` slide is measured again (§17). */
+const MEASURE_SETTLE_MS = 700;
+/** The pending pause measurement per preview host; a newer render marks the old one stale. */
+const settleByHost = new WeakMap<object, { timer: ReturnType<typeof setTimeout>; stale: boolean }>();
+
+type Planned<S> = S & { plan: Record<string, unknown> };
+
+/**
+ * The Studio's measured split for one shown slide (§16, §17): the plan to draw it with NOW, and,
+ * while the author types, one measurement after they pause. Lives here, in the lazy chunk, so the
+ * eager renderer carries none of it.
+ *
+ * STEADY WHILE TYPING, EXACT AT REST (the owner's pick). A measurement lays the slide out in a hidden
+ * frame on the main thread, the thread typing needs (layout cannot run in a worker), so it does not
+ * run per keystroke:
+ *  - the plan made for this exact text, box and stylesheet is reused (stepping through pages);
+ *  - the FIRST render of a slide measures now, so nothing jumps on arrival;
+ *  - an EDIT redraws at once with the slide's last plan (or today's split, if a member was added or
+ *    removed: the split refuses a plan whose count no longer matches), and the slide is measured
+ *    once the author pauses. That pass waits for idle time, yields to the next keystroke, and when
+ *    it lands fires `lattice:measured-split-ready` on the host, whose re-render reads the cache.
+ */
+export async function studioPlan<S extends object>(o: {
+	host: HTMLElement;
+	key: string;
+	source: string;
+	layout: string;
+	split: (plan: Record<string, unknown>) => S;
+	measure: (isCancelled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory }) | null>;
+	alive: () => boolean;
+}): Promise<Planned<S> | null> {
+	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory } | null) => {
+		if (!m) return;
+		rememberFit(o.key, o.source, m.memory);
+		cachePlan(o.layout, m.plan);
+		notePlanFor(o.key, m.plan);
+	};
+	const pending = settleByHost.get(o.host);
+	if (pending) {
+		clearTimeout(pending.timer);
+		pending.stale = true;
+	}
+	const reuse = cachedPlan(o.layout);
+	if (reuse) return { ...o.split(reuse), plan: reuse };
+	const last = lastPlanFor(o.key);
+	if (!last) {
+		const m = await o.measure(() => false);
+		if (!o.alive()) return null;
+		keep(m);
+		return m;
+	}
+	const entry = { timer: 0 as unknown as ReturnType<typeof setTimeout>, stale: false };
+	const ready = () => !entry.stale && o.alive();
+	entry.timer = setTimeout(() => {
+		if (!ready()) return;
+		const run = () =>
+			o.measure(() => entry.stale).then((m) => {
+				if (!ready() || !m) return;
+				keep(m);
+				o.host.dispatchEvent(new Event('lattice:measured-split-ready'));
+			});
+		const idle = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+		if (idle) idle(() => void run(), { timeout: 1000 });
+		else void run();
+	}, MEASURE_SETTLE_MS);
+	settleByHost.set(o.host, entry);
+	return { ...o.split(last), plan: last };
 }

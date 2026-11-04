@@ -927,3 +927,14 @@ overflows is split onto pages it fits, and the hold acts only where nothing can 
 **Bytes.** This PR's split code sits in the ESM engine every surface loads: +1.8 KB of `engineJsGz`
 over `main`, 1.0 KB past its ceiling. The owner raised the ceiling 2 KB in its own PR (#3028).
 
+
+**The live preview measures at rest, not per keystroke (2026-11-04).** A measurement lays the slide out
+in a hidden frame on the main thread, and layout cannot move to a worker (a worker has no DOM). The
+Studio measured every render: on the owner's phone each page step re-measured (0.85 to 2.3 s on an
+emulated iPhone), and typing measured per keystroke. Now (docs/src/lib/measured-split.ts `studioPlan`,
+in the lazy chunk): a plan is cached by the slide's text, box, mode and stylesheet, so stepping pages
+reuses it (155 to 238 ms a step); the first render of a slide measures at once; an edit redraws with
+the slide's last plan and measures once, 0.7 s after the author pauses, in idle time, cancelled by the
+next keystroke. On WebKit at tablet size, twelve keystrokes ran no measurement (three before) and the
+preview showed the text 12 to 17 ms after the last key (713 to 743 ms before). Pinned by
+docs/e2e/measured-split.spec.ts ("does not measure while the author types").
