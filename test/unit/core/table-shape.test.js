@@ -353,7 +353,7 @@ test('glossary and math derivation carry their own narrow rule, which respects a
   const gl = fs.readFileSync(path.join(ROOT, 'lib/components/inventory/glossary/glossary.styles.css'), 'utf8');
   const math = fs.readFileSync(path.join(ROOT, 'lib/components/math/math/math.styles.css'), 'utf8');
   const block = (css) => {
-    const at = css.search(/@container \(width < \d+em\) \{/);
+    const at = css.search(/@container (?:lattice )?\(width < \d+em\) \{/);
     assert.ok(at >= 0, 'has a container query');
     return css.slice(at, css.indexOf('\n}\n', at));
   };
@@ -366,7 +366,9 @@ test('glossary and math derivation carry their own narrow rule, which respects a
     }
   }
   // 17em, not 18em: a glossary in the catalog's minimum 35% pane on 16:9 is 17.8em wide and keeps its table.
-  assert.match(gl, /@container \(width < 17em\)/);
+  // Named `lattice` since glossary dropped its 23em step (fit-everywhere-model.md §17): the ownership
+  // guard reads a named text-room query as the component's reflow.
+  assert.match(gl, /@container lattice \(width < 17em\)/);
   // The mobile strip rule stacks as it always did: a hold must not undo it.
   assert.ok(!/\[data-family="strip"\]\) table:not\(\.lat-reflow-held\)/.test(gl), 'the strip arms ignore a hold');
 });
