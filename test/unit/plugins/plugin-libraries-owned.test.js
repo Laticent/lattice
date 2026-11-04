@@ -107,7 +107,8 @@ test('every surface reads the plugin\'s copy', () => {
   assert.match(sync, /assets\.push\(\['katex\/katex\.min\.css', vendorPath\('math', 'katex-css'\)\]\);/);
   // No other build of any vendored library is read by our code. A source package path names a build
   // from node_modules; an `npm:` spec is a manifest's update SOURCE (and the registries generated from
-  // it), and remote-ref.js only ADMITS a sample deck's <script> path — neither reads a build.
+  // it), and the policy table (content-policy.js, where remote-ref.js's vendored-script list moved in security spine S2)
+  // only ADMITS a sample deck's <script> path — neither reads a build.
   const READS = [
     "mermaid/dist/mermaid(\\.min)?\\.js'", 'mermaid-zenuml/dist', 'mermaid-cli/dist', 'mermaid-cli.*index\\.html',
     'function-plot/dist', 'katex/dist', "require\\('katex'\\)", "from 'katex'",
@@ -119,7 +120,7 @@ test('every surface reads the plugin\'s copy', () => {
     const hits = r.stdout.trim().split('\n').filter(Boolean)
       .filter((line) => !line.includes('npm:'))
       .map((line) => line.split(':')[0])
-      .filter((f) => !f.includes('/vendor/') && f !== 'lib/core/remote-ref.js' && !f.endsWith('.md'));
+      .filter((f) => !f.includes('/vendor/') && f !== 'lib/core/content-policy.js' && !f.endsWith('.md'));
     assert.deepEqual(hits, [], `${hits.join(', ')} reads a vendored library from node_modules; read the plugin's copy (lib/core/payload-path.js)`);
   }
 });

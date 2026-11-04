@@ -219,6 +219,57 @@ deck with the chrome cases. `lintCoreGz` +776 B (126,438 to 127,214 against a 12
 fixing), declared in `docs/route-budget.d/security-spine-web-image.md`; that leaves S2 34 B, so S2 needs the ceiling
 raise D5 allows. `lint:deck --all` takes 7.8 s over 491 files with the rule.
 
+## S2, as built (2026-11-04)
+
+Lint reads raw HTML and CSS from the SOURCE with the renderer's own readers and asks the renderer's own table.
+`findWebMarkup` (lint-core rules 12e to 12h) takes every `html_block` and `html_inline` token the engine's Markdown
+parser makes, every Mermaid fence, the front matter's `style:` and `backgroundImage:`, and each `backgroundImage`
+directive comment, and reads them with `scanHtml` and `cssRefSpans`. The rules:
+
+| Rule | Fires on | The table's fact |
+|---|---|---|
+| `web-image` (S1's, more sources) | `<img src>`, `srcset`, `<video poster>`, SVG `<image href>`, `<link href>`, a refresh `<meta>`, an SMIL `href`, `<base href>`, a `style`/`<style>`/paint `url()` or `@import`, `backgroundImage`, the front matter's `style:`, a Mermaid address | `WEB_MEDIA`, `MEDIA_FETCH_ATTRS`, `RENDER_FETCH_ATTRS`, `HREF_FETCH_TAGS`, `URL_PAINT_ATTRS`, `SMIL`; `webOrigin` |
+| `web-request` | `ping`, `action`, `formaction`, `attributionsrc` to another site | `CLICK_FETCH_ATTRS` |
+| `stripped-markup` | `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<base>`, `on…=`, `javascript:`, `srcdoc`, a `style` holding script | `ACTIVE_STRIPPED_TAGS`, `isEventHandlerAttr`, `isScriptUrl`, `FORBID_ATTR`, `STYLE_SCRIPT_RE` |
+| `style-ends-early` | `</style` in the front matter's `style:` | `endsStyleEarly` |
+| `markup-unsure` | an `unsure` span from `scanHtml` | the reader's own fact |
+| `video-web-poster` (the video plugin's) | a `poster=` from another site on a drawn `@video{…}` | `webOrigin`, through a new `ctx.webOrigin` |
+
+Each finding carries the exact `address` (or, for `stripped-markup`, the `construct`), so the differential compares
+addresses, not sites.
+
+**What moved, all unchanged.** The readers went from remote-ref.js to `lib/core/web-ref-readers.js` (`cssRefSpans`,
+`remoteCssRefs`, `scanHtml`, `rawTextEnd`, the entity decoder, `mermaidRemoteRefs`, `refreshTarget`); remote-ref.js
+re-exports every name. The element and attribute sets the scanner kept privately (`WEB_MEDIA`, `MEDIA_FETCH_ATTRS`,
+`URL_PAINT_ATTRS`, `SMIL`) and the vendored-script list went into `content-policy.js`, so the linter reads the same
+objects. `npm run identity:check -- --strict` against `origin/main`: 443 decks paired, 0 differ, lint identical, 39
+stylesheets identical.
+
+**Three choices.** (1) `<style>`, `<link>` and `<meta>` are stripped by the sanitizer too, but `stripped-markup` does
+not name them: an author writes a `<style>` block as deck CSS, which the CLI export keeps, and a `<link>` or a refresh
+`<meta>` is a fetch, which `web-image` names. (2) A `<script src>` naming one of Lattice's vendored builds, with no
+inline body, is not reported: it is the documented way to draw diagrams in a Marp preview outside Lattice, and the
+preview draws them itself. (3) A Mermaid address is worded as "names an address on another site", not "loads": the
+renderer reads a diagram's whole text and counts every address in it, a `click` link included.
+
+**The acceptance test.** `test/unit/authoring/security-spine-differential.test.js` seeds one deck with every family and
+the near misses (a link, a code span, a fenced example, a comment, an attribute selector, `sample:` and `data:`), then
+runs each consumer alone: the engine renders it, `blockWebImages` (with `fonts`, so every refusal is counted) lists the
+blocked addresses, and the slide sanitizer (DOMPurify on jsdom) strips what runs. Lint's addresses equal the
+renderer's, 21 of them, and lint's stripped constructs equal the sanitizer's removals per construct. Its failing arm:
+with lint's refresh-`<meta>` branch disabled, the test fails, naming `https://refresh.example/`. The repeated
+front-matter `header:` is read the last, by both.
+
+**What lint still cannot see.** An address at the site's own origin, which the Studio allows (`withOwnOrigin`): lint
+reports it, the safe direction, and says so in `spec/diagnostics.md`. Markup the ENGINE writes (§3).
+
+On the corpus: `lint:deck --all --strict` is clean over 491 files. The new rules fire on two decks, both reviewed: six
+vendored `<script>` tags in three galleries (choice 2), and two Mermaid `click` links in `plugin-sandbox-tour.md`, the
+two addresses S1 found the renderer blocking and no rule covered; that deck is on `tools/lint-subject-decks.js` for
+`web-image`, because its "clickable task" slides show exactly that. Cost: `findWebMarkup` takes 107 ms over the 458
+decks lint reads (a full lint of them takes 2.9 s); `lintCoreGz` 127,214 to 140,683 B (+13,469), and the ceiling moves
+by that amount (`docs/route-budget.history.md`, D5).
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

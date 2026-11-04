@@ -42,3 +42,11 @@ S0 and S1 landed (decision note, "S0, as built" and "S1, as built"). What remain
 - **The two gate readers' exclusions rest on "no bypass known".** Before S3 sanctions them, run the svg-intake oracle's
   method (the web-reference fuzz's declarations, judged by three browsers) against `findAddressStrings` and
   `cssRefTargets`.
+
+## Status after S2 (2026-11-04)
+
+S2 landed (decision note, "S2, as built"): the HTML and CSS rules, every source the review listed above (`backgroundImage`,
+`@video poster` as the video plugin's `video-web-poster`, raw `<img src>`, a Mermaid label, the repeated front-matter
+`header:`), and the differential as a standing test that compares addresses. The site's own origin stays a documented
+limit: lint cannot know the site. `lintCoreGz`'s ceiling moved by the measured 13,469 B. S3 remains.
+

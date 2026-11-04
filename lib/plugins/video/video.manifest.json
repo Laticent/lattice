@@ -123,7 +123,8 @@
       "video-not-alone",
       "video-no-record",
       "video-slide-class",
-      "video-extra-record"
+      "video-extra-record",
+      "video-web-poster"
     ]
   },
   "render": {
