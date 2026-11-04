@@ -981,6 +981,12 @@ it does not restore "whatever this slide would have done."** At tall and strip, 
 that ends in a Key Insight coda, the rule's own fallback is not `center`, so `_class:
 cards-center` there overrides that shape's default rather than returning to it.
 
+**A split slide keeps the setting on every page.** When a slide splits at a narrow box, each content
+page places its cards as `cards:` says, and centers them when nothing is set (the component's own
+tall-box default, `spread`, does not apply to a split page, because it widens the gaps between two or
+three cards instead of pacing a full column). Cards keep their natural height on a split page, except
+under `stretch`, where they fill it.
+
 **Pick by how full the cards are, and check the gutter.** `center` and `top` both keep the
 gap between rows equal to the gap between columns, so the grid still reads as a grid;
 `spread` deliberately widens the row gap, which suits two rows of one-line cards and looks

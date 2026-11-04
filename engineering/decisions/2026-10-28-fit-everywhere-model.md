@@ -862,3 +862,15 @@ type size two sides do not fit one page (measured: about 1,250 px against 1,175)
 long word wider than the box; and premise's body pages repeat its title with "(cont.)", as they do
 under today's split. A calibration pass (repacking from the ink a body page really used) was tried
 and removed: on these decks it found no page to save and cost two renders.
+
+**Card alignment on split pages (owner, 2026-11-04).** The carousel template (§14) started every content
+page at the top so a run read on one line. With packed pages that overrode the author: a deck's
+`cards:` setting never reached a split page, and a lone card or a short last page rode high over an
+empty page. The owner ruled that cards center by default and that the author's setting is respected.
+A content page now follows the slide's `cards:` (deck or `_class: cards-*`), and centers when none is
+set: `centerUnchosenCards` (lib/core/auto-split.js) stamps `data-cards="center"` on a content page with
+no `cards-*` class, and base.modifiers.css places the member group by it (`--split-place`), filling the
+page only under `stretch`. Members keep their natural height. The cost the owner accepted: a short
+last page sits lower than a full one, so the start line can shift between pages; `cards: top` brings
+the single start line back. Pinned by test/unit/core/measured-plan.test.js and
+test/integration/parity/list-row-fit.test.js.

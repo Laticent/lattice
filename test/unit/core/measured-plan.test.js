@@ -90,3 +90,20 @@ test('a folded plan puts the key insight on the last body page and emits no clos
   assert.match(lastBody, /The point\./, 'it closes the last body page');
   assert.equal(items(folded.html), 5);
 });
+
+describe('a split content page centers its cards unless the author chose', () => {
+  const cardsCap = { 'cards-grid': { axis: 'item', hard: 2 } };
+  const grid = (cls, cards) => `<section data-lattice-slide="1" class="cards-grid${cls}" data-cards="${cards}"><h2>T</h2>${list(4)}</section>`;
+  const stamps = (html) => [...html.matchAll(/<section\b[^>]*data-split-role="body"[^>]*>/g)].map((m) => (m[0].match(/data-cards="([^"]*)"/) || [])[1]);
+  test('no choice: every content page centers, whatever the component default was', () => {
+    const r = splitDoc(grid('', 'spread'), cardsCap);
+    assert.ok(r.changed);
+    assert.ok(stamps(r.html).every((v) => v === 'center'), stamps(r.html).join(','));
+  });
+  test('an author\'s choice rides every content page unchanged', () => {
+    for (const choice of ['top', 'stretch', 'spread', 'center']) {
+      const r = splitDoc(grid(` cards-${choice}`, choice), cardsCap);
+      assert.ok(stamps(r.html).every((v) => v === choice), `${choice}: ${stamps(r.html).join(',')}`);
+    }
+  });
+});

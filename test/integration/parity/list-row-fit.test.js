@@ -9,11 +9,12 @@
  *  - a row that wraps must keep its text inside its box on a FULL wide slide. The old
  *    equal-share bands pushed a wrapped row's second line out of its pill, and an `auto`
  *    floor did it again, because a grid clamps an automatic minimum to a fixed maximum;
- *  - a member ALONE on a split page starts on the stage's top line at its own height. Until
- *    2026-10-30 it had to FILL the page (09-01 §12); the carousel template
- *    (2026-10-28-fit-everywhere-model.md §14) replaced the fill and the centering with one
- *    start line for every content page, so a run reads as a carousel. The row must still be
- *    sized from its content: taller than one line box when it wraps, and never cut short;
+ *  - a member ALONE on a split page sits centered at its own height. Until 2026-10-30 it had to
+ *    FILL the page (09-01 §12); the carousel template (2026-10-28-fit-everywhere-model.md §14)
+ *    then started every content page at the top, and the owner ruled on 2026-11-04 that a
+ *    content page follows the slide's `cards:` setting and centers when none is set (§16). The
+ *    row must still be sized from its content: taller than one line box when it wraps, and
+ *    never cut short;
  *  - `stretch` fills the stage, and `center` does not.
  *
  * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §12.
@@ -157,16 +158,17 @@ describe('list rows are sized from their content (rendered)', () => {
     assert.ok(fill(wide[3]) < 0.6, `cards-center rows fill ${Math.round(fill(wide[3]) * 100)}% of the stage`);
   });
 
-  test('a member alone on a split page starts at the top, at its own height', () => {
+  test('a member alone on a split page sits centered, at its own height', () => {
     const lone = portrait.filter((s) => s.split && s.rows.length === 1);
     assert.ok(lone.length > 0, 'the portrait list must split to one member per page for this test to mean anything');
-    const leads = lone.map((s) => Math.round(s.lead));
     for (const s of lone) {
-      // Centered or stretched, a one-line row would sit hundreds of px down or fill the stage.
-      assert.ok(s.lead < s.stage * 0.1, `a lone member starts ${Math.round(s.lead)}px down a ${s.stage}px stage`);
+      // Centered (the owner's default for a split page, 2026-11-04): the space above the member
+      // matches the space below it. Stretched, it would fill the stage; at the top, it would ride
+      // high over an empty page.
+      const below = s.stage - s.lead - s.rows[0].h;
+      assert.ok(Math.abs(s.lead - below) <= s.stage * 0.05, `a lone member sits ${Math.round(s.lead)}px from the top and ${Math.round(below)}px from the bottom of a ${s.stage}px stage`);
       assert.ok(s.rows[0].h / s.stage < 0.6, `a lone member is stretched to ${Math.round(s.rows[0].h)}px of ${s.stage}px`);
       assert.ok(s.rows[0].spill <= 1 && !s.clipped, 'a lone member keeps its text inside its box');
     }
-    assert.ok(Math.max(...leads) - Math.min(...leads) <= 2, `every content page starts on one line: ${leads.join(', ')}px`);
   });
 });

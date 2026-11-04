@@ -3445,6 +3445,23 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) {
   justify-content: flex-start;
   align-content: flex-start;
 }
+/* …and WHERE that group sits on the page is the slide's `cards:` setting (owner, 2026-11-04): in
+   the middle by default (`centerUnchosenCards`, lib/core/auto-split.js, stamps `center` where the
+   author chose nothing), under the title for `cards: top`, and filling the page for `cards:
+   stretch`, whose cards then grow. A page holding one card, or a short last page, no longer rides
+   high over an empty page. A layout no `cards:` governs (a checklist, list-steps, an agenda)
+   centers too. Members keep their natural height in every case but `stretch`. */
+section.form.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage {
+  justify-content: var(--split-place, center);
+}
+section.lat-split-native[data-split-role="body"][data-cards="top"],
+section.lat-split-native[data-split-role="body"][data-cards-coda="top"]:has(> .cell-coda) {
+  --split-place: flex-start;
+}
+section.form.lat-split-native.lat-split-native[data-split-role="body"][data-cards="stretch"] > .cell-stage > :is(ul, ol) {
+  flex: 1 1 auto;
+  align-content: stretch;
+}
 section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li {
   flex-grow: 0;
   flex-basis: auto;
@@ -3593,26 +3610,13 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   justify-content: center;
 }
 
-/* ── …AND ON A CAROUSEL CONTENT PAGE, ONE START LINE ───────────────────────────────────
-   The lone-member rules above center a member and stretch it to the page. Without the repeated
-   heading (the carousel rule, above), that put the first line of each page at a different
-   height (a one-line checklist row against a two-line one) and turned a lone card or row into a
-   full-height box about a tenth full. An independent judge of the first carousel render named
-   both: the text jumps as the reader swipes, and the empty frames read as intentional. A content
-   page therefore starts at the top of the stage, and its member keeps its natural height, so
-   every page of a run starts on the same line. Five classes and the role stamp clear the
-   (0,6,2) lone-member weight, and the second selector restates the lone-table-row rule's
-   `:has()` so it outweighs that rule's centering at (0,7,4); only ever a split content page. */
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage,
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage:has(> table > tbody > tr:only-child) {
-  justify-content: flex-start;
-}
-/* A read-across strategy's page (compare-prose, split-panel, list-tabular, decision) has no
-   `.cell-stage`: its content sits straight under the section, which centers it, so its start
-   line moved with each point's length too. */
-section[data-split-role="body"][data-split-role][data-split-role][data-split-role][data-split-role]:not(:has(> .cell-stage)) {
-  justify-content: flex-start;
-}
+/* ── …AND ON A CAROUSEL CONTENT PAGE, THE AUTHOR'S CARD ALIGNMENT ─────────────────────────
+   A content page places its members as the slide's `cards:` setting says, and centers them when
+   the author chose nothing (`centerUnchosenCards`, lib/core/auto-split.js; owner, 2026-11-04):
+   a top start left one card, or a short last page, riding high over an empty page. The carousel
+   template had forced that top start on every content page (2026-10-30); it is gone, so the
+   stage keeps the alignment the component and the author give it. The member still keeps its
+   natural height (below), rather than stretching to the page. */
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage > :is(ul, ol):has(> li:only-child) {
   flex: 0 0 auto;
   align-content: flex-start;
