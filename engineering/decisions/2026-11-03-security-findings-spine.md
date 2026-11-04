@@ -271,7 +271,7 @@ one. And every directive the engine writes into a slide's `style` as a custom pr
 wins), and two consumers read it differently: the engine's `parseFrontMatter` trims each line, so an indented key is a
 directive, and the CLI export's `readGlobalStyle` pastes the FIRST `style:`, at any indentation, quoted or a `|` block.
 Lint now asks each: directives through `parseFrontMatter`, and `style:` through `readGlobalStyle`, which moved from
-lib/export/export-scaffold.js into lib/core/front-matter-key.js so both read it. A `style:` address gets its own message:
+lib/export/export-scaffold.js into lib/core/front-matter-style.js so both read it. A `style:` address gets its own message:
 the export pastes it and the page's content policy refuses the load. The differential seeds both, and a `srcset` whose
 web candidate is second.
 

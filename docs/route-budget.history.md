@@ -6,9 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — lint-core ceiling raised by the measured 127 B, by hand: `readGlobalStyle` moved out of the Studio's startup
+
+Owner OK 2026-11-03 (D5, as below). `readGlobalStyle` first moved into `lib/core/front-matter-key.js`, which the Studio loads at startup, and CI measured +123 B of eager JS on studio and playground (PR 3033, 5156be9). It now lives in its own file, `lib/core/front-matter-style.js`, which only lint and the CLI export load, so those bytes leave the startup bundle and count in the lint chunk instead: lintCoreGz 141,552 -> 141,679 B (+127), measured with the gate's own hash fixing. The bytes moved rather than grew; the ceiling moves by exactly that.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 141713 |
+
 ### 2026-11-04 — lint-core ceiling raised by the measured 137 B, by hand, for reading the front matter as its consumers do
 
-Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The checker and the red team of S2 found lint reading the front matter its own way; it now asks the engine's `parseFrontMatter` for directives and the CLI export's `readGlobalStyle` (moved into `lib/core/front-matter-key.js`) for `style:`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,415 -> 141,552 B (+137). The ceiling moves by exactly that; the soft target is unchanged.
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The checker and the red team of S2 found lint reading the front matter its own way; it now asks the engine's `parseFrontMatter` for directives and the CLI export's `readGlobalStyle` (moved into `lib/core/front-matter-style.js`) for `style:`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,415 -> 141,552 B (+137). The ceiling moves by exactly that; the soft target is unchanged.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|

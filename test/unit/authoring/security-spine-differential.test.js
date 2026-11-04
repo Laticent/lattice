@@ -205,7 +205,7 @@ describe('security spine S2: the front matter, read the way each consumer reads 
   });
 
   test('`style:` as the CLI export pastes it: the first, at any indentation, quoted or a block', () => {
-    const { readGlobalStyle } = require('../../../lib/core/front-matter-key.js');
+    const { readGlobalStyle } = require('../../../lib/core/front-matter-style.js');
     for (const fm of [
       'style: "section{background:url(https://first.example/a.png)}"\nstyle: "section{color:red}"',
       'foo:\n  style: "section{background:url(https://nested.example/n.png)}"',
