@@ -40,28 +40,35 @@ async function paneTable(page: Page, n: number): Promise<Locator> {
 }
 const rowDisplay = (t: Locator) => t.locator('tbody tr').first().evaluate((tr: Element) => getComputedStyle(tr).display);
 
-test('three rows in a 30% pane fit as cards, so the cards stand @webkit-tablet @gecko', async ({ page }, info) => {
-	const t = await paneTable(page, 3);
-	// The runtime runs the fit check once fonts load and a frame has painted; wait for the same
-	// signal inside the preview, plus a frame for the check itself, rather than a fixed sleep.
-	await t.evaluate(
-		() =>
-			new Promise<void>((done) => {
-				document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => done())));
-			}),
-	);
-	await expect(t).not.toHaveClass(/lat-reflow-held/);
-	expect(await rowDisplay(t)).not.toBe('table-row');
-	const path = info.outputPath('three-rows-cards.png');
-	await page.screenshot({ path });
-	await info.attach('three-rows-cards.png', { path, contentType: 'image/png' });
-});
+// One copy per engine tag, the repo's pattern (checkpoint-storage.spec.ts): the `@gecko` copy runs on
+// desktop Chromium AND Firefox, the `@webkit-tablet` copy on WebKit. A title naming both tags reads as
+// webkit-only to the desktop project's grepInvert and skipped Chromium.
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`three rows in a 30% pane fit as cards, so the cards stand${tag}`, async ({ page }, info) => {
+		const t = await paneTable(page, 3);
+		// The runtime runs the fit check once fonts load and a frame has painted; wait for the same
+		// signal inside the preview, plus a frame for the check itself, rather than a fixed sleep.
+		await t.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					document.fonts.ready.then(() => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+				}),
+		);
+		await expect(t).not.toHaveClass(/lat-reflow-held/);
+		expect(await rowDisplay(t)).not.toBe('table-row');
+		const path = info.outputPath('three-rows-cards.png');
+		await page.screenshot({ path });
+		await info.attach('three-rows-cards.png', { path, contentType: 'image/png' });
+	});
 
-test('six rows in a 30% pane would overflow as cards, so the table form is held @webkit-tablet @gecko', async ({ page }, info) => {
-	const t = await paneTable(page, 6);
-	await expect(t).toHaveClass(/lat-reflow-held/, { timeout: 30_000 });
-	expect(await rowDisplay(t)).toBe('table-row');
-	const path = info.outputPath('six-rows-held.png');
-	await page.screenshot({ path });
-	await info.attach('six-rows-held.png', { path, contentType: 'image/png' });
-});
+	test(`six rows in a 30% pane would overflow as cards, so the table form is held${tag}`, async ({ page }, info) => {
+		const t = await paneTable(page, 6);
+		await expect(t).toHaveClass(/lat-reflow-held/, { timeout: 30_000 });
+		// Polled: the preview can refresh its DOM around the hold, and a row read mid-refresh has no
+		// computed display (seen once in 8 Firefox runs). The settled row must be a table row.
+		await expect.poll(() => rowDisplay(t), { timeout: 10_000 }).toBe('table-row');
+		const path = info.outputPath('six-rows-held.png');
+		await page.screenshot({ path });
+		await info.attach('six-rows-held.png', { path, contentType: 'image/png' });
+	});
+}
