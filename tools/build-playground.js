@@ -134,12 +134,14 @@ const katexStubPlugin = {
 // ENCODE table and its helpers, about 6.5KB gzipped of engine for code nothing runs. So `entities`, asked for by
 // markdown-it, resolves to the decode module alone. Matched on the importer, so any other require of `entities` keeps
 // the whole package. Measured 2026-11-04 when merging main put the engine 0.6KB over its route-budget ceiling (PR #2992).
-const ENTITIES_DECODE = require.resolve('entities/lib/decode.js');
+// Resolved from markdown-it's own folder, as its `require('entities')` would be, so a nested copy wins over the top one.
 const entitiesDecodeOnlyPlugin = {
   name: 'entities-decode-only',
   setup(build) {
     build.onResolve({ filter: /^entities$/ }, (args) =>
-      /[\\/]node_modules[\\/]markdown-it[\\/]/.test(args.importer) ? { path: ENTITIES_DECODE } : undefined);
+      /[\\/]node_modules[\\/]markdown-it[\\/]/.test(args.importer)
+        ? build.resolve('entities/lib/decode.js', { resolveDir: args.resolveDir, kind: args.kind })
+        : undefined);
   },
 };
 
