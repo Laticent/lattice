@@ -270,6 +270,55 @@ two addresses S1 found the renderer blocking and no rule covered; that deck is o
 decks lint reads (a full lint of them takes 2.9 s); `lintCoreGz` 127,214 to 140,683 B (+13,469), and the ceiling moves
 by that amount (`docs/route-budget.history.md`, D5).
 
+## P2, the declaration channel, as built (2026-11-04)
+
+`cssRefSpans` gains an opt-in `decls` fact (css-ref-reader.js): each span says which declaration or descriptor it sits in
+(`decl`: a custom property as written, any other name lowercased, '' in a selector or an at-rule prelude) and whether it
+is inside a function (`inFunction`). The reader reads it from the stretches its tape skips (names, `:`, `;`, comments),
+with `;` and `:` inert inside a `(` or `[` block, and the first name of a declaration naming it. The two refusal readers
+#3024 left out move onto it:
+
+- **css-scan.js `findAddressStrings`** (the theme, layout and package gates): url targets, `image-set()` strings and an
+  address-shaped string in a custom property or `@property` `initial-value`, now read from the spans.
+- **door-attr.mjs `cssRefTargets`** (the code door): every url target, every string inside a function, and an
+  address-shaped string in a custom property or `initial-value`.
+
+Their shared "is this string a network address?" test (`ADDRESS_START`, copied in both) moved into `content-policy.js`
+as `isAddressString`. `lib/core/web-ref-readers.js` became a factory that requires nothing (the parsers handed in, as
+css-ref-reader.js does): S2's version required its parsers, which broke the two loaders that inline remote-ref.js's
+require-free siblings, the docs dev server and the code door's sanitizer page (found in this change, before merge).
+
+**A bypass, found and fixed.** The oracle below found a sheet both the old walk and the rebuilt reader let through, in
+all three engines: an address-shaped string inside `image()` in an `@font-face` `src`. `findAddressStrings` now also
+reports an address-shaped string inside any function (kind `function`). The address shape is the test, so
+`format("woff2")` and `type("image/png")` stay text; no shipped stylesheet (193) has a hit.
+
+**Evidence.** `test/unit/core/css-decl-readers-differential.test.js` holds both against the walks they replaced (frozen
+in `tools/segno-legacy/`) as decisions, over the 193 shipped stylesheets and two fuzz seeds: every refusal stands except
+one inside a `[…]` block, which CSS reads whole (26 such inputs on seed 7), and no shipped sheet changes its verdict. Its
+failing arm: with the channel's `decl` assignment disabled, four of its six tests fail. The browser oracle,
+`tools/fuzz-css-decl-readers.mjs`, loads each CSS input of the web-reference fuzz as written (with consumers that read
+`--q` and `--a` through `image-set(var(…))`), and, for the door, each declaration cut from them as a `style` attribute,
+rechecked alone. "The whole gate" is `findCssExfil`: the address reader with its keyword rules (`@import`,
+`expression()`, a script scheme).
+
+| Seed | Engine | Sheets that fetched | Let through by the whole gate, old / new | Declarations that fetched | Let through by the door, old / new |
+|---|---|---|---|---|---|
+| 7 | Chromium 141 | 108 of 1,482 | 0 / 0 | 194 of 2,845 | 0 / 0 |
+| 7 | WebKit 26 | 116 | 0 / 0 | 224 | 0 / 0 |
+| 7 | Firefox 142 | 106 | 0 / 0 | 189 | 0 / 0 |
+| 11 | Chromium 141 | 103 of 1,530 | 0 / 0 | 203 of 3,062 | 0 / 0 |
+| 11 | WebKit 26 | 119 | 0 / 0 | 246 | 0 / 0 |
+| 11 | Firefox 142 | 102 | 0 / 0 | 198 | 0 / 0 |
+
+The fuzz spells each address around the beacon's port, so a run's inputs differ with the port. The first run, before
+the `image()` fix, held the `image()` sheet (seed 7, f7-2503): it fetched in all three engines and passed both the old
+gate and the rebuilt one. The unit test pins that case. Read alone, the address reader lets through one sheet the old walk
+refused, in every engine: an `@import "…"`, which the keyword rule refuses; the old walk named it only by misreading
+where a string holding a raw newline ends. **What P2 does not do:** `slide-camera.mjs` `CSS_URL` /
+`REL_URL` (what a picture export inlines) stays as it was; moving it changes export bytes and waits on the owner's sign-off
+(followups.d/3024).
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

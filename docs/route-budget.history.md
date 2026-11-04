@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — lint-core ceiling raised by the measured 506 B, by hand, for the CSS declaration channel
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The shared CSS reader (`lib/core/css-ref-reader.js`), which lint loads for S2's rules, gains the declaration channel the theme, layout and package gates and the code door now read (the spine note, "P2, the declaration channel, as built"). Lint does not ask for the channel, but the reader's code is one file. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 140,683 -> 141,189 B (+506). The ceiling moves by exactly that; the soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 141223 |
+
 ### 2026-11-04 — lint-core ceiling raised by the measured 13,469 B, by hand, for security spine S2
 
 Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`: "the owner is comfortable raising the `lintCoreGz` ceiling to make room. S2 measures the real cost in the Studio build and raises the ceiling by that measured amount"). Spine S2 gives `lint:deck` its HTML and CSS rules, which read the source with the renderer's own readers: `scanHtml`, `cssRefSpans`, the entity decoder and the Mermaid reading, moved unchanged from remote-ref.js into `lib/core/web-ref-readers.js` so lint loads them without the scanner's rewrite logic (which would have cost +16.5 KB, measured in S1). Measured with the gate's own hash fixing on the ESM build: lintCoreGz 127,214 -> 140,683 B (+13,469). The ceiling moves by exactly that, keeping the 34 B of headroom S1 left; the soft target is unchanged. Loading the readers lazily stays off the table (HARD RULE #7: lint-core is synchronous).

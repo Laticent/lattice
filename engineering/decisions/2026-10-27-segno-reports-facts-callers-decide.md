@@ -586,7 +586,7 @@ the shared readers. The census was a hand-kept list, though, and the review of t
   adds an `imageSet` field to each span. It is true inside an `image-set(` or `-webkit-image-set(` at any depth (a `var()`
   fallback there is substituted and fetched), except directly inside a `type()`, whose string is a MIME type. The
   function's name is not on the tape (the grammar keeps only the `(`), so `imageSetBlock`
-  (`lib/export/css-image-set-block.js`) reads it from the stretch the tape skipped before the `(`, forward and once,
+  (`lib/core/css-image-set-block.js` (moved from lib/export/ in the security spine's P2)) reads it from the stretch the tape skipped before the `(`, forward and once,
   escapes decoded. It is its own file because the reader's chunk is eager on three docs-site routes and the Studio
   never asks for the fact. Every other caller asks for nothing and gets the
   spans as before, so the frozen tokenizer's differential still compares field for field, and no generated parser
@@ -646,7 +646,7 @@ the shared readers. The census was a hand-kept list, though, and the review of t
   fixes, the trim loop and the block-stack hook. Its chunk (`remote-ref`) is eager on the Studio, Playground and home
   routes, all above their soft targets, so the growth is declared in `docs/route-budget.d/3024-r4-cli-export-css.md`.
   The first version kept the name check in the reader and cost those routes 380 bytes; it moved to
-  `lib/export/css-image-set-block.js`, which only the Node export loads. The export's speech-projection bundle carries the narrator's copy of the reader and is regenerated with it.
+  `lib/core/css-image-set-block.js` (moved from lib/export/ in the security spine's P2), which only the Node export loads. The export's speech-projection bundle carries the narrator's copy of the reader and is regenerated with it.
   `html-player.js` runs in Node only. `tools/structure.js`'s single-consumer ceiling drops from 44
   to 43: `css-ref-reader.js` now has two consumers.
 - **Readers the census never counted.** The inversion review searched the tree for readers that decide a fetch, an
@@ -824,6 +824,9 @@ have their exclusion written, with the reason, for the security spine's S3 censu
   fetches, and for the door any string inside a function. Moving them means the reader reports the declaration each
   span sits in. That is new state in a security reader, so it gets its own differential against these two walkers and
   the trio, which makes it work for its own change. No bypass is known in either (#3024's review).
+  **Moved 2026-11-04** onto `cssRefSpans`' declaration channel (`decls`), with that differential and a three-browser
+  oracle; the oracle found one bypass in both, an address inside `image()`, now refused (security spine note, "P2, the
+  declaration channel, as built").
 - **`slide-camera.mjs` `CSS_URL` / `REL_URL`, excluded for now.** They choose which pictures a picture export inlines
   and make relative `url()`s absolute. That is not a refusal, and the known miss (`u\72l(`) costs a missing picture,
   not a leak. Moving them changes export bytes for those spellings, so the move ships with a dark and a light render of
