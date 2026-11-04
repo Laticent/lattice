@@ -903,7 +903,8 @@ mobile, 320 renders hashed before and after):
 | `collage` lost its grid width: its content area is sized by the photo grid inside it, and a width container ignores its contents when it sizes | left out of the rule (`:not(.collage)`) |
 | `list-steps` chevron took PR 3021's narrow-pane row on tall decks, over the tall deck's designed stacked tab | that rule keeps off tall and strip decks |
 | `pricing`'s stacked tiers shrank to their text and sat left (square decks on `main` too): the list wraps, and the `cards:` register centers the line | the stacked column sets `flex-wrap: nowrap`, as statute-stack's already did |
-| `list` principles, `kpi`, `q-and-a`, `inventory` on portrait and mobile take PR 3021's narrow forms | kept: each reads at least as well (the principle line gains its width back) |
+| `kpi`, `q-and-a`, `inventory` on portrait and mobile take PR 3021's narrow forms | kept: each reads at least as well |
+| `list` principles set the number above its line below 24em, so at square@hall (about 21em) a row whose text read beside its number at hd stacked (owner, 2026-11-04) | PR 3021's rule went: the number keeps its column until the 17em run-in rule, where the column starves the line |
 | charts under `claim-bleed` pad their content area, so a raw `cqi` inside measured a narrower box: progress and kanban labels moved at hd (found by the checker; no gallery uses `claim-bleed`) | charts left out (`:not(.chart-frame)`); a claim-bleed progress and kanban deck is pixel-identical to no container |
 | `policy-recommendation` pads and borders its content area: 117 to 140 pixels of corner anti-aliasing a slide, at every size | kept: invisible |
 

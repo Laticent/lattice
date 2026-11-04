@@ -24,8 +24,9 @@ test('every content area is a width container named lat-cards (and lattice), on 
 });
 
 // The card components that drop columns in the content area's width (base.card-reflow.css).
+// `list` left on 2026-11-04: its one narrow form is the text-room run-in below 17em (§17).
 const names = ['cards-grid', 'verdict-grid', 'pricing', 'stats', 'statute-stack', 'decision', 'list-steps',
-  'compare-prose', 'team-profile', 'cards-stack', 'q-and-a', 'inventory', 'kpi', 'list'];
+  'compare-prose', 'team-profile', 'cards-stack', 'q-and-a', 'inventory', 'kpi'];
 const fileFor = (name) => {
   const hit = fs.readdirSync(path.join(ROOT, 'lib/components'))
     .map((b) => path.join(ROOT, 'lib/components', b, name, `${name}.styles.css`))

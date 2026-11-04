@@ -241,17 +241,11 @@ section.list > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
-/* ── Width reflow (lib/base/base.card-reflow.css). `principles` sets its counter at display size
- * in a column reserved for it (`--list-ord-w`, 2.5 numerals wide in `roman`), so in a narrow box
- * the column took half the row and the declaration ran past the slide's edge. Below 24em of the
- * content area the counter sits above its line instead, and the line takes the full width. */
-@container lat-cards (width < 24em) {
-  /* The row rule was inset past the counter column; with the counter above, it spans the row.
-   * Set on the list, not the section: a query on the content area reaches only its descendants. */
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) { --lat-narrow: 1; --list-rule-inset: 0px; }
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li { flex-wrap: wrap; row-gap: var(--sp-2xs); }
-  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li::before { flex-basis: 100%; }
-}
+/* ── Width reflow: `principles` keeps its number in its column while a line still reads beside
+ * it, and runs it in only below ~35 characters a line (the TIGHT block below). PR 3021 set the number
+ * above its line below 24em of the content area; at square@hall (about 21em) that stacked rows whose
+ * text read on one line beside the number, so the same slide changed shape for no gain (owner,
+ * 2026-11-04). One rule now, at the width where the column starves (fit-everywhere-model.md §17). */
 
 /* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
    Under ~35 characters a line, the ordinal gutter (1.25 times an ordinal set 1.4 times the row
@@ -271,4 +265,7 @@ section.list > .cell-stage {
   section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) > li::before {
     display: inline-block; padding-inline-end: var(--sp-sm);
   }
+  /* The row rule was inset past the number's column; with the number run in, it spans the row.
+   * On the list, not the section: a query on the content area reaches only its descendants. */
+  section.list > .cell-stage > ol { --list-rule-inset: 0px; }
 }
