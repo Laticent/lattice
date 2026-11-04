@@ -44,6 +44,7 @@ import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
 import officePolicyCore from '../../../../../lib/core/office-export-policy.js';
+import officeIconsCore from '../../../../../lib/core/office-icons.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
@@ -1049,9 +1050,17 @@ export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
 // Everything the export will draw, for the emoji slice picker: the text, and what pseudo-elements draw through `content:`,
 // which `textContent` never holds (an emoji set only there lost its slice and drew in a fallback face).
-const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}`;
+// The icon glyphs too: each is a `::before` drawn from `data-glyph` (lib/plugins/icons/icons.inline.js), so it is in no text node,
+// and the font supply needs to see it to carry the Lattice Icons faces (playground/font-embed.js).
+// The glyphs the camera will draw: an `icon-svg` slide draws its icons' <svg> instead (icons.styles.css).
+const glyphTextOf = (doc) =>
+	[...(doc?.body?.querySelectorAll('[data-glyph]') || [])]
+		.filter((el) => !el.closest('section.icon-svg'))
+		.map((el) => el.getAttribute('data-glyph') || '')
+		.join('');
+const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}\n${glyphTextOf(doc)}`;
 
-async function sectionsOf(frame, fonts) {
+async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
 	clearDataUriMemo();
@@ -1059,6 +1068,21 @@ async function sectionsOf(frame, fonts) {
 	sharedPictureEncoder().warm();
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
+	// First, so the font sheet below counts only the glyphs a slide still draws (glyphTextOf skips an icon-svg slide).
+	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
+	// Icons too: no machine has our icon font, so under `system` the page shows each icon's <svg> instead (lib/plugins/icons/icons.styles.css;
+	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
+	// The Studio scopes the engine's CSS to each slide (`:root` becomes `article.lattice > :where(section)`), so the switch
+	// is the slide's own `icon-svg` class, the one `icon: svg` stamps, rather than the command line's attribute on <html>.
+	// An editable PowerPoint or LibreOffice always draws its icons as native shapes:
+	// the slides show each icon's <svg>, which Calco lifts as one outline shape (lib/core/office-icons.js), as the command line does.
+	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') {
+		doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
+		for (const s of sections) s.classList.add('icon-svg');
+	} else {
+		doc.documentElement.removeAttribute('data-lattice-omit-fonts');
+		if (iconShapes) for (const s of sections) s.classList.add('icon-svg');
+	}
 	// Build the data-URI font sheet once, inject it into the preview doc, and wait
 	// for every face — so off-screen slides (forced visible mid-loop) rasterize
 	// with their fonts already resolved instead of racing the lazy loader.
@@ -1067,9 +1091,6 @@ async function sectionsOf(frame, fonts) {
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
 	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
-	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
-	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
-	else doc.documentElement.removeAttribute('data-lattice-omit-fonts');
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
 }
@@ -2471,7 +2492,9 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	const record = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
+		// Only the editable file has text boxes for a glyph to ride in; a picture-per-slide file draws the page as it is.
+		const iconShapes = officeIconsCore.iconsAsShapes({ format, editable });
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts, { iconShapes });
 		await recordUnreachableAssets(sections, log);
 		if (record.length !== sections.length) {
 			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);

@@ -757,6 +757,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	let logoFound: ReadResult['logo'];
 	const frames: TextFrame[] = [];
 	const frameBlocks: Element[] = [];
+	// Frames that are a later piece of a split paragraph (below): only the FIRST piece takes the block's role, so a heading
+	// with an icon is still the slide's title (one title, not two) and a footer with a pill is still its footer.
+	const splitFrames = new Set<number>();
 	const textOwners = new Set<Element>();
 	const kept: Word[] = [];
 	for (const [, el] of dropped) textOwners.add(el);
@@ -852,6 +855,137 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
+		// One line as runs: its words, the spaces between them, and a spacer where something else took room.
+		// `x` is the left edge of the box the line is written into (a leading gap is measured from it).
+		const runsOf = (line: Word[], x: number, align: TextFrame['align']): TextRun[] => {
+			const runs: TextRun[] = [];
+			// One undecorated copy per style, so consecutive spaces merge into one run.
+			const plain = new Map<TextStyle, TextStyle>();
+			const plainOf = (st: TextStyle) => {
+				let hit = plain.get(st);
+				if (!hit) plain.set(st, (hit = { ...st, underline: false, strike: false }));
+				return hit;
+			};
+			const push = (text: string, style: TextStyle) => {
+				const tail = runs[runs.length - 1];
+				if (tail && tail.style === style) tail.text += text;
+				else runs.push({ text, style });
+			};
+			// A spacer: a no-break space at 2px whose letter-spacing is the gap. It is how a
+			// box with no inline padding reproduces the room a padded pill or a marker took.
+			const spacer = (px: number, like: TextStyle) => {
+				const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
+				// A spacer is 2px tall: a highlight on it would be a speck, so the chip's padding is left clear.
+				if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none', highlight: undefined } });
+			};
+			// Below this a gap is kerning or rounding, not room something else took. Where the
+			// style changes (a padded code chip, a pill), the padding is often smaller than
+			// that, so the bar there is a pixel.
+			const minGap = (s: TextStyle, boundary = false) => (boundary ? 1 : Math.max(2, 0.15 * s.size));
+			if (!line.length) return runs;
+			if (align === 'left' && line[0].x - x > minGap(line[0].style)) spacer(line[0].x - x, line[0].style);
+			line.forEach((word, i) => {
+				if (i) {
+					const before = line[i - 1];
+					// The separator is drawn in the font of the text node it came from: a space
+					// that starts " now render" is the body font, not the code chip's before it
+					// (a monospace space is twice as wide: "roadmap  now"). It never carries an
+					// underline or strike, so a link is not underlined under its outer space.
+					const sep = word.lead ? ' ' : '';
+					const from = word.leadFromPrev ? before.style : word.style;
+					const sepStyle = from.underline || from.strike ? plainOf(from) : from;
+					if (sep) push(sep, sepStyle);
+					const expected = sep ? advance(' ', sepStyle) : 0;
+					const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
+					if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
+				}
+				push(word.text, word.style);
+			});
+			return runs;
+		};
+		// SPLIT AT ROOM. Where something else took room in a line (an inline icon, the space between two pills, an icon
+		// before a pill's label), the paragraph is written as one box per segment, each where the browser put it. A
+		// spacer would hold that room only in an app that honors character spacing exactly: iPhone Preview came up a
+		// character short, and the next word slid under the icon (engineering/decisions/2026-11-01-icon-font.md § 3.6).
+		// A gap counts as room when it is wider than its space by more than 0.6 em: an icon is about 1.2 em, the padding
+		// of an inline code chip about 0.3 em (that one keeps its spacer, and the sentence stays one box).
+		const ROOM_EM = 0.6;
+		// Room is taken only by something DRAWN in the line: a picture or drawing, an inline box (an icon, a pill, a
+		// spark), or an inline run with a painted background. A run of spaces (an em space, non-breaking spaces holding a
+		// column) is the paragraph's own text and keeps its spacer, so a deck with no icon is never split.
+		const drawn: Array<{ x: number; y: number; w: number; h: number }> = [];
+		for (const el of Array.from(block.querySelectorAll('*'))) {
+			const tag = String(el.localName).toLowerCase();
+			const ecs = win.getComputedStyle(el);
+			const painted = ecs.display === 'inline' && ((ecs.backgroundImage && ecs.backgroundImage !== 'none') || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(ecs.backgroundColor));
+			if (!['img', 'svg', 'canvas', 'video', 'picture'].includes(tag) && !/^inline-(block|flex|grid|table)$/.test(ecs.display) && !painted) continue;
+			for (const r of Array.from(el.getClientRects())) if (r.width > 0 && r.height > 0) drawn.push({ x: (r.left - origin.left) / scale, y: (r.top - origin.top) / scale, w: r.width / scale, h: r.height / scale });
+		}
+		const drawnIn = (x0: number, x1: number, wd: Word) => drawn.some((r) => r.x < x1 - 0.5 && r.x + r.w > x0 + 0.5 && r.y < wd.y + wd.h && r.y + r.h > wd.y);
+		const roomBefore = (line: Word[], i: number) => {
+			const before = line[i - 1];
+			const word = line[i];
+			const from = word.leadFromPrev ? before.style : word.style;
+			const expected = word.lead ? advance(' ', from) : 0;
+			const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
+			return gap - expected > ROOM_EM * word.style.size && drawnIn(before.x + before.w, word.x, word);
+		};
+		// The first line's own indent is not room something took.
+		const indent = Number.parseFloat(bcs.textIndent) || 0;
+		const roomAhead = (line: Word[]) => align === 'left' && line.length > 0 && line[0].x - x - (line === lines[0] ? indent : 0) > ROOM_EM * line[0].style.size && drawnIn(x, line[0].x, line[0]);
+		const hasRoom = (line: Word[]) => roomAhead(line) || line.some((_w, i) => i > 0 && roomBefore(line, i));
+		// Not split, and held by the spacer as before: right-to-left text, and a line that mixes directions (its words stop
+		// running left to right, so a "gap" is reordering, not room); justified text and extra word-spacing, whose wide spaces
+		// are the paragraph's own; and math, whose gaps are its layout (splitting it cut an equation into pieces).
+		const mixed = lines.some((l) => l.some((wd, i) => i > 0 && wd.x < l[i - 1].x));
+		const spaced = /justify/.test(bcs.textAlign) || (Number.parseFloat(bcs.wordSpacing) || 0) > 0;
+		const math = words.some((wd) => !!wd.node.parentElement?.closest('math, .katex, mjx-container'));
+		// A heading is never split: it is the slide's title (or an outline entry) as ONE object, which PowerPoint's outline,
+		// navigation and a screen reader read whole. Its icon keeps the spacer.
+		const heading = !!block.closest('h1, h2, h3, h4, h5, h6');
+		const splittable = !preformatted && !rtl && !mixed && !spaced && !math && !heading;
+		if (splittable && lines.some(hasRoom)) {
+			// Only a line something took room in is cut into pieces; the lines around it stay one box together.
+			let calm: Word[][] = [];
+			const flushCalm = () => {
+				if (!calm.length) return;
+				const top = minOf(calm[0].map((wd) => wd.y));
+				const bot = maxOf(calm[calm.length - 1].map((wd) => wd.y + wd.h));
+				if (frameBlocks.includes(block)) splitFrames.add(frames.length);
+				frameBlocks.push(block);
+				frames.push({ x, y: top, w, h: bot - top, firstLineHeight: maxOf(calm[0].map((wd) => wd.h)), lineHeight, align, lines: calm.map((l) => runsOf(l, x, align)) });
+				calm = [];
+			};
+			for (const line of lines) {
+				if (!hasRoom(line)) {
+					calm.push(line);
+					continue;
+				}
+				flushCalm();
+				let seg: Word[] = [];
+				const flush = (next?: Word) => {
+					if (!seg.length) return;
+					const sx = minOf(seg.map((wd) => wd.x));
+					const ex = maxOf(seg.map((wd) => wd.x + wd.w));
+					const top = minOf(seg.map((wd) => wd.y));
+					const bot = maxOf(seg.map((wd) => wd.y + wd.h));
+					if (frameBlocks.includes(block)) splitFrames.add(frames.length);
+					frameBlocks.push(block);
+					const piece: TextFrame = { x: sx, y: top, w: ex - sx, h: bot - top, firstLineHeight: maxOf(seg.map((wd) => wd.h)), lineHeight, align: 'left', lines: [runsOf(seg, sx, 'left')] };
+					// The box ends where its text does: grown further, it would reach over the icon after it (and take its clicks).
+					if (next) piece.before = ex + 1;
+					frames.push(piece);
+					seg = [];
+				};
+				line.forEach((wd, i) => {
+					if (i > 0 && roomBefore(line, i)) flush(wd);
+					seg.push(wd);
+				});
+				flush();
+			}
+			flushCalm();
+			continue;
+		}
 		frameBlocks.push(block);
 		frames.push({
 			x,
@@ -861,52 +995,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			firstLineHeight: firstH,
 			lineHeight,
 			align,
-			lines: lines.map((line) => {
-				const runs: TextRun[] = [];
-				// One undecorated copy per style, so consecutive spaces merge into one run.
-				const plain = new Map<TextStyle, TextStyle>();
-				const plainOf = (st: TextStyle) => {
-					let hit = plain.get(st);
-					if (!hit) plain.set(st, (hit = { ...st, underline: false, strike: false }));
-					return hit;
-				};
-				const push = (text: string, style: TextStyle) => {
-					const tail = runs[runs.length - 1];
-					if (tail && tail.style === style) tail.text += text;
-					else runs.push({ text, style });
-				};
-				// A spacer: a no-break space at 2px whose letter-spacing is the gap. It is how a
-				// box with no inline padding reproduces the room a padded pill or a marker took.
-				const spacer = (px: number, like: TextStyle) => {
-					const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
-					// A spacer is 2px tall: a highlight on it would be a speck, so the chip's padding is left clear.
-					if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none', highlight: undefined } });
-				};
-				// Below this a gap is kerning or rounding, not room something else took. Where the
-				// style changes (a padded code chip, a pill), the padding is often smaller than
-				// that, so the bar there is a pixel.
-				const minGap = (s: TextStyle, boundary = false) => (boundary ? 1 : Math.max(2, 0.15 * s.size));
-				if (!line.length) return runs;
-				if (align === 'left' && line[0].x - x > minGap(line[0].style)) spacer(line[0].x - x, line[0].style);
-				line.forEach((word, i) => {
-					if (i) {
-						const before = line[i - 1];
-						// The separator is drawn in the font of the text node it came from: a space
-						// that starts " now render" is the body font, not the code chip's before it
-						// (a monospace space is twice as wide: "roadmap  now"). It never carries an
-						// underline or strike, so a link is not underlined under its outer space.
-						const sep = word.lead ? ' ' : '';
-						const from = word.leadFromPrev ? before.style : word.style;
-						const sepStyle = from.underline || from.strike ? plainOf(from) : from;
-						if (sep) push(sep, sepStyle);
-						const expected = sep ? advance(' ', sepStyle) : 0;
-						const gap = rtl ? before.x - (word.x + word.w) : word.x - (before.x + before.w);
-						if (gap - expected > minGap(word.style, before.style !== word.style)) spacer(gap - expected, word.style);
-					}
-					push(word.text, word.style);
-				});
-				return runs;
-			}),
+			lines: lines.map((line) => runsOf(line, x, align)),
 		});
 	}
 
@@ -918,6 +1007,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const onlyCode = (el: Element) => el.tagName === 'P' && el.children.length === 1 && el.firstElementChild?.tagName === 'CODE' && (el.textContent || '').trim() === (el.firstElementChild.textContent || '').trim();
 	const isHeading = (el: Element | null) => !!el && /^H[1-3]$/.test(el.tagName);
 	frames.forEach((frame, i) => {
+		if (splitFrames.has(i)) return;
 		const block = frameBlocks[i];
 		if (block.closest('.lat-pagination')) frame.role = 'number';
 		else if (block.closest('header')?.parentElement === section) frame.role = 'header';
@@ -945,6 +1035,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const pseudoHides: Array<{ el: Element; side: 'before' | 'after' }> = [];
 	// Elements whose OWN paint was lifted into shapes, so the capture hides it (a pseudo's is hidden apart).
 	const paintHidden = new Set<Element>();
+	// Drawings (an icon's <svg>) lifted whole into a shape, so the capture hides the element itself.
+	const drawnHidden = new Set<Element>();
 	let refusedOut: Refusal[] | undefined;
 	let keptOut: ReadResult['kept'];
 	const approximated: string[] = [];
@@ -1212,11 +1304,50 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			return out;
 		};
-		// Where a pseudo-element paints: its own box when it is absolutely placed in its
-		// element (a corner tag, an icon), else the element's box.
+		// The cell an item placed at numbered lines of its grid occupies, from the grid's resolved tracks (`grid-template-*`
+		// computes to px in use), its gaps, border and padding. The whole cell, which holds the item however it aligns
+		// inside it. A right-to-left grid counts its columns from the right edge. Null wherever the sum of tracks is not
+		// where the cell paints: a vertical grid, tracks packed by `justify-content`/`align-content` anywhere but the
+		// start, a transformed host;
+		// and for anything a track list cannot answer (a named or open-ended placement, an unresolved track).
+		const gridCellOf = (ps: CSSStyleDeclaration, ecs: CSSStyleDeclaration, box: Rect): Rect | null => {
+			const startPacked = (v: string) => ['normal', 'start', 'flex-start', 'stretch', 'left'].includes(v);
+			if (ecs.writingMode !== 'horizontal-tb' || !startPacked(ecs.justifyContent) || !startPacked(ecs.alignContent)) return null;
+			if (ecs.transform && ecs.transform !== 'none') return null;
+			const tracks = (list: string) => (/^(\s*-?[\d.]+px)+\s*$/.test(list) ? list.trim().split(/\s+/).map(Number.parseFloat) : null);
+			const cols = tracks(ecs.gridTemplateColumns);
+			const rows = tracks(ecs.gridTemplateRows);
+			const line = (v: string) => (/^\d+$/.test(v) ? Number(v) : null);
+			const c0 = line(ps.gridColumnStart);
+			const r0 = line(ps.gridRowStart);
+			if (!cols || !rows || c0 === null || r0 === null || c0 > cols.length || r0 > rows.length) return null;
+			const end = (v: string, start: number) => (v === 'auto' ? start + 1 : /^\d+$/.test(v) ? Number(v) : /^span \d+$/.test(v) ? start + Number(v.slice(5)) : null);
+			const c1 = end(ps.gridColumnEnd, c0);
+			const r1 = end(ps.gridRowEnd, r0);
+			if (c1 === null || r1 === null || c1 > cols.length + 1 || r1 > rows.length + 1) return null;
+			const cg = px(ecs.columnGap);
+			const rg = px(ecs.rowGap);
+			const at = (t: number[], gap: number, n: number) => t.slice(0, n - 1).reduce((a, v) => a + v + gap, 0);
+			const y = box.y + px(ecs.borderTopWidth) + px(ecs.paddingTop) + at(rows, rg, r0);
+			const w = at(cols, cg, c1) - at(cols, cg, c0) - cg;
+			const x =
+				ecs.direction === 'rtl'
+					? box.x + box.w - px(ecs.borderRightWidth) - px(ecs.paddingRight) - at(cols, cg, c0) - w
+					: box.x + px(ecs.borderLeftWidth) + px(ecs.paddingLeft) + at(cols, cg, c0);
+			const h = at(rows, rg, r1) - at(rows, rg, r0) - rg;
+			if (!(w > 0 && h > 0)) return null;
+			return { x, y, w, h };
+		};
+		// Where a pseudo-element paints: its own box when it is absolutely placed in its element (a corner tag, an icon),
+		// its grid cell when it is an in-flow item of a grid (below), else the element's box.
 		const pseudoRect = (el: Element, which: '::before' | '::after', box: Rect): Rect => {
 			const ps = win.getComputedStyle(el, which);
 			const ecs = win.getComputedStyle(el);
+			// An in-flow pseudo that is a cell of its host's grid (a counter in the first column) covers its cell, not its
+			// host: given the host's whole box, a row-sized "01" counted as covering every box in the row, which then
+			// stayed in the picture, written over the row's text (gallery slide 107's pill labels). The cell comes from
+			// the grid's resolved tracks, so nothing on the page has to move to measure it.
+			if (ps.position === 'static' && /grid/.test(ecs.display)) return gridCellOf(ps, ecs, box) ?? box;
 			if (ps.position !== 'absolute' || ecs.position === 'static') return box;
 			const n = [ps.left, ps.top, ps.width, ps.height].map((v) => (/px$/.test(v) ? Number.parseFloat(v) : Number.NaN));
 			if (n.some((v) => Number.isNaN(v))) return box;
@@ -1669,8 +1800,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					const y = Math.sin(a) + sgn * kk * Math.cos(a);
 					return [cp * rx * x - sp * ry * y + cx, sp * rx * x + cp * ry * y + cy];
 				};
-				const c1 = pt(a0, k, -1);
-				const c2 = pt(a1, k, 1);
+				// A cubic's first control point leaves the start along its tangent, P(a0) + k·P'(a0); the second comes back
+				// into the end, P(a1) − k·P'(a1). (Swapped, an arc drew as a pinched loop: the database icon's ellipses.)
+				const c1 = pt(a0, k, 1);
+				const c2 = pt(a1, k, -1);
 				const e = pt(a1, 0, 0);
 				out.push([c1[0], c1[1], c2[0], c2[1], e[0], e[1]]);
 			}
@@ -1791,6 +1924,49 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		// The PDF writer reads the same masks with the same placement rules (lib/core/pdf-compose/read-slide.mjs
 		// `markOf`); this reader imports nothing, so the two are kept in step by hand.
+		/** A slide coordinate to a thousandth of a px, as every lifted shape stores it. */
+		const round = (v: number) => Math.round(v * 1000) / 1000;
+		/**
+		 * Path commands in a drawing's own units, placed at origin (ox, oy) and scale (sx, sy), as a `path` shape in slide
+		 * px whose path is relative to its box. Null when a point is not finite or the drawing leaves box `r` (beyond half
+		 * its stroke): the browser clips it there, and a shape would not be.
+		 */
+		const pathShapeOf = (cmds: Array<(string | number)[]>, ox: number, oy: number, sx: number, sy: number, r: Rect, strokeUnits: number, stroked: boolean): Shape | null => {
+			const pts: number[] = [];
+			const mapped = cmds.map((c) => {
+				if (c[0] === 'Z') return ['Z'];
+				const out: (string | number)[] = [c[0]];
+				for (let k = 1; k < c.length; k += 2) {
+					const X = ox + (c[k] as number) * sx;
+					const Y = oy + (c[k + 1] as number) * sy;
+					out.push(X, Y);
+					pts.push(X, Y);
+				}
+				return out;
+			});
+			if (!pts.length) return null;
+			if (pts.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e6)) return null;
+			const xs = pts.filter((_v, k) => k % 2 === 0);
+			const ys = pts.filter((_v, k) => k % 2 === 1);
+			// A path that leaves its box is clipped by the mask in the browser; a shape would not be.
+			const reach = strokeUnits * ((sx + sy) / 2);
+			if (minOf(xs) < r.x - reach - 1 || maxOf(xs) > r.x + r.w + reach + 1 || minOf(ys) < r.y - reach - 1 || maxOf(ys) > r.y + r.h + reach + 1) return null;
+			let bx = minOf(xs);
+			let by = minOf(ys);
+			let bw = maxOf(xs) - bx;
+			let bh = maxOf(ys) - by;
+			// A straight rule has no thickness in one direction; a path needs a box.
+			if (bw < 1) {
+				bx -= (1 - bw) / 2;
+				bw = 1;
+			}
+			if (bh < 1) {
+				by -= (1 - bh) / 2;
+				bh = 1;
+			}
+			const path = mapped.map((c) => (c[0] === 'Z' ? ['Z'] : [c[0], ...(c.slice(1) as number[]).map((v, k) => round(v - (k % 2 ? by : bx)))])) as Shape['path'];
+			return { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked };
+		};
 		const markOf = (ps: CSSStyleDeclaration & Record<string, string>, r: Rect, op: number): Shape | null => {
 			const mask = ps.maskImage && ps.maskImage !== 'none' ? ps.maskImage : ps.webkitMaskImage;
 			const color = paintOf(ps.backgroundColor, op);
@@ -1850,41 +2026,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!c) return null;
 				cmds.push(...c);
 			}
-			const pts: number[] = [];
-			const mapped = cmds.map((c) => {
-				if (c[0] === 'Z') return ['Z'];
-				const out: (string | number)[] = [c[0]];
-				for (let k = 1; k < c.length; k += 2) {
-					const X = ox + (c[k] as number) * sx;
-					const Y = oy + (c[k + 1] as number) * sy;
-					out.push(X, Y);
-					pts.push(X, Y);
-				}
-				return out;
-			});
-			if (!pts.length) return null;
-			if (pts.some((v) => !Number.isFinite(v) || Math.abs(v) > 1e6)) return null;
-			const xs = pts.filter((_v, k) => k % 2 === 0);
-			const ys = pts.filter((_v, k) => k % 2 === 1);
-			// A path that leaves its box is clipped by the mask in the browser; a shape would not be.
-			const reach = (Number.parseFloat(attr(first, 'stroke-width') || '1') || 1) * ((sx + sy) / 2);
-			if (minOf(xs) < r.x - reach - 1 || maxOf(xs) > r.x + r.w + reach + 1 || minOf(ys) < r.y - reach - 1 || maxOf(ys) > r.y + r.h + reach + 1) return null;
-			let bx = minOf(xs);
-			let by = minOf(ys);
-			let bw = maxOf(xs) - bx;
-			let bh = maxOf(ys) - by;
-			// A straight rule has no thickness in one direction; a path needs a box.
-			if (bw < 1) {
-				bx -= (1 - bw) / 2;
-				bw = 1;
-			}
-			if (bh < 1) {
-				by -= (1 - bh) / 2;
-				bh = 1;
-			}
-			const round = (v: number) => Math.round(v * 1000) / 1000;
-			const path = mapped.map((c) => (c[0] === 'Z' ? ['Z'] : [c[0], ...(c.slice(1) as number[]).map((v, k) => round(v - (k % 2 ? by : bx)))])) as Shape['path'];
-			const shape: Shape = { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked, pseudo: true };
+			const base = pathShapeOf(cmds, ox, oy, sx, sy, r, Number.parseFloat(attr(first, 'stroke-width') || '1') || 1, stroked);
+			if (!base) return null;
+			const shape: Shape = { ...base, pseudo: true };
 			if (stroked) {
 				const width = Number.parseFloat(attr(first, 'stroke-width') || '1') * ((sx + sy) / 2);
 				if (!Number.isFinite(width)) return null;
@@ -1896,6 +2040,58 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			if (filled) shape.fill = color;
 			if (!shape.stroke && !shape.fill) return null;
+			return shape;
+		};
+		// An ICON's <svg> (lib/plugins/icons: `.lat-icon-svg`, `.lat-pill-icon`) as one native outline shape, so an office
+		// reader draws it in every app, sharp, recolorable as a shape (engineering/decisions/2026-11-01-icon-font.md § 3.4).
+		// Its paths share one stroke and no fill (icons.styles.css); the drawing sits in the content box, fitted as the
+		// <svg>'s preserveAspectRatio says (`slice` in a pill draws past the box, which `overflow: visible` paints). Anything
+		// else, or a path that does not read, keeps the <svg> a picture.
+		const ICON_SVG = new Set(['lat-icon-svg', 'lat-pill-icon']);
+		const iconSvgMarkOf = (svg: Element, r: Rect, op: number): Shape | null => {
+			const vb = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+			if (vb.length !== 4 || vb.some(Number.isNaN) || !(vb[2] > 0 && vb[3] > 0)) return null;
+			const kids = Array.from(svg.querySelectorAll('*'));
+			if (!kids.length || kids.some((k) => k.localName !== 'path' || k.hasAttribute('transform'))) return null;
+			const cs = win.getComputedStyle(svg);
+			const left = px(cs.paddingLeft) + px(cs.borderLeftWidth);
+			const top = px(cs.paddingTop) + px(cs.borderTopWidth);
+			const box = { x: r.x + left, y: r.y + top, w: r.w - left - px(cs.paddingRight) - px(cs.borderRightWidth), h: r.h - top - px(cs.paddingBottom) - px(cs.borderBottomWidth) };
+			if (!(box.w > 0 && box.h > 0)) return null;
+			const [align, fit = 'meet'] = (svg.getAttribute('preserveAspectRatio') || 'xMidYMid meet').trim().split(/\s+/);
+			if (align !== 'xMidYMid' || (fit !== 'meet' && fit !== 'slice')) return null;
+			const scale = (fit === 'slice' ? Math.max : Math.min)(box.w / vb[2], box.h / vb[3]);
+			const ox = box.x + (box.w - vb[2] * scale) / 2 - vb[0] * scale;
+			const oy = box.y + (box.h - vb[3] * scale) / 2 - vb[1] * scale;
+			const styles = kids.map((k) => win.getComputedStyle(k));
+			const first = styles[0];
+			if (styles.some((st) => st.stroke !== first.stroke || st.strokeWidth !== first.strokeWidth || st.fill !== first.fill || st.strokeLinecap !== first.strokeLinecap || st.strokeLinejoin !== first.strokeLinejoin || st.opacity !== first.opacity)) return null;
+			// One opaque, solid, scaling stroke is the only paint a shape outline reproduces: a translucent or dashed stroke, a
+			// non-scaling one, a hidden path or a width in percent keeps the drawing a picture (svgOf honors all of them).
+			const strokeAlpha = Number.parseFloat(first.strokeOpacity || '1');
+			if (first.fill !== 'none' || (first.strokeDasharray && first.strokeDasharray !== 'none')) return null;
+			if (styles.some((st) => st.strokeOpacity !== first.strokeOpacity || st.visibility !== 'visible' || (st.vectorEffect && st.vectorEffect !== 'none'))) return null;
+			if (!(strokeAlpha >= 1) || /%/.test(first.strokeWidth)) return null;
+			const color = paintOf(first.stroke, op * Number.parseFloat(first.opacity || '1'));
+			const units = Number.parseFloat(first.strokeWidth);
+			if (!color || !(units > 0)) return null;
+			const cmds: Array<(string | number)[]> = [];
+			for (const k of kids) {
+				const c = readPath(k.getAttribute('d') || '');
+				if (!c) return null;
+				cmds.push(...c);
+			}
+			// `overflow: visible` paints the whole drawing, so no edge clips it; otherwise the content box does.
+			const clip = cs.overflow === 'visible' ? { x: -1e5, y: -1e5, w: 2e5, h: 2e5 } : box;
+			const base = pathShapeOf(cmds, ox, oy, scale, scale, clip, units, true);
+			if (!base) return null;
+			const shape: Shape = { ...base, stroke: { ...color, width: round(units * scale) } };
+			if (first.strokeLinecap === 'round' || first.strokeLinecap === 'square') shape.cap = first.strokeLinecap;
+			if (first.strokeLinejoin === 'round' || first.strokeLinejoin === 'bevel') shape.join = first.strokeLinejoin;
+			// The icon's name (its `label=`, or the icon's own) rides along as the shape's description: the <svg> is
+			// aria-hidden, and the span around it is the image a screen reader announces.
+			const label = (svg.closest('[role="img"]')?.getAttribute('aria-label') || '').trim();
+			if (label) shape.alt = label;
 			return shape;
 		};
 		// A pseudo-element as a candidate: a plain box, or a mark. Null keeps it in the picture.
@@ -1925,6 +2121,178 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return a.box;
 		};
 		const effectless = (el: Element) => !effected(el);
+		/**
+		 * An inline `<svg>` of plain shapes as standalone SVG markup in `box` (slide px), or null when it holds anything
+		 * this does not carry exactly (text, images, masks, filters, gradients, `<use>`): that picture stays a PNG. Each
+		 * shape is written under its full screen transform, folded into slide px, so no viewBox, nested viewport or CSS is
+		 * left for the reading application to interpret; colors and widths come from the computed style. A stroke that
+		 * does not scale (`vector-effect: non-scaling-stroke`, a spark stretched to its box) is baked into slide px, so a
+		 * non-uniform stretch does not warp it.
+		 */
+		const svgOf = (svg: Element, box: Rect, boxes: Element[] = []): string | null => {
+			const SHAPES = new Set(['path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon']);
+			const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+			const num = (v: number) => String(Math.round(v * 1000) / 1000);
+			const out: string[] = [];
+			for (const el of Array.from(svg.querySelectorAll('*'))) {
+				const tag = String(el.localName).toLowerCase();
+				if (tag === 'title' || tag === 'desc') continue;
+				if (tag === 'g') continue;
+				if (!SHAPES.has(tag)) return null;
+				const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
+				if (cs.visibility !== 'visible') continue;
+				// `display` is not inherited: a shape in a hidden group computes `inline` and still draws nothing.
+				let opacity = 1;
+				let hidden = false;
+				for (let e: Element | null = el; e && e !== svg.parentElement; e = e.parentElement) {
+					const c = win.getComputedStyle(e) as CSSStyleDeclaration & Record<string, string>;
+					if (c.display === 'none') hidden = true;
+					if ((c.mask && c.mask !== 'none') || (c.filter && c.filter !== 'none') || (c.clipPath && c.clipPath !== 'none')) return null;
+					// A group's opacity fades its shapes together; one shape alone can carry it, two that overlap cannot.
+					if (e !== el && e !== svg && Number(c.opacity) < 0.999 && e.querySelectorAll('path, rect, circle, ellipse, line, polyline, polygon').length > 1) return null;
+					// The <svg>'s own opacity and its page ancestors' wrap the whole drawing (below), exact even where shapes overlap.
+					opacity *= e === svg ? 1 : Number(c.opacity);
+				}
+				if (hidden) continue;
+				// SVG 1.1 colors only: `#rrggbb` and an opacity. A CSS `color(srgb …)` or `oklch()` is read by no office reader
+				// (LibreOffice drew a 16% wash as solid black).
+				const paint = (v: string): { color: string; alpha: number } | 'none' | null => {
+					if (!v || v === 'none') return 'none';
+					if (/url\(/.test(v)) return null;
+					return paintOf(v, 1) || 'none';
+				};
+				const fillP = paint(cs.fill), strokeP = paint(cs.stroke);
+				if (fillP === null || strokeP === null) return null;
+				const fill = fillP === 'none' ? 'none' : fillP.color, stroke = strokeP === 'none' ? 'none' : strokeP.color;
+				const M = (el as SVGGraphicsElement).getScreenCTM?.();
+				if (!M) return null;
+				const T = [M.a / scale, M.b / scale, M.c / scale, M.d / scale, (M.e - origin.left) / scale - box.x, (M.f - origin.top) / scale - box.y];
+				const attrs: string[] = [`fill="${esc(fill)}"`, `stroke="${esc(stroke)}"`];
+				const fillA = fillP === 'none' ? 1 : fillP.alpha * Number(cs.fillOpacity);
+				if (fill !== 'none' && fillA < 0.999) attrs.push(`fill-opacity="${num(fillA)}"`);
+				if (cs.fillRule === 'evenodd') attrs.push('fill-rule="evenodd"');
+				if (opacity < 0.999) attrs.push(`opacity="${num(opacity)}"`);
+				const fixed = cs.vectorEffect === 'non-scaling-stroke';
+				if (stroke !== 'none') {
+					attrs.push(`stroke-width="${num(Number.parseFloat(cs.strokeWidth) || 0)}"`);
+					const strokeA = strokeP === 'none' ? 1 : strokeP.alpha * Number(cs.strokeOpacity);
+					if (strokeA < 0.999) attrs.push(`stroke-opacity="${num(strokeA)}"`);
+					if (cs.strokeLinecap && cs.strokeLinecap !== 'butt') attrs.push(`stroke-linecap="${esc(cs.strokeLinecap)}"`);
+					if (cs.strokeLinejoin && cs.strokeLinejoin !== 'miter') attrs.push(`stroke-linejoin="${esc(cs.strokeLinejoin)}"`);
+					if (cs.strokeDasharray && cs.strokeDasharray !== 'none') {
+						// A share of the viewport would resolve against the crop's, not the drawing's.
+						if (/%/.test(cs.strokeDasharray)) return null;
+						attrs.push(`stroke-dasharray="${esc(cs.strokeDasharray.replace(/px/g, ''))}"`);
+						const off = Number.parseFloat(cs.strokeDashoffset) || 0;
+						if (/%/.test(cs.strokeDashoffset)) return null;
+						if (off) attrs.push(`stroke-dashoffset="${num(off)}"`);
+					}
+					const miter = Number.parseFloat(cs.strokeMiterlimit);
+					if (Number.isFinite(miter) && miter !== 4) attrs.push(`stroke-miterlimit="${num(miter)}"`);
+				}
+				if (fixed && stroke !== 'none') {
+					// Baked into slide px: only straight absolute segments, which map point by point.
+					let pts: number[][] | null = null;
+					let closed = false;
+					if (tag === 'line') pts = [[+(el.getAttribute('x1') || 0), +(el.getAttribute('y1') || 0)], [+(el.getAttribute('x2') || 0), +(el.getAttribute('y2') || 0)]];
+					else if (tag === 'polyline' || tag === 'polygon') {
+						const n = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number);
+						pts = [];
+						for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+						closed = tag === 'polygon';
+					} else if (tag === 'path') {
+						// Absolute straight segments only (M, L, H, V, Z), one subpath: a spark's line, a bullet's target.
+						const d = el.getAttribute('d') || '';
+						if (!/^[\sMLHVZz\d.,eE+-]*$/.test(d) || (d.match(/M/g) || []).length !== 1) return null;
+						pts = [];
+						let cx = 0, cy = 0;
+						for (const [, cmd, args] of d.matchAll(/([MLHVZz])([^MLHVZz]*)/g)) {
+							const n = args.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+							if (cmd === 'M' || cmd === 'L') for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; pts.push([cx, cy]); }
+							else if (cmd === 'H') for (const v of n) { cx = v; pts.push([cx, cy]); }
+							else if (cmd === 'V') for (const v of n) { cy = v; pts.push([cx, cy]); }
+							else closed = true;
+						}
+					}
+					if (!pts || pts.length < 2 || pts.flat().some((v) => !Number.isFinite(v))) return null;
+					const mapped = pts.map(([x, y]) => [T[0] * x + T[2] * y + T[4], T[1] * x + T[3] * y + T[5]]);
+					out.push(`<path d="M${mapped.map(([x, y]) => `${num(x)} ${num(y)}`).join('L')}${closed ? 'Z' : ''}" ${attrs.join(' ')}/>`);
+					continue;
+				}
+				// Geometry as the browser resolved it, in user units: a rect's or circle's from its computed CSS (which a
+				// `style="r:2"` sets too), a line's from plain numbers. A percentage resolves against the viewport, which the
+				// crop changes, so it keeps the PNG alone.
+				const geom: string[] = [];
+				for (const a of ['d', 'points']) if (el.hasAttribute(a)) geom.push(`${a}="${esc(el.getAttribute(a) || '')}"`);
+				for (const a of tag === 'rect' ? ['x', 'y', 'width', 'height', 'rx', 'ry'] : tag === 'circle' ? ['cx', 'cy', 'r'] : tag === 'ellipse' ? ['cx', 'cy', 'rx', 'ry'] : []) {
+					const v = String(cs[a] || '').trim();
+					if (!v || v === 'auto') continue;
+					if (!/^-?[\d.]+(?:e[+-]?\d+)?px$/i.test(v) && v !== '0') return null;
+					geom.push(`${a}="${num(Number.parseFloat(v))}"`);
+				}
+				if (tag === 'line') {
+					for (const a of ['x1', 'y1', 'x2', 'y2']) {
+						const v = (el.getAttribute(a) || '0').trim();
+						if (!/^-?[\d.]+(?:e[+-]?\d+)?$/i.test(v)) return null;
+						geom.push(`${a}="${num(Number(v))}"`);
+					}
+				}
+				out.push(`<${tag} ${geom.join(' ')} transform="matrix(${T.map(num).join(' ')})" ${attrs.join(' ')}/>`);
+			}
+			if (!out.length) return null;
+			// The clips the browser drew it under: the <svg>'s own viewport, and the nearest box that clips its overflow
+			// (an avatar's round tile), with its corners. Without them a face spilled past its tile.
+			const clipRects: string[] = [];
+			const rr = (r: Rect, rad: number[]) => {
+				const [tl, tr, br, bl] = rad.map((v) => Math.min(v, r.w / 2, r.h / 2));
+				const { x, y, w, h } = r;
+				return `M${num(x + tl)} ${num(y)}H${num(x + w - tr)}A${num(tr)} ${num(tr)} 0 0 1 ${num(x + w)} ${num(y + tr)}V${num(y + h - br)}A${num(br)} ${num(br)} 0 0 1 ${num(x + w - br)} ${num(y + h)}H${num(x + bl)}A${num(bl)} ${num(bl)} 0 0 1 ${num(x)} ${num(y + h - bl)}V${num(y + tl)}A${num(tl)} ${num(tl)} 0 0 1 ${num(x + tl)} ${num(y)}Z`;
+			};
+			const local = (r: DOMRect): Rect => { const q = relRect(r); return { x: q.x - box.x, y: q.y - box.y, w: q.w, h: q.h }; };
+			// The viewport clips only when the <svg> clips its overflow (its default; a pill's icon sets it visible).
+			const own = win.getComputedStyle(svg) as CSSStyleDeclaration & Record<string, string>;
+			clipRects.push(own.overflow === 'visible' ? '' : rr(local(svg.getBoundingClientRect()), [0, 0, 0, 0]));
+			for (let a = svg.parentElement; a && a !== section; a = a.parentElement) {
+				const c = win.getComputedStyle(a) as CSSStyleDeclaration & Record<string, string>;
+				if (c.overflow === 'visible') continue;
+				const r = local(a.getBoundingClientRect());
+				const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => {
+					const v = String(c[`border${k}Radius`] || '0').trim();
+					if (/\s/.test(v)) return Number.NaN;
+					// In slide px: a share of the (slide px) box, or CSS px over the slide's scale.
+					return v.endsWith('%') ? (Number.parseFloat(v) / 100) * Math.min(r.w, r.h) : (Number.parseFloat(v) || 0) / scale;
+				});
+				if (rad.some(Number.isNaN)) return null;
+				clipRects.push(rr(r, rad));
+				break;
+			}
+			// Plain boxes painted over the drawing in the same picture (a spark's end dot): each a filled rounded box, in
+			// paint order after the SVG, outside its viewport and inside the box that clips both.
+			const extra: string[] = [];
+			for (const b of boxes) {
+				const c = win.getComputedStyle(b) as CSSStyleDeclaration & Record<string, string>;
+				const fill = paintOf(c.backgroundColor, opacityOf(b));
+				if (!fill || (c.backgroundImage && c.backgroundImage !== 'none') || (c.boxShadow && c.boxShadow !== 'none') || c.filter !== 'none') return null;
+				if (['Top', 'Right', 'Bottom', 'Left'].some((k) => Number.parseFloat(c[`border${k}Width`]) > 0 && c[`border${k}Style`] !== 'none')) return null;
+				if (b.children.length || (b.textContent || '').trim()) return null;
+				const r = local(b.getBoundingClientRect());
+				const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => {
+					const v = String(c[`border${k}Radius`] || '0').trim();
+					return v.endsWith('%') ? (Number.parseFloat(v) / 100) * Math.min(r.w, r.h) : (Number.parseFloat(v) || 0) / scale;
+				});
+				extra.push(`<path d="${rr(r, rad)}" fill="${fill.color}"${fill.alpha < 0.999 ? ` fill-opacity="${num(fill.alpha)}"` : ''}/>`);
+			}
+			const defs = clipRects.map((d, i) => (d ? `<clipPath id="c${i}"><path d="${d}"/></clipPath>` : '')).join('');
+			const fade = opacityOf(svg);
+			const shapes = fade < 0.999 ? `<g opacity="${num(fade)}">${out.join('')}</g>` : out.join('');
+			let body = `${clipRects[0] ? `<g clip-path="url(#c0)">${shapes}</g>` : shapes}${extra.join('')}`;
+			for (let i = clipRects.length - 1; i >= 1; i--) body = `<g clip-path="url(#c${i})">${body}</g>`;
+			const doc = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(box.w)}" height="${num(box.h)}" viewBox="0 0 ${num(box.w)} ${num(box.h)}"><defs>${defs}</defs>${body}</svg>`;
+			// A character XML forbids (an author's `&#1;` in a path) makes the file unreadable, and LibreOffice then draws
+			// neither it nor the PNG beside it: such a drawing keeps the PNG alone.
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: finding them is the point.
+			return /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/.test(doc) ? null : doc;
+		};
 
 		const DRAWN = new Set(['svg', 'math', 'img', 'canvas', 'video', 'iframe', 'object', 'embed', 'input', 'select', 'textarea', 'button', 'picture']);
 		const walk = (el: Element) => {
@@ -1940,6 +2308,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (options?.logo && el !== section && el.parentElement === section && tag === 'img' && el.classList.contains('deck-logo')) {
 				if (shown && rect.w > 0 && rect.h > 0) logoFound = { x: Math.round(rect.x * 1000) / 1000, y: Math.round(rect.y * 1000) / 1000, w: Math.round(rect.w * 1000) / 1000, h: Math.round(rect.h * 1000) / 1000, ...((el.getAttribute('alt') || '').trim() ? { alt: (el.getAttribute('alt') || '').trim() } : {}) };
 				return;
+			}
+			if (el !== section && tag === 'svg' && shown && rect.w > 0 && rect.h > 0 && [...el.classList].some((c) => ICON_SVG.has(c)) && effectless(el)) {
+				const op = opacityOf(el);
+				const mark = iconSvgMarkOf(el, rect, op);
+				const at = mark && { x: mark.x, y: mark.y, w: mark.w, h: mark.h };
+				if (mark && at && unclipped(el, at, true)) {
+					candidates.push({ el, rect: at, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, approx: [], mark });
+					return;
+				}
 			}
 			if (el !== section && DRAWN.has(tag)) {
 				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}`, bleed: bleedOf(cs), alt: (el.getAttribute('alt') || el.getAttribute('aria-label') || el.querySelector('title')?.textContent || '').trim() || undefined });
@@ -2098,7 +2475,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const unlift = (c: Candidate, reason: string, by?: Item) => {
 			const cover = coverOf(c);
 			lifted.delete(c);
-			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0, ...(c.struck || []).map((st) => Math.ceil(Math.max(Math.abs(st.x), Math.abs(st.y)) + st.spread))), kind: 'refused-box' });
+			// An icon's <svg> falls back as the drawing it is, so the picture keeps its sharp SVG copy (svgOf).
+			if (c.mark && !c.pseudo) items.push({ node: c.el, owner: c.el, rect: c.rect, bleed: 0, kind: 'drawn:svg' });
+			else items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0, ...(c.struck || []).map((st) => Math.ceil(Math.max(Math.abs(st.x), Math.abs(st.y)) + st.spread))), kind: 'refused-box' });
 			if (options?.diagnose) {
 				const above_ = by || items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
 				const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
@@ -2232,6 +2611,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const alt = [...new Set(k.items.map((it) => it.alt).filter(Boolean))].join('. ');
 				if (alt) pic.alt = alt;
 				if (k.items.some((it) => /^drawn:(img|video|canvas|picture)$/.test(it.kind || ''))) pic.photo = true;
+				// One inline SVG alone in its picture: the drawing as SVG too, so an office reader draws it sharp.
+				const drawn = k.items.filter((it) => it.kind === 'drawn:svg');
+				const plain = k.items.filter((it) => it.kind === 'refused-box' && !it.pseudo && it.node instanceof win.Element);
+				if (drawn.length === 1 && drawn.length + plain.length === k.items.length) {
+					const svg = svgOf(drawn[0].node as Element, k.box, plain.map((it) => it.node as Element));
+					if (svg) pic.svg = svg;
+				}
 				// The boxes whose own paint this picture holds: the text inside them paints over it.
 				const painted = k.items.flatMap((it) => (it.paintOf && !it.pseudo ? [it.paintOf] : []));
 				if (painted.length) paintedBy.set(shapes.length, painted);
@@ -2245,6 +2631,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (c.mark) {
 				shapes.push({ ...c.mark });
 				shapeEls.push(c.el);
+				if (!c.pseudo) drawnHidden.add(c.el);
 				continue;
 			}
 			const firstShape = shapes.length;
@@ -2625,6 +3012,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// A slide whose only painted boxes are highlight chips has no shapes, and the chips' own paint must still go.
 	if (options?.hide && (shapes.length || chipEls.size)) {
 		const undo: Array<() => void> = [];
+		for (const el of drawnHidden as Set<HTMLElement>) {
+			const saved = el.getAttribute('style');
+			el.style.setProperty('visibility', 'hidden', 'important');
+			undo.push(() => flushStyle(el, saved));
+		}
 		// A pseudo shape hides its pseudo (below), never its element: the element may paint something else.
 		for (const el of [...paintHidden, ...chipEls] as HTMLElement[]) {
 			const saved = el.getAttribute('style');

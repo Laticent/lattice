@@ -1,0 +1,1 @@
+- In an editable PowerPoint or ODP, a row whose counter is drawn in its own grid cell (`regulatory-update`'s "01") no longer hides the row's pill labels: Calco measured that counter as covering the whole row, kept the row's pills in the slide picture, and wrote that picture over their text. The counter now covers only its cell, and the pills are shapes with their labels on top.

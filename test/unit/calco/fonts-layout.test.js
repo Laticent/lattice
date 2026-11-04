@@ -73,6 +73,27 @@ describe('calco layout', () => {
     assert.equal(box.h, 47.6 * 2);
   });
 
+  // A piece of a line split at an inline icon (reader.ts, SPLIT AT ROOM) carries `before`: PowerPoint, whose boxes never
+  // wrap, ends the box there so it does not reach over the icon after it; LibreOffice wraps an .odp box at its width, so
+  // there the box keeps its usual slack, or its last word would drop a line.
+  test('a split piece\'s box ends at `before` only when capped (PowerPoint), and keeps its slack otherwise (ODP)', () => {
+    const f = frame([[{ text: 'Storage', style: style() }]], { x: 100, w: 80, y: 300, firstLineHeight: 35.28, lineHeight: 35.28, before: 181 });
+    assert.equal(placeFrame(f, 1280, metrics, 28, 'proportional', true).w, 81);
+    assert.ok(placeFrame(f, 1280, metrics, 28).w > 81 + 20, 'uncapped keeps its slack');
+    const { before: _b, ...whole } = f;
+    assert.equal(placeFrame(whole, 1280, metrics, 28, 'proportional', true).w, placeFrame(whole, 1280, metrics, 28).w, 'a frame with no before is unchanged');
+  });
+
+  // One line states 100%: apps disagree where a multiple puts the first baseline (Google Slides drew a 1.3x line about
+  // 0.3 em higher), and one line has no pitch to keep. Placed to match, the glyphs land where they did.
+  test('a single line states 100% line spacing, placed so its baseline does not move', () => {
+    const { spacingMultiple } = require('@laticent/calco');
+    const one = frame([[{ text: 'x', style: style() }]], { y: 400, firstLineHeight: 35.28, lineHeight: 47.6 });
+    assert.equal(spacingMultiple(one, metrics, 28), 1);
+    const box = placeFrame(one, 1280, metrics, 28, 'proportional');
+    assert.ok(Math.abs(box.y - (400 + 28 - 28)) < 1e-9, `top ${box.y}: the baseline less one ascent`);
+  });
+
   test('a single line with no leading starts at the glyph top', () => {
     const f = frame([[{ text: 'x', style: style() }]], { y: 300, firstLineHeight: 35.28, lineHeight: 35.28 });
     assert.ok(Math.abs(placeFrame(f, 1280, metrics, 28).y - 300) < 1e-9);

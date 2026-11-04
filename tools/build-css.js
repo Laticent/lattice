@@ -108,6 +108,7 @@ const { distributeLeadingIs } = require('../lib/core/leading-is');
 const { typographyTokensCss } = require('../lib/typography/emit');
 const { TEXT_FACES } = require('../lib/fonts/text-faces');
 const { EMOJI_FAMILY, EMOJI_SLICES, EMOJI_SRC_FORMAT } = require('../lib/fonts/emoji-faces');
+const { ICON_FAMILY, ICON_FACES } = require('../lib/fonts/icon-faces');
 const cssModules = require('./css-modules');
 
 const ROOT = path.join(__dirname, '..');
@@ -389,6 +390,14 @@ function localFontFacesCss() {
         `font-display:swap;src:url('fonts/${file}.woff2') ${EMOJI_SRC_FORMAT};unicode-range:${range};}`,
     );
   }
+  // Lattice Icons: one face per line weight. `block`, not `swap`: a fallback face has no glyph at our private-use
+  // codepoints, so swapping would flash an empty box where the icon goes (engineering/decisions/2026-11-01-icon-font.md).
+  for (const { weight, file } of ICON_FACES) {
+    faces.push(
+      `@font-face{font-family:'${ICON_FAMILY}';font-style:normal;font-weight:${weight};` +
+        `font-display:block;src:url('fonts/${file}.woff2') format('woff2');}`,
+    );
+  }
   return faces.join('\n');
 }
 
@@ -409,7 +418,7 @@ function emojiFontFaceCss() {
 function syncDistFonts() {
   fs.mkdirSync(DIST_FONTS, { recursive: true });
   const written = new Set();
-  for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES]) {
+  for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES, ...ICON_FACES]) {
     const name = `${file}.woff2`;
     fs.copyFileSync(path.join(ASSET_FONTS, name), path.join(DIST_FONTS, name));
     written.add(name);
@@ -437,7 +446,7 @@ function syncDistFonts() {
 // (used by --check; pure read, no writes).
 function distFontsStale() {
   const want = new Map([['OFL.txt', path.join(ASSET_FONTS, 'OFL.txt')]]);
-  for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES]) want.set(`${file}.woff2`, path.join(ASSET_FONTS, `${file}.woff2`));
+  for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES, ...ICON_FACES]) want.set(`${file}.woff2`, path.join(ASSET_FONTS, `${file}.woff2`));
   try {
     for (const name of katexFontFiles()) want.set(name, path.join(KATEX_FONTS, name));
   } catch (_e) {

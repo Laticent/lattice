@@ -185,8 +185,11 @@ test('the checks plugin: `@check{…}` draws a disc or a pill at three widths, a
 		await expect(shortcut, `${width}px`).toBeAttached();
 		await expect(pill, `${width}px`).toBeAttached();
 		await expect(pill.locator('xpath=../..')).toContainText('Residency');
+		// Drawn at its own size: `offsetHeight` is the element's CSS height, before the preview scales the slide to fit
+		// the pane. The page-space box is not: at 820px the slide sits at about a third of its size, and a 12px disc
+		// measured 3.8px there.
 		for (const el of [disc, pill]) {
-			await expect.poll(async () => ((await el.boundingBox())?.height ?? 0) > 4, `${width}px`).toBe(true);
+			await expect.poll(async () => (await el.evaluate((n) => (n as HTMLElement).offsetHeight)) > 4, `${width}px`).toBe(true);
 		}
 	}
 	await page.setViewportSize({ width: 1440, height: 900 });

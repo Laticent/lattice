@@ -29,6 +29,7 @@ section .lat-icon {
   --icon-pad-out:0.15em;
   --icon-inset:calc(0.2 * var(--icon-tile-h));
   --icon-stroke:2;
+  --icon-weight:400;
   --icon-hue:var(--chart-cat1);
   --icon-ink:var(--chart-cat1-ink, color-mix(in oklab, var(--icon-hue) 65%, var(--text-heading)));
   --icon-tile:var(--icon-ink);
@@ -75,6 +76,64 @@ section .lat-icon > .lat-icon-svg {
   stroke-linejoin:round;
 }
 
+/* THE GLYPH. Each icon carries its <svg> and its Lattice Icons glyph; `icon: font` (the default) shows the glyph,
+ * `icon: svg` the <svg>, and an export under `fonts: emoji: system` puts `icon-svg` on every slide (lib/fonts/icon-fallback.js), since
+ * no machine has our icons (engineering/decisions/2026-11-01-icon-font.md). The glyph takes the drawing's box: the
+ * font's em IS the 24-unit grid, its top at the ascender, so a line-height-1 line of that font fills the box. Color is
+ * the box's own (`color:var(--icon-line)`), as the <svg>'s stroke is; the line weight is the face (`--icon-weight`:
+ * 300, 400, 500 for strokes 1.5, 2, 2.25). */
+/* The character is drawn from the attribute, so it is never document text (icons.inline.js `glyphHtml`). */
+:is(section .lat-icon-glyph > [data-glyph], section .lat-pill-glyph > [data-glyph])::before { content:attr(data-glyph); }
+/* The face goes on the character's span: in a pill the outer box is sized in the label's `cap`, as the <svg>'s is. */
+:is(section .lat-icon-glyph > span, section .lat-pill-glyph > span) {
+  font-family:'Lattice Icons';
+  font-style:normal;
+  font-weight:var(--icon-weight);
+  font-synthesis:none;
+  font-variant:normal;
+  letter-spacing:0;
+  text-transform:none;
+  text-decoration:none;
+  text-shadow:none;
+  white-space:nowrap;
+  color:inherit;
+}
+section .lat-icon > .lat-icon-glyph {
+  /* The box's own line is in the icon face too, so the character sits on the font's baseline, not the slide face's. */
+  font-family:'Lattice Icons';
+  position:absolute;
+  inset:var(--icon-inset) calc(var(--icon-pad-out) + var(--icon-inset));
+  z-index:1;
+  display:block;
+  font-size:calc(var(--icon-tile-h) - 2 * var(--icon-inset));
+  line-height:1;
+}
+/* In a pill the <svg> covers a box the drawing's width (1.15em) and the capitals' height, centered on the capitals;
+ * the glyph's line, 1.15em tall, is centered on that same box. */
+section .lat-pill > .lat-pill-glyph {
+  /* The pill's line weight, on the glyph's own box: set on the sibling <svg> alone, the glyph took the label's weight. */
+  --icon-weight:500;
+  position:relative;
+  display:inline-block;
+  box-sizing:content-box;
+  width:1.15em;
+  height:1cap;
+  padding-right:0.35em;
+  vertical-align:baseline;
+}
+section .lat-pill > .lat-pill-glyph > span {
+  position:absolute;
+  left:0;
+  top:calc(50% - 0.5em);
+  font-size:1.15em;
+  line-height:1;
+}
+section .lat-pill[role='img'] > .lat-pill-glyph { padding-right:0; }
+/* One switch: an icon inside any `icon-svg` section draws its <svg>, every other icon its glyph. (`section:not(.icon-svg) X`
+ * would match through a nested section too, and an icon with both rules against it drew nothing.) */
+:is(section .lat-icon > .lat-icon-svg, section .lat-pill > .lat-pill-icon):not(section.icon-svg *) { display:none; }
+:is(section.icon-svg .lat-icon-glyph, section.icon-svg .lat-pill-glyph) { display:none; }
+
 /* `bare` — no tile: ink lines, as tall as the text's capitals and a little more (1.15em at md). */
 :is(section.icon-bare .lat-icon:not([data-frame='framed'], [data-corners]), section .lat-icon[data-icon][data-frame='bare']) {
   --icon-tile-h:var(--icon-bare, 1.15em);
@@ -87,6 +146,7 @@ section .lat-icon > .lat-icon-svg {
   --icon-tile:transparent;
   --icon-line:var(--icon-ink);
   --icon-stroke:1.5;
+  --icon-weight:300;
 }
 /* `tone` — one hue by VALUE: a pale tint tile, a mid-value edge, the line in the ink. */
 :is(section.icon-tone .lat-icon:not([data-look]), section .lat-icon[data-icon][data-look='tone']) {
@@ -136,6 +196,7 @@ section .lat-pill > .lat-pill-icon {
   vertical-align:baseline;
   overflow:visible;
   --icon-stroke:2.25;
+  --icon-weight:500;
 }
 /* An icon-only pill (`{icon=database}`, which names itself with role="img") has no label to
  * space from. Not `:last-child`: the label is a text node, which that selector never sees. */
@@ -166,3 +227,8 @@ section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
  * which are not inked. */
 section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
 section.sketch:has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
+
+/* An icon and the word after it never part at a line end: the icon labels that word (lib/core/icon-bind.js). */
+section .lat-icon-bind {
+  white-space:nowrap;
+}

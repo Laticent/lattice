@@ -1,0 +1,1 @@
+- `--player` keeps the deck's own canvas in the player again: a `size: 4k` deck's player is 3840 x 2160, not the HD canvas its PDF or PowerPoint takes. One render serves both files, so the PDF or PowerPoint beside the player is 4K too; add `--size hd` to lower both.

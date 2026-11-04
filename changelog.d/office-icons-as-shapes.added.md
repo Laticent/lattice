@@ -1,0 +1,1 @@
+- An editable PowerPoint or LibreOffice file draws each icon as a native outline shape, so apps that ignore the file's fonts, such as Google Slides and iPhone Preview, draw the icons too, not only desktop PowerPoint. Each recolors as a shape.

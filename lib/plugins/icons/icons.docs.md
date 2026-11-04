@@ -35,6 +35,9 @@ The icon's name comes first, then any of these words, in any order:
 
 An inline icon is an image with a name (`role="img"`), so a reader hears it where it stands.
 
+An icon labels the word after it, so the two never part at a line end: `^{warehouse} Snowflake` wraps as one. Only one
+space and a word bind; two icons in a row, or an icon before punctuation, wrap as the browser would.
+
 ## Inside a pill: `icon=`
 
 ```markdown
@@ -82,10 +85,36 @@ modes. On the hub it sits above the name; an `icon-only` hub with no value fills
 icon: bare etch
 ```
 
-The `icon:` register styles every icon on the deck, one word per axis (frame, look, corners).
+The `icon:` register styles every icon on the deck, one word per axis (frame, look, corners, draw).
 A slide overrides it with its own class (`<!-- _class: icon-framed -->`), on that axis only, and
-an icon's own word wins over both. It is separate from `spark:`, so a deck can frame its sparks
-and leave its icons bare.
+an icon's own word wins over both (frame, look and corners only). It is separate from `spark:`, so a
+deck can frame its sparks and leave its icons bare.
+
+## How an icon is drawn: `font` or `svg`
+
+```yaml
+icon: svg
+```
+
+An icon draws as a glyph of **Lattice Icons**, our own font of the curated icons, unless the deck says
+`icon: svg` (or a slide says `<!-- _class: icon-svg -->`). Both look the same on the slide: every glyph
+lands within a third of a pixel of its drawing, and color, tile, look, corners and size all come from
+the same rules. What `font` adds is in the exports:
+
+- **PowerPoint and ODP:** an editable file draws each icon as a native outline shape, so apps that
+  ignore the file's fonts (Google Slides, iPhone Preview) still draw it, and it recolors as a shape. A
+  picture-per-slide file shows the slide as it is.
+- **PDF:** the icon is text in an embedded font, and copying it gives its label (`database`). An icon
+  inside a pill beside its label copies as nothing, as a screen reader skips it.
+- **Size:** a file carries each icon once, about 0.3 KB, however often it is used, in every theme and
+  color mode.
+
+How much of the font a file carries follows the export's **Emoji font** setting (`fonts:`): `exact`
+(the default) carries the deck's icons, `used` and `full` the whole set. Under `system` no file carries
+it, and since no computer has our icons, every export draws them as `svg` instead.
+
+`svg` keeps any line weight a theme sets through `--icon-stroke`; the font ships the three in use (1.5,
+2 and 2.25). Design: `engineering/decisions/2026-11-01-icon-font.md`.
 
 ## Cloud services: a role icon and the service's name
 

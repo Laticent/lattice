@@ -19,6 +19,12 @@ test('other decks and other formats keep their own canvas', () => {
   assert.ok(FOUR_K_FACTOR.pdf > 1 && FOUR_K_FACTOR.pptx > 1 && FOUR_K_FACTOR.odp > 1);
 });
 
+test('a run that also writes the player keeps a 4K deck at 4K, since one render serves both', () => {
+  for (const format of RASTER_FORMATS) assert.deepEqual(exportCanvas({ deckSize: '4k', format, player: true }), { size: null, loweredFrom4k: false });
+  assert.deepEqual(exportCanvas({ deckSize: '4k', format: 'pdf', player: true, requested: 'hd' }), { size: 'hd', loweredFrom4k: false }, 'an asked size still wins');
+  assert.deepEqual(exportCanvas({ deckSize: '4k', format: 'pdf', player: false }), { size: 'hd', loweredFrom4k: true });
+});
+
 test('is4k reads the size name the way the deck writes it', () => {
   assert.equal(is4k('4k'), true);
   assert.equal(is4k(' 4K '), true);

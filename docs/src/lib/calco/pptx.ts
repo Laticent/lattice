@@ -66,6 +66,10 @@ const GRAD_TAG = 'calco-grad-';
 const gradTag = (g: Gradient | undefined) => (g ? `${GRAD_TAG}${g.angle}~${g.stops.map((st) => `${st.pos}:${st.color.replace('#', '')}:${st.alpha}`).join('~')}|` : '');
 /** The name prefix that marks a slide's content picture until tidyPptx locks it. */
 const LOCK_TAG = 'calco-lock|';
+/** A picture that also has an SVG (`Shape.svg`): `calco-svg-<index into the deck's list>|`, read and removed by `addSvgPictures`. */
+const SVG_TAG = 'calco-svg-';
+/** A shape's description (alt text), URI-encoded into its name: PptxGenJS writes `descr` for pictures only. */
+const DESCR_TAG = 'calco-descr-';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
 const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
 /** The layout's title placeholder: PptxGenJS numbers a layout's first placeholder 100. */
@@ -149,6 +153,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const points = (px: number) => Math.round(px * ptScale * 100) / 100;
 
 	const pptx = new PptxGenJS();
+	// The SVG of each picture that has one, in the order the pictures are written; `addSvgPictures` adds them.
+	const svgs: string[] = [];
+	(pptx as unknown as { calcoSvgs: string[] }).calcoSvgs = svgs;
 	// PptxGenJS escapes markup in the document properties, but not control characters.
 	pptx.title = xmlSafe(deck.title || '').trim() || 'deck';
 	if (deck.subject) pptx.subject = xmlSafe(deck.subject);
@@ -194,7 +201,8 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const lines = frame.lines;
 		const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
 		const metrics = metricsFor(lead, fonts, metricsCache);
-		const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
+		// Capped: PowerPoint never wraps a text box (`wrap: false` below), so a split piece's box can end at its text.
+		const box = placeFrame(frame, W, metrics, lead.size, 'proportional', true);
 		// An empty line (a blank line in code) is an empty paragraph in the lead style.
 		const runs = lines.flatMap((line, li) => {
 			const last = li < lines.length - 1;
@@ -310,13 +318,13 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				if (item.shape.kind === 'picture') {
 					const pic = item.shape;
 					if (pic.image?.length) {
-						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}Picture ${n}.${item.index + 1}` });
+						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}${pic.svg && options?.groups ? `${SVG_TAG}${svgs.push(pic.svg) - 1}|` : ''}Picture ${n}.${item.index + 1}` });
 					}
 					continue;
 				}
 				const geom = shapeGeometry(item.shape);
 				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
-				const name = `${tag}${subTag(item.shape.sub)}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${gradTag(item.shape.gradient)}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
+				const name = `${tag}${subTag(item.shape.sub)}${item.shape.alt && !item.label ? `${DESCR_TAG}${encodeURIComponent(item.shape.alt)}|` : ''}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${gradTag(item.shape.gradient)}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
 					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
@@ -450,6 +458,15 @@ export function groupShapes(xml: string): string {
 		);
 	};
 	// A card's members, with each run of one sub-group's shapes nested into a group of its own.
+	// A card that holds any CUSTOM GEOMETRY (an icon's outline, a check mark, a box with uneven corners, an accent rule
+	// that wraps a corner) is not grouped at all: its members are written loose, in the order they paint. Apple's Office
+	// importer (iPhone Preview, macOS Quick Look) drops custom geometry inside a group, so an icon drew as a speck and a
+	// whole card's fill and border vanished, while the same shapes at the slide's top level draw right. No other way of
+	// writing the group drew either (tools/office-quicklook.mjs; engineering/decisions/2026-11-01-icon-font.md § 3.6).
+	// Writing them loose keeps the paint order exactly, so every app draws the same picture; the price, the owner's call
+	// (2026-11-03), is that such a card does not move as one in PowerPoint. A card of presets alone stays a group. The
+	// ODP writer keeps every card in draw:g: Apple's importers do not open .odp.
+	const custom = (sp: string) => sp.includes('<a:custGeom>');
 	const wrapCard = (group: string, members: Array<{ sub: string | null; sp: string }>) => {
 		const parts: string[] = [];
 		for (let i = 0; i < members.length; ) {
@@ -457,10 +474,11 @@ export function groupShapes(xml: string): string {
 			let j = i + 1;
 			while (sub !== null && j < members.length && members[j].sub === sub) j++;
 			const run = members.slice(i, j).map((m) => m.sp);
-			parts.push(sub !== null && run.length > 1 ? wrap(`${group}.${sub}`, run) : run.join(''));
+			// A sub-group (a pill) of presets alone stays a group even inside a loose card, so it still moves as one.
+			parts.push(sub !== null && run.length > 1 && !run.some(custom) ? wrap(`${group}.${sub}`, run) : run.join(''));
 			i = j;
 		}
-		return wrap(group, parts);
+		return members.some((m) => custom(m.sp)) ? parts.join('') : wrap(group, parts);
 	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
 	// there is polynomial in the number of adjacent shapes (CodeQL). A group's members are shapes and
@@ -696,7 +714,7 @@ function replaceSelfClosing(xml: string, tag: string, replacement: string): stri
 }
 
 export function applyRoles(xml: string): string {
-	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes('hasCustomPrompt')) return xml;
+	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes(DESCR_TAG) && !xml.includes('hasCustomPrompt')) return xml;
 	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
 	// object nobody means to drag, and the first one a stray touch grabs.
 	xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) =>
@@ -709,6 +727,9 @@ export function applyRoles(xml: string): string {
 		if (sp.includes('hasCustomPrompt="1"') && sp.includes('<a:endParaRPr') && !sp.includes('<a:t>')) return '';
 		// A gradient fill: PptxGenJS writes a flat color only, so the name carries the gradient.
 		if (sp.includes(GRAD_TAG)) sp = withGradient(sp);
+		// A shape's description: out of the name and into `descr`, where PowerPoint's Alt Text and a screen reader find it.
+		const d = sp.match(/(<p:cNvPr id="\d+" name=")([^"]*?)calco-descr-([^|"]*)\|([^"]*)"/);
+		if (d) sp = sp.replace(d[0], `${d[1]}${d[2]}${d[4]}" descr="${xmlSafe(decodeURIComponent(d[3])).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}"`);
 		// A path's stroke ends and corners: PptxGenJS cannot write them, so the name carries a marker.
 		if (sp.includes(ROUND_TAG)) {
 			return sp
@@ -762,17 +783,59 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 }
 
 /**
+ * Give each tagged picture its SVG (`Shape.svg`): the drawing as `ppt/media/calco-svg-N.svg`, related from the slide, and
+ * an `asvg:svgBlip` extension in the picture's `a:blip`, the way PowerPoint itself stores an SVG. The PNG that PptxGenJS
+ * wrote stays the blip's own image: the fallback a reader without SVG (PowerPoint before 2016) draws. PptxGenJS can write
+ * an SVG itself, but under Node it writes a broken placeholder for that fallback, so Calco adds the SVG after.
+ */
+async function addSvgPictures(zip: ZipLike, svgs: string[]): Promise<void> {
+	if (!svgs.length) return;
+	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
+	const SVG_EXT = '{96DAC541-7B7A-43D3-8B79-37D633B846F1}';
+	let used = false;
+	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))) {
+		let xml = await text(name);
+		if (!xml.includes(SVG_TAG)) continue;
+		const relsName = name.replace('slides/', 'slides/_rels/').replace(/\.xml$/, '.xml.rels');
+		let rels = await text(relsName);
+		xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) => {
+			// The tag is in the picture's name, never its alt text (`descr`), which an author writes.
+			const m = pic.match(/<p:cNvPr [^>]*?name="[^"]*?calco-svg-(\d+)\|/);
+			if (!m) return pic;
+			const svg = svgs[Number(m[1])];
+			const out = pic.replace(m[0], m[0].replace(`${SVG_TAG}${m[1]}|`, ''));
+			if (!svg) return out;
+			const media = `calco-svg-${m[1]}.svg`;
+			const rid = `rIdCalcoSvg${m[1]}`;
+			zip.file(`ppt/media/${media}`, svg);
+			rels = rels.replace('</Relationships>', `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${media}"/></Relationships>`);
+			used = true;
+			const ext = `<a:extLst><a:ext uri="${SVG_EXT}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${rid}"/></a:ext></a:extLst>`;
+			// The blip PptxGenJS wrote: self-closing, or with children of its own, where `extLst` goes last (CT_Blip).
+			return /<a:blip [^>]*?\/>/.test(out) ? out.replace(/<a:blip ([^>]*?)\/>/, `<a:blip $1>${ext}</a:blip>`) : out.replace('</a:blip>', `${ext}</a:blip>`);
+		});
+		zip.file(name, xml);
+		zip.file(relsName, rels);
+	}
+	if (used) {
+		const types = await text('[Content_Types].xml');
+		if (!types.includes('Extension="svg"')) zip.file('[Content_Types].xml', types.replace('<Default ', '<Default Extension="svg" ContentType="image/svg+xml"/><Default '));
+	}
+}
+
+/**
  * Add the embedded faces to a written package: `ppt/fonts/calco-fontN.fntdata` (EOT), a font
  * relationship from the presentation part, the `fntdata` content type, and
  * `p:embeddedFontLst` right after `p:notesSz` (where the schema puts it), with
  * `embedTrueTypeFonts="1"` on the presentation. The package is tidied first (`tidyPptx`),
  * so an empty `faces` only tidies.
  */
-export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: Array<{ face: EmbeddedFont; name: string; slot?: FaceSlot }>, outputType = 'uint8array'): Promise<T> {
+export async function embedPptxFonts<T = Uint8Array>(JSZip: JSZipClass, bytes: Uint8Array, faces: Array<{ face: EmbeddedFont; name: string; slot?: FaceSlot }>, outputType = 'uint8array', svgs: string[] = []): Promise<T> {
 	const zip = (await (JSZip as unknown as { loadAsync(b: Uint8Array): Promise<ZipLike> }).loadAsync(bytes)) as ZipLike;
 	// PptxGenJS's `STREAM` is a Node buffer; JSZip has no stream output on every platform.
 	if (outputType === 'STREAM') outputType = 'nodebuffer';
 	await tidyPptx(zip);
+	await addSvgPictures(zip, svgs);
 	if (!faces.length) return (await zip.generateAsync({ type: outputType, mimeType: PPTX_MIMETYPE, compression: 'DEFLATE' })) as T;
 	const read = async (name: string) => {
 		const f = zip.file(name);
@@ -849,6 +912,7 @@ export async function tidyPptxPackage<T = Uint8Array>(JSZip: JSZipClass, bytes: 
 export async function writePptx<T = Uint8Array>(PptxGenJS: PptxGenJSClass, deck: Deck, outputType = 'uint8array', JSZip?: JSZipClass): Promise<T> {
 	if (!JSZip) return (await buildPptx(PptxGenJS, deck).write({ outputType })) as T;
 	const plan = planEmbedding(deck);
-	const raw = (await buildPptx(PptxGenJS, deck, { ...(plan.faces.length ? { embedded: plan } : {}), groups: true }).write({ outputType: 'uint8array' })) as Uint8Array;
-	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType);
+	const built = buildPptx(PptxGenJS, deck, { ...(plan.faces.length ? { embedded: plan } : {}), groups: true });
+	const raw = (await built.write({ outputType: 'uint8array' })) as Uint8Array;
+	return embedPptxFonts<T>(JSZip, raw, plan.faces, outputType, (built as unknown as { calcoSvgs?: string[] }).calcoSvgs || []);
 }

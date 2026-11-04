@@ -18,6 +18,7 @@ export async function calcoFontHost(textTier) {
 	return {
 		// Calco lists the faces the deck draws with; this decides what goes in the file for each (lib/core/office-export-policy.js `faceCut`).
 		async font(face) {
+			// No icon face reaches here: an editable file draws its icons as shapes (lib/core/office-icons.js).
 			const cut = officePolicy.faceCut(textTier, face.chars);
 			if (cut === undefined) return 'system';
 			const hit = nearestFace(FACES, face);

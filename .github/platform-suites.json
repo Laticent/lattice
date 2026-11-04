@@ -204,6 +204,26 @@
       "run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",
       "why": "A click on a line in the Playground editor must center its slide in the preview and leave the editor where it is. The sync once judged its own preview scroll by time since the write, so a busy page delivered the event after the 120 ms echo window and the editor jumped 136 px (followup 2937-p2). Linux WebKit showed it only under CPU load and is not iOS Safari. This taps the editor 40 times in real Mobile Safari on an iPad Pro iOS Simulator, with the page kept busy on purpose, and fails if any tap moves the editor 2 px or more. The same probe fails 39 of 40 taps on the old code in Playwright's WebKit, so it can fail. A simulator runs on the Mac's CPU, so it is not a physical device. The iPhone is not run: a phone is never wide enough for the two-pane layout.",
       "on_pull_request": false
+    },
+    {
+      "name": "office-quicklook",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "tools/office-quicklook.mjs",
+        "docs/src/lib/calco/pptx.ts",
+        "docs/src/lib/calco/reader.ts",
+        "docs/src/lib/calco/layout.ts",
+        "lib/export/office-export.js",
+        "lib/core/office-icons.js",
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/office-capture.mjs",
+        "docs/scripts/ios-safari/QLProbe.swift"
+      ],
+      "on_pull_request": false,
+      "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
+      "why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
     }
   ]
 }

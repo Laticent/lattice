@@ -4,7 +4,9 @@
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
-# simulators and then in the Mac's own Safari. Run from the repo root after `npm ci` and `npm run build` (the
+# simulators and then in the Mac's own Safari. PROBE=office opens each one-slide editable .pptx that
+# tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
+# and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
 #
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
@@ -31,7 +33,22 @@ case "$xcode" in
 esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
-if [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
+if [ "$PROBE" = office ]; then
+  # The one-slide editable .pptx files tools/office-quicklook.mjs cut, shown by QLProbe, a test app that hands each to
+  # Apple's Quick Look viewer (the component the Files app's Preview uses). Built here with swiftc for the simulator and
+  # signed ad hoc, as a simulator requires. A plain server answers run.sh's readiness check.
+  page="$ROOT/platform-suite-artifacts/office-quicklook"
+  test -f "$page/index.json" || { echo "no $page/index.json: run tools/office-quicklook.mjs first" >&2; exit 1; }
+  app="$RUNNER_TEMP/QLProbe.app"
+  mkdir -p "$app"
+  xcrun --sdk iphonesimulator swiftc -parse-as-library -target "$(uname -m)-apple-ios17.0-simulator" \
+    -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" docs/scripts/ios-safari/QLProbe.swift -o "$app/QLProbe"
+  cp docs/scripts/ios-safari/QLProbe-Info.plist "$app/Info.plist"
+  codesign --force --sign - "$app"
+  (cd "$page" && python3 -m http.server $PORT --bind 127.0.0.1 > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/index.json"
+elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
   # A blank page on an http origin is all the JPEG probe needs; the photo-memory probe serves its own pages.
   page="$RUNNER_TEMP/jpeg-probe-page"
   mkdir -p "$page"
@@ -81,6 +98,8 @@ families='iPad iPhone'
 # The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
 # is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
 [ "$PROBE" = focus-sync ] && families='iPad'
+# The office probe stands in for the owner's iPhone (Preview, opened from Files): the iPhone alone, to fit the job.
+[ "$PROBE" = office ] && families='iPhone'
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
 for family in $families; do
@@ -105,6 +124,17 @@ for family in $families; do
     com.apple.mobilesafari:WebKitRemoteAutomationEnabled; do
     xcrun simctl spawn "$udid" defaults write "${key%%:*}" "${key#*:}" -bool true
   done
+  # The office probe shows each file in QLProbe and captures the screen: no WebDriver session, no Safari
+  # (docs/scripts/ios-safari/office-capture.mjs says why).
+  if [ "$PROBE" = office ]; then
+    xcrun simctl shutdown "$udid" || true
+    xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b
+    SIM_UDID="$udid" SIM_LABEL="$family" OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" \
+      APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || status=1
+    xcrun simctl shutdown "$udid" || true
+    left=$((left - 1))
+    continue
+  fi
   # Exit 3 from run.mjs means no session was ever created, so no probe code ran: safaridriver could not reach this
   # simulator, or safaridriver itself died. In main's first three iOS nightlies every failure was this one, and run.mjs's own
   # session attempts do not help when the device or the driver is what is stuck. So a stuck start gets ONE second start: a

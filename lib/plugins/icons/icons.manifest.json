@@ -30,7 +30,9 @@
       "known",
       "whyUnknown",
       "drawHtml",
-      "drawElement"
+      "drawElement",
+      "glyphHtml",
+      "glyphElement"
     ],
     "registers": {
       "icon": {
@@ -47,6 +49,10 @@
           "corners": [
             "square",
             "rounded"
+          ],
+          "draw": [
+            "font",
+            "svg"
           ]
         }
       }
@@ -89,6 +95,7 @@
     "--icon-tile",
     "--icon-tile-h",
     "--icon-u",
+    "--icon-weight",
     "--radius-sm",
     "--text-heading"
   ],

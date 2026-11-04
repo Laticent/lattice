@@ -201,6 +201,14 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .vpill { left: 700px; top: 640px; width: 120px; text-align: center; font-size: 14px; }
   .vpill::before { content: ""; display: inline-block; width: 24px; height: 12px; background: #063; }
   .rpill { left: 900px; top: 640px; width: 200px; text-align: right; font-size: 14px; }
+  .rtlgap { left: 40px; top: 470px; width: 400px; font-size: 20px; }
+  .rtlgap i, .justgap i, .indentgap i { display: inline-block; width: 30px; }
+  .justgap { left: 460px; top: 400px; width: 260px; font-size: 16px; text-align: justify; }
+  .indentgap { left: 760px; top: 400px; width: 300px; font-size: 16px; text-indent: 40px; }
+  .hicon { left: 40px; top: 600px; font-size: 20px; }
+  .calm { left: 460px; top: 560px; width: 400px; font-size: 16px; line-height: 24px; }
+  .emsp { left: 900px; top: 600px; font-size: 16px; }
+  .hicon i, .calm i { display: inline-block; width: 30px; height: 16px; }
   .rpill::after { content: ""; display: inline-block; width: 30px; height: 12px; background: #600; }
 </style></head><body>
 <section id="r">
@@ -223,7 +231,13 @@ third</pre>
   <p class="lig">office first</p>
   <p class="vpill">Speed</p>
   <p class="rpill">Ends early</p>
+  <p class="rtlgap" dir="rtl">שלום <i></i> עולם</p>
+  <p class="justgap">Justified words spread across the line so each gap is wide and wider still here at the end.</p>
+  <p class="indentgap">An indented first line starts late, and the lines after it start at the column edge.</p>
   <p class="tall">one two three four five<br>six <span style="font-size: 40px">BIG</span> seven<br>eight nine ten</p>
+  <h2 class="hicon">Our <i></i> storage costs fell</h2>
+  <p class="calm">alpha one<br>beta two<br>gamma <i></i> three<br>delta four</p>
+  <p class="emsp">Price:&emsp;&emsp;$40 per seat</p>
 </section></body></html>`;
 
 describe('calco reader: the review cases', () => {
@@ -246,22 +260,60 @@ describe('calco reader: the review cases', () => {
     assert.equal(plain(find(/bold/)).replace(/ /g, ''), 'bold italic');
   });
 
-  test('generated text is read in line: the "01" a ::before draws, a spacer for the 60px it takes, then the word', () => {
+  // Room something takes in a line (here the 60px a ::before marker's box takes, and a chip's 16px padding: both more
+  // than 0.6 em) splits the paragraph into one box per piece, each where the browser drew it. A spacer stretched by
+  // character spacing used to hold it, and an app that does not honor that spacing exactly slid the next word under
+  // what took the room (reader.ts, SPLIT AT ROOM).
+  test('generated text is read in line: the "01" a ::before draws is its own box, and the word starts 60px later', () => {
     // The marker is no longer picture content: a real element stands in for it during the read.
-    const why = find(/Why/);
-    assert.equal(why.x, 40, 'the frame starts at the marker');
-    const runs = why.lines[0];
-    assert.equal(runs[0].text, '01');
-    assert.equal(runs[runs.length - 1].text, 'Why');
-    const gap = runs.find((r) => /^\s+$/.test(r.text));
-    assert.ok(gap && gap.style.letterSpacing > 30, 'a spacer carries the rest of the 60px');
+    const one = find(/^01$/);
+    const why = find(/^Why$/);
+    assert.ok(one && why, 'two boxes');
+    assert.equal(one.x, 40, "the marker's box starts at the marker");
+    assert.ok(Math.abs(why.x - 100) < 1, `the word starts after the marker's 60px: ${why.x}`);
+    assert.equal(why.y, one.y, 'on one line');
   });
 
-  test('a padded inline pill keeps its room as a spacer run', () => {
-    const runs = find(/pill/).lines[0];
-    const spacers = runs.filter((r) => r.text === ' ');
-    assert.ok(spacers.length >= 1, 'a spacer stands in for the padding');
-    assert.ok(spacers.every((r) => r.style.letterSpacing > 8), JSON.stringify(spacers.map((r) => r.style.letterSpacing)));
+  test('a padded inline pill splits the line at its padding, with no stretched spacer', () => {
+    const a = find(/^A$/);
+    const pill = find(/^pill$/);
+    const after = find(/^after$/);
+    assert.ok(a && pill && after, 'three boxes');
+    assert.ok(pill.x - (a.x + a.w) >= 16, 'the pill starts past its 16px padding');
+    assert.ok(after.x - (pill.x + pill.w) >= 16, 'the next word starts past it too');
+    for (const f of [a, pill, after]) assert.ok(f.lines[0].every((r) => !(r.style.letterSpacing > 8)), 'no stretched spacer');
+  });
+
+  // Not split at room (the spacer holds it, as before): right-to-left text, whose words run right to left; justified
+  // text, whose wide spaces are the paragraph's own; a first-line indent, which is the paragraph's own start.
+  test('right-to-left text, justified text and a first-line indent are not split into pieces', () => {
+    // Each paragraph is ONE box: its first word's box holds its last word too.
+    for (const [first, last] of [[/שלום/, 'עולם'], [/Justified/, 'end.'], [/An indented/, 'edge.']]) {
+      const f = find(first);
+      assert.ok(f, `${first} was read`);
+      assert.ok(plain(f).includes(last), `${first} split: its box holds ${JSON.stringify(plain(f))}`);
+    }
+  });
+
+  // The red team's three regressions of the split (PR 2992): a heading is never split, so the title placeholder holds the
+  // whole heading; only the line something takes room in is cut, so the lines around it stay one box; and spaces alone
+  // (an em space, non-breaking spaces) are never room, so a paragraph with no icon stays whole.
+  test('a heading with an icon stays one box: the title holds the whole heading', () => {
+    const h = find(/^Our/);
+    assert.ok(h && plain(h).includes('storage costs fell'), `the heading split: ${JSON.stringify(h && plain(h))}`);
+  });
+
+  test('only the line an icon takes room in is cut; the lines before it stay one box', () => {
+    const calm = find(/^alpha one/);
+    assert.ok(calm && plain(calm).includes('beta two'), `the calm lines split apart: ${JSON.stringify(calm && plain(calm))}`);
+    const g = find(/^gamma/);
+    assert.ok(g && !plain(g).includes('three'), 'the line with the icon is cut at it');
+    assert.ok(find(/^delta four$/), 'the line after it is its own box');
+  });
+
+  test('spaces alone are not room: a paragraph held by em spaces stays one box', () => {
+    const p = find(/^Price:/);
+    assert.ok(p && plain(p).includes('$40 per seat'), `split at spaces: ${JSON.stringify(p && plain(p))}`);
   });
 
   test('a heading whose glyph box overhangs a clipping stage is still read', () => {
@@ -558,5 +610,77 @@ describe('calco reader: native shapes and what covers them', () => {
     await s.evaluate(restoreSlide);
     assert.deepEqual(await look(), shown, 'box and text back at once, with nothing animating');
     assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'restore is exact');
+  });
+});
+
+// A counter drawn by an in-flow ::before in its own grid cell (regulatory-update's "01"). In the gallery it cannot be read
+// as text: the row styles its title with `strong:first-child`, so any stand-in inserted before it restyles the title and
+// the reader rightly refuses the swap. Here a `lower-greek` counter, which the reader does not spell out, stays in the
+// picture the same way. Kept in the picture, it must cover its CELL, not its whole row: given the row's box,
+// it counted as covering every box in the row, so the row's pill stayed in the picture, written over the pill's label
+// (gallery slide 107, found on PR 2992).
+describe('calco reader: a grid-cell counter covers its cell, not its row', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font-family: sans-serif; }
+      section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+      ol { position: absolute; left: 64px; top: 100px; width: 1100px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+      li { display: grid; grid-template-columns: auto 1fr auto; column-gap: 16px; padding: 8px; counter-increment: n; background: #eee; border-left: 3px solid #865; }
+      li::before { content: counter(n, lower-greek); grid-column: 1; grid-row: 1; font: 20px monospace; color: #865; }
+      li > strong:first-child { grid-column: 2; grid-row: 1; font-size: 20px; }
+      li > span.pill { grid-column: 3; grid-row: 1; padding: 2px 12px; border-radius: 999px; background: rgb(255, 245, 197); border: 1px solid #865; font-size: 14px; }
+    </style></head><body><section id="g"><ol><li><strong>EU AI Act</strong><span class="pill">Effective Feb 2026</span></li></ol></section></body></html>`, { waitUntil: 'load' });
+    res = await (await page.$('#g')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('the counter stays in the picture at its own size', () => {
+    const counter = res.kept.find((k) => /::before/.test(k.kind));
+    assert.ok(counter, `no counter kept: ${JSON.stringify(res.kept)}`);
+    assert.ok(counter.w < 60 && counter.h < 40, `the counter covers ${counter.w}x${counter.h}, its row's box`);
+  });
+
+  // A behavior check, not the pin: on this small page the pill lifts with or without the fix; the size test above fails without it.
+  test('the pill is a shape, and its label is text', () => {
+    const pill = res.shapes.find((sh) => sh.kind === 'box' && sh.x > 900);
+    assert.ok(pill, `the pill stayed in the picture: ${JSON.stringify(res.refused)}`);
+    assert.ok(res.frames.some((f) => f.lines.some((l) => l.some((r) => /Effective Feb 2026/.test(r.text)))), 'the label is not text');
+  });
+});
+
+// A right-to-left grid counts its columns from the right edge: its counter's cell is on the right. Measured from the left,
+// the counter was cropped from the wrong side and lost (the checker on PR 2992 found the numbering gone from an RTL row).
+describe('calco reader: a right-to-left grid row measures its counter from the right', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(`<!doctype html><html><head><style>
+      body { margin: 0; font-family: sans-serif; }
+      section { width: 1280px; height: 720px; position: relative; background: #fff; color: #000; }
+      ol { position: absolute; left: 64px; top: 100px; width: 1100px; margin: 0; padding: 0; list-style: none; counter-reset: n; }
+      li { direction: rtl; display: grid; grid-template-columns: auto 1fr auto; column-gap: 16px; padding: 8px; counter-increment: n; background: #eee; }
+      li::before { content: counter(n, lower-greek); grid-column: 1; grid-row: 1; font: 20px monospace; color: #865; }
+    </style></head><body><section id="r"><ol><li><strong>Row</strong><span>Tail</span></li></ol></section></body></html>`, { waitUntil: 'load' });
+    res = await (await page.$('#r')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('the counter is kept at its own cell, on the right where it paints', () => {
+    const counter = res.kept.find((k) => /::before/.test(k.kind));
+    assert.ok(counter, `no counter kept: ${JSON.stringify(res.kept)}`);
+    assert.ok(counter.x > 1000 && counter.x + counter.w <= 1165, `the counter's box is at ${counter.x}..${counter.x + counter.w}, not its right-hand cell`);
+    assert.ok(counter.w < 60, `the counter covers ${counter.w}px, its row`);
   });
 });

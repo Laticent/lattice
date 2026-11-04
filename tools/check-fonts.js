@@ -25,7 +25,8 @@
  * Noto Color Emoji is self-hosted too, as 11 unicode-range woff2 slices
  * (lib/fonts/emoji-faces.js). They are not text faces, so the set checks above
  * skip them; this gate only checks that every slice's woff2 is on disk. The
- * Studio reads the same files from assets/fonts/. Read-only; never writes.
+ * Studio reads the same files from assets/fonts/. The Lattice Icons font (lib/fonts/icon-faces.js) is checked by
+ * its stamp against the icon drawings it was built from (tools/build-icon-font.js). Read-only; never writes.
  *
  * Background: engineering/decisions/2026-06-12-export-font-embedding.md,
  * engineering/decisions/2026-06-26-local-font-library.md.
@@ -36,6 +37,7 @@ const path = require('node:path');
 
 const { TEXT_FACES, faceKey } = require('../lib/fonts/text-faces');
 const { EMOJI_SLICES } = require('../lib/fonts/emoji-faces');
+const { staleIconFont } = require('./build-icon-font');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -148,6 +150,9 @@ function main() {
   report('Listed in a supply but missing its woff2 on disk', missingFiles);
   report('Vendored for the web export with OTHER bytes than the manifest face (assets/fonts/)', webExportByteDrift());
   report('CDN regression — a Google-Fonts URL reappeared', cdnRegressions());
+  // The icon font is built by hand from the icon drawings (npm run icons:font, which needs Python); this holds the
+  // committed font to the drawings by its stamp, so a changed icon list cannot ship with an old font.
+  report('The Lattice Icons font is stale — run `npm run icons:font`', staleIconFont());
 
   if (problems.length) {
     process.stderr.write(

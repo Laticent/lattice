@@ -12191,6 +12191,9 @@ const NUL_TEXT_EXTENSIONS = [
   // The Open XML SDK checker (tools/office-conformance/openxml-check) and the vendored Office schemas
   // (test/conformance/office/schemas) — plain text source.
   '.cs', '.csproj', '.xsd',
+  // The office probe's test app around Apple's Quick Look viewer (docs/scripts/ios-safari/QLProbe.swift) and its
+  // Info.plist — plain text source.
+  '.swift', '.plist',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list

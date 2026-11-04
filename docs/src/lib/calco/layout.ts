@@ -53,6 +53,10 @@ export function metricsFor(style: TextStyle, fonts: EmbeddedFont[], cache: Map<E
  * gap): the pitch the browser used, in the unit a proportional `spcPct` is read in.
  */
 export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: number): number {
+	// One line has no pitch to keep, so it states none: 100%. Apps disagree about where a multiple puts the FIRST
+	// baseline (Google Slides drew a 1.3x single line about 0.3 em higher than PowerPoint and LibreOffice, next to an
+	// inline icon placed exactly), and at 100% there is nothing to disagree about. The box is placed to match (placeFrame).
+	if (frame.lines.length <= 1) return 1;
 	const natural = (metrics.ascent + metrics.descent + (metrics.lineGap || 0)) * size;
 	return natural > 0 ? frame.lineHeight / natural : 1;
 }
@@ -66,9 +70,15 @@ export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: nu
  *    text, so the box top is the baseline minus (pitch − descent);
  *  - `proportional` (the .pptx's spcPct): the line is the face's natural line scaled by the
  *    multiple, glyphs at its top, so the box top is the baseline minus multiple × ascent.
- *    (Measured in LibreOffice 26.8; Google Slides reads the multiple the same way.)
+ *    (Measured in LibreOffice 26.8. Google Slides drew a one-line box at 1.3x about 0.3 em higher, so a single line
+ *    states 100%: `spacingMultiple`.)
  */
-export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact'): PlacedBox {
+/**
+ * `capped`: honor `frame.before` (a split piece's box ends at its text). Only for a format whose text boxes never wrap
+ * (PowerPoint, `wrap: false`); LibreOffice wraps an .odp text box at its width whatever its style says, so there a piece
+ * keeps its slack, or its last word would drop onto the next line.
+ */
+export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact', capped = false): PlacedBox {
 	const { ascent, descent } = metrics;
 	// The browser's baseline: the glyph box splits ascent : descent.
 	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
@@ -80,7 +90,8 @@ export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetric
 			: frame.align === 'right'
 				? frame.x
 				: slideW - frame.x - frame.w;
-	const slack = Math.max(0, Math.min(Math.max(0.1 * frame.w, 3 * maxSize), room));
+	const limit = capped && frame.before !== undefined && frame.align === 'left' ? Math.max(0, frame.before - frame.x - frame.w) : room;
+	const slack = Math.max(0, Math.min(Math.max(0.1 * frame.w, 3 * maxSize), room, limit));
 	const x = frame.align === 'center' ? frame.x - slack / 2 : frame.align === 'right' ? frame.x - slack : frame.x;
 	return { x, y, w: frame.w + slack, h: frame.lineHeight * frame.lines.length };
 }

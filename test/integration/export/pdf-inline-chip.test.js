@@ -94,13 +94,14 @@ describe('pdf-inline-chip', () => {
   });
 });
 
-// A chip whose words go back to the photo (a glyph the deck's fonts lack, like an emoji) goes back
-// with them. The reader counted the words as drawn and drew the chip's fill over the photo; the font
-// check then sent the words to the photo, under that fill, and `{Launch 🚀}` printed as an empty pill.
+// A chip whose words go back to the photo (a glyph the deck's fonts lack, drawn from a system font) goes
+// back with them. The reader counted the words as drawn and drew the chip's fill over the photo; the font
+// check then sent the words to the photo, under that fill, and the pill printed empty (`{Launch 🚀}` did,
+// before emoji were drawn as text: pdf-emoji-text.test.js). A CJK character the deck's fonts lack is the case now.
 // FALSIFIABLE: without compose.mjs dropping the chip with its words, the pill's middle is blank.
 describe('pdf-inline-chip: a chip whose words stay in the photo', () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chip-emoji-'));
-	fs.writeFileSync(path.join(dir, 'deck.md'), ['---', 'theme: indaco', '---', '', '## Emoji', '', 'Before `{Launchpad 🚀}` after', ''].join('\n'));
+	fs.writeFileSync(path.join(dir, 'deck.md'), ['---', 'theme: indaco', '---', '', '## Emoji', '', 'Before `{Launchpad 漢字}` after', ''].join('\n'));
 	const pdf = path.join(dir, 'deck.pdf');
 	const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), pdf], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
 	after(() => fs.rmSync(dir, { recursive: true, force: true }));

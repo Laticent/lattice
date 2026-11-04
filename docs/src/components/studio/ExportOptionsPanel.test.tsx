@@ -58,6 +58,15 @@ describe('ExportOptionsPanel', () => {
 		expect(screen.getByRole('switch', { name: /re-openable in lattice/i })).toHaveAttribute('aria-checked', 'false');
 	});
 
+	it('PowerPoint says to send the PDF to an iPhone; ODP, which iPhone Preview does not open, does not', () => {
+		const note = /Sending it to an iPhone\?/;
+		const pptx = render(<ExportOptionsPanel format="pptx" deckId={DECK} onBack={() => {}} onExport={vi.fn()} />);
+		expect(screen.getByText(note)).toBeTruthy();
+		pptx.unmount();
+		render(<ExportOptionsPanel format="odp" deckId={DECK} onBack={() => {}} onExport={vi.fn()} />);
+		expect(screen.queryByText(note)).toBeNull();
+	});
+
 	it('PowerPoint offers editable text and re-openable, and never asks for comments', () => {
 		addComment(DECK, 1, 'A private review note');
 		const onExport = vi.fn();

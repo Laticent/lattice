@@ -133,8 +133,11 @@ const { TEXT_FACES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fon
 // The emoji font's 11 slices are declared in the same sheet with the same relative `url(fonts/…)` (lib/fonts/emoji-faces.js),
 // so they are staged beside the text faces or the preview 404s on them and draws the platform's emoji instead.
 const { EMOJI_SLICES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fonts', 'emoji-faces.js'));
+// Lattice Icons too: the sheet declares its three faces the same way (lib/fonts/icon-faces.js), and an icon draws as
+// one of its glyphs by default (engineering/decisions/2026-11-01-icon-font.md).
+const { ICON_FACES } = createRequire(import.meta.url)(join(repoRoot, 'lib', 'fonts', 'icon-faces.js'));
 const distFontsDir = join(repoRoot, 'dist', 'fonts');
-for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES]) {
+for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES, ...ICON_FACES]) {
   assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
 }
 // On-demand highlight.js grammars — one file per language, plus the manifest of aliases

@@ -15,9 +15,11 @@ import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
+import iconFallbackCore from '../../../../lib/fonts/icon-fallback.js';
 import { math as MATH_DETECT } from '../../../../lib/plugins/detect.generated.mjs';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from '../../lib/front-matter';
 import { samplesBaseFor } from '../../lib/samples-base';
@@ -464,11 +466,18 @@ export async function shareHtmlPlayer(
 	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
 		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
-	out = splitLikeCli(out, source);
-
-	onStatus?.('Embedding fonts…');
 	// The deck's `fonts:` line with the export panel's choice on top, the plan the command line runs.
 	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
+	// Under the Emoji font setting `system` the player carries no icon font, so every slide draws its icons' <svg>, as the
+	// command line's player does (lib/fonts/icon-fallback.js).
+	const iconsAsSvg = fontPolicyCore.resolveFontPolicy(fontSetting).emoji === 'system';
+	const shipRender = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R => {
+		const cut = splitLikeCli(r, src);
+		return iconsAsSvg ? { ...cut, html: iconFallbackCore.drawIconsAsSvg(cut.html) } : cut;
+	};
+	out = shipRender(out, source);
+
+	onStatus?.('Embedding fonts…');
 	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
 		import('@/playground/font-embed.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
@@ -563,7 +572,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => splitLikeCli(r, src)).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;

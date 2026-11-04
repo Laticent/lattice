@@ -86,27 +86,44 @@ describe('calco shapes — draw order', () => {
 });
 
 describe('calco shapes — pptx', () => {
-  test('presets, custom geometry and a rule, the card grouped in a p:grpSp', async () => {
-    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
-    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
-    assert.equal(xml.match(/<p:grpSp>/g).length, 1, 'one card group');
+  // Apple's Office importer (iPhone Preview, Quick Look) drops custom geometry inside a group: an icon drew as a speck, a
+  // card with uneven corners lost its fill and border. So a card that holds any custom geometry is written loose, in the
+  // order it paints, and a card of presets alone stays a group (the owner, 2026-11-03). ODP keeps every card in draw:g.
+  const mark = { kind: 'path', x: 360, y: 110, w: 12, h: 8.5, path: [['M', 0, 4.1], ['L', 4, 8.1], ['L', 12, 0]], closed: false, stroke: { color: '#16a34a', alpha: 1, width: 2.5 }, cap: 'round', join: 'round', group: 0 };
+  const at = (xml, re) => xml.search(re);
+  const slideXml = async (d) => (await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip))).file('ppt/slides/slide1.xml').async('string');
+
+  test('a card holding custom geometry is written loose, in the order it paints', async () => {
+    const xml = await slideXml({ width: 1280, height: 720, slides: [{ ...slide(), shapes: [card, accent, tag, mark, rule] }] });
+    assert.doesNotMatch(xml, /<p:grpSp>/, 'no group holds custom geometry');
     assert.doesNotMatch(xml, /calco-group-/, 'the tag is gone from every name');
+    const order = [/prst="roundRect"/, /name="Mark /, /Owns the policy\./, /prst="line"/].map((re) => at(xml, re));
+    assert.ok(order.every((v) => v >= 0), `missing a member: ${order}`);
+    assert.ok(at(xml, /prst="roundRect"/) < at(xml, /<a:t>Build<\/a:t>|<a:t>BUILD<\/a:t>/), 'the tab paints over its card');
+    assert.ok(at(xml, /prst="roundRect"/) < at(xml, /name="Mark /), 'the mark paints over its card');
+    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (x) => x[1]);
+    assert.equal(new Set(ids).size, ids.length);
+  });
+
+  test('a card of presets alone is grouped in a p:grpSp, its children in slide coordinates', async () => {
+    const xml = await slideXml({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [body, frame([[{ text: 'Free text', style: style() }]], { y: 600 })], shapes: [card, rule] }] });
+    assert.equal(xml.match(/<p:grpSp>/g).length, 1, 'one card group');
     const group = xml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0];
     assert.match(group, /prst="roundRect"/);
-    assert.match(group, /<a:custGeom>/);
-    assert.match(group, /<a:t>BUILD<\/a:t>|<a:t>Build<\/a:t>/, 'the label carries its word');
+    assert.doesNotMatch(group, /<a:custGeom>/);
     assert.match(group, /Owns the policy\./);
-    assert.match(group, /<a:chOff x="(\d+)" y="(\d+)"\/>/);
     const [, ox, oy] = group.match(/<a:off x="(\d+)" y="(\d+)"\/>/);
     const [, cx, cy] = group.match(/<a:chOff x="(\d+)" y="(\d+)"\/>/);
     assert.deepEqual([ox, oy], [cx, cy], 'children keep slide coordinates');
-    // Outside the group: the free rule (a line preset) and the free text box.
     const outside = xml.replace(group, '');
     assert.match(outside, /prst="line"/);
     assert.match(outside, /Free text/);
-    // Unique ids, the group's included.
-    const ids = Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => m[1]);
-    assert.equal(new Set(ids).size, ids.length);
+  });
+
+  test('the .odp keeps a card holding custom geometry in its draw:g (Apple\'s importers do not open .odp)', async () => {
+    const zip = await JSZip.loadAsync(await writeOdp(JSZip, { width: 1280, height: 720, slides: [{ ...slide(), shapes: [card, accent, tag, mark, rule] }] }, 'nodebuffer'));
+    const g = (await zip.file('content.xml').async('string')).match(/<draw:g[\s\S]*?<\/draw:g>/)[0];
+    assert.ok((g.match(/draw:custom-shape/g) || []).length >= 2, 'the tab and the mark');
   });
 
   test('the label is one shape: custom geometry, fill, text and insets on the same p:sp', async () => {
@@ -139,6 +156,15 @@ describe('calco shapes — pptx', () => {
     assert.equal(out.match(/<p:grpSp>/g).length, 2, 'the card and the pill');
     assert.match(out, /<p:grpSp>.*name="Card".*<p:grpSp>.*name="Pill".*name="Dot".*<\/p:grpSp>.*name="Other".*<\/p:grpSp>/);
     assert.doesNotMatch(out, /calco-(group|sub)-/);
+  });
+
+  test('a loose card keeps a pill of presets alone as its own group', () => {
+    const sp = (name, x, geom = '<a:prstGeom prst="rect"/>') => `<p:sp><p:nvSpPr><p:cNvPr id="${x}" name="${name}"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${x}" y="0"/><a:ext cx="10" cy="10"/></a:xfrm>${geom}</p:spPr></p:sp>`;
+    const xml = `<p:spTree>${sp('calco-group-1|Card', 2, '<a:custGeom></a:custGeom>')}${sp('calco-group-1|calco-sub-1|Pill', 3)}${sp('calco-group-1|calco-sub-1|Dot', 4)}${sp('calco-group-1|Other', 5)}</p:spTree>`;
+    const out = groupShapes(xml);
+    assert.equal(out.match(/<p:grpSp>/g).length, 1, 'only the pill is a group');
+    assert.match(out, /name="Card".*<p:grpSp>.*name="Pill".*name="Dot".*<\/p:grpSp>.*name="Other"/);
+    assert.doesNotMatch(out.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0], /custGeom/);
   });
 
   test('groupShapes leaves a slide without tags as it was', () => {

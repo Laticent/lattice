@@ -430,3 +430,10 @@ async function runJpegProbe(id) {
 	if (result.total) console.log(`${LABEL}: Safari's encoder ${result.total.native} B, ours ${result.total.ours} B over ${result.rows.length} pictures`);
 	return result;
 }
+
+/**
+ * The office probe (PROBE=office): each one-slide editable .pptx that tools/office-quicklook.mjs cut (its index.json),
+ * opened in Mobile Safari, which previews an Office file with the same importer as Preview in the Files app, and
+ * captured. One screenshot a slide, under office/ in the artifacts: the review is by eye against LibreOffice and Quick
+ * Look, so a step fails only when Safari could not open the file or capture it.
+ */

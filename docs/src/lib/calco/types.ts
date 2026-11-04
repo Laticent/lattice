@@ -68,6 +68,13 @@ export interface TextFrame {
 	lineHeight: number;
 	align: 'left' | 'center' | 'right';
 	lines: TextRun[][];
+	/**
+	 * One piece of a paragraph split where something took room (an inline icon, a pill), not the last on its line: the x,
+	 * px, its box may grow to. A writer grows a box's width for a wider substitute font, and must not grow it past this,
+	 * or the box would reach over the icon after it and take its clicks. Only PowerPoint honors it (its boxes never wrap);
+	 * LibreOffice wraps an .odp box at its width, so there a piece keeps its slack (layout.ts `placeFrame`).
+	 */
+	before?: number;
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
 	/**
@@ -179,6 +186,12 @@ export interface Shape {
 	alt?: string;
 	/** A picture that holds a raster image (an `<img>`, a video poster, a canvas): lossy JPEG is fine for it. */
 	photo?: boolean;
+	/**
+	 * A picture that is one inline `<svg>` of plain shapes (an icon, an avatar's face, a spark): the same drawing as SVG
+	 * markup in the picture's own box, in slide px. A writer stores it beside `image`, which stays the fallback for a
+	 * reader that cannot draw SVG; PowerPoint and LibreOffice draw this one, sharp at any size.
+	 */
+	svg?: string;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */

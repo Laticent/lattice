@@ -1068,7 +1068,16 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 //
 // A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
 // PDF or PowerPoint big, and the author owns that choice.
-const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({ deckSize: frontMatterValue((mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', 'size'), requested: flags.size, format: OUT_FORMAT });
+// The player keeps the deck's canvas. One render serves the output and the player beside it (an extensionless run's
+// `.html` sidecar, or `a.pdf --player`'s `a.html`), so when the player is on its rule wins and the PDF or PowerPoint
+// renders at the deck's size too; `--size hd` lowers both.
+const FM_BLOCK = (mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({
+  deckSize: frontMatterValue(FM_BLOCK, 'size'),
+  requested: flags.size,
+  format: OUT_FORMAT,
+  player: !!flags.player || require('./lib/core/render-target-keys').readRenderTargetKey(FM_BLOCK, 'player'),
+});
 const mdSized = EXPORT_CANVAS.size ? require('./lib/core/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
 if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {
   const f = require('./lib/core/export-canvas').FOUR_K_FACTOR[OUT_FORMAT];
@@ -1181,7 +1190,8 @@ const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // Hoisted ABOVE the plugins' bakes, which run at module-evaluation time (the font plumbing is
 // declared further down; reaching it early is a TDZ throw).
-const { fontFaceCss, emojiFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emojiFaceCss, iconFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { drawIconsAsSvg, drawsIconGlyphs } = require('./lib/fonts/icon-fallback.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { HOLD_UNFIT_REFLOW_SRC } = require('./lib/core/table-reflow-fit');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
@@ -1408,7 +1418,9 @@ const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 // faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
 // without math nothing supplies KaTeX's faces — and nothing asks for one, since no
 // element carries a KaTeX family without KaTeX markup.
-const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES];
+// Lattice Icons too: the page carries its faces as data whenever a slide draws a glyph (`iconFaceCss` below), and under
+// `fonts: emoji: system` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
+const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
   // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already
@@ -2815,7 +2827,21 @@ const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title
 // draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
 const FILE_IS_HTML = OUT_FORMAT === 'html';
 const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
-const extraFontCss = katexFacesCss + emojiCss;
+// Lattice Icons: an icon draws as a glyph of our font beside its <svg>, and CSS shows the glyph (`icon: font`, the default).
+// The Emoji font setting decides whether the file carries the font: under `system` it does not, and since no machine has our
+// icons the page is marked to show the <svg> instead (engineering/decisions/2026-11-01-icon-font.md).
+// Under `system` every slide takes `icon-svg`, the class `icon: svg` stamps, so the player and every format built from this
+// page keep the switch (lib/fonts/icon-fallback.js). A deck that draws no glyph (`icon: svg`) carries no icon font.
+// An editable PowerPoint or LibreOffice file always draws its icons as native outline shapes (lib/core/office-icons.js):
+// apps that ignore embedded fonts (Google Slides, iPhone Preview) cannot draw our glyphs. The <svg> each slide then
+// shows is what Calco lifts as a shape.
+const iconsAsSvg = FONT_POLICY.emoji === 'system';
+// Shapes are switched on in the LIVE page just before Calco reads it (the office capture below), so the HTML this run
+// writes, and a player built from it, keep the font.
+const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({ format: OUT_FORMAT, editable: EDITABLE });
+const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
+const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
+const extraFontCss = katexFacesCss + emojiCss + iconCss;
 // `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
 const docFonts = !extraFontCss
@@ -3028,7 +3054,7 @@ ${deckStyle}
 <a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}
 <main id="deck" tabindex="-1">
-${slidesWithMeta2}
+${deckSlidesHtml}
 </main>
 ${pluginHydrateScript}
 ${stateChartScript}
@@ -4936,6 +4962,9 @@ async function renderBody(browser, g, closeBrowser) {
     // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
     if (OUT_FORMAT === 'odp' || EDITABLE) {
       const office = require('./lib/export/office-export');
+      // Icons as native shapes (lib/core/office-icons.js): each slide shows its icons' <svg>, which Calco lifts as one
+      // outline shape. Set here, on the live page, so nothing written to disk changes.
+      if (OFFICE_ICON_SHAPES) await g(() => page.$$eval('section[data-lattice-slide]', (els) => { for (const el of els) el.classList.add('icon-svg'); }), 'icons as shapes');
       const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
       const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;

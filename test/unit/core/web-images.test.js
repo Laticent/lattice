@@ -198,3 +198,19 @@ test('an underscore host name can be allowed', async () => {
   assert.equal(webOrigin('https://my_host.example/a.png'), 'https://my_host.example');
   assert.match(subresourceCspPolicy({ webOrigins: ['https://my_host.example'] }), /img-src 'self' data: blob: https:\/\/my_host\.example https:\/\/\*\.my_host\.example;/);
 });
+
+test('the host may name its own origin for fonts, and only an exact origin gets in', async () => {
+  // A `srcdoc` preview frame's `'self'` is not the site's origin in Firefox, which refused every self-hosted face
+  // (engineering/decisions/2026-11-01-icon-font.md: the icons drew nothing there). The host names its origin; a value
+  // shaped to smuggle a source or a directive is dropped, as a web image origin is.
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const p = subresourceCspPolicy({ fontOrigins: ['https://lattice.example', 'https://a.com; script-src *', "'unsafe-inline'", 'https://lattice.example'] });
+  assert.match(p, /font-src 'self' data: https:\/\/lattice\.example;/);
+  assert.doesNotMatch(p, /script-src|unsafe-inline|a\.com/);
+  assert.match(subresourceCspPolicy({}), /font-src 'self' data:;/, 'without it, nothing changes');
+  // A KaTeX sheet served from another origin adds that origin; it does not replace the host's own.
+  assert.match(
+    subresourceCspPolicy({ fontOrigins: ['https://lattice.example'], katexUrl: 'https://cdn.example/katex.css' }),
+    /font-src 'self' data: https:\/\/lattice\.example https:\/\/cdn\.example;/,
+  );
+});
