@@ -1,0 +1,26 @@
+/* Card reflow — a row of cards drops columns as its box narrows, instead of squeezing.
+ *
+ * Every card component used to lay its row out at a fixed count (two, three, four, or one per
+ * item) and reflowed only on the deck's ASPECT (the `data-family` stamp). A narrow pane, or a
+ * narrow frame of a wide deck, kept the count and squeezed each card to a word per line. The
+ * owner's direction (2026-11-04): respond to WIDTH, with one shared rule.
+ *
+ * THE SHARED CONTRACT, which each card component follows in its own styles:
+ *   1. its content area (`.cell-stage`) is an inline-size container named `lat-cards`, declared
+ *      HERE, once, and only on a wide or square deck. A tall or strip deck already reflows on its
+ *      aspect, so the width rules stay out of it and its exports keep the forms they had (a first
+ *      cut let them fire on a portrait canvas too, whose content area is narrower than 36em, and
+ *      changed pricing, statute-stack, list-steps and q-and-a pages there). The name is
+ *      load-bearing: an UNNAMED query would fall through to the section, itself a container;
+ *   2. it drops columns inside `@container lat-cards (width < Nem)` rules through its own column
+ *      variable, never by out-ranking its own rules, at thresholds below a full-width 16:9
+ *      box (about 54em), so no full-width 16:9 slide changes;
+ *   3. while a narrow form is active it sets `--lat-narrow: 1` on the list, and it skips a list
+ *      carrying `lat-reflow-held`. On a slide the fit check (lib/core/table-reflow-fit.js) holds
+ *      a list whose narrow form would overflow, so the slide keeps the count it had.
+ *
+ * Making the content area a container leaves its type unchanged: a raw `cqi` inside the slide
+ * already measured the slide's content box, which the content area spans, and in a pane the
+ * pane is the container either way.
+ * engineering/decisions/2026-11-03-responsive-tables.md §Card grids. */
+section:is(.cards-grid, .verdict-grid, .pricing, .stats, .statute-stack, .decision, .list-steps, .compare-prose, .team-profile, .cards-stack, .q-and-a, .inventory:is(.cards, .timeline), .kpi):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage { container: lat-cards / inline-size; }

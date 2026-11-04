@@ -885,6 +885,17 @@ A short paragraph directly after a table **is** promoted to a Below-Note (see
 above), on `content` and on an un-classed slide alike — so a source line or a
 caveat gets the hairline treatment for free.
 
+### When a row of cards runs out of width
+
+A row of cards drops columns as its box narrows instead of squeezing each
+card: `cards-grid`, `verdict-grid`, `pricing`, `stats`, `statute-stack`,
+`decision`, `list-steps`, `compare-prose`, `team-profile`, `cards-stack
+horizontal`, `q-and-a`, `inventory cards`/`timeline` and `kpi`. It happens in
+a narrow pane, a narrow frame or on a phone, never on a full-width 16:9
+slide, and where a component already has a single-column form for tall decks
+the narrow form is that one. On a slide, a row that would overflow once it
+wraps keeps its columns. There is nothing to author.
+
 ### When a table runs out of width — `table-cards` · `table-pairs` · `no-table-reflow`
 
 A table whose box gets too narrow changes shape instead of squeezing. The

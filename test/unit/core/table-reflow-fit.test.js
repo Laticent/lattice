@@ -76,3 +76,19 @@ test('a hold that does not bring the table form back is removed, and the slide i
   assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12), []);
   assert.ok(!doc.querySelector('table').classList.contains(HELD_CLASS));
 });
+
+test('a card list whose narrow form is active (--lat-narrow: 1) is held like a table, and released if the hold changes nothing', () => {
+  const css = `.cell-stage > ul:not(.lat-reflow-held) { --lat-narrow: 1; }`;
+  const dom = new JSDOM(`<!doctype html><html><head><style>${css}</style></head><body>
+    <section data-lattice-slide="1"><div class="cell-stage"><ul><li>A</li></ul></div></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12), [1]);
+  assert.ok(doc.querySelector('ul').classList.contains(HELD_CLASS));
+  // A list that keeps its narrow form under a hold: the hold is taken back.
+  const dom2 = new JSDOM(`<!doctype html><html><head><style>.cell-stage > ul { --lat-narrow: 1; }</style></head><body>
+    <section data-lattice-slide="1"><div class="cell-stage"><ul><li>A</li></ul></div></section></body></html>`);
+  global.getComputedStyle = dom2.window.getComputedStyle.bind(dom2.window);
+  assert.deepEqual(holdUnfitReflow(dom2.window.document, () => ({ over: true }), '', '', 12), []);
+  assert.ok(!dom2.window.document.querySelector('ul').classList.contains(HELD_CLASS));
+});

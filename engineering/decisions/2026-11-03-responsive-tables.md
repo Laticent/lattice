@@ -197,19 +197,76 @@ lines, so a pill dropped below its label and centered. The owner picked an align
   every component rule that aligns these cells, and the card form drops it. A table that keeps its
   shape keeps its inline style.
 
+## Card grids: one shared width rule
+
+The owner's review of the 360px sheets (2026-11-04) found the same squeeze outside tables: the
+"When NOT to reach for X" slide (cards-grid, in 77 of 79 galleries) kept two or three cards side by
+side at a word per line, and so did verdict-grid, pricing, stats, statute-stack and others. A
+scout's read of all 20 card components found the cause: none of them responds to WIDTH. Each lays
+its row out at a fixed count, and the only reflow keys on the deck's `data-family` stamp, which
+`familyFor(aspect)` (lib/adaptive/families.js) computes from the box's ASPECT. A narrow pane, or a
+narrow frame of a wide deck, keeps the wide count. The owner chose (2026-11-04) a width trigger with
+one shared rule over patching the aspect rules.
+
+**The contract** (lib/base/base.card-reflow.css; test/unit/css/card-reflow-contract.test.js):
+
+1. The shared sheet makes each card component's content area an inline-size container named
+   `lat-cards`, once, and only on a wide or square deck. A tall or strip deck already reflows on its
+   aspect, so the width rules stay out of it and its exports keep their forms: a first cut let them
+   fire on a portrait canvas, whose content area is narrower than 36em, and the sweep against `main`
+   caught pricing, statute-stack, list-steps and q-and-a pages changing there. The name is
+   load-bearing: an unnamed query would fall through to the section, which is itself a container.
+2. The component drops columns inside `@container lat-cards (width < Nem)` rules through its own column
+   variable, at thresholds below a full-width 16:9 content area (about 54em), so a full-width 16:9
+   slide never switches. The steps keep a card at least about 11.5em wide: 46em (four across to two),
+   36em (three across, or a row of three or more, to one or two), 24em (two across to one).
+3. While a narrow form is active it sets `--lat-narrow: 1` on the list, and it skips a list that
+   carries `lat-reflow-held`. The fit check (lib/core/table-reflow-fit.js) now reads that marker as
+   well as a table's row display, so on a slide a grid whose narrow form overflows is held at its
+   authored count, the guarantee tables already had. After a hold, the export page and the runtime
+   ask the overflow watcher to look again: it had stamped its "Content clipped" tag on the narrow
+   layout, and a held stats pane in examples/panes.md kept the tag for a row it no longer showed.
+
+Where a component already had a single-column form for tall decks, the narrow form IS that form, so a
+narrow pane and a phone deck read the same: verdict-grid, pricing, statute-stack, decision, list-steps,
+compare-prose, q-and-a, inventory and kpi reuse it. Two take something else on purpose: stats goes two
+to a row at the number's own size (its tall form enlarges the numbers, and a narrow box is no reason to
+change type), and kpi takes only the layout half of its tall form for the same reason.
+
+**cards-grid's column count is one variable now**, `--cards-cols`, with `--cards-last` for a last card
+alone on its row. That fixed a real bug on the way: the tall/strip single-column rule was (0,3,3) and
+`.three` was (0,4,3), so a `three` grid stayed three across on every portrait and mobile deck, which is
+50 galleries' anti-pattern slide. Setting a variable cannot be out-ranked that way. The owner approved
+the visible change to those portrait and mobile pages (2026-11-04).
+
+Three were left as they are, each for a reason: split-compare's row is the section itself, and a
+container query cannot restyle the box it measures, but the fluid view re-derives orientation from the
+real box, so its portrait rule already fires on a phone; logo-wall's widths come from a JavaScript
+packer that reads the family stamp; `inventory editorial` grids the content area itself. statute-stack's
+row variants also had a collision: the status pill is pinned to the header's right edge with no space
+reserved, so in a narrow card it sat on the label and the citation. Below 24em the header wraps and the
+pill returns to the flow; the column cards' header wraps too, so the citation no longer runs off the card.
+
+**A lab caveat, not a slide one.** Making the content area a container does not change type on a slide:
+a raw `cqi` already measured the slide's content box, which the content area spans, and in a pane the
+pane is the container either way (the pixel sweep against `main` is the evidence). The Frame Lab,
+though, emulates "type held at slide size" by making its 1280px deck the container, and the content
+area now sits between them, so a component that sizes something in raw `cqi` (kpi's supporting numbers,
+team-profile's avatars) shows it shrunk in the lab's held view. A continuous host that holds type would
+meet the same raw `cqi`; replacing it is the per-component `--_sec-1cqi` work, not this change.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
 
 1. The slide frame's header, footer and page number wrap when narrow (69 of 79 components spill).
-2. One shared wrapping grid for the card and list components (about 20 at once).
-3. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
+2. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
    `matrix-grid` and `roadmap`.
-4. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
-5. Narrow forms for side-by-side components (redline, compare-code, split-panel).
-6. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+3. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
+4. Narrow forms for side-by-side components (redline, compare-code, split-panel).
+5. Narrow forms for the 28 chart kinds, including the three that take a table as data.
 
-(The table-owning components were item 3; they moved into this change, above.)
+(The table-owning components and the shared card grid were on this list; both moved into this change, above.)
 
 Each reuses this change's pattern: one narrow layout for both hosts, triggered by width in a continuous
 host and by width plus the fit check on a slide.

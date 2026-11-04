@@ -837,3 +837,16 @@ section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip
 section.team-profile.bio.bio:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   --person-size: 13cqi;
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The roster tiles at `--person-cols` (3 by
+ * default, 4 to 8 by headcount, 6 on `bench`), set by the deck's aspect and its headcount but
+ * never by the box's width, so a narrow pane squeezed each person to a word per line. Below
+ * 30em of the content area the roster goes two to a row, below 16em one. Set on the roster
+ * itself, with the class repeated, because the headcount steps set the count there too. The
+ * side-by-side `sides` and the single `bio` keep their own forms. */
+@container lat-cards (width < 30em) {
+  section.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 2; --lat-narrow: 1; }
+}
+@container lat-cards (width < 16em) {
+  section.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 1; }
+}

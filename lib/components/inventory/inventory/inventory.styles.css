@@ -504,3 +504,25 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
    row-anchored and stranded ~370px above its own text. Centering the ordinal's BOX only
    traded one misplacement for another — it put the numeral on the BODY's baseline, 199px
    (render px, 2x) below the title it indexes. See the ordinal rule above. */
+
+/* ── Width reflow (lib/base/base.card-reflow.css). `cards` tiles two to a row and `timeline`
+ * one column per entry, at any width, so a narrow box squeezed both. Below 24em of the content
+ * area the cards go one to a row; below 36em the timeline runs down the page, the form a tall
+ * deck gets. (`editorial` grids the content area itself, which a query on that area cannot
+ * change; it keeps its family rule.) */
+@container lat-cards (width < 24em) {
+  section.inventory.inventory.cards > .cell-stage > ul:not(.inv-rows):not(.lat-reflow-held) { grid-template-columns: 1fr; --lat-narrow: 1; }
+}
+@container lat-cards (width < 36em) {
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) {
+    grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
+    padding: var(--sp-xs) 0 0; --lat-narrow: 1;
+  }
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) > li {
+    padding-block: 0; padding-inline: calc(var(--inv-dot) + var(--sp-sm)) 0; min-height: var(--inv-dot);
+  }
+  section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) > li::after {
+    top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
+    inset-inline-start: calc(var(--inv-dot) / 2 - 1px); inset-inline-end: auto; width: 2px; height: auto;
+  }
+}

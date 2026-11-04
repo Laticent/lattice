@@ -114,3 +114,11 @@ section.verdict-grid > .cell-stage > ul > li {
 section.verdict-grid > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The family rule above answers the deck's
+ * aspect; this answers the box's width. Below 24em of the content area a card would be under
+ * about 11.5em, so the grid goes to one column, the same form a tall deck gets. */
+@container lat-cards (width < 24em) {
+  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) { flex-direction: column; --lat-narrow: 1; }
+  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) > li { width: auto; flex: 1; min-height: 0; }
+}

@@ -246,3 +246,19 @@ section.stats:where(:not(.math))[data-cards="stretch"]:not([data-family="square"
  * per-value rule (`safe` is invalid with `stretch` and `space-evenly`, which is why it is not
  * folded into the token). */
 section.stats:where(:not(.math))[data-cards="center"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]):not([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { justify-content: safe center; }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The wide row holds every number on one
+ * line and never wraps, so a narrow pane squeezed each label to a word per line. Below 40em of
+ * the content area the numbers go two to a row (the square family's form, at the number's own
+ * size: a narrow box is not a reason to enlarge type), and below 18em one to a row. */
+@container lat-cards (width < 40em) {
+  section.stats.stats:where(:not(.math)) > .cell-stage > ol:not(.lat-reflow-held) {
+    flex-wrap: wrap; row-gap: var(--sp-sm); --lat-narrow: 1;
+  }
+  section.stats.stats:where(:not(.math)) > .cell-stage > ol:not(.lat-reflow-held) > li {
+    flex: 0 1 calc(50% - var(--sp-sm) / 2); box-sizing: border-box;
+  }
+}
+@container lat-cards (width < 18em) {
+  section.stats.stats:where(:not(.math)) > .cell-stage > ol:not(.lat-reflow-held) > li { flex-basis: 100%; }
+}

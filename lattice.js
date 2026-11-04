@@ -3981,16 +3981,21 @@ async function renderBody(browser, g, closeBrowser) {
     // `guards: strict` look like it simply did not apply.
     console.warn(`  ✂ TRIM REVERTED — the planned cut did not make pages ${trimmed.reverted.join(', ')} fit; they clip unchanged.`);
   }
-  // A table whose narrow layout (cards, label/value pairs) makes its slide overflow is held in
-  // its table form, so a slide never comes out worse than it did before reflow existed
+  // A table or a row of cards whose narrow layout makes its slide overflow is held in its
+  // authored form, so a slide never comes out worse than it did before reflow existed
   // (lib/core/table-reflow-fit.js). BEFORE the measurement, so the warnings report the held DOM.
+  // The in-page overflow watcher stamped its clip tags on the layout BEFORE the hold, so a held
+  // slide still wore a "Content clipped" tag for a narrow form it no longer shows: after a hold
+  // the watcher is asked to look again (it re-checks on `resize`).
   const heldReflow = await g(() => page.evaluate(({ holdSrc, probeSrc, clipSel, ignoreSel, tol }) => {
     const probe = new Function('return (' + probeSrc + ')')();
     const hold = new Function('return (' + holdSrc + ')')();
-    return hold(document, probe, clipSel, ignoreSel, tol);
+    const held = hold(document, probe, clipSel, ignoreSel, tol);
+    if (held.length) window.dispatchEvent(new Event('resize'));
+    return held;
   }, { holdSrc: HOLD_UNFIT_REFLOW_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, tol: FRAME_TOLERANCE }), 'hold unfit table reflow') || [];
   if (heldReflow.length && !QUIET) {
-    console.warn(`  ⓘ A narrow table layout did not fit, so the table keeps its table form: page${heldReflow.length > 1 ? 's' : ''} ${heldReflow.join(', ')}.`);
+    console.warn(`  ⓘ A narrow layout did not fit, so the table or row of cards keeps its authored form: page${heldReflow.length > 1 ? 's' : ''} ${heldReflow.join(', ')}.`);
   }
   const overflow = await measureOverflow();
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
