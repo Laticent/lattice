@@ -502,7 +502,15 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
 /* `chevron` keeps its rows, but its tab is a fixed 16cqi column holding a label set in slide-size
  * type, so in a narrow pane the label clipped at the tab's edges. Below 36em the tab column takes
  * its label's own width (wrapping only between words) and the description keeps the rest. */
-@container lat-cards (width < 36em) {
-  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
+/* …and ONE tab column for every row, sized to the widest label: each row sizing its own tab
+ * (`min-content` per row) started every card at a different x, a ragged column (square at hall,
+ * owner, 2026-11-04). The list is the grid and each row a subgrid of it, so the rows share the
+ * column. Below 23em the band form (the text-room block above) takes over: the two ranges do not
+ * overlap, so the two rules never fight over a row (fit-everywhere-model.md §17). */
+@container lat-cards (23em <= width < 36em) {
+  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol {
+    display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 2cqi; row-gap: 1.4cqi;
+  }
+  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li { grid-column: 1 / -1; grid-template-columns: subgrid; }
   section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
 }
