@@ -885,10 +885,11 @@ The owner's direction: components should be responsive natively, by their own bo
 only has to measure what they already did.
 
 **One container.** `base.elements.css` now makes every content area a width container carrying
-both names: `section:not(.collage) > .cell-stage { container: lattice lat-cards / inline-size; }`.
+both names: `section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }`.
 A query from inside the content area answers with the nearest container, the content area itself.
-On a slide with no panes that box is exactly as wide as the slide's content box, so nothing moves;
-in a pane, the text-room rules now reflow as they would on a narrow slide. The declaration replaces
+On a slide with no panes that box is as wide as the slide's content box, so nothing moves, unless
+the content area pads or borders itself; in a pane, the text-room rules now reflow as they would
+on a narrow slide. The declaration replaces
 PR 3021's own, which named only `lat-cards` and only wide and square decks (`container` names an
 element's whole list, so two rules would drop one name). Breakpoints stay in `em`: a query's `em` is
 the container's own text size, so a width in `em` counts characters a line at any venue, which a
@@ -903,7 +904,8 @@ mobile, 320 renders hashed before and after):
 | `list-steps` chevron took PR 3021's narrow-pane row on tall decks, over the tall deck's designed stacked tab | that rule keeps off tall and strip decks |
 | `pricing`'s stacked tiers shrank to their text and sat left (square decks on `main` too): the list wraps, and the `cards:` register centers the line | the stacked column sets `flex-wrap: nowrap`, as statute-stack's already did |
 | `list` principles, `kpi`, `q-and-a`, `inventory` on portrait and mobile take PR 3021's narrow forms | kept: each reads at least as well (the principle line gains its width back) |
-| `policy-recommendation`, 140 pixels of corner anti-aliasing at hd | kept: invisible |
+| charts under `claim-bleed` pad their content area, so a raw `cqi` inside measured a narrower box: progress and kanban labels moved at hd (found by the checker; no gallery uses `claim-bleed`) | charts left out (`:not(.chart-frame)`); a claim-bleed progress and kanban deck is pixel-identical to no container |
+| `policy-recommendation` pads and borders its content area: 117 to 140 pixels of corner anti-aliasing a slide, at every size | kept: invisible |
 
 `collage` slide 6 also differed, but it differs between two screenshots of the same file, so it is
 not this change. The fit ratchet over the 94 galleries at square, portrait and story, laptop and
@@ -912,7 +914,8 @@ hall: no count rose and 30 fell.
 **One rule per component.** Where PR 3021's rule now covers the same box, this PR's went:
 cards-grid's 34em and 23em step-downs, cards-stack's `horizontal` at 34em and inventory `cards` at
 23em (each gallery pixel-identical at four sizes after the removal), and statute-stack's status-pill
-rule, which PR 3021 wrote identically at 24em. What stays is what PR 3021 does not do: pricing's
+rule (this PR's at 23em; PR 3021's, with the same declarations, at 24em, so it now applies a little
+sooner). What stays is what PR 3021 does not do: pricing's
 ribbon, the ordinal run-in under 17em, glossary on tall decks, and statute-stack's 17em pill padding.
 The statute-stack `lane` table keeps its own cards (from 34em) and leaves PR 3021's generic table
 cards, the same way glossary and math derivation do.

@@ -107,3 +107,19 @@ describe('a split content page centers its cards unless the author chose', () =>
     }
   });
 });
+
+test('a folded key insight lands after the stage and before the page chrome, once (§17)', () => {
+  const { foldBeats } = require('../../../lib/core/split-envelope');
+  const page = '<section class="list" data-split-role="body"><div class="cell-stage"><ul><li>a</li></ul></div><div class="cell-footer">F</div><div class="slide-edge"></div></section>';
+  const out = foldBeats(page, ['<div class="cell-coda"><blockquote>Key</blockquote></div>']);
+  const order = [...out.matchAll(/<div class="([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order, ['cell-stage', 'cell-coda', 'cell-footer', 'slide-edge']);
+  assert.equal((out.match(/cell-footer/g) || []).length, 1);
+});
+
+test('a split content page with no cards: choice resolves to center on the runtime path too (§17)', () => {
+  const { resolveCardsAlign } = require('../../../lib/core/resolve-cards');
+  assert.equal(resolveCardsAlign({ classes: ['q-and-a'], family: 'square', splitBody: true }), 'center');
+  assert.equal(resolveCardsAlign({ classes: ['q-and-a', 'cards-stretch'], family: 'square', splitBody: true }), 'stretch');
+  assert.notEqual(resolveCardsAlign({ classes: ['q-and-a'], family: 'square' }), null);
+});

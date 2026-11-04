@@ -11,11 +11,11 @@ const ROOT = path.resolve(__dirname, '../../..');
 // The content area is a NAMED width container on every deck shape, declared once beside the
 // text-room rule (fit-everywhere-model.md §17): `lat-cards` and `lattice` together, because
 // `container` names an element's whole list, and NAMED, because an unnamed query would answer the
-// section, which is itself a container. `collage` stays out: its content area is sized by its
+// section, which is itself a container. `collage` and the charts stay out: collage's content area is sized by its
 // contents. Until 2026-11-04 base.card-reflow.css declared it for these components on wide and
 // square decks only.
 const elements = fs.readFileSync(path.join(ROOT, 'lib/base/base.elements.css'), 'utf8');
-const DECLARATION = 'section:not(.collage) > .cell-stage { container: lattice lat-cards / inline-size; }';
+const DECLARATION = 'section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }';
 
 test('every content area is a width container named lat-cards (and lattice), on every deck shape', () => {
   assert.ok(elements.split('\n').includes(DECLARATION), 'one container declaration in base.elements.css');
