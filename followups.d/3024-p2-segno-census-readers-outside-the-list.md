@@ -5,7 +5,7 @@ recorded: 2026-11-03
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-10-27-segno-reports-facts-callers-decide.md §Phasing
-deferred: large — the two gate readers need a declaration channel in `cssRefSpans` (new reader state, its own differential and trio), and slide-camera.mjs changes picture-export bytes, which waits on the owner's sign-off on rendered decks
+deferred: blocked — slide-camera.mjs changes picture-export bytes, which waits on the owner's sign-off on a dark and a light render of a representative deck (CLAUDE.md Quality Bar)
 source: https://github.com/Laticent/lattice/pull/3024
 ---
 
@@ -19,12 +19,12 @@ done      — `lib/export/player-prune.js` `namesRemoteResource` (the Reading vi
             reads remote-ref.js's `attrIsRemote` and `isRemoteUrl`. The old patterns let through 284 values Chromium
             fetched and 208 WebKit fetched (the web-reference fuzz's declarations on an SVG `<rect>`); the new test lets
             none through and strips everything the old one did (decision note, "R4: the four census readers").
-next      — `lib/core/css-scan.js` `findAddressStrings` (theme, layout and package gates) and `lib/core/door-attr.mjs`
-            `cssRefTargets` (the code door): both are refusal readers, and both read a channel `cssRefSpans` does not
-            report, an address-shaped string in a custom property or an `@property` `initial-value` (and, for the door,
-            any string inside a function). Move both once the reader reports the declaration a span sits in. No bypass
-            is known in either.
-            `lib/core/slide-camera.mjs` `CSS_URL` / `REL_URL` (what a picture export inlines): not a refusal; its known
+            `lib/core/css-scan.js` `findAddressStrings` and `lib/core/door-attr.mjs` `cssRefTargets`, in the security spine
+            S2/S3 PR: both read `cssRefSpans`' new declaration channel (`decls`). The differential and the three-browser
+            oracle are in the spine note, "P2, the declaration channel, as built"; the oracle found one bypass in the gate (an
+            address inside `image()`, which the door always listed), now refused. The red team then found one in the
+            door (a custom property spelled with escapes, `\2d\2d q`), also fixed.
+next      — `lib/core/slide-camera.mjs` `CSS_URL` / `REL_URL` (what a picture export inlines): not a refusal; its known
             miss (`u\72l(`) is a missing picture, not a leak. Moving it changes export bytes for such spellings, so it
             ships with a dark and a light render of a representative deck for the owner's sign-off (CLAUDE.md Quality Bar).
 done when — the three are moved, or each is a sanctioned entry with its reason in the S3 census gate's allowlist.

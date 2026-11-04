@@ -36,6 +36,11 @@ const SANCTIONED_SUBJECT_DECKS = Object.freeze([
     rule: 'web-image',
     why: 'its "A blocked web image" slide checks the placeholder on each device, so the web image is the point (security spine S1)',
   },
+  {
+    file: 'examples/plugin-sandbox-tour.md',
+    rule: 'web-image',
+    why: 'its "clickable task" slides show Mermaid `click` links to a web page; the renderer counts a diagram address as a web reference, so the warning that says so is the point (security spine S2)',
+  },
 ]);
 
 /** Is this finding on `rel` (a repo-relative path) one its deck is sanctioned to carry? */

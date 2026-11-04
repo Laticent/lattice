@@ -16,7 +16,7 @@ const { ENGINE_CLAIMS, untrustedCodePackages, captureHook, substituteHook } = re
 const { codeDigest, isTrusted, grantTrust, revokeTrust, readTrust, trustFile, trustOf, MAX_PINS } = require('../../../lib/packages/trust.js');
 const { refuseCode } = require('../../../lib/cli/package-gate.js');
 const { unprivilegedUser, apparmorRestrictsUserns, processSeccompFiltered, offReason, offRemedy } = require('../../../lib/core/os-sandbox.js');
-const { cssRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
+const { cssRefTargets, attrRefTargets, doorFilterAttr, handedOf } = require('../../../lib/core/door-attr.mjs');
 const engine = require('../../../lib/engine');
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-door-${p}-`));
@@ -246,6 +246,16 @@ describe('the attribute rule: a package keeps only what it was handed', () => {
     }
     const keep = doorFilterAttr(handedOf([]));
     assert.notEqual(keep('div', 'style', '--sep:"/";content:var(--sep)'), false, 'a breadcrumb separator survives the door');
+  });
+
+  test('a custom property spelled with escapes is still a custom property (the security spine P2 red team)', () => {
+    // CSS reads each of these names as `--q`; none holds a literal `--`, so the door once never read the value, and a
+    // child's `image-set(var(--q) 1x)` fetched the address in Chromium, WebKit and Firefox.
+    const keep = doorFilterAttr(handedOf([], 'pkg'));
+    for (const name of [String.raw`\2d\2d q`, String.raw`-\-q`, String.raw`\-\-q`, String.raw`-\2d q`, String.raw`\2d-q`]) {
+      assert.equal(keep('div', 'style', `${name}:"https://evil.example/?leak=1"`), false, name);
+      assert.deepEqual(attrRefTargets('div', 'style', `${name}:"https://evil.example/x"`), ['https://evil.example/x'], name);
+    }
   });
 
   test('handed addresses pass byte for byte; invented ones do not; data: and #fragment always pass', () => {

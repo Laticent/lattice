@@ -6,6 +6,48 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — lint-core ceiling raised by the measured 127 B, by hand: `readGlobalStyle` moved out of the Studio's startup
+
+Owner OK 2026-11-03 (D5, as below). `readGlobalStyle` first moved into `lib/core/front-matter-key.js`, which the Studio loads at startup, and CI measured +123 B of eager JS on studio and playground (PR 3033, 5156be9). It now lives in its own file, `lib/core/front-matter-style.js`, which only lint and the CLI export load, so those bytes leave the startup bundle and count in the lint chunk instead: lintCoreGz 141,552 -> 141,679 B (+127), measured with the gate's own hash fixing. The bytes moved rather than grew; the ceiling moves by exactly that.
+
+Rebased onto #3032, which raised the ceiling by 1,264 B for PR 3023 first. This PR's five raises sum to its measured growth, lintCoreGz 127,214 -> 141,679 B (+14,465), and each "ceiling after" below sits 1,264 B above the figure first written, so PR 3023's room is kept: 128,512 + 14,465 = 142,977.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 142977 |
+
+### 2026-11-04 — lint-core ceiling raised by the measured 137 B, by hand, for reading the front matter as its consumers do
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The checker and the red team of S2 found lint reading the front matter its own way; it now asks the engine's `parseFrontMatter` for directives and the CLI export's `readGlobalStyle` (moved into `lib/core/front-matter-style.js`) for `style:`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,415 -> 141,552 B (+137). The ceiling moves by exactly that; the soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 142850 |
+
+### 2026-11-04 — lint-core ceiling raised by the measured 226 B, by hand, for the S2 review fixes
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The inversion review of S2 found lint missing a web address in a `<style>` inside `<svg>` and in the style directives other than `backgroundImage`, and raising a false warning on a clean SVG `<style>`; the fix reads both the renderer's way and takes the directive keys from `lib/core/meta-keys.js`. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 141,189 -> 141,415 B (+226). The ceiling moves by exactly that; the soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 142713 |
+
+### 2026-11-04 — lint-core ceiling raised by the measured 506 B, by hand, for the CSS declaration channel
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`, as for S2 below). The shared CSS reader (`lib/core/css-ref-reader.js`), which lint loads for S2's rules, gains the declaration channel the theme, layout and package gates and the code door now read (the spine note, "P2, the declaration channel, as built"). Lint does not ask for the channel, but the reader's code is one file. Measured with the gate's own hash fixing on the ESM build: lintCoreGz 140,683 -> 141,189 B (+506). The ceiling moves by exactly that; the soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 142487 |
+
+### 2026-11-04 — lint-core ceiling raised by the measured 13,469 B, by hand, for security spine S2
+
+Owner OK 2026-11-03 (D5 of `engineering/decisions/2026-11-03-security-findings-spine.md`: "the owner is comfortable raising the `lintCoreGz` ceiling to make room. S2 measures the real cost in the Studio build and raises the ceiling by that measured amount"). Spine S2 gives `lint:deck` its HTML and CSS rules, which read the source with the renderer's own readers: `scanHtml`, `cssRefSpans`, the entity decoder and the Mermaid reading, moved unchanged from remote-ref.js into `lib/core/web-ref-readers.js` so lint loads them without the scanner's rewrite logic (which would have cost +16.5 KB, measured in S1). Measured with the gate's own hash fixing on the ESM build: lintCoreGz 127,214 -> 140,683 B (+13,469). The ceiling moves by exactly that, keeping the 34 B of headroom S1 left; the soft target is unchanged. Loading the readers lazily stays off the table (HARD RULE #7: lint-core is synchronous).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 141981 |
+
 ### 2026-11-04 — lint-core ceiling raised to 125.5 KB by hand, for PR 3023's switch spelling
 
 Owner OK 2026-11-04 (asked in the PR 3023 session: "Raise to 125.5 KB", chosen over trimming 0.8 KB from lint-core code that PR does not own, or holding the PR). Measured on the built tree: `main` at 158a43c0d is 124.2 KB, 0.1 KB under the 124.3 KB ceiling after #3030's paste scanner; PR 3023 adds about 0.8 KB (the retired-spelling map and its autofix, the settings-block reader, and the `no-X`/`with-X` tokens per register axis), so the two together measure 125.0 KB. The lint core loads after first paint, so this is not startup weight. The soft target is unchanged; only the ceiling moves, by hand, to 125.5 KB (128512 bytes), leaving about 0.5 KB.

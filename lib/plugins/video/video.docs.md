@@ -101,6 +101,7 @@ link and no notice.
 | `video-literal` | A record whose address is not one of the four providers. |
 | `video-slide-class` | A lone record on a slide that is not a `video` slide. |
 | `video-extra-record` | A second lone record on one `video` slide, which runs off the slide. |
+| `video-web-poster` | A `poster=` from another site, which the preview replaces with a placeholder. Save the poster beside the deck. |
 
 ## What stays literal
 

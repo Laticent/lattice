@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   One spine, two independent consumers. The spine is the shared readers (scanHtml, cssRefSpans, the
   Markdown reading) plus ONE policy table: which addresses are another site, which attributes fetch on
@@ -218,6 +218,168 @@ Studio loads and lint still warns on. A unit test pins the agreement on a seeded
 deck with the chrome cases. `lintCoreGz` +776 B (126,438 to 127,214 against a 127,248 ceiling, the gate's own hash
 fixing), declared in `docs/route-budget.d/security-spine-web-image.md`; that leaves S2 34 B, so S2 needs the ceiling
 raise D5 allows. `lint:deck --all` takes 7.8 s over 491 files with the rule.
+
+## S2, as built (2026-11-04)
+
+Lint reads raw HTML and CSS from the SOURCE with the renderer's own readers and asks the renderer's own table.
+`findWebMarkup` (lint-core rules 12e to 12h) takes every `html_block` and `html_inline` token the engine's Markdown
+parser makes, every Mermaid fence, the front matter's `style:` and `backgroundImage:`, and each `backgroundImage`
+directive comment, and reads them with `scanHtml` and `cssRefSpans`. The rules:
+
+| Rule | Fires on | The table's fact |
+|---|---|---|
+| `web-image` (S1's, more sources) | `<img src>`, `srcset`, `<video poster>`, SVG `<image href>`, `<link href>`, a refresh `<meta>`, an SMIL `href`, `<base href>`, a `style`/`<style>`/paint `url()` or `@import`, `backgroundImage`, the front matter's `style:`, a Mermaid address | `WEB_MEDIA`, `MEDIA_FETCH_ATTRS`, `RENDER_FETCH_ATTRS`, `HREF_FETCH_TAGS`, `URL_PAINT_ATTRS`, `SMIL`; `webOrigin` |
+| `web-request` | `ping`, `action`, `formaction`, `attributionsrc` to another site | `CLICK_FETCH_ATTRS` |
+| `stripped-markup` | `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<base>`, `on…=`, `javascript:`, `srcdoc`, a `style` holding script | `ACTIVE_STRIPPED_TAGS`, `isEventHandlerAttr`, `isScriptUrl`, `FORBID_ATTR`, `STYLE_SCRIPT_RE` |
+| `style-ends-early` | `</style` in the front matter's `style:` | `endsStyleEarly` |
+| `markup-unsure` | an `unsure` span from `scanHtml` | the reader's own fact |
+| `video-web-poster` (the video plugin's) | a `poster=` from another site on a drawn `@video{…}` | `webOrigin`, through a new `ctx.webOrigin` |
+
+Each finding carries the exact `address` (or, for `stripped-markup`, the `construct`), so the differential compares
+addresses, not sites.
+
+**What moved, all unchanged.** The readers went from remote-ref.js to `lib/core/web-ref-readers.js` (`cssRefSpans`,
+`remoteCssRefs`, `scanHtml`, `rawTextEnd`, the entity decoder, `mermaidRemoteRefs`, `refreshTarget`); remote-ref.js
+re-exports every name. The element and attribute sets the scanner kept privately (`WEB_MEDIA`, `MEDIA_FETCH_ATTRS`,
+`URL_PAINT_ATTRS`, `SMIL`) and the vendored-script list went into `content-policy.js`, so the linter reads the same
+objects. `npm run identity:check -- --strict` against `origin/main`: 443 decks paired, 0 differ, lint identical, 39
+stylesheets identical.
+
+**Three choices.** (1) `<style>`, `<link>` and `<meta>` are stripped by the sanitizer too, but `stripped-markup` does
+not name them: an author writes a `<style>` block as deck CSS, which the CLI export keeps, and a `<link>` or a refresh
+`<meta>` is a fetch, which `web-image` names. (2) A `<script src>` naming one of Lattice's vendored builds, with no
+inline body, is not reported: it is the documented way to draw diagrams in a Marp preview outside Lattice, and the
+preview draws them itself. (3) A Mermaid address is worded as "names an address on another site", not "loads": the
+renderer reads a diagram's whole text and counts every address in it, a `click` link included.
+
+**The acceptance test.** `test/unit/authoring/security-spine-differential.test.js` seeds one deck with every family and
+the near misses (a link, a code span, a fenced example, a comment, an attribute selector, `sample:` and `data:`), then
+runs each consumer alone: the engine renders it, `blockWebImages` (with `fonts`, so every refusal is counted) lists the
+blocked addresses, and the slide sanitizer (DOMPurify on jsdom) strips what runs. Lint's addresses equal the
+renderer's, 21 of them, and lint's stripped constructs equal the sanitizer's removals per construct. Its failing arm:
+with lint's refresh-`<meta>` branch disabled, the test fails, naming `https://refresh.example/`. The repeated
+front-matter `header:` is read the last, by both.
+
+**After the inversion review (2026-11-04).** Two gaps it found are fixed and seeded in the differential: a `<style>`
+inside `<svg>` (every design tool's logo export) raised a false `markup-unsure` and hid its web addresses, which the
+renderer reads through its no-parser branch; lint now reads that text the renderer's way, and stays silent on a clean
+one. And every directive the engine writes into a slide's `style` as a custom property (`color`, `backgroundColor`,
+`backgroundPosition` …, read from `lib/core/meta-keys.js`), in a comment or the front matter, is read as CSS, not only
+`backgroundImage`. Not fixed: an `<iframe src>` to another site raises both `stripped-markup` and `web-image`, both true.
+
+**After the checker and the red team (2026-11-04).** Lint read the front matter its own way (top-level keys, the last
+wins), and two consumers read it differently: the engine's `parseFrontMatter` trims each line, so an indented key is a
+directive, and the CLI export's `readGlobalStyle` pastes the FIRST `style:`, at any indentation, quoted or a `|` block.
+Lint now asks each: directives through `parseFrontMatter`, and `style:` through `readGlobalStyle`, which moved from
+lib/export/export-scaffold.js into lib/core/front-matter-style.js so both read it. A `style:` address gets its own message:
+the export pastes it and the page's content policy refuses the load. The differential seeds both, and a `srcset` whose
+web candidate is second.
+
+**What lint still cannot see.** An address at the site's own origin, which the Studio allows (`withOwnOrigin`): lint
+reports it, the safe direction, and says so in `spec/diagnostics.md`. Markup the ENGINE writes (§3).
+
+On the corpus: `lint:deck --all --strict` is clean over 491 files. The new rules fire on two decks, both reviewed: six
+vendored `<script>` tags in three galleries (choice 2), and two Mermaid `click` links in `plugin-sandbox-tour.md`, the
+two addresses S1 found the renderer blocking and no rule covered; that deck is on `tools/lint-subject-decks.js` for
+`web-image`, because its "clickable task" slides show exactly that. Cost: `findWebMarkup` takes 107 ms over the 458
+decks lint reads (a full lint of them takes 2.9 s); `lintCoreGz` 127,214 to 140,683 B (+13,469), and the ceiling moves
+by that amount (`docs/route-budget.history.md`, D5).
+
+## P2, the declaration channel, as built (2026-11-04)
+
+`cssRefSpans` gains an opt-in `decls` fact (css-ref-reader.js): each span says which declaration or descriptor it sits in
+(`decl`: a custom property as written, any other name lowercased, '' in a selector or an at-rule prelude) and whether it
+is inside a function (`inFunction`). The reader reads it from the stretches its tape skips (names, `:`, `;`, comments),
+with `;` and `:` inert inside a `(` or `[` block, and the first name of a declaration naming it. The two refusal readers
+#3024 left out move onto it:
+
+- **css-scan.js `findAddressStrings`** (the theme, layout and package gates): url targets, `image-set()` strings and an
+  address-shaped string in a custom property or `@property` `initial-value`, now read from the spans.
+- **door-attr.mjs `cssRefTargets`** (the code door): every url target, every string inside a function, and an
+  address-shaped string in a custom property or `initial-value`.
+
+Their shared "is this string a network address?" test (`ADDRESS_START`, copied in both) moved into `content-policy.js`
+as `isAddressString`. `lib/core/web-ref-readers.js` became a factory that requires nothing (the parsers handed in, as
+css-ref-reader.js does): S2's version required its parsers, which broke the two loaders that inline remote-ref.js's
+require-free siblings, the docs dev server and the code door's sanitizer page (found in this change, before merge).
+
+**A door bypass the red team found, and fixed.** `attrRefTargets` read a value with `cssRefTargets` only when it held a
+literal `(` or `--`. CSS reads `\2d\2d q`, `-\-q` and `\2d-q` as the custom property `--q`, so a package's
+`\2d\2d q:"https://…"` passed the door, and Chromium, WebKit and Firefox fetched it through a child's
+`image-set(var(--q) 1x)`. Old and new door alike; the renderer's scanner still blocked a web address there by default, so
+this was a bypass of the door layer. The door now reads any value holding a backslash too (test/unit/cli/code-door.test.js).
+
+**A gate bypass, found and fixed.** The oracle below found a sheet both the old walk and the rebuilt reader let through, in
+all three engines: an address-shaped string inside `image()` in an `@font-face` `src`. `findAddressStrings` now also
+reports an address-shaped string inside any function (kind `function`). The address shape is the test, so
+`format("woff2")` and `type("image/png")` stay text; no shipped stylesheet (193) has a hit.
+
+**Evidence.** `test/unit/core/css-decl-readers-differential.test.js` holds both against the walks they replaced (frozen
+in `tools/segno-legacy/`) as decisions, over the 193 shipped stylesheets and two fuzz seeds: every refusal stands except
+one inside a `[…]` block, which CSS reads whole (26 such inputs on seed 7), and no shipped sheet changes its verdict. Its
+failing arm: with the channel's `decl` assignment disabled, four of its six tests fail. The browser oracle,
+`tools/fuzz-css-decl-readers.mjs`, loads each CSS input of the web-reference fuzz as written (with consumers that read
+`--q` and `--a` through `image-set(var(…))`), and, for the door, each declaration cut from them as a `style` attribute,
+rechecked alone. "The whole gate" is `findCssExfil`: the address reader with its keyword rules (`@import`,
+`expression()`, a script scheme).
+
+| Seed | Engine | Sheets that fetched | Let through by the whole gate, old / new | Declarations that fetched | Let through by the door, old / new |
+|---|---|---|---|---|---|
+| 7 | Chromium 141 | 138 of 1,482 | 0 / 0 | 253 of 2,845 | 0 / 0 |
+| 7 | WebKit 26 | 147 | 0 / 0 | 283 | 0 / 0 |
+| 7 | Firefox 142 | 136 | 0 / 0 | 248 | 0 / 0 |
+| 11 | Chromium 141 | 131 of 1,530 | 0 / 0 | 265 of 3,062 | 0 / 0 |
+| 11 | WebKit 26 | 150 | 0 / 0 | 308 | 0 / 0 |
+| 11 | Firefox 142 | 130 | 0 / 0 | 260 | 0 / 0 |
+
+These are the second run. The first put `--q` and `--a` in one consumer declaration, which is invalid at computed-value time
+when either is undefined, so an input defining only one fetched nothing (the red team): it saw 108 sheets and 194
+declarations on Chromium seed 7, about a quarter fewer. The fuzz holds no escaped custom-property name, which is how the
+door bypass above went unseen; test/unit/cli/code-door.test.js pins that case.
+
+The fuzz spells each address around the beacon's port, so a run's inputs differ with the port. The first run, before
+the `image()` fix, held the `image()` sheet (seed 7, f7-2503): it fetched in all three engines and passed both the old
+gate and the rebuilt one. The unit test pins that case. Read alone, the address reader lets through one sheet the old walk
+refused, in every engine: an `@import "…"`, which the keyword rule refuses; the old walk named it only by misreading
+where a string holding a raw newline ends. **What P2 does not do:** `slide-camera.mjs` `CSS_URL` /
+`REL_URL` (what a picture export inlines) stays as it was; moving it changes export bytes and waits on the owner's sign-off
+(followups.d/3024).
+
+## S3, the census, as built (2026-11-04)
+
+`checkSecuritySpineCensus` in `tools/check-ownership.js` (run by `build:check`; no CI job or step added) counts four
+shapes in every shipped source file under `lib/` and `docs/src/` (tests, generated and vendored files aside), outside the
+spine's own files (`content-policy.js`, `media-sources.js`, `web-ref-readers.js`, `css-ref-reader.js`,
+`html-ref-reader.js`, `css-image-set-block.js`):
+
+| Shape | What it catches |
+|---|---|
+| `url-reader` | a regex that reads `url(` |
+| `attr-reader` | a regex that reads an address attribute (`src=`, `href=`, `srcset=`, `poster=`, `background=`) |
+| `style-closer` | a bare `</style` search, the table's `endsStyleEarly` written again |
+| `list-copy` | a literal list of three or more names, most of them from one table list (fetch attributes, stripped tags, media elements, paint attributes) |
+
+Each count is held exactly to `SANCTIONED_SPINE_READERS` (file, shape, count, why): a new hit fails, and so does a stale
+entry. **Day one holds 56 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
+the ones R4's hand-kept list named. Each says why it is not the spine's, in one of four kinds: it reads text the engine
+itself wrote in a fixed shape (18), it refuses on any `url(` and so fails closed (9), it reads Lattice's own font,
+`data:` or runtime references (13), or one of 13 others: the renderer's own element sets, one lint rule's script test,
+and the readers that decide something on an author's text, each naming its follow-up (one is lint's own prefilter): `slide-camera.mjs` (followups.d/3024, waits on export sign-off), the Studio export's
+`deck-export.js`, `pane-css.js`'s raw-text closers, and the hints in `web-image-hint.ts` and `inline-url-media.mjs`
+(followups.d/3022). lint-core's Markdown image regexes, the one entry §4 named, are gone: S1 reads Markdown with the
+engine's parser.
+
+The checker and the red team found spellings the first cut missed (`URL\(` with `i`, `url[(]`, `url\x28`, `\ssrc=`,
+`src="(.*?)"`, `src=(\S+)`, a `'</style'` string); each now counts, which added two readers of the engine's own `<img src>`
+(bg-image.js, collage-stamp.js). A test pins that `run()`, the body of `build:check`'s ownership step, calls the census.
+**Its failing arms** (`test/unit/tools/security-spine-census.test.js`): a regex reader and a copy of the fetch attributes
+planted in a scratch tree each fail it; one more reader in a sanctioned file fails it; a stale entry fails it. A template
+literal that WRITES `url(${u})` or `<img src="${u}">`, a comment, and a whole `<style>…</style>` matcher do not count.
+The census takes 0.34 s per run.
+
+**Known limits.** A regex built from pieces at run time, a list split across helpers, built by `split()` or keyed by tag
+(`{ img: ['src'] }`), `.astro` files, and a reader written as a character scan are not seen; and a count cannot tell one
+reader swapped for another in a file already sanctioned at that count. The census catches the shapes the tree has used.
 
 ## Decisions for the owner
 

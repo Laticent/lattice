@@ -48,3 +48,8 @@ embed's poster with, at c0cbc52, before `posterInStyle` read the style with `css
 lib/export/player-prune.js as it was at a1b278c, a regex on a literal `url(` and on quoted strings, before it moved onto
 `cssRefSpans`. `test/unit/export/rehost-remote-ref.test.js` and `test/integration/export/rehost-remote-oracle.test.js`
 (`REHOST_ORACLE_LEGACY=1`) read it as the failing arm; nothing in `lib/` may.
+
+`find-address-strings.js` and `css-ref-targets.js` joined at the security spine's P2 (the declaration channel):
+`lib/core/css-scan.js` `findAddressStrings` and `lib/core/door-attr.mjs` `cssRefTargets` as they were at 158a43c,
+before both were rebuilt on `cssRefSpans` with `decls: true`. `test/unit/core/css-decl-readers-differential.test.js`
+reads them as the oracle; nothing in `lib/` may.

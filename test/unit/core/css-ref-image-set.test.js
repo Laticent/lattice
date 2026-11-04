@@ -7,7 +7,7 @@ const { makeCssRefSpans } = require('../../../lib/core/css-ref-reader.js');
 const parser = require('../../../lib/core/css-ref.generated.js');
 const helpers = require('../../../lib/core/css-token-readers.js');
 
-const { imageSetBlock } = require('../../../lib/export/css-image-set-block.js');
+const { imageSetBlock } = require('../../../lib/core/css-image-set-block.js');
 const withFact = makeCssRefSpans(parser, helpers, { imageSet: imageSetBlock });
 const read = (css) => withFact(css).map((sp) => [sp.value, sp.imageSet]);
 
