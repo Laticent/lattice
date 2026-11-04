@@ -30,8 +30,16 @@ export interface PackInput {
 	heights: readonly number[];
 	/** The vertical gap between two members on one page, in px. */
 	gap: number;
-	/** The height a body page leaves for members, in px. */
+	/** The height a body page leaves for members, in px: what a page's FILL is scored against. */
 	capacity: number;
+	/**
+	 * The most a page may hold, in px, when the host keeps a safety margin below `capacity` (the
+	 * measured split packs to 90% of the room). Defaults to `capacity`. Kept apart from `capacity` so
+	 * the margin limits a page without also making a page that fits look crowded: scored against the
+	 * reduced room, six members filling 88% of a page read as 97%, and two pages at 35% and 50% beat
+	 * the one page they fit on (fit-everywhere-model.md §17).
+	 */
+	limit?: number;
 	/** Members that must not end a page (index → true). */
 	keepWithNext?: readonly boolean[];
 }
@@ -77,7 +85,8 @@ function valid(input: PackInput): boolean {
 }
 
 function greedy(input: PackInput): number[] | null {
-	const { heights: h, gap, capacity } = input;
+	const { heights: h, gap } = input;
+	const capacity = input.limit ?? input.capacity;
 	const p = prefix(h);
 	const sizes: number[] = [];
 	let i = 0;
@@ -99,7 +108,8 @@ function greedy(input: PackInput): number[] | null {
 function balanced(input: PackInput): number[] | null {
 	const g = greedy(input);
 	if (!g) return null;
-	const { heights: h, gap, capacity } = input;
+	const { heights: h, gap } = input;
+	const capacity = input.limit ?? input.capacity;
 	const n = h.length;
 	const k = g.length;
 	if (k === 1) return g;
@@ -148,8 +158,9 @@ export function badness(fill: number): number {
 
 function knuthPlass(input: PackInput): number[] | null {
 	const { heights: h, gap, capacity, keepWithNext } = input;
+	const limit = input.limit ?? capacity;
 	const n = h.length;
-	if (h.some((x) => x > capacity)) return null;
+	if (h.some((x) => x > limit)) return null;
 	const pre = prefix(h);
 	const cost = new Array(n + 1).fill(FORBIDDEN);
 	const prev = new Array(n + 1).fill(-1);
@@ -157,7 +168,7 @@ function knuthPlass(input: PackInput): number[] | null {
 	for (let i = 1; i <= n; i++) {
 		for (let j = i - 1; j >= 0; j--) {
 			const l = loadOf(pre, gap, j, i);
-			if (l > capacity) break;
+			if (l > limit) break;
 			if (cost[j] === FORBIDDEN) continue;
 			// A page may not end on a member that introduces the next one (the last page may).
 			if (i < n && keepWithNext?.[i - 1]) continue;

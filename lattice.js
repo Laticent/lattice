@@ -3936,6 +3936,8 @@ async function renderBody(browser, g, closeBrowser) {
         split: (plan) => splitOnce(plan),
         verify: () => g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit'),
         foldable: () => g(() => page.evaluate(`(${fm.FOLDABLE_SRC})((${require('./lib/core/deck-slides').DECK_SLIDES_SRC}))`), 'fold beats'),
+        // Members measured on a body page of their own, not in the unsplit slide's layout (§17).
+        remeasure: () => g(() => page.evaluate(`(${fm.MEASURE_FIT_SRC})(${probeArgs}, [], true)`), 'measure on a body page'),
       });
       r = run.result;
       if (FIT_MEMORY) fs.writeFileSync(FIT_MEMORY, `${JSON.stringify(fm.nextMemory(facts, run.plan))}\n`);

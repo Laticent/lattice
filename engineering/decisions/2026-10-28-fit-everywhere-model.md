@@ -938,3 +938,19 @@ the slide's last plan and measures once, 0.7 s after the author pauses, in idle 
 next keystroke. On WebKit at tablet size, twelve keystrokes ran no measurement (three before) and the
 preview showed the text 12 to 17 ms after the last key (713 to 743 ms before). Pinned by
 docs/e2e/measured-split.spec.ts ("does not measure while the author types").
+
+**Packing efficiency, measured (2026-11-04).** The owner asked whether the packing was efficient; it was
+not, and nothing measured it. A fill probe over the 79 galleries at square@hall with `fit: pack`
+(each split run's pages, the members' height over a body page's room, and whether fewer pages would
+hold them) found 55 of 168 runs using more pages than their members need, 83 extra pages. Three
+planner defects, fixed: (1) the 90% headroom was applied twice, as the page limit and again in the
+fill score, so six agenda rows filling 88% of a page read as crowded and packed 3 + 3 (`pack` now
+takes a separate `limit`); (2) members were measured in the UNSPLIT slide's layout, where a 2 x 2
+matrix or a squeezed chevron tab wraps them taller than a body page will (members are now measured on
+a probe body page holding all of them, `measuredSplit({ remeasure })`); (3) members a page lays out
+side by side were summed as if stacked (a 2 x 2 matrix took two pages for one page's rows: the planner
+now packs ROWS when the probe page shows columns, and falls back to packing a column before today's
+split when the row count changes with the page). After: 41 runs, 64 extra pages. What remains is
+mostly slides the measured plan does not drive: strategies that cut by their own recipe (cycle,
+`cards-grid three`, regulatory-update, the timelines) and members that are not list or table rows
+(math, policy-recommendation). Probe: .scratch/fill.js (to become a gate).

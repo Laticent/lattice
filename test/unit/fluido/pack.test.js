@@ -101,3 +101,12 @@ test('knuth-plass puts a lone member last, never first or in the middle', () => 
   // Five, two to a page at most: 2 + 2 + 1, not 2 + 1 + 2.
   assert.deepEqual(pack({ heights: [400, 400, 400, 400, 400], gap: 20, capacity: 900 }, 'knuth-plass'), [2, 2, 1]);
 });
+
+test('a safety limit caps a page without making a page that fits read as crowded (§17)', () => {
+  const { pack } = require('@laticent/fluido');
+  // Six agenda rows filling 88% of the room fit one page under the 90% limit: one page, not 3 + 3.
+  assert.deepEqual(pack({ heights: [91, 91, 91, 159, 159, 91], gap: 23, capacity: 909, limit: 818 }, 'knuth-plass'), [6]);
+  // The limit still binds: 800 of 1000 fits under 900, 1200 does not.
+  assert.deepEqual(pack({ heights: [400, 400, 400], gap: 0, capacity: 1000, limit: 900 }, 'knuth-plass'), [2, 1]);
+  assert.deepEqual(pack({ heights: [400, 400, 400], gap: 0, capacity: 1000, limit: 900 }, 'greedy'), [2, 1]);
+});
