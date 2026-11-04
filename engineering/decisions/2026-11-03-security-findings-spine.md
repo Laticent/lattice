@@ -260,6 +260,13 @@ renderer's, 21 of them, and lint's stripped constructs equal the sanitizer's rem
 with lint's refresh-`<meta>` branch disabled, the test fails, naming `https://refresh.example/`. The repeated
 front-matter `header:` is read the last, by both.
 
+**After the inversion review (2026-11-04).** Two gaps it found are fixed and seeded in the differential: a `<style>`
+inside `<svg>` (every design tool's logo export) raised a false `markup-unsure` and hid its web addresses, which the
+renderer reads through its no-parser branch; lint now reads that text the renderer's way, and stays silent on a clean
+one. And every directive the engine writes into a slide's `style` as a custom property (`color`, `backgroundColor`,
+`backgroundPosition` …, read from `lib/core/meta-keys.js`), in a comment or the front matter, is read as CSS, not only
+`backgroundImage`. Not fixed: an `<iframe src>` to another site raises both `stripped-markup` and `web-image`, both true.
+
 **What lint still cannot see.** An address at the site's own origin, which the Studio allows (`withOwnOrigin`): lint
 reports it, the safe direction, and says so in `spec/diagnostics.md`. Markup the ENGINE writes (§3).
 
@@ -334,11 +341,11 @@ spine's own files (`content-policy.js`, `media-sources.js`, `web-ref-readers.js`
 | `list-copy` | a literal list of three or more names, most of them from one table list (fetch attributes, stripped tags, media elements, paint attributes) |
 
 Each count is held exactly to `SANCTIONED_SPINE_READERS` (file, shape, count, why): a new hit fails, and so does a stale
-entry. **Day one holds 53 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
+entry. **Day one holds 54 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
 the ones R4's hand-kept list named. Each says why it is not the spine's, in one of four kinds: it reads text the engine
 itself wrote in a fixed shape (18), it refuses on any `url(` and so fails closed (9), it reads Lattice's own font,
 `data:` or runtime references (13), or one of 13 others: the renderer's own element sets, one lint rule's script test,
-and the readers that decide something on an author's text, each naming its follow-up: `slide-camera.mjs` (followups.d/3024, waits on export sign-off), the Studio export's
+and the readers that decide something on an author's text, each naming its follow-up (one is lint's own prefilter): `slide-camera.mjs` (followups.d/3024, waits on export sign-off), the Studio export's
 `deck-export.js`, `pane-css.js`'s raw-text closers, and the hints in `web-image-hint.ts` and `inline-url-media.mjs`
 (followups.d/3022). lint-core's Markdown image regexes, the one entry §4 named, are gone: S1 reads Markdown with the
 engine's parser.

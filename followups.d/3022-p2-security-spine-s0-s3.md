@@ -56,5 +56,6 @@ All four phases landed (decision note, "S3, the census, as built"). What remains
 sanctioned entry in `SANCTIONED_SPINE_READERS` that names this file: move `docs/src/components/studio/export/deck-export.js`'s
 url() inliner onto `cssRefSpans` (it changes the Studio export's bytes, so it ships with a dark and a light render for the
 owner's sign-off), `lib/core/pane-css.js`'s raw-text closers onto the HTML reader's `rawTextEnd`, and the source hints in
-`web-image-hint.ts` and `inline-url-media.mjs` onto the lint rules' readers. `slide-camera.mjs` is followups.d/3024's.
+`web-image-hint.ts` and `inline-url-media.mjs` onto the lint rules' readers, and `lib/core/url-scheme.js` `cssUrlVerdict`
+onto `cssRefSpans` (its pattern misses `u\72l(`; today its one caller also refuses any backslash, so nothing passes). `slide-camera.mjs` is followups.d/3024's.
 

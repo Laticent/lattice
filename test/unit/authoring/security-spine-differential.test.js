@@ -31,6 +31,7 @@ marp: true
 theme: indaco
 plugins: [video]
 backgroundImage: url(https://fm-bg.example/a.png)
+color: url(https://fm-color.example/a.png)
 header: "![h1](https://first-header.example/1.png)"
 header: "![h2](https://last-header.example/2.png)"
 ---
@@ -67,6 +68,8 @@ a[href="https://selector.example/"] { color: red; }
 
 <!-- _backgroundImage: url(https://dir-bg.example/d.png) -->
 
+<!-- _backgroundColor: url(https://dir-color.example/c.png) -->
+
 ## Click and script
 
 <a href="https://link-ok.example/" ping="https://ping.example/p">link</a>
@@ -86,6 +89,8 @@ a[href="https://selector.example/"] { color: red; }
 ---
 
 ## Diagrams and navigation
+
+<svg viewBox="0 0 10 10"><defs><style>.cls-1{fill:url(https://svg-style.example/s.png)}</style></defs><rect class="cls-1" width="10" height="10"/></svg>
 
 ${F}mermaid
 flowchart LR
@@ -126,7 +131,7 @@ describe('security spine S2: the linter warns on exactly what the renderer block
     const lint = [...new Set(linted().filter((f) => f.rule !== 'stripped-markup' && f.rule !== 'markup-unsure').map((f) => f.address))].sort();
     assert.deepEqual(lint, rendered);
     // The seed is not vacuous: every family is in it, and no near miss is.
-    for (const u of ['https://img.example/1.png', 'https://entity.example/e.png', 'https://escape.example/e.png', 'https://smil.example/s', 'https://merm.example/m.png', 'https://refresh.example/', 'https://ping.example/p', 'https://video-poster.example/p.jpg', 'https://dir-bg.example/d.png', 'https://fm-bg.example/a.png']) {
+    for (const u of ['https://svg-style.example/s.png', 'https://dir-color.example/c.png', 'https://fm-color.example/a.png', 'https://img.example/1.png', 'https://entity.example/e.png', 'https://escape.example/e.png', 'https://smil.example/s', 'https://merm.example/m.png', 'https://refresh.example/', 'https://ping.example/p', 'https://video-poster.example/p.jpg', 'https://dir-bg.example/d.png', 'https://fm-bg.example/a.png']) {
       assert.ok(rendered.includes(u), `the renderer should block ${u}`);
     }
     for (const near of ['plain-link', 'code-span', 'fenced', 'comment', 'selector', 'link-ok']) assert.ok(!rendered.some((u) => u.includes(near)), `${near} is not a fetch`);
@@ -208,5 +213,7 @@ describe('security spine S2: the rules the renderer has no address for', () => {
 
   test('silent on a clean deck with comments, a local image and a `<style>` block of deck CSS', () => {
     assert.deepEqual(rules('---\nmarp: true\n---\n\n<!-- _class: lead -->\n\n<style>\nsection { color: var(--text); }\n</style>\n\n<img src="logo.png" alt="">\n'), []);
+    // a design tool's logo export: a `<style>` inside `<svg>` with no web address is not unsure and not a web image
+    assert.deepEqual(rules('---\nmarp: true\n---\n\n<svg viewBox="0 0 10 10"><defs><style>.cls-1{fill:#e30613}</style></defs><rect class="cls-1" width="10" height="10"/></svg>\n'), []);
   });
 });
