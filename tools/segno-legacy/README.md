@@ -39,3 +39,7 @@ reads it as the oracle and as a failing arm; nothing in `lib/` may.
 `poster-in-style.js` joined at Segno R4 (the narrator): the regex `lib/transformers/prose-projection.mjs` read a video
 embed's poster with, at c0cbc52, before `posterInStyle` read the style with `cssRefSpans`.
 `test/unit/transformers/prose-projection-poster.test.js` reads it as the oracle and as a failing arm; nothing in `lib/` may.
+
+`html-player-inline.js` joined at Segno R4 (the CLI export): `inlineDocAssets` and its CSS tokenizer from
+`lib/export/html-player.js` at 326c319, before `mapCssUrls` read CSS with `cssRefSpans`.
+`test/unit/export/html-player-inline-differential.test.js` reads it as the oracle and as a failing arm; nothing in `lib/` may.
