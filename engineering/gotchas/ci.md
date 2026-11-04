@@ -481,6 +481,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   issue: a leg with no verdict counts as a failure. Read #2035 and the job log, not the badge, before
   calling a spec newly broken. The history below is kept because the inverted-step reading still applies
   to the sibling nightlies that swallow the exit code.
+- **Current state (2026-11-04):** the shards finish, and the badge is honest. In the last 15 runs, 10 were red, 1 was
+  cancelled and 4 were green. Each of the last 6 had 55–64 failing and 1–9 flaky project-tests. Most of those failures are
+  real regressions tracked in #2035, not flakes (`engineering/decisions/2026-11-04-ci-flake-audit.md`).
 
 - **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
   `main` looks covered — and specs have been failing in it the whole time. Measured on
@@ -741,3 +744,20 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Reading a smoke trace without the 2.5 GB artifact:** the artifact zip's central directory is at its end, so HTTP
   range reads fetch one test's `trace.zip` (4 MB here). `0-trace.trace` is JSON lines; the `before` / `after` pairs
   give each action's timing and every `page.evaluate` result.
+
+## A macOS platform-suite check is red on a pull request, and the job has no steps
+
+- **Symptom:** a `Platform suites (macOS / Windows)` run on a pull request or a dispatch is red. The macOS job in it
+  (`export-confine`, `os-sandbox-measure`, `wait-for-macos`) reads `cancelled` after 15–21 minutes, with 0 steps and no
+  runner name. Its annotation says "The job was not acquired by Runner of type hosted even after multiple attempts", and a
+  notice names "capacity constraints … macOS arm64".
+- **Cause:** GitHub had no macOS arm64 runner to give. No test ran, and the code under test is not involved. The run still
+  concludes `failure`, so the pull request shows a red X. 19 of the 20 red non-iOS macOS jobs from 2026-10-21 to 11-04 were
+  this; none was a regression. Sessions that dispatch more suites for the same commit (the evidence plan) compete for the
+  same runners and make it likelier.
+- **What to do:** confirm the job has no steps (`list_workflow_jobs`: `steps` empty, `runner_name` empty). If so, re-run
+  that job once, and only once, after the queue drains. Do not dispatch another copy alongside it, and do not debug the
+  suite. The platform suites are not a merge gate (`platform-suites.yml` header). A dispatch run's `alert` job also counts
+  the cancel and comments on the nightly issue; that comment is the same non-event.
+- **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5; the owner's options for reporting it as "no runner"
+  are in §6 there.
