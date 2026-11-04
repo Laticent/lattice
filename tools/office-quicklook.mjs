@@ -39,7 +39,8 @@ const args = process.argv.slice(2);
 const custgeomOnly = args.includes('--custgeom-only');
 // `--baseline=<ref>` (a branch of origin, e.g. main) also exports each short deck with THAT ref's code, in a worktree of its
 // own, and cuts it to the same runs of three: whether a defect the iOS probe shows came with this branch or was there
-// before it (HARD RULE #18).
+// before it (HARD RULE #18). On demand only: installing and building the ref adds minutes the suite's 30-minute job does not
+// have (run 41815027969 timed out with it). Add it to the suite's `run` line for one dispatch when a defect needs attributing.
 const baseline = args.find((a) => a.startsWith('--baseline='))?.slice('--baseline='.length) || null;
 const deckArgs = args.filter((a) => !a.startsWith('--'));
 const decks = deckArgs.length ? deckArgs : ['examples/inline-icons.md'];

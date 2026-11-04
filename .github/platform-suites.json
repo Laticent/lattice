@@ -222,7 +222,7 @@
         "docs/scripts/ios-safari/QLProbe.swift"
       ],
       "on_pull_request": false,
-      "run": "node tools/office-quicklook.mjs --custgeom-only --baseline=main examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
+      "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
       "why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
     }
   ]
