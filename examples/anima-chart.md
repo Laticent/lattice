@@ -77,7 +77,7 @@ place AND the build runs quick.
 
 ## Set it once; override anywhere.
 
-Set `motion:` in the front matter (or **Deck Settings › Motion**) and every chart slide follows it. A slide overrides with a `motion-*` class (**Slide Settings › Motion**) — `no-motion` pins one slide static.
+Set `motion:` in the front matter (or **Deck Settings › Motion**) and every chart slide follows it. One slide overrides it: `no-motion` pins it static, and a `motion-*` class gives it its own move (**Slide Settings › Motion**).
 
 - **Preview-only.** Motion plays on the live surfaces; every export shows the finished still. A deck without `motion:` is unchanged.
 - **Plays once, on enter.** Motion runs a single time when the slide is shown — no replay control, no loop. It honors the viewer's reduced-motion setting and pauses off-screen.
