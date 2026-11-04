@@ -22,12 +22,13 @@
  * ones under test now (none but the file as written, today).
  * `--custgeom-only` renders just the slides that hold custom geometry (for a big deck such as the gallery).
  *
- * Usage (macOS):  node tools/office-quicklook.mjs [deck.md ...]      default: examples/inline-icons.md
+ * Usage (macOS):  node tools/office-quicklook.mjs [--baseline=main] [deck.md ...]      default: examples/inline-icons.md
  * Elsewhere it still exports and cuts the files (so the XML rewrite is testable) and skips the render, saying so.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -36,6 +37,10 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const OUT = path.join(ROOT, 'platform-suite-artifacts', 'office-quicklook');
 const args = process.argv.slice(2);
 const custgeomOnly = args.includes('--custgeom-only');
+// `--baseline=<ref>` (a branch of origin, e.g. main) also exports each short deck with THAT ref's code, in a worktree of its
+// own, and cuts it to the same runs of three: whether a defect the iOS probe shows came with this branch or was there
+// before it (HARD RULE #18).
+const baseline = args.find((a) => a.startsWith('--baseline='))?.slice('--baseline='.length) || null;
 const deckArgs = args.filter((a) => !a.startsWith('--'));
 const decks = deckArgs.length ? deckArgs : ['examples/inline-icons.md'];
 const onMac = process.platform === 'darwin';
@@ -113,6 +118,37 @@ for (const deck of decks) {
 				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file) });
 			}
 		}
+	}
+}
+if (baseline) {
+	// A checkout of the baseline ref beside this one, installed and built as CI builds this one, so its CLI exports with
+	// its own engine and its own Calco.
+	const base = fs.mkdtempSync(path.join(os.tmpdir(), 'office-baseline-'));
+	const sh = (cmd, a, cwd) => execFileSync(cmd, a, { cwd, stdio: 'inherit' });
+	sh('git', ['fetch', '--depth=1', 'origin', baseline], ROOT);
+	sh('git', ['worktree', 'add', '--detach', base, 'FETCH_HEAD'], ROOT);
+	try {
+		sh('npm', ['ci', '--no-audit', '--no-fund'], base);
+		sh('npm', ['run', 'build'], base);
+		for (const deck of decks) {
+			const name = path.basename(deck, '.md');
+			const variant = `baseline-${baseline.replace(/[^A-Za-z0-9._-]/g, '-')}`;
+			const dir = path.join(OUT, name, variant);
+			fs.mkdirSync(dir, { recursive: true });
+			const pptx = path.join(dir, `${name}.pptx`);
+			execFileSync(process.execPath, [path.join(base, 'lattice.js'), path.join(base, deck), pptx, '--editable', '--quiet'], { cwd: base, stdio: 'inherit' });
+			const zip = await JSZip.loadAsync(fs.readFileSync(pptx));
+			const slides = Object.keys(zip.files).map((f) => Number(f.match(SLIDE)?.[1])).filter(Boolean).sort((a, b) => a - b);
+			if (slides.length > MAX_RUNS) continue;
+			for (let i = 0; i + 2 < slides.length; i++) {
+				const run = slides.slice(i, i + 3);
+				const file = path.join(dir, `slides-${run.map((n) => String(n).padStart(2, '0')).join('-')}.pptx`);
+				fs.writeFileSync(file, await cutTo(zip, run));
+				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file) });
+			}
+		}
+	} finally {
+		sh('git', ['worktree', 'remove', '--force', base], ROOT);
 	}
 }
 fs.writeFileSync(path.join(OUT, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
