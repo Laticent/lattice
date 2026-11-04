@@ -920,7 +920,11 @@ rule (this PR's at 23em; PR 3021's, with the same declarations, at 24em, so it n
 sooner). What stays is what PR 3021 does not do: pricing's
 ribbon, the ordinal run-in under 17em, glossary on tall decks, and statute-stack's 17em pill padding.
 The statute-stack `lane` table keeps its own cards (from 34em) and leaves PR 3021's generic table
-cards, the same way glossary and math derivation do.
+cards, the same way glossary and math derivation do. PR 3031 (2026-11-04) let the lane take the
+shared table layouts instead; rendered side by side at square@laptop, square@hall, portrait@conference
+and story@hall, the shared cards (which switch below 20em) left the lane's obligation column cut to
+"HEAD… OBLI…" with the clip badge at square@hall, while its own 34em cards read at every size. So on
+the rebase the lane stays out of every shared layout, PR 3031's new ones included, and keeps one rule.
 
 **Split before hold.** PR 3021 holds a table or card row in its wide form when the narrow one would
 overflow its slide. The CLI runs the measured split before that hold, so a narrow form that
