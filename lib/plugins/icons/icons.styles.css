@@ -227,3 +227,8 @@ section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
  * which are not inked. */
 section.sketch:has(> svg[data-lattice-rough-ink]) .lat-icon::before { border-color: transparent; }
 section.sketch:has(> svg[data-lattice-rough-ink]) :is(header, footer) .lat-icon::before { border-color: var(--icon-edge); }
+
+/* An icon and the word after it never part at a line end: the icon labels that word (lib/core/icon-bind.js). */
+section .lat-icon-bind {
+  white-space:nowrap;
+}

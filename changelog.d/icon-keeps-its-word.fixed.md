@@ -1,0 +1,1 @@
+- An inline icon and the word after it now stay on one line. `^{warehouse} Snowflake` used to end one line with the icon and start the next with "Snowflake", so the icon labeled nothing; the pair now wraps as one, in the page, the PDF and the editable PowerPoint and ODP.

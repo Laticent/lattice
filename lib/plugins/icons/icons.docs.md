@@ -35,6 +35,9 @@ The icon's name comes first, then any of these words, in any order:
 
 An inline icon is an image with a name (`role="img"`), so a reader hears it where it stands.
 
+An icon labels the word after it, so the two never part at a line end: `^{warehouse} Snowflake` wraps as one. Only one
+space and a word bind; two icons in a row, or an icon before punctuation, wrap as the browser would.
+
 ## Inside a pill: `icon=`
 
 ```markdown
