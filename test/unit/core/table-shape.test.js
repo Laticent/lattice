@@ -5,7 +5,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const {
-  tableShape, resolveReflow, cellKind, uniformity, labelText, REFLOW, REFLOW_CLASS,
+  tableShape, resolveReflow, cellKind, uniformity, labelText, REFLOW, REFLOW_CLASS, MAX_BLOCK_COLUMNS,
 } = require('../../../lib/core/table-shape.js');
 const { applyToDom } = require('../../../lib/runtime/table-shape-dom.js');
 
@@ -90,12 +90,67 @@ test('cell kinds: placeholders are skipped, marks, numbers and dates are told ap
 
 // ── what this change lays out ────────────────────────────────────────────────
 
-test('records and prose become cards, key-value becomes pairs, every other kind keeps its table', () => {
-  assert.deepEqual({ ...REFLOW }, { records: 'cards', prose: 'cards', keyvalue: 'pairs' });
-  assert.equal(resolveReflow([], KINDS.records), 'cards');
-  assert.equal(resolveReflow([], KINDS.prose), 'cards');
-  assert.equal(resolveReflow([], KINDS.keyvalue), 'pairs');
-  for (const k of ['periods', 'options', 'ranked', 'schedule']) assert.equal(resolveReflow([], KINDS[k]), null, k);
+test('every kind has a narrow layout', () => {
+  assert.deepEqual({ ...REFLOW }, {
+    records: 'cards', prose: 'cards', keyvalue: 'pairs', periods: 'runs', crosstab: 'runs',
+    options: 'options', ranked: 'ranked', schedule: 'schedule', lists: 'lists',
+  });
+  const want = { records: 'cards', prose: 'cards', keyvalue: 'pairs', periods: 'runs', options: 'options', ranked: 'ranked', schedule: 'schedule' };
+  for (const [k, layout] of Object.entries(want)) assert.equal(resolveReflow([], KINDS[k]), layout, k);
+  for (const layout of new Set(Object.values(REFLOW))) assert.ok(REFLOW_CLASS[layout], `no class for ${layout}`);
+});
+
+test('a text label column over one number format is a cross-tab; mixed formats stay a record list', () => {
+  const crosstab = {
+    headers: ['Region', 'Hardware', 'Software', 'Services'],
+    rows: [['Americas', '31', '44', '18'], ['EMEA', '47', '29', '21'], ['APAC', '22', '26', '39']],
+  };
+  assert.equal(tableShape(crosstab), 'crosstab');
+  assert.equal(resolveReflow([], crosstab), 'runs');
+  // One measure per column, each its own format: a record list, as before.
+  const records = {
+    headers: ['Region', 'Revenue', 'Headcount', 'Margin'],
+    rows: [['Americas', '$4.2M', '120', '31%'], ['EMEA', '$3.1M', '95', '28%'], ['APAC', '$2.8M', '80', '25%']],
+  };
+  assert.equal(tableShape(records), 'records');
+});
+
+test('independent lists come only from the author, and a block layout past twelve columns keeps its table', () => {
+  const lists = { headers: ['Strengths', 'Weaknesses', 'Risks'], rows: [['Strong API', 'Slow onboarding', 'Pricing pressure'], ['Loyal base', '', 'Key-person risk']] };
+  assert.notEqual(resolveReflow([], lists), 'lists');
+  assert.equal(resolveReflow(['table-lists'], lists), 'lists');
+  assert.equal(resolveReflow(['table-lists', 'no-table-reflow'], lists), null);
+  const wide = { headers: ['Metric', ...Array.from({ length: 12 }, (_, i) => `M${i + 1}`)], rows: [['Revenue', ...Array.from({ length: 12 }, (_, i) => String(10 + i))]] };
+  assert.equal(wide.headers.length, MAX_BLOCK_COLUMNS + 1);
+  assert.equal(resolveReflow(['table-lists'], wide), null);
+  assert.equal(resolveReflow(['table-cards'], wide), 'cards', 'the card layout has no column limit');
+  // A detected cross-tab past the block layouts' reach takes the cards it had before its cue existed;
+  // a measure over time that wide keeps its table, as it did before it had a layout.
+  assert.equal(tableShape(wide), 'crosstab');
+  assert.equal(resolveReflow([], wide), 'cards');
+  const widePeriods = { headers: ['Metric', ...Array.from({ length: 12 }, (_, i) => `Q${(i % 4) + 1}`)], rows: [['Revenue', ...Array.from({ length: 12 }, (_, i) => `$${i}.5`)], ['Margin', ...Array.from({ length: 12 }, (_, i) => `${i}%`)]] };
+  assert.equal(tableShape(widePeriods), 'periods');
+  assert.equal(resolveReflow([], widePeriods), null);
+});
+
+test('a year column over figures is a record list, not a schedule (the bake-off labels it so)', () => {
+  const yearly = { headers: ['Year', 'Revenue', 'Growth'], rows: [['2022', '$40M', '12%'], ['2023', '$45M', '13%'], ['2024', '$51M', '13%']] };
+  assert.notEqual(tableShape(yearly), 'schedule');
+  assert.equal(tableShape(KINDS.schedule), 'schedule', 'a date over an item is still a schedule');
+});
+
+test('a row label keeps its rendered text on both paths: no markdown stripping of snake_case', () => {
+  const md = ['| Field | Plan A | Plan B | Plan C |', '|---|---|---|---|', '| `snake_case_name` | Yes | No | Yes |', '| max_rows_per_page | Email | Chat | Phone |', '| Price | $1 | $2 | $3 |'].join('\n');
+  const { createEngine } = require('../../../lib/engine');
+  const engineDoc = new JSDOM(createEngine().render(md).html).window.document;
+  // The mirror's input: the same table with every reflow stamp taken off, as marp-core would write it.
+  const bare = engineDoc.querySelector('table').outerHTML.replace(/ data-lat-[a-z]+="[^"]*"| role="[^"]*"| class="[^"]*"/g, '');
+  const mirrorDoc = domOf(`<section class="content">${bare}</section>`);
+  for (const doc of [engineDoc, mirrorDoc]) {
+    const t = doc.querySelector('table');
+    assert.equal(t.getAttribute('data-lat-reflow'), 'options');
+    assert.deepEqual([...t.querySelectorAll('tbody tr')].map((tr) => tr.cells[1].getAttribute('data-lat-row')), ['snake_case_name', 'max_rows_per_page', 'Price']);
+  }
 });
 
 test('slide modifiers overrule the measurement, and no-table-reflow wins a slide carrying more than one', () => {
@@ -133,11 +188,20 @@ test('applyToDom stamps the verdict, the class, the roles and every cell label',
 });
 
 test('applyToDom marks a table that keeps its shape, and labels none of its cells', () => {
-  const doc = domOf(`<section class="content">${tableHtml(KINDS.periods)}</section>`);
+  const doc = domOf(`<section class="content no-table-reflow">${tableHtml(KINDS.periods)}</section>`);
   const t = doc.querySelector('table');
   assert.equal(t.getAttribute('data-lat-reflow'), 'none');
   assert.equal(t.querySelector('td').hasAttribute('data-lat-col'), false);
   assert.equal(t.hasAttribute('role'), false);
+});
+
+test('applyToDom gives each value cell its row label on a layout that repeats them, and only there', () => {
+  const doc = domOf(`<section class="content">${tableHtml(KINDS.periods)}${tableHtml(KINDS.records)}</section>`);
+  const [periods, records] = doc.querySelectorAll('table');
+  assert.equal(periods.getAttribute('data-lat-reflow'), 'runs');
+  assert.ok(periods.classList.contains('lat-reflow-runs'));
+  assert.deepEqual([...periods.querySelectorAll('tbody tr:first-child td')].map((td) => td.getAttribute('data-lat-row')), [null, 'Revenue ($M)', 'Revenue ($M)', 'Revenue ($M)', 'Revenue ($M)']);
+  assert.equal(records.querySelector('td:nth-child(2)').hasAttribute('data-lat-row'), false);
 });
 
 test('applyToDom is idempotent and honors the slide override', () => {
@@ -153,14 +217,17 @@ test('applyToDom is idempotent and honors the slide override', () => {
 test('the engine stamps the same verdicts on a rendered deck, on any slide', () => {
   const { createEngine } = require('../../../lib/engine');
   const deck = [
-    '---', 'theme: indaco', '---', '', '## Two tables', '',
+    '---', 'theme: indaco', '---', '', '## Three tables', '',
     '| Name | Role | Location |', '|---|---|---|', '| Ada | Lead | Lagos |', '| Priya | Director | Bengaluru |', '',
-    '| Spec | Value |', '|---|---|', '| Power | 180 W |', '| Size | 1U |',
+    '| Spec | Value |', '|---|---|', '| Power | 180 W |', '| Size | 1U |', '',
+    '| Criterion | Plan A | Plan B | Plan C |', '|---|---|---|---|', '| Price per seat | $12 | $24 | $48 |', '| Single sign-on | No | Yes | Yes |', '| Support | Email | Chat | Phone |',
   ].join('\n');
   const doc = new JSDOM(createEngine().render(deck).html).window.document;
   const tables = [...doc.querySelectorAll('section table')];
-  assert.deepEqual(tables.map((t) => t.getAttribute('data-lat-reflow')), ['cards', 'pairs']);
+  assert.deepEqual(tables.map((t) => t.getAttribute('data-lat-reflow')), ['cards', 'pairs', 'options']);
   assert.equal(tables[0].querySelector('td:nth-child(2)').getAttribute('data-lat-col'), 'Role');
+  assert.equal(tables[0].querySelector('td:nth-child(2)').hasAttribute('data-lat-row'), false);
+  assert.equal(tables[2].querySelector('tbody tr:nth-child(2) td:nth-child(3)').getAttribute('data-lat-row'), 'Single sign-on');
 });
 
 // ── the CSS selects what the kernel stamps ───────────────────────────────────
@@ -169,6 +236,14 @@ test('base.table-reflow.css selects the stamped classes and label attribute, and
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.table-reflow.css'), 'utf8');
   for (const cls of Object.values(REFLOW_CLASS)) assert.ok(css.includes(`table.${cls}`), `no rule selects table.${cls}`);
   assert.ok(css.includes('attr(data-lat-col)'), 'the card labels must read data-lat-col');
+  assert.ok(css.includes('attr(data-lat-row)'), 'the block layouts must read data-lat-row');
+  // Every block layout's column reorder reaches exactly the columns the kernel lets through.
+  assert.ok(css.includes(`:nth-child(${MAX_BLOCK_COLUMNS}) { order: ${MAX_BLOCK_COLUMNS}; }`), 'the order rules stop short of MAX_BLOCK_COLUMNS');
+  assert.ok(!css.includes(`:nth-child(${MAX_BLOCK_COLUMNS + 1}) { order:`), 'order rules past MAX_BLOCK_COLUMNS are dead');
+  // A run table of five or more columns switches below 24em, as a card table that wide does: the
+  // one-number-format cue moved such tables from cards to runs, and they must not switch later.
+  assert.ok(css.includes('@container (width >= 20em) and (width < 24em) {'), 'no 20-24em step for wide run tables');
+  assert.ok(css.includes('table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5)))'), 'the 20-24em step does not select five-column run tables');
   assert.ok(!/attr\(data-label\)/.test(css), 'data-label belongs to the Guide (SANCTIONED_MARK_IDENTITY), not to tables');
   const build = fs.readFileSync(path.join(ROOT, 'tools/build-css.js'), 'utf8');
   assert.ok(build.includes("'lib/base/base.table-reflow.css'"), 'the sheet is not in the CSS bundle');
@@ -178,7 +253,7 @@ test('base.table-reflow.css selects the stamped classes and label attribute, and
 // The shipped detector won a bake-off on 225 independently labeled tables
 // (tools/frame-lab/bakeoff/, `npm run tables:bakeoff`). Hold it to that result, so a
 // change to the kernel cannot quietly lose ground. The floors sit a little under the
-// measured 82% (all tables) and 67% (deck tables); raise them when the kernel improves.
+// measured 83% (all tables) and 71% (deck tables); raise them when the kernel improves.
 
 test('the shipped detector keeps its bake-off result', () => {
   const { score, DETECTORS } = require('../../../tools/frame-lab/bakeoff/bakeoff.js');

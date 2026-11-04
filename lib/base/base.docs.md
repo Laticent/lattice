@@ -896,7 +896,7 @@ slide, and where a component already has a single-column form for tall decks
 the narrow form is that one. On a slide, a row that would overflow once it
 wraps keeps its columns. There is nothing to author.
 
-### When a table runs out of width — `table-cards` · `table-pairs` · `no-table-reflow`
+### When a table runs out of width — `table-cards` · `table-pairs` · `table-lists` · `no-table-reflow`
 
 A table whose box gets too narrow changes shape instead of squeezing. The
 engine names each table's kind (`lib/core/table-shape.js`) and gives it a
@@ -906,19 +906,26 @@ narrow layout:
 |---|---|
 | A record list (each row is one thing: a person, a file, a risk) | each row becomes a card — the first cell is its title, every other cell a `LABEL value` line, the values aligned in one column; a label longer than 10 characters sits above its value instead |
 | A two-column table (a label and its value) | each label moves above its value |
-| Any other kind (a table read across rows and down columns) | keeps the table, for now |
+| A measure over time, or a cross-tab (Revenue × Q1–Q4, Region × Product) | the columns split into blocks of two, each block repeating the row labels; at the narrowest, one column per block |
+| An option comparison (Plans A/B/C × criteria) | one block per option, each listing the criteria beside its values |
+| A ranked list (Rank · Account · ARR) | a two-line row: rank, name and the last figure on the first line, the other columns labeled beneath |
+| A schedule (Date · Milestone · Owner) | a two-line row: the date above its item, the other columns labeled beneath |
+| Independent lists (Strengths · Weaknesses · Risks) | one block per column; the engine cannot tell this kind from a record list, so name it with `table-lists` |
 
-It switches only where the table genuinely breaks, measured against the
+A block layout reaches twelve columns; a wider table keeps its table form.
+
+In a box only a few words wide every label moves above its value. It
+switches only where the table genuinely breaks, measured against the
 table's own box: a narrow pane, a portrait canvas or a phone. A table on a
 full-width 16:9 slide, or in a half pane on one, never switches. And on a
-slide it switches only if the new layout FITS: a card is taller than the row
-it replaces and a slide does not grow, so when the cards would make the slide
-overflow, the table keeps its table form (the export prints an `ⓘ` line
+slide it switches only if the new layout FITS: every narrow layout is taller
+than the table it replaces and a slide does not grow, so when it would make the
+slide overflow, the table keeps its table form (the export prints an `ⓘ` line
 naming the page). On a continuous page there is no such limit.
 
 You do not need to do anything. Overrule the engine when it guessed wrong:
 `table-cards` forces the card layout, `table-pairs` the label/value layout,
-and `no-table-reflow` keeps the table at every width (it wins a slide
+`table-lists` one block per column, and `no-table-reflow` keeps the table at every width (it wins a slide
 carrying more than one). A slide's modifier reaches the tables in its panes;
 a pane marker can name its own (`<!-- _pane: content no-table-reflow -->`),
 which wins for that pane. A raw `<table>` written as HTML is not reflowed. See engineering/decisions/2026-11-03-responsive-tables.md.
@@ -927,7 +934,7 @@ The components that own a table have their own narrow form, on the same
 rules: `glossary` puts each term above its definition, `math derivation`
 puts each justification under its step, and `obligation-matrix` and the
 `statute-stack lane` take the cards. `matrix-grid` and `roadmap` keep their
-grid. `no-table-reflow` keeps all four in table form in a narrow box; on
+grid: each draws its table as a chart, whose columns are the chart's axis. `no-table-reflow` keeps all four in table form in a narrow box; on
 the mobile canvas a glossary stacks regardless, as it always has.
 
 ---

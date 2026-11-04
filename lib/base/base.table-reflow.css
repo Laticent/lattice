@@ -1,14 +1,28 @@
 /* Table reflow — a table that runs out of width changes shape instead of squeezing.
  *
  * lib/core/table-shape.js names each table's narrow layout and the two render paths stamp
- * it (`lat-reflow-cards` / `lat-reflow-pairs`, plus each body cell's column header as
- * `data-lat-col`). This sheet does the rest, and only inside a container query, so a table at
- * full slide width renders exactly as it did. The query reads the table's OWN box, not the
- * screen: a table in a half pane switches the same way one on a phone does.
+ * it (`lat-reflow-<layout>`, plus each body cell's column header as `data-lat-col` and, for the
+ * layouts that repeat the row labels, its row's first cell as `data-lat-row`). This sheet does
+ * the rest, and only inside a container query, so a table at full slide width renders exactly
+ * as it did. The query reads the table's OWN box, not the screen: a table in a half pane
+ * switches the same way one on a phone does.
  *
- *   cards — each row becomes a card: the first cell is its title, every other cell a
- *           "LABEL value" line. Record lists and prose registers.
- *   pairs — each label moves above its value. Two-column key-value tables.
+ *   cards    — each row becomes a card: the first cell is its title, every other cell a
+ *              "LABEL value" line. Record lists and prose registers.
+ *   pairs    — each label moves above its value. Two-column key-value tables.
+ *   runs     — the columns split into blocks of two, each repeating the row labels; one column
+ *              per block at the narrowest. Measure over time and cross-tab tables.
+ *   options  — one block per option, each listing the row labels beside its values.
+ *   ranked   — a two-line row: rank, name and the last figure, the other columns beneath.
+ *   schedule — a two-line row: the date above its item, the other columns beneath.
+ *   lists    — one block per column. Independent lists (only by the author's `table-lists`).
+ *
+ * THE BLOCK LAYOUTS (runs, options, lists) DUPLICATE NO MARKUP. CSS cannot copy content, and
+ * rendering a second form of the table would give every table two copies for screen readers,
+ * the Guide and the fit check to reconcile. Instead the rows dissolve (`display: contents`) so
+ * every cell is an item of one grid, `order` regroups the cells column by column, and each
+ * value cell prints its row label from `data-lat-row`. The prototype's one extra (a total column
+ * repeated in every block) needs a copy, so a total is simply the last block here.
  *
  * THE CONTAINER IS THE CONTENT AREA (`.cell-stage`), not a wrapper. The universal treatment
  * (base.elements.css) only styles a table that is a direct child of `.cell-stage` or of the
@@ -24,7 +38,9 @@
  * rules that style a table or its stage siblings uses one (checked when this landed).
  *
  * WHEN IT SWITCHES, in `em` of the stage's text: a card table of up to four columns below
- * 20em, one of five or more below 24em, a pair table below 18em. ONLY WHERE THE TABLE REALLY
+ * 20em, one of five or more below 24em, a pair table below 18em; every other layout below
+ * 20em (a run table of five or more columns below 24em, as a card table that wide), and a run
+ * table drops from two columns per block to one below 15em. ONLY WHERE THE TABLE REALLY
  * BREAKS, because a slide has a fixed height: a card is taller than the row it replaces, so a
  * switch that fires merely where a table gets tight trades a readable table for a clipped
  * slide. A half pane on a 16:9 slide is about 26em and a full-width slide about 54em, so
@@ -39,13 +55,15 @@
  * host (`data-lattice-flow="continuous"` on the root) skips that pass: there the page grows.
  *
  * A SHORTER DENY LIST than the universal treatment's. Of the six components that style `<table>`
- * themselves, two read as record tables and take these cards as they are: `obligation-matrix`
- * (one card per regulation, each obligation a labeled line keeping its state mark) and the
- * `statute-stack` lane (one card per jurisdiction). The other four stay out: `glossary` and
+ * themselves, two take the shared layouts as they are: `obligation-matrix` (a record table: one
+ * card per regulation, each obligation a labeled line keeping its state mark) and the
+ * `statute-stack` lane, which takes whichever layout its table reads as (a jurisdiction register
+ * reads as records, one card per jurisdiction; the legal gallery's lane table reads as an option
+ * table, one block per column). The other four stay out: `glossary` and
  * `math` derivation carry their own narrow rule in their own sheet, and `matrix-grid` and
  * `roadmap` draw their table as a chart. See engineering/decisions/2026-11-03-responsive-tables.md. */
 
-section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > .cell-stage:has(> table.lat-reflow-cards:not(.lat-reflow-held), > table.lat-reflow-pairs:not(.lat-reflow-held)) {
+section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > .cell-stage:has(> table:is(.lat-reflow-cards, .lat-reflow-pairs, .lat-reflow-runs, .lat-reflow-options, .lat-reflow-ranked, .lat-reflow-schedule, .lat-reflow-lists):not(.lat-reflow-held)) {
   container-type: inline-size;
 }
 
@@ -53,9 +71,9 @@ section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.
  * so a card can drop it. In table form it applies exactly as the inline style did: (0,2,5) beats
  * every component rule that aligns these cells (the statute-stack lane's `td:last-child` is
  * (0,2,3)), and it sits BEFORE the narrow layouts, whose `text-align: start` wins a tie on order. */
-section table:is(.lat-reflow-cards, .lat-reflow-pairs) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="left"] { text-align: left; }
-section table:is(.lat-reflow-cards, .lat-reflow-pairs) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="center"] { text-align: center; }
-section table:is(.lat-reflow-cards, .lat-reflow-pairs) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="right"] { text-align: right; }
+section table:is(.lat-reflow-cards, .lat-reflow-pairs, .lat-reflow-runs, .lat-reflow-options, .lat-reflow-ranked, .lat-reflow-schedule, .lat-reflow-lists) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="left"] { text-align: left; }
+section table:is(.lat-reflow-cards, .lat-reflow-pairs, .lat-reflow-runs, .lat-reflow-options, .lat-reflow-ranked, .lat-reflow-schedule, .lat-reflow-lists) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="center"] { text-align: center; }
+section table:is(.lat-reflow-cards, .lat-reflow-pairs, .lat-reflow-runs, .lat-reflow-options, .lat-reflow-ranked, .lat-reflow-schedule, .lat-reflow-lists) > :is(thead, tbody, tfoot) > tr > :is(td, th)[data-lat-align="right"] { text-align: right; }
 
 /* ── cards: tables of up to four columns switch below 20em ── */
 @container (width < 20em) {
@@ -239,4 +257,407 @@ section table:is(.lat-reflow-cards, .lat-reflow-pairs) > :is(thead, tbody, tfoot
     font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600;
     letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label);
   }
+}
+
+/* The block layouts regroup cells by column with `order`: column N's cells all sort after column
+ * N-1's once the rows dissolve (`display: contents`). Outside a block layout `order` does nothing (a
+ * table cell is not a flex or grid item), and within one row it never reorders, because it rises
+ * with the column. Twelve columns: lib/core/table-shape.js keeps a wider table in table form. */
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(1) { order: 1; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(2) { order: 2; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(3) { order: 3; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(4) { order: 4; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(5) { order: 5; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(6) { order: 6; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(7) { order: 7; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(8) { order: 8; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(9) { order: 9; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(10) { order: 10; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(11) { order: 11; }
+section table:is(.lat-reflow-runs, .lat-reflow-options, .lat-reflow-lists) > :is(thead, tbody) > tr > :nth-child(12) { order: 12; }
+
+/* ── runs: measure over time and cross-tab tables with three or more columns of values, from 15em to
+ *    20em, split into blocks of two columns (the row labels repeat in each) ── */
+@container (width >= 15em) and (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: end;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child) {
+    /* A table box ignores its own padding under the inherited `border-collapse: collapse`. */
+    display: table; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-row); display: table-cell; width: 60%; padding-inline-end: var(--sp-xs); text-align: start; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n) {
+    grid-column: 1;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n+3),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n+3) {
+    grid-column: 2;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3)::before {
+    content: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3) {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2) { order: 1; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(3), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(3) { order: 1; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(4), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(4) { order: 2; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(5), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(5) { order: 2; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(6), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(6) { order: 3; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(7), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(7) { order: 3; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(8), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(8) { order: 4; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(9), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(9) { order: 4; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(10), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(10) { order: 5; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(11), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(11) { order: 5; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(12), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(4))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(12) { order: 6; }
+}
+
+/* ── runs with five or more columns switch earlier, below 24em, as a card table of that width did:
+ *    a table the one-number-format cue moved from cards to runs never switches later than it did. ── */
+@container (width >= 20em) and (width < 24em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: end;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child) {
+    display: table; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-row); display: table-cell; width: 60%; padding-inline-end: var(--sp-xs); text-align: start; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n) {
+    grid-column: 1;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n+3),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2n+3) {
+    grid-column: 2;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3)::before {
+    content: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > tbody > tr > td:nth-child(2n+3) {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2) { order: 1; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(3), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(3) { order: 1; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(4), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(4) { order: 2; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(5), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(5) { order: 2; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(6), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(6) { order: 3; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(7), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(7) { order: 3; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(8), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(8) { order: 4; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(9), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(9) { order: 4; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(10), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(10) { order: 5; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(11), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(11) { order: 5; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(12), section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:where(:has(> thead > tr > :nth-child(5))):not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(12) { order: 6; }
+}
+
+/* ── runs, at the narrowest (below 15em): one column per block; options below 20em: one option per block ── */
+@container (width < 15em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: end;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading); text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child) {
+    display: table; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-row); display: table-cell; width: 60%; padding-inline-end: var(--sp-xs); text-align: start; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-runs:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+}
+@container (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading); text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child) {
+    display: table; width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before {
+    content: attr(data-lat-row); display: table-cell; width: 45%; padding-inline-end: var(--sp-xs); text-align: start; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-options:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):empty::after {
+    content: "\2014"; color: var(--text-secondary);
+  }
+}
+
+/* ── lists: one block per column, below 20em ── */
+@container (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) {
+    display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-md);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody) {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: contents;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: var(--sp-2xs) 0; border: 0; border-bottom: 1px solid var(--border); background: none; white-space: normal; overflow-wrap: break-word; text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) > thead > tr > th {
+    padding: var(--sp-sm) 0 var(--sp-2xs); border-bottom: 0; background: var(--spectrum-structure) bottom / 100% 2px no-repeat; font-weight: 600; color: var(--text-heading); text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-lists:not(.lat-reflow-held) > tbody > tr > td:empty,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-lists:not(.lat-reflow-held) > tbody > tr > td:empty {
+    display: none;
+  }
+}
+
+/* ── ranked: a two-line row below 20em: rank, name and the last value on top, the rest beneath ── */
+@container (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-sm); align-items: baseline; padding: var(--sp-2xs) 0; border-bottom: 1px solid var(--border); background: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :is(td, th) {
+    display: block; padding: 0; border: 0; background: none; white-space: normal; overflow-wrap: break-word; text-align: start;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead > tr > th,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead > tr > th {
+    font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :first-child {
+    grid-column: 1; grid-row: 1; min-width: 1.5em; text-align: end; font-variant-numeric: tabular-nums;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :nth-child(2) {
+    grid-column: 2; grid-row: 1;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:first-child {
+    color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:nth-child(2),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:nth-child(2) {
+    font-weight: 600; color: var(--text-heading);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :last-child:not(:nth-child(2)),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > :is(thead, tbody) > tr > :last-child:not(:nth-child(2)) {
+    grid-column: 3; grid-row: 1; text-align: end; font-variant-numeric: tabular-nums;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead > tr > th:not(:first-child):not(:nth-child(2)):not(:last-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead > tr > th:not(:first-child):not(:nth-child(2)):not(:last-child) {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child) {
+    grid-column: 2 / 4; color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child)::before {
+    content: attr(data-lat-col); font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label); padding-inline-end: var(--sp-xs);
+    /* An atomic box, so the line may break between the label and its value, not inside the value. */
+    display: inline-block;
+  }
+}
+
+/* ── schedule: a two-line row below 20em: the date above its item, the rest as labeled lines ── */
+@container (width < 20em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody {
+    display: block;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > thead {
+    display: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr {
+    display: flex; flex-direction: column; gap: 0.15em; padding: var(--sp-xs) 0; border-bottom: 1px solid var(--border); background: none;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td {
+    display: block; padding: 0; border: 0; background: none; white-space: normal; overflow-wrap: break-word; text-align: start; align-self: flex-start; max-width: 100%;
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:first-child,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:first-child {
+    font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--accent);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(2),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(2) {
+    font-weight: 600; color: var(--text-heading);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(n+3),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(n+3) {
+    color: var(--text-secondary);
+  }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(n+3)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-schedule:not(.lat-reflow-held) > tbody > tr > td:nth-child(n+3)::before {
+    content: attr(data-lat-col); font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label); padding-inline-end: var(--sp-xs);
+    /* An atomic box, so the line may break between the label and its value, not inside the value. */
+    display: inline-block;
+  }
+}
+
+/* ── the width guard: in a very narrow box a label beside its value leaves the value no room ──
+ * A card line keeps its label in a fixed column (10 characters, or 6 for short labels), and a block's
+ * row label takes 45% (options) or 60% (runs) of the line. In a box a few words wide (a record table in
+ * a 30% pane of a 16:9 deck viewed on a phone, in the fluid view: about 5em) that starved the value to a
+ * letter per line. So there every label sits above its value, the `stack` form, and a ranked row puts
+ * its figure under the name, labeled because the header row is hidden there (beside the name, the
+ * name's column went to zero). Below 12em for the 10-character label column (at the Frame Lab's
+ * 360px frame, 10.8em, it broke values mid-word), 8em for the 6-character one (which reads well
+ * there), 10em for the blocks and ranked rows. A 30% pane on a 16:9 slide (15.3em) is above all
+ * of them. */
+@container (width < 12em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards:not([data-lat-labels="s"]):not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-cards:not([data-lat-labels="s"]):not(.lat-reflow-held) > tbody > tr > td:not(:first-child) { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards:not([data-lat-labels="s"]):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-cards:not([data-lat-labels="s"]):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before { display: block; width: auto; white-space: normal; }
+}
+@container (width < 10em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table:is(.lat-reflow-options, .lat-reflow-runs):not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table:is(.lat-reflow-options, .lat-reflow-runs):not(.lat-reflow-held) > tbody > tr > td:not(:first-child) { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table:is(.lat-reflow-options, .lat-reflow-runs):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table:is(.lat-reflow-options, .lat-reflow-runs):not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before { display: block; width: auto; white-space: normal; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > thead { display: none; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr { grid-template-columns: auto minmax(0, 1fr); }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:last-child:not(:nth-child(2)),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:last-child:not(:nth-child(2)) { grid-column: 2; grid-row: auto; text-align: start; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:not(:first-child):not(:nth-child(2)):not(:last-child) { grid-column: 2; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:last-child:not(:nth-child(2))::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-ranked:not(.lat-reflow-held) > tbody > tr > td:last-child:not(:nth-child(2))::before { content: attr(data-lat-col); display: inline-block; font-family: var(--font-label); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-label); padding-inline-end: var(--sp-xs); }
+}
+@container (width < 8em) {
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards[data-lat-labels="s"]:not(.lat-reflow-held) > tbody > tr > td:not(:first-child),
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-cards[data-lat-labels="s"]:not(.lat-reflow-held) > tbody > tr > td:not(:first-child) { display: block; }
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards[data-lat-labels="s"]:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
+  section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > table.lat-reflow-cards[data-lat-labels="s"]:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before { display: block; width: auto; white-space: normal; }
 }
