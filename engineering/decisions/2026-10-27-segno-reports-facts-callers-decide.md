@@ -665,8 +665,8 @@ the shared readers. The census was a hand-kept list, though, and the review of t
   consumer reads as a plain string, old and new alike: a quoted `url("…" foo)` with a modifier or a comment before
   `)`; a quoted `url("…` the end of the text closes; and a string that reaches `image-set()` through a custom
   property (`--a:"…"` then `image-set(var(--a))`). The refusal side already treats every string as an address, so
-  only the embedders miss them. They are a grammar change with their own differential
-  (`followups.d/3024-p3-segno-url-modifiers-and-end-closed-strings.md`).
+  only the embedders miss them. They were recorded as a grammar change; a fact on the reader's spans closed the
+  first two on 2026-11-04 and the third is a documented gap (below, "R4: url() strings the exports missed").
 
 ### R4: the Reading view's prune (2026-11-04)
 
@@ -726,6 +726,68 @@ with a regex, so `u\72l(https://…)` survived the prune.
   requests, and the control arm fetches once the origin is allowed.
 - **Bytes.** `player-prune.generated.js` is a lazy chunk: the Reading view loads it when it opens, and it now
   carries the reader and its parser (the same bytes the eager `remote-ref` chunk already ships). No eager route grows.
+
+
+### R4: url() strings the exports missed (2026-11-04)
+
+The red team of #3024 found three spellings that every `cssRefSpans` consumer read as a plain string, though a
+browser fetches them (`followups.d/3024-p3`, deleted by this change). The refusal side treats every string as an
+address, so nothing was fetched that a refusal should stop. The embedders, the CLI export and the Studio's Webpage
+export, left the picture out and, for a local file, shipped its path.
+
+- **What a browser fetches, measured.** A page on a loopback server, each shape its own file:
+
+  | Shape | Chromium 153 | WebKit 26 | Gecko 142 |
+  |---|---|---|---|
+  | `url("a.png" crossorigin(anonymous))`, or any token before `)` | fetched | not fetched | not fetched |
+  | `url("a.png" /*c*/)`, a comment before `)` | fetched | fetched | fetched |
+  | `url("a.png`, closed by the end of the text | fetched | fetched | fetched |
+
+- **A fact, not a new kind.** The grammar is unchanged. All three shapes reach the same reader branch: a string
+  after `url(` with no `)` right after it. `makeCssRefSpans(…, { urlArg: true })` now sets `urlArg: true` on that
+  string's span. The span stays a string and not a `url` span on purpose. An embedder that swapped the whole
+  `url("a.png"` for `url("data:…")` would leave the modifier's `)` dangling and void the declaration. So both exports
+  replace the STRING with a quoted address, which keeps what follows valid. Callers that do not ask get the spans as
+  before. The scanner (remote-ref.js) does not ask, so the frozen tokenizer's differential still compares field for
+  field, and no generated parser changes.
+- **The Reading view's prune reads it too.** `namesRemoteResource` (lib/export/player-prune.js) judges a
+  `urlArg` string as it judges a `url()` target, with `isRemoteRef`, any scheme included, so
+  `url("tauri://localhost/x.png" crossorigin(anonymous))` is dropped rather than read as prose.
+- **The two exports read it.** `lib/export/html-player.js` `mapCssUrls` embeds a closed `urlArg` string as it embeds an
+  `image-set()` string, with the kind `'arg'` so the replacement is a string, never a `url()`.
+  `lib/export/inline-url-media.mjs` builds its own reader with the fact, as the CLI export does, and embeds the same
+  strings. Both read `isClosedString`, which moved out of `html-player.js` into `lib/export/css-closed-string.js` so the
+  two share it and the eager reader does not carry it.
+- **What the review found, fixed here.**
+  - The checker showed that a foreign `<style>` (inside an `<svg>`) that a comment or CDATA marker splits is read
+    run by run in `inline-url-media.mjs`, so the end of a run looked like the end of the sheet. A `url("…` cut there
+    was embedded and its added quote voided the rules after it. `mapCssUrls` now takes `endsSheet`, and a span that
+    reaches the end of a run that is not the last is left alone. The same guard keeps the older unquoted case,
+    `url(/img/m.png<!--c-->)`, from being rewritten.
+  - The red team showed that a refused file's stand-in, an SVG that carries `'`, ended a `'` string early or made a
+    bare url bad, so it never painted. `rewriteFileUrls` now writes an address its quote cannot hold as a `"` string,
+    escaped. A base64 picture always fits, so every deck exports the bytes it did.
+- **Erring toward the embed.** The modifier shape is fetched in Chromium only, so in WebKit and Gecko the export now
+  shows a picture those engines would not have loaded. That is the side to err on: the alternative ships the author's
+  local path in a file that Chromium loads it from. The inliner oracle allows that one over-read outside Chromium and
+  no other.
+- **The third shape, a custom property's string read by `image-set(var(--a))`, is left as a documented gap.** To
+  embed it, the reader would have to call every closed string in a custom property an address, and
+  `--label:"photo.png"` behind a `content:var(--label)` is text. An export that rewrote it to a data URI would show the
+  URI as text. A refusal already treats the string as an address. What it costs: such a picture is missing from the
+  shared file, and a local path in it ships as written. An author who writes the address as a `url()` inside the
+  custom property gets it embedded.
+- **Evidence.** `test/unit/core/css-ref-url-arg.test.js` pins the fact (six spellings with it, five without) and
+  drives the CLI export on all three shapes in both a `style` attribute and a `<style>` body. `inline-url-media.test.js`
+  does the same for the Studio's export. The inliner's Chromium oracle
+  (`test/integration/export/inliner-browser-oracle.test.js`) adds the modifier and comment shapes to its soups, and
+  appends an end-closed `content:url("…` to some cases. It passes in Chromium, WebKit and Gecko. With `urlArg` turned off in
+  `html-player.js`, it fails in Chromium on all three shapes, which is the failing arm. `INLINER_ORACLE_LEGACY=1`
+  still fails, as before. The 446-deck and 192-sheet differential against the frozen inliner
+  (`html-player-inline-differential.test.js`) still shows 0 differences: no tracked deck or sheet carries one of the
+  shapes.
+- **Bytes.** `css-ref-reader.js`, eager on the Studio, Playground and home routes, goes from 1,471 to 1,499 bytes
+  minified and gzipped (+28), declared in `docs/route-budget.d/3024-p3-url-arg.md`.
 
 
 ## Decisions for the owner

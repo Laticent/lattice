@@ -91,7 +91,7 @@ function corpus(next, dir, count, ids) {
   };
   const piece = (prop) => {
     const a = spell(file());
-    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident', 'imageset-str', 'imageset-url', 'webkit-imageset', 'imageset-both', 'esc-url', 'esc-imageset', 'imageset-type', 'imageset-var'])) {
+    switch (pick(['bare', 'dq', 'sq', 'ws', 'nl', 'wsq', 'URL', 'comment', 'str-dq', 'str-sq', 'nest', 'escparen', 'empty-then', 'unterminated-str', 'crlf-esc', 'prefix-ident', 'imageset-str', 'imageset-url', 'webkit-imageset', 'imageset-both', 'esc-url', 'esc-imageset', 'imageset-type', 'imageset-var', 'url-mod', 'url-comment'])) {
       case 'bare': return `${prop}:url(${a});`;
       case 'dq': return `${prop}:url("${a}");`;
       case 'sq': return `${prop}:url('${a}');`;
@@ -116,6 +116,10 @@ function corpus(next, dir, count, ids) {
       case 'esc-imageset': return `${prop}:image-s\\65t("${a}" 1x);`;
       case 'imageset-type': return `${prop}:image-set("${a}" type("image/png"));`;
       case 'imageset-var': return `${prop}:image-set(var(--no-such, "${a}") 1x);`;
+      // A quoted `url(` that does not close right after its string (followups 3024-p3): a modifier or a comment before
+      // the `)`. The third shape, the end of the text closing it, is appended below, last.
+      case 'url-mod': return `${prop}:url("${a}" crossorigin(anonymous));`;
+      case 'url-comment': return `${prop}:url("${a}" /*c*/);`;
       default: return `${prop}:myurl(${a});`;
     }
   };
@@ -123,6 +127,9 @@ function corpus(next, dir, count, ids) {
   for (let i = 0; i < count; i++) {
     let css = '';
     for (let j = 0; j < 1 + Math.floor(next() * 3); j++) css += pick(['', '/*x*/', ' ']) + piece(PROPS[j % PROPS.length]);
+    // `url("…` that the end of the text closes: fetched from an attribute, which ends there. In a `<style>` body the
+    // `}` after it joins the string, so the address ends in `}` and neither side reads a `uN.png`.
+    if (next() < 0.08) css += `content:url("${spell(file())}`; // a property no piece sets, so the cascade keeps it
     out.push(css);
   }
   return out;
@@ -268,7 +275,11 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
       const leaks = [...loaded].filter((n) => !read.has(n));
       assert.deepEqual(leaks.map((n) => `${n}: ${JSON.stringify(caseOf(n))}`), [], `${channel}: pictures the browser loads and the inliner does not read (their local path would ship)`);
       const over = [...read].filter((n) => !loaded.has(n));
-      const unexplained = over.filter((n) => !/url\(''\),/.test(caseOf(n)) && !/url\(''\),/.test(cases.find((c) => c.includes(n)) ?? ''));
+      // The second explained shape: a quoted `url(` with a modifier. Chromium 153 fetches it; WebKit 26 and Gecko 142 read
+      // the modifier as invalid and fetch nothing, so there the inliner embeds a picture the engine would not show. That is
+      // the side to err on: the alternative ships the author's local path in a file Chromium loads it from.
+      const explained = (c) => /url\(''\),/.test(c) || (process.env.INLINER_ORACLE_ENGINE && process.env.INLINER_ORACLE_ENGINE !== 'chromium' && / crossorigin\(anonymous\)\)/.test(c));
+      const unexplained = over.filter((n) => !explained(caseOf(n)) && !explained(cases.find((c) => c.includes(n)) ?? ''));
       assert.ok(unexplained.length === 0, `${channel}: over-reads outside the one invalid-CSS shape: ${unexplained.slice(0, 3).map((n) => JSON.stringify(caseOf(n))).join(' | ')}`);
       total += loaded.size;
       await page.evaluate(() => {
