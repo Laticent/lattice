@@ -668,6 +668,66 @@ the shared readers. The census was a hand-kept list, though, and the review of t
   only the embedders miss them. They are a grammar change with their own differential
   (`followups.d/3024-p3-segno-url-modifiers-and-end-closed-strings.md`).
 
+### R4: the Reading view's prune (2026-11-04)
+
+The first reader the census missed moves. `lib/export/player-prune.js` `namesRemoteResource` drops each deck
+declaration naming a remote resource from the sheet `scopeReHostedCss` builds for the Studio's Reading view, which
+sits in the app's top-level document with no subresource policy. It matched a literal `url\(` and a quoted string
+with a regex, so `u\72l(https://…)` survived the prune.
+
+- **The trace.** The sheet is `render.flatCss`: the engine's flat pack plus the deck's theme (`extraTheme`) and the
+  Studio's local components (`extraCss`). An imported theme is a file an attacker can write, so author-controlled CSS
+  does reach this function. Two layers stand in front of it. `saveStudioTheme` refuses a theme whose CSS reaches off
+  the device (`lib/theme/gate.js`, which reads escapes and refuses `u\72l(https://…)`). Then
+  `article-projection.ts` runs `blockWebCss` (remote-ref.js, which reads with `cssRefSpans`) on `flatCss` before the
+  prune, so a web address the reader has not allowed is already the hatch. What reached the regex was an address on
+  an origin the reader allowed, or on the site's own origin (`withOwnOrigin`). The prune drops every remote
+  address whatever the reader allowed, because this document has no policy behind it, and the escaped spelling
+  slipped past that one rule. So this was a gap in the third layer, not a leak past all three.
+- **The move.** `namesRemoteResource` now reads the value with `cssRefSpans`, built in the file from the reader's
+  three require-free parts as the narrator builds it, with the `imageSet` fact. A `url()` target, and a string inside
+  `image-set()`, is remote when `isRemoteRef` (lib/core/media-sources.js, the kernel the refusals use) says so,
+  any scheme included. That also catches what the regex missed outside escapes: a tab inside the scheme
+  (`ht\9tps:`), a `\\host` that Chromium reads as `//host`, `javascript:`, `chrome-extension://`, and the desktop
+  app's `asset://` and `tauri://`. Any other string is text until something fetches it, and `isRemoteRef` calls every
+  unknown scheme remote, so such a string keeps the regex's own rule (`scheme://…` or `//…`), applied as written and
+  again after the URL parser's normalization (a tab removed, `\` read as `/`, a host after the `//`). So the reader
+  drops everything the regex dropped, and `content:"File: "` or a lone `"\\"` stays.
+- **What the review found, fixed here.** The trio ran on this change (HARD RULE #25, tier 2).
+  - The first version judged a non-`url()` string by a list of web schemes. The inversion review showed it kept
+    `image-set("chrome-extension://…")` and `"asset://…"`, which the regex had dropped. `blockWebCss` knows only web
+    origins, so for those schemes the prune was the only runtime layer. Fixed as above. The `CAUGHT` list now
+    carries them.
+  - The checker and the red team showed that the same list dropped prose such as `content:"File: "`, and that the
+    as-written check dropped a lone `"\\"`. Both are in `KEPT` now.
+  - The red team found two gaps older than this change, on the surface it touches. A nested rule with no `&`
+    (`.a{.b{…}}`, `.a{+ p{…}}`) is a raw node to css-tree, so neither the fence nor the drop could see it, and every
+    engine applied it. Its `url()` fetched, and `+ p` reached the app's prose. Such a node is now dropped (no tracked
+    sheet has one). An escaped at-rule name (`@\70roperty`, `@\66ont-face`, `@\6b eyframes`) skipped the drop list
+    and registered app-global rules. Names are now decoded before the check.
+- **Differential.** `test/unit/export/rehost-remote-ref.test.js` holds the reader to the regex, frozen in
+  `tools/segno-legacy/names-remote-resource.js`, on every declaration of every tracked stylesheet and the built
+  bundle (193 sheets, 58,685 declarations). They differ on one: `spec/conformance/theme/script-url.css`'s
+  `--x:url(javascript:alert(1))`, which the reader now drops. The engine's mark tokens (`data:image/svg+xml` urls that
+  carry `xmlns='http://…'`) all survive. Eight picked spellings fail on the frozen regex, which is the failing arm, and
+  the test asserts that every difference on the tree is a drop the regex missed.
+- **Browsers.** `test/integration/export/rehost-remote-oracle.test.js` loads 50 cases (five spellings of a web
+  address, ten places to put one, a nested rule among them) from a page on one loopback origin. Each address is a
+  distinct file on a second loopback origin that stands in for the web, and the test reads that server's log.
+  Unpruned, Chromium and WebKit fetch all 50. Through the real `scopeReHostedCss` (prune, fence and css-tree's
+  re-serialization) they fetch 0, and so does Gecko 142. `REHOST_ORACLE_LEGACY=1` drops with the frozen regex, and 38
+  of 50 fetch in Chromium: that is the committed failing arm. `REHOST_ORACLE_ENGINE=webkit|firefox` selects the
+  other engines. Gecko does not read `\\host` as `//host` in CSS, so it fetches 40 of the 50 unpruned, and the test
+  lists the ten it skips.
+- **The real surface.** The spelling cannot reach the Reading view through the Studio's own doors without first
+  passing the theme gate, so no Studio e2e can feed it the input without writing storage by hand.
+  `docs/e2e/read-article-beacons.spec.ts`, which logs the Reading view's requests to a loopback tracker, is the real-
+  surface check that nothing regressed. It passes on the built site in Chromium and WebKit: the blocked arm logs 0
+  requests, and the control arm fetches once the origin is allowed.
+- **Bytes.** `player-prune.generated.js` is a lazy chunk: the Reading view loads it when it opens, and it now
+  carries the reader and its parser (the same bytes the eager `remote-ref` chunk already ships). No eager route grows.
+
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
