@@ -20,3 +20,13 @@ where     — each component's `*.styles.css`; a cell-label stamp beside the tab
 done when — the tier-2 galleries' clip counts at portrait@hall and story@hall fall in the fit ratchet, a generic narrow table renders as label/value cards, the lint fails a multi-column component without a narrow form, and no component carries both a `data-family` column rule and a text-room rule for the same part.
 evidence  — the ratchet diff in test/fit/baseline.json, a montage of one slide per layout at story@hall before and after, and a demo deck per layout change (HARD RULE #9).
 verify    — npm run fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none --ratchet test/fit/baseline.json
+
+**Packing waste this tier leaves (measured 2026-11-04, PR #2988).** With `fit: pack` at square@hall, a
+fill probe (each split run's pages; two neighboring pages count as waste when their members fit one
+page under the 90% limit) found 19 runs and 32 extra pages after PR #2988's planner fixes. They are
+layouts, not the planner: `cycle` and `team-profile bench` cram two or four members across at this box
+(the planner's pages fail the readability check, so a page holds one); `regulatory-update`'s rows overflow
+in pairs; `policy-recommendation`, `math`, `inventory editorial` and the `list-steps` timeline expose no
+list or table members, so nothing measures them and they split one a page as on main. Making each of
+these reflow natively in a narrow box (one column, a stacked row) lets the packer put several on a
+page. Probe: `.scratch/fill.js` in the PR #2988 session; `LATTICE_FIT_DEBUG=1` prints each slide's plan.

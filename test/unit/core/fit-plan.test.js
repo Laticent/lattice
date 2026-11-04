@@ -84,8 +84,9 @@ describe('measuredSplit: the verify loop', () => {
     const run = await measuredSplit({
       facts, pack, packer: 'greedy',
       split: async (plan) => { plans.push(plan); return { planned: Object.keys(plan).filter((k) => Array.isArray(plan[k])) }; },
-      // Slide 2 always fails with no depth (a sideways overflow); 10% less room still packs 2 + 1.
-      verify: async () => ({ 2: 0 }),
+      // Slide 2 fails with no depth (a sideways overflow) on every measured plan; 10% less room still
+      // packs 2 + 1. Today's split (no entry for slide 2) passes.
+      verify: async () => (Array.isArray(plans.at(-1)['2']) ? { 2: 0 } : {}),
     });
     assert.equal(run.fellBack, 1);
     assert.ok(run.rounds <= 4, `${run.rounds} rounds`);
@@ -100,7 +101,9 @@ describe('measuredSplit: the verify loop', () => {
   test('at most three verify rounds', async () => {
     let splits = 0;
     const tall = [over('1', Array.from({ length: 12 }, () => 100), 700)];
-    const run = await measuredSplit({ facts: tall, pack, packer: 'greedy', split: async () => { splits++; return { planned: ['1'] }; }, verify: async () => ({ 1: 30 }) });
+    let last = null;
+    // Every measured plan overflows by 30px; today's split (no entry for slide 1) fits.
+    const run = await measuredSplit({ facts: tall, pack, packer: 'greedy', split: async (plan) => { splits++; last = plan; return { planned: ['1'] }; }, verify: async () => (Array.isArray(last?.['1']) ? { 1: 30 } : {}) });
     assert.ok(splits <= 4, `${splits} splits`);
     assert.equal(run.fellBack, 1);
   });
@@ -180,4 +183,17 @@ test('the measure and the verify release every hold first, so every surface meas
   } finally {
     global.document = prior;
   }
+});
+
+test('a slide whose pages fail on today\'s split too keeps its first measured plan, the fewest pages (§17)', async () => {
+  const facts = [over('1', [300, 300, 300, 300], 700)];
+  const plans = [];
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // Every page of slide 1 fails, measured or not: a layout that crams at this box.
+    verify: async () => ({ 1: 0 }),
+  });
+  assert.deepEqual(run.plan['1'], plans[0]['1'], 'back on its first plan');
+  assert.equal(run.fellBack, 0);
 });
