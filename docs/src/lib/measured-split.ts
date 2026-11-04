@@ -307,7 +307,7 @@ export async function studioPlan<S extends object>(o: {
 	source: string;
 	layout: string;
 	split: (plan: Record<string, unknown>) => S;
-	measure: (isCancelled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory }) | null>;
+	measure: (isCanceled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory }) | null>;
 	alive: () => boolean;
 }): Promise<Planned<S> | null> {
 	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory } | null) => {

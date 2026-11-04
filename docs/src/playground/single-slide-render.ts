@@ -1894,7 +1894,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 								layout,
 								split: (plan) => split(wholeHtml, plan),
 								alive: () => !disposed && host.isConnected,
-								measure: (isCancelled) =>
+								measure: (isCanceled) =>
 									ms.measuredSplitInFrame({
 										html: wholeHtml,
 										split,
@@ -1904,7 +1904,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										width: out.width || DEFAULT_W,
 										height: out.height || DEFAULT_H,
 										memory: ms.fitMemoryFor(key, slideSource),
-										cancelled: () => disposed || !host.isConnected || isCancelled(),
+										cancelled: () => disposed || !host.isConnected || isCanceled(),
 									}).catch((e) => {
 										console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
 										return null;
