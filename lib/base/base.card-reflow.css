@@ -7,11 +7,12 @@
  *
  * THE SHARED CONTRACT, which each card component follows in its own styles:
  *   1. its content area (`.cell-stage`) is an inline-size container named `lat-cards`, declared
- *      HERE, once, and only on a wide or square deck. A tall or strip deck already reflows on its
- *      aspect, so the width rules stay out of it and its exports keep the forms they had (a first
- *      cut let them fire on a portrait canvas too, whose content area is narrower than 36em, and
- *      changed pricing, statute-stack, list-steps and q-and-a pages there). The name is
- *      load-bearing: an UNNAMED query would fall through to the section, itself a container;
+ *      once for every content area in base.elements.css, beside the text-room rule, on every
+ *      deck shape. (Until 2026-11-04 it was declared here for wide and square decks only, so a
+ *      tall or strip deck kept its family form; one mechanism now answers on every shape, and a
+ *      rule whose narrow form is worse than a tall deck's designed one says so, as list-steps'
+ *      chevron does. fit-everywhere-model.md §17.) The name is load-bearing: an UNNAMED query
+ *      would fall through to the section, itself a container;
  *   2. it drops columns inside `@container lat-cards (width < Nem)` rules through its own column
  *      variable, never by out-ranking its own rules, at thresholds below a full-width 16:9
  *      box (about 54em), so no full-width 16:9 slide changes;
