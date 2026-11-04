@@ -156,6 +156,33 @@ Each phase ships alone and reverts alone.
 S2's differential is the spine's acceptance test. It does not make the linter depend on the renderer.
 It checks, offline, that the two consumers reach the same verdict from the same facts.
 
+## S0, as built (2026-11-04)
+
+`lib/core/content-policy.js` holds the attribute sets (`FETCH_ATTRS`, `RENDER_FETCH_ATTRS`, `HREF_FETCH_TAGS`,
+`CLICK_FETCH_ATTRS`), the strip lists (`FORBID_TAGS`, `FORBID_ATTR`), `isEventHandlerAttr`, `STYLE_SCRIPT_RE`, and
+the `</style` test (`styleEndAt`, `endsStyleEarly`). `remote-ref.js` requires it; `sanitize-slide-html.mjs` and
+`sanitize-style-text.mjs` default-import it and re-export the names their importers already used, so no caller
+changed. A test pins that each consumer holds the table's own objects, not a copy.
+
+Two things differ from §1, and both are forced:
+
+- **The address question is not re-exported.** The table requires nothing, because three loaders take it by
+  inlining its body: the docs dev server (`vite-cjs-lib-dev.mjs`, which inlines only require-free siblings), the
+  code door's sanitizer page and the function-plot capture page. Re-exporting `isRemoteRef` would make it require
+  `media-sources.js` and break all three. The address facts stay where they already were the one table:
+  `media-sources.js` (`isRemoteRef`) and remote-ref.js's `webOrigin`, which is the renderer's actual web-image
+  test (S1 below).
+- **Two pages evaluate the sanitizer's TEXT.** The code door's page (`code-door-worker.js`) and the capture page
+  (`locked-figures.js`) used to need `sanitize-slide-html.mjs` to import nothing. It now imports the table, and
+  `lib/core/policy-page-script.js` swaps that one line for the table's body, refusing loudly if the line changes.
+
+Evidence: `npm run identity:check -- --strict` against `origin/main`, 443 decks paired, 0 differ, lint identical,
+39 stylesheets identical. Five decks exported as `.html` and `--player` before and after (the web-image demo, a
+Mermaid deck, the plugin sandbox tour through the code door, the export-fidelity deck, the baseline gallery):
+byte-identical except one Mermaid Gantt's "today" line, which moves with the clock (identical once that line is
+masked). The scanner's fuzz in Chromium, WebKit and Firefox, recorded in the PR. The Studio on the dev server loads
+`content-policy.js` over `/@fs` and renders with no console error.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.
