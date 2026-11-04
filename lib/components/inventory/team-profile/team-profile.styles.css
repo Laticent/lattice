@@ -842,11 +842,13 @@ section.team-profile.bio.bio:where([data-family="tall"], [data-family="strip"]) 
  * default, 4 to 8 by headcount, 6 on `bench`), set by the deck's aspect and its headcount but
  * never by the box's width, so a narrow pane squeezed each person to a word per line. Below
  * 30em of the content area the roster goes two to a row, below 16em one. Set on the roster
- * itself, with the class repeated, because the headcount steps set the count there too. The
+ * itself, with the class repeated, because the headcount steps set the count there too: the
+ * 7-person step is (0,9,3), and a first cut at (0,8,2) lost to it (the checker measured a
+ * 7-person roster staying four across in a 25em pane). The
  * side-by-side `sides` and the single `bio` keep their own forms. */
 @container lat-cards (width < 30em) {
-  section.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 2; --lat-narrow: 1; }
+  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 2; --lat-narrow: 1; }
 }
 @container lat-cards (width < 16em) {
-  section.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 1; }
+  section.team-profile.team-profile.team-profile.team-profile.team-profile:not(.sides):not(.bio) > .cell-stage > ul.team-roster:not(.lat-reflow-held) { --person-cols: 1; }
 }

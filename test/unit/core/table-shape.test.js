@@ -349,3 +349,9 @@ test('the card-line sheet names only real label buckets, and aligns every bucket
   assert.deepEqual([...named].sort(), ['s', 'stack'], 'm is the default width, so only s and stack are named');
   for (const a of ['left', 'center', 'right']) assert.ok(css.includes(`[data-lat-align="${a}"] { text-align: ${a}; }`), a);
 });
+
+test('splitAlign moves only the alignments the table form re-applies, and leaves start/end inline', () => {
+  const { splitAlign } = require('../../../lib/core/table-shape.js');
+  assert.deepEqual(splitAlign('text-align:end'), { align: null, rest: 'text-align:end' });
+  assert.deepEqual(splitAlign('text-align: start; color: red'), { align: null, rest: 'text-align: start; color: red' });
+});
