@@ -118,6 +118,17 @@ section {
   --_bar-room-t: var(--_bar-w); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
   --_bar-t: var(--_bar-w); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
 }
+
+/* THE CONTENT AREA IS THE TEXT-ROOM BOX. A component reflows on the width of the box its content
+ * is laid out in, so a list in a narrow pane reflows as the same list on a narrow slide does: the
+ * content area (`.cell-stage`) carries the `lattice` name too, and a query from inside it answers
+ * with the nearest one, the content area, which on an unpaned slide is the slide's content box.
+ * It also carries `lat-cards`, the name the card rows query (base.card-reflow.css). One
+ * declaration, because `container` names the element's WHOLE list: a second rule naming one of
+ * them would drop the other. `inline-size`, so a `cqh` inside still measures the slide.
+ * The pane kernel (lib/core/pane-css.js) twins this onto every pane's own content area.
+ * engineering/decisions/2026-10-28-fit-everywhere-model.md §17. */
+section > .cell-stage { container: lattice lat-cards / inline-size; }
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
    block above explains. Older engines keep the exact width: a custom property holding round() is invalid there at computed
    time, and that would zero the padding and the bar on every slide. */
