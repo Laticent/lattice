@@ -156,8 +156,12 @@ check('an audio element is playing the inline data URI', advanced.found && (adva
 
 // The word highlight must ADVANCE within the sentence — that is the shared cursor doing its
 // job, re-anchored to the clip's real decoded duration rather than an estimate.
+// Wait for the NEXT lit word rather than a fixed 220 ms: on a loaded runner one word can take longer than the sleep,
+// and `1 -> 1 words lit` then failed a player that was working (integration nightly 40852548355).
 const w0 = await saidWords();
-await page.waitForTimeout(220);
+await page
+  .waitForFunction((n) => document.querySelectorAll('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').length > n, w0, { timeout: 3000 })
+  .catch(() => {});
 const w1 = await saidWords();
 check('the word highlight advances through the line', w1 > w0, `${w0} -> ${w1} words lit`);
 

@@ -297,6 +297,8 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 
 		await page.goBack();
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
-		expect(page.url()).toBe(start);
+		// The PAGE is what must stay, so compare the path: the Playground rewrites its own query string (?c=…&view=…) on
+		// its own schedule, and comparing the whole URL failed 3 of 6 WebKit-phone nightlies when that landed after `start`.
+		expect(new URL(page.url()).pathname).toBe(new URL(start).pathname);
 	});
 });
