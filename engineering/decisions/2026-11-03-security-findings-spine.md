@@ -170,8 +170,8 @@ Two things differ from §1, and both are forced:
   inlining its body: the docs dev server (`vite-cjs-lib-dev.mjs`, which inlines only require-free siblings), the
   code door's sanitizer page and the function-plot capture page. Re-exporting `isRemoteRef` would make it require
   `media-sources.js` and break all three. The address facts stay where they already were the one table:
-  `media-sources.js` (`isRemoteRef`) and remote-ref.js's `webOrigin`, which is the renderer's actual web-image
-  test (S1 below).
+  `media-sources.js`: `isRemoteRef`, and `webOrigin`, which is the renderer's actual web-image test (moved there in
+  S1, below).
 - **Two pages evaluate the sanitizer's TEXT.** The code door's page (`code-door-worker.js`) and the capture page
   (`locked-figures.js`) used to need `sanitize-slide-html.mjs` to import nothing. It now imports the table, and
   `lib/core/policy-page-script.js` swaps that one line for the table's body, refusing loudly if the line changes.
@@ -180,8 +180,44 @@ Evidence: `npm run identity:check -- --strict` against `origin/main`, 443 decks 
 39 stylesheets identical. Five decks exported as `.html` and `--player` before and after (the web-image demo, a
 Mermaid deck, the plugin sandbox tour through the code door, the export-fidelity deck, the baseline gallery):
 byte-identical except one Mermaid Gantt's "today" line, which moves with the clock (identical once that line is
-masked). The scanner's fuzz in Chromium, WebKit and Firefox, recorded in the PR. The Studio on the dev server loads
+masked). The scanner's fuzz in Chromium, WebKit and Firefox (2,000 inputs each, `reading` composition and `--wide`):
+0 leaks in each, recorded in the PR. **What S0 does not do:** lint does not read the table yet (S1 needs only the
+address facts), so the table stops drift on its lists, not on which source construct fetches. That is S2's
+differential's job. A test pins that remote-ref.js's `FETCH_ATTRS` and the slide sanitizer's three exports are the
+table's own objects; the scanner's other sets are not exported, so S3's census rule is what catches a copy of them. The Studio on the dev server loads
 `content-policy.js` over `/@fs` and renders with no console error.
+
+## S1, as built (2026-11-04)
+
+`web-image` (lint-core rule 12d, a warning) fires on a Markdown image, an `![bg]` background, an image written through a
+reference definition, and an image in the chrome: a front-matter `header:`/`footer:` (reported once, at its line) or a
+slide's `<!-- header: … -->` comment. It reads the source with the engine's own Markdown parser (`boundaryParser`), so a
+link, a code span, a fenced example and a speaker note are not images, and a reference resolves across slides as the
+render resolves it. Chrome is read the engine's way too: `readDirectiveComment`, values parsed inline with no
+references, and a directive comment inside a paragraph ignored, because the engine's directive pass never sees one.
+
+Its address question is the renderer's, not `isRemoteRef`: `blockWebImages` refuses an address whose `webOrigin` the
+reader has not allowed, and `isRemoteRef` also says yes to `file:` and `blob:`, which the renderer does not block. So
+`webOrigin` moved, unchanged, from remote-ref.js into `media-sources.js`, and remote-ref.js re-exports it. Requiring
+remote-ref.js from lint-core instead would have added both scanners to lint: +16.5 KB gzip, measured.
+
+Evidence: on the 445 decks `examples/`, the galleries and the baseline decks hold, lint and the renderer, each run
+alone, agree on 444. The one difference is two Mermaid diagram addresses (`plugin-sandbox-tour.md`), which the renderer
+blocks and no S1 rule covers: S2's. `lint:deck --all` finds three hits in 491 files, all deliberate web images (the
+`web-images` demo's two, and `styles-device-check.md`'s "A blocked web image" slide); both decks are on
+`tools/lint-subject-decks.js` for `web-image`, because the web image is what they show. A warning still fails
+`lint:deck --strict`, the repo's own deck gate, so every future demo of a web image needs that entry.
+
+Review (red team, inversion, checker, 2026-11-04) found and this PR fixed: a crash on CR-only line endings, a miss in
+table cells (a cell's inline token has no line map), a front-matter finding numbered slide 1 instead of 0 (the editor
+put its mark on the wrong line), a warning on every `![bg]` of a slide where the engine draws only the last, and a
+line fallback that could land on a code span. **Not covered, and S2's:** a `backgroundImage:` front-matter key or
+directive, `@video{… poster=…}`, raw `<img src>`, a Mermaid label (the renderer blocks each); a duplicated
+front-matter `header:` (the engine reads the last, lint the first); an address at the site's own origin, which the
+Studio loads and lint still warns on. A unit test pins the agreement on a seeded
+deck with the chrome cases. `lintCoreGz` +776 B (126,438 to 127,214 against a 127,248 ceiling, the gate's own hash
+fixing), declared in `docs/route-budget.d/security-spine-web-image.md`; that leaves S2 34 B, so S2 needs the ceiling
+raise D5 allows. `lint:deck --all` takes 7.8 s over 491 files with the rule.
 
 ## Decisions for the owner
 

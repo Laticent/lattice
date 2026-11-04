@@ -1576,6 +1576,88 @@ describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
   });
 });
 
+describe('lint-core: web-image (rule 12d, security spine S1)', () => {
+  // A Markdown image from another site: the render shows a placeholder until the reader loads the site, and the
+  // CLI export leaves it out. The lint reads the SOURCE with the engine's own Markdown parser and asks the
+  // renderer's own `webOrigin`, so the two agree without either reading the other.
+  const F = '```';
+  const all = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'web-image');
+
+  test('flags an inline image, a bg image and a reference definition, each on its own line and slide', () => {
+    const src = `${FM}## One\n\nText first.\n![Team](https://images.example.com/a.png)\n\n---\n\n![bg left](//cdn.example.net/b.jpg)\n\n---\n\n![r][pic]\n\n---\n\n[pic]: https://img.example.org/c.png\n`;
+    const got = all(src);
+    assert.deepEqual(got.map((f) => [f.slide, f.line, f.severity]), [
+      [1, '![Team](https://images.example.com/a.png)', 'warning'],
+      [2, '![bg left](//cdn.example.net/b.jpg)', 'warning'],
+      [3, '![r][pic]', 'warning'],
+    ]);
+    assert.match(got[0].message, /https:\/\/images\.example\.com/);
+    assert.match(got[1].message, /^This background loads from another site \(https:\/\/cdn\.example\.net\)/);
+    assert.match(got[0].fix, /relative path/);
+    // `chunkLine` places the finding where `applyFix` and the Squadra bridge look for it.
+    const lines = src.split('\n');
+    const fmEnd = lines.indexOf('---', 1);
+    assert.equal(lines[fmEnd + 1 + got[0].chunkLine], got[0].line);
+  });
+
+  test('silent on what is not a web image: links, code, comments, local and embedded pictures, other front matter', () => {
+    const src = [
+      `---\nmarp: true\ntheme: indaco\ndescription: "![x](https://fm.example/a.png)"\n---\n`,
+      '[a link](https://example.com/page) and `![code](https://code.example/a.png)`',
+      '',
+      `${F}md\n![fenced](https://fence.example/a.png)\n${F}`,
+      '',
+      '<!-- ![note](https://note.example/a.png) -->',
+      '',
+      '![rel](logo.png) ![data](data:image/png;base64,AAAA) ![sample](sample:logo-acme-mark.svg) ![file](file:///tmp/a.png)',
+      '',
+      '&#33;[entity](https://entity.example/a.png)',
+      '',
+    ].join('\n');
+    assert.deepEqual(all(src), []);
+  });
+
+  test('flags a web image in the chrome: front-matter header or footer, or a slide\'s directive comment', () => {
+    const src = `---\nmarp: true\ntheme: indaco\nfooter: "![f](https://foot.example/a.png)"\n---\n\n# A\n\n---\n\n<!-- _header: ![h](//head.example/b.png) -->\n\n# B\n`;
+    assert.deepEqual(all(src).map((f) => [f.slide, f.line]), [
+      [0, 'footer: "![f](https://foot.example/a.png)"'],
+      [2, '<!-- _header: ![h](//head.example/b.png) -->'],
+    ]);
+    assert.match(all(src)[0].message, /^This image in the deck's footer loads/);
+  });
+
+  test('lint warns on exactly the images the renderer blocks, each run alone', () => {
+    const engine = require('../../../lib/engine/index.js');
+    const { blockWebImages } = require('../../../lib/core/remote-ref.js');
+    // The chrome cases are the engine's own rules: a reference never resolves in a header (chrome renders with no
+    // references), and a directive comment inside a paragraph sets nothing.
+    const src = `---\nmarp: true\ntheme: indaco\nheader: "![h](https://g.example/5.png)"\n---\n\n## A\n\n![a](https://a.example/1.png) ![b](//b.example/2.png) [link](https://c.example/)\n\n![rel](x.png) ![d](data:image/gif;base64,R0lGOD)\n\n---\n\n![bg](https://e.example/3.jpg)\n\n![r][ref]\n\n<!-- footer: ![x][ref] -->\n\nText <!-- _footer: ![y](https://i.example/7.png) --> here.\n\n[ref]: HTTP://F.example/4.png\n`;
+    const { blocked } = blockWebImages(engine.render(src, 'indaco').html, []);
+    // Compared as ADDRESSES, each once: the render draws the front-matter header on each slide, and lint reports its one
+    // line once. The address is read back from the finding's own line (or, for a reference, from its definition).
+    const rendered = [...new Set(blocked.map((b) => b.url.toLowerCase()))].sort();
+    const linted = all(src);
+    assert.equal(linted.length, 5);
+    assert.deepEqual([...new Set(linted.map((f) => f.message.match(/\((https?:\/\/[^)]+)\)/)[1]))].sort(), ['https://a.example', 'https://b.example', 'https://e.example', 'http://f.example', 'https://g.example'].sort());
+    assert.deepEqual(rendered, ['//b.example/2.png', 'http://f.example/4.png', 'https://a.example/1.png', 'https://e.example/3.jpg', 'https://g.example/5.png']);
+  });
+
+  test('the review\'s cases: a table cell, CR-only line endings, several backgrounds, a code span holding `![`', () => {
+    // A table cell's inline token has no line map; it takes the row's.
+    assert.deepEqual(all(`${FM}| a | b |\n|---|---|\n| ![a](https://t.example/1.png) | x |\n`).map((f) => f.line), ['| ![a](https://t.example/1.png) | x |']);
+    // markdown-it folds a bare CR into a line break, so the rule counts lines on the same text and does not throw.
+    assert.deepEqual(all('---\rmarp: true\r---\r\r![a](https://cr.example/1.png)\r').map((f) => f.line), ['![a](https://cr.example/1.png)']);
+    // The engine draws the last `![bg]` of a slide, so only that one loads.
+    assert.deepEqual(all(`${FM}![bg](https://a.example/1.png) ![bg](https://b.example/1.png)\n\n![bg](https://c.example/1.png)\n`).map((f) => f.message.match(/\((https?:\/\/[^)]+)\)/)[1]), ['https://c.example']);
+    // The k-th `![` is not the k-th image when a code span holds one; the line that holds the address wins.
+    assert.deepEqual(all(`${FM}a \`![x]\` here\nand ![a](https://m.example/1.png)\n`).map((f) => f.line), ['and ![a](https://m.example/1.png)']);
+  });
+
+  test('a warning, never an error: the render already blocks', () => {
+    for (const f of all(`${FM}![a](https://a.example/1.png)\n`)) assert.equal(f.severity, 'warning');
+  });
+});
+
 describe('lint-core: shell-fence-is-script (rule 12b)', () => {
   // The tag that makes highlighting look broken while every renderer behaves.
   // `shell` / `console` / `shellsession` are highlight.js's terminal-SESSION

@@ -22,3 +22,23 @@ done when — S0: the table exists and the renderer reads it, byte-identical on 
 evidence  — per phase, as the note's table says; S2's differential (lint warns on exactly what the renderer
             blocks, both run independently on seeded markup) is the acceptance test.
 verify    — tier 2 trio for S0 and S2 (they touch the sanitizer's inputs); maker-checker for S1 and S3.
+
+## Status after the spine PR (2026-11-04)
+
+S0 and S1 landed (decision note, "S0, as built" and "S1, as built"). What remains, with what the review found:
+
+- **S2 scope, beyond the note's table.** The renderer blocks these, and `web-image` stays silent on them: a
+  `backgroundImage:` front-matter key and `<!-- _backgroundImage: … -->` directive (blocked as `css`),
+  ``@video{"…", poster="https://…"}`` (blocked as `css`), raw `<img src>`, and a Mermaid label. Also a duplicated
+  front-matter `header:` (the engine reads the last, lint the first) and an address at the site's own origin, which the
+  Studio allows (`withOwnOrigin`) and lint cannot know. S2's differential should be committed as a standing test, and
+  it should compare addresses, not sites.
+- **S2 budget.** `lintCoreGz` has 34 B left under its ceiling after S1; S2 needs the raise D5 allows, through
+  `route-budget:rebaseline --raise --ceiling` in its own PR.
+- **S3's day-one census, beyond followups.d/3024.** `docs/src/components/studio/web-image-hint.ts` (its own fetch-
+  attribute list), `lib/core/pane-css.js` (a private `</style` closer), `lib/core/door-attr.mjs` `ADDRESS_START` (a
+  third "is this a network address" test, shared with css-scan.js), `docs/src/components/studio/export/deck-export.js`
+  (a per-tag attribute list), and `lib/export/inline-url-media.mjs` (origins by `new URL().origin`).
+- **The two gate readers' exclusions rest on "no bypass known".** Before S3 sanctions them, run the svg-intake oracle's
+  method (the web-reference fuzz's declarations, judged by three browsers) against `findAddressStrings` and
+  `cssRefTargets`.

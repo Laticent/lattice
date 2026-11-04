@@ -164,6 +164,7 @@ distinct, stable ID.
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |
+| `web-image` | warning | — | A Markdown image, `![bg]` background or image in the `header:`/`footer:` whose address loads from another site: the preview shows a placeholder until the reader loads that site, and the CLI export leaves it out without `--allow-remote`. |
 | `code-record` | warning | — | An `@code{…}` record above a fence that does not read: an unknown word, a bad line range, a width out of range. The render ignores what it cannot read. |
 | `code-record-orphan` | warning | — | An `@code{…}` record line with no fence after it, so it configures nothing and renders as inline code. |
 | `code-line-range` | warning | — | A line reference past the end of its code block: `focus=` or `mark=` in a record, or a slide's `_focus: line` against its first fence. It marks nothing. Not checked on a formatted block, whose lines the formatter decides. |

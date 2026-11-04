@@ -50,17 +50,24 @@ const asJson = argv.includes('--json');
 const wide = argv.includes('--wide');
 const TYPES = { chromium, firefox, webkit };
 
-/** The scanner bundle: the working tree's, or `ref`'s (with its one dependency). */
+/** The scanner bundle: the working tree's, or `ref`'s (with every sibling it requires at that ref). */
 async function bundle() {
   const withCompose = compose === 'reading' || compose === 'preview';
   if (scannerFile) return F.bundleRemoteRef(path.resolve(scannerFile), { withCompose });
   if (!ref) return F.bundleRemoteRef(undefined, { withCompose });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
-  for (const f of ['remote-ref.js', 'media-sources.js', 'css-ref.generated.js', 'css-ref-reader.js', 'html-ref.generated.js', 'html-ref-reader.js']) {
-    try {
-      fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }));
-    } catch {
-      // a ref before the CSS parser has no such file
+  // Follow the ref's own `require('./sibling')` edges rather than a fixed list: the list went stale twice
+  // (css-token-readers.js, then content-policy.js), and a missing sibling failed the build at that ref.
+  const queue = ['remote-ref.js'];
+  for (const seen = new Set(queue); queue.length; ) {
+    const f = queue.shift();
+    const src = execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    fs.writeFileSync(path.join(dir, f), src);
+    for (const m of src.matchAll(/\brequire\(\s*['"]\.\/([\w.-]+?)(?:\.js)?['"]\s*\)/g)) {
+      const next = `${m[1]}.js`;
+      if (seen.has(next)) continue;
+      seen.add(next);
+      queue.push(next);
     }
   }
   return F.bundleRemoteRef(path.join(dir, 'remote-ref.js'), { withCompose });
