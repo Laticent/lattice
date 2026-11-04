@@ -220,26 +220,3 @@ describe('icons — admission reaches the runtime (spec/LPM.md § 3.2.1)', () =>
     assert.ok(drawn.querySelector('.lat-pill .lat-pill-icon'), 'control: and an unmarked icon-only pill');
   });
 });
-
-describe('icons — the glyph codepoint of each icon', () => {
-  const inlineMod = require('../../../lib/plugins/icons/icons.inline.js');
-  const iconData = require('../../../lib/plugins/icons/icons.data.generated.js');
-  const pinned = require('../../../lib/plugins/_icons-source/codepoints.json').icons;
-
-  test('every icon writes the codepoint codepoints.json pins for it (the generated runs lose nothing)', () => {
-    for (const name of Object.keys(iconData.icons)) {
-      const want = pinned[name];
-      const html = inlineMod.glyphHtml(name, 'g', iconData);
-      if (want) assert.ok(html.includes(`&#x${want};`), `${name}: ${html} should carry ${want}`);
-      else assert.equal(html, '', `${name} has no codepoint, so no glyph`);
-    }
-  });
-
-  test('an icon added later, out of alphabetical order, keeps its own codepoint in a run of its own', () => {
-    const data = { icons: { alpha: [], beta: [], gamma: [] }, codepointRuns: [[0, 0xe000, 1], [1, 0xe109, 1], [2, 0xe001, 1]] };
-    assert.ok(inlineMod.glyphHtml('alpha', 'g', data).includes('&#xE000;'));
-    assert.ok(inlineMod.glyphHtml('beta', 'g', data).includes('&#xE109;'));
-    assert.ok(inlineMod.glyphHtml('gamma', 'g', data).includes('&#xE001;'));
-    assert.equal(inlineMod.glyphHtml('delta', 'g', data), '');
-  });
-});

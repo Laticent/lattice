@@ -1,12 +1,14 @@
-'use strict';
+
 // An inline icon and the word after it share a line: lib/core/icon-bind.js, on both render paths (HARD RULE #1).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const { bindLength, bindElement } = require('../../../lib/core/icon-bind.js');
+const { BIND_WORD } = require('../../../lib/core/icon-bind.js');
+const bindElement = require('../../../lib/runtime/icon-bind.js');
+const bindLength = (text) => BIND_WORD.exec(text)?.[0].length ?? 0;
 const { createEngine } = require('../../../lib/engine/index.js');
 
-test('bindLength takes one space and the next word, and nothing else', () => {
+test('the rule takes one space and the next word, and nothing else', () => {
   assert.equal(bindLength(' Snowflake holds'), 10);
   assert.equal(bindLength(' S3, a'), 4);
   assert.equal(bindLength(' S3'), 3);
