@@ -137,7 +137,7 @@ must work without jank in both a PAGED host (slides) and a CONTINUOUS one (long-
 variants, continuous pages). So the narrow layouts are the same in both, and only the trigger differs:
 
 - **Continuous** (`data-lattice-flow="continuous"` on the root): the width alone. The page grows. Today only
-  the Frame Lab declares it; the fluid and document views will.
+  the Frame Lab declares it; a document view will. The fluid view is paged (below).
 - **Paged** (everything else, today every export): the width AND a fit check. lib/core/table-reflow-fit.js
   measures each slide whose table switched, with the shared overflow probe, and if the slide now overflows it
   holds that slide's tables in their table form (`lat-reflow-held`). A slide therefore never comes out worse
@@ -154,6 +154,49 @@ the guards trim has); a held table is not re-judged if its box later widens in a
 The switch widths stay low (20em, 24em, 18em) in this change. With the fit check in place they could rise,
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
+
+## The fluid view is a paged host
+
+Follow-up p10 asked the fluid view to declare itself continuous (`data-lattice-flow="continuous"`), so
+its tables would reflow on width alone. It must not. lib/base/base.fluid-view.css gives each slide
+one screen (`height: 100dvh`, scroll-snap to the next) and keeps `section { overflow: hidden }`, so a
+slide still has a fixed height and what does not fit is cut, not pushed below. Declared continuous, the
+fit check would skip it and a narrow layout that overflows would stand. The fluid view is a PAGED host
+whose page is the phone's screen, and the fit check is exactly what it needs.
+
+What it was missing was the check itself. The fluid viewer's boot (lib/runtime/index.js `boot`) skips the
+live-preview transform pass, because the exported DOM is already rendered, and runs only what the fluid view
+needs: its controller, the geometry stamps, the overflow watcher. The hold lived in the skipped pass, so a
+fluid export never held anything. The fluid controller narrows every slide to the phone after load, a pane's
+table switches to cards there, and on `main` a long record table in a 30% pane read one letter per line and
+clipped. `scheduleReflowHold` now runs from both branches: after fonts and one frame, and again whenever a slide's box
+changes size. A re-judge RELEASES that slide's holds first, then judges the settled size: a hold made at one
+size is wrong at another, and a first cut that only ever added holds left all eight narrow tables of
+examples/responsive-tables.md held after one phone rotation, where a fresh load holds none (the checker's
+repro). The pass waits for the size reports to stop (150 ms) and one frame, judges only the slides that
+changed (a pass over a 126-slide deck cost about 200 ms), and watches slides, not the window: the fluid
+toggle resizes slides without a window resize, and the pass dispatches a window `resize` for the overflow
+watcher. Measured after rotating 390 × 844 → 844 × 390, after widening to 1280 × 800 and after rotating
+back: the runtime's holds equal a from-scratch judgment of the layout on screen, slide for slide.
+
+Two stale stamps made a resized slide differ from a fresh load at the same size, and the check judged
+the stale layout. The runtime never cleared `data-orientation="portrait"` when a box turned landscape again
+(it cleared `data-family` but not this), and it wrote the portrait canvas-scale style (`#lattice-orientation`:
+the type scale and the safe-area bands) once and never revised it, so a rotated phone kept a 446px content
+area where a fresh load has 518px. `stampOrientation` now clears the stamp and `injectOrientationStyle`
+follows the box. Measured in Chromium, WebKit and Gecko, and on WebKit's iPhone 15 Pro profile: after every
+rotation or widening the holds equal a fresh load's at that size. A section nested in a slide's content does not set the
+scale (it once could: a small landscape box in the last slide stripped the portrait scale from a deck).
+test/integration/export/fluid-reflow-hold.test.js pins all three on the real export; it fails on `main`.
+
+The held table still clips in that repro, as it does in table form on `main`: a 30% pane on a 390px
+phone is about 5em wide, and the fluid view keeps panes side by side where the mobile canvas splits them
+into slides. That is a fluid-view limit this change does not reach (`followups.d/3021-p13-fluid-panes-stack-on-a-phone.md`).
+
+**No continuous host exists yet.** The Studio's Read · Article view projects the deck to prose
+(`lp-*` markup), not to slides, so it never meets a slide layout. The Frame Lab stays the only host
+that declares itself continuous. The follow-up stays open for the document view, the host the
+attribute was written for.
 
 ## The components that own a table
 

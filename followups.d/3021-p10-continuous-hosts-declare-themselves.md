@@ -5,14 +5,14 @@ recorded: 2026-11-03
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-11-03-responsive-tables.md
-deferred: blocked — waits on the fluid and document views, which another PR owns
+deferred: blocked — no continuous slide host exists yet; the document view that would be one is not built
 source: https://github.com/Laticent/lattice/pull/3021
 ---
 
-# The fluid and document views declare data-lattice-flow="continuous"
+# A document view declares data-lattice-flow="continuous" when it is built
 
-why now   — #3021's fit check holds a narrow layout on a slide when it would overflow; a continuous host skips that, but only the Frame Lab declares itself continuous today.
-where     — the fluid viewer (lib/base/base.fluid-view.css, the runtime's fluid controller) and any future document view.
-done when — a continuous host sets the attribute and its tables reflow on width alone.
-evidence  — a fluid render of examples/responsive-tables.md at phone width.
-verify    — render with --fluid and look at the table slides.
+why now   — #3021's fit check holds a narrow layout on a slide when it would overflow; a continuous host skips that, because its page grows. The fluid view is NOT such a host: each slide is one screen (100dvh) and clips, so it stays paged, and it now re-runs the hold when a slide's box changes size (the decision doc's "The fluid view is a paged host"). The Studio's Read · Article view projects to prose, not slides. Only the Frame Lab declares itself continuous today.
+where     — the document view, wherever it lands; the attribute goes on its root, beside data-lattice-view.
+done when — a document view renders slides that grow with their content, sets the attribute, and its tables and card rows reflow on width alone.
+evidence  — a document-view render of examples/responsive-tables.md at phone width, every narrow layout standing, none clipped.
+verify    — render the deck in the document view at 390px and look at the table slides.
