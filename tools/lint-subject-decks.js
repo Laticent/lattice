@@ -26,6 +26,16 @@ const SANCTIONED_SUBJECT_DECKS = Object.freeze([
     rule: 'bg-ratio-unread',
     why: 'the demo deck for followups.d/2739-p4: it shows `![bg left:40%]` keeping its panel at the layout\'s own share, so the note that the ratio is not read is the point',
   },
+  {
+    file: 'examples/web-images.md',
+    rule: 'web-image',
+    why: 'the demo deck for web images: it shows the placeholder an image from another site becomes, so every slide that carries one is the point (security spine S1)',
+  },
+  {
+    file: 'examples/styles-device-check.md',
+    rule: 'web-image',
+    why: 'its "A blocked web image" slide checks the placeholder on each device, so the web image is the point (security spine S1)',
+  },
 ]);
 
 /** Is this finding on `rel` (a repo-relative path) one its deck is sanctioned to carry? */
