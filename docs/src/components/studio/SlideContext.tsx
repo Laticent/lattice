@@ -24,8 +24,8 @@ import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
-import { slidePaginates } from '../../../../lib/core/pagination.js';
 import { switchOn } from '../../../../lib/core/switches.mjs';
+import chromeGenerated from '../../../../lib/packages/chrome.generated.js';
 import { getFrontMatter } from '../../lib/front-matter';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from '../../lib/slide-directives';
@@ -45,6 +45,9 @@ import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph 
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
+
+const { NO_PAGINATION } = chromeGenerated as { NO_PAGINATION: readonly string[] };
+
 import { getDescription, setDescription } from './slide-descriptions';
 import { getNote, setNote } from './slide-notes';
 import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
@@ -388,8 +391,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// rule the engine uses. The other rows read the switch itself: `with-progress` cannot make a rail
 	// in a deck with no divider, nor `with-logo` a logo the deck never set, so those rows say what the
 	// slide ASKS for and their help says when the band exists at all.
+	// The page-number fallback is lib/core/pagination.js `slidePaginates`, restated over the same
+	// generated table: that file has requires of its own, which the dev server's CJS shim refuses.
 	const shownWith = (name: string, list: string[]) =>
-		name === 'pagination' ? slidePaginates(list, paginateOn(getFrontMatter(source, 'paginate'))) : switchOn(name, list);
+		switchOn(name, list, name !== 'pagination' || (!list.some((t) => NO_PAGINATION.includes(t)) && paginateOn(getFrontMatter(source, 'paginate'))));
 	const switchHidden = (name: string) => !shownWith(name, [...deck.classTokens, ...tokens]);
 	const setSwitchHidden = (name: string, hide: boolean) => onMutate((c) => {
 		const own = getClassTokens(c).filter((t) => t !== `no-${name}` && t !== `with-${name}`);

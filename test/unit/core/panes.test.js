@@ -654,3 +654,14 @@ test('the pane spine is a switch: a deck-wide no-spine reaches every pane slide,
   assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns')}`), 'none', 'the deck class reaches the slide');
   assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns with-spine')}`), 'drawn', 'the slide brings it back');
 });
+
+test('classLayout decides the spine exactly as the switch spine does (it restates switchOn to stay require-free)', () => {
+  const { classLayout } = require('../../../lib/core/pane-spec.js');
+  const { switchOn } = require('../../../lib/core/switches');
+  const cases = [[[], 'columns'], [['no-spine'], 'columns'], [[], 'columns no-spine'], [['no-spine'], 'columns with-spine'],
+    [[], 'columns no-spine with-spine'], [['silent'], 'columns'], [[], 'rows silent no-spine']];
+  for (const [deck, own] of cases) {
+    const off = / no-spine\b|^no-spine/.test(classLayout(own, deck).spec);
+    assert.equal(off, !switchOn('spine', [...deck, ...own.split(' ')]), `${deck} + ${own}`);
+  }
+});
