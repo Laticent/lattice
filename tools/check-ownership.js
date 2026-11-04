@@ -8771,6 +8771,173 @@ function checkSnapshotHtmlSinks(errors) {
   }
 }
 
+// ─── The security spine's census (spine S3; engineering/decisions/2026-11-03-security-findings-spine.md §4, D4) ───
+// THE RULE: the facts the renderer blocks on and the linter warns on live in ONE place, the spine: the policy table
+// (lib/core/content-policy.js), the address table (lib/core/media-sources.js) and the shared readers
+// (lib/core/web-ref-readers.js, css-ref-reader.js, html-ref-reader.js). A private reader or a private copy of a list is
+// how the two consumers drift apart: one learns a spelling the other does not. So this counts, in every shipped source
+// file under lib/ and docs/src/ (tests, generated and vendored files aside), four shapes:
+//
+//   url-reader    a regex that reads `url(`: the token every CSS address hides behind;
+//   attr-reader   a regex that reads an address attribute (`src=`, `href=`, `srcset=`, `poster=`, `background=`);
+//   style-closer  a bare `</style` search, the table's `endsStyleEarly` written again;
+//   list-copy     a literal list of three or more names of which most are one table list: the fetch attributes, the
+//                 stripped tags, the media elements, the paint attributes.
+//
+// Each count is held to SANCTIONED_SPINE_READERS exactly (file + shape + count), with the reason the reader is not the
+// spine's: a new one fails, and so does a stale entry, as #20 / #22 / #26 do. Most day-one entries read text the engine
+// itself wrote (its own `style`, its own font paths), or refuse on any `url(` at all, which fails closed; the ones that
+// decide a fetch on a stranger's text say so and name the follow-up that moves them.
+//
+// KNOWN LIMITS: a regex built from pieces at run time, a list split across helpers, an attribute list keyed by tag
+// (`{ img: ['src'] }`), and a reader written without a regex (a char scan) are not seen. A census catches the shapes the
+// tree has used, not every shape a reader can take. It changes what build:check finds and adds no CI job or step.
+const SPINE_HOMES = new Set([
+  'lib/core/content-policy.js',
+  'lib/core/media-sources.js',
+  'lib/core/web-ref-readers.js',
+  'lib/core/css-ref-reader.js',
+  'lib/core/html-ref-reader.js',
+  'lib/core/css-image-set-block.js',
+]);
+const SPINE_SHAPES = {
+  'url-reader': (line) => /url(?:\\{1,2}s[*+?])?\\{1,2}\(/.test(line),
+  'attr-reader': (line) => /(?:\\{1,2}b|(?<![A-Za-z:-]))(?:src|href|srcset|poster|xlink:href|background)(?:\\{1,2}s[*+?])?=/.test(line) && /\\{1,2}s|\[\^|\(\?:/.test(line),
+  'style-closer': (line) => /<\\{1,2}\/style(?:\/[dgimsuy]*|\\b|['"`])/i.test(line) && !/<style\b/i.test(line),
+};
+
+// Day one, 2026-11-04: every hit in the tree, each with the reason it is not the spine's. Grouped by what it reads.
+// ENGINE-WRITTEN means the text is markup or style the engine itself wrote in a fixed shape (no author spelling reaches
+// it unchecked); FAILS CLOSED means it refuses or skips on any `url(` at all, so a missed spelling costs a refusal, not a
+// fetch; OWN ASSETS means it reads Lattice's own font, data: or runtime references.
+const SANCTIONED_SPINE_READERS = Object.freeze([
+  // ── Readers of text the engine wrote ──
+  { file: 'lib/components/imagery/video/video.transform.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: rewrites the `background-image:url(\'…\')` the video kernel itself wrote on the poster figure.' },
+  { file: 'lib/core/accessibility-textures.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds the `url(#latt-…)` fragment references the texture pass writes; a fragment never fetches.' },
+  { file: 'lib/core/bg-image.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: resolves a `sample:` named-scheme url() in the engine\'s own background style to the sample folder; it never reads a web address.' },
+  { file: 'lib/core/image-aspect.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture address off the `.lattice-bg` div the engine writes, to size the slide\'s picture bucket; a size, not a fetch.' },
+  { file: 'lib/core/image-dimensions.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same `.lattice-bg` read as image-aspect.js, for the picture\'s dimensions.' },
+  { file: 'lib/core/logo-wall-pack.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `--logo-mask:url(\'…\')` the logo-marks transformer wrote, to pack the wall.' },
+  { file: 'lib/transformers/logo-marks.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads back the `--logo-mask:url(\'…\')` it wrote.' },
+  { file: 'lib/transformers/prose-projection.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds `url(#id)` fragment references, to follow a chart\'s own gradient ids; a fragment never fetches.' },
+  { file: 'lib/components/connect/_qr-card/qr-general.transform.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `<a href>` markdown-it rendered from the card\'s own link, to draw it as a QR code; a link, never fetched.' },
+  { file: 'lib/authoring/lint-core.js', shape: 'attr-reader', count: 1, why: 'LINT, NOT AN ADDRESS: `author-script-defers` tells an inline `<script>` from one with a `src`; it reads no address.' },
+  { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
+  { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
+  { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
+  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `![bg]` panel) to sample its tone.' },
+  { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
+  { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
+  { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },
+  { file: 'lib/export/player-core.mjs', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: reads the `data-lattice-web-src` marker blockWebImages writes on a placeholder; not a fetch attribute.' },
+  { file: 'lib/plugins/mermaid/mermaid.draw-shim.mjs', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads Mermaid\'s own `@font-face` src in its own sheet.' },
+  // ── Refusals that fail closed on any url() ──
+  { file: 'lib/core/door-attr.mjs', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: the door keeps an inline style declaration only when it holds no `url(` at all.' },
+  { file: 'lib/core/image-painting.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a placeholder hatch is told apart by holding no url(); a missed spelling only means it is not treated as the hatch.' },
+  { file: 'lib/core/rough-ink-dom.js', shape: 'url-reader', count: 2, why: 'FAILS CLOSED: rough ink skips any element whose fill or background holds a url().' },
+  { file: 'docs/src/lib/anima/schema.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: an animation color holding `url(` or `image(` is refused outright.' },
+  { file: 'docs/src/lib/vetrina/theme.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a walkthrough theme value holding `url(`, `image(` or `expression(` is refused outright.' },
+  { file: 'lib/core/url-scheme.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: the scheme allowlist for url-typed record fields (meta note §5.7) refuses any url() whose target it cannot read as allowed.' },
+  { file: 'lib/engine/slides.js', shape: 'url-reader', count: 3, why: 'FAILS CLOSED: `realDeclValueIsSafe` admits a `backgroundImage` directive only in three plain url() shapes; anything else is dropped with a diagnostic.' },
+  { file: 'lib/core/css-scan.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: the theme gate classifies an `@import` target as a theme name, a data: url or `other`, and refuses `other`; its address reads are the shared reader (P2).' },
+  { file: 'lib/engine/css.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: theme assembly drops every `@import` but `lattice` from a registered theme.' },
+  // ── Lattice's own assets ──
+  { file: 'lib/core/css-url.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: the runtime\'s first-url() reader for the engine\'s own picture styles (data: and relative), a linear scan written for WebKit (2026-11-03-pictures-at-drawn-size.md); it decides a size, not a fetch.' },
+  { file: 'lib/export/katex-inline.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: inlines KaTeX\'s own `fonts/*.woff2` in its own stylesheet.' },
+  { file: 'lib/export/marp-bundle.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rewrites Lattice\'s own `fonts/…` paths in the bundled stylesheet.' },
+  { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle.' },
+  { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, to strip them.' },
+  { file: 'lib/export/player-assets.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:` urls in the player\'s own CSS, to deduplicate them.' },
+  { file: 'lib/export/player-fonts.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the player\'s own `data:font/woff2` faces.' },
+  { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
+  { file: 'lib/fonts/face-css.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the `src` of Lattice\'s own bundled `@font-face` rules.' },
+  { file: 'lib/export/deck-assets.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `asset:` names a deck references (the host\'s own map); it reads no web address.' },
+  { file: 'docs/src/lib/theme-fetch.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: points a fetched theme\'s `fonts/` and KaTeX font urls at the site\'s own font folder.' },
+  { file: 'docs/src/playground/snapshot-cache.js', shape: 'url-reader', count: 2, why: 'OWN ASSETS: points a cached theme\'s `fonts/` urls at the site\'s own font folder.' },
+  { file: 'docs/src/playground/single-slide-render.ts', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rebases relative url() targets in Lattice\'s own theme CSS onto the asset base.' },
+  // ── The renderer's own sets, and readers that decide a fetch (follow-ups) ──
+  { file: 'lib/core/remote-ref.js', shape: 'list-copy', count: 2, why: 'The scanner\'s own element sets for nested documents (`NESTED_DOC`, `NESTED_ELEMENTS`) and the three attributes a sample slide\'s element is read for; content-policy.js says these stay beside the logic that needs them.' },
+  { file: 'lib/core/sanitize-slide-html.mjs', shape: 'list-copy', count: 1, why: 'The sanitizer\'s `blob:` allowance, `OBJECT_URL_TAGS`: which elements may keep the Studio\'s own object URL, not a list of what fetches.' },
+  { file: 'lib/core/pane-css.js', shape: 'url-reader', count: 1, why: 'Reads an unquoted url() token so the pane CSS widening does not split it; writes no address. followups.d/3022 (S3 census).' },
+  { file: 'lib/core/pane-css.js', shape: 'style-closer', count: 1, why: 'Its raw-text closers (`</style`, `</script`, …) mirror the HTML reader\'s `rawTextEnd`; it rewrites the author\'s style blocks, so it must end where the browser ends them. followups.d/3022 (S3 census).' },
+  { file: 'lib/core/slide-camera.mjs', shape: 'url-reader', count: 3, why: 'A PRIVATE READER that decides what a picture export inlines; its known miss (`u\\72l(`) costs a missing picture, not a leak. Moving it changes export bytes, so it waits on the owner\'s sign-off: followups.d/3024.' },
+  { file: 'lib/core/slide-camera.mjs', shape: 'list-copy', count: 1, why: 'The same picture export\'s per-tag attribute list; moves with the url reader: followups.d/3024.' },
+  { file: 'lib/export/inline-url-media.mjs', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: whether a `<video poster>` in the source makes the export show its embed switch.' },
+  { file: 'lib/export/inline-url-media.mjs', shape: 'url-reader', count: 1, why: 'A HINT over the deck SOURCE: whether the export shows its switch to embed web media (a false yes only shows the switch); the embed itself reads with `scanHtml` and `cssRefSpans` (R4). followups.d/3022 (S3 census).' },
+  { file: 'docs/src/components/studio/export/deck-export.js', shape: 'url-reader', count: 2, why: 'A PRIVATE READER: the Studio export\'s inliner rewrites url() targets in the computed styles it embeds. Moving it onto `cssRefSpans` changes export bytes, so it waits on the owner\'s sign-off: followups.d/3022 (S3 census).' },
+  { file: 'docs/src/components/studio/web-image-hint.ts', shape: 'attr-reader', count: 1, why: 'The same hint as its url-reader entry: one pattern among its quick tests of a source, before any render.' },
+  { file: 'docs/src/components/studio/web-image-hint.ts', shape: 'url-reader', count: 1, why: 'A HINT, not a decision: a quick test of whether a source might hold a web image, before any render; the render\'s scanner decides. followups.d/3022 (S3 census).' },
+  { file: 'docs/src/components/studio/motion/svg-intake.ts', shape: 'list-copy', count: 1, why: 'Paste intake\'s list of the attributes it reads for a paint url(): the table\'s paint attributes plus `marker` and `style`, read through remote-ref.js `attrIsRemote` (R4). followups.d/3022 (S3 census).' },
+]);
+
+/** The policy lists a literal may not copy, by name. */
+function spineLists() {
+  const P = require('../lib/core/content-policy.js');
+  return { 'fetch attributes': new Set(P.FETCH_ATTRS), 'stripped tags': new Set(P.FORBID_TAGS), 'media elements': new Set(P.WEB_MEDIA), 'paint attributes': new Set(P.URL_PAINT_ATTRS) };
+}
+
+/**
+ * Every census shape in one file's text: `{ shape: count }`. PURE, so a test can plant a reader. Comment lines are
+ * skipped (a comment that quotes a reader is not one).
+ */
+function spineCensusHits(text, lists = spineLists()) {
+  const out = {};
+  const add = (k) => { out[k] = (out[k] || 0) + 1; };
+  const code = String(text).split('\n').map((l) => (/^\s*(?:\*|\/\/|\/\*)/.test(l) ? '' : l));
+  for (const line of code) for (const [k, test] of Object.entries(SPINE_SHAPES)) if (test(line)) add(k);
+  for (const m of code.join('\n').matchAll(/\[([^[\]]{0,600})\]/g)) {
+    const names = [...m[1].matchAll(/'([a-z][a-z:-]*)'|"([a-z][a-z:-]*)"/g)].map((x) => x[1] || x[2]);
+    if (names.length < 3) continue;
+    for (const set of Object.values(lists)) {
+      const n = names.filter((s) => set.has(s)).length;
+      if (n >= 3 && n / names.length >= 0.6) { add('list-copy'); break; }
+    }
+  }
+  return out;
+}
+
+/** Errors for `hits` (`[{ file, shape, n }]`) judged against `sanctions`. PURE. */
+function spineCensusFindings(hits, sanctions) {
+  const errors = [];
+  const key = (f, s) => `${f}|${s}`;
+  const allowed = new Map(sanctions.map((s) => [key(s.file, s.shape), s]));
+  const have = new Map(hits.map((h) => [key(h.file, h.shape), h.n]));
+  for (const h of hits) {
+    const s = allowed.get(key(h.file, h.shape));
+    if (s && s.count === h.n) continue;
+    errors.push(
+      `${h.file} holds ${h.n} ${h.shape} (security spine census, HARD RULE #22), ${s ? `${s.count} sanctioned` : 'none sanctioned'}. ` +
+      'Read markup with `scanHtml` and CSS with `cssRefSpans` (lib/core/web-ref-readers.js), and ask lib/core/content-policy.js ' +
+      'and media-sources.js instead of copying a list: a private reader is how the linter and the renderer drift apart. If it ' +
+      'is provably not a security reader, add or change its SANCTIONED_SPINE_READERS entry in tools/check-ownership.js with the reason.',
+    );
+  }
+  for (const s of sanctions) {
+    if ((have.get(key(s.file, s.shape)) || 0) < s.count) {
+      errors.push(`stale security-spine sanction in tools/check-ownership.js — ${s.file} holds ${have.get(key(s.file, s.shape)) || 0} ${s.shape}, ${s.count} sanctioned. Lower or remove the SANCTIONED_SPINE_READERS entry so the allowlist stays honest.`);
+    }
+  }
+  return errors;
+}
+
+/** The census over the shipped tree: `[{ file, shape, n }]`. */
+function spineCensusTree(root = ROOT) {
+  const lists = spineLists();
+  const hits = [];
+  for (const dir of [path.join(root, 'lib'), path.join(root, 'docs', 'src')]) {
+    for (const file of listSourceFiles(dir)) {
+      const rel = path.relative(root, file).split(path.sep).join('/');
+      if (SPINE_HOMES.has(rel) || /\.test\.|\.spec\.|generated|\.d\.ts$|\/e2e\/|\.min\./.test(rel)) continue;
+      for (const [shape, n] of Object.entries(spineCensusHits(fs.readFileSync(file, 'utf8'), lists))) hits.push({ file: rel, shape, n });
+    }
+  }
+  return hits;
+}
+
+function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, root = ROOT) {
+  errors.push(...spineCensusFindings(spineCensusTree(root), sanctions));
+}
+
 // ── Media source rows: a census (media note §4.11, "A contributed source or provider row cannot widen trust") ──
 // `lib/core/media-sources.js` SOURCES is the one table that says whether naming a picture reaches a stranger's
 // server (`locality`) — `isRemoteRef`, the security predicate, is DERIVED from it. So a row that quietly says
@@ -14405,6 +14572,7 @@ function run() {
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
+  checkSecuritySpineCensus(errors);
   checkPlatformSuites(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
@@ -14653,6 +14821,12 @@ module.exports = {
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
+  checkSecuritySpineCensus,
+  spineCensusHits,
+  spineCensusFindings,
+  spineCensusTree,
+  SANCTIONED_SPINE_READERS,
+  SPINE_HOMES,
   checkPluginPurity,
   SANCTIONED_PURITY_HITS,
   PURITY_NAMES,

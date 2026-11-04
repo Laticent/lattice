@@ -5,7 +5,7 @@ recorded: 2026-11-03
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-11-03-security-findings-spine.md §Phasing
-deferred: large — four phases (S0 to S3), each its own change with its own differential; this PR is the decision note only
+deferred: blocked — the census's remaining readers: deck-export.js changes export bytes and waits on the owner's sign-off on a dark and a light render; the rest are hints and a closer that follow it
 source: https://github.com/Laticent/lattice/pull/3022
 ---
 
@@ -49,4 +49,12 @@ S2 landed (decision note, "S2, as built"): the HTML and CSS rules, every source 
 `@video poster` as the video plugin's `video-web-poster`, raw `<img src>`, a Mermaid label, the repeated front-matter
 `header:`), and the differential as a standing test that compares addresses. The site's own origin stays a documented
 limit: lint cannot know the site. `lintCoreGz`'s ceiling moved by the measured 13,469 B. S3 remains.
+
+## Status after S3 (2026-11-04)
+
+All four phases landed (decision note, "S3, the census, as built"). What remains is the census's own follow-ups, each a
+sanctioned entry in `SANCTIONED_SPINE_READERS` that names this file: move `docs/src/components/studio/export/deck-export.js`'s
+url() inliner onto `cssRefSpans` (it changes the Studio export's bytes, so it ships with a dark and a light render for the
+owner's sign-off), `lib/core/pane-css.js`'s raw-text closers onto the HTML reader's `rawTextEnd`, and the source hints in
+`web-image-hint.ts` and `inline-url-media.mjs` onto the lint rules' readers. `slide-camera.mjs` is followups.d/3024's.
 

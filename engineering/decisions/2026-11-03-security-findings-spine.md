@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   One spine, two independent consumers. The spine is the shared readers (scanHtml, cssRefSpans, the
   Markdown reading) plus ONE policy table: which addresses are another site, which attributes fetch on
@@ -318,6 +318,38 @@ refused, in every engine: an `@import "…"`, which the keyword rule refuses; th
 where a string holding a raw newline ends. **What P2 does not do:** `slide-camera.mjs` `CSS_URL` /
 `REL_URL` (what a picture export inlines) stays as it was; moving it changes export bytes and waits on the owner's sign-off
 (followups.d/3024).
+
+## S3, the census, as built (2026-11-04)
+
+`checkSecuritySpineCensus` in `tools/check-ownership.js` (run by `build:check`; no CI job or step added) counts four
+shapes in every shipped source file under `lib/` and `docs/src/` (tests, generated and vendored files aside), outside the
+spine's own files (`content-policy.js`, `media-sources.js`, `web-ref-readers.js`, `css-ref-reader.js`,
+`html-ref-reader.js`, `css-image-set-block.js`):
+
+| Shape | What it catches |
+|---|---|
+| `url-reader` | a regex that reads `url(` |
+| `attr-reader` | a regex that reads an address attribute (`src=`, `href=`, `srcset=`, `poster=`, `background=`) |
+| `style-closer` | a bare `</style` search, the table's `endsStyleEarly` written again |
+| `list-copy` | a literal list of three or more names, most of them from one table list (fetch attributes, stripped tags, media elements, paint attributes) |
+
+Each count is held exactly to `SANCTIONED_SPINE_READERS` (file, shape, count, why): a new hit fails, and so does a stale
+entry. **Day one holds 53 entries, not the one §4 expected**: the census found every regex reader in the tree, not only
+the ones R4's hand-kept list named. Each says why it is not the spine's, in one of four kinds: it reads text the engine
+itself wrote in a fixed shape (18), it refuses on any `url(` and so fails closed (9), it reads Lattice's own font,
+`data:` or runtime references (13), or one of 13 others: the renderer's own element sets, one lint rule's script test,
+and the readers that decide something on an author's text, each naming its follow-up: `slide-camera.mjs` (followups.d/3024, waits on export sign-off), the Studio export's
+`deck-export.js`, `pane-css.js`'s raw-text closers, and the hints in `web-image-hint.ts` and `inline-url-media.mjs`
+(followups.d/3022). lint-core's Markdown image regexes, the one entry §4 named, are gone: S1 reads Markdown with the
+engine's parser.
+
+**Its failing arms** (`test/unit/tools/security-spine-census.test.js`): a regex reader and a copy of the fetch attributes
+planted in a scratch tree each fail it; one more reader in a sanctioned file fails it; a stale entry fails it. A template
+literal that WRITES `url(${u})` or `<img src="${u}">`, a comment, and a whole `<style>…</style>` matcher do not count.
+The census takes 0.34 s per run.
+
+**Known limits.** A regex built from pieces at run time, a list split across helpers or keyed by tag (`{ img: ['src'] }`),
+and a reader written as a character scan are not seen. The census catches the shapes the tree has used.
 
 ## Decisions for the owner
 
