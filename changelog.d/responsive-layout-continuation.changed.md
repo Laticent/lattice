@@ -1,0 +1,1 @@
+- **matrix-2x2 stacks in a narrow box and keeps each quadrant's place.** Below 24em of the content area the 2×2 becomes one column instead of squeezing each quadrant to a word per line, and every stacked card carries a small drawn 2×2 mark with its own cell filled. A portrait or mobile deck's single column carries the same mark. 16:9 slides are unchanged.

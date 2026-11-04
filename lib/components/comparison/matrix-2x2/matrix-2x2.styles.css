@@ -144,3 +144,93 @@ section.matrix-2x2 > .cell-stage > ol > li {
 section.matrix-2x2 > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Position mark — a stacked quadrant still says where it sits.
+ * The 2×2 says "top-left" with the grid itself. A stack has no grid, so each card carries a
+ * small drawn 2×2 in its top-right corner with its own cell filled: first card top-left,
+ * fourth bottom-right (declaration order IS position, see the header). It is drawn, not typed
+ * (HARD RULE #29), and colored from one token (#3): the filled cell is `--accent`, the other three
+ * the same accent at 28%. Both come from the accent, so the filled cell stands out in every theme,
+ * including the mono ones where `--accent` and `--border` are the same ink (a11y-achromatopsia and
+ * onyx: a `--border` empty cell measured 1.00 contrast against the filled one on a dark slide). The card's title already names both poles (the docs require it), so the mark adds
+ * the one thing a stack loses, the place, and the fourth card keeps its outcome ring.
+ * It shows only in a STACKED form: the tall/strip family rule above, and the width reflow
+ * below. Never in the 2×2, where it would repeat the grid.
+ * followups.d → engineering/decisions/2026-11-03-responsive-tables.md §Position components. */
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 0 0; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 100% 0; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { --_mx-at: 0 100%; }
+section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(4) { --_mx-at: 100% 100%; }
+
+/* A split page (lib/engine/carousel.js) holds the cards after the first `--lat-split-offset` ones,
+ * so its first card is not the matrix's first: page three of a one-card-per-page split shows the
+ * bottom-left quadrant. The splitter stamps the offset on the section and it inherits, so a style
+ * query reads it and shifts each card to the place it holds in the whole matrix. A browser without
+ * style queries (Firefox, as of this change) falls back to the page-local place. */
+/* The outcome ring follows the fourth quadrant onto its split page, by the same offset. */
+@container style(--lat-split-offset: 1) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+}
+@container style(--lat-split-offset: 2) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+}
+@container style(--lat-split-offset: 3) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { border-color: var(--on-accent-soft); background: var(--accent-soft); }
+}
+@container style(--lat-split-offset: 1) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 100% 0; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 0 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(3) { --_mx-at: 100% 100%; }
+}
+@container style(--lat-split-offset: 2) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 0 100%; }
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(2) { --_mx-at: 100% 100%; }
+}
+@container style(--lat-split-offset: 3) {
+  section.matrix-2x2 > .cell-stage > :is(ul, ol) > li:nth-child(1) { --_mx-at: 100% 100%; }
+}
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:nth-child(-n+4) {
+  padding-inline-end: calc(var(--sp-md) + var(--_mx-size) + var(--sp-sm));
+  --_mx-size: 0.875em;
+}
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:nth-child(-n+4)::before {
+  content: ""; position: absolute;
+  inset-block-start: var(--sp-md); inset-inline-end: var(--sp-md);
+  width: var(--_mx-size); height: var(--_mx-size);
+  border-radius: 2px;
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent));
+  background-position: var(--_mx-at), 0 0, 100% 0, 0 100%, 100% 100%;
+  background-size: calc(50% - 1px) calc(50% - 1px);
+  background-repeat: no-repeat;
+}
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The family rule above answers the deck's
+ * aspect; this answers the box's width. Below 24em of the content area a quadrant would be under
+ * about 11.5em, a word per line, so the 2×2 stacks: the tall deck's single column, each card
+ * with its position mark. A card never shrinks below its content (`min-height: min-content`), so
+ * a stack that does not fit on a slide overflows the stage, where the fit check
+ * (lib/core/table-reflow-fit.js) sees it and holds the 2×2, instead of each card clipping its
+ * own text out of the probe's sight. A half pane on 16:9 (about 25.4em) keeps the 2×2. */
+@container lat-cards (width < 24em) {
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+    width: 100%; height: auto; flex: var(--cards-grow) 0 var(--cards-basis);
+    min-height: min-content; max-height: none;
+  }
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li:nth-child(-n+4) {
+    padding-inline-end: calc(var(--sp-md) + var(--_mx-size) + var(--sp-sm));
+    --_mx-size: 0.875em;
+  }
+  section.matrix-2x2.matrix-2x2 > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li:nth-child(-n+4)::before {
+    content: ""; position: absolute;
+    inset-block-start: var(--sp-md); inset-inline-end: var(--sp-md);
+    width: var(--_mx-size); height: var(--_mx-size);
+    border-radius: 2px;
+    background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent)), linear-gradient(color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 28%, transparent));
+    background-position: var(--_mx-at), 0 0, 100% 0, 0 100%, 100% 100%;
+    background-size: calc(50% - 1px) calc(50% - 1px);
+    background-repeat: no-repeat;
+  }
+}

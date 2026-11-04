@@ -11,7 +11,7 @@ source: https://github.com/Laticent/lattice/pull/3021
 
 # Charts draw a narrow form instead of scaling like a picture
 
-why now   — every chart scales as a whole when its box narrows, so its labels shrink with it. A narrow form means fewer ticks, horizontal bars, the legend below; heatmap, matrix-grid and roadmap also take a Markdown table as data and need the labels-plus-a-run-of-columns idea in their drawing.
+why now   — every chart scales as a whole when its box narrows, so its labels shrink with it. A narrow form means fewer ticks, horizontal bars, the legend below; quadrant and risk-matrix (moved here from p7: on a slide each is already drawn for its pane, so their gap is the same post-render resize) need their position labels and key to survive the narrow drawing; heatmap, matrix-grid and roadmap also take a Markdown table as data and need the labels-plus-a-run-of-columns idea in their drawing.
 where     — lib/plugins/chart-family/kinds/*/ transforms.
 done when — each kind draws a narrow form at narrow widths, verified in the lab and against main.
 evidence  — the Frame Lab chart entries.

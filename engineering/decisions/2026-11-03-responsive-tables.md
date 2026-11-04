@@ -277,6 +277,34 @@ starving its text: `list principles` (a counter column 2.5 numerals wide in `rom
 compliance` (a number column at its widest content). Below 24em of the content area each puts the
 numeral above its line, through the same shared container.
 
+## Position components keep their meaning when stacked
+
+`matrix-2x2` is a 2×2 where the place IS the meaning: declaration order puts the first card top-left
+and the fourth bottom-right, which carries the outcome ring. Squeezed, each quadrant went to a word per
+line at 360px; stacked naively, as the tall-deck single column already did, the reader loses which
+corner is which. The card title names both poles when the author follows the docs, but the place is
+gone.
+
+- **The narrow form is the tall deck's single column, plus a position mark.** It joins the shared card
+  contract (`lat-cards`, `--lat-narrow: 1`, skip a held list) and stacks below 24em of the content
+  area, the two-across-to-one step. Each stacked card carries a small drawn 2×2 in its top-right corner
+  with its own cell in `--accent` and the others in `--border`: drawn with background layers, not a
+  typed glyph (HARD RULE #29), split into longhands so a missing token costs one layer, not the mark.
+  The tall/strip family form gets the same mark, which is the one visible change on existing decks:
+  a portrait or mobile matrix-2x2 slide gains four small marks.
+- **A stacked card never shrinks below its content** (`min-height: min-content`, no flex shrink). A
+  quadrant cell clips its own overflow (`overflow: hidden`), which the stage probe cannot see, so a
+  shrinking stack would have clipped text silently. A stack that does not fit overflows the stage
+  instead, and the fit check holds the 2×2.
+- **Why no 16:9 slide changes:** the pane catalog gives matrix-2x2 at least half the slide (`side: 50`),
+  about 25.4em, above the 24em switch, and the mobile canvas splits panes into slides.
+
+`quadrant` and `risk-matrix` are charts, and they are the chart question, not this one: on a slide the
+engine draws each chart for its pane's own size (`cart.viewFor(…, paneView)`) and refuses a pane
+narrower than 35% (the pane catalog), so a paged chart is never a shrunk picture of a wide drawing.
+What remains is a host whose box changes AFTER the render (the fluid view on a phone, a resizing live
+preview), which needs a second drawing. That is the chart section below.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
