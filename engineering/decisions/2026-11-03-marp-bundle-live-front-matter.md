@@ -54,7 +54,7 @@ So: the deck **body** is the only channel every host renders live from the open 
 
 ## The design (owner chose "Both")
 
-1. **One home per key.** The exporter (`withBundleFrontMatter`, lib/core/deck-front-matter.js)
+1. **One home per key.** The exporter (`withBundleFrontMatter`, lib/export/bundle-front-matter.js)
    splits the front matter: keys Marp consumes (`MARP_FRONT_MATTER_KEYS`) stay on top, every other
    key — `class:` included — moves into a raw-YAML settings block directly under it:
 

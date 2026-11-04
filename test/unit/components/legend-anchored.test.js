@@ -421,7 +421,8 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     assert.equal(after, before);
   });
   test('no-callout and a host that switched callout off hide it, and keep the detail', () => {
-    for (const ctx of [{ classTokens: ['no-callout'] }, { pluginsOff: new Set(['callout']) }]) {
+    // The host's switch beats a slide's `with-callout`; the runtime carries it as `lat-callouts-off`.
+    for (const ctx of [{ classTokens: ['no-callout'] }, { pluginsOff: new Set(['callout']) }, { classTokens: ['lat-callouts-off', 'with-callout'] }, { classTokens: ['with-callout'], pluginsOff: new Set(['callout']) }]) {
       const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), ctx);
       assert.doesNotMatch(out, /legend--anchored|<code>@callout/);
       assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);

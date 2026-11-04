@@ -398,7 +398,7 @@ section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.
  * What CAN set them is a component that knows its first column is a label. The
  * `table` component does, per table rather than per component — its transform
  * (lib/core/table-row-label.js) reads the actual header cell and column and
- * turns the bet OFF on exactly the four shapes above, and `row-label` /
+ * turns the bet OFF on exactly the four shapes above, and `with-row-label` /
  * `no-row-label` let the author overrule it either way. `obligation-matrix`
  * still declares it directly in its own CSS, as its manifest always has.
  *

@@ -23,7 +23,10 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
+import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
+import { slidePaginates } from '../../../../lib/core/pagination.js';
 import { switchOn } from '../../../../lib/core/switches.mjs';
+import { getFrontMatter } from '../../lib/front-matter';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from '../../lib/slide-directives';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
@@ -380,10 +383,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// `class:` tokens with the slide's own, through the one precedence (`with-X` > `no-X` > `silent`).
 	// Flipping it writes the least the slide needs: `no-X` when the deck shows the band, `with-X` when
 	// the deck (or the slide's `silent`) hides it, and neither when the slide's wish IS the deck's.
-	const switchHidden = (name: string) => !switchOn(name, [...deck.classTokens, ...tokens]);
+	// With no switch token, the page number follows what the ENGINE does: the deck's `paginate:` and
+	// the layout's own default (title, divider and closing show none), by lib/core/pagination.js, the
+	// rule the engine uses. The other rows read the switch itself: `with-progress` cannot make a rail
+	// in a deck with no divider, nor `with-logo` a logo the deck never set, so those rows say what the
+	// slide ASKS for and their help says when the band exists at all.
+	const shownWith = (name: string, list: string[]) =>
+		name === 'pagination' ? slidePaginates(list, paginateOn(getFrontMatter(source, 'paginate'))) : switchOn(name, list);
+	const switchHidden = (name: string) => !shownWith(name, [...deck.classTokens, ...tokens]);
 	const setSwitchHidden = (name: string, hide: boolean) => onMutate((c) => {
 		const own = getClassTokens(c).filter((t) => t !== `no-${name}` && t !== `with-${name}`);
-		const baselineHidden = !switchOn(name, [...deck.classTokens, ...own]);
+		const baselineHidden = !shownWith(name, [...deck.classTokens, ...own]);
 		return setClassTokens(c, hide === baselineHidden ? own : [...own, hide ? `no-${name}` : `with-${name}`]);
 	});
 

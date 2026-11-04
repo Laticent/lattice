@@ -512,7 +512,7 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 | `spectrum-card:` value | Token | Effect |
 |---|---|---|
 | `off` | *(none)* | No card rail. **The default** (omit the key). |
-| `auto` | `spectrum-card` | A rail that follows the deck's spectrum STYLE. |
+| `auto` | `with-spectrum-card` | A rail that follows the deck's spectrum STYLE. |
 | `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
 | `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
 | `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
@@ -542,7 +542,7 @@ tier, `no-spectrum-trim` out.
 |---|---|---|
 | `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
 | `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
-| `on` | `spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
+| `on` | `with-spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
 
 The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
 `spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`

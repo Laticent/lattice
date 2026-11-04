@@ -303,6 +303,21 @@ describe('SlideContextBody controls', () => {
 		expect(applied()).toEqual(expect.arrayContaining(['silent', 'with-pagination']));
 	});
 
+	it('the page-number row follows the engine: a title slide and a paginate: false deck show none', async () => {
+		const { applied } = setup('<!-- _class: title -->\n\n# Hi');
+		await goTab('Chrome');
+		const pag = screen.getByRole('switch', { name: /hide pagination/i });
+		expect(pag.getAttribute('aria-checked')).toBe('true');
+		fireEvent.click(pag);
+		expect(applied()).toContain('with-pagination');
+	});
+
+	it('reads a deck-wide paginate: false as hidden on a plain slide', async () => {
+		setup('<!-- _class: kpi -->\n\n# Hi', '---\npaginate: false\n---\n\n<!-- _class: kpi -->\n\n# Hi');
+		await goTab('Chrome');
+		expect(screen.getByRole('switch', { name: /hide pagination/i }).getAttribute('aria-checked')).toBe('true');
+	});
+
 	it('sets a per-slide finish from the picker', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		await pickOption(/finish/i, 'Meridian');

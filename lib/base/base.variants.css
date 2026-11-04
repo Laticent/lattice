@@ -255,7 +255,7 @@ section {
 }
 
 /* TRIM — three tiers of structural presence above the quiet default.
-   `on` (`spectrum-trim`) flows the deck's full spectrum STYLE onto the structure (reads
+   `on` (`with-spectrum-trim`) flows the deck's full spectrum STYLE onto the structure (reads
    --spectrum-bar, so it follows whatever `spectrum:` resolved to). `restrained`
    (`spectrum-trim-restrained`) holds a single-hue accent ramp (--sp-fill-mono-h) regardless of
    the bar's STYLE — the "two-tier" middle: present but quiet, and it never clashes with a
@@ -755,7 +755,7 @@ section.table-fill  { --table-grow: 1; --table-valign: middle; }
  * Scoped to a stamped table rather than declared on every table on purpose: the
  * bet is wrong on an ordinal, a status tick, a citation index and a
  * single-column table, which is why base refuses to make it unasked. The
- * `table` component's transform decides; `row-label` / `no-row-label` overrule.
+ * `table` component's transform decides; `with-row-label` / `no-row-label` overrule.
  * See engineering/decisions/2026-09-20-table-component.md. */
 table.lat-row-label { --table-label-weight: 600; --table-label-ink: var(--text-heading); }
 

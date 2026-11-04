@@ -249,7 +249,7 @@ describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () 
 	});
 
 	// The deck's Lattice settings ride in ONE settings block under the front matter
-	// (lib/core/deck-front-matter.js). The block is asserted to EXIST first: slicing from a marker
+	// (lib/core/settings-block.js). The block is asserted to EXIST first: slicing from a marker
 	// that is absent read as "nothing there", which let the second half pass vacuously.
 	const settingsOf = (md: string) => {
 		const at = md.indexOf('<script type="application/lattice-settings">');

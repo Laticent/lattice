@@ -77,7 +77,7 @@ On a corner it does nothing, so this card stays a corner card.
 
 ## A band, 65% dark, spectrum trim on.
 
-The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `spectrum-trim`.
+The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `with-spectrum-trim`.
 
 ![bg](sample:photo-wide.jpg)
 

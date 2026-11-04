@@ -50,7 +50,7 @@ number and rail off together. Any one comes back with its own `with-X`:
 | Below-note | `no-note` | `with-note` | Keeps a trailing paragraph as body copy instead of a ruled note. |
 | Heading period | `no-period` | `with-period` | `no-period` removes a trailing period from the headings; `with-period` adds one. |
 | Table row label | `no-row-label` | `with-row-label` | Overrules the measured first-column label, either way. |
-| Pane spine | `no-spine` | `with-spine` | The line between the panes of a `columns` or `rows` slide. |
+| Pane spine | `no-spine` | `with-spine` | The line between the panes of a `columns` or `rows` slide. An exported Marp bundle stacks the panes, so it draws no spine. |
 | Callouts | `no-callout` | `with-callout` | Also `callout: off` for the deck. |
 | Motion | `no-motion` | `with-motion` | Also `motion: off` / `motion: on` for the deck. |
 

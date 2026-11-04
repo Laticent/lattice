@@ -136,7 +136,7 @@ describe('marp-bundle spec', () => {
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
       // No copy of the front matter rides in the trailer any more: the deck's Lattice settings live in ONE
-      // place, the settings block under the front matter (lib/core/deck-front-matter.js).
+      // place, the settings block under the front matter (lib/core/settings-block.js).
       + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
     );
   });

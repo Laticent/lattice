@@ -111,7 +111,7 @@ describe('a sixth hand-kept key list fails', () => {
     // `transition`) are not slide-comment directives at all, and adding them to the registry would make
     // them known comment keys. Pinned against the registry instead by
     // test/unit/core/deck-front-matter-settings.test.js, so a Marp key added there cannot be missed.
-    'lib/core/deck-front-matter.js': 'the front-matter keys Marp consumes in an exported bundle, not the comment vocabulary',
+    'lib/export/bundle-front-matter.js': 'the front-matter keys Marp consumes in an exported bundle, not the comment vocabulary',
   };
   const hasList = (text) => RUN.test(text) || ALT.test(text);
 

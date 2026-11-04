@@ -867,10 +867,11 @@ the rule never reached. `compare-table` did emphasize such a table, so this is a
 regression against it; `engineering/decisions/2026-09-20-table-component.md`
 records the measurement and the two candidate fixes.
 
-**Both are per-SLIDE tokens.** A deck-level `class: no-row-label` in front
-matter does NOT reach them: the rule that stamps the table runs before
-deck-class propagation, so the section has not received the deck token yet. Put
-them in the slide's own `<!-- _class: … -->`. (Moving the rule later is not
+**Both work deck-wide too.** `class: no-row-label` in front matter reaches every
+table, and one slide's `with-row-label` brings the label back (with-X beats no-X,
+the switch rule; see the Switches reference page). The rule that stamps the table
+still runs before deck-class propagation, so it reads the deck's `class:` from the
+front matter itself rather than from the section. (Moving the rule later is not
 free — it would land after the state-marker plugins, which rewrite a cell's
 children into markup the text reader skips, changing what the measurement
 sees.)
@@ -1203,8 +1204,8 @@ register it belongs to. Each is documented in
 | `mode:` | `sketch-clean-body` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `no-finish` · `finish-savile` · `finish-strata` |
 | `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
-| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `no-spectrum-edge` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `no-spectrum` · `with-spectrum` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
-| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `no-heading-rule` · `rule-short` |
+| `spectrum:` | `with-spectrum-card` · `no-spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `no-spectrum-edge` · `with-spectrum-edge` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `no-spectrum` · `with-spectrum` · `spectrum-solid` · `with-spectrum-trim` · `no-spectrum-trim` · `spectrum-trim-restrained` |
+| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `no-heading-rule` · `with-heading-rule` · `rule-short` |
 | `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-plain` · `eyebrow-underline` |
 | `headline:` | `head-auto` · `head-center` · `head-left` · `head-right` |
 | `lift:` | `lifted` |

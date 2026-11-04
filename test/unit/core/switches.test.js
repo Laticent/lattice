@@ -8,9 +8,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {
-  SWITCHES, SWITCH_TOKENS, RETIRED_SWITCHES, REGISTER_SWITCHES, switchOn, settleSwitches, retiredSwitch,
-  registerToken, registerValue,
+  SWITCHES, SWITCH_TOKENS, REGISTER_SWITCHES, switchOn, settleSwitches, registerToken, registerValue,
 } = require('../../../lib/core/switches');
+const { RETIRED_SWITCHES, retiredSwitch } = require('../../../lib/core/switches-retired.mjs');
 
 test('every switch is spelled no-X / with-X, and no two switches share a token', () => {
   for (const s of SWITCHES) {

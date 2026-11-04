@@ -22,6 +22,9 @@ test('the text rule: strip a trailing period, add one only where no terminal pun
   assert.equal(withHeadingPeriod('Note:', true), 'Note:');
   assert.equal(withHeadingPeriod('Done.', true), 'Done.', 'idempotent');
   assert.equal(withHeadingPeriod('Done.', null), 'Done.');
+  assert.equal(withHeadingPeriod('To be continued...', false), 'To be continued...', 'an ellipsis is not a period');
+  const once = withHeadingPeriod('Done.', false);
+  assert.equal(withHeadingPeriod(once, false), once, 'the strip is idempotent');
 });
 
 test('the engine honors a deck-wide class: no-period, and one slide\'s with-period beats it', () => {

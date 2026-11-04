@@ -345,7 +345,7 @@ describe('deck linter', () => {
   });
 
   test('every retired switch spelling is flagged with an autofix to its no-X / with-X name', () => {
-    const { RETIRED_SWITCHES } = require('../../../lib/core/switches');
+    const { RETIRED_SWITCHES } = require('../../../lib/core/switches-retired.mjs');
     for (const [from, to] of Object.entries(RETIRED_SWITCHES)) {
       const hits = lintText(`---\ntheme: indaco\n---\n\n<!-- _class: content ${from} -->\n\n## H.\n`, { vocab })
         .filter((x) => x.rule === 'unknown-class' && x.classToken === from);

@@ -6,10 +6,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
-const {
-  MARP_FRONT_MATTER_KEYS, keyGroups, splitFrontMatter, mergeFrontMatter, settingsBlock,
-  foldSettingsBlock, readSettingsBlock, withBundleFrontMatter, readFrontMatterBlock,
-} = require('../../../lib/core/deck-front-matter');
+const { readFrontMatterBlock } = require('../../../lib/core/deck-front-matter');
+const { keyGroups, mergeFrontMatter, settingsBlock, readSettingsBlock } = require('../../../lib/core/settings-block');
+const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold');
+const { MARP_FRONT_MATTER_KEYS, splitFrontMatter, withBundleFrontMatter } = require('../../../lib/export/bundle-front-matter');
 
 const FM = [
   'marp: true', 'theme: indaco', '# the deck look', 'color-mode: dark', 'class: no-progress',
@@ -132,4 +132,11 @@ test('a long run of tabs or spaces cannot make the fold, the writer or the reade
   withBundleFrontMatter(`---\nmeta: ${spaces}\n---\n`);
   readSettingsBlock(new JSDOM(`<script type="application/lattice-settings">${spaces}</script>`).window.document);
   assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`);
+});
+
+test('the fold reads the same open tag the writer writes (it keeps its own copy to stay out of the merge module)', () => {
+  const { foldSettingsBlock: fold } = require('../../../lib/core/settings-block-fold');
+  const deck = `---\ntheme: indaco\n---\n${settingsBlock('class: no-progress')}\n# A\n`;
+  assert.match(fold(deck), /^class: no-progress$/m);
+  assert.doesNotMatch(fold(deck), /lattice-settings/);
 });

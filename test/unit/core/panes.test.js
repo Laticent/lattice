@@ -644,3 +644,13 @@ test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author w
   assert.match(list, /<li>three<\/li>/);
   assert.doesNotMatch(list, /lat-pagination/);
 });
+
+test('the pane spine is a switch: a deck-wide no-spine reaches every pane slide, and with-spine beats it', () => {
+  const slide = (cls) => `<!-- _class: ${cls} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`;
+  const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
+  assert.equal(rule(slide('columns')), 'drawn');
+  assert.equal(rule(slide('columns no-spine')), 'none');
+  assert.equal(rule(slide('columns no-spine with-spine')), 'drawn', 'with-X beats no-X on one slide');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns')}`), 'none', 'the deck class reaches the slide');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns with-spine')}`), 'drawn', 'the slide brings it back');
+});

@@ -100,6 +100,35 @@ recorded in `followups.d/3023-p3-marp-masks-component-pagination-and-asterisks.m
 - A deck-wide `class: no-period` was ignored on the engine path for the same reason: the period rules
   were anchored straight after the slide containers, which put them BEFORE `deck_class_propagate`. They
   now run after it (`afterDeckClass`, lib/integrations/markdown-it/plugins.js).
+- The pane spine read only the slide's own `no-spine`: `with-spine` did nothing and a deck-wide
+  `class: no-spine` never reached the pane parser. `classLayout` (lib/core/pane-spec.js) now decides
+  it with `switchOn('spine', …)` over the deck's tokens and the slide's (the maker-checker pass).
+- `no-period` strips a LONE trailing period, never an ellipsis: `To be continued...` keeps its dots.
+  The old one-dot strip ate an ellipsis a dot per runtime pass (the maker-checker pass).
+
+## What the checker pass changed
+
+- **A host's callout switch is not a switch an author can override.** A Marp bundle whose plugin
+  admission left callouts off used to stamp the author's `no-callout`, which a slide's `with-callout`
+  now beats. The runtime writes the engine-internal `lat-callouts-off` instead
+  (`HOST_CALLOUTS_OFF`, lib/core/legend.js), which `calloutsOff` reads as the host's.
+- **The Studio's page-number row** reads what the engine renders when the slide names no switch: the
+  deck's `paginate:` and the layout's default (`slidePaginates`). The rail and logo rows read the switch
+  itself, because `with-progress` cannot make a rail in a deck with no divider.
+
+## Bytes
+
+The first push measured the engine route budget (`engineJsGz`, docs/route-budget.json) 2.9 KB past
+its ceiling. Measured against `main` (esm/engine.js closure plus `lattice-runtime-min.js`, gzip 6):
+this change added 6.9 KB. Given back, each by moving code to where it is read, with nothing removed:
+
+| move | what the boot bundles stop carrying |
+|---|---|
+| the switch table keeps names only; `RETIRED_SWITCHES` moves to `switches-retired.mjs` (lint only) | 1.5 KB raw in each of engine and runtime |
+| the settings block splits into `front-matter-groups.js`, `settings-block.js` (runtime), `settings-block-fold.js` (engine, lint) and `lib/export/bundle-front-matter.js` (export, lazy) | the export half in both, the fold in the runtime |
+| the runtime's two helpers from plugins.js (`deckLogoTintVars`; the Frame helpers via `form-default.js`) move to `deck-logo-tint.js` and `form-frame.js` beside it | all of `plugins.js` (23 KB raw) from the runtime |
+
+Net: the PR leaves `engineJsGz` about 4.9 KB BELOW `main` (measured locally, 2026-11-04).
 - The Studio's Chrome tab hid its three band rows on a `silent` slide, so a band could not be brought
   back there; each row now shows what the slide actually shows and writes `no-X` or `with-X`. A logo
   row was added.

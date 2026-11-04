@@ -98,9 +98,9 @@ The same rule, the same slide class, the opposite answer — an all-numeric firs
 
 <!-- _class: table with-row-label -->
 
-`row-label`
+`with-row-label`
 
-## `row-label` overrules the measurement.
+## `with-row-label` overrules the measurement.
 
 Same data as the slide before. You always have the last word — and `no-row-label` turns it off over a column the rule would have emphasized.
 

@@ -119,12 +119,12 @@ no author opt-out needed. It also declines on an index header (`#`, `No.`,
 
 <!-- _class: with-row-label -->
 
-`row-label`
+`with-row-label`
 
-## `row-label` forces it on — even here
+## `with-row-label` forces it on — even here
 
 A plain table, no component class, and the measurement would have declined this
-column. `row-label` overrules it. `no-row-label` overrules the other way, and
+column. `with-row-label` overrules it. `no-row-label` overrules the other way, and
 wins if a slide somehow carries both.
 
 | Year | Revenue | Growth |

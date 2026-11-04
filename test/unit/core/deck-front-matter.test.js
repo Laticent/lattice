@@ -22,8 +22,10 @@ const { JSDOM } = require('jsdom');
 const {
   FRONT_MATTER_TYPE, BLOCK_NOTE, readFrontMatterBlock, frontMatterBlock,
   withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter,
-  SETTINGS_TYPE, readSettingsBlock, foldSettingsBlock,
 } = require('../../../lib/core/deck-front-matter');
+const { SETTINGS_TYPE, readSettingsBlock } = require('../../../lib/core/settings-block');
+const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold');
+const { foldSettingsBlockCompact } = require('../../../lib/export/bundle-front-matter');
 const { withRuntimeScripts } = require('../../../lib/export/marp-bundle');
 
 const DECK = ['---', 'marp: true', 'theme: indaco', 'color-mode: dark', 'logo: assets/mark.svg', '---', '', '# A', ''].join('\n');
@@ -241,7 +243,7 @@ describe('deck front matter — the export bundle carries it', () => {
       assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k), `${k} keeps its line`);
     }
     assert.equal(folded.split('\n').indexOf('# A'), out.split('\n').indexOf('# A'), 'the first slide keeps its line');
-    assert.equal(foldSettingsBlock(out, { keepLines: false }).split('\n').slice(0, 7).join('\n'),
+    assert.equal(foldSettingsBlockCompact(out).split('\n').slice(0, 7).join('\n'),
       '---\nmarp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
   });
 });
