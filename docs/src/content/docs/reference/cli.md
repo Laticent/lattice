@@ -97,7 +97,7 @@ For `.odp` and `.pptx`.
 
 | Option | What it does |
 |---|---|
-| `--editable` | Make every paragraph a real text box in the deck's own font, over a picture of the slide with its text removed. Charts, diagrams and equations stay part of the picture. The `.odp` embeds the fonts; the `.pptx` names them, so a reader without them sees a substitute |
+| `--editable` | Make every paragraph a real text box in the deck's own font, over a picture of the slide with its text removed. Charts, diagrams and equations stay part of the picture. The `.odp` embeds the fonts; the `.pptx` names them, so a reader without them sees a substitute. To view a deck on an iPhone, send the PDF or the plain `.pptx`: iPhone Preview can draw shapes from one slide of an editable file on another |
 
 ## HTML output
 

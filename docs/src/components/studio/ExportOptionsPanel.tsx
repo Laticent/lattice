@@ -129,6 +129,11 @@ export function ExportOptionsPanel({
 									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 										Every paragraph becomes a text box you can edit, with the deck’s fonts built in. Charts and diagrams stay pictures.
 									</span>
+									{format === 'pptx' && (
+										<span className="mt-1 block text-[11.5px] leading-snug text-muted-foreground">
+											Sending it to an iPhone? Send the PDF, or leave this off: iPhone Preview can draw shapes from one slide on another.
+										</span>
+									)}
 								</span>
 							</span>
 							<Switch className="mt-0.5" aria-label="Editable text" checked={editable} disabled={busy} onCheckedChange={setEditable} />
