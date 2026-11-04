@@ -34,9 +34,9 @@ const slides = (settings) => [
 ].join('');
 const block = (yaml) => `<script type="application/lattice-settings">\n${yaml}\n</script>`;
 
-async function boot(bodyHtml, { head = '', fetchImpl } = {}) {
+async function boot(bodyHtml, { head = '', fetchImpl, url } = {}) {
   const dom = new JSDOM(`<!doctype html><html><head>${head}</head><body>${bodyHtml}</body></html>`,
-    { runScripts: 'outside-only', pretendToBeVisual: true });
+    { runScripts: 'outside-only', pretendToBeVisual: true, ...(url ? { url } : {}) });
   const w = dom.window;
   w.console.log = () => {};
   w.console.warn = () => {};
@@ -185,5 +185,24 @@ test('an author\'s settings block on a later slide is not the deck\'s in a Marp 
   ].join('')}</div>`;
   const w = await boot(body);
   for (const s of w.document.querySelectorAll('section')) assert.ok(!s.classList.contains('silent'), s.className);
+  closeQuietly(w);
+});
+
+test('in the VS Code preview the deck\'s paginate: comes from the SAVED file, so slides get their numbers (pins 5f14f15)', { skip }, async () => {
+  // Marp for VS Code hides the top front matter; the runtime fetches the saved deck (the preview's base URL)
+  // and must keep its `paginate:` as the synchronous answer `syncMarpPagination` reads. Without that, a slide
+  // whose switch was removed after export kept the export's baked "off" (found by re-driving real VS Code).
+  const saved = '---\nmarp: true\npaginate: true\n---\n<script type="application/lattice-settings">\nclass: lead\n</script>\n\n# T\n';
+  const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
+  const body = `<div id="vscode-markdown-preview-data"></div><div class="marpit">${[
+    svg(`<section class="title">${block('class: lead')}<h1>T</h1></section>`),
+    svg('<section class="content"><h1>Was off</h1></section>'),
+  ].join('')}</div>`;
+  const fetchImpl = () => Promise.resolve({ ok: true, text: () => Promise.resolve(saved) });
+  const w = await boot(body, { fetchImpl, url: 'file:///work/deck.md' });
+  await new Promise((r) => setTimeout(r, 200));
+  const num = (i) => w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelector('section').getAttribute('data-marpit-pagination');
+  assert.equal(num(1), '2', 'the content slide is numbered from the saved file\'s paginate: true');
+  assert.equal(num(0), null, 'the title slide stays unnumbered');
   closeQuietly(w);
 });

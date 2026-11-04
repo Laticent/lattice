@@ -1940,11 +1940,16 @@ function withInstalledComponents(source) {
   // were silent, and the rest drew the "no component … install a package" text below, which is wrong for a
   // switch (found by the inversion pass).
   const { retiredSwitch } = require('./lib/authoring/switches-retired.mjs');
-  const retired = [...new Set(classTokens(r.source).filter((t) => retiredSwitch(t)))];
+  const retiredCandidates = [...new Set(classTokens(r.source).filter((t) => retiredSwitch(t)))];
+  // Only what lint itself reports (a fenced example is not a class), so "lint names each one" holds.
+  const lintFlagged = retiredCandidates.length
+    ? new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken))
+    : new Set();
+  const retired = retiredCandidates.filter((t) => lintFlagged.has(t));
   for (const t of retired) {
     console.error(`warning: "${t}" was renamed to "${retiredSwitch(t)}", and the old name now does nothing. \`lattice lint\` names each one and fixes it.`);
   }
-  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used, ...retired]);
+  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used, ...retiredCandidates]);
   const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
   if (doubtful.length) {
     const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));

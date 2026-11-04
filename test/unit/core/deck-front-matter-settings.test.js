@@ -91,8 +91,9 @@ test('readSettingsBlock reads raw YAML or the engine\'s JSON form from the FIRST
   const doc = new JSDOM(`<section>${settingsBlock('class: a\nmeta: x')}</section>`
     + '<section><script type="application/lattice-settings">"class: b \\u003c c"</script></section>').window.document;
   assert.equal(readSettingsBlock(doc), 'class: a\nmeta: x');
-  // A block an author wrote on a later slide is theirs: not read, not removed (the red team's finding).
-  assert.equal(doc.querySelectorAll('script').length, 1);
+  // A block an author wrote on a later slide is not the deck's: never read (the red team's finding),
+  // and removed like the rest, since it is inert either way.
+  assert.equal(doc.querySelectorAll('script').length, 0);
   const later = new JSDOM('<section><p>one</p></section><section><script type="application/lattice-settings">class: silent</script></section>').window.document;
   assert.equal(readSettingsBlock(later), null);
   const json = new JSDOM('<script type="application/lattice-settings">"class: b \\u003c c"</script>').window.document;
@@ -158,4 +159,12 @@ test('one grammar: a malformed block is the author\'s text in BOTH folds, and ne
     assert.equal(fold(shape), shape, 'the line fold leaves it');
     assert.equal(foldSettingsBlockCompact(shape), shape, 'the compact fold agrees');
   }
+});
+
+test('the block in slide 1 is read when Marp layers that slide (an ![bg] puts a background section first)', () => {
+  const svg = (inner) => `<svg data-marpit-svg=""><foreignObject>${inner}</foreignObject></svg>`;
+  const doc = new JSDOM(svg('<section data-marpit-advanced-background="background"></section>'
+    + `<section data-marpit-advanced-background="content">${settingsBlock('class: no-pagination')}<h1>T</h1></section>`
+    + '<section data-marpit-advanced-background="pseudo"></section>') + svg('<section><h1>Two</h1></section>')).window.document;
+  assert.equal(readSettingsBlock(doc), 'class: no-pagination');
 });

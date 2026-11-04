@@ -141,6 +141,18 @@ recorded in `followups.d/3023-p3-marp-masks-component-pagination-and-asterisks.m
 - **The heading period is not wedged before trailing code or math** (`Use .npm`); a heading that ends in
   either gets none, in the engine and the Marp mirror alike; `no-period` never empties a heading.
 
+## What the third look changed (a checker on everything after the trio)
+
+- **Slide 1 is the slide's container, not its first `<section>`.** A Marp `![bg]` puts a background
+  layer before the content layer in the same slide `<svg>`, so the first-section test ignored the deck's
+  block. `readSettingsBlock` scopes to the first `svg[data-marpit-svg]`.
+- **A heading that IS a period keeps it, judged on the whole heading.** The guard had sat on the last
+  text run, which after `*today*` is a lone `.`, so `no-period` stopped stripping it.
+- **The VS Code saved-top fetch syncs the page numbers when it lands**, and a stale fetch (a re-render
+  while it was in flight) no longer overwrites a newer block (`deckFrontMatterGen`). Pinned by a jsdom
+  test of the VS Code path.
+- The CLI's retired-spelling warning names only what lint reports (a fenced example is not a class).
+
 ## Bytes
 
 The first push measured the engine route budget (`engineJsGz`, docs/route-budget.json) 2.9 KB past

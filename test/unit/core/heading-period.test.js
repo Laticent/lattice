@@ -38,3 +38,9 @@ test('the engine honors a deck-wide class: no-period, and one slide\'s with-peri
   const heads = [...new JSDOM(html).window.document.querySelectorAll('h2, h3')].map((h) => h.textContent);
   assert.deepEqual(heads, ['Stripped', 'Sub head', 'Added.']);
 });
+
+test('no-period strips a period that follows inline markup or code, and leaves a heading that IS a period (second checker)', () => {
+  const html = createEngine().render(['---', 'class: no-period', '---', '', '# Ship *today*.', '', '---', '', '## Run `npm test`.', '', '---', '', '# .'].join('\n')).html;
+  const heads = [...new JSDOM(html).window.document.querySelectorAll('h1, h2')].map((h) => h.textContent);
+  assert.deepEqual(heads, ['Ship today', 'Run npm test', '.']);
+});
