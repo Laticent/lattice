@@ -146,7 +146,7 @@ section.finish > .backdrop {
    * group opacity ONLY when no mask is on; with a mask the veil weight is 1, the opacity
    * computes to 1 and the same strength draws as a flat veil in the mask layer instead
    * (§ BACKDROP REGISTER below says why). `--backdrop-opacity` is the hard override
-   * `finish-none` uses. */
+   * `no-finish` uses. */
   opacity: var(--backdrop-opacity, calc(1 - (1 - var(--backdrop-strength-opacity, var(--fin-backdrop-strength, 1))) * (1 - var(--backdrop-veil-weight, var(--fin-backdrop-veil-weight, 0)))));
   background-image: var(--fin-texture, none), var(--fin-wash, none);
   background-size: var(--fin-size, auto);
@@ -419,7 +419,7 @@ section.finish {
  * undefined — a fabricated finish (lib/finishes/finish-generate.js) emits the same
  * `var(--fin-canvas)` and may be applied before the base class lands.
  *
- * This is also why authors once had to add `finish-none` to inverse bookends by
+ * This is also why authors once had to add `no-finish` to inverse bookends by
  * hand: the backdrop had no way to know the slide was inverse. It does now, so a
  * finish on a title or closing slide reads correctly and the deck lint no longer
  * asks for the opt-out. */
@@ -456,7 +456,7 @@ section {
  *                            mixing toward the inverse would flood the page. Measured:
  *                            `title print` surface is rgb(255,255,255).
  *     .dark.accent           shared.styles.css `section.accent.dark` (0,2,1)      FIXED
- *     .dark.spectrum-off     base.variants.css `section.dark.spectrum-off` (0,2,1) FIXED
+ *     .dark.no-spectrum     base.variants.css `section.dark.no-spectrum` (0,2,1) FIXED
  *     .dark.spectrum-edge-*  base.variants.css, `:not(.divider)` (0,3,1)           FIXED
  *
  * THE THREE MARKED FIXED WERE NOT TRYING TO PAINT A CANVAS. Each draws or removes a
@@ -469,7 +469,7 @@ section {
  * special case and the trackless topic arm carries no condition at all.
  *
  * WHAT THAT REPLACED, so the next reader does not reinvent it: the exclusions were
- * mode-scoped (`:not(:where(.dark:is(.accent, .spectrum-off, …)))`) because every one
+ * mode-scoped (`:not(:where(.dark:is(.accent, .no-spectrum, …)))`) because every one
  * of those repainters needed `.dark` to fire, and an unconditional exclusion demoted
  * --fin-canvas on light decks where nothing repaints -- #1656's original defect on the
  * default path. If a register is ever given a canvas of its own, that is the shape to
@@ -491,7 +491,7 @@ section {
  *
  *   title, closing  lose the surface to section.print, so they exclude it.
  *   divider         the same, and unconditionally now. Its print exclusion used to be
- *                   `.print:not(.spectrum-off):not(.spectrum-edge-off)`, because the
+ *                   `.print:not(.no-spectrum):not(.no-spectrum-edge)`, because the
  *                   spectrum carve-outs restated --surface-inverse and so survived
  *                   print. They restate nothing now, so a printed divider is the print
  *                   ground whatever the spectrum register says -- which is what a
@@ -679,7 +679,7 @@ section.scene:is([data-img-composition="gallery"], [data-img-composition="spotli
 /* D, DECLARED LAST ON PURPOSE -- see the print paragraph above. It needs no exclusion
  * group at all, and the history is worth one line because it was written with an
  * intricate one. `print` and `dark` are not exclusive, so a stamped cover carrying both
- * plus a register used to hand the surface to `section.dark.spectrum-off` (0,2,1) or
+ * plus a register used to hand the surface to `section.dark.no-spectrum` (0,2,1) or
  * `section.dark:is(.spectrum-edge-*)` (0,3,1) -- and since the second of those excludes
  * `.divider` by name, this arm had to mirror that `:not(.divider)` too or
  * `divider dark print spectrum-edge-left` composited a white ellipse over a surface
@@ -1235,12 +1235,12 @@ section.print.finish[class] {
 }
 
 /* ── Per-slide opt-out ────────────────────────────────────────────────
- * `<!-- _class: finish-none -->` (or the back-compat `backdrop-none`) clears a
+ * `<!-- _class: no-finish -->` (or the back-compat `no-backdrop`) clears a
  * deck-wide finish on one slide (a title/cover/image or a busy chart). Zeroes
  * every layer slot (rich AND opaque mirror); wins by source order over the
  * finish-* setters above and over the opaque flip (it follows them). */
-section.finish-none,
-section.backdrop-none {
+section.no-finish,
+section.no-backdrop {
   --fin-wash: none;
   --fin-texture: none;
   --fin-mark: none;
@@ -1253,7 +1253,7 @@ section.backdrop-none {
   /* `0 0 transparent`, NOT `none` — this slot is composed into a shadow LIST at
    * line 144, where `none` is only legal as the sole value. Writing `none` here
    * made that whole declaration invalid at computed-value time on a
-   * `tone-* finish-none overflow` slide, so the box-shadow resolved to its INITIAL
+   * `tone-* no-finish overflow` slide, so the box-shadow resolved to its INITIAL
    * value and took the TONE RAIL down with it. The comment at line 144 had already
    * stated the invariant ("never `none`, invalid inside a shadow list"); this line
    * broke it anyway, and nothing noticed until the css:values var() pass. */
@@ -1261,7 +1261,7 @@ section.backdrop-none {
   --fin-frame-mark: transparent; /* clear the inset keyline frame too */
   /* …and the `backdrop:` register's layers, which a deck-wide `backdrop: clear` still stamps
    * here: without these the opted-out slide painted the clearance ellipse and the veil over a
-   * bare canvas (a hairline on every `finish-none` bookend in the PDF). This rule follows the
+   * bare canvas (a hairline on every `no-finish` bookend in the PDF). This rule follows the
    * register's export flips at equal specificity, so it wins in print too. */
   --backdrop-scrim: none;
   --backdrop-scrim-opaque: none;

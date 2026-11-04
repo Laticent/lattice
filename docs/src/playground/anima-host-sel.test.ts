@@ -52,14 +52,14 @@ describe('resolveMotion — Play / Style / Speed cascade', () => {
     expect(resolveMotion(section('funnel motion-rise motion-fast'), DECK_ON())).toEqual({ style: 'rise', speed: 'fast' });
     // inherits the deck style, overrides only speed
     expect(resolveMotion(section('funnel motion-fast'), DECK_ON('together'))).toEqual({ style: 'together', speed: 'fast' });
-    // an explicit motion-on turns the slide on and carries its own style/speed even when deck Play is off
-    expect(resolveMotion(section('funnel motion-on motion-rise motion-fast'), OFF)).toEqual({ style: 'rise', speed: 'fast' });
+    // an explicit with-motion turns the slide on and carries its own style/speed even when deck Play is off
+    expect(resolveMotion(section('funnel with-motion motion-rise motion-fast'), OFF)).toEqual({ style: 'rise', speed: 'fast' });
   });
-  it('motion-off suppresses even under deck Play on', () => {
-    expect(resolveMotion(section('funnel motion-off'), DECK_ON('rise'))).toBeNull();
+  it('no-motion suppresses even under deck Play on', () => {
+    expect(resolveMotion(section('funnel no-motion'), DECK_ON('rise'))).toBeNull();
   });
-  it('motion-on enables a slide with deck defaults when the deck Play is off', () => {
-    expect(resolveMotion(section('funnel motion-on'), { play: 'off', style: 'rise', speed: 'fast' })).toEqual({ style: 'rise', speed: 'fast' });
+  it('with-motion enables a slide with deck defaults when the deck Play is off', () => {
+    expect(resolveMotion(section('funnel with-motion'), { play: 'off', style: 'rise', speed: 'fast' })).toEqual({ style: 'rise', speed: 'fast' });
   });
   it('legacy chart-anima → Play on, build', () => {
     expect(resolveMotion(section('funnel chart-anima'), OFF)).toEqual({ style: 'build', speed: 'auto' });
@@ -132,8 +132,8 @@ describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide',
   };
   const figureOf = (s: Element) => s.querySelector('.funnel-figure') as HTMLElement;
 
-  it('hides an EXPLICIT motion-on chart figure (not the section)', () => {
-    const s = section('motion-on', CHART);
+  it('hides an EXPLICIT with-motion chart figure (not the section)', () => {
+    const s = section('with-motion', CHART);
     const r = root(s);
     const hidden = prehideEligibleCharts(r, OFF);
     expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);
@@ -142,9 +142,9 @@ describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide',
   });
 
   it('leaves a motion-OFF chart and a chart-less section visible', () => {
-    const off = section('motion-off', CHART);
+    const off = section('no-motion', CHART);
     const plain = section('content', '<p>hi</p>');
-    prehideEligibleCharts(root(off, plain), DECK_ON()); // even deck Play on: motion-off resolves null
+    prehideEligibleCharts(root(off, plain), DECK_ON()); // even deck Play on: no-motion resolves null
     expect(figureOf(off).classList.contains(PREHIDE_CLASS)).toBe(false);
   });
 
@@ -155,7 +155,7 @@ describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide',
   });
 
   it('NEVER re-hides an already-mounted (.anima-live) figure — the re-hide-after-reveal stranding guard', () => {
-    const s = section('motion-on', CHART);
+    const s = section('with-motion', CHART);
     figureOf(s).classList.add('anima-live'); // simulate: it already mounted + revealed
     const hidden = prehideEligibleCharts(root(s), OFF);
     expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(false); // a rebind must not re-hide it
@@ -163,7 +163,7 @@ describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide',
   });
 
   it('reveal clears every pre-hide (the host-never-ran fallback)', () => {
-    const s = section('motion-on', CHART);
+    const s = section('with-motion', CHART);
     const r = root(s);
     prehideEligibleCharts(r, OFF);
     expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);

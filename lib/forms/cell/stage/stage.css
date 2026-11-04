@@ -308,8 +308,8 @@ section.form > .cell-footer > footer {
  * bleed footer recede below. Adding the chrome class → (0,3,2) beats the show
  * rule's (0,2,2) on class-count (and it is later in source order). Only the footer
  * text is hidden; pagination + rail keep their berth in the band. */
-section.form.no-footer > .cell-footer > footer,
-section.form.silent > .cell-footer > footer {
+section.form.no-footer:not(.with-footer) > .cell-footer > footer,
+section.form.silent:not(.with-footer) > .cell-footer > footer {
   display: none;
 }
 /* The page number as a real element — mono, --fs-meta, vertically centered with the
@@ -545,7 +545,7 @@ section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status b
  * the number is actually shown: it is injected only on a paginated slide
  * (`:has(.lat-pagination)`), and `no-pagination` / `silent` hide it (so a
  * `claim-hero no-pagination` still fills fully to the edge). */
-section.form.claim-hero:has(.lat-pagination):not(.no-pagination):not(.silent) {
+section.form.claim-hero:has(.lat-pagination):not(.no-pagination):not(.silent:not(.with-pagination)) {
   --footer-reserve: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-sm));
 }
 

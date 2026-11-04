@@ -767,8 +767,8 @@
    }
   },
   {
-   "name": "tag: none",
-   "source": "---\ntag: none\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "tag: bare",
+   "source": "---\ntag: bare\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }

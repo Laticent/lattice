@@ -120,7 +120,7 @@ describe('--fin-canvas resolves to the painted surface, on every bookend × canv
  *      `--fin-canvas` still excluded `.dark`, so a finish on a dark bookend mixed
  *      toward the deck ground. One class, caught by the matrix.
  *   2. Re-pointing it for `.dark` unconditionally broke every row where a SECOND class
- *      out-specifies the frame and repaints it anyway — `section.dark.spectrum-off`
+ *      out-specifies the frame and repaints it anyway — `section.dark.no-spectrum`
  *      (0,2,1), `section.dark:is(.spectrum-edge-…):not(.divider)` (0,3,1),
  *      `section.accent.dark` (0,2,1), the `print` remap. TWO classes: invisible here.
  *   3. Excluding those registers UNCONDITIONALLY then broke the light path, because
@@ -155,8 +155,8 @@ const ALL_FRAMES = [...EXEMPTED_FRAMES, ...OTHER_FRAMES];
 // PAIRWISE interaction changes an outcome (a carve-out at (0,3,1) beating a repainter
 // at (0,2,1) needs both present at once).
 const REGISTERS = [
-  'print', 'accent', 'spectrum-off',
-  'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off',
+  'print', 'accent', 'no-spectrum',
+  'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'no-spectrum-edge',
 ];
 // The canvas modifiers a deck can be IN, for the attribute axis below. `print` is in
 // REGISTERS too (it is both a mode and a repainter), so the attribute cross pairs these
@@ -437,10 +437,10 @@ function deriveVariants(css) {
  * and buy nothing the selectors are written about.
  *
  * `class`-VALUED ATTRIBUTE SELECTORS ARE SKIPPED, and proved covered rather than assumed:
- * `section:where([class*="tint-"], [class*="mark-"], [class~="backdrop-none"])` is a
+ * `section:where([class*="tint-"], [class*="mark-"], [class~="no-backdrop"])` is a
  * painting rule, but writing `class="tint-"` onto the probe would clobber the frame class
  * the row is about. Those values are reached by the CLASS axis instead — `tint-corner`,
- * `mark-micro` and `backdrop-none` are all in `deriveModifiers`'s list — and
+ * `mark-micro` and `no-backdrop` are all in `deriveModifiers`'s list — and
  * `assertClassGuardsCovered` fails if one ever is not.
  */
 function deriveSubjectAttributes(css) {
@@ -782,7 +782,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // may be gated on a CHILD — `section.topic:not(:has(> ul.tile-track))` restates
     // topic's canvas at (0,2,2) precisely because the bare (0,1,1) form loses to later
     // modifiers — so a topic WITH a track and one WITHOUT resolve differently under
-    // print, accent and spectrum-off. An empty `<section>` probe sees only the
+    // print, accent and no-spectrum. An empty `<section>` probe sees only the
     // trackless shape, which is the shape the engine never emits: `topic-track.js`
     // writes `<ul class="tile-track">` on both the derived and the `_track:` arm.
     // Measured: a version of this file with childless probes passed 4/4 while five
@@ -800,7 +800,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
           cases.push({ cls: `${f} dark ${m}`, child });
         }
         // DEPTH THREE, FOR THE REGISTERS ONLY. The pairwise cross above cannot reach
-        // `divider dark accent spectrum-off`, and that row is the whole reason the
+        // `divider dark accent no-spectrum`, and that row is the whole reason the
         // divider arm excludes `.accent` CONDITIONALLY: its (0,3,1) spectrum carve-out
         // out-specifies `section.accent.dark` (0,2,1), so the frame keeps its canvas
         // there and must not be excluded. Measured: a version of this cross without
@@ -987,11 +987,11 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
   /**
    * THE BAR RULES STILL REMOVE THE BAR, which nothing else in this file can see.
    *
-   * After #2291 `section.dark.spectrum-off`, `section.dark:is(.spectrum-edge-*)` and the
+   * After #2291 `section.dark.no-spectrum`, `section.dark:is(.spectrum-edge-*)` and the
    * two divider carve-outs consist of `background-image: none` plus the three geometry
    * longhands and NOTHING else. This cross compares `backgroundColor`, so 100% of what
    * those rules now do is invisible to it — and the HARD RULE #25 checker proved the
-   * consequence: change `spectrum-off` to `background-image: var(--spectrum)`, so the
+   * consequence: change `no-spectrum` to `background-image: var(--spectrum)`, so the
    * register stops removing the hairline that is its entire purpose, and every gate in the
    * repo stays green.
    *
@@ -1004,12 +1004,12 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     const CASES = [
       // [class list, what should be left]
       ['content dark', 'image'],                   // the control: the hairline IS painted
-      ['content dark spectrum-off', 'none'],
+      ['content dark no-spectrum', 'none'],
       ['content dark spectrum-edge-left', 'none'],
-      ['content dark spectrum-edge-off', 'none'],
+      ['content dark no-spectrum-edge', 'none'],
       ['divider', 'image'],                        // the control: the rail IS painted
-      ['divider spectrum-off', 'none'],
-      ['divider spectrum-edge-off', 'none'],
+      ['divider no-spectrum', 'none'],
+      ['divider no-spectrum-edge', 'none'],
       // `spectrum-edge:` moves the bar to a border and is EXEMPT on a divider, whose own
       // rail stays — only `edge: off` clears that, on the row above.
       ['divider spectrum-edge-left', 'image'],
@@ -1043,7 +1043,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // AND ONLY THE BAR. The geometry longhands belong to the bar too — the hairline's
     // `100% 1px`, the rail's `3.75px 100%` — and leaving them set meant an author's own
     // `background-image` on the same section rendered at the bar's size. Measured by the
-    // checker: a full-bleed image became a 3.75px vertical rail on a dark spectrum-off
+    // checker: a full-bleed image became a 3.75px vertical rail on a dark no-spectrum
     // divider. They are reset with the image; `background-color` is the one left alone.
     const geometry = rows
       .filter((_r, i) => CASES[i][1] === 'none')
@@ -1056,11 +1056,11 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     );
     // The canvas is untouched — the whole subject of #2291, asserted on the two frames that
     // paint one, so this test cannot pass by everything resolving to the deck ground.
-    const canvas = rows.find((r) => r.cls === 'divider spectrum-off');
-    const ground = rows.find((r) => r.cls === 'content dark spectrum-off');
+    const canvas = rows.find((r) => r.cls === 'divider no-spectrum');
+    const ground = rows.find((r) => r.cls === 'content dark no-spectrum');
     assert.notEqual(
       canvas.color, ground.color,
-      "`divider spectrum-off` must keep its own canvas — if it matches the deck ground, a "
+      "`divider no-spectrum` must keep its own canvas — if it matches the deck ground, a "
         + 'register is repainting a frame that paints its own surface again (#2291)',
     );
   });

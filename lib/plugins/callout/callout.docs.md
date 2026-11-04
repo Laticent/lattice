@@ -26,8 +26,8 @@ The plugin is **on by default** and an author can turn it off:
 | Where | Write | Effect |
 |---|---|---|
 | The whole deck | `callout: off` in the front matter | Callouts are hidden on every slide |
-| One slide | `callout-off` in the slide's class | Callouts are hidden on that slide |
-| One slide, in a deck that is off | `callout-on` in the slide's class | That slide shows its callouts again |
+| One slide | `no-callout` in the slide's class | Callouts are hidden on that slide |
+| One slide, in a deck that is off | `with-callout` in the slide's class | That slide shows its callouts again |
 | A host | `--disable-plugin callout` | The same as `callout: off`, for every deck it renders |
 
 The switches from before the split, `legend: off`, `legend-off`, `legend-on` and

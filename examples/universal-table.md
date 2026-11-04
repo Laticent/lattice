@@ -117,7 +117,7 @@ no author opt-out needed. It also declines on an index header (`#`, `No.`,
 
 ---
 
-<!-- _class: row-label -->
+<!-- _class: with-row-label -->
 
 `row-label`
 

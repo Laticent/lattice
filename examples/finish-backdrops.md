@@ -51,7 +51,7 @@ section.finish.finish-signal.lattice-exporting {
 }
 </style>
 
-<!-- _class: title silent finish-none -->
+<!-- _class: title silent no-finish -->
 
 `Feature demo · finishes`
 
@@ -61,7 +61,7 @@ A *finish* is the surface of a deck — the wax-and-polish layer over its
 structure and palette. Each preset composites up to four palette-blind layers
 behind your content: a **wash**, a **texture**, a **mark**, and an **edge**. Set
 `finish: atrium` once and every slide wears the same composition. This title
-opts out with `finish-none`.
+opts out with `no-finish`.
 
 ---
 
@@ -185,7 +185,7 @@ lower-left. Exported verbatim from the Finish Studio.
 
 ---
 
-<!-- _class: title silent finish-none -->
+<!-- _class: title silent no-finish -->
 
 `brand · placed, not stamped`
 
@@ -205,22 +205,22 @@ the mark moves, identically in the live preview and the baked PDF.
 2. The engine appends `finish finish-atrium` `every slide`
 3. The compositor blends the layer props `behind content`
 4. A slide overrides with `_class: finish finish-<name>` `per-slide`
-5. A slide opts out with `finish-none` `clean`
+5. A slide opts out with `no-finish` `clean`
 
 ---
 
-<!-- _class: finish-none silent -->
+<!-- _class: no-finish silent -->
 
 ## Pick it in the Studio.
 
 The Studio's Inspector has a **Finish** field — swatch-previewed, grouped Plain
 and Finishes — that writes this `finish:` register for you, with the live preview
-updating as you choose. This slide is clean (`finish-none`), so you see the
+updating as you choose. This slide is clean (`no-finish`), so you see the
 deck's default Atrium finish nowhere here.
 
 ---
 
-<!-- _class: title silent finish-none -->
+<!-- _class: title silent no-finish -->
 
 `one line to re-surface the room`
 

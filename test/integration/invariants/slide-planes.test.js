@@ -117,7 +117,7 @@ Body copy that gives the stage real height to distribute.
 
 ---
 
-<!-- _class: content finish-none -->
+<!-- _class: content no-finish -->
 
 ## A Form frame with no finish
 

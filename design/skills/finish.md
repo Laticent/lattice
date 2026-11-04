@@ -116,7 +116,7 @@ interpolates color and opacity separately.
   and its "Start from preset" recipes are all read from it. A folder is the whole
   registration.
 - **The CSS**: `lib/base/base.finish.css` — the compositor + every preset body +
-  the opaque flip + the per-slide `finish-none` opt-out. The preset bodies are
+  the opaque flip + the per-slide `no-finish` opt-out. The preset bodies are
   GENERATED: `tools/build-packages-index.js` runs `lib/finishes/finish-generate.js`
   (the same generator the Studio uses) over every recipe and writes the rules into
   the file's marked region, and `build:check` fails on a hand edit there. Tuning a
@@ -202,7 +202,7 @@ section.finish-myfinish {
 The author selects it deck-wide (`finish: myfinish`) or per slide
 (`<!-- _class: finish-myfinish -->`), personalizes the mark
 (`section.finish-myfinish { --fin-mark-text: "Q3"; }`), and opts a busy slide out
-with `<!-- _class: finish-none -->`.
+with `<!-- _class: no-finish -->`.
 
 ---
 
@@ -215,7 +215,7 @@ with `<!-- _class: finish-none -->`.
   "accent wash."
 - Every full-bleed layer opaque-mirrored; the PDF looks identical to the screen,
   clean, no gray cloud.
-- Titles and dense chart slides opt out with `finish-none`.
+- Titles and dense chart slides opt out with `no-finish`.
 
 ---
 

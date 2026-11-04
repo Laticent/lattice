@@ -764,7 +764,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   rule were not there — and unlike the parse-time case above, `CSS.supports` on the
   literal text says it is **fine**. Two shipped instances: pricing's recommended tier
   wrote `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` and had no
-  accent ring on any deck without `lift: on`; a `tone-* finish-none overflow` slide
+  accent ring on any deck without `lift: on`; a `tone-* no-finish overflow` slide
   lost its tone rail from `box-shadow: var(--tone-rail, …), var(--fin-frame, …)`.
 - **Cause:** the token held `none`, and **`none` is legal only as box-shadow's SOLE
   value** — so once substituted, the value is invalid. The trap is what happens next.
@@ -877,9 +877,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   (split-panel.styles.css, the blocks at the foot of the file).
   `test/integration/invariants/split-chrome-budget.test.js` measures every variant;
   `split-finish-pane.test.js` and `split-finish-surface.test.js` measure the finish and clear.
-- **Two traps in that fix, both found by review, not by a gate.** `finish-none`,
-  `backdrop-none` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
-  every layer, so "is there a painted finish?" is `.finish:not(.finish-none, .backdrop-none,
+- **Two traps in that fix, both found by review, not by a gate.** `no-finish`,
+  `no-backdrop` and `print` slides KEEP the bare `finish` class while base.finish.css zeroes
+  every layer, so "is there a painted finish?" is `.finish:not(.no-finish, .no-backdrop,
   .print)`, not `.finish`. And the overflow probe skipped every `position: absolute` text bearer, so a
   cut in split chrome was never measured at all until `skipped()` learned the one exception.
 - **The trap in the both-sides fix: a panel cannot re-mix an inherited finish.** A custom

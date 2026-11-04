@@ -73,7 +73,7 @@ describe('WebpageOptionsPanel — notes and narration are independent channels',
 // author opts in, the deck-level `motion:` key and a per-slide marker, or a deck that
 // animates on one path silently loses the choice on the other.
 const MOTION_DECK = '---\ntheme: indaco\nmotion: on\n---\n\n<!-- _class: funnel -->\n\n## F\n\n- A `1`\n';
-const SLIDE_MOTION_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel motion-on -->\n\n## F\n\n- A `1`\n';
+const SLIDE_MOTION_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel with-motion -->\n\n## F\n\n- A `1`\n';
 // A STYLE token is not a Play switch. This deck must NOT get the row: it would ship the
 // player and never move. The first version of this file used `motion-build` here and
 // asserted the row DID appear — a test that was not vacuous, just correct about a wrong

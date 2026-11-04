@@ -198,11 +198,11 @@ section.tag-plain .card > strong:first-child {
   --card-tag-edge: inset 0 0 0 1px var(--muted-mark);
   --card-tag-inline-ink: var(--text-secondary);
 }
-section.tag-none li::before,
-section.tag-none .card::before,
-section.tag-none .verdict::before,
-section.tag-none li > strong:first-child,
-section.tag-none .card > strong:first-child {
+section.tag-bare li::before,
+section.tag-bare .card::before,
+section.tag-bare .verdict::before,
+section.tag-bare li > strong:first-child,
+section.tag-bare .card > strong:first-child {
   --card-tag-fill: transparent;
   --card-tag-ink: var(--text-secondary);
   --card-tag-edge: none;
@@ -219,7 +219,7 @@ section.tag-none .card > strong:first-child {
  *   foot    flush into the bottom-left corner; the card reserves the tag at its BOTTOM
  *           and its top padding returns to --card-tag-rest.
  *   notch   a tab inset from the corner, straddling the card's top edge, half outside it;
- *           the card reserves half a tag. `tag-none` there reads as a fieldset legend: the
+ *           the card reserves half a tag. `tag-bare` there reads as a fieldset legend: the
  *           page fill behind bare text, so the card's edge does not strike through it.
  *   band    a full-width strip across the card top — the corner tag stretched to both
  *           sides, with a header strip's padding and line height (the tokens below).
@@ -327,11 +327,11 @@ section.tag-notch.list-steps:not(.timeline, .chevron, .converge, .ghost) ol > li
 section.tag-notch.tag-notch > .cell-stage {
   padding-top: calc(max(var(--card-tag-h), var(--card-tag-block)) / 2 + var(--sp-xs));
 }
-section.tag-notch.tag-none li::before,
-section.tag-notch.tag-none .card::before,
-section.tag-notch.tag-none .verdict::before,
-section.tag-notch.tag-none li > strong:first-child,
-section.tag-notch.tag-none .card > strong:first-child {
+section.tag-notch.tag-bare li::before,
+section.tag-notch.tag-bare .card::before,
+section.tag-notch.tag-bare .verdict::before,
+section.tag-notch.tag-bare li > strong:first-child,
+section.tag-notch.tag-bare .card > strong:first-child {
   --card-tag-fill: var(--bg);
   --card-tag-pad-x: 0.5em;
 }

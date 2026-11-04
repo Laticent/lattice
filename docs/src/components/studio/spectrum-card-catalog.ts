@@ -6,7 +6,7 @@
 // only the human layer the picker needs; the rot-guard is spectrum-card-catalog.test.ts.
 //
 // Authored deck-wide via `spectrum-card:` or per-slide via `_class: spectrum-card` /
-// `spectrum-card-solid` / `spectrum-card-off` etc.
+// `spectrum-card-solid` / `no-spectrum-card` etc.
 
 export type SpectrumCardEntry = {
 	/** the `spectrum-card:` register value (and engine SPECTRUM_CARD_NAMES member) */

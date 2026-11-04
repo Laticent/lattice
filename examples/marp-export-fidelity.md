@@ -8,7 +8,7 @@ meta: Export fidelity · Marp bundle
 finish: atrium
 ---
 
-<!-- _class: title finish-none -->
+<!-- _class: title no-finish -->
 
 # What survives the export
 

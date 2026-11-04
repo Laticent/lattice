@@ -101,7 +101,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
   // splitter needs to skip quoted strings and bracket depth too.
   // Extract each `:not(…)` group with PAREN BALANCING. A regex with `[^)]*` stops at the
   // first `)`, so it cannot see a class inside a nested condition — and the divider arm
-  // now has exactly that shape: `:not(:where(.print:not(.spectrum-off)…, .dark.accent…))`.
+  // now has exactly that shape: `:not(:where(.print:not(.no-spectrum)…, .dark.accent…))`.
   // Measured: the regex form reported the accent exclusion missing when it was present.
   const notGroups = (sel) => {
     const out = [];
@@ -202,7 +202,7 @@ test('every frame that paints an inverse panel re-points --fin-canvas at it', ()
     assert.ok(excludes(one, 'print'), `\`${one}\` must not apply to a print slide`);
   }
   // NO REGISTER REPAINTS A FRAME'S OWN CANVAS ANY MORE (#2291), and this list being empty
-  // is the assertion. Four rules used to: `section.dark.spectrum-off` (0,2,1),
+  // is the assertion. Four rules used to: `section.dark.no-spectrum` (0,2,1),
   // `section.dark:is(.spectrum-edge-*)` (0,3,1) and `section.accent.dark` (0,2,1) all
   // out-specified a frame's (0,1,1) canvas, so `--fin-canvas` had to give way to them and
   // every arm below carried a mode-scoped exclusion group naming all six register classes.

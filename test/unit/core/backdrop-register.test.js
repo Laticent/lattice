@@ -51,8 +51,8 @@ test('kernel: unknown words stamp nothing; a second word on a filled axis is dro
   assert.deepEqual(backdropClasses(undefined), []);
 });
 
-test('kernel: `backdrop-none` stays the finish-none alias, not a register token', () => {
-  assert.ok(!BACKDROP_TOKENS.includes('backdrop-none'));
+test('kernel: `no-backdrop` stays the no-finish alias, not a register token', () => {
+  assert.ok(!BACKDROP_TOKENS.includes('no-backdrop'));
   assert.ok(!BACKDROP_NAMES.includes('none'));
 });
 
@@ -156,15 +156,15 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
 
 /* ── Fixes from the maker-checker pass ─────────────────────────────────────────────────── */
 
-test('css: `finish-none` / `backdrop-none` clear the register layers a deck line still stamps', () => {
+test('css: `no-finish` / `no-backdrop` clear the register layers a deck line still stamps', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
-  const optOut = css.match(/section\.finish-none,\s*section\.backdrop-none\s*\{[^}]*\}/);
+  const optOut = css.match(/section\.no-finish,\s*section\.no-backdrop\s*\{[^}]*\}/);
   assert.ok(optOut, 'opt-out rule missing');
   for (const decl of ['--backdrop-scrim: none', '--backdrop-scrim-opaque: none', '--backdrop-dim-scrim: none', '--backdrop-opacity: 1']) {
     assert.ok(optOut[0].includes(decl), `opt-out must reset ${decl}`);
   }
   // It must FOLLOW the register's print flip, or the flip re-arms the mask in the PDF.
-  assert.ok(css.indexOf('section.finish-none,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }'));
+  assert.ok(css.indexOf('section.no-finish,') > css.indexOf('section.finish { --backdrop-scrim: var(--backdrop-scrim-opaque); }'));
 });
 
 test('css: the veil steps clear of the overflow QA ring', () => {
@@ -172,12 +172,12 @@ test('css: the veil steps clear of the overflow QA ring', () => {
   assert.match(css, /section\.finish\.overflow:not\(\[data-lattice-overflow-marker="reader"\]\):not\(\[data-lattice-overflow-marker="off"\]\) > \.backdrop > \.backdrop-mask \{\s*inset: 4px;/);
 });
 
-test('lint: `backdrop-*` classes are a closed vocabulary; `backdrop-none` stays valid', () => {
+test('lint: `backdrop-*` classes are a closed vocabulary; `no-backdrop` stays valid', () => {
   const unknown = (cls) => lintText(`---\ntheme: indaco\nfinish: atrium\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\nBody.\n`)
     .filter((f) => f.rule === 'unknown-class').map((f) => f.classToken);
   assert.deepEqual(unknown('backdrop-50 backdrop-spot-x'), ['backdrop-50', 'backdrop-spot-x']);
   assert.deepEqual(unknown('backdrop-40 backdrop-clear'), []);
-  assert.deepEqual(unknown('backdrop-none'), []);
+  assert.deepEqual(unknown('no-backdrop'), []);
 });
 
 test('lint: a quoted value is read the way the engine reads it', () => {
@@ -222,11 +222,11 @@ test('css: the clear edge is soft in both exports; the Studio raster masks inste
   assert.doesNotMatch(css, /--backdrop-clear-blur: 0px/);
 });
 
-test('css: open, spotlight and finish-none switch the clear layer off; tone slides offset it', () => {
+test('css: open, spotlight and no-finish switch the clear layer off; tone slides offset it', () => {
   const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.finish.css'), 'utf8');
   assert.match(css.match(/section\.backdrop-open \{[^}]*\}/)[0], /--backdrop-clear-scrim: none/);
   assert.match(css.match(/section:is\(\.backdrop-spot-tl,[^{]*\{[^}]*\}/)[0], /--backdrop-clear-scrim: none/);
-  const optOut = css.match(/section\.finish-none,\s*section\.backdrop-none\s*\{[^}]*\}/)[0];
+  const optOut = css.match(/section\.no-finish,\s*section\.no-backdrop\s*\{[^}]*\}/)[0];
   assert.match(optOut, /--backdrop-clear-scrim: none/);
   assert.match(optOut, /--fin-backdrop-clear-scrim: none/);
   assert.match(optOut, /--backdrop-clear-filter: none/);
@@ -274,7 +274,7 @@ test('css: the frame keyline is drawn on top of the finish, clear of the header 
   assert.match(css, /\[data-lattice-overflow-marker="off"\]\) > \.backdrop > \.backdrop-mask::after \{\s*inset: calc\(1\.32 \* var\(--_sec-1cqi, 1cqi\) - 4px\);/);
   // Every opt-out that clears the shadow frame clears the keyline too.
   const clears = css.match(/--fin-frame: 0 0 transparent;[^\n]*\n\s*--fin-frame-mark: transparent;/g) || [];
-  assert.equal(clears.length, 2, 'finish-none and print mode both clear --fin-frame-mark');
+  assert.equal(clears.length, 2, 'no-finish and print mode both clear --fin-frame-mark');
   // The shipped gallery preset carries the keyline color, at the inset outside the header.
   const gallery = css.match(/section\.finish-gallery,\s*section\.finish-gallery :is\([^)]*\) \{[^}]*\}/)[0];
   assert.match(gallery, /--fin-frame: inset 0 0 0 calc\(1\.1 \* var\(--_sec-1cqi, 1cqi\)\)/);

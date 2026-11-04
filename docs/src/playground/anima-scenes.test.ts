@@ -67,8 +67,8 @@ describe('ANIMA_HOST_SEL — the shared host-load gate', () => {
     expect(s.matches(ANIMA_HOST_SEL)).toBe(true);
   });
 
-  it('matches a chart opted in by a Play token (`motion-on`, or the legacy chart-anima) — the case the Studio regressed on', () => {
-    for (const cls of ['funnel motion-on', 'funnel chart-anima']) {
+  it('matches a chart opted in by a Play token (`with-motion`, or the legacy chart-anima) — the case the Studio regressed on', () => {
+    for (const cls of ['funnel with-motion', 'funnel chart-anima']) {
       const s = sectionWith((el) => {
         el.className = cls;
       });
@@ -253,14 +253,14 @@ describe('createAnimaScenes — no replay on an in-place re-render (the "always 
     const doc = document.implementation.createHTMLDocument('t');
     const a = funnelSection(doc);
     a.classList.remove('chart-anima');
-    a.classList.add('motion-on', 'motion-build'); // Play on + explicit style
+    a.classList.add('with-motion', 'motion-build'); // Play on + explicit style
     doc.body.appendChild(a);
     const scenes = createAnimaScenes({ getFrame: () => frameOf(doc) });
     scenes.rebind();
     expect(state(doc)).toBe('playing');
     const b = funnelSection(doc); // same data…
     b.classList.remove('chart-anima');
-    b.classList.add('motion-on', 'motion-together'); // …different style → different sig → replay
+    b.classList.add('with-motion', 'motion-together'); // …different style → different sig → replay
     doc.body.replaceChild(b, doc.body.firstChild as Node);
     scenes.rebind();
     expect(state(doc)).toBe('playing');
@@ -312,11 +312,11 @@ describe('createAnimaScenes — deck-level Play (front-matter `motion: on`)', ()
     scenes.destroy();
   });
 
-  it('a slide `motion-off` suppresses the chart even under deck Play on', () => {
+  it('a slide `no-motion` suppresses the chart even under deck Play on', () => {
     const doc = chartAnimaDoc();
     const section = doc.querySelector('section') as HTMLElement;
     section.classList.remove('chart-anima');
-    section.classList.add('motion-off'); // explicit per-slide opt-out
+    section.classList.add('no-motion'); // explicit per-slide opt-out
     const scenes = createAnimaScenes({ getFrame: () => frameOf(doc), getDeckMotion: () => ON });
     scenes.rebind();
     expect(doc.querySelector('.scene-live')).toBeNull(); // opt-out beats the deck default

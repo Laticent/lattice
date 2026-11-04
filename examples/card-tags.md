@@ -28,9 +28,9 @@ Numbers, slot labels, the verdict and the step label share one kernel, styled de
 
 ---
 
-<!-- _class: cards-stack tag-none -->
+<!-- _class: cards-stack tag-bare -->
 
-## tag-none keeps the number and drops the box.
+## tag-bare keeps the number and drops the box.
 
 1. False signal amplification
    - One loud voice dominating the decision. The model caps any source at 30%.

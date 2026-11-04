@@ -338,9 +338,22 @@ describe('deck linter', () => {
   });
 
   test('per-slide accent tokens (spectrum-edge-*, spectrum-card*, spectrum-trim*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-solid', 'spectrum-card-off', 'spectrum-card-edge-top', 'spectrum-trim', 'spectrum-trim-restrained', 'spectrum-trim-off', 'rule-short', 'eyebrow-dot']) {
+    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'no-spectrum-edge', 'with-spectrum-edge', 'no-heading-rule', 'with-heading-rule', 'no-spectrum', 'with-spectrum', 'with-spectrum-card', 'spectrum-card-solid', 'no-spectrum-card', 'spectrum-card-edge-top', 'with-spectrum-trim', 'spectrum-trim-restrained', 'no-spectrum-trim', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
+    }
+  });
+
+  test('every retired switch spelling is flagged with an autofix to its no-X / with-X name', () => {
+    const { RETIRED_SWITCHES } = require('../../../lib/core/switches');
+    for (const [from, to] of Object.entries(RETIRED_SWITCHES)) {
+      const hits = lintText(`---\ntheme: indaco\n---\n\n<!-- _class: content ${from} -->\n\n## H.\n`, { vocab })
+        .filter((x) => x.rule === 'unknown-class' && x.classToken === from);
+      assert.equal(hits.length, 1, `${from} on a slide is not flagged`);
+      assert.deepEqual(hits[0].replace, { from, to }, `${from} has no autofix to ${to}`);
+      const deck = lintText(`---\ntheme: indaco\nclass: ${from}\n---\n\n## H.\n`, { vocab })
+        .filter((x) => (x.message || '').includes(from));
+      assert.ok(deck.length >= 1, `${from} in the deck class: is not flagged`);
     }
   });
 

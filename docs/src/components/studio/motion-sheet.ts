@@ -19,7 +19,7 @@
 //
 // ── THE ONE RULE THIS MODULE MUST NOT BREAK ─────────────────────────────────────────────────
 //
-// It writes the SAME tokens the Inspector writes — `motion-on`/`motion-off`,
+// It writes the SAME tokens the Inspector writes — `with-motion`/`no-motion`,
 // `motion-build|together|rise`, `motion-auto|slow|normal|fast`, and the three front-matter keys —
 // through the SAME writers (`setGroupToken`, `writeFrontMatterLine`). No fourth axis, no fourth
 // cascade layer, no vocabulary of its own. The Inspector is the pen; this is the page. If the two
@@ -33,7 +33,7 @@ import { getClassTokens, setGroupToken } from '../../lib/slide-directives';
 import { SLIDE_SEP } from './deck-ops';
 
 /** The three axes, as the slide-token groups `setGroupToken` needs to swap one member for another. */
-export const PLAY_TOKENS = ['motion-on', 'motion-off'] as const;
+export const PLAY_TOKENS = ['with-motion', 'no-motion'] as const;
 export const STYLE_TOKENS = MOTION_STYLES.map((s) => `motion-${s}`);
 export const SPEED_TOKENS = MOTION_SPEEDS.map((s) => `motion-${s}`);
 
@@ -178,8 +178,10 @@ const speedOf = (tokens: string[]): MotionSpeed | null => {
 	return null;
 };
 const playOf = (tokens: string[]): 'on' | 'off' | null => {
-	if (tokens.includes('motion-off')) return 'off';
-	if (tokens.includes('motion-on') || tokens.includes('chart-anima')) return 'on';
+	// `with-motion` first: the switch rule (lib/core/switches.mjs), so a slide brings motion back over a
+	// deck-wide `class: no-motion`.
+	if (tokens.includes('with-motion') || tokens.includes('chart-anima')) return 'on';
+	if (tokens.includes('no-motion')) return 'off';
 	return null;
 };
 
@@ -193,7 +195,7 @@ export function deckMotionOf(source: string): DeckMotion {
  *
  * `base.docs.md` documents `class: chart-anima` as the deck-wide switch, and the engine appends
  * every `class:` token to every section — including a section that names its own `_class:`. So
- * `class: motion-off` really does silence a deck whose slides say `motion-on`, and
+ * `class: no-motion` silences every slide that does not bring motion back with its own `with-motion`, and
  * `class: motion-fast` really does set the speed. Reading only `chart-anima` here reported the
  * opposite of the deck on three of the four documented shapes.
  */
@@ -224,7 +226,7 @@ export function readTargets(source: string): MotionTarget[] {
 		const component = slideTokens.find((t) => ROLE_COMPONENTS.has(t) || NO_ROLE_COMPONENTS.has(t));
 		if (!component) return;
 
-		// The engine APPENDS front-matter `class:` to every section, so a deck-level `motion-off`
+		// The engine APPENDS front-matter `class:` to every section, so a deck-level `no-motion`
 		// or `motion-fast` arrives as a token ON THE SECTION and is read by the SLIDE-level
 		// readers — it is not a "deck default" that a slide token outranks. Modelling it as one
 		// made the sheet report the opposite of the deck on four documented shapes.
@@ -238,9 +240,9 @@ export function readTargets(source: string): MotionTarget[] {
 		const classStyle = styleOf(deckClass);
 		const classSpeed = speedOf(deckClass);
 
-		// `resolveMotion` reads the section's class list, which carries BOTH sets, and `motion-off`
-		// beats `motion-on` there — so the union is resolved with the same precedence the engine
-		// uses rather than by layering slide over deck.
+		// `resolveMotion` reads the section's class list, which carries BOTH sets, and `with-motion`
+		// beats `no-motion` there (the switch rule, lib/core/switches.mjs) — so the union is resolved
+		// with the same precedence the engine uses rather than by layering slide over deck.
 		const unionPlay = playOf(tokens);
 		const play = (unionPlay ?? deck.play ?? 'off') === 'on';
 		const style = styleOf(tokens) ?? deck.style ?? 'build';
@@ -324,7 +326,7 @@ export function tally(targets: MotionTarget[]) {
  *
  * The single writer both the per-row action and the bulk action go through, so a bulk change is
  * exactly N applications of the one-row change and cannot diverge from it. It writes the
- * Inspector's own `motion-off` token through the Inspector's own `setGroupToken`, which is what
+ * Inspector's own `no-motion` token through the Inspector's own `setGroupToken`, which is what
  * keeps this surface from becoming a second source of truth for the register.
  *
  * A chunk index that no longer exists returns the source untouched rather than writing to whatever
@@ -334,6 +336,6 @@ export function tally(targets: MotionTarget[]) {
 export function setSlideMotionOff(source: string, chunk: number): string {
 	const slides = splitSlides(stripFrontMatter(source));
 	if (slides[chunk] == null) return source;
-	slides[chunk] = setGroupToken(slides[chunk], PLAY_TOKENS, 'motion-off');
+	slides[chunk] = setGroupToken(slides[chunk], PLAY_TOKENS, 'no-motion');
 	return (frontMatterBlock(source) || '') + slides.join(SLIDE_SEP);
 }

@@ -193,7 +193,7 @@ const VARIANT_DECL_IGNORE = new Map([
   // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'rule-none', 'spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'with-spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);

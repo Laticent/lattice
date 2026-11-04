@@ -17,7 +17,7 @@ import { type MotionTarget, type Provenance, tally, type Verdict } from './motio
 // engine already draws, and adjusting a property is the Inspector's job. An earlier revision of
 // this work put it in Fabricate as a fourth tab, which put controls where a workshop belongs.
 //
-// It writes only the Inspector's own vocabulary — the same `motion-on` / `motion-off` slide token
+// It writes only the Inspector's own vocabulary — the same `with-motion` / `no-motion` slide token
 // through the same `setGroupToken` writer — so nothing here can drift from the cascade above it.
 
 const VERDICT: Record<Verdict, { label: string; Icon: typeof Check; tone: string }> = {

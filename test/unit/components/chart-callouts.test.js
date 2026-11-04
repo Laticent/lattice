@@ -141,7 +141,7 @@ for (const c of CHARTS) {
     });
 
     test('callouts switched off draw nothing and the details still reach the card', () => {
-      const r = render(c, two(c), { cls: `${c.cls} callout-off` });
+      const r = render(c, two(c), { cls: `${c.cls} no-callout` });
       const d = doc(r.html);
       assert.equal(lane(d), null);
       assert.doesNotMatch(r.html, /@callout/);
@@ -221,7 +221,7 @@ describe('journey: callouts (HTML board, notes under it)', () => {
   });
 
   test('callouts off draw nothing', () => {
-    const d = doc(run(NOTE, { cls: 'journey callout-off' }).html);
+    const d = doc(run(NOTE, { cls: 'journey no-callout' }).html);
     assert.equal(d.querySelectorAll('[data-callout]').length, 0);
     assert.equal(d.querySelectorAll('.journey-callouts').length, 0);
   });

@@ -1078,13 +1078,14 @@ describe('component-manifest', () => {
       // nothing. Order = group insertion order.
       assert.deepEqual([...UNIVERSAL_VARIANTS], [
         'dark', // mood
-        'treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
+        'no-treatment', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
         'tint-edge at-right', 'mark-threads', // decoration
         'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
-        'silent', 'no-header', 'no-footer', 'no-pagination', 'with-pagination', 'no-progress', 'with-progress', 'no-logo', // chrome
-        'no-note', 'note-warn', // note
+        'silent', 'no-header', 'with-header', 'no-footer', 'with-footer', 'no-pagination', 'with-pagination',
+        'no-progress', 'with-progress', 'no-logo', 'with-logo', // chrome
+        'no-note', 'with-note', 'note-warn', // note
         'safe', // social
-        'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', 'table-cards', 'table-pairs', 'table-lists', 'no-table-reflow', // table
+        'table-plain', 'table-fill', 'state-cells', 'with-row-label', 'no-row-label', 'table-cards', 'table-pairs', 'table-lists', 'no-table-reflow', // table
         'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state
         'tone-pass', 'tone-warn', 'tone-fail', 'tone-skip', // tone
         'insight-key', 'insight-recommendation', 'insight-takeaway', 'insight-verdict',
@@ -1160,12 +1161,13 @@ describe('component-manifest', () => {
       ]);
     });
 
-    test('chrome group has silent + the surgicals + no-progress — and NOT form/no-form', () => {
+    test('chrome group has silent + every band no-X / with-X — and NOT form/no-form', () => {
       // `form` / `no-form` left the vocabulary on 2026-09-20: Form is the composition
       // model, not a chrome control an author toggles. The retired-form lint rules
       // coach a deck still carrying either token; the vocabulary no longer blesses it.
       assert.deepEqual([...UNIVERSAL_GROUPS.chrome].sort(), [
-        'no-footer', 'no-header', 'no-logo', 'no-pagination', 'no-progress', 'silent', 'with-pagination', 'with-progress',
+        'no-footer', 'no-header', 'no-logo', 'no-pagination', 'no-progress', 'silent',
+        'with-footer', 'with-header', 'with-logo', 'with-pagination', 'with-progress',
       ]);
     });
   });

@@ -41,8 +41,8 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: columns ratio-45-55 no-rule -->
-<!-- _footer: "no rule · columns no-rule — Drops the spine between the panes." -->
+<!-- _class: columns ratio-45-55 no-spine -->
+<!-- _footer: "no rule · columns no-spine — Drops the spine between the panes." -->
 
 `Support · after the migration`
 

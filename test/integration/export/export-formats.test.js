@@ -425,7 +425,7 @@ describe('export-formats', () => {
     fs.writeFileSync(src, [
       '---', 'marp: true', 'theme: indaco', 'finish: atrium', 'backdrop: clear', '---', '',
       '# Baked finish one', '', 'Body text stays vector.', '', '---', '',
-      '<!-- _class: finish-none -->', '', '# Opted out', '', '---', '',
+      '<!-- _class: no-finish -->', '', '# Opted out', '', '---', '',
       '# Baked finish two', '',
     ].join('\n'));
     return src;

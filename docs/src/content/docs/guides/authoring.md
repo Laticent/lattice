@@ -348,30 +348,35 @@ than going unstyled, and the drawer flags it.
 ## Chrome — show or hide the slide furniture
 
 Every deck carries a standard set of *chrome*: the running **header** and
-**footer** bands, the **page number**, and the **section rail** (the row of
-progress dots that tracks where you are between dividers). You control each one
-at **two scopes** — set the baseline for the whole deck in the front matter, then
-opt an individual slide out with a `_class` token.
+**footer** bands, the **page number**, the **section rail** (the row of
+progress dots that tracks where you are between dividers) and the **logo**. You
+control each one at **two scopes** — set the baseline for the whole deck, then
+change one slide with a `_class` word.
 
-| Element | Whole deck (front matter) | One slide (`_class`) | On by default? |
+Every one of them is a **switch**, and every switch is spelled the same way:
+`no-X` turns it off, `with-X` turns it back on for one slide.
+
+| Element | Whole deck | One slide (`_class`) | On by default? |
 |---|---|---|---|
-| Running header | `header: "Acme — Q3"` | `no-header` | no — appears once you give it text |
-| Running footer | `footer: "Confidential"` | `no-footer` | no — appears once you give it text |
-| Page number | `paginate: false` (turns it **off**) | `no-pagination` off · `with-pagination` back on | yes — except title, divider and closing |
-| Section rail | `class: no-progress` (turns it **off**) | `no-progress` off · `with-progress` back on | on when the deck has dividers |
+| Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | no — appears once you give it text |
+| Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | no — appears once you give it text |
+| Page number | `paginate: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider and closing |
+| Section rail | `class: no-progress` | `no-progress` · `with-progress` | on when the deck has dividers |
+| Logo | `logo: …`, or `class: no-logo` | `no-logo` · `with-logo` | on once you set `logo:` |
 
-The header and footer ride front-matter keys, so a running band turns **on** by
-giving it text and **off** by removing the line. Page numbers are on unless the
-front matter says `paginate: false`; title, divider and closing slides drop
-theirs through their component manifest.
-The section rail has no such directive, so its deck-wide off-switch is the
-`no-progress` class. A front-matter `class:` reaches **every** slide, including
-one that sets its own `<!-- _class: … -->`: the slide's classes are added to the
-deck's, never swapped for them. So `class: no-progress` takes the rail off
-everywhere, and one slide brings it back with `<!-- _class: content with-progress -->`.
-The same goes for the other bands: a per-slide `<!-- _header: -->` /
-`<!-- _footer: -->` comment, or the `with-pagination` class, turns a band *on*
-for a single slide against a deck that leaves it off.
+A front-matter `class:` reaches **every** slide, including one that sets its own
+`<!-- _class: … -->`: the slide's classes are added to the deck's, never swapped
+for them. So `class: no-progress` takes the rail off everywhere, and one slide
+brings it back with `<!-- _class: content with-progress -->`. A slide's `with-X`
+always wins over a `no-X` from the deck.
+
+`silent` turns the header, footer, page number and rail off together for one
+slide. A `with-X` wins over it too: `<!-- _class: content silent with-pagination -->`
+is a clean slide that keeps its page number.
+
+The same spelling covers every other switch a slide can carry — callouts,
+motion, the spectrum accents, the heading rule, the finish, the below-note and
+more. The full list is in [Switches](/reference/switches/).
 
 **In an Export-to-Marp bundle** the deck-wide settings (`class:`, `color-mode:`,
 `finish:`, `logo:`, …) sit in a settings block directly under the front matter,

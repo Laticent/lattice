@@ -63,7 +63,7 @@ finish: strata
 
 ${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
   ...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} backdrop-clear -->\n\n${body}`),
-  `<!-- _class: split-panel finish-none -->\n\n${BODY}`].join('\n\n---\n\n')}
+  `<!-- _class: split-panel no-finish -->\n\n${BODY}`].join('\n\n---\n\n')}
 `;
 
 describe('split finish pane (real render)', () => {
@@ -200,7 +200,7 @@ describe('split finish pane (real render)', () => {
     }
   });
 
-  test('finish-none keeps both panels opaque', async () => {
+  test('no-finish keeps both panels opaque', async () => {
     const m = await read(OPTED_OUT, '.panel-left', '.panel-right');
     assert.notEqual(m.zoneBg, 'rgba(0, 0, 0, 0)');
     assert.equal(alphaOf(m.paneBg), 1);

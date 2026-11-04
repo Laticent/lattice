@@ -24,7 +24,7 @@
  * save it — a theme missing the family is missing both. Split this way, the miss
  * invalidates `background-image` alone. `section.divider.light` REPLACES this canvas with
  * the `background:` shorthand, which resets every longhand, so its behavior is unchanged
- * (#1528). The two `spectrum-off`/`spectrum-edge-off` rules used to do the same and no
+ * (#1528). The two `no-spectrum`/`no-spectrum-edge` rules used to do the same and no
  * longer do: they clear the RAIL with `background-image: none` plus the three geometry
  * longhands, and leave `background-color` alone, because restating it at (0,3,1) took the
  * canvas of every frame that paints its own (#2291). The #1528 hazard is unchanged for

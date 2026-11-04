@@ -78,7 +78,7 @@ test('the validator rejects a pane field that has not decided', () => {
 
 test('the carve and the linter read one layout parser', () => {
   assert.equal(panes.parseLayout, spec.parseLayout);
-  assert.deepEqual(spec.parseLayout('stack 35/65 no-rule'), { direction: 'stack', a: 35, b: 65, rule: false });
+  assert.deepEqual(spec.parseLayout('stack 35/65 no-spine'), { direction: 'stack', a: 35, b: 65, rule: false });
   assert.match(spec.parseLayout('80/20').error, /25\/75/);
 });
 

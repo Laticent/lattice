@@ -9,7 +9,7 @@ logo: sample:logo-acme-mark.svg
 logo-finish: bottom-center title
 ---
 
-<!-- _class: title finish-none -->
+<!-- _class: title no-finish -->
 <!-- _header: '' -->
 
 # Chrome belongs to the frame
@@ -79,7 +79,7 @@ This paragraph follows the same list, and stays body copy.
 
 ---
 
-<!-- _class: closing finish-none -->
+<!-- _class: closing no-finish -->
 <!-- _header: '' -->
 
 `Where The Fix Lives`

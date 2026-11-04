@@ -118,8 +118,8 @@ section.split-panel.mirror .panel-right { background-position: left top; }
 /* The ribbon segment IS this frame's section-edge bar, so it obeys the same five
  * registers that clear the section border (base.variants.css). The panel mark is a
  * STRUCTURAL accent and survives `spectrum: off` — the white-label baseline. */
-section.split-panel:is(.spectrum-off, .spectrum-edge-left, .spectrum-edge-right,
-                       .spectrum-edge-bottom, .spectrum-edge-off) {
+section.split-panel:is(.no-spectrum, .spectrum-edge-left, .spectrum-edge-right,
+                       .spectrum-edge-bottom, .no-spectrum-edge) {
   --_ribbon: none;
 }
 /* `accent` replaces the rainbow with a solid accent line. On a split frame the edge
@@ -881,20 +881,20 @@ section.split-panel.steps:not(.mirror):not([data-orientation="portrait"]):has(> 
  * on a light panel, `--on-accent` on `watermark`'s accent field, `--cat-on-fill` on a category
  * tint. The corner mark is slide-level and is drawn once, by the slide.
  *
- * "A finish" means a backdrop that is actually PAINTED: `finish-none` / `backdrop-none` slides
+ * "A finish" means a backdrop that is actually PAINTED: `no-finish` / `no-backdrop` slides
  * and a `print` canvas keep the bare `finish` class while base.finish.css zeroes every layer, so
  * they are excluded and keep both opaque panels. Without a finish nothing here matches. The
  * stacked orientations need no exception: the section is an ordinary slide, so whatever the
  * stacked layout leaves uncovered is the slide's own finish. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print) { --_field-fill: var(--surface-inverse); --_field-accent: var(--accent); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).watermark { --_field-fill: var(--accent); --_field-accent: var(--on-accent); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --_field-accent: var(--cat-on-fill); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).steps { --_field-fill: var(--bg-alt); }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-right,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-left {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print) { --_field-fill: var(--surface-inverse); --_field-accent: var(--accent); }
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).watermark { --_field-fill: var(--accent); --_field-accent: var(--on-accent); }
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) { --_field-fill: var(--panel-fill); --_field-accent: var(--cat-on-fill); }
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).steps { --_field-fill: var(--bg-alt); }
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):not(.metric) .panel-right,
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric .panel-left {
   background-color: transparent;
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric) .panel-left {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):not(.metric) .panel-left {
   --fin-canvas: var(--_field-fill);
   --field-accent: var(--_field-accent);
   background-image: var(--fin-surface-image);
@@ -906,7 +906,7 @@ section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric
  * `.panel-left`. So on `metric` the dark `.panel-right` is the feature panel, and the light number
  * panel is the side with no background. That panel also draws the spectrum ribbon, which stays on
  * top of its finish. `.mirror` only reorders, so the ribbon anchors to the other edge. */
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric .panel-right {
   --fin-canvas: var(--_field-fill);
   --field-accent: var(--_field-accent);
   background-image: var(--_ribbon, none), var(--fin-surface-image);
@@ -914,7 +914,7 @@ section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .pan
   background-position: right top, var(--fin-surface-position);
   background-repeat: no-repeat, var(--fin-surface-repeat);
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric.mirror .panel-right {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric.mirror .panel-right {
   background-position: left top, var(--fin-surface-position);
 }
 /* The finish's MARK (strata's corner tick, meridian's ghost numeral) is placed in the frame
@@ -950,17 +950,17 @@ section.split-panel.finish.metric:not([data-orientation="portrait"]):not([data-o
 section.split-panel.finish.metric.mirror:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
   inset: var(--sp-xl) var(--sp-lg) var(--sp-xl) auto;
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric):not(.pullquote) .panel-left,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):not(.metric):not(.pullquote) .panel-left,
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric .panel-right {
   position: relative;
   isolation: isolate;
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric):not(.pullquote) .panel-left > *,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right > * {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):not(.metric):not(.pullquote) .panel-left > *,
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric .panel-right > * {
   z-index: 1;
 }
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print):not(.metric):not(.pullquote) .panel-left::before,
-section.split-panel.finish:not(.finish-none, .backdrop-none, .print).metric .panel-right::before {
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print):not(.metric):not(.pullquote) .panel-left::before,
+section.split-panel.finish:not(.no-finish, .no-backdrop, .print).metric .panel-right::before {
   content: "";
   position: absolute;
   inset: 0;

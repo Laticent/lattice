@@ -11,7 +11,7 @@
  * absolutely-placed <div> bars driven by --gantt-x / --gantt-w inside flex
  * rows. That made it the one chart-family member chart motion could not touch —
  * chartToScene reads the first <svg> in the section, and a gantt had none, so
- * `motion-on` skipped the entire chart. The kernel now emits one <svg> whose
+ * `with-motion` skipped the entire chart. The kernel now emits one <svg> whose
  * bars, milestones, ticks and key are all addressable nodes in a single
  * viewBox (gantt.transform.js buildGanttChart / GANTT_GEOM).
  *

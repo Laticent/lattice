@@ -348,6 +348,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Front matter', slug: 'reference/front-matter' },
 						{ label: 'CLI', slug: 'reference/cli' },
+						{ label: 'Switches', slug: 'reference/switches' },
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 						{ label: 'Avatars cheat sheet', slug: 'guides/inline/avatars-cheat-sheet' },

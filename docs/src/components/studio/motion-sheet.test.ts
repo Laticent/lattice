@@ -53,15 +53,15 @@ describe('the cascade matches resolveMotion exactly', () => {
 
 	it('built-in default — Play off', () => check('theme: indaco', ''));
 	it('deck Play on, everything else built-in', () => check('motion: on', ''));
-	it('slide Play on against a silent deck', () => check('theme: indaco', 'motion-on'));
-	it('slide motion-off overrides a deck default of on', () => check('motion: on', 'motion-off'));
+	it('slide Play on against a silent deck', () => check('theme: indaco', 'with-motion'));
+	it('slide no-motion overrides a deck default of on', () => check('motion: on', 'no-motion'));
 	it('deck style + speed reach a class-less slide', () => check('motion: on\nmotion-style: rise\nmotion-speed: slow', ''));
 	it('a slide token beats the deck on its own axis only', () => check('motion: on\nmotion-style: rise\nmotion-speed: slow', 'motion-together'));
 	it('a style token does NOT switch Play on by itself', () => check('theme: indaco', 'motion-build'));
 	it('the legacy chart-anima alias still reads as on + build', () => check('theme: indaco', 'chart-anima'));
 	// The four shapes the sheet used to get backwards, now run through the real resolveMotion.
-	it('deck `class: motion-on` against a silent deck', () => check('class: motion-on', ''));
-	it('deck `class: motion-off` beats a slide motion-on', () => check('motion: on\nclass: motion-off', 'motion-on'));
+	it('deck `class: with-motion` against a silent deck', () => check('class: with-motion', ''));
+	it('deck `class: no-motion` beats a slide with-motion', () => check('motion: on\nclass: no-motion', 'with-motion'));
 	it('deck `class: motion-fast` sets the speed', () => check('motion: on\nclass: motion-fast', ''));
 	it('deck `class: chart-anima` with a motion-style key', () => check('class: chart-anima\nmotion-style: rise', ''));
 });
@@ -73,7 +73,7 @@ describe('provenance — which scope decided each axis', () => {
 	});
 
 	it('falls to built-in when neither scope speaks', () => {
-		expect(readTargets(deck('theme: indaco', funnel('motion-on')))[0].provenance).toEqual({ play: 'slide', style: 'built-in', speed: 'built-in' });
+		expect(readTargets(deck('theme: indaco', funnel('with-motion')))[0].provenance).toEqual({ play: 'slide', style: 'built-in', speed: 'built-in' });
 	});
 });
 
@@ -140,7 +140,7 @@ describe('mark counting reports what it does not know', () => {
 
 describe('tally', () => {
 	it('counts each lane once', () => {
-		const src = deck('motion: on', funnel(), funnel('motion-off'), funnel('motion-together'), '<!-- _class: journey -->\n\n## Arc\n\n- Discover `1`');
+		const src = deck('motion: on', funnel(), funnel('no-motion'), funnel('motion-together'), '<!-- _class: journey -->\n\n## Arc\n\n- Discover `1`');
 		const t = tally(readTargets(src));
 		// `on` means "will actually animate". The journey's Play resolves on from the deck default,
 		// but it emits no roles, so it is counted as blocked rather than inflating the on count —
@@ -199,12 +199,12 @@ describe('a deck-level `class:` token lands on every section, so it behaves as a
 	// Verified against the engine by the adversarial pass: `class:` is appended to EVERY section,
 	// including one that names its own `_class:`. All four of these reported the OPPOSITE of what
 	// the engine does before the union model replaced a "deck default" layer.
-	it('`class: motion-on` switches a silent deck on', () => {
-		expect(readTargets(deck('class: motion-on', funnel()))[0].play).toBe(true);
+	it('`class: with-motion` switches a silent deck on', () => {
+		expect(readTargets(deck('class: with-motion', funnel()))[0].play).toBe(true);
 	});
 
-	it('`class: motion-off` silences a deck whose front matter says motion: on', () => {
-		expect(readTargets(deck('motion: on\nclass: motion-off', funnel()))[0].play).toBe(false);
+	it('`class: no-motion` silences a deck whose front matter says motion: on', () => {
+		expect(readTargets(deck('motion: on\nclass: no-motion', funnel()))[0].play).toBe(false);
 	});
 
 	it('`class: motion-fast` sets the speed, rather than falling to auto', () => {
@@ -222,13 +222,13 @@ describe('the component is found wherever it sits in the class list', () => {
 	// The engine's dispatch is `CHART_LAYOUTS.find(l => classTokens.includes(l))` — position
 	// independent. Reading tokens[0] dropped an animating chart out of the sheet entirely.
 	it('finds a funnel behind a leading modifier', () => {
-		const t = readTargets(deck('motion: on', '<!-- _class: dark funnel motion-on -->\n\n## X\n\n- A `1`\n- B `2`'))[0];
+		const t = readTargets(deck('motion: on', '<!-- _class: dark funnel with-motion -->\n\n## X\n\n- A `1`\n- B `2`'))[0];
 		expect(t?.component).toBe('funnel');
 		expect(t?.play).toBe(true);
 	});
 
 	it('finds it after a register token too', () => {
-		expect(readTargets(deck('motion: on', '<!-- _class: motion-on funnel -->\n\n## X\n\n- A `1`'))[0]?.component).toBe('funnel');
+		expect(readTargets(deck('motion: on', '<!-- _class: with-motion funnel -->\n\n## X\n\n- A `1`'))[0]?.component).toBe('funnel');
 	});
 });
 

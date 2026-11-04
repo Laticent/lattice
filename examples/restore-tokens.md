@@ -42,13 +42,13 @@ A deck that writes `spectrum-edge: left` puts every bar on the left. `spectrum-e
 
 ---
 
-<!-- _class: content spectrum-on -->
+<!-- _class: content with-spectrum -->
 
-`spectrum-on`
+`with-spectrum`
 
 ## The rainbow comes back on one slide
 
-The deck runs `spectrum: solid`. `spectrum-on` returns this slide to the theme's rainbow ribbon, still on the deck's left edge, because the two registers are independent.
+The deck runs `spectrum: solid`. `with-spectrum` returns this slide to the theme's rainbow ribbon, still on the deck's left edge, because the two registers are independent.
 
 ---
 

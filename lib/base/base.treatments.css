@@ -68,7 +68,7 @@
  * (per-layer placement modifiers) also match harmlessly — they set no
  * slot values so the compositor renders `none, none` if they're alone.
  */
-section:where([class*="tint-"], [class*="mark-"], [class~="backdrop-none"]) {
+section:where([class*="tint-"], [class*="mark-"], [class~="no-backdrop"]) {
   background-image: var(--_bg-radial, none), var(--_bg-linear, none);
 }
 
@@ -618,7 +618,7 @@ section.mark-chevron::before {
  * Per-slide opt-out when a treatment is set deck-wide and one slide
  * needs a clean surface (full-bleed image, neutral chart page, TOC).
  */
-section.treatment-none {
+section.no-treatment {
   --_bg-radial: none;
   --_bg-linear: none;
 }

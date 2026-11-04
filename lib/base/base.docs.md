@@ -12,9 +12,9 @@ that any component can opt into.
 | `base.elements.css` | Semantic HTML defaults (`section`, `h1`-`h5`, `p`, `strong`, `em`, `code`, `hr`, `ul`, `ol`, `blockquote`). Element selectors only. |
 | `base.modifiers.css` | Auto-detected chrome — eyebrow, subtitle, key-insight panel, below-note, annotation. Triggered by markdown patterns the author writes (no class needed). |
 | `base.variants.css` | Universal opt-in variants — `dark`, `mirror`, `numbered`, `silent`, state markers, tone tokens. Composed via `_class:`. |
-| `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `treatment-none` — for peripheral atmospheric accents. |
+| `base.treatments.css` | 27 treatment utility classes — 12 tints (`tint-corner at-tl`, `tint-vignette`, etc.) and 11 marks (`mark-orbit`, `mark-seeds`, etc.) plus `no-treatment` — for peripheral atmospheric accents. |
 | `base.sketch.css` | The `sketch` **mode** (rendering hand) — a deck-wide hand-drawn skin (handwriting type, drawn boxes, and rough.js-drawn lines). Palette-blind; set via `mode:` or `class:` / `_class:`. |
-| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `finish-none` (or back-compat `backdrop-none`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the frames that paint an inverse panel (`title`/`closing`/`divider`/`topic`), `var(--accent)` on the six accent covers (the five the splitter emits plus the shared `lat-split-cover`) in **every** mode, `var(--panel-fill)` on a `split-panel` cover carrying a category, and `var(--img-matte)`/`var(--scene-matte)` on the `image` and `scene` compositions that paint the matte — which is what keeps a finish from washing out a frame that paints its own canvas (#1656). It follows the frame **only where the frame actually keeps that canvas**, and after #2291 that is a question about `print` alone: `print` remaps the consumed tokens and `section.print` resets the surface, so a frame that loses the surface to it excludes it. `accent` / `spectrum-off` / `spectrum-edge-*` used to out-specify a frame's own rule and every arm here carried a mode-scoped group excluding them; none of the three was painting a canvas (each draws or removes a *bar* and restated the color while doing it), so they say `background-image` now and the exclusions are gone with them. The accent covers are **not** scoped to `dark` (they were until #2294): a cover paints `var(--accent)` in every mode, and the two arms differ only on print — `section.print` is bundled after the five component sheets and takes their field, while `section.lat-split-cover` is bundled after `section.print` and keeps it. Print has a **fourth** answer: `section.print[data-split-role="cover"]` de-floods any role-stamped cover to `var(--surface-inverse)`, so `--fin-canvas` mirrors it on the same stamp rather than on a frame class. `topic` differs by DOM shape AND by variant, so it takes three arms: `section.topic:not(:has(> ul.tile-track))` restates its canvas at (0,2,2), so a trackless topic holds it under everything, print included, and carries no condition at all; a topic carrying its track is back at (0,1,1) and loses it as `title` does; but `section.topic.fact` (0,2,1) restates it again and out-specifies `section.print` (0,1,1), so a **fact** slide keeps its inverse panel under print even when tracked — measured, `topic fact print` with the track is rgb(236,236,236) while the plain tracked arm was sending `--fin-canvas` to white. Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
+| `base.finish.css` | The `field` zone of the Finish family — 9 premium **stacked-layer** finish presets (`finish-atrium/meridian/strata/halo/ledger/nimbus/loom/savile/gallery`) on a per-role custom-property compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`), so layers combine by z-index instead of being either/or. `no-finish` (or back-compat `no-backdrop`) opts a slide out. **Rich-on-screen / safe-on-export:** each preset's slot DEFAULT is the richer "dissolving" screen look (directional fades to `transparent` — alpha the browser composites cleanly), with an `--fin-*-opaque` mirror holding the PDF-clean opaque value (every full-bleed fade ends on `var(--fin-canvas)`). One guarded block flips the slots to the opaque mirror for BOTH export paths — `@media print` (CLI vector PDF) and `.lattice-exporting` (the Studio html-to-image raster tags each section before capture) — so the screen is rich while every PDF/PPTX stays opaque-clean (an alpha area-fade bakes to a gray cloud in print-to-PDF). Both faces are palette-blind (`color-mix(var(--accent)/var(--fin-canvas))`), no masks, no `url()`; only the screen face uses alpha. **`--fin-canvas` is the surface THIS SLIDE paints** — `var(--bg)` by default, `--surface-inverse` on the frames that paint an inverse panel (`title`/`closing`/`divider`/`topic`), `var(--accent)` on the six accent covers (the five the splitter emits plus the shared `lat-split-cover`) in **every** mode, `var(--panel-fill)` on a `split-panel` cover carrying a category, and `var(--img-matte)`/`var(--scene-matte)` on the `image` and `scene` compositions that paint the matte — which is what keeps a finish from washing out a frame that paints its own canvas (#1656). It follows the frame **only where the frame actually keeps that canvas**, and after #2291 that is a question about `print` alone: `print` remaps the consumed tokens and `section.print` resets the surface, so a frame that loses the surface to it excludes it. `accent` / `no-spectrum` / `spectrum-edge-*` used to out-specify a frame's own rule and every arm here carried a mode-scoped group excluding them; none of the three was painting a canvas (each draws or removes a *bar* and restated the color while doing it), so they say `background-image` now and the exclusions are gone with them. The accent covers are **not** scoped to `dark` (they were until #2294): a cover paints `var(--accent)` in every mode, and the two arms differ only on print — `section.print` is bundled after the five component sheets and takes their field, while `section.lat-split-cover` is bundled after `section.print` and keeps it. Print has a **fourth** answer: `section.print[data-split-role="cover"]` de-floods any role-stamped cover to `var(--surface-inverse)`, so `--fin-canvas` mirrors it on the same stamp rather than on a frame class. `topic` differs by DOM shape AND by variant, so it takes three arms: `section.topic:not(:has(> ul.tile-track))` restates its canvas at (0,2,2), so a trackless topic holds it under everything, print included, and carries no condition at all; a topic carrying its track is back at (0,1,1) and loses it as `title` does; but `section.topic.fact` (0,2,1) restates it again and out-specifies `section.print` (0,1,1), so a **fact** slide keeps its inverse panel under print even when tracked — measured, `topic fact print` with the track is rgb(236,236,236) while the plain tracked arm was sending `--fin-canvas` to white. Selected deck-wide via the `finish:` register or per-slide via `_class: finish finish-<name>`. See `engineering/decisions/2026-06-30-finish-the-surface-layer.md`. |
 
 ---
 
@@ -89,7 +89,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   is a class word like any other, so it takes a dash, never a slash: `60/40` is not a valid CSS
   class name, sets no ratio, and `lint:deck` gives the rewrite. They are components
   like any other (`lib/components/layout/`), of a special kind: a HOST, whose body is two other
-  components (manifest `hosts: panes`). The ratio and `no-rule` are its modifiers; other words
+  components (manifest `hosts: panes`). The ratio and `no-spine` are its modifiers; other words
   in the same `_class` (`dark`) apply to the slide as they always do. A second component named
   in the host's `_class` is ignored — each pane names its own. As with any
   class, the slide's LAST `_class` is the one that counts: `_class: columns` followed by
@@ -136,7 +136,7 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   that is nothing but a quote and its `— ` attribution.
 - A **spine** marks the seam between the panes: the same accent rule, fading at both ends,
   that separates a chart from its key. It turns horizontal when the panes stack. Add
-  `no-rule` to drop it (`<!-- _class: columns no-rule -->`) — a photo pane's own edge
+  `no-spine` to drop it (`<!-- _class: columns no-spine -->`) — a photo pane's own edge
   usually separates it already.
 - **Which component can go in a pane, and at what share, is measured.** Each manifest's `pane`
   field records the least share it reads at side by side and stacked (`dist/docs/components.json`
@@ -837,7 +837,7 @@ declare and a bare table cannot: a row capacity budget, autosplit, the portrait
 card reshape, the `row`/`col`/`cell` focus axes, and the first-column row-label
 switch. The bare universal treatment is for a table that *supports* prose.
 
-### A third switch that is not a class — `row-label`
+### A third switch that is not a class — `with-row-label`
 
 The first column of a `table` slide reads as a row label — 600 weight, heading
 ink — when it actually is one. `lib/core/table-row-label.js` decides per table,
@@ -845,10 +845,11 @@ and it turns the emphasis OFF on the four shapes where the bet is wrong: a
 single-column table, an index header (`#`, `No.`, `Ref`), an all-numeric first
 column, and a column of bare state markers.
 
-Overrule it either way with `row-label` / `no-row-label`, which also work on a
-plain table — `row-label` is how a table outside the component opts in. The
-explicit tokens always beat the measurement, and `no-row-label` wins a slide
-carrying both.
+Overrule it either way with `with-row-label` / `no-row-label`, which also work on a
+plain table — `with-row-label` is how a table outside the component opts in. The
+explicit tokens always beat the measurement, and, like every switch, `with-row-label`
+wins a slide carrying both, so one slide can bring the label back over a deck-wide
+`class: no-row-label`.
 
 **A table written as raw `<table>` HTML is not judged — it is emphasized.**
 markdown-it passes raw HTML through untouched, so its rows never reach the rule
@@ -938,6 +939,19 @@ grid: each draws its table as a chart, whose columns are the chart's axis. `no-t
 the mobile canvas a glossary stacks regardless, as it always has.
 
 ---
+
+## Switches — `no-X` and `with-X`
+
+Every on/off a deck or a slide can set is a **switch**, spelled one way: `no-X`
+turns it off, `with-X` turns it back on for one slide. A deck turns one off with
+`class: no-X` (or a setting's own plain word, `motion: off`), and the deck's
+`class:` reaches every slide, including one with its own `_class`. The rule, in
+every render path: `with-X` > `no-X` > `silent` (header, footer, page number,
+rail) > the layout's default. The list, one row per switch, is the docs page
+[Switches](/reference/switches/) (`docs/src/content/docs/reference/switches.md`);
+the table and the rule are `lib/core/switches.mjs`. The old spellings
+(`callout-off`, `spectrum-on`, `row-label`, `finish-none`, …) were retired outright,
+and `lint:deck` rewrites each one.
 
 ## Universal variants
 
@@ -1187,10 +1201,10 @@ register it belongs to. Each is documented in
 | Register | Per-slide `_class:` tokens |
 |---|---|
 | `mode:` | `sketch-clean-body` |
-| `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `finish-none` · `finish-savile` · `finish-strata` |
+| `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `no-finish` · `finish-savile` · `finish-strata` |
 | `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
-| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `spectrum-off` · `spectrum-on` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
-| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `rule-none` · `rule-short` |
+| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `no-spectrum-edge` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `no-spectrum` · `with-spectrum` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
+| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `no-heading-rule` · `rule-short` |
 | `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-plain` · `eyebrow-underline` |
 | `headline:` | `head-auto` · `head-center` · `head-left` · `head-right` |
 | `lift:` | `lifted` |
@@ -1202,7 +1216,7 @@ folder instead. Both were wrong for the same reason: HARD RULE #6 says to open
 rule. Moving the registers out cost 38 of these tokens their only hit here, which
 a checker pass caught — the list above is derived from the class names in
 `lib/base/*.css` rather than hand-picked, so it is complete by construction as of
-2026-08-30 — except for the six RESTORE tokens (`spectrum-on`, `spectrum-edge-top`,
+2026-08-30 — except for the six RESTORE tokens (`with-spectrum`, `spectrum-edge-top`,
 `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain`, `head-auto`), which return one slide
 to a register's default and so have no CSS to be derived from. They are added by hand; what
 they do is under "Back to the default on one slide" in `base.registers.docs.md`.
@@ -1398,7 +1412,7 @@ masked mark (`::after`).
 
 27 utility classes for peripheral atmospheric accents — 12 tints
 (gradient washes, vignettes) and 11 marks (SVG accent shapes), plus a
-`treatment-none` reset. `tint-corner` and `tint-edge` carry a placement
+`no-treatment` reset. `tint-corner` and `tint-edge` carry a placement
 axis (`at-tl`, `at-top`, etc.). All palette-blind via `var(--accent)`
 so palette swap = treatment color swap.
 
@@ -1408,7 +1422,7 @@ so palette swap = treatment color swap.
 <!-- _class: closing tint-vignette -->
 ```
 
-Available classes: `treatment-none`, `tint-corner at-tl`, `mark-orbit`,
+Available classes: `no-treatment`, `tint-corner at-tl`, `mark-orbit`,
 `tint-vignette`, `tint-edge at-right`, `mark-threads`, plus 21 more.
 
 ### Focus & highlighting — `_focus:`

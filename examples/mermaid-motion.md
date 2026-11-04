@@ -99,15 +99,15 @@ pie
 
 ---
 
-<!-- _class: diagram motion-off -->
+<!-- _class: diagram no-motion -->
 
 `Opt out · one slide`
 
-## A slide can still opt out with motion-off.
+## A slide can still opt out with no-motion.
 
 ```mermaid
 flowchart LR
-  A[Deck says motion: on] --> B[This slide says motion-off]
+  A[Deck says motion: on] --> B[This slide says no-motion]
   B --> C[It stays a still picture]
 ```
 

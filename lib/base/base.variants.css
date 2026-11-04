@@ -27,16 +27,22 @@
    `no-pagination` — hide the page number (bottom-right).
    `silent` — combines all three; useful for bookend slides that want
    none of the standard chrome without writing three separate Marp
-   directives. */
+   directives.
+   `with-header` / `with-footer` / `with-pagination` bring one band back on a
+   slide over a deck-wide `no-X` or over `silent` (lib/core/switches.js). The
+   engine and the runtime SETTLE each slide first (a `with-X` removes `no-X`,
+   `silent` adds the `no-X` it implies), so `.no-X` alone would do; the
+   `:not(.with-X)` arms are for a host that runs no script at all (VS Code's
+   default preview level), where only these rules decide. */
 
-section.silent > header,
-section.no-header > header {
+section.silent:not(.with-header) > header,
+section.no-header:not(.with-header) > header {
   /* `section.<chrome> > header` (0,1,1) already beats the base `section header`
      rule (0,0,1) on specificity + source order; no !important needed. */
   display: none;
 }
-section.silent > footer,
-section.no-footer > footer {
+section.silent:not(.with-footer) > footer,
+section.no-footer:not(.with-footer) > footer {
   /* Legacy / non-Form decks — the footer is a direct `> footer` child here, so
    * this reaches it. The migrated Form frame nests the footer as
    * `section > .cell-footer > footer`, which this direct-child selector does NOT
@@ -45,7 +51,7 @@ section.no-footer > footer {
   display: none;
 }
 section.silent.silent:not(.with-pagination)::after,
-section.no-pagination.no-pagination::after {
+section.no-pagination.no-pagination:not(.with-pagination)::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
      pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
@@ -63,7 +69,7 @@ section.no-pagination.no-pagination::after {
  * `silent` (and `claim-hero no-pagination`) actually drop the page number on every
  * frame. */
 section.silent:not(.with-pagination) .lat-pagination,
-section.no-pagination .lat-pagination {
+section.no-pagination:not(.with-pagination) .lat-pagination {
   display: none;
 }
 
@@ -148,7 +154,7 @@ section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-war
    frame (split-panel / split-compare .styles.css) is (0,1,1), so the rule above would stack a
    second bar over the ribbon. Where `accent` recolors the supporting-zone ribbon, a semantic
    `tone-edge` does the same: it drops the border and carries --tone-color on the ribbon, at
-   (0,3,1) / (0,4,1) so it also beats those components' `spectrum-off` / `spectrum-edge-*` clears,
+   (0,3,1) / (0,4,1) so it also beats those components' `no-spectrum` / `spectrum-edge-*` clears,
    as `tone-edge` does on every other layout. Lives here, not in the component files, because the
    variant-declaration gate reads a `.tone-edge` chained onto a component root as an undeclared
    variant. 2026-08-18-split-frame-edge-ownership.md */
@@ -235,7 +241,7 @@ section {
    override — "a theme may override `--spectrum-quiet`" — and a theme author who accepted the
    invitation got silence, not an error (#1546). A theme that wants a different structural
    hairline moves `--accent`/`--border`, which this derives from. The opt-in `spectrum-trim: on`
-   register (→ section.spectrum-trim) points --spectrum-structure at --spectrum-bar to flow the deck's
+   register (→ section.with-spectrum-trim) points --spectrum-structure at --spectrum-bar to flow the deck's
    full gradient onto the structure too. Design-trio treatment refinement — see
    2026-07-16-spectrum-structure-default.md.
    `:root` too, for content that sits OUTSIDE any slide: a chart re-hosted as a figure in Read ·
@@ -253,9 +259,9 @@ section {
    --spectrum-bar, so it follows whatever `spectrum:` resolved to). `restrained`
    (`spectrum-trim-restrained`) holds a single-hue accent ramp (--sp-fill-mono-h) regardless of
    the bar's STYLE — the "two-tier" middle: present but quiet, and it never clashes with a
-   rainbow/duo bar. A per-slide `spectrum-trim-off` needs no rule: dropping the class leaves the
+   rainbow/duo bar. A per-slide `no-spectrum-trim` needs no rule: dropping the class leaves the
    quiet tint default above. */
-section.spectrum-trim { --spectrum-structure: var(--spectrum-bar); }
+section.with-spectrum-trim { --spectrum-structure: var(--spectrum-bar); }
 section.spectrum-trim-restrained { --spectrum-structure: var(--sp-fill-mono-h); }
 
 /* STYLE — the slide's chosen fill, and the BAR every accent draws with.
@@ -291,7 +297,7 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    or drop the bar rather than matching `spectrum-edge-*`: `spectrum-edge-top` is the restore token
    (a slide back on the top bar inside another deck edge), and the top bar it restores takes the
    deck's style like any other. Same specificity either way, (0,1,0) inside the `:not()`. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(:where(.split-panel, .split-compare, .image, .scene, .collage.bleed, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge):not(:where(.split-panel, .split-compare, .image, .scene, .collage.bleed, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
   --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
   --_bar-t: var(--_bar-w);
   border-top: var(--_bar-w) solid;
@@ -304,7 +310,7 @@ section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.sp
    --spectrum-structure — quiet by default, or the deck's spectrum under `spectrum-trim: on` —
    so `off` neither adds nor removes a structural rule; the two axes are independent
    (2026-07-03-spectrum-register-white-label.md, 2026-07-16-spectrum-structure-default.md). */
-section.spectrum-off { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
+section.no-spectrum { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
 /* CLEAR THE BAR, NOT THE CANVAS (#2291). These two used to say `background: var(--bg)` and
  * `background: var(--surface-inverse)` -- the shorthand, chosen because it resets every
  * longhand at once, which is what clearing `section.dark`'s hairline or the divider's rail
@@ -312,7 +318,7 @@ section.spectrum-off { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
  * out-specifies a frame's own (0,1,1) canvas. So `spectrum: off` flattened a dark title,
  * closing, topic or cover to the deck ground -- the same defect #2293 fixed one rule over,
  * through a rule no exemption list could reach, because this one wins on SPECIFICITY rather
- * than on order. Measured, indaco, before: `title dark spectrum-off` rgb(0,29,51) against
+ * than on order. Measured, indaco, before: `title dark no-spectrum` rgb(0,29,51) against
  * the rgb(0,61,102) it paints for itself.
  *
  * The longhand says what the rule means. `background-image: none` removes the bar and
@@ -329,18 +335,18 @@ section.spectrum-off { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
  * and they are inert only while nothing else supplies an image. Something else can: a deck
  * carries `<style>`, a theme is a stylesheet, and `dist/marp-kit/lattice.css` ships these
  * rules to renderers we do not control. Measured, with an author rule setting a full-bleed
- * `background-image` on the section: `divider dark spectrum-off` rendered it as a 3.75px
- * vertical rail and `content dark spectrum-off` as a 1px strip. So these rules clear the
+ * `background-image` on the section: `divider dark no-spectrum` rendered it as a 3.75px
+ * vertical rail and `content dark no-spectrum` as a 1px strip. So these rules clear the
  * whole bar and nothing else -- four longhands out of five, `background-color` untouched.
  * Found by the HARD RULE #25 checker. */
-section.dark.spectrum-off {
+section.dark.no-spectrum {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;
   background-repeat: repeat;
   --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
 }
-section.divider:not(.light).spectrum-off {
+section.divider:not(.light).no-spectrum {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;
@@ -357,7 +363,7 @@ section.divider:not(.light).spectrum-off {
    reason as `divider`: they own their edge and set `padding: 0`, so a side border would shrink their
    panels by a bar width and make the slide shift with the placement (check:edge-shift). Their bar is
    the `.slide-bar` overlay below instead, which takes no room (lib/core/slide-bar.js). */
-section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off) {
+section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge) {
   border-top: none;
   --_edge-t: 1;
   --_bar-t: 0px;
@@ -422,7 +428,7 @@ section.print.print > .slide-bar {
 /* The top strip: only when something asks for one. Same gates as the border rules above (`solid` /
    `duo` / `mono` unless a placement owns the bar; `accent` and `tone-edge` win over the style). The
    split frames paint their own ribbon on the panels, so they keep it and get no overlay on top. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge) > .slide-bar-top {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge):not(.split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge) > .slide-bar-top {
   inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
   background-image: var(--spectrum-bar);
 }
@@ -441,7 +447,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-
 section.spectrum-edge-left:has(> .slide-bar)   { --_edge-l: 0; }
 section.spectrum-edge-right:has(> .slide-bar)  { --_edge-r: 0; }
 section.spectrum-edge-bottom:has(> .slide-bar) { --_edge-b: 0; }
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off, .split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge, .split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
 section.accent:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top),
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top) { --_edge-t: 0; }
 
@@ -451,7 +457,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-
  * `:not(.divider)` stays -- a divider's bar is its own left rail and only `edge: off`
  * clears that, on the line below. `:not(.topic)` too: a topic paints its track band in
  * `background-image`, which is its own canvas and not the section bar. */
-section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider, .topic) {
+section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge):not(.divider, .topic) {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;
@@ -459,7 +465,7 @@ section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom
   --_edge-t: 1; /* the top line (and an accent stripe) is gone, so the keyline draws the top edge */
 }
 /* the divider's default is a left rail; edge:off clears it deck-wide. */
-section.divider:not(.light).spectrum-edge-off {
+section.divider:not(.light).no-spectrum-edge {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;

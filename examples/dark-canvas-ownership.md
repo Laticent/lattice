@@ -75,7 +75,7 @@ A topic slide paints an inverse panel in every mode, and had never been named in
 
 ---
 
-<!-- _class: divider spectrum-off -->
+<!-- _class: divider no-spectrum -->
 
 `Section 02`
 

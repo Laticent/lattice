@@ -1518,9 +1518,9 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 
 ## 5.5 Motion — a diagram builds in like a chart
 
-A deck with `motion: on`, or a slide with `motion-on`, animates its Mermaid diagrams the way it
+A deck with `motion: on`, or a slide with `with-motion`, animates its Mermaid diagrams the way it
 animates its charts: the subgraph boxes first, then the nodes, then the arrows between them, then
-the words. `motion-style` (`build` / `together` / `rise`), `motion-speed` and `motion-off` apply
+the words. `motion-style` (`build` / `together` / `rise`), `motion-speed` and `no-motion` apply
 unchanged, and a viewer who asks the OS to reduce motion sees the diagram settled. It runs in the
 Playground, the Studio, Present and the exported HTML player. The PDF is a still, as it is for every
 chart. Demo: `examples/mermaid-motion.md`.

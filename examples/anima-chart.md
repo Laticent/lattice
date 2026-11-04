@@ -77,14 +77,14 @@ place AND the build runs quick.
 
 ## Set it once; override anywhere.
 
-Set `motion:` in the front matter (or **Deck Settings › Motion**) and every chart slide follows it. A slide overrides with a `motion-*` class (**Slide Settings › Motion**) — `motion-off` pins one slide static.
+Set `motion:` in the front matter (or **Deck Settings › Motion**) and every chart slide follows it. A slide overrides with a `motion-*` class (**Slide Settings › Motion**) — `no-motion` pins one slide static.
 
 - **Preview-only.** Motion plays on the live surfaces; every export shows the finished still. A deck without `motion:` is unchanged.
 - **Plays once, on enter.** Motion runs a single time when the slide is shown — no replay control, no loop. It honors the viewer's reduced-motion setting and pauses off-screen.
 
 ---
 
-<!-- _class: funnel motion-off -->
+<!-- _class: funnel no-motion -->
 
 ## The same funnel, opted OUT — static everywhere.
 
@@ -94,7 +94,7 @@ Set `motion:` in the front matter (or **Deck Settings › Motion**) and every ch
 - Retained `900`
 
 <!--
-`motion-off` forces this one slide static even though the deck says `motion: on`. Opt-out
+`no-motion` forces this one slide static even though the deck says `motion: on`. Opt-out
 is always available — a single slide can stand still inside an animated deck.
 -->
 

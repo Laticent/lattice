@@ -180,7 +180,7 @@ describe('makeStudioCompletion', () => {
 			modifierGroups: [
 				{ name: 'mood', label: 'Canvas', tokens: ['dark', 'light'], exclusive: true },
 				{ name: 'chrome', label: 'Chrome', tokens: ['silent', 'no-footer'] },
-				{ name: 'rule', label: 'Heading rule', tokens: ['rule-none'], surface: 'heading' },
+				{ name: 'rule', label: 'Heading rule', tokens: ['no-heading-rule'], surface: 'heading' },
 				{ name: 'table', label: 'Table', tokens: ['table-fill'], surface: 'table' },
 				{ name: 'cards', label: 'Card spacing', tokens: ['cards-spread'], surface: 'card-row' },
 			],
@@ -196,8 +196,8 @@ describe('makeStudioCompletion', () => {
 
 		it('offers a slide-level modifier everywhere and a component-level one only where its surface exists', () => {
 			expect(labels('<!-- _class: big-number ')).toContain('silent');
-			expect(labels('<!-- _class: big-number ')).not.toContain('rule-none');
-			expect(labels('<!-- _class: content ')).toContain('rule-none');
+			expect(labels('<!-- _class: big-number ')).not.toContain('no-heading-rule');
+			expect(labels('<!-- _class: content ')).toContain('no-heading-rule');
 			expect(labels('<!-- _class: content ')).not.toContain('cards-spread');
 			expect(labels('<!-- _class: cards-grid ')).toContain('cards-spread');
 		});

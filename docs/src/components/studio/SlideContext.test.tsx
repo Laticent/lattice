@@ -31,7 +31,7 @@ beforeEach(() => {
 const lintVocab = {
 	universalGroups: {
 		mood: ['dark'],
-		decoration: ['treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette', 'tint-edge at-right', 'mark-threads'],
+		decoration: ['no-treatment', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette', 'tint-edge at-right', 'mark-threads'],
 		typography: ['with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl'],
 		chrome: ['silent', 'no-header', 'no-footer', 'no-pagination', 'no-progress'],
 		state: ['wip', 'draft', 'confidential'],
@@ -163,7 +163,7 @@ describe('SlideContextBody controls', () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		await goTab('Accent');
 		await pickOption(/brand bar/i, 'None');
-		expect(applied()).toContain('spectrum-off');
+		expect(applied()).toContain('no-spectrum');
 	});
 
 	// The head option is worded "Auto", never "Inherit" — `inherit` is a CSS keyword,

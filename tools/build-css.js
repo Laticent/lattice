@@ -180,7 +180,7 @@ const MODIFIERS_SOURCE = 'lib/base/base.modifiers.css';
 // lib/base/base.card-tag.css and engineering/decisions/2026-09-27-card-tag-register.md.
 const CARD_TAG_SOURCE = 'lib/base/base.card-tag.css';
 const QR_GENERAL_SOURCE = 'lib/components/connect/_qr-card/qr-general.css';
-// 27 utility classes (12 tints + 11 marks + treatment-none reset) for
+// 27 utility classes (12 tints + 11 marks + no-treatment reset) for
 // peripheral atmospheric accents. All palette-blind via var(--accent).
 const TREATMENTS_SOURCE = 'lib/base/base.treatments.css';
 // The layered FINISH presets (the `field` zone of the Finish family): 5 premium

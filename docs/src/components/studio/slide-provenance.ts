@@ -5,11 +5,12 @@
 // per-slide finish/mode OVERRIDING rather than stacking. So a per-slide axis is never
 // a simple on/off: removing `dark` from a slide whose deck says `class: dark` does
 // nothing (it re-appends), and "off" for finish/mode is an explicit OPT-OUT token
-// (`finish-none` / `boardroom`), not an absence. This module computes the effective
+// (`no-finish` / `boardroom`), not an absence. This module computes the effective
 // state — Auto (from the deck) / On (this slide) / Off — and the writes that realize each,
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
+import { registerToken as switchToken, registerValue as switchValueOf } from '../../../../lib/core/switches.mjs';
 import { getFrontMatter } from '../../lib/front-matter';
 import { DEFAULT_MARKS, MARKS_NAMES } from '../../lib/marks-words';
 import { getClassTokens, setClassTokens } from '../../lib/slide-directives';
@@ -41,9 +42,9 @@ export function deckDefaults(source: string): { classTokens: string[]; finish: s
 }
 
 // A per-slide finish selector — mirrors the engine's isFinishVariantClass
-// (resolve-finish.js): `finish-<name>` EXCEPT the `finish-none` opt-out and the
+// (resolve-finish.js): `finish-<name>` EXCEPT the `no-finish` opt-out and the
 // `finish-preview` specimen (both of which never activate a real backdrop).
-const isFinishToken = (t: string) => /^finish-(.+)$/.test(t) && t !== 'finish-none' && t !== 'finish-preview';
+const isFinishToken = (t: string) => /^finish-(.+)$/.test(t) && t !== 'no-finish' && t !== 'finish-preview';
 const finishName = (t: string) => (t.match(/^finish-(.+)$/)?.[1] ?? '');
 
 // ── canvas (light / dark) ─────────────────────────────────────────────────────
@@ -89,20 +90,20 @@ export function finishProvenance(chunk: string, source: string): Provenance {
 	const deckValue = deckFinish && deckFinish !== 'none' ? deckFinish : undefined;
 	const inheritable = deckValue !== undefined;
 	if (own) return { state: 'on', value: finishName(own), deckValue, inheritable };
-	if (tokens.includes('finish-none')) return { state: 'off', deckValue, inheritable };
+	if (tokens.includes('no-finish')) return { state: 'off', deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
 /**
  * Set the slide's finish. `name` = a finish name → `finish-<name>` (the engine
- * implies the bare `finish` compositor); `'none'` → the `finish-none` opt-out;
+ * implies the bare `finish` compositor); `'none'` → the `no-finish` opt-out;
  * `null` → inherit (remove every per-slide finish token). All existing `finish*`
  * tokens are cleared first so finishes never stack.
  */
 export function setFinish(chunk: string, name: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !/^finish(-.*)?$/.test(t));
-	if (name === 'none') kept.push('finish-none');
+	if (name === 'none') kept.push('no-finish');
 	else if (name) kept.push(`finish-${name}`);
 	return setClassTokens(chunk, kept);
 }
@@ -192,14 +193,15 @@ export function setToneStyle(chunk: string, name: string | null, styleTokens: re
 // ── spectrum (white-label brand bar) ───────────────────────────────────────────
 // The deck `spectrum:` register (resolve-spectrum.js) controls the brand bar deck-wide;
 // a per-slide `spectrum-<style>` token overrides. `on` (the rainbow) is the default and
-// renders with no token; its restore token `spectrum-on` is how one slide returns to the
+// renders with no token; its restore token `with-spectrum` is how one slide returns to the
 // rainbow inside a deck set to another style. Provenance is inherited (deck non-rainbow) /
 // on (this slide) / off (rainbow default).
 
 // STYLE tokens ONLY (resolve-spectrum.js SPECTRUM_TOKENS) — exact set, so this never matches
-// the sibling `spectrum-edge-*` / `spectrum-card` tokens.
+// the sibling `spectrum-edge-*` / `with-spectrum-card` tokens.
 const SPECTRUM_STYLE_VALUES = ['on', 'solid', 'duo', 'mono', 'off'];
-const isSpectrumToken = (t: string) => /^spectrum-(on|solid|duo|mono|off)$/.test(t);
+// A style value's class: `off` / `on` are the `no-spectrum` / `with-spectrum` switch (lib/core/switches.mjs).
+const isSpectrumToken = (t: string) => switchValueOf('spectrum', t, SPECTRUM_STYLE_VALUES) !== null;
 
 /** Effective brand-bar STYLE state for a slide. `value` is the bare name (on/solid/duo/mono/off). */
 export function spectrumProvenance(chunk: string, source: string): Provenance {
@@ -207,7 +209,7 @@ export function spectrumProvenance(chunk: string, source: string): Provenance {
 	const deck = (registerValue(source, 'spectrum') || '').trim().toLowerCase();
 	const deckValue = deck !== 'on' && SPECTRUM_STYLE_VALUES.includes(deck) ? deck : undefined; // `on`/unset → rainbow default
 	const inheritable = deckValue !== undefined;
-	if (own) return { state: 'on', value: own.slice('spectrum-'.length), deckValue, inheritable };
+	if (own) return { state: 'on', value: switchValueOf('spectrum', own, SPECTRUM_STYLE_VALUES) as string, deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
@@ -217,7 +219,7 @@ export function spectrumProvenance(chunk: string, source: string): Provenance {
  *  STYLE tokens are cleared first. */
 export function setSpectrum(chunk: string, name: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isSpectrumToken(t));
-	if (name && SPECTRUM_STYLE_VALUES.includes(name)) kept.push(`spectrum-${name}`);
+	if (name && SPECTRUM_STYLE_VALUES.includes(name)) kept.push(switchToken('spectrum', name));
 	return setClassTokens(chunk, kept);
 }
 
@@ -230,19 +232,23 @@ export function setSpectrum(chunk: string, name: string | null): string {
 // off (the default). A shared helper keeps the three in step. The `none`/`off` VALUE is a real
 // token (an explicit choice), distinct from the `off` STATE (the untouched default).
 
+// The value ↔ class map is the shared one (lib/core/switches.mjs `registerToken`): an off value is a
+// SWITCH class (`no-spectrum-edge`, `no-heading-rule`), every other value `<prefix><value>`.
+const overrideValueOf = (deckKey: string, prefix: string, values: readonly string[], t: string) => switchValueOf(deckKey, t, values, prefix);
+
 function overrideProvenance(chunk: string, source: string, deckKey: string, prefix: string, values: readonly string[], deckDefault: string): Provenance {
-	const own = getClassTokens(chunk).find((t) => t.startsWith(prefix) && values.includes(t.slice(prefix.length)));
+	const own = getClassTokens(chunk).find((t) => overrideValueOf(deckKey, prefix, values, t) !== null);
 	const deck = (registerValue(source, deckKey) || '').trim().toLowerCase();
 	const deckValue = deck && deck !== deckDefault && values.includes(deck) ? deck : undefined;
 	const inheritable = deckValue !== undefined;
-	if (own) return { state: 'on', value: own.slice(prefix.length), deckValue, inheritable };
+	if (own) return { state: 'on', value: overrideValueOf(deckKey, prefix, values, own) as string, deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
-function setOverride(chunk: string, prefix: string, values: readonly string[], name: string | null): string {
-	const kept = getClassTokens(chunk).filter((t) => !(t.startsWith(prefix) && values.includes(t.slice(prefix.length))));
-	if (name && values.includes(name)) kept.push(`${prefix}${name}`);
+function setOverride(chunk: string, deckKey: string, prefix: string, values: readonly string[], name: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => overrideValueOf(deckKey, prefix, values, t) === null);
+	if (name && values.includes(name)) kept.push(switchToken(deckKey, name, prefix));
 	return setClassTokens(chunk, kept);
 }
 
@@ -251,7 +257,7 @@ export function spectrumEdgeProvenance(chunk: string, source: string): Provenanc
 	return overrideProvenance(chunk, source, 'spectrum-edge', 'spectrum-edge-', EDGE_VALUES, 'top');
 }
 export function setSpectrumEdge(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'spectrum-edge-', EDGE_VALUES, name);
+	return setOverride(chunk, 'spectrum-edge', 'spectrum-edge-', EDGE_VALUES, name);
 }
 
 const RULE_VALUES = ['auto', 'full', 'short', 'accent', 'none'];
@@ -259,7 +265,7 @@ export function ruleProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'rule', 'rule-', RULE_VALUES, 'auto');
 }
 export function setRule(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'rule-', RULE_VALUES, name);
+	return setOverride(chunk, 'rule', 'rule-', RULE_VALUES, name);
 }
 
 // The chart finish (resolve-marks.js). A look with no absent state, so the deck default is
@@ -291,7 +297,7 @@ export function eyebrowProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'eyebrow', 'eyebrow-', EYEBROW_VALUES, 'plain');
 }
 export function setEyebrow(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'eyebrow-', EYEBROW_VALUES, name);
+	return setOverride(chunk, 'eyebrow', 'eyebrow-', EYEBROW_VALUES, name);
 }
 
 // The deck key is `headline` but the per-slide token prefix is `head-` (head-left/center/right);
@@ -301,28 +307,28 @@ export function headlineProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'headline', 'head-', HEADLINE_VALUES, 'auto');
 }
 export function setHeadline(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'head-', HEADLINE_VALUES, name);
+	return setOverride(chunk, 'headline', 'head-', HEADLINE_VALUES, name);
 }
 
 // ── spectrum-card (card rail STYLE) ──────────────────────────────────────────────────────────
 // An INDEPENDENT card-rail accent, tunable orthogonally to the section bar. Deck values:
 // off (default, no rail) / auto (follow the bar) / solid / duo / mono / rainbow. The per-slide
-// token map is irregular: `auto` → `spectrum-card` (bare), the pins → `spectrum-card-<v>`, and
-// the opt-out → `spectrum-card-off`. A per-slide token overrides the deck; provenance is
+// token map is irregular: `auto` → the `with-spectrum-card` switch, the pins → `spectrum-card-<v>`, and
+// the opt-out → `no-spectrum-card`. A per-slide token overrides the deck; provenance is
 // inherited (deck non-off) / on (this slide) / off (default or opted-out).
 const CARD_STYLE_VALUES = ['auto', 'solid', 'duo', 'mono', 'rainbow', 'off'];
 /** token → bare card-STYLE value, or null if it isn't a card-STYLE token (excludes the
  *  sibling `spectrum-card-edge-*` placement tokens). */
 function cardTokenToValue(t: string): string | null {
-	if (t === 'spectrum-card') return 'auto';
-	if (t === 'spectrum-card-off') return 'off';
+	if (t === 'with-spectrum-card') return 'auto';
+	if (t === 'no-spectrum-card') return 'off';
 	const m = /^spectrum-card-(solid|duo|mono|rainbow)$/.exec(t);
 	return m ? m[1] : null;
 }
-/** bare value → its per-slide token (auto → the bare `spectrum-card`), or null for unknown. */
+/** bare value → its per-slide token (auto → `with-spectrum-card`), or null for unknown. */
 function cardValueToToken(v: string): string | null {
-	if (v === 'auto') return 'spectrum-card';
-	if (v === 'off') return 'spectrum-card-off';
+	if (v === 'auto') return 'with-spectrum-card';
+	if (v === 'off') return 'no-spectrum-card';
 	return /^(solid|duo|mono|rainbow)$/.test(v) ? `spectrum-card-${v}` : null;
 }
 const isSpectrumCardToken = (t: string) => cardTokenToValue(t) !== null;
@@ -340,7 +346,7 @@ export function spectrumCardProvenance(chunk: string, source: string): Provenanc
 }
 
 /** Set the slide's card-rail STYLE. A value (auto/solid/duo/mono/rainbow) → its token;
- *  `'off'` → the `spectrum-card-off` opt-out; `null` → inherit (clear any card-STYLE token). */
+ *  `'off'` → the `no-spectrum-card` opt-out; `null` → inherit (clear any card-STYLE token). */
 export function setSpectrumCard(chunk: string, value: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isSpectrumCardToken(t));
 	const token = value ? cardValueToToken(value) : null;
@@ -356,23 +362,23 @@ export function spectrumCardEdgeProvenance(chunk: string, source: string): Prove
 	return overrideProvenance(chunk, source, 'spectrum-card-edge', 'spectrum-card-edge-', CARD_EDGE_VALUES, 'left');
 }
 export function setSpectrumCardEdge(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'spectrum-card-edge-', CARD_EDGE_VALUES, name);
+	return setOverride(chunk, 'spectrum-card-edge', 'spectrum-card-edge-', CARD_EDGE_VALUES, name);
 }
 
 // ── spectrum-trim (structural accents) ──────────────────────────────────────────────────────
 // Three tiers with an explicit opt-out token: deck `spectrum-trim: on|restrained` appends the
-// matching token to every slide; a per-slide token opts one IN at a tier, `spectrum-trim-off`
-// OUT of a deck-wide setting. The token map is irregular (`on` → bare `spectrum-trim`), so it
+// matching token to every slide; a per-slide token opts one IN at a tier, `no-spectrum-trim`
+// OUT of a deck-wide setting. The token map is irregular (`on` → the `with-spectrum-trim` switch), so it
 // mirrors the card-STYLE shape. Provenance: inherited (deck non-off) / on (this slide) / off.
 function trimTokenToValue(t: string): string | null {
-	if (t === 'spectrum-trim') return 'on';
-	if (t === 'spectrum-trim-off') return 'off';
+	if (t === 'with-spectrum-trim') return 'on';
+	if (t === 'no-spectrum-trim') return 'off';
 	if (t === 'spectrum-trim-restrained') return 'restrained';
 	return null;
 }
 function trimValueToToken(v: string): string | null {
-	if (v === 'on') return 'spectrum-trim';
-	if (v === 'off') return 'spectrum-trim-off';
+	if (v === 'on') return 'with-spectrum-trim';
+	if (v === 'off') return 'no-spectrum-trim';
 	if (v === 'restrained') return 'spectrum-trim-restrained';
 	return null;
 }
@@ -391,7 +397,7 @@ export function spectrumTrimProvenance(chunk: string, source: string): Provenanc
 }
 
 /** Set the slide's structural trim. `'on'`/`'restrained'` → the tier token; `'off'` → the
- *  `spectrum-trim-off` opt-out; `null` → inherit (clear any trim token). */
+ *  `no-spectrum-trim` opt-out; `null` → inherit (clear any trim token). */
 export function setSpectrumTrim(chunk: string, value: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isSpectrumTrimToken(t));
 	const token = value ? trimValueToToken(value) : null;
@@ -401,27 +407,27 @@ export function setSpectrumTrim(chunk: string, value: string | null): string {
 
 // ── motion (chart animation) — THREE independent axes ────────────────────────────────────────────
 // Full parity with the deck front matter (Play=`motion:`, Style=`motion-style:`, Speed=`motion-speed:`)
-// and the slide classes (`motion-on/off`, `motion-<style>`, `motion-<speed>`). The axes are INDEPENDENT:
-// Play (`motion-on`/`motion-off`) is the sole animate switch; a style/speed token is an inert parameter
+// and the slide classes (`with-motion/off`, `motion-<style>`, `motion-<speed>`). The axes are INDEPENDENT:
+// Play (`with-motion`/`no-motion`) is the sole animate switch; a style/speed token is an inert parameter
 // that does NOT imply Play on (mirrors resolveMotion). Preview-only. The legacy `chart-anima` is honored
-// as `motion-on` + `motion-build` and rewritten away whenever motion is set here. Each axis mirrors the
+// as `with-motion` + `motion-build` and rewritten away whenever motion is set here. Each axis mirrors the
 // tri-state provenance shape.
 const MOTION_STYLE_VALUES = ['build', 'together', 'rise'];
 const MOTION_SPEED_VALUES = ['auto', 'slow', 'normal', 'fast'];
 const isStyleToken = (t: string) => /^motion-(build|together|rise)$/.test(t);
 const isSpeedToken = (t: string) => /^motion-(auto|slow|normal|fast)$/.test(t);
-const isPlayToken = (t: string) => t === 'motion-on' || t === 'motion-off';
+const isPlayToken = (t: string) => t === 'with-motion' || t === 'no-motion';
 const isAnyMotionToken = (t: string) => isPlayToken(t) || isStyleToken(t) || isSpeedToken(t) || t === 'chart-anima';
 
-/** PLAY axis (on / off / inherit) — the sole animate switch. `motion-on` (or the legacy `chart-anima`)
- *  is on; `motion-off` is off; a bare style/speed token does NOT imply on (it inherits the deck). */
+/** PLAY axis (on / off / inherit) — the sole animate switch. `with-motion` (or the legacy `chart-anima`)
+ *  is on; `no-motion` is off; a bare style/speed token does NOT imply on (it inherits the deck). */
 export function motionPlayProvenance(chunk: string, source: string): Provenance {
 	const tokens = getClassTokens(chunk);
 	const deck = (getFrontMatter(source, 'motion') || '').trim().toLowerCase();
 	const deckValue = deck === 'on' || deck === 'off' ? deck : undefined;
 	const inheritable = deckValue !== undefined;
-	if (tokens.includes('motion-off')) return { state: 'off', value: 'off', deckValue, inheritable };
-	if (tokens.includes('motion-on') || tokens.includes('chart-anima')) return { state: 'on', value: 'on', deckValue, inheritable };
+	if (tokens.includes('with-motion') || tokens.includes('chart-anima')) return { state: 'on', value: 'on', deckValue, inheritable };
+	if (tokens.includes('no-motion')) return { state: 'off', value: 'off', deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
@@ -449,10 +455,10 @@ export function motionSpeedProvenance(chunk: string, source: string): Provenance
 	return { state: 'off', value: 'auto', inheritable: false }; // auto is the built-in default
 }
 
-/** Set the slide's PLAY. `'on'`/`'off'` → the token; `null` → inherit (clear it). Clears legacy chart-anima. */
+/** Set the slide's PLAY. `'on'`/`'off'` → `with-motion` / `no-motion` (the switch); `null` → inherit (clear it). Clears legacy chart-anima. */
 export function setMotionPlay(chunk: string, value: 'on' | 'off' | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isPlayToken(t) && t !== 'chart-anima');
-	if (value) kept.push(`motion-${value}`);
+	if (value) kept.push(switchToken('motion', value));
 	return setClassTokens(chunk, kept);
 }
 /** Set the slide's STYLE. A style → `motion-<style>`; `null` → inherit. Clears legacy chart-anima. */
@@ -476,7 +482,7 @@ export function hasMotionToken(chunk: string): boolean {
 // ── backdrop (restraint over any finish) ─────────────────────────────────────────────────────
 // Mirrors lib/core/resolve-backdrop.js, which the docs build cannot import (CJS). Two axes on
 // ONE deck line (`backdrop: 40 clear`), each overridden per slide by its own `backdrop-*` token;
-// a slide token evicts the deck's on that axis only. `backdrop-none` is the finish-none alias,
+// a slide token evicts the deck's on that axis only. `no-backdrop` is the no-finish alias,
 // never a register token, so it is not in either list.
 export const BACKDROP_STRENGTHS = ['20', '40', '60', '80', 'full'] as const;
 export const BACKDROP_SPOTS = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'] as const;
@@ -526,7 +532,7 @@ export function setBackdrop(chunk: string, axis: BackdropAxis, name: string | nu
 // slide by its own `tag-*` token; a slide token evicts the deck's on that axis only. `banner-tag`
 // is the band placement's older name and is left alone here (the drawer writes `tag-band`).
 export const CARD_TAG_AXES = {
-	color: ['color', 'plain', 'none'],
+	color: ['color', 'plain', 'bare'],
 	size: ['small', 'regular', 'large'],
 	placement: ['corner', 'foot', 'notch', 'band', 'inline'],
 	align: ['start', 'center', 'end'],

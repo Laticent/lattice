@@ -60,7 +60,7 @@ footer: "Placement never moves the slide"
 
 ---
 
-<!-- _class: content spectrum-edge-off -->
+<!-- _class: content no-spectrum-edge -->
 
 `Bar: none`
 

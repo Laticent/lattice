@@ -60,7 +60,7 @@ describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
     assert.equal(spectrumClass('solid'), 'spectrum-solid');
     assert.equal(spectrumClass('duo'), 'spectrum-duo');
     assert.equal(spectrumClass('mono'), 'spectrum-mono');
-    assert.equal(spectrumClass('off'), 'spectrum-off');
+    assert.equal(spectrumClass('off'), 'no-spectrum');
     assert.equal(spectrumClass('on'), '', 'on is the rainbow baseline — no class');
   });
 
@@ -73,7 +73,7 @@ describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
   });
 
   test('value is case- and whitespace-insensitive', () => {
-    assert.equal(spectrumClass('  OFF  '), 'spectrum-off');
+    assert.equal(spectrumClass('  OFF  '), 'no-spectrum');
     assert.equal(spectrumClass('Duo'), 'spectrum-duo');
   });
 
@@ -87,14 +87,14 @@ describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
 
   test('SPECTRUM_NAMES / SPECTRUM_TOKENS list the recognized STYLE set', () => {
     assert.deepEqual([...SPECTRUM_NAMES], ['on', 'solid', 'duo', 'mono', 'off']);
-    assert.deepEqual([...SPECTRUM_TOKENS], ['spectrum-on', 'spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']);
+    assert.deepEqual([...SPECTRUM_TOKENS], ['with-spectrum', 'spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'no-spectrum']);
   });
 
   test('isSpectrumStyleToken matches STYLE tokens but NOT edge tokens', () => {
     assert.ok(isSpectrumStyleToken('spectrum-duo'));
-    assert.ok(isSpectrumStyleToken('spectrum-off'));
+    assert.ok(isSpectrumStyleToken('no-spectrum'));
     assert.ok(!isSpectrumStyleToken('spectrum-edge-left'), 'edge token is not a style token');
-    assert.ok(!isSpectrumStyleToken('spectrum-edge-off'));
+    assert.ok(!isSpectrumStyleToken('no-spectrum-edge'));
     assert.ok(!isSpectrumStyleToken('lifted'));
   });
 
@@ -121,7 +121,7 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
     assert.equal(spectrumEdgeClass('left'), 'spectrum-edge-left');
     assert.equal(spectrumEdgeClass('right'), 'spectrum-edge-right');
     assert.equal(spectrumEdgeClass('bottom'), 'spectrum-edge-bottom');
-    assert.equal(spectrumEdgeClass('off'), 'spectrum-edge-off');
+    assert.equal(spectrumEdgeClass('off'), 'no-spectrum-edge');
     assert.equal(spectrumEdgeClass('top'), '', 'top is the default — no class');
   });
 
@@ -140,13 +140,13 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
 
   test('SPECTRUM_EDGE_NAMES / SPECTRUM_EDGE_TOKENS list the recognized EDGE set', () => {
     assert.deepEqual([...SPECTRUM_EDGE_NAMES], ['top', 'left', 'right', 'bottom', 'off']);
-    assert.deepEqual([...SPECTRUM_EDGE_TOKENS], ['spectrum-edge-top', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']);
+    assert.deepEqual([...SPECTRUM_EDGE_TOKENS], ['with-spectrum-edge', 'spectrum-edge-top', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'no-spectrum-edge']);
   });
 
   test('isSpectrumEdgeToken matches EDGE tokens but NOT style tokens', () => {
     assert.ok(isSpectrumEdgeToken('spectrum-edge-left'));
-    assert.ok(isSpectrumEdgeToken('spectrum-edge-off'));
-    assert.ok(!isSpectrumEdgeToken('spectrum-off'), 'style off is not an edge token');
+    assert.ok(isSpectrumEdgeToken('no-spectrum-edge'));
+    assert.ok(!isSpectrumEdgeToken('no-spectrum'), 'style off is not an edge token');
     assert.ok(!isSpectrumEdgeToken('spectrum-solid'));
   });
 
@@ -160,7 +160,7 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
 
 describe('resolve-spectrum — CARD STYLE (`spectrum-card:`)', () => {
   test('auto → spectrum-card; solid/duo/mono/rainbow → spectrum-card-<v>; off/empty/unknown → no token', () => {
-    assert.equal(spectrumCardClass('auto'), 'spectrum-card');
+    assert.equal(spectrumCardClass('auto'), 'with-spectrum-card');
     assert.equal(spectrumCardClass('solid'), 'spectrum-card-solid');
     assert.equal(spectrumCardClass('duo'), 'spectrum-card-duo');
     assert.equal(spectrumCardClass('mono'), 'spectrum-card-mono');
@@ -169,7 +169,7 @@ describe('resolve-spectrum — CARD STYLE (`spectrum-card:`)', () => {
     assert.equal(spectrumCardClass(''), '');
     assert.equal(spectrumCardClass('yes'), '');
     assert.equal(spectrumCardClass(undefined), '');
-    assert.equal(spectrumCardClass('  AUTO '), 'spectrum-card');
+    assert.equal(spectrumCardClass('  AUTO '), 'with-spectrum-card');
   });
 
   test('isKnownSpectrumCard recognizes the full style set (off/auto/solid/duo/mono/rainbow)', () => {
@@ -182,15 +182,15 @@ describe('resolve-spectrum — CARD STYLE (`spectrum-card:`)', () => {
   test('SPECTRUM_CARD_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
     assert.deepEqual([...SPECTRUM_CARD_NAMES], ['off', 'auto', 'solid', 'duo', 'mono', 'rainbow']);
     assert.deepEqual([...SPECTRUM_CARD_TOKENS], [
-      'spectrum-card', 'spectrum-card-solid', 'spectrum-card-duo',
-      'spectrum-card-mono', 'spectrum-card-rainbow', 'spectrum-card-off',
+      'with-spectrum-card', 'spectrum-card-solid', 'spectrum-card-duo',
+      'spectrum-card-mono', 'spectrum-card-rainbow', 'no-spectrum-card',
     ]);
   });
 
   test('isSpectrumCardToken matches every card STYLE token but NOT style/edge/card-edge tokens', () => {
     for (const t of SPECTRUM_CARD_TOKENS) assert.ok(isSpectrumCardToken(t), t);
-    assert.ok(!isSpectrumCardToken('spectrum-off'), 'style off is not a card token');
-    assert.ok(!isSpectrumCardToken('spectrum-edge-off'), 'edge off is not a card token');
+    assert.ok(!isSpectrumCardToken('no-spectrum'), 'style off is not a card token');
+    assert.ok(!isSpectrumCardToken('no-spectrum-edge'), 'edge off is not a card token');
     assert.ok(!isSpectrumCardToken('spectrum-card-edge-top'), 'card-edge is not a card STYLE token');
   });
 
@@ -238,13 +238,13 @@ describe('resolve-spectrum — CARD EDGE (`spectrum-card-edge:`)', () => {
 
 describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
   test('on → spectrum-trim; restrained → spectrum-trim-restrained; off/empty/unknown → no token', () => {
-    assert.equal(spectrumTrimClass('on'), 'spectrum-trim');
+    assert.equal(spectrumTrimClass('on'), 'with-spectrum-trim');
     assert.equal(spectrumTrimClass('restrained'), 'spectrum-trim-restrained');
     assert.equal(spectrumTrimClass('off'), '');
     assert.equal(spectrumTrimClass(''), '');
     assert.equal(spectrumTrimClass('yes'), '');
     assert.equal(spectrumTrimClass(undefined), '');
-    assert.equal(spectrumTrimClass('  ON '), 'spectrum-trim');
+    assert.equal(spectrumTrimClass('  ON '), 'with-spectrum-trim');
     assert.equal(spectrumTrimClass(' Restrained '), 'spectrum-trim-restrained');
   });
 
@@ -256,26 +256,26 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
 
   test('SPECTRUM_TRIM_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
     assert.deepEqual([...SPECTRUM_TRIM_NAMES], ['off', 'restrained', 'on']);
-    assert.deepEqual([...SPECTRUM_TRIM_TOKENS], ['spectrum-trim', 'spectrum-trim-restrained', 'spectrum-trim-off']);
+    assert.deepEqual([...SPECTRUM_TRIM_TOKENS], ['with-spectrum-trim', 'spectrum-trim-restrained', 'no-spectrum-trim']);
   });
 
   test('isSpectrumTrimToken matches every trim token but NOT the other spectrum axes', () => {
     for (const t of SPECTRUM_TRIM_TOKENS) assert.ok(isSpectrumTrimToken(t), t);
-    assert.ok(!isSpectrumTrimToken('spectrum-off'));
+    assert.ok(!isSpectrumTrimToken('no-spectrum'));
     assert.ok(!isSpectrumTrimToken('spectrum-card'));
-    assert.ok(!isSpectrumTrimToken('spectrum-edge-off'));
+    assert.ok(!isSpectrumTrimToken('no-spectrum-edge'));
   });
 
   test('CSS contract — the restrained tier holds a single-hue accent ramp (--sp-fill-mono-h)', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
+    assert.match(variants, /section\.with-spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
     assert.match(variants, /section\.spectrum-trim-restrained\s*\{\s*--spectrum-structure:\s*var\(--sp-fill-mono-h\)/);
   });
 
   test('readFrontMatterSpectrumTrim extracts the value; quotes + absence', () => {
     assert.equal(readFrontMatterSpectrumTrim('---\nspectrum-trim: on\n---\n'), 'on');
     assert.equal(readFrontMatterSpectrumTrim('---\nspectrum-trim: "off"\n---\n'), 'off');
-    assert.equal(spectrumTrimClassFromSource('---\nspectrum-trim: on\n---\n'), 'spectrum-trim');
+    assert.equal(spectrumTrimClassFromSource('---\nspectrum-trim: on\n---\n'), 'with-spectrum-trim');
     assert.equal(readFrontMatterSpectrumTrim('---\nspectrum: solid\n---\n'), null);
   });
 
@@ -285,7 +285,7 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
     // of --accent + --border), NOT flat neutral; the opt-in points it at the full --spectrum.
     assert.match(variants, /--spectrum-quiet:\s*color-mix\(in oklab, var\(--accent\) \d+%, var\(--border\)\)/);
     assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--spectrum-quiet\), var\(--spectrum-quiet\)\)/);
-    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
+    assert.match(variants, /section\.with-spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum-bar\)/);
     // A representative structural site now reads the STRUCTURE token, not --spectrum directly.
     const elements = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.elements.css'), 'utf8');
     assert.match(elements, /section hr \{[^}]*background:var\(--spectrum-structure\)/);
@@ -315,10 +315,10 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
 
 describe('resolve-spectrum — the sub-registers partition cleanly', () => {
   test('no token is claimed by two guards', () => {
-    for (const t of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']) {
+    for (const t of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'no-spectrum']) {
       assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
     }
-    for (const t of ['spectrum-edge-left', 'spectrum-edge-off']) {
+    for (const t of ['spectrum-edge-left', 'no-spectrum-edge']) {
       assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t) && !isSpectrumTrimToken(t), t);
     }
     for (const t of SPECTRUM_CARD_TOKENS) {
@@ -349,7 +349,7 @@ describe('resolve-spectrum — CARD CSS contract (base.accent-finish.css)', () =
   });
 
   test('every CARD STYLE value has a fill mapping (auto follows the bar; the rest pin a fill)', () => {
-    assert.match(block, /section\.spectrum-card\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-bar-vertical/);
+    assert.match(block, /section\.with-spectrum-card\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-bar-vertical/);
     assert.match(block, /section\.spectrum-card-solid\s*\{[^}]*--sp-fill-solid-v/);
     assert.match(block, /section\.spectrum-card-duo\s*\{[^}]*--sp-fill-duo-v/);
     assert.match(block, /section\.spectrum-card-mono\s*\{[^}]*--sp-fill-mono-v/);
@@ -386,12 +386,12 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   // capture behind `spectrum-card: rainbow` reads it. Redefining it on the slide broke that pin in
   // every packed host (2026-09-24-one-style-delivery-spine.md §8.2).
   test('every STYLE token has a rule; solid/duo/mono set the shared STYLE token, never --spectrum', () => {
-    // `spectrum-on` is the restore token: the rainbow is what an unstyled slide draws, so it has
+    // `with-spectrum` is the restore token: the rainbow is what an unstyled slide draws, so it has
     // no rule of its own, and must not grow one.
-    for (const cls of SPECTRUM_TOKENS.filter((t) => t !== 'spectrum-on')) {
+    for (const cls of SPECTRUM_TOKENS.filter((t) => t !== 'with-spectrum')) {
       assert.ok(block.includes(`.${cls}`), `${cls} has no rule in the SPECTRUM block`);
     }
-    assert.ok(!css.includes('.spectrum-on'), 'spectrum-on is a restore token and draws nothing');
+    assert.ok(!/\.with-spectrum(?![\w-])/.test(css), 'with-spectrum is a restore token and draws nothing');
     for (const cls of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono']) {
       const rule = block.match(new RegExp(`section\\.${cls}\\s*\\{[^}]*\\}`))[0];
       assert.match(rule, /--spectrum-style\s*:/, `${cls} must set --spectrum-style so all accents follow`);
@@ -402,7 +402,7 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   });
 
   test('off is BAR-ONLY — drops the edge bar but does NOT redefine the shared token', () => {
-    const rule = block.match(/section\.spectrum-off\s*\{[^}]*\}/)[0];
+    const rule = block.match(/section\.no-spectrum\s*\{[^}]*\}/)[0];
     assert.doesNotMatch(rule, /--spectrum\s*:/, 'off must NOT redefine --spectrum (structural accents keep their style — the white-label baseline)');
     assert.match(rule, /border-top:\s*none/);
     // AND IT DROPS THE BAR WITHOUT REPAINTING THE CANVAS (#2291). This used to assert
@@ -411,16 +411,16 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     // takes the canvas of any frame that paints its own. `background-image: none` says only
     // the part that was meant. The assertion is now the negative one as well, because the
     // shorthand is what the fix removed.
-    assert.match(block, /section\.divider:not\(\.light\)\.spectrum-off\s*\{\s*background-image:\s*none/);
+    assert.match(block, /section\.divider:not\(\.light\)\.no-spectrum\s*\{\s*background-image:\s*none/);
     assert.doesNotMatch(
-      block, /section\.(dark|divider[^{]*)\.spectrum-off\s*\{\s*background:\s/,
-      'a spectrum-off rule must not use the `background:` shorthand — it restates the color '
+      block, /section\.(dark|divider[^{]*)\.no-spectrum\s*\{\s*background:\s/,
+      'a no-spectrum rule must not use the `background:` shorthand — it restates the color '
         + "and takes a frame's own canvas with the bar (#2291)",
     );
     // explicit styles restore a full-thickness bar on bookends/dark, gated off when an edge MOVES or
     // DROPS the bar — and only then: `spectrum-edge-top` (the restore token) is the top bar, so it
     // must keep the style. A `[class*="spectrum-edge-"]` gate would strip it from that slide.
-    assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\.spectrum-edge-left, \.spectrum-edge-right, \.spectrum-edge-bottom, \.spectrum-edge-off\)/);
+    assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\.spectrum-edge-left, \.spectrum-edge-right, \.spectrum-edge-bottom, \.no-spectrum-edge\)/);
     assert.doesNotMatch(block, /\[class\*="spectrum-edge-"\]/, 'no wildcard edge gate: it would catch the restore token spectrum-edge-top');
   });
 

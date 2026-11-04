@@ -5,6 +5,6 @@
   "fits": ["stage"],
   "z": 1,
   "population": "authoring grammar — `tint-*` / `mark-*` treatment modifiers",
-  "hideToken": "treatment-none",
+  "hideToken": "no-treatment",
   "status": "shipped"
 }

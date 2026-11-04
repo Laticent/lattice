@@ -21,7 +21,7 @@ section.code h2 { padding-bottom:var(--sp-xs); }
  * therefore safe. Its DEFAULT value derives from the theme — base.variants.css builds it
  * from `--spectrum-quiet`, which is `color-mix(… var(--accent) …, var(--border))` — so a
  * theme short of `--accent` or `--border` poisons it with no register set at all; and
- * `section.spectrum-trim { --spectrum-structure: var(--spectrum) }` points it straight at a
+ * `section.with-spectrum-trim { --spectrum-structure: var(--spectrum) }` points it straight at a
  * third token. A custom property that is invalid at computed-value time poisons every
  * declaration that reads it, so the whole shorthand — `var(--code-bg)` included — went
  * invalid and the panel fell to `transparent` over the slide canvas. Measured in Chromium

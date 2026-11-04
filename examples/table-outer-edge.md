@@ -111,6 +111,6 @@ The test is whether a cell's bottom border is a **separator** or **structure**. 
 
 ## Want the table bounded top and bottom?
 
-Put the deck on `rule: none` in front matter, or one slide on `<!-- _class: rule-none -->`. The masthead hairline steps aside, the table's own spectrum bar becomes its top edge, and the table reads as one closed object.
+Put the deck on `rule: none` in front matter, or one slide on `<!-- _class: no-heading-rule -->`. The masthead hairline steps aside, the table's own spectrum bar becomes its top edge, and the table reads as one closed object.
 
 That keeps the composition an author's choice rather than something the engine infers from the presence of a table.

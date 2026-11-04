@@ -194,7 +194,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
 
     // A section is an eligible live target if it is a baked scene OR a chart whose Play/Style/Speed
     // cascade RESOLVES (Play on). The diff is KIND-AGNOSTIC: a tracked section is disposed the moment
-    // it stops being either — it left the DOM, a scene lost its spec, a chart flipped to `motion-off`,
+    // it stops being either — it left the DOM, a scene lost its spec, a chart flipped to `no-motion`,
     // or the deck Play turned off.
     const isEligible = (s: Element): boolean => s.matches(SCENE_SEL) || (hasAnimatableChart(s) && resolveMotion(s, deck) !== null);
 

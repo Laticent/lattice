@@ -96,7 +96,7 @@ The same rule, the same slide class, the opposite answer — an all-numeric firs
 
 ---
 
-<!-- _class: table row-label -->
+<!-- _class: table with-row-label -->
 
 `row-label`
 

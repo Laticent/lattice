@@ -690,7 +690,7 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * re-deriving it:
  *
  *   rule-full (default)  the band's own `border-bottom` is the rule  → band enrolls
- *   rule-none            there is no rule                            → nobody enrolls
+ *   no-heading-rule            there is no rule                            → nobody enrolls
  *   rule-short / -accent the rule is a real <hr class="masthead-rule"> → the hr enrolls
  *
  * Keeping that logic in the cascade — rather than testing `border-bottom-style`
@@ -712,7 +712,7 @@ section.sketch:has(> svg[data-lattice-rough-ink]) hr {
  * enough to show its own waver, so this is the sketch ink held back to a
  * little over half strength: unmistakably a pen stroke, still quieter than
  * the heading above it. `color-mix` on a token keeps it palette-blind. */
-section.sketch.form:not(.rule-none):not(.rule-short):not(.rule-accent) .cell-masthead {
+section.sketch.form:not(.no-heading-rule):not(.rule-short):not(.rule-accent) .cell-masthead {
   --rough-ink-stroke: color-mix(in srgb, var(--sketch-ink) 55%, transparent);
   --rough-ink-width: 2.6;
 }

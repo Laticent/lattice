@@ -40,11 +40,11 @@ the style they read, so one setting recolors every place the bar appears.
 
 ---
 
-<!-- _class: content spectrum-off -->
+<!-- _class: content no-spectrum -->
 
 ## `spectrum: off` — a clean edge
 
-A per-slide `spectrum-off` overrides the deck: no bar at all, for a slide (or a whole
+A per-slide `no-spectrum` overrides the deck: no bar at all, for a slide (or a whole
 deck) that wants nothing at the top. The rest of this deck keeps the solid accent bar.
 
 ---

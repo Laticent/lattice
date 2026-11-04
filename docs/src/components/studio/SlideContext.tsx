@@ -23,6 +23,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
+import { switchOn } from '../../../../lib/core/switches.mjs';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from '../../lib/motion-catalog';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from '../../lib/slide-directives';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
@@ -375,6 +376,16 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// The pure mutators, each committing against the freshest chunk.
 	const groupSet = (members: string[], token: string | null) => onMutate((c) => setGroupToken(c, members, token));
 	const toggle = (t: string) => onMutate((c) => toggleToken(c, t));
+	// A SWITCH row (lib/core/switches.mjs): `hidden` is what the slide actually shows — the deck's
+	// `class:` tokens with the slide's own, through the one precedence (`with-X` > `no-X` > `silent`).
+	// Flipping it writes the least the slide needs: `no-X` when the deck shows the band, `with-X` when
+	// the deck (or the slide's `silent`) hides it, and neither when the slide's wish IS the deck's.
+	const switchHidden = (name: string) => !switchOn(name, [...deck.classTokens, ...tokens]);
+	const setSwitchHidden = (name: string, hide: boolean) => onMutate((c) => {
+		const own = getClassTokens(c).filter((t) => t !== `no-${name}` && t !== `with-${name}`);
+		const baselineHidden = !switchOn(name, [...deck.classTokens, ...own]);
+		return setClassTokens(c, hide === baselineHidden ? own : [...own, hide ? `no-${name}` : `with-${name}`]);
+	});
 
 	// Provenance (needs the whole deck for the deck-wide default). Memoized —
 	// each re-parses the deck's front matter, and this body re-runs on every
@@ -387,7 +398,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// the shared finish groups — Auto (only when the deck sets one) + None heads,
 	// then the catalog presets and your saved finishes, each with its swatch preview.
 	const finishInherits = finish.deckValue ?? 'none';
-	const finishValue = inheritValue(finish.state === 'on' ? finish.value : has('finish-none') ? 'none' : null, finishInherits);
+	const finishValue = inheritValue(finish.state === 'on' ? finish.value : has('no-finish') ? 'none' : null, finishInherits);
 	const finishGroups = inheritGroups(
 		finishSelectGroups({ heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }], saved: savedFinish, savedValue: (n) => n }),
 		{ value: finishInherits },
@@ -514,7 +525,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
 	const spectrumInherits = activeSpectrum((spectrum.inheritable && spectrum.deckValue) || 'on').name;
 	const spectrumValue = inheritValue(spectrum.state === 'on' ? spectrum.value : null, spectrumInherits);
-	// The rainbow is a per-slide choice too (`spectrum-on`, the restore token), so a slide in a
+	// The rainbow is a per-slide choice too (`with-spectrum`, the restore token), so a slide in a
 	// `spectrum: solid` deck can go back to it.
 	const spectrumGroups = inheritGroups([{ options: catalogOptions(SPECTRA) }], { value: spectrumInherits });
 	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
@@ -569,7 +580,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// previews each fill.
 	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
 	const cardInherits = activeSpectrumCard(cardProv.inheritable ? cardProv.deckValue : 'off').name;
-	const cardValue = inheritValue(cardProv.state === 'on' ? cardProv.value : has('spectrum-card-off') ? 'off' : null, cardInherits);
+	const cardValue = inheritValue(cardProv.state === 'on' ? cardProv.value : has('no-spectrum-card') ? 'off' : null, cardInherits);
 	const cardGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_CARDS) }], { value: cardInherits });
 	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : v));
 	// Card rail PLACEMENT — a clean override axis (left default). Only meaningful when the rail
@@ -582,7 +593,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// opt-out. Auto follows the deck; every catalog value is an explicit per-slide choice.
 	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
 	const trimInherits = activeSpectrumTrim(trimProv.inheritable ? trimProv.deckValue : 'off').name;
-	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('spectrum-trim-off') ? 'off' : null, trimInherits);
+	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('no-spectrum-trim') ? 'off' : null, trimInherits);
 	const trimGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_TRIMS) }], { value: trimInherits });
 	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
 
@@ -604,7 +615,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
-	// any `at-*` placement + `treatment-none`).
+	// any `at-*` placement + `no-treatment`).
 	const decor = groups.decoration ?? [];
 	const tints = decor.filter((p) => p.includes('tint-'));
 	const marks = decor.filter((p) => p.includes('mark-'));
@@ -615,7 +626,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// hand-authored placement on an unrelated (e.g. mark) token.
 	const applyPhrase = (list: string[], phrase: string | null) => onMutate((c) => {
 		const remove = new Set(list.flatMap((p) => p.split(/\s+/)));
-		let kept = getClassTokens(c).filter((t) => !remove.has(t) && t !== 'treatment-none');
+		let kept = getClassTokens(c).filter((t) => !remove.has(t) && t !== 'no-treatment');
 		if (phrase) kept = kept.concat(phrase.split(/\s+/));
 		return setClassTokens(c, kept);
 	});
@@ -711,7 +722,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		</Row>
 	);
 	const cleanRow = (
-		<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer and page number." help={<>All three at once — for a full-bleed slide that should carry no furniture. The section rail is separate, below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
+		<Row label="Clean slide" hint="hide chrome" desc="Hide header, footer, page number and rail." help={<>All four at once — for a full-bleed slide that should carry no furniture. Any one comes back with its own switch below.</>}><Switch label="Silent — hide header, footer, pagination" on={has('silent')} onClick={() => toggle('silent')} /></Row>
 	);
 	const noteBlock = (
 		<SettingsBlock terms="speaker note presenter say off-slide">
@@ -939,21 +950,24 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 						<div className="py-1">
 							<TabIntro>The slide's furniture — the running header, footer, page number, and the section-progress rail. Hide whatever this slide doesn't need.</TabIntro>
 							{cleanRow}
-							{!has('silent') && (
+							{(
+								// Shown on a CLEAN slide too: each row reads hidden there, and flipping one brings that band
+								// back with `with-X` (lib/core/switches.mjs) — the slide stays clean otherwise.
 								// A SCOPE, so the indent rule goes with its three rows when they filter out.
 								// Its label names the GROUP, not its members: it read "Hide header footer
 								// page number", and because a matched group makes every child a hit, typing
 								// one row's name returned all three. A label is what you would type to mean
 								// the whole group — never a concatenation of what is inside it.
 								<SettingsScope label="Slide furniture" keywords="chrome parts" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={has('no-header')} onClick={() => toggle('no-header')} /></Row>
-									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={has('no-footer')} onClick={() => toggle('no-footer')} /></Row>
-									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={has('no-pagination')} onClick={() => toggle('no-pagination')} /></Row>
+									<Row label="Hide header" desc="The running title along the top."><Switch label="Hide header" on={switchHidden('header')} onClick={() => setSwitchHidden('header', !switchHidden('header'))} /></Row>
+									<Row label="Hide footer" desc="The running line along the bottom."><Switch label="Hide footer" on={switchHidden('footer')} onClick={() => setSwitchHidden('footer', !switchHidden('footer'))} /></Row>
+									<Row label="Hide page number" desc="This slide's page number."><Switch label="Hide pagination" on={switchHidden('pagination')} onClick={() => setSwitchHidden('pagination', !switchHidden('pagination'))} /></Row>
 								</SettingsScope>
 							)}
-							{/* The section-progress rail is independent of `silent` (which covers
-							    only header/footer/pagination), so it sits at section level. */}
-							<Row label="Hide rail" hint="section dots" desc="Hide the section-progress dots." help={<>The rail that tracks where you are in the deck. It is independent of <strong>Clean slide</strong>, which covers only the header, footer and page number.</>}><Switch label="Hide section rail" on={has('no-progress')} onClick={() => toggle('no-progress')} /></Row>
+							{/* The section-progress rail, and the deck logo: switches like the three above (`no-X` / `with-X`), kept
+							    outside the group because they are not text bands. `silent` hides the rail too, as it always has. */}
+							<Row label="Hide rail" hint="section dots" desc="Hide the section-progress dots." help={<>The rail that tracks where you are in the deck. <strong>Clean slide</strong> hides it too; turn this off to bring it back on a clean slide.</>}><Switch label="Hide section rail" on={switchHidden('progress')} onClick={() => setSwitchHidden('progress', !switchHidden('progress'))} /></Row>
+							<Row label="Hide logo" desc="The deck logo on this slide."><Switch label="Hide logo" on={switchHidden('logo')} onClick={() => setSwitchHidden('logo', !switchHidden('logo'))} /></Row>
 						</div>
 			),
 		}] : []),

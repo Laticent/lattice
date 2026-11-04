@@ -770,7 +770,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
     modifiers: new Set([
       'dark', 'tone-pass', 'tone-warn', 'tone-fail', 'scale-l', 'scale-xl',
       'with-period', 'no-period', 'compact', 'claim-quiet', 'claim-hero', 'finish', 'finish-atrium',
-      'finish-meridian', 'finish-none',
+      'finish-meridian', 'no-finish',
     ]),
     exclusiveAxes: {
       tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
@@ -796,7 +796,7 @@ describe('lint-core: conflicting-variants (mutually-exclusive per-slide axes)', 
     assert.ok(f);
     assert.match(f.message, /finish/);
   });
-  test('a finish preset + finish-none opt-out conflict', () => assert.ok(conflict('kpi finish-atrium finish-none')));
+  test('a finish preset + no-finish opt-out conflict', () => assert.ok(conflict('kpi finish-atrium no-finish')));
   test('a single finish is clean', () => assert.equal(conflict('kpi finish-atrium'), undefined));
   test('finish-preview is not a real finish (no conflict with a preset)', () => assert.equal(conflict('kpi finish-preview finish-atrium'), undefined));
   test('no exclusiveAxes vocab → rule inert (except finish prefix)', () => {

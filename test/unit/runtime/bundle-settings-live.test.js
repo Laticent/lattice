@@ -54,7 +54,12 @@ test('a deck class in the settings block reaches every slide, and with-progress 
   const w = await boot(`<article class="lattice">${slides(block('class: no-progress'))}</article>`);
   assert.equal(w.document.querySelectorAll('script[type="application/lattice-settings"]').length, 0, 'the block is read and removed');
   assert.deepEqual(rails(w), ['Plain:-', 'Own class:-', 'Opted back in:rail', 'Later:-']);
-  for (const s of w.document.querySelectorAll('section')) assert.ok(s.classList.contains('no-progress'), s.className);
+  // The deck's no-progress reaches every slide; the one that says with-progress keeps only that (the
+  // settle drops the switch's losing token, so a stylesheet keyed on .no-progress sees the winner).
+  for (const s of w.document.querySelectorAll('section')) {
+    const back = s.classList.contains('with-progress');
+    assert.ok(back ? !s.classList.contains('no-progress') : s.classList.contains('no-progress'), s.className);
+  }
   closeQuietly(w);
 });
 
@@ -113,5 +118,41 @@ test('VS Code preview: a token the slide wrote itself survives the deck dropping
   assert.ok(plain.classList.contains('no-progress'), 'the slide\'s own token is kept');
   assert.equal(plain.querySelector('.tile-progress'), null, 'and the slide still opts out of the rail');
   assert.ok(w.document.querySelectorAll('section')[3].querySelector('.tile-progress'), 'while a slide that relied on the deck gets it back');
+  closeQuietly(w);
+});
+
+test('in a Marp render the page number follows the switch: Marp\'s own attribute, on every layer', { skip }, async () => {
+  // Marp's CSS pipeline comments out `content` on `section…::after`, so no stylesheet can hide its page number;
+  // the runtime writes the attribute Marp draws from instead (lib/runtime/index.js syncMarpPagination).
+  const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
+  const body = `<div class="marpit">${[
+    svg(`<section class="title" data-marpit-pagination="1">${block('class: no-pagination')}<h1>T</h1></section>`),
+    svg('<section class="content" data-marpit-pagination="2" data-marpit-pagination-total="4"><h1>Deck off</h1></section>'),
+    // A slide whose `with-pagination` was typed after the export: Marp numbered nothing here.
+    svg('<section class="content with-pagination"><h1>Back on</h1></section>'
+      + '<section class="content with-pagination" data-marpit-advanced-background="pseudo"></section>'),
+    svg('<section class="content silent with-pagination"><h1>Silent keep</h1></section>'),
+  ].join('')}</div>`;
+  const w = await boot(body);
+  const num = (i) => [...w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelectorAll('section')]
+    .map((s) => s.getAttribute('data-marpit-pagination'));
+  assert.deepEqual(num(1), [null], 'the deck no-pagination removes Marp\'s number');
+  assert.deepEqual(num(2), ['3', '3'], 'with-pagination writes it, on every layer, numbered as Marp counts');
+  assert.deepEqual(num(3), ['4'], 'with-pagination beats silent');
+  closeQuietly(w);
+});
+
+test('in a Marp render the heading period follows the switch, from the engine\'s own rule', { skip }, async () => {
+  const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
+  const body = `<div class="marpit">${[
+    svg(`<section class="title">${block('class: no-period')}<h1>Title.</h1></section>`),
+    svg('<section class="content"><h1>Stripped.</h1><h2>Sub <em>head.</em></h2></section>'),
+    svg('<section class="content with-period"><h1>Added</h1><h2>Asked?</h2><h3>Ends <code>x</code></h3></section>'),
+  ].join('')}</div>`;
+  const w = await boot(body);
+  const heads = (i) => [...w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelectorAll('h1, h2, h3')].map((h) => h.textContent);
+  assert.deepEqual(heads(1), ['Stripped', 'Sub head'], 'the deck no-period strips, inside inline markup too');
+  // `Ends .x`: the period goes on the last text OUTSIDE code, where the engine's plugin puts it.
+  assert.deepEqual(heads(2), ['Added.', 'Asked?', 'Ends .x'], 'with-period beats the deck');
   closeQuietly(w);
 });

@@ -60,7 +60,7 @@ describe('core: which registers ride a split page', () => {
   });
 
   test('the finish axis rides whole — compositor, preset and opt-out', () => {
-    for (const t of ['finish', 'finish-atrium', 'finish-my-saved-one', 'finish-none']) {
+    for (const t of ['finish', 'finish-atrium', 'finish-my-saved-one', 'no-finish']) {
       assert.ok(isSurfaceRegisterToken(t), t);
     }
     // The Studio specimen is not a finish (resolve-finish.js), and must not activate one.

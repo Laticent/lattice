@@ -21,7 +21,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 		axis: 'color',
 		label: 'Tag color',
 		desc: 'How card tags are filled.',
-		find: 'card tag label badge color plain none neutral',
+		find: 'card tag label badge color plain bare none neutral',
 		native: 'color',
 		help: (
 			<>
@@ -70,7 +70,7 @@ export const CARD_TAG_ROWS: readonly CardTagRow[] = [
 const OPTION_LABEL: Record<string, string> = {
 	color: "Component's color",
 	plain: 'Plain',
-	none: 'None — bare text',
+	bare: 'Bare text',
 	small: 'Small',
 	regular: 'Regular',
 	large: 'Large',

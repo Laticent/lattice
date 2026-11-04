@@ -356,7 +356,7 @@ const VAR_COMBO_CAP = 4000;
  * from it and neither is theoretical: `--elevation-card` defaults to `none`, and
  * `none` is only legal as box-shadow's SOLE value, so pricing's elevated-tier accent
  * ring was dead on every deck without `lift: on`; `--fin-frame: none` in the
- * `finish-none` opt-out killed the composed tone rail the same way, six lines under a
+ * `no-finish` opt-out killed the composed tone rail the same way, six lines under a
  * comment stating the exact invariant it broke.
  *
  * It is deliberately conservative. A slot whose token has no literal declaration in
