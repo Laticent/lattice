@@ -96,7 +96,7 @@ section.image > footer { display: none; }
  * very END of the bundle, so an equally-specific selector LOSES on source order. Written
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
-section.image.image[data-img-composition="statement"]:not(.with-pagination)::after { content: none; }
+section.image.image[data-img-composition="statement"]:not(.with-pagination):where(:not(* > .lat-never))::after { content: none; }
 /* The same suppression on the REAL element. Since #2206 the page number is one mark on
  * every frame — a `<span class="lat-pagination">` the pagination Tile injects
  * (lib/forms/tile/pagination) — and the pseudo above is retired wherever it exists. So

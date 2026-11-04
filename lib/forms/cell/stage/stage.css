@@ -606,7 +606,7 @@ section.form.claim-bleed:is(.big-number, .diagram, .image, .video) > .cell-masth
 section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .cell-footer {
   display: none;
 }
-section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed::after {
+section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video).claim-bleed:where(:not(* > .lat-never))::after {
   content: none;
 }
 /* …and the same on the REAL element, which is what every Lattice render now draws

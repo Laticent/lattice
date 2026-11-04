@@ -50,8 +50,8 @@ section.no-footer:not(.with-footer) > footer {
    * (`section.form.no-footer > .cell-footer > footer`). */
   display: none;
 }
-section.silent.silent:not(.with-pagination)::after,
-section.no-pagination.no-pagination:not(.with-pagination)::after {
+section.silent.silent:not(.with-pagination):where(:not(* > .lat-never))::after,
+section.no-pagination.no-pagination:not(.with-pagination):where(:not(* > .lat-never))::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
      pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
@@ -60,7 +60,14 @@ section.no-pagination.no-pagination:not(.with-pagination)::after {
      engine and emulator render paths (a `.lattice >` form was caught dropping the
      marker in the emulator by pixel-diff: that bundle carries no
      `article.lattice > section::after` rule). Verified pixel-identical to the prior
-     !important form across light + dark. */
+     !important form across light + dark.
+     `:where(:not(* > .lat-never))` is always true and adds no specificity. It is there for
+     Marp: marpit's postcss pagination plugin comments out `content` on any selector shaped
+     `section…::after` with no space or combinator in it, which left this rule inert in every
+     Marp render. The `>` inside it is the escape (a leading `:is(section)` would not do:
+     tools/build-css.js distributes a leading `:is()` back to `section`). The page-number
+     rules in collage, image and stage.css carry the same suffix;
+     test/unit/export/marp-pagination-mask.test.js pins all of them. */
   content: none;
 }
 /* The migrated Form frame renders the page number as a REAL element

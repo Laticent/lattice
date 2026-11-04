@@ -89,9 +89,17 @@ the class was on the slide and the CSS rule was in the bundle:
   (`syncHeadingPeriods`, from `lib/core/heading-period.js`, which the engine plugins also use) in a Marp
   render only. Both rows are `mirrored` and probed in `marp-fidelity-render.test.js`.
 
-The same mask reaches four component looks that are not switches (a collage's, a statement image's
-and a claim-bleed slide's hidden page number, and half of `mark-asterisks`). Off this change's path;
-recorded in `followups.d/3023-p3-marp-masks-component-pagination-and-asterisks.md`.
+The same mask reached three more rules that hide the page number: on a collage, a statement image and
+a claim-bleed slide. The card grader judged them on this change's path (the same mask, on the export
+this PR fixes), so they are fixed here. Each of those rules, and the `no-pagination`/`silent` one, now
+ends `:where(:not(* > .lat-never))` before `::after`: always true, no specificity, and the `>` puts it
+outside the mask. A leading `:is(section)` would have been tidier, but `tools/build-css.js` distributes
+a leading `:is()` back to `section`. `test/unit/export/marp-pagination-mask.test.js` runs marpit's own
+test over the shipped `dist/lattice-min.css`, so a new masked `content` rule fails CI.
+
+One rule stays masked on purpose: `mark-asterisks` draws its second cluster on `section::after`, which
+in Marp IS the page number, so only one of them can paint there. Which one is the owner's call; the test
+sanctions it by name and `followups.d/3023-p3-marp-mark-asterisks-page-number.md` holds the options.
 
 ## Also fixed on the way
 

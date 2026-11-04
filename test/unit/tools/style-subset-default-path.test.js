@@ -65,8 +65,11 @@ describe('style subset through the default render path', { skip: !built && 'dist
     assert.ok(sub.size > 0 && sub.size < full.size, `subset has ${sub.size} rules, default ${full.size}`);
     const foreign = [...sub].filter((r) => !full.has(r));
     assert.deepEqual(foreign.slice(0, 3), [], `${foreign.length} subset rules are not in the default render`);
-    // The rule the unminified spelling used to leave unmasked.
-    const masked = [...sub].filter((r) => /\.claim-bleed:after\{\/\* content: none; \*\/\}$/.test(r));
-    assert.ok(masked.length > 0, 'the slide-own ::after content mask must fire on the subset path');
+    // The claim-bleed page-number rule once rode the slide-own ::after content mask, which the
+    // unminified spelling used to leave unmasked. Since PR #3023 it escapes the mask on purpose
+    // (a `:where(…)` suffix, so Marp honors it too), and both paths must keep it live.
+    const live = [...sub].filter((r) => /\.claim-bleed:where\(:not\(\*>\.lat-never\)\):after\{content:none\}$/.test(r));
+    assert.ok(live.length > 0, 'the claim-bleed page-number rule reaches the subset path unmasked');
+    assert.ok([...full].some((r) => live.includes(r)), 'and the default render carries the same rule');
   });
 });

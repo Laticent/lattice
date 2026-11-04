@@ -133,7 +133,7 @@ section.collage .collage-list > li > code {
  * does not have to add `no-pagination`. The class is DOUBLED to reach (0,2,2) over the engine
  * pagination pseudo (a single class changed zero pixels in image.styles.css). The header and
  * footer stay; only `silent` removes those. Pinned by a pixel test. */
-section.collage.collage:not(.with-pagination)::after {
+section.collage.collage:not(.with-pagination):where(:not(* > .lat-never))::after {
 	content: none;
 }
 section.collage.collage:not(.with-pagination) > .lat-pagination {
