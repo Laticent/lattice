@@ -11,7 +11,10 @@ const ROOT = path.resolve(__dirname, '../../..');
 const shared = fs.readFileSync(path.join(ROOT, 'lib/base/base.card-reflow.css'), 'utf8');
 // Declared only on a wide or square deck (a tall or strip deck reflows on its aspect), and NAMED,
 // because an unnamed query would answer the section, which is itself a container.
-const list = /section:is\(([^)]*(?:\([^)]*\)[^)]*)*)\):not\(:where\(\[data-family="tall"\], \[data-family="strip"\]\)\) > \.cell-stage \{ container: lat-cards \/ inline-size; \}/.exec(shared);
+// Plain string slicing, not a regex: a nested-paren pattern backtracks exponentially (CodeQL).
+const TAIL = '):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage { container: lat-cards / inline-size; }';
+const declaration = shared.split('\n').find((l) => l.startsWith('section:is(') && l.endsWith(TAIL));
+const list = declaration ? [declaration, declaration.slice('section:is('.length, -TAIL.length)] : null;
 
 test('the shared sheet declares the content area a width container for a list of card components', () => {
   assert.ok(list, 'one container declaration');
