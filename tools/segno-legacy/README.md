@@ -43,3 +43,8 @@ embed's poster with, at c0cbc52, before `posterInStyle` read the style with `css
 `html-player-inline.js` joined at Segno R4 (the CLI export): `inlineDocAssets` and its CSS tokenizer from
 `lib/export/html-player.js` at 326c319, before `mapCssUrls` read CSS with `cssRefSpans`.
 `test/unit/export/html-player-inline-differential.test.js` reads it as the oracle and as a failing arm; nothing in `lib/` may.
+
+`names-remote-resource.js` joined at Segno R4 (the Reading view's prune): `namesRemoteResource` from
+lib/export/player-prune.js as it was at a1b278c, a regex on a literal `url(` and on quoted strings, before it moved onto
+`cssRefSpans`. `test/unit/export/rehost-remote-ref.test.js` and `test/integration/export/rehost-remote-oracle.test.js`
+(`REHOST_ORACLE_LEGACY=1`) read it as the failing arm; nothing in `lib/` may.
