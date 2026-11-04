@@ -221,9 +221,10 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   max-width: none;
   width: 100%;
   height: 100%;
-  /* Dot, date pill and title columns are the SPINE's, so every entry's title starts at the
-   * same x whatever its date reads ("Q1" or "Sept 2026"); each entry subgrids onto them. */
-  grid-template-columns: auto auto 1fr;
+  /* Dot, date pill, title and status columns are the SPINE's, so every entry's title starts
+   * at the same x whatever its date reads ("Q1" or "Sept 2026"); each entry subgrids onto
+   * them. The fourth is the status chip's (below) and is 0 wide when no entry has one. */
+  grid-template-columns: auto auto 1fr auto;
   column-gap: var(--sp-md);
   row-gap: var(--sp-md);
   padding: var(--sp-xs) 0;
@@ -292,7 +293,22 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   align-self: center;
   padding-block: 0;
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > :is(.chart-status, .timeline-body) {
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-body {
   grid-column: 2 / -1;
+}
+/* The STATUS chip shares that row too, at its end, in a fourth spine column that only
+ * a status widens. Stacked under the title it cost a chip-height plus a gap per entry,
+ * and the gallery's four-entry slide with three statuses clipped a portrait slide by
+ * 109px (check:family-tiers, the fourth body never painted). Beside the status the body
+ * would wrap to two lines in a narrower column and give most of that height back, so it
+ * keeps the full width under the row; the stacked status→body gap goes with the stack. The
+ * fourth column is declared on the spine above. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .chart-status {
+  grid-column: 4;
+  grid-row: 1;
+  align-self: center;
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .chart-status + .timeline-body {
+  padding-top: 0;
 }
 
