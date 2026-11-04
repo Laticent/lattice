@@ -272,11 +272,24 @@ test('the reflow sheet admits obligation-matrix and the statute-stack lane, and 
   assert.ok(!/:not\(\.obligation-matrix\)|:not\(\.statute-stack\.lane\)/.test(css), 'obligation-matrix and the lane take the shared cards');
 });
 
-test('glossary and math derivation carry their own narrow rule, which respects a held table', () => {
+test('glossary and math derivation carry their own narrow rule, which respects a held table and no-table-reflow', () => {
   const gl = fs.readFileSync(path.join(ROOT, 'lib/components/inventory/glossary/glossary.styles.css'), 'utf8');
   const math = fs.readFileSync(path.join(ROOT, 'lib/components/math/math/math.styles.css'), 'utf8');
+  const block = (css) => {
+    const at = css.search(/@container \(width < \d+em\) \{/);
+    assert.ok(at >= 0, 'has a container query');
+    return css.slice(at, css.indexOf('\n}\n', at));
+  };
   for (const [name, css] of [['glossary', gl], ['math', math]]) {
-    assert.match(css, /@container \(width < \d+em\)/, `${name} has a container query`);
-    assert.match(css, /table:not\(\.lat-reflow-held\)/, `${name}'s narrow rule skips a held table`);
+    const rules = block(css).split('\n').filter((l) => /^\s+section\./.test(l));
+    assert.ok(rules.length > 0, `${name}'s container block has rules`);
+    for (const r of rules) {
+      assert.match(r, /table:not\(\.lat-reflow-held\)/, `${name}: every container rule skips a held table — ${r.trim()}`);
+      assert.match(r, /:not\(\.no-table-reflow\)/, `${name}: every container rule honors no-table-reflow — ${r.trim()}`);
+    }
   }
+  // 17em, not 18em: a glossary in the catalog's minimum 35% pane on 16:9 is 17.8em wide and keeps its table.
+  assert.match(gl, /@container \(width < 17em\)/);
+  // The mobile strip rule stacks as it always did: a hold must not undo it.
+  assert.ok(!/\[data-family="strip"\]\) table:not\(\.lat-reflow-held\)/.test(gl), 'the strip arms ignore a hold');
 });

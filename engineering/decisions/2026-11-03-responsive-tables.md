@@ -145,7 +145,7 @@ responsive, in this change. Each now has a narrow form, on the same two triggers
 
 | Component | Its table | Narrow form | How |
 |---|---|---|---|
-| `glossary` | term, definition | the term above its definition (pairs) | its own 18em container rule, beside the existing `strip` rule; the generated table declares `data-lat-reflow="pairs"` so the fit check sees it |
+| `glossary` | term, definition | the term above its definition (pairs) | its own 17em container rule, beside the existing `strip` rule; the generated table declares `data-lat-reflow="pairs"` so the fit check sees it |
 | `obligation-matrix` | one row per obligation | one card per row | the shared cards: it left the deny list |
 | `statute-stack lane` | one row per provision | one card per row | the shared cards: it left the deny list |
 | `math derivation` | expression, justification | the justification under its step | its own 20em container rule |
@@ -153,15 +153,25 @@ responsive, in this change. Each now has a narrow form, on the same two triggers
 `matrix-grid` and `roadmap` stay on the deny list: their table is a grid read in both directions
 (cross-tab), the kind this change does not lay out yet. Glossary and derivation keep their own rules
 rather than the shared cards because each draws a single, specific narrow form the cards would get
-wrong (a term is not a card title; a justification is not a labeled field). Each skips a held table
-and a `no-table-reflow` slide.
+wrong (a term is not a card title; a justification is not a labeled field). Each container rule skips a
+held table and a `no-table-reflow` slide. Glossary's older mobile `strip` rule is the exception, on
+purpose: it stacks as it always has, whatever the fit check or `no-table-reflow` say, because on a
+phone canvas the two columns are the worse form even when the stacked one overflows. (A first cut
+let a hold undo it, and the checker measured an overflowing mobile glossary page growing from
+4,608px to 19,614px tall, its terms gone. The fit check now also takes back any hold that does not
+bring the table form back, and does not report that slide as held.)
 
 Why no slide on a 16:9 deck changes: the pane catalog gives these components a minimum share
-(glossary 35%, math 50%, obligation-matrix and statute-stack 65%), so their box never drops below
-the switch width on a landscape slide. They switch in a continuous host, on a phone-width canvas
-narrower than today's mobile size, or in a Frame Lab frame. The obligation-matrix cards needed one
-fix: markdown's `:---:` writes an inline `text-align: center` on a cell, which the card would have
-kept, so each card line is a flex item at `align-self: flex-start` with `text-align: start`.
+(glossary 35%, math 50%, obligation-matrix and statute-stack 65%). Measured at hd in indaco, a 35%
+side pane's content area is 17.8em, so glossary switches below 17em rather than the engine's 18em
+pairs width (a first cut at 18em stacked that layout; the checker caught it). Math derivation's
+narrowest home is the mobile canvas's full-width content area, 20.7em against its 20em switch, in all
+fourteen base themes; that margin is thin, and a change to slide padding could close it. They switch
+in a continuous host, on a phone-width canvas narrower than today's mobile size, or in a Frame Lab
+frame. The obligation-matrix cards needed one fix: markdown's `:---:` writes an inline `text-align:
+center` on a cell, which the card would have kept, so each card line is a flex item at `align-self:
+flex-start` with `text-align: start`. That fixes a value on one line; a value long enough to wrap
+keeps the inline centering on its wrapped lines, as every line did before.
 
 ## What comes next
 
@@ -193,4 +203,9 @@ host and by width plus the fit check on a slide.
   three tables through the engine and through the runtime bundle and compares verdicts, roles and labels;
   the checker repeated that on ten further shapes.
 - **The demo deck** (examples/responsive-tables.md) renders with no overflow; each slide was looked at.
-- **Not verified:** the Studio and Playground, the VS Code Marp preview, WebKit and Firefox.
+- **The live preview holds a table the same way.** docs/e2e/table-reflow-preview.spec.ts drives the real
+  Studio: a three-row record table in a 30% pane shows as cards, and a six-row one comes back in table form,
+  held by the runtime's fit check. It passes in Chromium, WebKit (tablet) and Firefox.
+- **The table-owning components are pixel-identical to `main`** on their galleries and the two table
+  examples, at hd, portrait and mobile.
+- **Not verified:** the VS Code Marp preview.

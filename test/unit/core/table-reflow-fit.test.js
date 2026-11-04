@@ -65,3 +65,14 @@ test('a table that names no narrow layout is never held', () => {
   global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   assert.deepEqual(holdUnfitReflow(dom.window.document, () => ({ over: true }), '', '', 12), []);
 });
+
+test('a hold that does not bring the table form back is removed, and the slide is not reported', () => {
+  // A component rule that stacks whatever the fit check says (glossary on the mobile `strip`
+  // canvas): holding it changes nothing a reader sees, so the hold is taken back.
+  const dom = new JSDOM(`<!doctype html><html><head><style>tr { display: block; }</style></head><body>
+    <section data-lattice-slide="1"><table class="glossary-terms" data-lat-reflow="pairs"><tbody><tr><td>A</td><td>B</td></tr></tbody></table></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12), []);
+  assert.ok(!doc.querySelector('table').classList.contains(HELD_CLASS));
+});

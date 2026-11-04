@@ -90,7 +90,8 @@ section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.
     /* Markdown writes a column's alignment (`:---:`) as an INLINE `text-align`, which no rule
      * here can outrank without `!important` (which the cascade work is removing, not adding).
      * So the line shrinks to its own content instead: a centered line in a box exactly as wide
-     * as the line sits at the start. A long value still wraps at the card's width. */
+     * as the line sits at the start. A value long enough to wrap keeps the inline centering on its
+     * wrapped lines (as every line had before); only a span around the value could undo that. */
     align-self: flex-start; max-width: 100%;
   }
   section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards:not(.lat-reflow-held) > tbody > tr > td:not(:first-child)::before,
@@ -143,7 +144,8 @@ section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.
     /* Markdown writes a column's alignment (`:---:`) as an INLINE `text-align`, which no rule
      * here can outrank without `!important` (which the cascade work is removing, not adding).
      * So the line shrinks to its own content instead: a centered line in a box exactly as wide
-     * as the line sits at the start. A long value still wraps at the card's width. */
+     * as the line sits at the start. A value long enough to wrap keeps the inline centering on its
+     * wrapped lines (as every line had before); only a span around the value could undo that. */
     align-self: flex-start; max-width: 100%;
   }
   section:where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap)) > :where(.cell-stage) > table.lat-reflow-cards:not(.lat-reflow-held):has(> thead > tr > :nth-child(5)) > tbody > tr > td:not(:first-child)::before,

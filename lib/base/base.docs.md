@@ -916,7 +916,8 @@ The components that own a table have their own narrow form, on the same
 rules: `glossary` puts each term above its definition, `math derivation`
 puts each justification under its step, and `obligation-matrix` and the
 `statute-stack lane` take the cards. `matrix-grid` and `roadmap` keep their
-grid. `no-table-reflow` keeps all four in table form.
+grid. `no-table-reflow` keeps all four in table form in a narrow box; on
+the mobile canvas a glossary stacks regardless, as it always has.
 
 ---
 
