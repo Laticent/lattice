@@ -450,6 +450,31 @@ section.math.form.derivation tbody tr:last-child td:last-child {
   font-style: normal;
   color: var(--accent);
 }
+/* NARROW: the justification drops below its step. A derivation is expression | justification;
+ * once its box is narrow the justification column squeezes the expressions. Below 20em of the
+ * derivation's OWN box (a container query on its content area: a narrow pane or a phone), each
+ * step becomes one block, the expression first and the justification under it, so the
+ * expressions keep the full width and stay left-aligned under each other. A table the slide fit
+ * check held keeps its two columns (`lat-reflow-held`, lib/core/table-reflow-fit.js): on a slide
+ * the stacked form stands only where it fits, and so does one on a `no-table-reflow` slide. The container is scoped to derivation slides, so a
+ * raw `cqi` in another math variant keeps measuring the slide.
+ * 20em, the engine's card threshold, and not more: a full-width slide on the mobile canvas is
+ * about 20.7em, and a 24em first cut stacked four existing mobile gallery pages (measured
+ * against `main`). No slide that exists today switches; a phone in a continuous view does.
+ * See engineering/decisions/2026-11-03-responsive-tables.md. */
+section.math.form.derivation > .cell-stage { container-type: inline-size; }
+@container (width < 20em) {
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held),
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody,
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr,
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr > td { display: block; }
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr { padding: var(--sp-xs) 0; }
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr > td { padding: 0 var(--sp-sm); }
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr > td:first-child { width: auto; }
+  section.math.form.derivation:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) > tbody > tr > td:last-child {
+    border-inline-start: none; padding-top: var(--sp-2xs);
+  }
+}
 /* Display math used as a row entry stays inline-block so it doesn't break
  * the row height. Override the default centered display behavior. */
 section.math.form.derivation td :is(.katex-display, mjx-container[display="true"]) {

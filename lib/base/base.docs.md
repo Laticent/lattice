@@ -912,6 +912,12 @@ carrying more than one). A slide's modifier reaches the tables in its panes;
 a pane marker can name its own (`<!-- _pane: content no-table-reflow -->`),
 which wins for that pane. A raw `<table>` written as HTML is not reflowed. See engineering/decisions/2026-11-03-responsive-tables.md.
 
+The components that own a table have their own narrow form, on the same
+rules: `glossary` puts each term above its definition, `math derivation`
+puts each justification under its step, and `obligation-matrix` and the
+`statute-stack lane` take the cards. `matrix-grid` and `roadmap` keep their
+grid. `no-table-reflow` keeps all four in table form.
+
 ---
 
 ## Universal variants

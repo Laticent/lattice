@@ -5,8 +5,9 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const {
-  tableShape, resolveReflow, cellKind, uniformity, labelText, applyToDom, REFLOW, REFLOW_CLASS,
+  tableShape, resolveReflow, cellKind, uniformity, labelText, REFLOW, REFLOW_CLASS,
 } = require('../../../lib/core/table-shape.js');
+const { applyToDom } = require('../../../lib/runtime/table-shape-dom.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -244,4 +245,38 @@ test('the mirror judges only the tables reflow can apply to, never a figure\'s o
   const doc = domOf(`<section class="heatmap"><div class="cell-stage"><div class="chart-body">
     <div class="chart-sr-only">${tableHtml(KINDS.records)}</div></div></div></section>`);
   assert.equal(doc.querySelector('table').hasAttribute('data-lat-reflow'), false);
+});
+
+// ── table-owning components ──────────────────────────────────────────────────
+
+test('glossary declares its own narrow layout on both paths, and its range pill still reads the table', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const deck = ['---', 'theme: indaco', '---', '', '<!-- _class: glossary -->', '', '## Terms', '',
+    '- **Alpha**', '  - The first letter.', '- **Omega**', '  - The last letter.'].join('\n');
+  const doc = new JSDOM(createEngine().render(deck).html).window.document;
+  const t = doc.querySelector('table.glossary-terms');
+  assert.ok(t, 'the glossary table is built');
+  assert.equal(t.getAttribute('data-lat-reflow'), 'pairs');
+  assert.match(doc.querySelector('h2').textContent, /A\s*[–-]\s*O/, 'the A–O range pill still reads the generated table');
+  // The DOM mirror builds the same table from the list on a Marp render.
+  const { applyToDom: glossaryToDom } = require('../../../lib/core/glossary-slide.js');
+  const m = new JSDOM('<section class="glossary"><h2>Terms</h2><ul><li><strong>Alpha</strong><ul><li>The first.</li></ul></li></ul></section>').window.document;
+  glossaryToDom(m);
+  assert.equal(m.querySelector('table.glossary-terms')?.getAttribute('data-lat-reflow'), 'pairs');
+});
+
+test('the reflow sheet admits obligation-matrix and the statute-stack lane, and keeps the four that draw their own', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.table-reflow.css'), 'utf8');
+  const deny = ':where(:not(.glossary):not(.matrix-grid):not(.math.derivation.form):not(.roadmap))';
+  assert.ok(css.includes(deny), 'the deny list is glossary, matrix-grid, math derivation and roadmap');
+  assert.ok(!/:not\(\.obligation-matrix\)|:not\(\.statute-stack\.lane\)/.test(css), 'obligation-matrix and the lane take the shared cards');
+});
+
+test('glossary and math derivation carry their own narrow rule, which respects a held table', () => {
+  const gl = fs.readFileSync(path.join(ROOT, 'lib/components/inventory/glossary/glossary.styles.css'), 'utf8');
+  const math = fs.readFileSync(path.join(ROOT, 'lib/components/math/math/math.styles.css'), 'utf8');
+  for (const [name, css] of [['glossary', gl], ['math', math]]) {
+    assert.match(css, /@container \(width < \d+em\)/, `${name} has a container query`);
+    assert.match(css, /table:not\(\.lat-reflow-held\)/, `${name}'s narrow rule skips a held table`);
+  }
 });

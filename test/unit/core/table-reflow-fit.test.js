@@ -9,8 +9,8 @@ function page({ switched = true, flow = null, held = false } = {}) {
   const dom = new JSDOM(`<!doctype html><html${flow ? ` data-lattice-flow="${flow}"` : ''}><head><style>
     ${switched ? 'table.lat-reflow-cards:not(.lat-reflow-held) tr { display: block; }' : ''}
   </style></head><body>
-    <section data-lattice-slide="1"><div class="cell-stage"><table class="lat-reflow-cards${held ? ` ${HELD_CLASS}` : ''}"><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div></section>
-    <section data-lattice-slide="2"><div class="cell-stage"><table class="lat-reflow-cards"><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div></section>
+    <section data-lattice-slide="1"><div class="cell-stage"><table class="lat-reflow-cards${held ? ` ${HELD_CLASS}` : ''}" data-lat-reflow="cards"><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div></section>
+    <section data-lattice-slide="2"><div class="cell-stage"><table class="lat-reflow-cards" data-lat-reflow="cards"><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></div></section>
   </body></html>`);
   global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   return dom.window.document;
@@ -48,4 +48,20 @@ test('the injected source runs on its own, as the CLI ships it', () => {
 
 test('no document, no work', () => {
   assert.deepEqual(holdUnfitReflow(null), []);
+});
+
+test('a table a component declares (data-lat-reflow, no engine class) is held the same way', () => {
+  const dom = new JSDOM(`<!doctype html><html><head><style>table[data-lat-reflow="pairs"]:not(.lat-reflow-held) tr { display: block; }</style></head><body>
+    <section data-lattice-slide="1"><table class="glossary-terms" data-lat-reflow="pairs"><tbody><tr><td>A</td><td>B</td></tr></tbody></table></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12), [1]);
+  assert.ok(doc.querySelector('table').classList.contains(HELD_CLASS));
+});
+
+test('a table that names no narrow layout is never held', () => {
+  const dom = new JSDOM(`<!doctype html><html><head><style>tr { display: block; }</style></head><body>
+    <section data-lattice-slide="1"><table data-lat-reflow="none"><tbody><tr><td>A</td></tr></tbody></table></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  assert.deepEqual(holdUnfitReflow(dom.window.document, () => ({ over: true }), '', '', 12), []);
 });

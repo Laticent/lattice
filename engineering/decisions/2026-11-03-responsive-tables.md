@@ -137,18 +137,45 @@ The switch widths stay low (20em, 24em, 18em) in this change. With the fit check
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
 
+## The components that own a table
+
+Four components build or style their own table, so the universal treatment's deny list kept the
+reflow away from them. The owner's direction (2026-11-03): every table but a chart's is
+responsive, in this change. Each now has a narrow form, on the same two triggers:
+
+| Component | Its table | Narrow form | How |
+|---|---|---|---|
+| `glossary` | term, definition | the term above its definition (pairs) | its own 18em container rule, beside the existing `strip` rule; the generated table declares `data-lat-reflow="pairs"` so the fit check sees it |
+| `obligation-matrix` | one row per obligation | one card per row | the shared cards: it left the deny list |
+| `statute-stack lane` | one row per provision | one card per row | the shared cards: it left the deny list |
+| `math derivation` | expression, justification | the justification under its step | its own 20em container rule |
+
+`matrix-grid` and `roadmap` stay on the deny list: their table is a grid read in both directions
+(cross-tab), the kind this change does not lay out yet. Glossary and derivation keep their own rules
+rather than the shared cards because each draws a single, specific narrow form the cards would get
+wrong (a term is not a card title; a justification is not a labeled field). Each skips a held table
+and a `no-table-reflow` slide.
+
+Why no slide on a 16:9 deck changes: the pane catalog gives these components a minimum share
+(glossary 35%, math 50%, obligation-matrix and statute-stack 65%), so their box never drops below
+the switch width on a landscape slide. They switch in a continuous host, on a phone-width canvas
+narrower than today's mobile size, or in a Frame Lab frame. The obligation-matrix cards needed one
+fix: markdown's `:---:` writes an inline `text-align: center` on a cell, which the card would have
+kept, so each card line is a flex item at `align-self: flex-start` with `text-align: start`.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
 
 1. The slide frame's header, footer and page number wrap when narrow (69 of 79 components spill).
 2. One shared wrapping grid for the card and list components (about 20 at once).
-3. The table-owning components declare their kind: `glossary` (pairs), `statute-stack` lane and
-   `obligation-matrix` (cards), `math` derivation.
-4. The other table kinds' layouts (prototyped in tools/frame-lab/proto/).
-5. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
-6. Narrow forms for side-by-side components (redline, compare-code, split-panel).
-7. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+3. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
+   `matrix-grid` and `roadmap`.
+4. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
+5. Narrow forms for side-by-side components (redline, compare-code, split-panel).
+6. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+
+(The table-owning components were item 3; they moved into this change, above.)
 
 Each reuses this change's pattern: one narrow layout for both hosts, triggered by width in a continuous
 host and by width plus the fit check on a slide.
