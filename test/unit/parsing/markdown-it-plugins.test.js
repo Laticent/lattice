@@ -285,18 +285,18 @@ describe('markdown-it-plugins', () => {
     assert.ok(sections[1].includes('finish'), `slide 2 lost the base finish token; got [${sections[1].join(', ')}]`);
   });
 
-  test('deckClassPropagate: finish-none opts a slide out of the deck finish (no deck preset appended)', () => {
+  test('deckClassPropagate: no-finish opts a slide out of the deck finish (no deck preset appended)', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = [
       '---', 'finish: atrium', '---', '',
-      '<!-- _class: finish-none -->',
+      '<!-- _class: no-finish -->',
       '# Clean slide',
     ].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.ok(cls.includes('finish-none'), `should keep finish-none; got [${cls.join(', ')}]`);
+    assert.ok(cls.includes('no-finish'), `should keep no-finish; got [${cls.join(', ')}]`);
     assert.ok(!cls.includes('finish-atrium'),
-      `finish-none must not inherit the deck finish-atrium; got [${cls.join(', ')}]`);
+      `no-finish must not inherit the deck finish-atrium; got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: `claim: quiet` propagates claim-quiet to every section', () => {
@@ -409,7 +409,7 @@ describe('markdown-it-plugins', () => {
 
   test('deckClassPropagate: `spectrum: off` / `solid` propagate the token; `on`/unknown add nothing', () => {
     const m = makeHost(plugins.deckClassPropagate);
-    for (const [v, expected] of [['off', 'spectrum-off'], ['solid', 'spectrum-solid']]) {
+    for (const [v, expected] of [['off', 'no-spectrum'], ['solid', 'spectrum-solid']]) {
       const md = ['---', `spectrum: ${v}`, '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
       const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
       assert.equal(sections.length, 2);
@@ -428,12 +428,12 @@ describe('markdown-it-plugins', () => {
       '---', 'spectrum: solid', '---', '',
       '# Slide 1 (deck solid)', '',
       '---', '',
-      '<!-- _class: content spectrum-off -->',
+      '<!-- _class: content no-spectrum -->',
       '# Slide 2 (its own off wins)',
     ].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.ok(sections[0].includes('spectrum-solid'), `slide 1 should be solid; got [${sections[0].join(', ')}]`);
-    assert.ok(sections[1].includes('spectrum-off') && !sections[1].includes('spectrum-solid'),
+    assert.ok(sections[1].includes('no-spectrum') && !sections[1].includes('spectrum-solid'),
       `slide 2 should keep its own off, not inherit solid; got [${sections[1].join(', ')}]`);
   });
 
@@ -445,7 +445,7 @@ describe('markdown-it-plugins', () => {
       '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
     const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     for (const cls of sections) {
-      for (const t of ['spectrum-edge-left', 'spectrum-card', 'spectrum-card-edge-top', 'rule-short', 'eyebrow-dot']) {
+      for (const t of ['spectrum-edge-left', 'with-spectrum-card', 'spectrum-card-edge-top', 'rule-short', 'eyebrow-dot']) {
         assert.ok(cls.includes(t), `missing '${t}'; got [${cls.join(', ')}]`);
       }
     }
@@ -480,14 +480,14 @@ describe('markdown-it-plugins', () => {
     // Slide 2: its own EDGE token must NOT suppress the deck STYLE (duo) or the deck card.
     assert.ok(s[1].includes('spectrum-duo'), `slide 2 lost deck STYLE 'spectrum-duo'; got [${s[1].join(', ')}]`);
     assert.ok(s[1].includes('spectrum-edge-left'), `slide 2 missing its edge; got [${s[1].join(', ')}]`);
-    assert.ok(s[1].includes('spectrum-card'), `slide 2 lost deck card rail; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('with-spectrum-card'), `slide 2 lost deck card rail; got [${s[1].join(', ')}]`);
     // Slide 3: its own CARD STYLE pin (solid) replaces the deck card (auto) but not deck STYLE/edge.
     assert.ok(s[2].includes('spectrum-card-solid') && !s[2].includes('spectrum-card '), `slide 3 should pin the card rail; got [${s[2].join(', ')}]`);
-    assert.ok(!s[2].some((c) => c === 'spectrum-card'), `slide 3 deck card 'spectrum-card' should be suppressed by its pin; got [${s[2].join(', ')}]`);
+    assert.ok(!s[2].some((c) => c === 'with-spectrum-card'), `slide 3 deck card 'with-spectrum-card' should be suppressed by its pin; got [${s[2].join(', ')}]`);
     assert.ok(s[2].includes('spectrum-duo'), `slide 3 lost deck STYLE 'spectrum-duo'; got [${s[2].join(', ')}]`);
     // Slide 4: its own CARD EDGE override wins, but the deck card STYLE + deck STYLE survive.
     assert.ok(s[3].includes('spectrum-card-edge-top'), `slide 4 missing its card-edge; got [${s[3].join(', ')}]`);
-    assert.ok(s[3].includes('spectrum-card'), `slide 4 lost the deck card rail; got [${s[3].join(', ')}]`);
+    assert.ok(s[3].includes('with-spectrum-card'), `slide 4 lost the deck card rail; got [${s[3].join(', ')}]`);
     assert.ok(s[3].includes('spectrum-duo'), `slide 4 lost deck STYLE 'spectrum-duo'; got [${s[3].join(', ')}]`);
   });
 
@@ -498,7 +498,7 @@ describe('markdown-it-plugins', () => {
   test('deckClassPropagate: a restore token drops the deck token on its own axis, and only there', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const restores = [
-      ['spectrum-on', 'spectrum-solid'],
+      ['with-spectrum', 'spectrum-solid'],
       ['spectrum-edge-top', 'spectrum-edge-left'],
       ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
       ['rule-auto', 'rule-accent'],
@@ -529,21 +529,21 @@ describe('markdown-it-plugins', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'spectrum-trim: on', '---', '',
       '# Slide 1 (deck trim on)', '', '---', '',
-      '<!-- _class: content spectrum-trim-off -->', '# Slide 2 (opt out)'].join('\n');
+      '<!-- _class: content no-spectrum-trim -->', '# Slide 2 (opt out)'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
-    assert.ok(s[0].includes('spectrum-trim'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
-    assert.ok(s[1].includes('spectrum-trim-off') && !s[1].includes('spectrum-trim '), `slide 2 should opt out; got [${s[1].join(', ')}]`);
-    assert.ok(!s[1].some((c) => c === 'spectrum-trim'), `slide 2 deck trim should be suppressed; got [${s[1].join(', ')}]`);
+    assert.ok(s[0].includes('with-spectrum-trim'), `slide 1 missing deck trim; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('no-spectrum-trim') && !s[1].includes('spectrum-trim '), `slide 2 should opt out; got [${s[1].join(', ')}]`);
+    assert.ok(!s[1].some((c) => c === 'with-spectrum-trim'), `slide 2 deck trim should be suppressed; got [${s[1].join(', ')}]`);
   });
 
   test('deckClassPropagate: a per-slide rule/eyebrow token overrides the deck register', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'rule: accent', 'eyebrow: dot', '---', '',
       '# Slide 1 (deck accent+dot)', '', '---', '',
-      '<!-- _class: content rule-none eyebrow-arrow -->', '# Slide 2'].join('\n');
+      '<!-- _class: content no-heading-rule eyebrow-arrow -->', '# Slide 2'].join('\n');
     const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
     assert.ok(s[0].includes('rule-accent') && s[0].includes('eyebrow-dot'), `slide 1; got [${s[0].join(', ')}]`);
-    assert.ok(s[1].includes('rule-none') && !s[1].includes('rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('no-heading-rule') && !s[1].includes('rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
     assert.ok(s[1].includes('eyebrow-arrow') && !s[1].includes('eyebrow-dot'), `slide 2 eyebrow override; got [${s[1].join(', ')}]`);
   });
 

@@ -7,7 +7,7 @@
 // (lib/core/resolve-spectrum.js); the rot-guard is spectrum-trim-catalog.test.ts.
 //
 // Authored deck-wide via `spectrum-trim:` or per-slide via `_class: spectrum-trim` /
-// `spectrum-trim-off`.
+// `no-spectrum-trim`.
 
 export type SpectrumTrimEntry = {
 	/** the `spectrum-trim:` register value (and engine SPECTRUM_TRIM_NAMES member) */

@@ -63,7 +63,7 @@ footer: "Panes — two components, one slide"
 
 ## The new office opened on time and under budget.
 
-<!-- _class: columns no-rule -->
+<!-- _class: columns no-spine -->
 <!-- _pane: image -->
 
 ![Office](sample:photo-tall.svg)

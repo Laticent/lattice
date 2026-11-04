@@ -106,7 +106,7 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
-<!-- _class: cards-grid spectrum-card -->
+<!-- _class: cards-grid with-spectrum-card -->
 
 `Spectrum · cards`
 

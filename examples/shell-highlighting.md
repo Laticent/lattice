@@ -4,7 +4,7 @@ theme: indaco
 meta: Shell highlighting · Owned grammar
 ---
 
-<!-- _class: title finish-none -->
+<!-- _class: title no-finish -->
 
 # Shell blocks that read as code
 

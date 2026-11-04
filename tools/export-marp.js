@@ -9,10 +9,10 @@
  *   <name>/
  *     <name>.md            — splits BAKED into literal `---` (lib/core/bake-splits.js),
  *                            local image + front-matter `logo:` paths localized into
- *                            assets/, runtime <script> tags (mermaid + lattice-runtime)
- *                            and the BAKED FRONT MATTER appended
- *                            (lib/core/deck-front-matter.js — the deck-wide registers
- *                            Marp strips and `fetch` can't recover over `file://`)
+ *                            assets/, Marp's keys left in the front matter and every
+ *                            Lattice key moved into the SETTINGS BLOCK under it, read
+ *                            live by every host (lib/core/settings-block.js),
+ *                            runtime <script> tags (mermaid + lattice-runtime)
  *                            plus this export's OWN settings block
  *                            (lib/core/export-settings.js — today the overflow-marker
  *                            level; producer choices, not deck front matter)

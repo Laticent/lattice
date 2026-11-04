@@ -19,7 +19,7 @@ describe('applyComponentSpectrum', () => {
 
 	test('spectrum: false drops the author\'s spectrum classes and turns the bar off', () => {
 		const out = applyComponentSpectrum(['kpi', 'spectrum-edge-left', 'spectrum-duo', 'dark'], catalog);
-		assert.deepEqual(out, ['kpi', 'dark', 'spectrum-off', 'spectrum-edge-off']);
+		assert.deepEqual(out, ['kpi', 'dark', 'no-spectrum', 'no-spectrum-edge']);
 	});
 
 	test('a style name pins the style and leaves the placement to the author', () => {
@@ -27,9 +27,9 @@ describe('applyComponentSpectrum', () => {
 		assert.deepEqual(out, ['cards-grid', 'spectrum-edge-left', 'spectrum-solid']);
 	});
 
-	test('a pin never overrides spectrum-off: a de-branded deck stays de-branded', () => {
+	test('a pin never overrides no-spectrum: a de-branded deck stays de-branded', () => {
 		for (const name of ['cards-grid', 'table']) {
-			const cur = [name, 'spectrum-off'];
+			const cur = [name, 'no-spectrum'];
 			assert.equal(applyComponentSpectrum(cur, catalog), cur, name);
 		}
 	});
@@ -42,7 +42,7 @@ describe('applyComponentSpectrum', () => {
 		// `bullet` is a chart component AND a variant word on `list`; only `list` is this slide's component.
 		const cur = ['list', 'bullet'];
 		assert.equal(applyComponentSpectrum(cur, catalog), cur);
-		assert.deepEqual(applyComponentSpectrum(['bullet'], catalog), ['bullet', 'spectrum-off', 'spectrum-edge-off']);
+		assert.deepEqual(applyComponentSpectrum(['bullet'], catalog), ['bullet', 'no-spectrum', 'no-spectrum-edge']);
 	});
 
 	test('it never removes a component name, and running twice changes nothing', () => {
@@ -63,7 +63,7 @@ describe('the field reaches both render paths and the contract', () => {
 		const runtime = read('lib/runtime/index.js');
 		assert.match(runtime, /applyComponentSpectrum\(cur\)/);
 		// The runtime must wait for the deck's own classes: a pin applied first reads as the slide's OWN style
-		// class to the deck-class pass, which then never adds the deck's `spectrum-off`.
+		// class to the deck-class pass, which then never adds the deck's `no-spectrum`.
 		const fn = /function applyComponentSpectrumToSections\(\) \{[\s\S]*?\n  \}\n/.exec(runtime)[0];
 		assert.match(fn, /if \(!deckFrontMatterSettled\) return;/);
 		assert.match(runtime, /applyDefaultComponent\(\);\n\s+applyComponentSpectrumToSections\(\);/);

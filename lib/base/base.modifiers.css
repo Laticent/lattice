@@ -816,9 +816,9 @@ section.dark {
    * imported asset bundles. Same shape as the finish layer's `var(--fin-texture, none)`
    * longhands in base.finish.css. Verified inert: every rule that also paints a background
    * here is either a `background:` shorthand at higher specificity (which resets ALL
-   * longhands, so `spectrum-off` / `print` / the `*-cover` classes behave exactly as before)
-   * or a `background-image`-only rule the split does not affect (`finish-none`,
-   * `backdrop-none`, the `tint-*`/`mark-*` treatments) — 81 matching rules enumerated by
+   * longhands, so `no-spectrum` / `print` / the `*-cover` classes behave exactly as before)
+   * or a `background-image`-only rule the split does not affect (`no-finish`,
+   * `no-backdrop`, the `tint-*`/`mark-*` treatments) — 81 matching rules enumerated by
    * CSSOM, then measured across 7 themes x 88 class combinations with zero substantive
    * computed differences (#1528). */
 }
@@ -867,8 +867,8 @@ section.dark {
  * Painting var(--bg) does NOT count, and that distinction matters: image and
  * scene declare a background, but it is the deck ground -- the same surface this
  * rule would paint -- so the cascade taking it over costs nothing. Only a frame
- * painting a DIFFERENT surface is erased. Nor does `none`: finish-none and
- * backdrop-none CLEAR a texture, and exempting them would hand them back a
+ * painting a DIFFERENT surface is erased. Nor does `none`: no-finish and
+ * no-backdrop CLEAR a texture, and exempting them would hand them back a
  * spectrum hairline they are not asking to drop.
  *
  * Keying on sovereignty instead (via the .form class the engine stamps on every
@@ -895,8 +895,8 @@ section.dark {
  * That is not a rounding error in the write-up, because (0,2,1) beats a frame's
  * own (0,1,1) REGARDLESS OF ORDER. The plain form would therefore have taken
  * lat-split-cover's accent -- the 1.52:1 defect above, on the most common cover
- * in the catalog -- and stripped the background-image from finish-none and
- * backdrop-none. An earlier draft described the alternative as a stray
+ * in the catalog -- and stripped the background-image from no-finish and
+ * no-backdrop. An earlier draft described the alternative as a stray
  * background-size slot on paper, which is the wrong risk signal entirely.
  *
  * ONE VISIBLE SIDE EFFECT, deliberate. This block also carries border-top: none,
@@ -912,7 +912,7 @@ section.dark {
  *
  * THE `spectrum:` AND `accent:` REGISTERS WERE THE SAME DEFECT IN THREE MORE RULES,
  * and they are fixed now (#2291) -- this paragraph used to say they were not.
- * section.dark.spectrum-off (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
+ * section.dark.no-spectrum (0,2,1), section.dark:is(.spectrum-edge-*) (0,3,1) and
  * section.accent.dark (0,2,1) all out-specified a frame's own canvas, so unlike this
  * rule no exemption list could have saved the frame: they won on SPECIFICITY, not on
  * order, and a dark title/closing/topic/cover flattened under `spectrum: off`.

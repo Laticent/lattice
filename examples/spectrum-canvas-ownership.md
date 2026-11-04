@@ -72,7 +72,7 @@ It draws a stripe, and copied a canvas out of the rule it replaced.
 
 ---
 
-<!-- _class: divider spectrum-trim -->
+<!-- _class: divider with-spectrum-trim -->
 
 `Section 02`
 

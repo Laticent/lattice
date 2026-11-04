@@ -66,8 +66,8 @@ role, so the grid builds itself — and the exported PDF is unchanged.
 
 ---
 
-<!-- _class: heatmap motion-off -->
-<!-- _footer: "motion-off · the control, so the difference is visible" -->
+<!-- _class: heatmap no-motion -->
+<!-- _footer: "no-motion · the control, so the difference is visible" -->
 
 `Defect density · by service`
 

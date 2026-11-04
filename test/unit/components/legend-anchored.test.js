@@ -420,8 +420,9 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     assert.match(after, /legend--anchored/);
     assert.equal(after, before);
   });
-  test('callout-off and a host that switched callout off hide it, and keep the detail', () => {
-    for (const ctx of [{ classTokens: ['callout-off'] }, { pluginsOff: new Set(['callout']) }]) {
+  test('no-callout and a host that switched callout off hide it, and keep the detail', () => {
+    // The host's switch beats a slide's `with-callout`; the runtime carries it as `lat-callouts-off`.
+    for (const ctx of [{ classTokens: ['no-callout'] }, { pluginsOff: new Set(['callout']) }, { classTokens: ['lat-callouts-off', 'with-callout'] }, { classTokens: ['with-callout'], pluginsOff: new Set(['callout']) }]) {
       const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), ctx);
       assert.doesNotMatch(out, /legend--anchored|<code>@callout/);
       assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
@@ -432,7 +433,10 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1: Dip\./);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'callout: off' })), /Callout/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
-    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap callout-on'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap with-callout'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
+    // A deck-wide `class: no-callout` silences the voice-over as it silences the render (inversion pass).
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'class: no-callout' })), /Callout/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap with-callout'), { frontMatter: 'class: no-callout' })), /Callout at Jan 2026, M1/);
   });
 });
 
@@ -454,9 +458,9 @@ describe('the split keeps every pre-split switch, end to end (the checker on P1)
   });
   test('the slide wins over the deck on every surface', () => {
     const cases = [
-      ['callout: off\n', 'heatmap callout-on', true],
+      ['callout: off\n', 'heatmap with-callout', true],
       ['callout: off\n', 'heatmap', false],
-      ['callout: on\n', 'heatmap callout-off', false],
+      ['callout: on\n', 'heatmap no-callout', false],
     ];
     for (const [fm, cls, on] of cases) {
       const src = deck(fm, body(cls));
@@ -476,8 +480,8 @@ describe('the split keeps every pre-split switch, end to end (the checker on P1)
 
 describe('the author\'s switch: callout off', () => {
   const callout = '`@legend{{Dip, for="Jan 2026 · M1", detail="Pricing change"}}`';
-  test('callout-off on the slide hides the callout and its line, and keeps the detail in the speaker note', () => {
-    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['callout-off'] });
+  test('no-callout on the slide hides the callout and its line, and keeps the detail in the speaker note', () => {
+    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['no-callout'] });
     assert.doesNotMatch(out, /legend--anchored|legend-target|<code>@legend/);
     assert.doesNotMatch(doc(out).querySelector('desc').textContent, /Dip/);
     assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
@@ -486,11 +490,11 @@ describe('the author\'s switch: callout off', () => {
     const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { pluginsOff: new Set(['callout']) });
     assert.doesNotMatch(out, /legend--anchored/);
   });
-  test('narration says nothing for a hidden callout: deck off, or slide off; callout-on wins', () => {
+  test('narration says nothing for a hidden callout: deck off, or slide off; with-callout wins', () => {
     const slide = (cls, fm = '') => `${fm}<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
-    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap callout-off'))), /Callout|legend/);
+    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap no-callout'))), /Callout|legend/);
     assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\ncallout: off\n---\n\n'))), /Callout/);
-    assert.match(String(narrateDataSeries(slide('heatmap callout-on', '---\ncallout: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
+    assert.match(String(narrateDataSeries(slide('heatmap with-callout', '---\ncallout: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
   });
   test('narration of one split slide reads the deck it came from: front matter and the host\'s off-list', () => {
     // How every caller hands a slide over: split from the deck, so the front matter is not on it.
@@ -498,7 +502,7 @@ describe('the author\'s switch: callout off', () => {
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true\ncallout: OFF' })), /Callout/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
-    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap callout-on'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap with-callout'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
     // The deck is set for one call only: the next slide without one hears the callout again.
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
   });

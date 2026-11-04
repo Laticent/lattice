@@ -110,8 +110,8 @@ that had no detail bullets. The exported PDF is unchanged.
 
 ---
 
-<!-- _class: line motion-off -->
-<!-- _footer: "motion-off · the control, so the difference is visible" -->
+<!-- _class: line no-motion -->
+<!-- _footer: "no-motion · the control, so the difference is visible" -->
 
 `Median latency · ms`
 

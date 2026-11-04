@@ -246,7 +246,7 @@ const GLYPHS = {
 	tagColor: {
 		color: chipOf(fill(AC, '2px 3px', '60% 32%')),
 		plain: chipOf(fill('color-mix(in srgb, var(--text-heading) 40%, var(--bg))', '2px 3px', '60% 32%')),
-		none: chipOf(fill(MUTED, '2px 5px', '60% 2px')),
+		bare: chipOf(fill(MUTED, '2px 5px', '60% 2px')),
 	},
 	/** Card tag placement: where the tag sits on its card (the chip is the card). */
 	tagPlacement: {

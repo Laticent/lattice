@@ -47,8 +47,8 @@ section.split-compare .compare-right {
   background-position: right top;
   background-repeat: no-repeat;
 }
-section.split-compare:is(.spectrum-off, .spectrum-edge-left, .spectrum-edge-right,
-                         .spectrum-edge-bottom, .spectrum-edge-off) .compare-right {
+section.split-compare:is(.no-spectrum, .spectrum-edge-left, .spectrum-edge-right,
+                         .spectrum-edge-bottom, .no-spectrum-edge) .compare-right {
   background-image: none;
 }
 section.split-compare.accent .compare-right {
@@ -182,8 +182,8 @@ section.split-compare:not([data-orientation="portrait"]):not([data-orientation="
  * background so that finish shows through it, and the rail keeps its `--surface-inverse` field
  * and paints the finish re-mixed for that field (base.finish.css § FINISH SURFACES). Without a
  * painted finish nothing here matches. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-right { background-color: transparent; }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left {
+section.split-compare.finish:not(.no-finish, .no-backdrop, .print) .compare-right { background-color: transparent; }
+section.split-compare.finish:not(.no-finish, .no-backdrop, .print) .compare-left {
   --fin-canvas: var(--surface-inverse);
   background-image: var(--fin-surface-image);
   background-size: var(--fin-surface-size);
@@ -198,10 +198,10 @@ section.split-compare.finish > .backdrop::before { content: none; }
 section.split-compare.finish:not([data-orientation="portrait"]):not([data-orientation="square"]) > .backdrop > .backdrop-mask::before {
   padding: var(--sp-lg) var(--sp-xl) var(--sp-xl) calc(var(--_panel-outer) + var(--sp-lg));
 }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left { isolation: isolate; }
+section.split-compare.finish:not(.no-finish, .no-backdrop, .print) .compare-left { isolation: isolate; }
 /* The rail is a flex column: its children take local band 1 without being positioned. */
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left > * { z-index: 1; }
-section.split-compare.finish:not(.finish-none, .backdrop-none, .print) .compare-left::before {
+section.split-compare.finish:not(.no-finish, .no-backdrop, .print) .compare-left > * { z-index: 1; }
+section.split-compare.finish:not(.no-finish, .no-backdrop, .print) .compare-left::before {
   content: "";
   position: absolute;
   inset: 0;

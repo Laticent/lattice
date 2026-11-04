@@ -91,9 +91,9 @@ Five placements and three alignments, on every tagged layout, set deck-wide by `
 
 ---
 
-<!-- _class: decision tag-notch tag-none -->
+<!-- _class: decision tag-notch tag-bare -->
 
-## With tag-none, a notch reads as a legend.
+## With tag-bare, a notch reads as a legend.
 
 - Build
   - Owns the scoring policy and the pager.

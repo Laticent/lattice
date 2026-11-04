@@ -1,21 +1,21 @@
 // The selectors + motion resolution that decide whether (and how) a preview surface animates a
 // chart in place. Kept in a ZERO-DEPENDENCY leaf so both the host (anima-scenes.ts) and the
 // DeckPreview host-load gate share ONE definition without pulling the heavy Anima backends into
-// their bundle — a scene-less, motion-off preview never fires `import('@/playground/anima-scenes')`.
+// their bundle — a scene-less, no-motion preview never fires `import('@/playground/anima-scenes')`.
 //
 // Motion is THREE orthogonal axes, at full parity between the Studio controls, the deck front
 // matter, and the per-slide classes (no magic — each axis is its own literal key/token):
 //
 //   axis   deck front-matter        slide class                          values (default first)
 //   ────   ──────────────────       ──────────────────────────────────   ──────────────────────
-//   Play   motion: on|off           motion-on / motion-off               off, on
+//   Play   motion: on|off           with-motion / no-motion               off, on
 //   Style  motion-style: <s>        motion-build/together/rise           build, together, rise
 //   Speed  motion-speed: <p>        motion-auto/slow/normal/fast         auto, slow, normal, fast
 //
-// The axes are INDEPENDENT (no magic): Play is the sole animate switch — `motion-on` turns a slide
-// on, `motion-off` forces it static, absence inherits the deck. A `motion-style`/`motion-speed`
+// The axes are INDEPENDENT (no magic): Play is the sole animate switch — `with-motion` turns a slide
+// on, `no-motion` forces it static, absence inherits the deck. A `motion-style`/`motion-speed`
 // token is an inert PARAMETER that shapes the motion only when Play resolves on; it never flips Play
-// on by itself. (The one exception is the legacy `chart-anima`, honored as `motion-on motion-build`.)
+// on by itself. (The one exception is the legacy `chart-anima`, honored as `with-motion motion-build`.)
 // Motion plays ONCE when the slide is entered — there is no replay control. Preview-only; export untouched.
 
 import type { ChartAnimaStyle } from '@/lib/chart-anima'; // type-only: erased at build, no runtime dep
@@ -42,12 +42,12 @@ export interface DeckMotion {
 /** A BAKED scene: a `scene` slide carrying a compiled ```anima spec (data-scene-spec). */
 export const SCENE_SEL = 'section.scene[data-scene-spec]';
 
-/** Sections that EXPLICITLY opt a chart into motion via a Play token — `motion-on` or the legacy
+/** Sections that EXPLICITLY opt a chart into motion via a Play token — `with-motion` or the legacy
  *  `chart-anima`. A style/speed token is a PARAMETER, not an opt-in (Play is the sole switch), so it
- *  is NOT listed here; `motion-off` is the opt-OUT and is likewise excluded. A deck-level `motion: on`
+ *  is NOT listed here; `no-motion` is the opt-OUT and is likewise excluded. A deck-level `motion: on`
  *  reaches class-less sections separately (see `hasAnimatableChart` + `resolveMotion`), because a
  *  front-matter default leaves no class on the section to select. */
-export const MOTION_OPT_IN_SEL = 'section.motion-on, section.chart-anima';
+export const MOTION_OPT_IN_SEL = 'section.with-motion, section.chart-anima';
 
 /** The union a surface tests to LOAD the Anima host WITHOUT knowing the deck default — a baked scene
  *  or an explicit per-slide opt-in. When a deck sets `motion: on`, the gate also scans chart sections. */
@@ -63,7 +63,7 @@ const asSpeed = (v: string | null | undefined): MotionSpeed | null => {
 };
 
 /** Normalize the three deck front-matter values into a `DeckMotion`. `motion:` is the literal
- *  `on`/`off` (parity with the Studio Play control and the `motion-on`/`motion-off` slide tokens —
+ *  `on`/`off` (parity with the Studio Play control and the `with-motion`/`no-motion` slide tokens —
  *  no magic aliases); anything else → null (unset, inherit the built-in off). */
 export function parseDeckMotion(motion: string | null | undefined, style?: string | null, speed?: string | null): DeckMotion {
   const m = (motion ?? '').trim().toLowerCase();
@@ -85,13 +85,14 @@ function slideSpeed(section: Element): MotionSpeed | null {
   for (const sp of MOTION_SPEEDS) if (c.contains(`motion-${sp}`)) return sp;
   return null;
 }
-/** The slide's own Play state: `off` (explicit suppressor `motion-off`), `on` (explicit `motion-on`,
- *  or the legacy `chart-anima` alias), or null (inherit the deck default). A style/speed token does
- *  NOT imply on — Play is the sole switch. */
+/** The slide's own Play state: `on` (explicit `with-motion`, or the legacy `chart-anima` alias), `off`
+ *  (explicit `no-motion`), or null (inherit the deck default). A style/speed token does NOT imply on —
+ *  Play is the sole switch. `with-motion` is checked FIRST: the switch rule (lib/core/switches.mjs) is
+ *  that a slide's `with-` beats a `no-` — and a deck-wide `class: no-motion` is on every section. */
 function slidePlay(section: Element): 'on' | 'off' | null {
   const c = section.classList;
-  if (c.contains('motion-off')) return 'off';
-  if (c.contains('motion-on') || c.contains('chart-anima')) return 'on';
+  if (c.contains('with-motion') || c.contains('chart-anima')) return 'on';
+  if (c.contains('no-motion')) return 'off';
   return null;
 }
 
@@ -170,7 +171,7 @@ function chartFigureOf(section: Element): Element | null {
 
 /** Synchronously hide every motion-eligible chart figure under `root` (a live iframe document), BEFORE
  *  `import('@/playground/anima-scenes')` resolves — closing the static-poster flash window. The set
- *  matches EXACTLY what `rebind` will mount (charts whose Play cascade resolves on); a Play-off / motion-off
+ *  matches EXACTLY what `rebind` will mount (charts whose Play cascade resolves on); a Play-off / no-motion
  *  chart is left visible, and a still-tier / no-backend chart is revealed by the host's decline-fallback.
  *  Returns the figures it hid. Idempotent (adding a present class is a no-op). */
 export function prehideEligibleCharts(root: ParentNode, deck: DeckMotion): Element[] {

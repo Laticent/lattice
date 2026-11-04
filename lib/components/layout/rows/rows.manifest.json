@@ -19,13 +19,13 @@
   "skeleton": "<!-- _class: rows -->\n\n## The slide's point, in one line.\n\n### Top pane\n\n- A point\n- Another point\n\n### Bottom pane\n\n- A point\n- Another point\n",
   "sample": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n- Sales `92%` `at-risk`\n\n<!-- _pane: table -->\n### By function\n\n| Function | Plan | Hired |\n|---|---|---|\n| Engineering | 120 | 118 |\n| Sales | 60 | 55 |\n",
   "variants": [
-    "no-rule"
+    "no-spine"
   ],
   "variantDocs": {
-    "no-rule": {
+    "no-spine": {
       "label": "no rule",
       "summary": "Drops the rule between the panes.",
-      "sample": "<!-- _class: rows ratio-35-65 no-rule -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
+      "sample": "<!-- _class: rows ratio-35-65 no-spine -->\n\n## Three regions carried the quarter.\n\n### What happened\n\nTwo renewals and a price rise lifted EMEA and APAC; North America held.\n\n<!-- _pane: bar -->\n### Revenue by region\n`$M, Q3`\n\n- North America `4.2`\n- EMEA `3.1`\n- APAC `1.8`\n"
     }
   },
   "slots": {

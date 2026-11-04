@@ -119,8 +119,8 @@ describe('resolve-finish', () => {
       assert.ok(defined.has(cls), `finish maps to .${cls} but base.finish.css has no rule`);
     }
     // Every defined class must be reachable from a finish, EXCEPT the documented
-    // per-slide-only escape `finish-none` (not a deck finish).
-    const escapes = new Set(['finish-none']);
+    // per-slide-only escape `no-finish` (not a deck finish).
+    const escapes = new Set(['no-finish']);
     for (const cls of defined) {
       if (escapes.has(cls)) continue;
       assert.ok(registered.has(cls), `.${cls} defined but unreachable from any finish (rot)`);
@@ -132,21 +132,21 @@ describe('resolve-finish', () => {
     // or saved) must activate the compositor on its own.
     assert.equal(isFinishVariantClass('finish-atrium'), true);
     assert.equal(isFinishVariantClass('finish-oct'), true, 'a saved finish class is a variant');
-    assert.equal(isFinishVariantClass('finish-none'), false, 'the per-slide opt-out is NOT a variant');
+    assert.equal(isFinishVariantClass('no-finish'), false, 'the per-slide opt-out is NOT a variant');
     assert.equal(isFinishVariantClass('finish-preview'), false, 'the specimen is NOT a variant');
     assert.equal(isFinishVariantClass('finish'), false);
     assert.equal(isFinishVariantClass('title'), false);
 
     assert.equal(sectionIsFinish(['title', 'finish-oct']), true);
     assert.equal(sectionIsFinish(['finish']), true);
-    assert.equal(sectionIsFinish(['title', 'finish-none']), false);
+    assert.equal(sectionIsFinish(['title', 'no-finish']), false);
     assert.equal(sectionIsFinish(['title']), false);
 
     // Normalization adds the bare class exactly once, only when a variant is present.
     assert.deepEqual(normalizeSectionFinishClasses(['title', 'finish-oct']), ['title', 'finish-oct', 'finish']);
     assert.deepEqual(normalizeSectionFinishClasses(['finish', 'finish-atrium']), ['finish', 'finish-atrium'], 'no dup when finish already present');
     assert.deepEqual(normalizeSectionFinishClasses(['title']), ['title'], 'a non-finish slide is untouched');
-    assert.deepEqual(normalizeSectionFinishClasses(['finish-none']), ['finish-none'], 'the opt-out does not gain a compositor');
+    assert.deepEqual(normalizeSectionFinishClasses(['no-finish']), ['no-finish'], 'the opt-out does not gain a compositor');
   });
 
   test('readFrontMatterFinish accepts quotes and returns null when absent', () => {

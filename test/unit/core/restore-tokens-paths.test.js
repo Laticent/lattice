@@ -2,7 +2,7 @@
  * The RESTORE tokens through the owned engine (`lib/engine`), the canonical render path.
  *
  * A deck value writes no token when it is the default, so one slide inside a deck that set
- * another value needs the default's own token to ask for it back: `spectrum-on`,
+ * another value needs the default's own token to ask for it back: `with-spectrum`,
  * `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain`, `head-auto`.
  * Each sits in its register's override set, so the engine drops the deck's token on that axis
  * for that slide, and the slide renders as the default. markdown-it-plugins.test.js pins the
@@ -18,7 +18,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 
 const RESTORES = [
-  ['spectrum-on', 'spectrum-solid'],
+  ['with-spectrum', 'spectrum-solid'],
   ['spectrum-edge-top', 'spectrum-edge-left'],
   ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
   ['rule-auto', 'rule-accent'],

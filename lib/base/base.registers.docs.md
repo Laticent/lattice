@@ -103,7 +103,7 @@ A preset has **no class token and no CSS of its own**. It resolves in the front-
 every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
 the family is absent — or written empty — the reader answers with the preset's value, and
 `preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its six keys, per-slide `_class:` overrides work unchanged (`finish-none` keeps a
+had written its six keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
 slide clean), and the CLI, the export and the Studio agree by construction. A preset
 deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
 `tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
@@ -244,14 +244,14 @@ z-index STACK of palette-blind, export-safe gradient layers painted behind
 content (`lib/base/base.finish.css`). The base `finish` class carries the layer
 compositor (`--fin-wash`/`--fin-texture`/`--fin-mark`/`--fin-edge`); each preset
 sets those per-role props, so a future right-panel designer can drive any single
-layer. Take one slide out of a deck-wide finish with `<!-- _class: finish-none -->`
-(the back-compat `backdrop-none` is an alias); a per-slide `finish-<name>`
+layer. Take one slide out of a deck-wide finish with `<!-- _class: no-finish -->`
+(the back-compat `no-backdrop` is an alias); a per-slide `finish-<name>`
 **overrides** the deck finish rather than stacking on it.
 
 **A split run keeps the finish on every page.** When a slide splits (a cover, then
 one member per page — or a carousel's re-authored pages), the splitter replaces the
 page's layout class. The canvas axis and the deck's **surface registers** survive that
-swap as classes: `finish`/`finish-*`/`finish-none`, `mode:`, `stamp:`/`tone:`, every
+swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
 `spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
 `headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
 layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
@@ -266,7 +266,7 @@ paint `var(--accent)` as their field, so the accent would vanish there. Those co
 set `--field-accent: var(--on-accent)`, and a `cat-N` tinted cover sets
 `var(--cat-on-fill)`. A saved Studio finish reads the same slot, with `var(--accent)`
 as its fallback. `test/integration/invariants/finish-ink-matrix.test.js` holds every
-cover shape × mode × theme at 3:1 or better. Add `finish-none` to the authored slide to
+cover shape × mode × theme at 3:1 or better. Add `no-finish` to the authored slide to
 keep its whole run clean.
 
 **Glyph-marks (the ghost monogram / numeral) are author-personalized and never
@@ -319,7 +319,7 @@ token on that axis and leaves the other alone.
 
 **Most specific wins:** a slide class, then the deck's `backdrop:`, then the value a
 fabricated finish baked in Fabricate (and `finish-override:` still tunes that baked value).
-`backdrop:` is inert on a slide without a finish; `finish-none` is still how a slide drops the
+`backdrop:` is inert on a slide without a finish; `no-finish` is still how a slide drops the
 finish entirely. The values are fixed steps and anchors on purpose: a class cannot carry a
 free number without an inline style. Bake an exact value into a finish in Fabricate instead.
 An unknown word, or a second word on one axis, is flagged as `unknown-backdrop`. The old
@@ -343,7 +343,7 @@ its *export* (flatter) finish on screen. The Studio's Finish faculty has an
 designer can see the baked look; that is the only legitimate authoring use, and
 it is transient (UI state, never written to the deck). The other reserved finish
 words are the five preset slugs (`atrium`/`meridian`/`strata`/`halo`/`ledger`),
-`finish-none`/`backdrop-none` (the per-slide opt-out), and `finish-preview` (the
+`no-finish`/`no-backdrop` (the per-slide opt-out), and `finish-preview` (the
 faculty specimen) — a *saved* custom finish whose name collides with any of these
 is namespaced (`atrium` → `atrium-custom`) so it can never shadow a built-in.
 
@@ -446,21 +446,21 @@ theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |
 |---|---|---|
-| `on` | *(none)*; per slide `spectrum-on` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `on` | *(none)*; per slide `with-spectrum` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
-| `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+| `off` | `no-spectrum` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
 
 **Back to the default on one slide — the restore tokens.** A deck value writes no token when it
 is the default, so the default needs a token of its own for one slide to ask for it inside a deck
 that set something else. Each of these registers has one, named for its default value:
-`spectrum-on`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
+`with-spectrum`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
 `head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
 that slide (as any per-slide token does), and the slide renders as the default. So in a
 `spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
 the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
-from its own axis (`spectrum-on spectrum-solid`) a restore token always loses, so `lint:deck`
+from its own axis (`with-spectrum spectrum-solid`) a restore token always loses, so `lint:deck`
 warns `conflicting-variants`.
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
@@ -473,7 +473,7 @@ bar-off deck keeps its table rails and `---` rules.
 | `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
 | `right` | `spectrum-edge-right` | A right rail. |
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
-| `off` | `spectrum-edge-off` | No section-edge bar (structural accents survive). |
+| `off` | `no-spectrum-edge` | No section-edge bar (structural accents survive). |
 
 **Placement never moves the slide's content or chrome.** The bar takes its room out of the slide's
 margin, not out of the content: the content box, the header, the footer, the page number, the state
@@ -506,13 +506,13 @@ Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `
 `pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
 axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
 deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
-`_class: spectrum-card-duo` pins one slide, `_class: spectrum-card-off` opts one out. A typo is
+`_class: spectrum-card-duo` pins one slide, `_class: no-spectrum-card` opts one out. A typo is
 caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 
 | `spectrum-card:` value | Token | Effect |
 |---|---|---|
 | `off` | *(none)* | No card rail. **The default** (omit the key). |
-| `auto` | `spectrum-card` | A rail that follows the deck's spectrum STYLE. |
+| `auto` | `with-spectrum-card` | A rail that follows the deck's spectrum STYLE. |
 | `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
 | `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
 | `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
@@ -535,14 +535,14 @@ it on where it earns its place.
 increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
 spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
 stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
-low-noise). Per-slide `_class: spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
-tier, `spectrum-trim-off` out.
+low-noise). Per-slide `_class: with-spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
+tier, `no-spectrum-trim` out.
 
 | `spectrum-trim:` value | Token | Effect |
 |---|---|---|
 | `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
 | `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
-| `on` | `spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
+| `on` | `with-spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
 
 The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
 `spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
@@ -569,7 +569,7 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 | `full` | `rule-full` | An explicit full-width hairline. |
 | `short` | `rule-short` | A short rule under the heading. |
 | `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
-| `none` | `rule-none` | No heading underline. |
+| `none` | `no-heading-rule` | No heading underline. |
 
 `rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
 effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
@@ -1068,11 +1068,11 @@ how they look. It takes up to four words, one per axis, in any order:
 |---|---|---|---|
 | Color | `color` | `tag-color` | The component's own pair: the accent, or decision's categorical cycle. **The default** (omit the key) |
 | Color | `plain` | `tag-plain` | A neutral pill: page fill, body ink, a hairline edge. For a deck where color is already busy |
-| Color | `none` | `tag-none` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
+| Color | `bare` | `tag-bare` | No box. The label stays, as bare text in the secondary ink. It never hides the words |
 | Size | `small` `regular` `large` | `tag-small` … | The tag at 0.85×, 1× or 1.2×. Its padding and the space above the card body follow |
 | Placement | `corner` | `tag-corner` | Flush into the card's top-left corner. **The default** on every tagged layout except list-steps |
 | Placement | `foot` | `tag-foot` | Flush into the bottom-left corner. The card keeps the tag's room at its bottom instead |
-| Placement | `notch` | `tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `none` it reads as a legend: bare text on the page color, so the edge does not strike through it |
+| Placement | `notch` | `tag-notch` | A tab inset from the corner that straddles the card's top edge, half outside it. With `bare` it reads as a legend: bare text on the page color, so the edge does not strike through it |
 | Placement | `band` | `tag-band` | A full-width strip across the card top, the way `banner-tag` draws one on decision and compare-prose, now on every tagged layout |
 | Placement | `inline` | `tag-inline` | In the text flow above the card's first line, as a chip. **The default** on list-steps, whose `STEP 01` label is bare text |
 | Text alignment | `start` `center` `end` | `tag-start` … | Where the text sits inside a tag wider than it: a band, a tag widened to match its neighbors, a wrapped label, or list-steps' label across its card. **Default `start`** |
@@ -1115,7 +1115,7 @@ component's own look inside a deck that set another.
 `banner-tag` band) takes the widest tag's width and the tallest tag's height, so `BUILD` and
 `WHY NOT DELAY` read as one component rather than two. A band spans its card, so only its height
 matches. The text sits at the start of the tag unless an alignment word moves it, and a one-line
-tag beside a two-line one is centered in the taller box (a `tag-none` label, which has no box,
+tag beside a two-line one is centered in the taller box (a `tag-bare` label, which has no box,
 stays at the top so the labels line up). A measuring step does this after fonts load
 (`lib/core/card-tag-equalize.js`): in the live preview, and in the CLI's PDF, PNG, PPTX, Marp,
 `--fluid` and `--player` outputs. A plain `.html` export has no script, so there each tag keeps
@@ -1238,15 +1238,15 @@ off for the whole deck; the callout plugin declares it in `callout.manifest.json
 
 | Deck value | Per-slide class | Effect |
 |---|---|---|
-| `on` | `callout-on` | Callouts are drawn and narrated. **The default** (omit the key) |
-| `off` | `callout-off` | Callouts are hidden: not drawn, not described, not read aloud |
+| `on` | `with-callout` | Callouts are drawn and narrated. **The default** (omit the key) |
+| `off` | `no-callout` | Callouts are hidden: not drawn, not described, not read aloud |
 
 ```markdown
 ---
 callout: off
 ---
 
-<!-- _class: heatmap callout-on -->
+<!-- _class: heatmap with-callout -->
 ```
 
 **The slide wins over the deck**, so the heatmap above shows its callouts in a deck that hides

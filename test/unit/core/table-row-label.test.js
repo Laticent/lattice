@@ -137,21 +137,22 @@ test('missing or malformed input never throws', () => {
 
 // ── the override ──────────────────────────────────────────────────────────────
 
-test('row-label and no-row-label overrule the measurement', () => {
+test('with-row-label and no-row-label overrule the measurement', () => {
   const numeric = { headers: ['Year', 'X'], firstColumn: ['2024'] };
   const labelled = { headers: ['Criterion', 'X'], firstColumn: ['Speed'] };
-  assert.equal(resolveRowLabel(['table', 'row-label'], numeric), true, 'row-label forces ON');
+  assert.equal(resolveRowLabel(['table', 'with-row-label'], numeric), true, 'with-row-label forces ON');
+  assert.equal(resolveRowLabel(['table', 'row-label'], numeric), false, 'the retired row-label does nothing');
   assert.equal(resolveRowLabel(['table', 'no-row-label'], labelled), false, 'no-row-label forces OFF');
   assert.equal(resolveRowLabel(['table'], labelled), true, 'no token = measured');
 });
 
-test('no-row-label wins a slide carrying both', () => {
-  // The opt-OUT is what an author reaches for after SEEING the wrong thing, so a
-  // stray `row-label` beside it must not win. (Both are per-SLIDE tokens: a
-  // deck-level `class:` never reaches the rule that feeds this — see the kernel.)
+test('with-row-label wins a slide carrying both (the switch precedence)', () => {
+  // A deck-wide `class: no-row-label` reaches every slide, so a slide that says
+  // `with-row-label` must win over it: with-X > no-X for every switch
+  // (engineering/decisions/2026-11-04-switch-vocabulary.md).
   assert.equal(
-    resolveRowLabel(['table', 'row-label', 'no-row-label'], { headers: ['A', 'B'], firstColumn: ['x'] }),
-    false,
+    resolveRowLabel(['table', 'with-row-label', 'no-row-label'], { headers: ['A', 'B'], firstColumn: ['A'] }),
+    true,
   );
 });
 

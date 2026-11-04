@@ -82,9 +82,9 @@ describe('finish provenance + override', () => {
 		const p = finishProvenance('<!-- _class: kpi finish-meridian -->', src);
 		expect(p).toMatchObject({ state: 'on', value: 'meridian', deckValue: 'atrium' });
 	});
-	it('off when the slide opts out with finish-none', () => {
-		const src = deck('finish: atrium', '<!-- _class: kpi finish-none -->');
-		expect(finishProvenance('<!-- _class: kpi finish-none -->', src).state).toBe('off');
+	it('off when the slide opts out with no-finish', () => {
+		const src = deck('finish: atrium', '<!-- _class: kpi no-finish -->');
+		expect(finishProvenance('<!-- _class: kpi no-finish -->', src).state).toBe('off');
 	});
 	it('the finish-preview specimen is NOT a real finish (mirrors the engine)', () => {
 		expect(finishProvenance('<!-- _class: kpi finish-preview -->', '').state).toBe('off');
@@ -93,7 +93,7 @@ describe('finish provenance + override', () => {
 		let chunk = '<!-- _class: kpi finish-atrium -->';
 		chunk = setFinish(chunk, 'meridian');
 		expect(getClassTokens(chunk).filter((t) => t.startsWith('finish-'))).toEqual(['finish-meridian']);
-		expect(getClassTokens(setFinish(chunk, 'none'))).toContain('finish-none');
+		expect(getClassTokens(setFinish(chunk, 'none'))).toContain('no-finish');
 		expect(getClassTokens(setFinish(chunk, null)).some((t) => t.startsWith('finish'))).toBe(false);
 	});
 });
@@ -119,12 +119,12 @@ describe('mode provenance + opt-out', () => {
 });
 
 describe('motion provenance — three axes (Play / Style / Speed)', () => {
-	it('PLAY: off by default; inherits deck `motion: on`; slide motion-on/off overrides', () => {
+	it('PLAY: off by default; inherits deck `motion: on`; slide with-motion/off overrides', () => {
 		expect(motionPlayProvenance('<!-- _class: funnel -->', '# deck')).toMatchObject({ state: 'off', inheritable: false });
 		expect(motionPlayProvenance('<!-- _class: funnel -->', deck('motion: on', 'x'))).toMatchObject({ state: 'inherited', value: 'on', inheritable: true });
-		expect(motionPlayProvenance('<!-- _class: funnel motion-off -->', deck('motion: on', 'x'))).toMatchObject({ state: 'off', deckValue: 'on' });
-		// Play is the SOLE switch: an explicit motion-on is on; the legacy chart-anima is on…
-		expect(motionPlayProvenance('<!-- _class: funnel motion-on -->', '# deck')).toMatchObject({ state: 'on' });
+		expect(motionPlayProvenance('<!-- _class: funnel no-motion -->', deck('motion: on', 'x'))).toMatchObject({ state: 'off', deckValue: 'on' });
+		// Play is the SOLE switch: an explicit with-motion is on; the legacy chart-anima is on…
+		expect(motionPlayProvenance('<!-- _class: funnel with-motion -->', '# deck')).toMatchObject({ state: 'on' });
 		expect(motionPlayProvenance('<!-- _class: funnel chart-anima -->', '# deck')).toMatchObject({ state: 'on' });
 		// …but a bare style/speed token does NOT imply Play on — it stays inherit/off (no magic).
 		expect(motionPlayProvenance('<!-- _class: funnel motion-rise -->', '# deck')).toMatchObject({ state: 'off', inheritable: false });
@@ -140,7 +140,7 @@ describe('motion provenance — three axes (Play / Style / Speed)', () => {
 		expect(motionSpeedProvenance('<!-- _class: funnel motion-slow -->', '# deck')).toMatchObject({ state: 'on', value: 'slow' });
 	});
 	it('setters write the right token, null clears, and setting Play/Style strips legacy chart-anima', () => {
-		expect(getClassTokens(setMotionPlay('<!-- _class: funnel -->', 'off'))).toEqual(['funnel', 'motion-off']);
+		expect(getClassTokens(setMotionPlay('<!-- _class: funnel -->', 'off'))).toEqual(['funnel', 'no-motion']);
 		expect(getClassTokens(setMotionStyle('<!-- _class: funnel chart-anima -->', 'rise'))).toEqual(['funnel', 'motion-rise']);
 		expect(getClassTokens(setMotionSpeed('<!-- _class: funnel motion-slow -->', 'fast'))).toEqual(['funnel', 'motion-fast']);
 		expect(getClassTokens(setMotionSpeed('<!-- _class: funnel motion-fast -->', null))).toEqual(['funnel']);
@@ -209,19 +209,19 @@ describe('spectrum provenance + override (brand bar)', () => {
 		expect(spectrumProvenance('<!-- _class: kpi -->', src)).toMatchObject({ state: 'off', inheritable: false });
 	});
 	it('on when the slide overrides with its own spectrum-* token', () => {
-		const src = deck('spectrum: solid', '<!-- _class: kpi spectrum-off -->');
-		expect(spectrumProvenance('<!-- _class: kpi spectrum-off -->', src)).toMatchObject({ state: 'on', value: 'off', deckValue: 'solid' });
+		const src = deck('spectrum: solid', '<!-- _class: kpi no-spectrum -->');
+		expect(spectrumProvenance('<!-- _class: kpi no-spectrum -->', src)).toMatchObject({ state: 'on', value: 'off', deckValue: 'solid' });
 	});
 	it('setSpectrum writes off/solid, never stacks, and null clears to inherit/rainbow', () => {
 		let chunk = '<!-- _class: kpi spectrum-solid -->';
 		chunk = setSpectrum(chunk, 'off');
-		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['spectrum-off']);
-		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => t.startsWith('spectrum-'))).toBe(false);
+		expect(getClassTokens(chunk).filter((t) => /spectrum/.test(t))).toEqual(['no-spectrum']);
+		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => /spectrum/.test(t))).toBe(false);
 	});
-	it('setSpectrum writes the restore token `spectrum-on`, which reads back as this slide\'s own choice', () => {
+	it('setSpectrum writes the restore token `with-spectrum`, which reads back as this slide\'s own choice', () => {
 		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
 		const chunk = setSpectrum('<!-- _class: kpi spectrum-solid -->', 'on');
-		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['spectrum-on']);
+		expect(getClassTokens(chunk).filter((t) => /spectrum/.test(t))).toEqual(['with-spectrum']);
 		expect(spectrumProvenance(chunk, src)).toMatchObject({ state: 'on', value: 'on', deckValue: 'solid' });
 	});
 });

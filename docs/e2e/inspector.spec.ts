@@ -94,7 +94,7 @@ const MOTION_DECK = [
 	'motion-speed: slow',
 	'---',
 	'',
-	'<!-- _class: funnel motion-on -->',
+	'<!-- _class: funnel with-motion -->',
 	'',
 	'## Where deals stall',
 	'',
@@ -154,7 +154,7 @@ test('the admission test flags motion that carries nothing, and offers the fix',
 	await expect(page.getByText(/reads as a fade, not a sequence/)).toBeVisible();
 	await page.getByRole('button', { name: 'Turn it off' }).click();
 	// It writes the Inspector's own token, so the two surfaces cannot drift.
-	await expect.poll(() => persistedSource(page)).toContain('motion-off');
+	await expect.poll(() => persistedSource(page)).toContain('no-motion');
 });
 
 // ── Find + browse (ui/settings-view.tsx) ─────────────────────────────────────

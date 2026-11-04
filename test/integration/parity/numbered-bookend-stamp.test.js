@@ -105,12 +105,13 @@ const EXPECTED = [
   // rather than describing a deck that never had a header to begin with.
   { cls: 'divider', counter: null, header: 'block', footer: 'block' },
   { cls: 'divider numbered', stamp: '01' },
-  { cls: 'divider silent numbered', stamp: '02' },
+  // `silent` settles into the four bands it turns off (lib/core/switches.mjs `settleSwitches`).
+  { cls: 'divider silent numbered no-header no-footer no-pagination no-progress', stamp: '02' },
   { cls: 'divider light numbered', stamp: '03' },
   { cls: 'closing numbered', counter: null },
   // `silent` WITHOUT `numbered`: proves the chrome assertions above are reading the
   // modifier and not just `silent`, which suppresses header and footer on its own.
-  { cls: 'divider silent', counter: null, header: 'none', footer: 'none' },
+  { cls: 'divider silent no-header no-footer no-pagination no-progress', counter: null, header: 'none', footer: 'none' },
 ];
 /**
  * The slide the pixel arm toggles. It compares this section against ITSELF with

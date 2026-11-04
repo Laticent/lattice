@@ -130,7 +130,7 @@ function l1(source) {
   const sections = [...doc.querySelectorAll('article.lattice > section')];
   const sources = slideSources(source, sections.length);
   const first = sections[0];
-  const finish = first ? ([...first.classList].find((c) => c.startsWith('finish-')) || 'finish-none').slice(7) : 'none';
+  const finish = first ? ([...first.classList].find((c) => c.startsWith('finish-')) || 'finish-none').slice('finish-'.length) : 'none';
   const logo = first?.querySelector(':scope > img.deck-logo')?.getAttribute('src') ?? null;
   return {
     deck: {

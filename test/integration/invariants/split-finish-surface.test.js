@@ -73,7 +73,7 @@ finish: strata
 
 ${[...SLIDES.map(([cls, body]) => `<!-- _class: ${cls} -->\n\n${body}`),
   `<!-- _class: split-panel finish-legacy -->\n\n${BODY}`,
-  `<!-- _class: split-panel finish-none -->\n\n${BODY}`,
+  `<!-- _class: split-panel no-finish -->\n\n${BODY}`,
   `<!-- _class: split-panel finish-legacymask -->\n\n${BODY}`,
   `<!-- _class: split-panel backdrop-clear -->\n\n${BODY}`].join('\n\n---\n\n')}
 `;
@@ -187,7 +187,7 @@ describe('split finish surface (real render)', () => {
     assert.notEqual(clearLayer, 'none', 'the slide-level clear layer is off, so the supporting side is not cleared');
   });
 
-  test('finish-none keeps both panels opaque and paints nothing', async () => {
+  test('no-finish keeps both panels opaque and paints nothing', async () => {
     const m = await read(OPTED_OUT, '.panel-left', '.panel-right');
     assert.notEqual(m.supportBg, 'rgba(0, 0, 0, 0)');
     assert.equal(m.featureImage, 'none');

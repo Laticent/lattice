@@ -258,7 +258,7 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     // (a slide back on the top bar), so a `[class*="spectrum-edge-"]` match would treat it as a placement.
     assert.doesNotMatch(variants, /\[class\*="spectrum-edge-"\]/);
     // Linear scans, not a regex: nested-paren patterns here backtrack exponentially (CodeQL, js/redos).
-    const PREFIX = 'section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(:where(';
+    const PREFIX = 'section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .no-spectrum-edge):not(:where(';
     const line = variants.split('\n').find((l) => l.startsWith(PREFIX));
     assert.ok(line, 'solid rule');
     let depth = 1;
@@ -286,6 +286,7 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     }
     const topStrip = variants.split('\n').find((l) => l.includes('> .slide-bar-top {') && l.includes('.spectrum-solid'));
     assert.ok(topStrip, 'the solid/duo/mono top-strip rule');
-    for (const edge of ['left', 'right', 'bottom', 'off']) assert.ok(topStrip.includes(`.spectrum-edge-${edge}`), `top strip excludes .spectrum-edge-${edge}`);
+    for (const edge of ['left', 'right', 'bottom']) assert.ok(topStrip.includes(`.spectrum-edge-${edge}`), `top strip excludes .spectrum-edge-${edge}`);
+    assert.ok(topStrip.includes('.no-spectrum-edge'), 'top strip excludes .no-spectrum-edge');
   });
 });

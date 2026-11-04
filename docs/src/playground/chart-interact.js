@@ -231,7 +231,7 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
   function reflow() {
     // The live svg can change UNDER a binding: the Anima host mounts its clone ASYNCHRONOUSLY (after a
     // pinned onSlide already bound the poster), then hides the poster. Re-resolve to the visible svg so
-    // a first-view pinned chart (Present, entered directly on a motion-on slide) recovers the clone once
+    // a first-view pinned chart (Present, entered directly on a with-motion slide) recovers the clone once
     // it mounts — setChart is otherwise sticky (same-section no-op). The scheduled reflow timers give it
     // several chances; harmless in hoverAny, where each pointer move already re-resolves via setChart.
     if (curSection) {

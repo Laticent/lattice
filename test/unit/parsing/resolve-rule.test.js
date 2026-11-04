@@ -23,7 +23,7 @@ describe('resolve-rule', () => {
     assert.equal(ruleClass('full'), 'rule-full');
     assert.equal(ruleClass('short'), 'rule-short');
     assert.equal(ruleClass('accent'), 'rule-accent');
-    assert.equal(ruleClass('none'), 'rule-none');
+    assert.equal(ruleClass('none'), 'no-heading-rule');
     assert.equal(ruleClass('auto'), '', 'auto is the default — no class');
   });
 
@@ -45,7 +45,7 @@ describe('resolve-rule', () => {
 
   test('RULE_NAMES / RULE_TOKENS list the recognized set', () => {
     assert.deepEqual([...RULE_NAMES], ['auto', 'full', 'short', 'accent', 'none']);
-    assert.deepEqual([...RULE_TOKENS], ['rule-auto', 'rule-full', 'rule-short', 'rule-accent', 'rule-none']);
+    assert.deepEqual([...RULE_TOKENS], ['rule-auto', 'rule-full', 'rule-short', 'rule-accent', 'no-heading-rule', 'with-heading-rule']);
   });
 
   test('readFrontMatterRule extracts from the front-matter block only; quotes + absence', () => {
@@ -59,12 +59,14 @@ describe('resolve-rule', () => {
 
   test('CSS contract — every token has a rule; palette-blind (base.accent-finish.css)', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    // `rule-auto` is the restore token (a slide back on the default inside a deck that set another
-    // value): it draws nothing of its own, so it has no rule, and must not grow one.
-    for (const cls of RULE_TOKENS.filter((t) => t !== 'rule-auto')) {
+    // `rule-auto` and `with-heading-rule` are the restore tokens (a slide back on the default inside
+    // a deck that set another value): they draw nothing of their own, so they have no rule, and must
+    // not grow one.
+    const RESTORES = ['rule-auto', 'with-heading-rule'];
+    for (const cls of RULE_TOKENS.filter((t) => !RESTORES.includes(t))) {
       assert.ok(css.includes(`.${cls}`), `${cls} has no rule in base.accent-finish.css`);
     }
-    assert.ok(!css.includes('.rule-auto'), 'rule-auto is a restore token and draws nothing');
+    for (const r of RESTORES) assert.ok(!css.includes(`.${r}`), `${r} is a restore token and draws nothing`);
     // accent draws in --accent; short/none/full are token-driven. The heading rule is a real
     // <hr class="masthead-rule"> in the lede (not a pseudo), so `accent` recolors that element.
     assert.match(css, /section\.rule-accent\.form \.cell-masthead \.masthead-rule\s*\{\s*background:\s*var\(--accent\)/);

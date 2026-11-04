@@ -73,11 +73,11 @@ On a corner it does nothing, so this card stays a corner card.
 
 ---
 
-<!-- _class: image spotlight at-bottom band card-o65 ink-light spectrum-trim -->
+<!-- _class: image spotlight at-bottom band card-o65 ink-light with-spectrum-trim -->
 
 ## A band, 65% dark, spectrum trim on.
 
-The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `spectrum-trim`.
+The divider follows the deck's spectrum: a quiet accent tint by default, the full gradient with `with-spectrum-trim`.
 
 ![bg](sample:photo-wide.jpg)
 
@@ -93,7 +93,7 @@ A thin backing needs a matching ink. The line under the heading takes no space.
 
 ---
 
-<!-- _class: image statement at-bottom rule-none -->
+<!-- _class: image statement at-bottom no-heading-rule -->
 
 ## rule: none drops the hairline.
 

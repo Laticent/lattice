@@ -148,7 +148,7 @@ test('a slide without panes keeps its ids when a LATER slide has panes', () => {
 test('parseLayout accepts 25–75 in 5% steps and stack, and reports the rest', () => {
   assert.deepEqual(panes.parseLayout('stack 35/65'), { direction: 'stack', a: 35, b: 65, rule: true });
   assert.deepEqual(panes.parseLayout('75/25'), { direction: 'side', a: 75, b: 25, rule: true });
-  assert.deepEqual(panes.parseLayout('60/40 no-rule'), { direction: 'side', a: 60, b: 40, rule: false });
+  assert.deepEqual(panes.parseLayout('60/40 no-spine'), { direction: 'side', a: 60, b: 40, rule: false });
   assert.deepEqual(panes.parseLayout('60 / 40'), { direction: 'side', a: 60, b: 40, rule: true });
   for (const bad of ['80/20', '33/67', '60/50', 'wide']) {
     const l = panes.parseLayout(bad);
@@ -312,9 +312,9 @@ test('a table in a pane renders with the same table classes as a table slide', (
   assert.match(pane, /<div class="cell-stage">\s*<table class="lat-row-label(-off)?(?: lat-reflow-[a-z]+)?"/);
 });
 
-test('the spine between panes is on by default and `no-rule` turns it off', () => {
+test('the spine between panes is on by default and `no-spine` turns it off', () => {
   assert.match(render(DECK), /<div class="lat-panes" data-panes="side" style=/);
-  const off = render(`## T\n\n<!-- panes: 40/60 no-rule -->\n${PANES}\n`);
+  const off = render(`## T\n\n<!-- panes: 40/60 no-spine -->\n${PANES}\n`);
   assert.match(off, /<div class="lat-panes" data-panes="side" data-rule="none" style=/);
   assert.equal(count(off, /<lat-pane /g), 2);
 });
@@ -643,4 +643,40 @@ test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author w
   assert.match(list, /<li>two<\/li>/);
   assert.match(list, /<li>three<\/li>/);
   assert.doesNotMatch(list, /lat-pagination/);
+});
+
+test('the pane spine is a switch: a deck-wide no-spine reaches every pane slide, and with-spine beats it', () => {
+  const slide = (cls) => `<!-- _class: ${cls} -->\n\n### Left\n\nOne.\n\n### Right\n\nTwo.\n`;
+  const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
+  assert.equal(rule(slide('columns')), 'drawn');
+  assert.equal(rule(slide('columns no-spine')), 'none');
+  assert.equal(rule(slide('columns no-spine with-spine')), 'drawn', 'with-X beats no-X on one slide');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns')}`), 'none', 'the deck class reaches the slide');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${slide('columns with-spine')}`), 'drawn', 'the slide brings it back');
+});
+
+test('classLayout decides the spine exactly as the switch spine does (it restates switchOn to stay require-free)', () => {
+  const { classLayout } = require('../../../lib/core/pane-spec.js');
+  const { switchOn } = require('../../../lib/core/switches');
+  const cases = [[[], 'columns'], [['no-spine'], 'columns'], [[], 'columns no-spine'], [['no-spine'], 'columns with-spine'],
+    [[], 'columns no-spine with-spine'], [['silent'], 'columns'], [[], 'rows silent no-spine']];
+  for (const [deck, own] of cases) {
+    const off = / no-spine\b|^no-spine/.test(classLayout(own, deck).spec);
+    assert.equal(off, !switchOn('spine', [...deck, ...own.split(' ')]), `${deck} + ${own}`);
+  }
+});
+
+test('a deck-wide no-spine reaches the alias layout too, and the marker\'s own with-spine beats it', () => {
+  const alias = (words) => `<!-- panes: ${words} -->\n\n<!-- pane: content -->\n\nOne.\n\n<!-- pane: content -->\n\nTwo.\n`;
+  const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
+  assert.equal(rule(alias('40/60')), 'drawn');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${alias('40/60')}`), 'none');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${alias('40/60 with-spine')}`), 'drawn');
+});
+
+test('the alias marker follows the switch rule too: with-spine beats no-spine in either order', () => {
+  const { parseLayout } = require('../../../lib/core/pane-spec.js');
+  assert.equal(parseLayout('40/60 with-spine no-spine').rule, true);
+  assert.equal(parseLayout('40/60 no-spine with-spine').rule, true);
+  assert.equal(parseLayout('40/60 no-spine').rule, false);
 });

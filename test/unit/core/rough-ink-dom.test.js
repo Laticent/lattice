@@ -14,7 +14,7 @@
  * failure anywhere else:
  *
  *   · THE ENROLLMENT GATE. A structure is inked only if the cascade gave it a
- *     `--rough-ink-stroke`. That is what keeps `rule-none` from sprouting a
+ *     `--rough-ink-stroke`. That is what keeps `no-heading-rule` from sprouting a
  *     heading rule and what stops every agenda row from inking when only the
  *     active one should.
  *   · THE MARKUP SHAPE. `paintRoughInk` is a runtime markup sink (HARD RULE

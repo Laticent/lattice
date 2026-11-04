@@ -132,7 +132,7 @@ callout: off
 `@callout{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
 ```
 
-- renders `callout-off`
+- renders `no-callout`
 - renders `Dip: Pricing change`
 - omits `legend--anchored`
 - omits `<code>@callout`

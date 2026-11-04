@@ -411,6 +411,11 @@ block (and the duplicated runtime tags, which had always duplicated), the reader
 takes the LAST block and removes them all, and the emitted deck carries a generated
 comment plus a README section saying front-matter edits need a re-export.
 
+> **RESOLVED 2026-11-03** (`2026-11-03-marp-bundle-live-front-matter.md`): the snapshot is gone.
+> Lattice's keys now live in ONE settings block under the front matter, which every host renders
+> live — including Marp for VS Code, which runs none of our code. The paragraph below is the state
+> this note left.
+
 The deeper tension is real and is not "fixed": the front matter now lives in two
 places, and the snapshot is authoritative for every key Marp doesn't consume. The
 alternative that would eliminate it — strip the Lattice-only keys from the visible

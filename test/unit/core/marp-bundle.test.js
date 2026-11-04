@@ -135,10 +135,8 @@ describe('marp-bundle spec', () => {
       + '<script src="mermaid-v11-min.js"></script>\n'
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
-      // A deck with no front matter gains `paginate: true` on the way to Marp, which numbers nothing by default
-      // (lib/core/marp-bundle-scope.js), and the snapshot records the front matter the bundle carries.
-      + '<!-- Lattice: generated snapshot of the front matter above. Edit the front matter AND re-export — editing it alone will not change this. -->\n'
-      + '<script type="application/lattice-front-matter">"paginate: true"</script>\n'
+      // No copy of the front matter rides in the trailer any more: the deck's Lattice settings live in ONE
+      // place, the settings block under the front matter (lib/core/settings-block.js).
       + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
     );
   });
@@ -217,7 +215,7 @@ describe('marp-bundle spec', () => {
   // newcomer depends on, in the words VS Code itself shows.
   test('readme walks VS Code step by step, in the order that works', () => {
     const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css', 'themes/indaco.css'] });
-    const steps = ['**Open this folder.**', '**Trust the folder.**', '**Install Marp for VS Code.**', '**Open the deck.**', '**Open the preview.**', '**Let the deck draw its diagrams and charts.**', '**Export.**'];
+    const steps = ['**Open this folder.**', '**Trust the folder.**', '**Install Marp for VS Code.**', '**Open the deck.**', '**Open the preview.**', "**Turn on the deck's scripts (required).**", '**Export.**'];
     let at = -1;
     for (const step of steps) {
       const i = r.indexOf(step);

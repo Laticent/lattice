@@ -58,7 +58,7 @@ const BUNDLE = path.join(ROOT, 'dist', 'lattice.css');
  * it over costs nothing:
  *   `var(--bg)`  — the deck ground itself, which is what `section.dark` paints.
  *                  `image`, `scene`, `print` and `chart-frame` do exactly this.
- *   `none`       — a REMOVAL (`finish-none`, `backdrop-none` clear a texture).
+ *   `none`       — a REMOVAL (`no-finish`, `no-backdrop` clear a texture).
  *                  Treating it as a painter would demand an exemption that, by
  *                  keeping the rule off those frames, would leave them with the
  *                  deck-wide spectrum hairline they are not trying to drop.

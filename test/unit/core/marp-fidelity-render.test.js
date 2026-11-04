@@ -670,6 +670,46 @@ const PROBES = {
     probe: (doc) => [...doc.querySelectorAll('section')].map((sec) => cls(sec)),
   },
 
+  // THE SWITCH PRECEDENCE (lib/core/switches.mjs): a deck-wide `no-X` reaches every slide, a slide's
+  // `with-X` beats it and `silent`, and `silent` turns off the bands it covers. The probe reads only
+  // switch tokens, so the comparison is about the settle and not about the rest of the class list.
+  switchSettle: {
+    min: 3,
+    section: 'content with-progress silent',
+    body: '## Title\n\nBody.',
+    deck: ['---', 'theme: indaco', 'class: no-progress no-pagination', '---', '', '<!-- _class: content with-progress silent -->', '', '## Title', '', 'Body.'].join('\n'),
+    frontMatter: ['---', 'theme: indaco', 'class: no-progress no-pagination', '---', '', '## Title', '', 'Body.', ''].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('section')].flatMap((sec) =>
+      [...sec.classList].filter((c) => /^(no|with)-|^silent$/.test(c)).sort()),
+  },
+
+  // THE HEADING PERIOD in a Marp render (svg-wrapped slides, where the runtime applies it): a deck
+  // `no-period` strips, one slide's `with-period` adds. Two rows, one deck, one probe each.
+  stripHeadingPeriods: {
+    min: 2,
+    section: 'content',
+    body: '## Stripped.',
+    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- _class: content -->', '', '## Stripped.', '', '### Sub *head.*', '',
+      '---', '', '<!-- _class: content with-period -->', '', '## Added'].join('\n'),
+    frontMatter: ['---', 'theme: indaco', 'class: no-period', '---', '', '## Stripped.', ''].join('\n'),
+    markup: [
+      `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${marpShaped('content', '## Stripped.\n\n### Sub *head.*')}</foreignObject></svg>`,
+      `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${marpShaped('content with-period', '## Added')}</foreignObject></svg>`,
+    ].join(''),
+    probe: (doc) => [...doc.querySelectorAll('h2, h3')].map((h) => h.textContent.trim()),
+    minMatch: /[^.]$/,
+  },
+  'addHeadingPeriods': {
+    min: 1,
+    section: 'content with-period',
+    body: '## Added',
+    deck: ['---', 'theme: indaco', 'class: no-period', '---', '', '<!-- _class: content with-period -->', '', '## Added', '', '## Asked?'].join('\n'),
+    frontMatter: ['---', 'theme: indaco', 'class: no-period', '---', '', '## Added', ''].join('\n'),
+    markup: `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${marpShaped('content with-period', '## Added\n\n## Asked?')}</foreignObject></svg>`,
+    probe: (doc) => [...doc.querySelectorAll('h2')].map((h) => h.textContent.trim()),
+    minMatch: /\.$/,
+  },
+
   defaultComponent: {
     min: 1,
     section: '',

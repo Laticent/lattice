@@ -57,12 +57,12 @@ Use when two components make one point together: a chart and what it means, befo
 
 ## Variants (component-specific)
 
-### `no-rule` — no rule
+### `no-spine` — no rule
 
 Drops the spine between the panes.
 
 ```markdown
-<!-- _class: columns ratio-45-55 no-rule -->
+<!-- _class: columns ratio-45-55 no-spine -->
 
 `Support · after the migration`
 

@@ -1,6 +1,6 @@
 # Treatment Library
 
-`tint-*` and `mark-*` classes apply peripheral atmospheric accents to slides — 12 tints (gradient washes) and 11 marks (SVG accent shapes), plus a `treatment-none` reset. They are loaded automatically — no imports, no theme switching. Add a class name to any `<!-- _class: -->` directive alongside the layout class.
+`tint-*` and `mark-*` classes apply peripheral atmospheric accents to slides — 12 tints (gradient washes) and 11 marks (SVG accent shapes), plus a `no-treatment` reset. They are loaded automatically — no imports, no theme switching. Add a class name to any `<!-- _class: -->` directive alongside the layout class.
 
 > These are **color** treatments. Categorical **texture** — the non-color `<pattern>` channel that lets monochrome/CVD/print decks tell categories apart (`--cat-N-texture`) — is a separate mechanism documented in `engineering/textures.md`.
 
@@ -33,7 +33,7 @@ The deck-class propagator merges every token (treatment + placement) into every 
 
 **Override one slide back to clean:**
 ```markdown
-<!-- _class: content treatment-none -->
+<!-- _class: content no-treatment -->
 ```
 
 **Layered (one radial-slot + one linear-slot + one mark):**
@@ -149,7 +149,7 @@ Visibility pass (2026-10-11): brackets, threads, ticks, seeds and asterisks grew
 
 | Class | Effect |
 |---|---|
-| `treatment-none` | Clears a deck-wide treatment on this slide |
+| `no-treatment` | Clears a deck-wide treatment on this slide |
 
 ---
 

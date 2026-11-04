@@ -106,3 +106,14 @@ test('a line with two comments, or a comment and text, is numbered as the engine
     assert.deepEqual(pages(deck), engine(deck), line);
   }
 });
+
+test('a deck-wide class: reaches every slide, and a slide own class adds to it instead of replacing it', () => {
+  // Before 2026-11-04 a slide's `_class:` replaced the deck's `class:` here, so `class: no-pagination` numbered
+  // every slide that named a layout, while the engine (which adds the two) numbered none of them.
+  const deck = '---\nclass: no-pagination\n---\n\n# Plain\n\n---\n\n<!-- _class: content -->\n\n# Own\n\n---\n\n<!-- _class: content with-pagination -->\n\n# Back\n\n---\n\n<!-- class: cards-grid -->\n\n# Running\n';
+  assert.deepEqual(pages(deck), [false, false, true, false]);
+  // The same deck through the engine: which sections carry a page number.
+  const html = render(deck).html;
+  const numbered = [...html.matchAll(/<section\b[^>]*>/g)].map((m) => /data-lattice-pagination="\d+"/.test(m[0]) && !/\bno-pagination\b/.test(m[0]));
+  assert.deepEqual(numbered, [false, false, true, false], 'the engine agrees');
+});

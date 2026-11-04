@@ -447,7 +447,7 @@ categories:
 | Category | Variants |
 |---|---|
 | Mood (1) | `dark` |
-| Decoration (6) | `treatment-none`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
+| Decoration (6) | `no-treatment`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
 | Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
 | Chrome (5) | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
 | Social (1) | `safe` |
@@ -489,18 +489,23 @@ per-slide (`<!-- _class: no-footer -->`). Each chrome element also has a
 deck-wide control in the front-matter, so an author can set the baseline once
 and opt individual slides out:
 
-| Element | Per-slide token | Deck-wide (front-matter) | Default |
+| Element | Per-slide | Deck-wide (front matter) | Default |
 |---|---|---|---|
-| Running header | `no-header` | `header: "…"` (text present) | off |
-| Running footer | `no-footer` | `footer: "…"` (text present) | off |
-| Page number | `no-pagination` | `paginate: true` | on (Form) |
-| Section rail | `no-progress` | `class: no-progress` (propagated) | on (Form) |
+| Running header | `no-header` · `with-header` | `header: "…"` (text present), or `class: no-header` | off |
+| Running footer | `no-footer` · `with-footer` | `footer: "…"` (text present), or `class: no-footer` | off |
+| Page number | `no-pagination` · `with-pagination` | `paginate: false`, or `class: no-pagination` | on (Form) |
+| Section rail | `no-progress` · `with-progress` | `class: no-progress` | on (Form) |
+| Deck logo | `no-logo` · `with-logo` | `logo:` (present), or `class: no-logo` | on when `logo:` is set |
 
-Header / footer / pagination ride native Marp directives; the rail has no native
-directive, so its deck-wide off-switch is the `no-progress` class propagated to
-every slide. `silent` bundles header + footer + pagination off for a single
-slide. The full matrix — and the Studio controls that emit it — is in the
-authoring guide (`docs/src/content/docs/guides/authoring.md`).
+Every one is a SWITCH (lib/core/switches.mjs): `no-X` turns the band off, `with-X`
+brings it back on one slide. A deck-wide `class:` reaches every slide, including
+one that names its own `_class` (the slide's classes ADD to the deck's, never
+replace them), and the slide's `with-X` wins over the deck's `no-X`. `silent`
+turns the header, footer, page number and rail off together for one slide; each
+`with-X` beats it too, so a clean slide can keep its page number with
+`<!-- _class: content silent with-pagination -->`. The full list of switches,
+chrome and beyond, is `lib/base/base.docs.md` § Switches; the Studio controls
+that emit them are in the authoring guide (`docs/src/content/docs/guides/authoring.md`).
 
 **Tier 2 — Semi-universal.** Apply to most layouts but
 not all. Manifests opt OUT via `excludes`; default is accepted. (`excludes` now
@@ -555,7 +560,7 @@ slide it changes:
 | slide | `dark`, `light`, `silent`, `no-*`, state stamps, `tone-*`, brand bar, tints, frame, `scale-*` | every component |
 | heading | `rule-*`, `head-*`, `with-period` / `no-period` | a slot selects an h1–h6, or the sample writes one |
 | eyebrow | `eyebrow-*` | the sample opens a block with a lone inline-code line |
-| table | `table-plain`, `table-fill`, `state-cells`, `row-label` | a slot selects a table, or the sample writes one |
+| table | `table-plain`, `table-fill`, `state-cells`, `with-row-label` | a slot selects a table, or the sample writes one |
 | card-row | `cards-*` | the manifest declares a `cards` composition |
 | card-surface | `lifted`, `flat` | the stylesheet reads `--elevation-card` |
 | card-rail | `spectrum-card-*` | named in the card-rail paint rule |
@@ -577,10 +582,10 @@ surfaces it probes. A component it has not measured yet falls back to the
 derivation.
 
 **`spectrum` — does this component carry the spectrum bar?** A manifest field, absent or `true` by
-default. `false` means the component has no spectrum: the engine gives its slides `spectrum-off` and
-`spectrum-edge-off` and drops any spectrum class the author set, so no placement or deck register can draw a
+default. `false` means the component has no spectrum: the engine gives its slides `no-spectrum` and
+`no-spectrum-edge` and drops any spectrum class the author set, so no placement or deck register can draw a
 bar on it or move its content. `accent` and `tone-edge` are per-slide choices and still draw their top stripe.
-A style pin never overrides `spectrum-off`: a de-branded deck stays de-branded. A style name (`on`, `solid`, `duo`, `mono`) pins that style instead; the placement stays
+A style pin never overrides `no-spectrum`: a de-branded deck stays de-branded. A style name (`on`, `solid`, `duo`, `mono`) pins that style instead; the placement stays
 the author's. The manifest never says how a bar is drawn (border or overlay): that follows the layout's
 shape and lives in the engine (`lib/core/bleed-frames.js`). Generated into
 `lib/core/spectrum-catalog.generated.js` (`npm run stage-catalog:build`); applied by

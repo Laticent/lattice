@@ -115,6 +115,64 @@ test('the engine passes the bundle\'s own trailing blocks byte for byte, and not
   }
 });
 
+// The baked front-matter copy is a SECOND source of truth: a recipient who edits the YAML at the top and renders
+// again used to get the export's settings (engineering/decisions/2026-11-03-marp-bundle-live-front-matter.md).
+// With the engine in the loop, the trailer carries the front matter this parse actually read.
+test('the engine writes the LIVE front matter into the trailer, replacing the baked copy', () => {
+  const { engine } = load();
+  const rules = [];
+  const md = {
+    core: { ruler: { push: (_name, fn) => rules.push(fn) } },
+    renderer: { rules: { html_block: () => 'SANITIZED' } },
+  };
+  engine({ marp: { use(p) { p(md); return this; } } });
+  assert.equal(rules.length, 1);
+  const parse = (tokens, inlineMode = false) => rules[0]({ tokens, inlineMode });
+  const render = (content) => md.renderer.rules.html_block([{ content }], 0, {}, {}, {});
+  const baked = '<script type="application/lattice-front-matter">"theme: indaco"</script>';
+  const settings = '<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>';
+  const own = '</title></svg></svg></math></iframe>';
+
+  // The deck now says `class: no-progress`; the baked copy (export time) did not.
+  parse([{ type: 'front_matter', meta: 'theme: indaco\nclass: no-progress <x>' }]);
+  // An inline parse (a header or footer) carries no front matter and must not clear the deck's.
+  parse([], true);
+  assert.equal(render(`${baked}\n`), '', 'the baked copy is dropped');
+  assert.equal(render(`${settings}\n`),
+    `${own}<script type="application/lattice-front-matter">"theme: indaco\\nclass: no-progress \\u003cx>"</script>\n${settings}\n`,
+    'the live copy is written beside the settings line, with "<" escaped so it cannot close its element');
+
+  // A deck whose front matter was deleted writes an EMPTY copy, so a stale one cannot outlive it.
+  parse([{ type: 'paragraph_open' }]);
+  assert.equal(render(`${settings}\n`), `${own}<script type="application/lattice-front-matter">""</script>\n${settings}\n`);
+
+  // An author block that ran on into the trailer keeps its own content and loses only the baked line.
+  parse([{ type: 'front_matter', meta: 'marp: true' }]);
+  const tokens = [{ content: `<pre>\ncode\n${baked}\n` }];
+  assert.equal(md.renderer.rules.html_block(tokens, 0), 'SANITIZED');
+  assert.match(tokens[0].content, /front-matter/, 'the token is restored after the call');
+});
+
+test('the settings block passes as an escaped data block, never as the markup a person typed', () => {
+  const { engine } = load();
+  const md = { core: { ruler: { push() {} } }, renderer: { rules: { html_block: () => 'SANITIZED' } } };
+  engine({ marp: { use(p) { p(md); return this; } } });
+  const render = (content) => md.renderer.rules.html_block([{ content }], 0, {}, {}, {});
+  assert.equal(render('<script type="application/lattice-settings">\nclass: no-progress\nmeta: "a < b"\n</script>\n'),
+    '<script type="application/lattice-settings">"class: no-progress\\nmeta: \\"a \\u003c b\\""</script>\n');
+  // Anything that only resembles it — markup after the close, a different type — goes to the allowlist.
+  assert.equal(render('<script type="application/lattice-settings">\nx: 1\n</script><img src=x onerror=y>\n'), 'SANITIZED');
+  assert.equal(render('<script type="application/lattice-setting">\nx: 1\n</script>\n'), 'SANITIZED');
+});
+
+test('a host whose markdown-it cannot take the rule keeps the baked copy byte for byte', () => {
+  const { engine } = load();
+  const md = { core: { ruler: { push() { throw new Error('no ruler'); } } }, renderer: { rules: { html_block: () => 'S' } } };
+  engine({ marp: { use(p) { p(md); return this; } } });
+  const baked = '<script type="application/lattice-front-matter">"theme: indaco"</script>\n';
+  assert.equal(md.renderer.rules.html_block([{ content: baked }], 0), `</title></svg></svg></math></iframe>${baked}`);
+});
+
 test('an author block that swallowed a runtime line (an unclosed <pre>) is sanitized; the runtime line still passes', () => {
   const { engine } = load();
   const seen = [];

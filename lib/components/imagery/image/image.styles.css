@@ -96,7 +96,7 @@ section.image > footer { display: none; }
  * very END of the bundle, so an equally-specific selector LOSES on source order. Written
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
-section.image.image[data-img-composition="statement"]:not(.with-pagination)::after { content: none; }
+section.image.image[data-img-composition="statement"]:not(.with-pagination):where(:not(* > .lat-never))::after { content: none; }
 /* The same suppression on the REAL element. Since #2206 the page number is one mark on
  * every frame — a `<span class="lat-pagination">` the pagination Tile injects
  * (lib/forms/tile/pagination) — and the pseudo above is retired wherever it exists. So
@@ -714,7 +714,7 @@ section.image[data-img-composition="statement"]:not([data-orientation="portrait"
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) {
   --_divider-v: var(--spectrum-structure);
 }
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).spectrum-trim { --_divider-v: var(--spectrum-bar-vertical); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).with-spectrum-trim { --_divider-v: var(--spectrum-bar-vertical); }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).spectrum-trim-restrained { --_divider-v: var(--sp-fill-mono-v); }
 
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text h2 { position: relative; --_line-gap: var(--sp-md); }
@@ -729,10 +729,10 @@ section.image:is([data-img-composition="spotlight"], [data-img-composition="stat
 }
 section.image[data-img-composition="spotlight"].card-sm .image-text h2 { --_line-gap: var(--sp-xs); }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text h2::after,
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).rule-none .image-text h2::after {
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).no-heading-rule .image-text h2::after {
   content: none;
 }
-section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band:not(.rule-none) .image-text:has(> h2):has(> :not(h2))::after {
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band:not(.no-heading-rule) .image-text:has(> h2):has(> :not(h2))::after {
   content: "";
   position: absolute;
   pointer-events: none;

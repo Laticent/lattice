@@ -55,12 +55,12 @@ Use when two wide components make one point together: progress over the table be
 
 ## Variants (component-specific)
 
-### `no-rule` — no rule
+### `no-spine` — no rule
 
 Drops the rule between the panes.
 
 ```markdown
-<!-- _class: rows ratio-35-65 no-rule -->
+<!-- _class: rows ratio-35-65 no-spine -->
 
 ## Three regions carried the quarter.
 

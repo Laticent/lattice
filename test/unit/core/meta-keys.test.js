@@ -104,7 +104,15 @@ describe('a sixth hand-kept key list fails', () => {
   // (`marp|theme|paginate|header|footer|size|venue|class|acronyms|color-mode|profile|…`). That is a
   // different vocabulary: deck front-matter keys, most of them registers and none of them comment
   // directives. It is not the slide-comment list this guard exists to keep single.
-  const SANCTIONED = { 'lib/authoring/lint-core.js': 'front-matter keys that make no claim about rows, not the comment vocabulary' };
+  const SANCTIONED = {
+    'lib/authoring/lint-core.js': 'front-matter keys that make no claim about rows, not the comment vocabulary',
+    // MARP_FRONT_MATTER_KEYS: the FRONT-MATTER keys Marp itself consumes, which stay on top of an exported
+    // bundle while Lattice's move into the settings block. Several (`title`, `math`, `headingDivider`,
+    // `transition`) are not slide-comment directives at all, and adding them to the registry would make
+    // them known comment keys. Pinned against the registry instead by
+    // test/unit/core/deck-front-matter-settings.test.js, so a Marp key added there cannot be missed.
+    'lib/export/bundle-front-matter.js': 'the front-matter keys Marp consumes in an exported bundle, not the comment vocabulary',
+  };
   const hasList = (text) => RUN.test(text) || ALT.test(text);
 
   test('the detector sees a list, and does not see a catalog row or a CSS read', () => {

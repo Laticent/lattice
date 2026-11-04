@@ -123,6 +123,22 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));
   });
 
+  // The owner's rule (2026-11-03): a deck-wide `class: no-progress` reaches every slide, and a slide
+  // overrides it with an explicit token. The deck class is ON every slide, so the override has to win.
+  test('`with-progress` opts a slide back in, over a deck-wide `no-progress` and over `silent`', () => {
+    const html = deckHtml([
+      sec('divider no-progress', '<h2>S</h2>'),
+      sec('content form no-progress'),
+      sec('content form no-progress with-progress'),
+      sec('content form silent with-progress'),
+    ]);
+    assert.equal((progress.applyToHtml(html).match(/class="tile-progress"/g) || []).length, 2);
+    const d = doc(html);
+    progress.applyToDom(d);
+    assert.equal(d.querySelectorAll('.tile-progress').length, 2, 'the live-DOM path agrees');
+    assert.equal(progress.railShown({ contains: (t) => ['no-progress', 'with-progress'].includes(t) }), true);
+  });
+
   test('idempotent', () => {
     const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form')]);
     const once = progress.applyToHtml(html);
@@ -170,6 +186,22 @@ describe('progress Tile — applyToDom (live-DOM path)', () => {
     progress.applyToDom(d2);
     progress.applyToDom(d2);
     assert.equal(d2.querySelectorAll('.tile-progress').length, 2);
+  });
+
+  // A deck-wide `no-progress` can land AFTER the first pass (a re-rendered deck's settings are
+  // resolved again; the VS Code preview reads the saved file asynchronously). A rail injected before
+  // it must go with it, and come back when the class does.
+  test('reconciles: a slide that gains `no-progress` loses its rail, and gets it back when the class goes', () => {
+    const d = doc(deck);
+    progress.applyToDom(d);
+    const first = d.querySelectorAll('section')[1];
+    assert.ok(first.querySelector('.tile-progress'));
+    first.classList.add('no-progress');
+    progress.applyToDom(d);
+    assert.equal(first.querySelector('.tile-progress'), null);
+    first.classList.remove('no-progress');
+    progress.applyToDom(d);
+    assert.ok(first.querySelector('.tile-progress'));
   });
 
   test('null document → no throw', () => {

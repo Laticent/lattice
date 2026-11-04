@@ -23,6 +23,9 @@ const {
   FRONT_MATTER_TYPE, BLOCK_NOTE, readFrontMatterBlock, frontMatterBlock,
   withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter,
 } = require('../../../lib/core/deck-front-matter');
+const { SETTINGS_TYPE, readSettingsBlock } = require('../../../lib/core/settings-block');
+const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold');
+const { foldSettingsBlockCompact } = require('../../../lib/export/bundle-front-matter');
 const { withRuntimeScripts } = require('../../../lib/export/marp-bundle');
 
 const DECK = ['---', 'marp: true', 'theme: indaco', 'color-mode: dark', 'logo: assets/mark.svg', '---', '', '# A', ''].join('\n');
@@ -131,22 +134,30 @@ describe('deck front matter — the snapshot cannot go stale in duplicate', () =
   // Re-exporting a bundle's own deck is ordinary (edit what a recipient sent back,
   // re-export). It used to stack a SECOND block, and the reader took the FIRST —
   // so a re-export was read through the stalest snapshot in the file.
-  test('re-baking replaces the block rather than stacking a second', () => {
+  test('re-exporting a bundle is byte-identical: one settings block, no baked copy', () => {
     const once = withRuntimeScripts(DECK);
     const twice = withRuntimeScripts(once);
-    assert.equal(once, twice, 'the second bake is byte-identical');
-    assert.equal((twice.match(new RegExp(FRONT_MATTER_TYPE, 'g')) || []).length, 1);
+    assert.equal(once, twice, 'the second export is byte-identical');
+    assert.equal((twice.match(new RegExp(SETTINGS_TYPE, 'g')) || []).length, 1);
+    assert.equal((twice.match(new RegExp(FRONT_MATTER_TYPE, 'g')) || []).length, 0, 'the trailer carries no second copy');
     // …and the runtime tags too, which were also duplicating.
     assert.equal((twice.match(/lattice-runtime-min\.js/g) || []).length, 1);
   });
 
-  test('a deck whose front matter CHANGED re-bakes to the new value', () => {
+  test('an edit to the settings block survives a re-export, with no trace of the old value', () => {
     const first = withRuntimeScripts(DECK);
     const edited = first.replace('color-mode: dark', 'color-mode: light');
     const doc = new JSDOM(`<section>${withRuntimeScripts(edited)}</section>`).window.document;
-    const fm = readBakedFrontMatter(doc);
+    const fm = readSettingsBlock(doc);
     assert.match(fm, /color-mode: light/);
-    assert.doesNotMatch(fm, /color-mode: dark/, 'no trace of the previous snapshot');
+    assert.doesNotMatch(fm, /color-mode: dark/);
+  });
+
+  test('a re-export of an OLDER bundle drops its baked trailer copy', () => {
+    const old = `${DECK}<script type="${FRONT_MATTER_TYPE}">"theme: indaco\\ncolor-mode: dark"</script>\n`;
+    const out = withRuntimeScripts(old);
+    assert.equal((out.match(new RegExp(FRONT_MATTER_TYPE, 'g')) || []).length, 0);
+    assert.match(out, /color-mode: dark/, 'the deck\'s own front matter is kept');
   });
 
   test('when a document somehow holds two blocks, the LAST wins and both go', () => {
@@ -199,21 +210,40 @@ describe('deck front matter — a producer that cannot carry local files', () =>
 });
 
 describe('deck front matter — the export bundle carries it', () => {
-  test('withRuntimeScripts appends the block after the runtime tags', () => {
+  test('Marp keys stay on top, Lattice keys move into the settings block under it', () => {
     const out = withRuntimeScripts(DECK);
+    // The one addition on top is `paginate: true`: Lattice numbers by default and Marp does not, so the Marp
+    // bridge says so (lib/core/marp-bundle-scope.js).
+    assert.ok(out.startsWith([
+      '---', 'marp: true', 'theme: indaco', 'paginate: true', '---',
+      `<script type="${SETTINGS_TYPE}">`, 'color-mode: dark', 'logo: assets/mark.svg', '</script>', '', '# A',
+    ].join('\n')), out.slice(0, 200));
     assert.match(out, /<script src="lattice-runtime-min\.js"><\/script>/);
-    assert.match(out, new RegExp(`<script type="${FRONT_MATTER_TYPE}">.*</script>\\n$`, 's'));
-    // The deck's own body and front matter lead. The one addition is `paginate: true`: Lattice
-    // numbers by default and Marp does not, so the Marp bridge says so (lib/core/marp-bundle-scope.js).
-    assert.ok(out.startsWith(DECK.replace('\n---\n\n# A', '\npaginate: true\n---\n\n# A').replace(/\s*$/, '')), 'the deck source leads, plus paginate: true');
     // A deck that already says, either way, is left as written.
     const off = DECK.replace('theme: indaco', 'theme: indaco\npaginate: false');
-    assert.ok(withRuntimeScripts(off).startsWith(off.replace(/\s*$/, '')), 'an explicit paginate: is kept');
+    assert.match(withRuntimeScripts(off), /^---\nmarp: true\ntheme: indaco\npaginate: false\n---\n/);
   });
 
-  test('a front-matter-less deck gets the scripts and a front matter that numbers it, as Lattice does', () => {
+  test('a front-matter-less deck gets marp: true and a front matter that numbers it, as Lattice does', () => {
     const out = withRuntimeScripts('# A\n');
     assert.match(out, /lattice-runtime-min\.js/);
-    assert.ok(out.startsWith('---\npaginate: true\n---\n\n# A'));
+    assert.ok(out.startsWith('---\nmarp: true\npaginate: true\n---\n\n# A'), out.slice(0, 80));
+  });
+
+  test('a deck with front matter but no marp: true gets it — VS Code opens nothing else as slides', () => {
+    assert.match(withRuntimeScripts('---\ntheme: indaco\n---\n# A\n'), /^---\nmarp: true\ntheme: indaco\n/);
+  });
+
+  test('folding the bundle back gives Lattice the deck it exported, at the same line numbers', () => {
+    const out = withRuntimeScripts(DECK);
+    const folded = foldSettingsBlock(out);
+    const fm = readFrontMatterBlock(folded);
+    for (const k of ['marp: true', 'theme: indaco', 'paginate: true', 'color-mode: dark', 'logo: assets/mark.svg']) {
+      assert.match(fm, new RegExp(`^${k}$`, 'm'), k);
+      assert.equal(folded.split('\n').indexOf(k), out.split('\n').indexOf(k), `${k} keeps its line`);
+    }
+    assert.equal(folded.split('\n').indexOf('# A'), out.split('\n').indexOf('# A'), 'the first slide keeps its line');
+    assert.equal(foldSettingsBlockCompact(out).split('\n').slice(0, 7).join('\n'),
+      '---\nmarp: true\ntheme: indaco\npaginate: true\ncolor-mode: dark\nlogo: assets/mark.svg\n---', 'the compact form, for re-export');
   });
 });

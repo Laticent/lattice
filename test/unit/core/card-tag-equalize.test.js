@@ -11,7 +11,7 @@
  *      read as tall as the tallest — which made the first cut add, then remove, its own shim;
  *   3. a second run writes nothing (the runtime calls it from an observer that watches style);
  *   4. a tag that is not boxed (an `axis` label) or not laid out (a hidden slide) is left alone;
- *   5. a tag with no visible box (`tag-none`) is not centered in an invisible taller box, so
+ *   5. a tag with no visible box (`tag-bare`) is not centered in an invisible taller box, so
  *      its first line stays in line with its neighbors'.
  *
  * The same kernel runs on the real surface in both paths; examples/card-tags.pdf is the artifact.
@@ -120,9 +120,9 @@ test('the export injects the same function it exports', () => {
   assert.ok(fromSrc(doc) > 0, 'the serialized source closes over nothing');
 });
 
-test('tag-none: bare text stays top-aligned, and the section still reserves the tallest', () => {
+test('tag-bare: bare text stays top-aligned, and the section still reserves the tallest', () => {
   const lines = { BUILD: 1, 'A LONG LABEL THAT WRAPS': 2 };
-  const doc = page(decision('tag-none', Object.keys(lines)), (el) =>
+  const doc = page(decision('tag-bare', Object.keys(lines)), (el) =>
     content(120, 14.98 * lines[el.textContent], { backgroundColor: 'rgba(0, 0, 0, 0)' }));
   equalizeCardTags(doc);
   const lis = [...doc.querySelectorAll('section > .cell-stage > ul > li')];

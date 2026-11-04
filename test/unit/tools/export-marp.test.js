@@ -135,23 +135,19 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.doesNotMatch(latticeEngine.createEngine().render(deck).html, /lattice-bg/);
   });
 
-  test('deck carries the BAKED front matter, with the deck-wide registers', () => {
+  test('deck carries Marp\'s keys on top and the deck-wide registers in ONE settings block under it', () => {
     const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
-    // Parsed through a real HTML parser rather than a tag-shaped regex: the trailer
-    // now holds TWO data blocks (the front-matter snapshot and this export's own
-    // settings), and an end-anchored regex silently spanned both.
     const doc = new JSDOM(`<body>${baked}</body>`).window.document;
-    const el = doc.querySelector('script[type="application/lattice-front-matter"]');
-    assert.ok(el, 'the deck carries a baked front-matter block');
-    const fm = JSON.parse(el.textContent);
-    assert.match(fm, /^marp: true$/m);
-    assert.match(fm, /^theme: indaco$/m);
-    // It is the EXPORTED front matter, so it states the baked split mode.
-    assert.match(fm, /^split: rule$/m);
-    // …and it does NOT carry the export's own settings. They are a different kind
-    // of thing — the producer's choices, not the author's deck — so they ride in
-    // their own block (lib/core/export-settings.js).
-    assert.doesNotMatch(fm, /overflow-marker/);
+    // One home per key (lib/core/deck-front-matter.js): no second copy in the trailer to go stale.
+    assert.equal(doc.querySelector('script[type="application/lattice-front-matter"]'), null, 'no baked trailer copy');
+    assert.match(baked, /^---\nmarp: true\ntheme: indaco\n/);
+    const el = doc.querySelector('script[type="application/lattice-settings"]');
+    assert.ok(el, 'the deck carries a settings block');
+    // It is the EXPORTED front matter, so it states the baked split mode — a Lattice key, so in the block.
+    assert.match(el.textContent, /^split: rule$/m);
+    assert.doesNotMatch(el.textContent, /^theme:/m, 'a key Marp reads stays on top');
+    // …and it does NOT carry the export's own settings: the producer's choices ride in their own block.
+    assert.doesNotMatch(el.textContent, /overflow-marker/);
     assert.ok(doc.querySelector('script[type="application/lattice-export-settings"]'),
       'the export-settings block is there too, separately');
   });

@@ -193,7 +193,7 @@ const VARIANT_DECL_IGNORE = new Map([
   // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
   // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
   // seventeen identical gallery slides.
-  ['image', new Set(['left', 'rule-none', 'spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
+  ['image', new Set(['left', 'no-heading-rule', 'with-spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -8422,7 +8422,7 @@ const SANCTIONED_PURITY_HITS = [
     name: 'fetch',
     count: 2,
     justification:
-      'the runtime fetches the deck\u2019s OWN markdown (`mdUrl`, same document) to read front matter, in the viewer\u2019s page; the `typeof fetch` guard and the call are the two uses. No stored data or key reaches it (note \u00a74, checked 2026-10-16).',
+      'the runtime fetches the deck\u2019s OWN markdown to read front matter, in the viewer\u2019s page: the `.md` beside an `.html` (`mdUrl`), or, in VS Code\u2019s Markdown preview, the deck file the preview\u2019s own base URL names, re-read while the preview is visible because a save does not re-render it (`readDeckText`, engineering/decisions/2026-11-03-marp-bundle-live-front-matter.md). The `typeof fetch` guard and the one call in `readDeckText` are the two uses. No stored data or key reaches it (note \u00a74, checked 2026-10-16).',
   },
 ];
 

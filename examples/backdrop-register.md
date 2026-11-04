@@ -65,9 +65,9 @@ This slide opts out of both deck values: full strength, no mask. The glow and gr
 
 ---
 
-<!-- _class: divider finish-none -->
+<!-- _class: divider no-finish -->
 
-`finish-none`
+`no-finish`
 
 ## An opted-out slide stays clean.
 

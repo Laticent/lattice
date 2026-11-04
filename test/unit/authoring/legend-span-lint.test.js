@@ -55,13 +55,13 @@ test('the component is any class word on the slide, not only the first', () => {
   assert.deepEqual(findLegendSpans(src), []);
 });
 
-test('a callout the author switched off gets one info note, and callout-on on the slide wins', () => {
+test('a callout the author switched off gets one info note, and with-callout on the slide wins', () => {
   const off = heatmap('@callout{{Peak, for=0}}').replace('marp: true', 'marp: true\ncallout: off');
   const [f] = findLegendSpans(off);
   assert.equal(f.rule, 'legend-off');
   assert.equal(f.severity, 'info');
-  assert.deepEqual(findLegendSpans(off.replace('_class: heatmap', '_class: heatmap callout-on')), []);
-  assert.equal(findLegendSpans(heatmap('@callout{{Peak, for=0}}').replace('_class: heatmap', '_class: heatmap callout-off'))[0].rule, 'legend-off');
+  assert.deepEqual(findLegendSpans(off.replace('_class: heatmap', '_class: heatmap with-callout')), []);
+  assert.equal(findLegendSpans(heatmap('@callout{{Peak, for=0}}').replace('_class: heatmap', '_class: heatmap no-callout'))[0].rule, 'legend-off');
 });
 
 test('the deck switch reads as the render reads it, and the off note only where a component reads legends', () => {
@@ -72,7 +72,7 @@ test('the deck switch reads as the render reads it, and the off note only where 
   assert.deepEqual(findLegendSpans(withFm('pptx:\n  callout: off')), []);
   // No reader on the slide: the span shows as code whatever the switch says, so the warning stands.
   assert.equal(findLegendSpans(withFm('callout: off', 'lead'))[0].rule, 'legend-span');
-  assert.equal(findLegendSpans(withFm('', 'lead callout-off'))[0].rule, 'legend-span');
+  assert.equal(findLegendSpans(withFm('', 'lead no-callout'))[0].rule, 'legend-span');
 });
 
 test('row= and col= are the taught form: a clean pair says nothing, a half or a double target is told', () => {

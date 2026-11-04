@@ -115,12 +115,12 @@ describe('the split: @callout is a callout, @legend is the key (2026-10-20-callo
   });
   test('callouts are off by the callout switches, and the pre-split legend ones are not read', () => {
     assert.equal(calloutsOff(), false);
-    assert.equal(calloutsOff({ tokens: ['callout-off'] }), true);
+    assert.equal(calloutsOff({ tokens: ['no-callout'] }), true);
     assert.equal(calloutsOff({ pluginsOff: ['callout'] }), true);
     assert.equal(calloutsOff({ pluginsOff: ['math'] }), false);
     assert.equal(calloutsOff({ frontMatter: 'callout: off' }), true);
     assert.equal(calloutsOff({ frontMatter: 'callout: on' }), false);
-    assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'callout: off' }), false);
+    assert.equal(calloutsOff({ tokens: ['with-callout'], frontMatter: 'callout: off' }), false);
     // Dropped with the owner's ruling (decision note § 2): the pre-split switches do nothing now.
     assert.equal(calloutsOff({ tokens: ['legend-off'] }), false);
     assert.equal(calloutsOff({ frontMatter: 'legend: off' }), false);

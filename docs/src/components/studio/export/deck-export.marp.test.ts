@@ -248,19 +248,31 @@ describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () 
 		expect(md).toContain('logo: assets/logo-acme-mark.svg');
 	});
 
-	it('keeps the fetched logo in the baked front matter, and still drops a relative one', async () => {
+	// The deck's Lattice settings ride in ONE settings block under the front matter
+	// (lib/core/settings-block.js). The block is asserted to EXIST first: slicing from a marker
+	// that is absent read as "nothing there", which let the second half pass vacuously.
+	const settingsOf = (md: string) => {
+		const at = md.indexOf('<script type="application/lattice-settings">');
+		expect(at).toBeGreaterThanOrEqual(0);
+		return md.slice(at, md.indexOf('</script>', at));
+	};
+
+	it('keeps the fetched logo in the settings block, and still drops a relative one', async () => {
 		const PG = (window as unknown as { LatticePlayground: { marp: Record<string, unknown> } }).LatticePlayground;
 		PG.marp.withRuntimeScriptsReport = withRuntimeScriptsReport;
 		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
 		const md = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
-		const baked = md.slice(md.indexOf('application/lattice-front-matter'));
-		expect(baked).toContain('logo: assets/logo-acme-mark.svg');
+		expect(settingsOf(md)).toContain('logo: assets/logo-acme-mark.svg');
 		expect(md).not.toContain('sample:logo-acme-mark.svg');
+		expect(md).not.toContain('application/lattice-front-matter');
 
 		blobs = [];
 		await exportMarp(DECK.replace('sample:logo-acme-mark.svg', 'brand/mark.svg'), 'deck', 'indaco', BASE, { includeAgent: false });
 		const md2 = (await (await bundle()).file('deck/deck.md')?.async('string')) ?? '';
-		expect(md2.slice(md2.indexOf('application/lattice-front-matter'))).not.toContain('logo:');
+		// Its only Lattice key was the dropped logo, so it carries no block at all — and no `logo:` line
+		// anywhere, which is the whole-document check (not a slice that could be empty).
+		expect(md2).toMatch(/^marp: true$/m);
+		expect(md2).not.toMatch(/^logo:/m);
 	});
 });
 

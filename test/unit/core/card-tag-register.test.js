@@ -38,19 +38,19 @@ const classesOf = (fm, body) => {
 test('kernel: words sort onto four axes; order and case do not matter', () => {
   assert.deepEqual(cardTagClasses('plain large'), ['tag-plain', 'tag-large']);
   assert.deepEqual(cardTagClasses('center band plain'), ['tag-plain', 'tag-band', 'tag-center']);
-  assert.deepEqual(cardTagClasses('Foot, END small none'), ['tag-none', 'tag-small', 'tag-foot', 'tag-end']);
+  assert.deepEqual(cardTagClasses('Foot, END small bare'), ['tag-bare', 'tag-small', 'tag-foot', 'tag-end']);
   assert.deepEqual(cardTagClasses('notch'), ['tag-notch']);
   assert.deepEqual(cardTagClasses('inline start'), ['tag-inline', 'tag-start']);
   assert.deepEqual(cardTagClasses('Large, PLAIN'), ['tag-plain', 'tag-large']);
   assert.deepEqual(cardTagClasses('small'), ['tag-small']);
-  assert.deepEqual(cardTagClasses('none'), ['tag-none']);
+  assert.deepEqual(cardTagClasses('bare'), ['tag-bare']);
 });
 
 test('kernel: unknown words stamp nothing; a second word on a filled axis is dropped', () => {
-  const p = parseCardTag('plain none band foot huge');
+  const p = parseCardTag('plain bare band foot huge');
   assert.equal(p.color, 'plain');
   assert.equal(p.placement, 'band');
-  assert.deepEqual(p.duplicate, ['none', 'foot']);
+  assert.deepEqual(p.duplicate, ['bare', 'foot']);
   assert.deepEqual(p.unknown, ['huge']);
   assert.deepEqual(cardTagClasses('side'), [], 'no side placement (owner decision Q5)');
   assert.deepEqual(cardTagClasses(''), []);
@@ -106,10 +106,10 @@ test('engine: a slide\'s own banner-tag is its placement, so a deck placement wo
 test('lint: an unknown word and a doubled axis warn; a clean value is silent', () => {
   const found = (fm) => lintText(deck(fm)).filter((f) => f.rule === 'unknown-tag');
   assert.equal(found(['tag: plain large']).length, 0);
-  assert.equal(found(['tag: "none small" # quiet']).length, 0);
+  assert.equal(found(['tag: "bare small" # quiet']).length, 0);
   assert.equal(found(['tag: band center plain large']).length, 0, 'placement and alignment are shipped words');
   assert.equal(found(['tag: huge']).length, 1);
-  assert.equal(found(['tag: plain none']).length, 1);
+  assert.equal(found(['tag: plain bare']).length, 1);
   const twoPlaces = found(['tag: foot notch']);
   assert.equal(twoPlaces.length, 1);
   assert.match(twoPlaces[0].message, /two placement values/);
@@ -138,8 +138,8 @@ test('css: the register re-points tokens only, and sets the pair on the tag itse
   assert.match(plain[1], /li > strong:first-child/);
   assert.match(plain[2], /--card-tag-fill:\s*var\(--bg\)/);
   assert.match(plain[2], /--card-tag-ink:\s*var\(--text-body\)/);
-  const none = css.match(/((?:section\.tag-none[^{,]*,\s*)+section\.tag-none[^{]*)\{([^}]*)\}/);
-  assert.ok(none, 'a tag-none rule exists');
+  const none = css.match(/((?:section\.tag-bare[^{,]*,\s*)+section\.tag-bare[^{]*)\{([^}]*)\}/);
+  assert.ok(none, 'a tag-bare rule exists');
   assert.match(none[2], /--card-tag-fill:\s*transparent/);
   assert.match(none[2], /--card-tag-ink:\s*var\(--text-secondary\)/);
 });
@@ -152,7 +152,7 @@ test('lint: a comment-only value is silent (tag: and backdrop: alike)', () => {
 test('lint: two words on one axis on a slide conflict; one word per axis is clean', () => {
   const conflicts = (cls) => lintText(`---\ntheme: indaco\n---\n\n<!-- _class: cards-grid ${cls} -->\n\n## A\n\n1. B\n   - c\n`)
     .filter((f) => f.rule === 'conflicting-variants').map((f) => f.classToken);
-  assert.deepEqual(conflicts('tag-plain tag-none'), ['tag-none']);
+  assert.deepEqual(conflicts('tag-plain tag-bare'), ['tag-bare']);
   assert.deepEqual(conflicts('tag-small tag-large'), ['tag-large']);
   assert.deepEqual(conflicts('tag-plain tag-large'), []);
   assert.deepEqual(conflicts('tag-foot tag-notch'), ['tag-notch']);
@@ -221,12 +221,12 @@ function renderRuntimeBaked(deckSource, markup) {
 
 test('runtime: stamps the tokens from a baked block, and evicts per axis', async () => {
   const markup = '<section class="content"><h2>One</h2></section>'
-    + '<section class="content tag-none tag-foot"><h2>Two</h2></section>';
+    + '<section class="content tag-bare tag-foot"><h2>Two</h2></section>';
   const on = await renderRuntimeBaked(deck(['tag: plain large band center']), markup);
   const off = await renderRuntimeBaked(deck([]), markup);
   const [a, b] = [...on.querySelectorAll('section')].map((s) => s.className.split(/\s+/));
   assert.ok(a.includes('tag-plain') && a.includes('tag-large'), a.join(' '));
-  assert.ok(b.includes('tag-none') && !b.includes('tag-plain') && b.includes('tag-large'), b.join(' '));
+  assert.ok(b.includes('tag-bare') && !b.includes('tag-plain') && b.includes('tag-large'), b.join(' '));
   assert.ok(a.includes('tag-band') && a.includes('tag-center'), a.join(' '));
   assert.ok(b.includes('tag-foot') && !b.includes('tag-band') && b.includes('tag-center'), b.join(' '));
   const offCls = [...off.querySelectorAll('section')].map((s) => s.className).join(' | ');
@@ -324,4 +324,10 @@ test('kernel and lint agree on a YAML flow list', () => {
   assert.deepEqual(cardTagClasses('[plain, large]'), ['tag-plain', 'tag-large']);
   const found = lintText(deck(['tag: [plain, large]'])).filter((f) => f.rule === 'unknown-tag');
   assert.deepEqual(found, []);
+});
+
+test('lint: the retired `tag: none` is flagged with a fix to `bare`', () => {
+  const found = lintText(deck(['tag: none small'])).filter((f) => f.rule === 'unknown-tag');
+  assert.equal(found.length, 1);
+  assert.match(found[0].message, /bare/);
 });

@@ -68,7 +68,7 @@
  * (per-layer placement modifiers) also match harmlessly — they set no
  * slot values so the compositor renders `none, none` if they're alone.
  */
-section:where([class*="tint-"], [class*="mark-"], [class~="backdrop-none"]) {
+section:where([class*="tint-"], [class*="mark-"], [class~="no-backdrop"]) {
   background-image: var(--_bg-radial, none), var(--_bg-linear, none);
 }
 
@@ -541,7 +541,10 @@ section.mark-asterisks::before {
           mask: var(--m) center / contain no-repeat;
 }
 
-section.mark-asterisks::after {
+/* The `:where(…)` suffix keeps Marp's pagination mask off this rule (lib/base/base.variants.css
+ * explains it). In Marp, `section::after` is also the page number, so a `mark-asterisks` slide
+ * draws its second cluster there instead of a page number: the owner's call (PR #3023). */
+section.mark-asterisks:where(:not(* > .lat-never))::after {
   content: '';
   position: absolute;
   bottom: calc(5.8cqi + var(--_hold-b)); left: calc(4.6cqi + var(--_hold-l));
@@ -618,7 +621,7 @@ section.mark-chevron::before {
  * Per-slide opt-out when a treatment is set deck-wide and one slide
  * needs a clean surface (full-bleed image, neutral chart page, TOC).
  */
-section.treatment-none {
+section.no-treatment {
   --_bg-radial: none;
   --_bg-linear: none;
 }

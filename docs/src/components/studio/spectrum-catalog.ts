@@ -9,7 +9,7 @@
 // test/unit/parsing/resolve-spectrum.test.js.
 //
 // The spectrum STYLE is authored deck-wide via the `spectrum:` front-matter register or
-// per-slide via `_class: spectrum-solid` / `spectrum-duo` / `spectrum-mono` / `spectrum-off`.
+// per-slide via `_class: spectrum-solid` / `spectrum-duo` / `spectrum-mono` / `no-spectrum`.
 // The orthogonal `spectrum-edge:` PLACEMENT register (top/left/right/bottom/off) is not a
 // STYLE and is not cataloged here.
 

@@ -20,7 +20,7 @@ import { parseDeckMotion } from './anima-host-sel';
 // stays canonical. The two answer different questions — "ship the bundle?" vs "mount this
 // section?" — so they cannot be the same function, which is exactly why they need a gate.
 //
-// PLAY IS THE SOLE SWITCH: style/speed tokens are parameters, `motion-off` is the opt-out.
+// PLAY IS THE SOLE SWITCH: style/speed tokens are parameters, `no-motion` is the opt-out.
 
 const deck = (fm: string, cls = 'funnel') => `---\nmarp: true\ntheme: indaco\n${fm}---\n\n<!-- _class: ${cls} -->\n\n## F\n\n- A \`1\`\n`;
 const rendered = (cls: string) => `<section class="${cls} form chart-frame"><svg><polygon data-anima-role="bar"/></svg></section>`;
@@ -46,8 +46,8 @@ describe('deck-level Play agrees with parseDeckMotion', () => {
 
 describe('per-slide Play tokens', () => {
 	// The runtime's own list, restated as data so a change to one side shows up here.
-	const OPTS_IN = ['motion-on', 'chart-anima'];
-	const DOES_NOT = ['motion-build', 'motion-together', 'motion-rise', 'motion-slow', 'motion-fast', 'motion-off'];
+	const OPTS_IN = ['with-motion', 'chart-anima'];
+	const DOES_NOT = ['motion-build', 'motion-together', 'motion-rise', 'motion-slow', 'motion-fast', 'no-motion'];
 
 	for (const cls of OPTS_IN) {
 		it(`${cls} opts a class-less deck in`, () => {
@@ -67,9 +67,9 @@ describe('per-slide Play tokens', () => {
 describe('a deck that only DOCUMENTS the tokens does not ship a player', () => {
 	it('ignores a fenced code block', () => {
 		// Markdown escapes `<` to `&lt;` inside a fence, so the rendered HTML never carries a
-		// real `<section class="… motion-on">` — the check keys on the element tag for exactly
+		// real `<section class="… with-motion">` — the check keys on the element tag for exactly
 		// this reason.
-		const docHtml = '<pre><code>&lt;!-- _class: funnel motion-on --&gt;</code></pre>';
+		const docHtml = '<pre><code>&lt;!-- _class: funnel with-motion --&gt;</code></pre>';
 		expect(deckAnimatesCharts(deck(''), docHtml)).toBe(false);
 	});
 });

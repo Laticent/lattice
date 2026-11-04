@@ -53,7 +53,7 @@ function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 // Names a saved finish must NOT shadow: every shipped preset + the other
 // `finish:`-register / engine reserved words. A saved finish that resolved to one
 // of these would collide with a built-in `section.finish-<name>` rule (or the
-// `finish-preview` specimen / `finish-none` opt-out) — so we namespace it instead.
+// `finish-preview` specimen / `no-finish` opt-out) — so we namespace it instead.
 //
 // THE HARM, because it is not cosmetic. `StudioShell` injects a saved finish's CSS
 // whenever a deck's `finish:` matches its name, and the saved rule is

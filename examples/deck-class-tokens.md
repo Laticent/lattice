@@ -8,7 +8,7 @@ finish: atrium
 class: no-note
 ---
 
-<!-- _class: title finish-none -->
+<!-- _class: title no-finish -->
 <!-- _header: '' -->
 
 # A deck-wide token reaches every slide
@@ -100,7 +100,7 @@ This slide always worked. The point of the fix is that the slide above it now lo
 
 ---
 
-<!-- _class: closing finish-none -->
+<!-- _class: closing no-finish -->
 <!-- _header: '' -->
 
 `Where The Fix Lives`

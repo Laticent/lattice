@@ -77,7 +77,7 @@ footer: "Pane layouts — columns and rows"
 
 ---
 
-<!-- _class: columns ratio-45-55 no-rule -->
+<!-- _class: columns ratio-45-55 no-spine -->
 
 `Field report · Lisbon`
 

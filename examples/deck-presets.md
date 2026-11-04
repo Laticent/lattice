@@ -74,7 +74,7 @@ Every other line has at least 15% headroom. Line 3 has six, and the Q4 forecast 
 
 ---
 
-<!-- _class: cards-grid three finish-strata head-center spectrum-solid spectrum-card spectrum-trim rule-accent eyebrow-dot lifted -->
+<!-- _class: cards-grid three finish-strata head-center spectrum-solid with-spectrum-card with-spectrum-trim rule-accent eyebrow-dot lifted -->
 
 `Brand-forward · a card slide`
 
