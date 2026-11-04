@@ -893,7 +893,7 @@ narrow layout:
 
 | Kind | Narrow layout |
 |---|---|
-| A record list (each row is one thing: a person, a file, a risk) | each row becomes a card — the first cell is its title, every other cell a `LABEL value` line |
+| A record list (each row is one thing: a person, a file, a risk) | each row becomes a card — the first cell is its title, every other cell a `LABEL value` line, the values aligned in one column; a label longer than 10 characters sits above its value instead |
 | A two-column table (a label and its value) | each label moves above its value |
 | Any other kind (a table read across rows and down columns) | keeps the table, for now |
 

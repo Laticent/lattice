@@ -293,3 +293,59 @@ test('glossary and math derivation carry their own narrow rule, which respects a
   // The mobile strip rule stacks as it always did: a hold must not undo it.
   assert.ok(!/\[data-family="strip"\]\) table:not\(\.lat-reflow-held\)/.test(gl), 'the strip arms ignore a hold');
 });
+
+// ── card lines: the label column and the alignment move ─────────────────────
+
+test('labelColumn sizes a card label column from the longest label, past the title column', () => {
+  const { labelColumn } = require('../../../lib/core/table-shape.js');
+  assert.equal(labelColumn(['A very long title column', 'Holds', 'Budget']), 's');
+  assert.equal(labelColumn(['Regime', 'Notice', 'Retention']), 'm');
+  assert.equal(labelColumn(['Row', 'Reads', 'At the ceiling']), 'stack');
+});
+
+test('splitAlign takes markdown\'s text-align out of a style and keeps the rest', () => {
+  const { splitAlign } = require('../../../lib/core/table-shape.js');
+  assert.deepEqual(splitAlign('text-align:center'), { align: 'center', rest: '' });
+  assert.deepEqual(splitAlign('color: red; text-align: right'), { align: 'right', rest: 'color: red' });
+  assert.deepEqual(splitAlign(null), { align: null, rest: '' });
+});
+
+const ALIGNED = ['---', 'theme: indaco', '---', '', '## T', '',
+  '| Regime | Notice | Retention |', '|---|:---:|---:|', '| GDPR | yes | no |', '| CCPA | no | yes |', '| LGPD | yes | yes |'].join('\n');
+
+test('a card table carries its label column and data-lat-align instead of an inline text-align, on both paths', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const doc = new JSDOM(createEngine().render(ALIGNED).html).window.document;
+  const t = doc.querySelector('table');
+  assert.equal(t.getAttribute('data-lat-labels'), 'm');
+  const cells = [...t.querySelectorAll('tbody tr:first-child td')];
+  assert.deepEqual(cells.map((c) => c.getAttribute('data-lat-align')), [null, 'center', 'right']);
+  assert.ok(cells.every((c) => !/text-align/.test(c.getAttribute('style') || '')), 'no inline text-align is left');
+  // The mirror, on the HTML a Marp render writes (markdown-it's inline style, nothing judged).
+  const m = new JSDOM('<section><table><thead><tr><th>Regime</th><th style="text-align:center">Notice</th><th style="text-align:right">Retention</th></tr></thead><tbody>'
+    + '<tr><td>GDPR</td><td style="text-align:center">yes</td><td style="text-align:right">no</td></tr>'
+    + '<tr><td>CCPA</td><td style="text-align:center">no</td><td style="text-align:right">yes</td></tr>'
+    + '<tr><td>LGPD</td><td style="text-align:center">yes</td><td style="text-align:right">yes</td></tr></tbody></table></section>').window.document;
+  applyToDom(m);
+  const mt = m.querySelector('table');
+  assert.equal(mt.getAttribute('data-lat-reflow'), 'cards');
+  assert.equal(mt.getAttribute('data-lat-labels'), 'm');
+  assert.deepEqual([...mt.querySelectorAll('tbody tr:first-child td')].map((c) => c.getAttribute('data-lat-align')), [null, 'center', 'right']);
+  assert.ok(![...mt.querySelectorAll('td, th')].some((c) => c.hasAttribute('style')));
+});
+
+test('a table that keeps its shape keeps markdown\'s inline alignment untouched', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const deck = ALIGNED.replace('## T', '<!-- _class: no-table-reflow -->\n\n## T');
+  const doc = new JSDOM(createEngine().render(deck).html).window.document;
+  const td = doc.querySelectorAll('tbody tr:first-child td')[1];
+  assert.match(td.getAttribute('style') || '', /text-align:\s*center/);
+  assert.equal(td.getAttribute('data-lat-align'), null);
+});
+
+test('the card-line sheet names only real label buckets, and aligns every bucket the kernel can return', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'lib/base/base.table-reflow.css'), 'utf8');
+  const named = new Set([...css.matchAll(/data-lat-labels="([^"]*)"/g)].map((m) => m[1]));
+  assert.deepEqual([...named].sort(), ['s', 'stack'], 'm is the default width, so only s and stack are named');
+  for (const a of ['left', 'center', 'right']) assert.ok(css.includes(`[data-lat-align="${a}"] { text-align: ${a}; }`), a);
+});

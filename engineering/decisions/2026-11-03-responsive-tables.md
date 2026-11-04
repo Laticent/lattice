@@ -173,6 +173,30 @@ center` on a cell, which the card would have kept, so each card line is a flex i
 flex-start` with `text-align: start`. That fixes a value on one line; a value long enough to wrap
 keeps the inline centering on its wrapped lines, as every line did before.
 
+## A card line is a two-cell row
+
+The owner's review of the 360px sheets (2026-11-04) found three kinds of jank inside the cards:
+values started wherever their label ended, so the ticks of an obligation-matrix card sat at a
+different x on every line; a long label broke mid-label; and a `:---:` column centered its wrapped
+lines, so a pill dropped below its label and centered. The owner picked an aligned label column.
+
+- **The line is a table.** Each card cell is `display: table`, its label (`::before`) a
+  `table-cell` of a fixed width, and CSS's table fixup wraps everything after the label, text and
+  inline markup alike, in ONE anonymous cell. So the value stays whole, starts at the same x on
+  every line of every card, and wraps under itself. A span around the value would have done the
+  same, but 35 JS readers and 20 CSS rules (obligation-matrix's `td > .state`, `heat`'s
+  `td:has(> .state)`) address a cell's children directly; the anonymous cell changes no DOM.
+- **The label column is sized from the longest label**, because the label font is mono and a
+  character count is a width: lib/core/table-shape.js `labelColumn` stamps `data-lat-labels`, `s`
+  (up to 6 characters) or the 10-character default. Past 10 characters the table puts each label
+  above its value (`stack`): a 14-character column starved the value into mid-word breaks.
+  `table-layout: fixed` holds the label column to that width; in auto layout it grew.
+- **Markdown's alignment moves off the inline style.** An inline `text-align` outranks every
+  stylesheet rule, so on a table that reflows the engine and the DOM mirror move it to
+  `data-lat-align` (`splitAlign`). base.table-reflow.css applies it in table form at (0,2,5), above
+  every component rule that aligns these cells, and the card form drops it. A table that keeps its
+  shape keeps its inline style.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
