@@ -135,7 +135,7 @@ is in this PR. The ❓ decision card on the PR carries the options.
 | Claim | Surface | Artifact |
 |---|---|---|
 | Photo probe fix works at phone width | Playwright WebKit, iPhone 15 Pro shape, forced parked path | self-test PASS (local log) |
-| Photo probe fix works in Mobile Safari | iOS Simulator, `ios-safari-photo` dispatched on this branch | linked on the PR |
-| Windows tests still pass and now name a hang | `export-confine-windows`, dispatched on this branch | linked on the PR |
+| Photo probe fix works in Mobile Safari | iOS 26.5 Simulator, iPad Pro 13-inch (1032 px) and iPhone 17 Pro (402 px) | run 41932405960, job 126932562744: both PASS, 11 of 11 steps each. One run shows the change works there; it cannot show the race is gone, which failed 1 night in 15 |
+| Windows tests still pass and now name a hang | `export-confine-windows` on windows-latest | run 41932405960, job 126932562807: PASS |
 | Narrated player, back-gesture, library spec | local Chromium / WebKit | counts in §3 |
 | strip-keyboard fix closes its race | none reproduced it | **UNVERIFIED** |
