@@ -289,7 +289,7 @@ export function marksProvenance(chunk: string, source: string): Provenance {
 }
 export function setMarks(chunk: string, name: string | null): string {
 	// An old `chart-finish-*` token goes first, so the slide never carries both spellings.
-	return setOverride(setOverride(chunk, LEGACY_MARKS_PREFIX, MARKS_VALUES, null), 'marks-', MARKS_VALUES, name);
+	return setOverride(setOverride(chunk, 'marks', LEGACY_MARKS_PREFIX, MARKS_VALUES, null), 'marks', 'marks-', MARKS_VALUES, name);
 }
 
 const EYEBROW_VALUES = ['plain', 'dot', 'bar', 'arrow', 'underline'];
