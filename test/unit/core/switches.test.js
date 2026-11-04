@@ -44,6 +44,14 @@ test('settleSwitches leaves at most one token per switch, expands silent, and is
 });
 
 test('retired spellings map to their replacement, and the map has no entry that is still current', () => {
+  // The full table, pinned pair by pair (the module builds it from patterns to save lint-core bytes).
+  assert.deepEqual(RETIRED_SWITCHES, {
+    'callout-off': 'no-callout', 'callout-on': 'with-callout', 'motion-off': 'no-motion', 'motion-on': 'with-motion',
+    'spectrum-off': 'no-spectrum', 'spectrum-on': 'with-spectrum', 'spectrum-edge-off': 'no-spectrum-edge',
+    'spectrum-card-off': 'no-spectrum-card', 'spectrum-card': 'with-spectrum-card', 'spectrum-trim-off': 'no-spectrum-trim',
+    'spectrum-trim': 'with-spectrum-trim', 'row-label': 'with-row-label', 'no-rule': 'no-spine', 'rule-none': 'no-heading-rule',
+    'treatment-none': 'no-treatment', 'finish-none': 'no-finish', 'backdrop-none': 'no-backdrop', 'tag-none': 'tag-bare',
+  });
   assert.equal(retiredSwitch('callout-off'), 'no-callout');
   assert.equal(retiredSwitch('no-rule'), 'no-spine');
   assert.equal(retiredSwitch('rule-none'), 'no-heading-rule');
