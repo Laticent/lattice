@@ -128,7 +128,11 @@ An independent checker reviewed the diff and confirmed five defects; all are fix
   (`no-header`, `no-footer`) reached those; now the class lives in the block, which only the runtime
   reads, so at Strict it reaches none. Measured in VS Code 1.144.1 / Marp for VS Code 3.6.1 at Strict:
   slide-level switches and page numbers (baked `_paginate`) are right; deck-wide CSS switches do not
-  apply. The owner's call on whether to also mirror `class:` at the top is recorded in the PR.
+  apply. **Owner's ruling (2026-11-04): Lattice requires the Strict level off** — at Strict nothing
+  Lattice draws works as expected, so the bundle keeps ONE home for `class:` (the block) and the
+  README's step 6 says the setting is required. Mirroring `class:` at the top (two homes; a removal
+  from the block would not take) and baking it into every slide (live edits stop working) were
+  declined.
 - VS Code in **Restricted Mode** prints raw HTML as text, which now includes the settings block on
   slide 1 (it already printed the runtime tags on the last slide). The README's step 2 (trust the
   folder) is the remedy, as before.

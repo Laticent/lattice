@@ -215,7 +215,7 @@ describe('marp-bundle spec', () => {
   // newcomer depends on, in the words VS Code itself shows.
   test('readme walks VS Code step by step, in the order that works', () => {
     const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css', 'themes/indaco.css'] });
-    const steps = ['**Open this folder.**', '**Trust the folder.**', '**Install Marp for VS Code.**', '**Open the deck.**', '**Open the preview.**', '**Let the deck draw its diagrams and charts.**', '**Export.**'];
+    const steps = ['**Open this folder.**', '**Trust the folder.**', '**Install Marp for VS Code.**', '**Open the deck.**', '**Open the preview.**', "**Turn on the deck's scripts (required).**", '**Export.**'];
     let at = -1;
     for (const step of steps) {
       const i = r.indexOf(step);
