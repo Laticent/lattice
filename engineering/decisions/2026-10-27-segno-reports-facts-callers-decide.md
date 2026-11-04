@@ -791,6 +791,44 @@ export, left the picture out and, for a local file, shipped its path.
   `docs/route-budget.d/3024-p3-url-arg.md`.
 
 
+### R4: the four census readers (2026-11-04)
+
+The inversion review of #3024 named four readers no census counted (`followups.d/3024-p2-…`). One moved; the other three
+have their exclusion written, with the reason, for the security spine's S3 census gate to sanction.
+
+- **`svg-intake.ts`, moved.** Paste intake strips every attribute that would fetch from somewhere else. It tested that with
+  `url\(\s*['"]?\s*(?:scheme:)?//` on any attribute, and `^\s*(?:scheme:)?//` on an `href`. It now asks remote-ref.js:
+  `attrIsRemote(tag, name, value)` (the policy table's fetch attributes, and any CSS value read by `cssRefSpans`), plus
+  `isRemoteUrl` on an `href`, because `attrIsRemote` treats an `<a href>` as a link and intake strips that too. The
+  Studio already loads remote-ref.js at startup, so the move costs no bytes.
+
+  The oracle cuts the web-reference fuzz's CSS inputs (seed 7, 3,000 inputs) into 7,769 declarations. It sets each one on
+  an SVG `<rect>` in a real page, as a `style` and as a `fill`, and counts requests at a loopback server, rechecking each
+  candidate alone on a fresh page:
+
+  | Engine | Values the browser fetched | Let through by the old patterns | Let through by `attrIsRemote` |
+  |---|---|---|---|
+  | Chromium 153 | 806 | 284 | 0 |
+  | WebKit 26 | 728 | 208 | 0 |
+  | Firefox 142 | 585 | 170 | 0 |
+
+  The new test strips everything the old one stripped, in each engine. Over the 31,374 attributes of the 358 SVG files in
+  the tree, the two agree on every one. The old patterns' misses are the escape and whitespace spellings: `u\72l(`, a
+  form feed or tab before `url(`, `\68\74tp:` for `http:`, and escaped slashes in a quoted address
+  (`url( "http:\/\/…" )`). That made a pasted drawing a beacon from the Studio's origin, which paints the shelf and
+  ships in every exported copy. A bad url token (`url(/**/"//x")`) fetched in no engine, and both tests keep it.
+
+- **`css-scan.js` `findAddressStrings` and `door-attr.mjs` `cssRefTargets`, excluded for now.** Both decide a refusal
+  (the theme, layout and package gates; the code door), and both read a channel `cssRefSpans` does not report: an
+  address-shaped string in a custom property or an `@property` `initial-value`, which an `image-set(var(…))` elsewhere
+  fetches, and for the door any string inside a function. Moving them means the reader reports the declaration each
+  span sits in. That is new state in a security reader, so it gets its own differential against these two walkers and
+  the trio, which makes it work for its own change. No bypass is known in either (#3024's review).
+- **`slide-camera.mjs` `CSS_URL` / `REL_URL`, excluded for now.** They choose which pictures a picture export inlines
+  and make relative `url()`s absolute. That is not a refusal, and the known miss (`u\72l(`) costs a missing picture,
+  not a leak. Moving them changes export bytes for those spellings, so the move ships with a dark and a light render of
+  a representative deck for the owner's sign-off (CLAUDE.md, Quality Bar).
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.

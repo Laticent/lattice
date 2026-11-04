@@ -59,6 +59,7 @@
 
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
+import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { PROCESSED_ATTR } from './instance';
 import { ART_MAX_BYTES, ART_WARN_BYTES } from './limits';
 
@@ -89,9 +90,19 @@ const NET_NEW_STRIPS = new Set(['image', 'animatetransform', 'animatemotion', 'f
  *  attribute "is not a fetch vector browsers honor cross-document". That is not true in Chromium
  *  131, and this is the file that has to act on it: the harm is exactly the one the `<image>` strip
  *  names — a beacon that fires from the Studio's own origin every time the shelf paints, and that
- *  bakes into every exported copy of the deck a recipient opens. */
-const EXTERNAL_URL_RE = /url\(\s*['"]?\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
-const EXTERNAL_HREF_RE = /^\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+ *  bakes into every exported copy of the deck a recipient opens.
+ *
+ *  READ BY THE SCANNER'S OWN TESTS, not a pattern of this file's (security spine, Segno census; followups.d/3024).
+ *  `attrIsRemote` asks the policy table which attributes fetch and reads any CSS value with `cssRefSpans`, so an
+ *  escaped `u\72l(`, an entity-free `url( "…" )` with a comment or a control character in it, and an `image-set()`
+ *  string are each an address here as they are to the browser. The two regexes this replaced
+ *  (`url\(\s*['"]?\s*(?:scheme:)?//` and `^\s*(?:scheme:)?//`) missed those: on the web-reference fuzz's
+ *  declarations, set on an SVG `<rect>` in a real page, 284 values Chromium fetched and 208 WebKit fetched passed
+ *  them, and none pass these. The only values the old patterns stripped and these keep are ones that fetch nothing:
+ *  a `data:` address, a `url(` inside a CSS string, a bad url token. `href` keeps its own test because `attrIsRemote` treats an `<a href>` as a link, and
+ *  intake strips any off-origin `href` all the same. */
+const isOffOrigin = (tag: string, name: string, value: string): boolean =>
+	((name === 'href' || name === 'xlink:href') && remoteRef.isRemoteUrl(value)) || remoteRef.attrIsRemote(tag, name, value);
 
 /** Attributes that can carry a `url(#id)` reference we must rewrite when we namespace. */
 const REF_ATTRS = ['fill', 'stroke', 'clip-path', 'mask', 'filter', 'marker', 'marker-start', 'marker-mid', 'marker-end', 'style'];
@@ -724,8 +735,7 @@ export function intake(raw: string): IntakeResult {
 		for (const name of el.getAttributeNames()) {
 			const val = el.getAttribute(name);
 			if (!val) continue;
-			const isHref = name === 'href' || name === 'xlink:href';
-			if ((isHref && EXTERNAL_HREF_RE.test(val)) || EXTERNAL_URL_RE.test(val)) {
+			if (isOffOrigin(t, name.toLowerCase(), val)) {
 				el.removeAttribute(name);
 				receipt.removed.offOrigin++;
 			}

@@ -436,6 +436,37 @@ describe('the red-team findings, each pinned so it cannot come back', () => {
 		expect(r.receipt.removed.offOrigin).toBeGreaterThan(0);
 	});
 
+	it('closes the spellings a pattern missed: an escaped url(, escaped slashes in a quoted address, an image-set string', () => {
+		// Each fetched in real Chromium and WebKit when set on an SVG element (the web-reference fuzz, followups.d/3024).
+		// They are read by the scanner's own CSS reader now, so a spelling the browser decodes is one intake decodes.
+		const r = intake(
+			svgOf(
+				'<rect id="a" width="9" height="9" style="fill:u\\72l(https://evil.example/a)" stroke="var(--accent)"/>' +
+					'<rect id="b" x="20" width="9" height="9" style="mask:url( &quot;http:\\/\\/evil.example/b&quot; )" stroke="var(--accent)"/>' +
+					'<rect id="c" x="40" width="9" height="9" style="background-image:image-set(&quot;https://evil.example/c&quot; 1x)" stroke="var(--accent)"/>' +
+					'<rect id="d" x="60" width="9" height="9" fill="url(HTTP://evil.example/d)" stroke="var(--accent)"/>',
+			),
+		);
+		if (!r.ok) throw new Error(r.message);
+		expect(r.art).not.toContain('evil.example');
+		expect(r.receipt.removed.offOrigin).toBeGreaterThanOrEqual(4);
+	});
+
+	it('keeps a bad url() token, which the browser never fetches: a quote after a comment inside an unquoted url', () => {
+		// `url(/**/"//x")` is one unquoted url token holding a quote, so it is a bad url (CSS Syntax 3). Measured
+		// 2026-11-04 on an SVG <rect>: Chromium 153, WebKit 26 and Firefox 142 each fetched nothing for it, while each
+		// fetched `url( "http:\/\/x" )` above. The reader keeps it, as the browser does.
+		const r = intake(svgOf('<rect id="a" width="9" height="9" style="mask:url(/**/&quot;//evil.example/b&quot;)" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.receipt.removed.offOrigin).toBe(0);
+	});
+
+	it('keeps what never leaves the document: url(#…), a data: picture fill', () => {
+		const r = intake(svgOf('<defs><linearGradient id="g"><stop offset="0"/></linearGradient></defs><rect id="a" width="9" height="9" fill="url(#g)" stroke="var(--accent)"/><rect id="b" x="20" width="9" height="9" style="fill:url(data:image/png;base64,AAAA)" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.receipt.removed.offOrigin).toBe(0);
+	});
+
 	it('keeps an INTERNAL url(#…) reference, which is the whole point of namespacing them', () => {
 		const r = intake(svgOf('<defs><linearGradient id="g"><stop offset="0"/></linearGradient></defs><rect id="a" width="9" height="9" fill="url(#g)" stroke="var(--accent)"/>'));
 		if (!r.ok) throw new Error(r.message);
