@@ -926,6 +926,17 @@ and story@hall, the shared cards (which switch below 20em) left the lane's oblig
 "HEAD… OBLI…" with the clip badge at square@hall, while its own 34em cards read at every size. So on
 the rebase the lane stays out of every shared layout, PR 3031's new ones included, and keeps one rule.
 
+**A card's text past its own border fails the verdict (2026-11-04).** `actors` and `checklist` let a row
+shrink below its content (`min-height: 0`, so a dense roster compresses rather than clips). Under
+`fit: pack` that let the measured split put four actors rows on a square@hall page and six checklist
+rows on a portrait@conference one: each row's last line ran across its border into the next, and
+the frame probe saw nothing cut, so the page "fit". `readable()` now fails a text line whose bottom
+passes the bottom edge of its nearest block ancestor with a border or a fill (a card), stopping at a
+positioned box, whose label may hang outside on purpose. Text only, so a connector drawn below a card
+does not count. Scored old against new over 237 renders (79 galleries at square@hall,
+portrait@conference and story@hall): 7 slides flip, the 3 actors and 4 checklist pages, all real; the
+two decks then split to 19 and 21 pages with no failing page.
+
 **Split before hold.** PR 3021 holds a table or card row in its wide form when the narrow one would
 overflow its slide. The CLI runs the measured split before that hold, so a narrow form that
 overflows is split onto pages it fits, and the hold acts only where nothing can split the slide.
