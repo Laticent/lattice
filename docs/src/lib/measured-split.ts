@@ -189,6 +189,7 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 				return r;
 			},
 			verify: async () => inFrame<Record<string, number>>(frame, `(${fitMeasure.OVERFLOW_BY_SLIDE_SRC})(${PROBE_ARGS})`) ?? {},
+			foldable: async () => inFrame<string[]>(frame, `(${fitMeasure.FOLDABLE_SRC})((${PREVIEW_SLIDES_SRC}))`) ?? [],
 		});
 		// The last measured split, readable from the host page: what the frame measured and what the
 		// kernel planned. The e2e specs read it; it holds numbers only, no deck text.

@@ -113,6 +113,18 @@ section.cards-stack.horizontal .cards-stack-inner {
   flex-direction: row;
   align-items: stretch;
 }
+/* TEXT ROOM (2026-10-28-fit-everywhere-model.md §13, §16): a row of cards leaves each one a slice
+ * of the line, which crams below the medium threshold (three cards across a portrait page read a
+ * few words a line). Under 34em, about 68 characters a line, `horizontal` stacks as the default
+ * does. Same selectors as the row rule above, so it wins on source order; a 16:9 box never reaches
+ * the threshold. */
+@container lattice (width < 34em) {
+  section.cards-stack.horizontal > .cell-stage > ul,
+  section.cards-stack.horizontal > .cell-stage > ol,
+  section.cards-stack.horizontal .cards-stack-inner {
+    flex-direction: column;
+  }
+}
 
 
 /* ── compact ──

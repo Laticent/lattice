@@ -133,3 +133,32 @@ test('an item added or removed packs afresh, never into the remembered page coun
   const f = over('1', [300, 300, 300, 300], 700);
   assert.deepEqual(planFromFacts([f], {}, pack, 'knuth-plass', memory)['1'], planFromFacts([f], {}, pack, 'knuth-plass')['1']);
 });
+
+describe('the trailing beats ride the last body page when they fit', () => {
+  const { sizesOf } = require('../../../lib/core/fit-measure');
+  test('room under the last member folds the coda; no room keeps the closing page', () => {
+    const roomy = { ...over('1', [300, 300, 300], 700), coda: 120 };
+    const tight = { ...over('1', [300, 300, 300], 700), coda: 450 };
+    const a = planFromFacts([roomy], {}, pack, 'knuth-plass')['1'];
+    assert.deepEqual(a, { sizes: [2, 1], foldCoda: true });
+    assert.deepEqual(planFromFacts([tight], {}, pack, 'knuth-plass')['1'], [2, 1]);
+    assert.deepEqual(sizesOf(a), [2, 1]);
+    assert.deepEqual(nextMemory([roomy], { 1: a }), { 1: { split: true, sizes: [2, 1] } });
+  });
+});
+
+test('the fold pass folds what the host names, and undoes a fold that overflows', async () => {
+  const facts = [over('1', [300, 300, 300, 300], 700), { slide: '2', over: true, members: null }];
+  const plans = [];
+  const run = await measuredSplit({
+    facts, pack, packer: 'greedy',
+    split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+    // Slide 1's folded last page overflows; slide 2 (a recipe slide, no sizes) folds cleanly.
+    verify: async () => (plans.length === 2 ? { 1: 20 } : {}),
+    foldable: async () => ['1', '2'],
+  });
+  assert.deepEqual(plans[1]['2'], { foldCoda: true });
+  assert.ok(plans[1]['1'].foldCoda, 'slide 1 was tried folded');
+  assert.ok(Array.isArray(run.plan['1']), 'and its fold was undone');
+  assert.deepEqual(run.plan['2'], { foldCoda: true });
+});

@@ -3935,6 +3935,7 @@ async function renderBody(browser, g, closeBrowser) {
         facts, pack, packer, memory,
         split: (plan) => splitOnce(plan),
         verify: () => g(() => page.evaluate(`(${fm.OVERFLOW_BY_SLIDE_SRC})(${probeArgs})`), 'verify fit'),
+        foldable: () => g(() => page.evaluate(`(${fm.FOLDABLE_SRC})((${require('./lib/core/deck-slides').DECK_SLIDES_SRC}))`), 'fold beats'),
       });
       r = run.result;
       if (FIT_MEMORY) fs.writeFileSync(FIT_MEMORY, `${JSON.stringify(fm.nextMemory(facts, run.plan))}\n`);

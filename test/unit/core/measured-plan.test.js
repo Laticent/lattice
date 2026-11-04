@@ -78,3 +78,15 @@ test('plan "whole" keeps every slide whole: the stamped, unsplit deck a browser 
   assert.equal(pages(r.html).length, 1);
   assert.deepEqual(r.planned, []);
 });
+
+test('a folded plan puts the key insight on the last body page and emits no closing page', () => {
+  const withInsight = `<section data-lattice-slide="1" class="cards"><h2>T</h2>${list(5)}<blockquote><p>The point.</p></blockquote></section>`;
+  const unfolded = splitDoc(withInsight, cap, { plan: { 1: [3, 2] } });
+  const folded = splitDoc(withInsight, cap, { plan: { 1: { sizes: [3, 2], foldCoda: true } } });
+  assert.equal((unfolded.html.match(/The point\./g) || []).length, 1);
+  assert.equal((folded.html.match(/The point\./g) || []).length, 1, 'the insight appears once');
+  assert.ok(pages(folded.html).length === pages(unfolded.html).length - 1, 'one page fewer: no closing page');
+  const lastBody = bodies(folded.html).at(-1);
+  assert.match(lastBody, /The point\./, 'it closes the last body page');
+  assert.equal(items(folded.html), 5);
+});

@@ -835,3 +835,30 @@ types; the PDF and the webpage export render once without it. After a run of edi
 therefore show a split the export would not make (three pages kept for items that now fit on two).
 Three ways to close it were put to the owner: settle to the stateless plan when the author pauses,
 let the Studio's exports reuse the preview's decisions, or record the decision in the deck file.
+
+**Tested on two of the owner's own decks (2026-11-04).** "Remembering Sir Patrick Stewart" (7 slides,
+portrait@hall) needs no split either way: 6 pages under both. "Yearn already has the hard parts"
+(53 slides, 18 photographs, a 16:9 deck) rendered at portrait and story, laptop, light and dark,
+found three things the galleries had not:
+
+1. **`cards-stack horizontal` crammed at narrow boxes**, as cards-grid's N-up did: the row rule ran
+   at every box, so three cards sat side by side on a portrait page, the verdict failed the page,
+   and the slide fell back to one card a page. It now stacks under the 34em threshold.
+2. **`cover-paginate` ignored the plan** (premise, pricing and the dense legal lists): it paced its
+   own pages. It now takes a plan that places every member, as the other recipes do. The premise
+   slide went from 7 pages to 3.
+3. **Runs ended on a page holding one key insight.** The trailing beats (the key insight and the
+   below-note) now close the last body page when they fit there: the plan decides it for a packed
+   list (`withFold`, from the beats' measured height), and for every other builder a pass after
+   the split measures the closing page against the free room under the last body page's drawn
+   content (`foldableBySlide`), folds it, verifies, and undoes a fold that overflows. The recipe
+   dispatcher (`carouselize`) and `splitEnvelope` both honor `foldCoda`.
+
+Yearn at portrait went from 144 pages to 94, and at story from 144 to 72, with no slide back on
+today's split. The Playground's plan for the deck (fit: pack, portrait) matches the CLI's on all 51
+measured slides. What stays: the comparison slides keep one side a page at portrait, because at that
+type size two sides do not fit one page (measured: about 1,250 px against 1,175); one title
+("What I need before I order is straightforward") clips at portrait and story under both splits, a
+long word wider than the box; and premise's body pages repeat its title with "(cont.)", as they do
+under today's split. A calibration pass (repacking from the ink a body page really used) was tried
+and removed: on these decks it found no page to save and cost two renders.
