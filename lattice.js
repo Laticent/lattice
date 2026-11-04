@@ -1935,7 +1935,16 @@ function withInstalledComponents(source) {
   // (portable-packages §6). The deck linter decides what counts as known; it is loaded only
   // when some class is not a shipped component or an engine class, which is most decks never.
   const reserved = require('./lib/packages/reserved-classes.generated.js');
-  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used]);
+  // A RETIRED switch spelling (`motion-off`, `finish-none`, `no-rule`, …; the 2026-11-04 hard rename) does
+  // nothing now. Say so first, by name, with its replacement: four of them sit under a reserved prefix and
+  // were silent, and the rest drew the "no component … install a package" text below, which is wrong for a
+  // switch (found by the inversion pass).
+  const { retiredSwitch } = require('./lib/authoring/switches-retired.mjs');
+  const retired = [...new Set(classTokens(r.source).filter((t) => retiredSwitch(t)))];
+  for (const t of retired) {
+    console.error(`warning: "${t}" was renamed to "${retiredSwitch(t)}", and the old name now does nothing. \`lattice lint\` names each one and fixes it.`);
+  }
+  const cheapKnown = new Set([...COMPONENT_NAMES, ...reserved.names, ...embeddedComponentNames(r.source), ...r.used, ...retired]);
   const doubtful = classTokens(r.source).filter((t) => !cheapKnown.has(t) && !reserved.prefixes.some((pre) => t === pre || t.startsWith(pre.endsWith('-') ? pre : `${pre}-`)));
   if (doubtful.length) {
     const unknown = new Set(require('./lib/authoring/lint.js').lintText(r.source).filter((f) => f.rule === 'unknown-class').map((f) => f.classToken));

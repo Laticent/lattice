@@ -152,7 +152,38 @@ test('in a Marp render the heading period follows the switch, from the engine\'s
   const w = await boot(body);
   const heads = (i) => [...w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelectorAll('h1, h2, h3')].map((h) => h.textContent);
   assert.deepEqual(heads(1), ['Stripped', 'Sub head'], 'the deck no-period strips, inside inline markup too');
-  // `Ends .x`: the period goes on the last text OUTSIDE code, where the engine's plugin puts it.
-  assert.deepEqual(heads(2), ['Added.', 'Asked?', 'Ends .x'], 'with-period beats the deck');
+  // A heading that ends in code gets no period (the engine's rule; it used to land as `Ends .x`).
+  assert.deepEqual(heads(2), ['Added.', 'Asked?', 'Ends x'], 'with-period beats the deck');
+  closeQuietly(w);
+});
+
+test('in a Marp render, a pagination switch REMOVED after export brings the number back (red team)', { skip }, async () => {
+  // The export baked `_paginate: false` for the deck's `no-pagination`; the recipient then deleted it from the
+  // block. With the deck's `paginate:` visible (the top front matter, as marp-cli writes it), the runtime decides
+  // every slide by the engine's rule, so the baked "off" no longer holds the number back.
+  const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
+  const top = frontMatterBlock('---\nmarp: true\npaginate: true\n---\n');
+  const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
+  const body = `<div class="marpit">${[
+    svg(`<section class="title">${block('class: lead')}<h1>T</h1></section>`),
+    svg('<section class="content"><h1>Was off</h1></section>'),
+    svg('<section class="content"><h1>Also off</h1></section>'),
+  ].join('')}</div>${top}`;
+  const w = await boot(body);
+  const num = (i) => w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelector('section').getAttribute('data-marpit-pagination');
+  assert.equal(num(0), null, 'a title slide shows none, as the engine decides');
+  assert.equal(num(1), '2');
+  assert.equal(num(2), '3');
+  closeQuietly(w);
+});
+
+test('an author\'s settings block on a later slide is not the deck\'s in a Marp render (red team)', { skip }, async () => {
+  const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
+  const body = `<div class="marpit">${[
+    svg('<section class="content"><h1>One</h1></section>'),
+    svg(`<section class="content">${block('class: silent')}<h1>Two</h1></section>`),
+  ].join('')}</div>`;
+  const w = await boot(body);
+  for (const s of w.document.querySelectorAll('section')) assert.ok(!s.classList.contains('silent'), s.className);
   closeQuietly(w);
 });

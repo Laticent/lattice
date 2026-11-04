@@ -665,3 +665,18 @@ test('classLayout decides the spine exactly as the switch spine does (it restate
     assert.equal(off, !switchOn('spine', [...deck, ...own.split(' ')]), `${deck} + ${own}`);
   }
 });
+
+test('a deck-wide no-spine reaches the alias layout too, and the marker\'s own with-spine beats it', () => {
+  const alias = (words) => `<!-- panes: ${words} -->\n\n<!-- pane: content -->\n\nOne.\n\n<!-- pane: content -->\n\nTwo.\n`;
+  const rule = (md) => (render(md).match(/data-rule="(\w+)"/) || [])[1] || 'drawn';
+  assert.equal(rule(alias('40/60')), 'drawn');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${alias('40/60')}`), 'none');
+  assert.equal(rule(`---\nclass: no-spine\n---\n\n${alias('40/60 with-spine')}`), 'drawn');
+});
+
+test('the alias marker follows the switch rule too: with-spine beats no-spine in either order', () => {
+  const { parseLayout } = require('../../../lib/core/pane-spec.js');
+  assert.equal(parseLayout('40/60 with-spine no-spine').rule, true);
+  assert.equal(parseLayout('40/60 no-spine with-spine').rule, true);
+  assert.equal(parseLayout('40/60 no-spine').rule, false);
+});

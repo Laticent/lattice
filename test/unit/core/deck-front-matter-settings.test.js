@@ -87,11 +87,14 @@ test('withBundleFrontMatter writes the block, adds marp: true, and drops a local
   assert.match(withBundleFrontMatter('---\nmarp: false\n---\n'), /^---\nmarp: false\n---/, 'an explicit marp: is the author\'s');
 });
 
-test('readSettingsBlock reads raw YAML or the engine\'s JSON form, takes the FIRST block, and removes all', () => {
+test('readSettingsBlock reads raw YAML or the engine\'s JSON form from the FIRST slide only', () => {
   const doc = new JSDOM(`<section>${settingsBlock('class: a\nmeta: x')}</section>`
     + '<section><script type="application/lattice-settings">"class: b \\u003c c"</script></section>').window.document;
   assert.equal(readSettingsBlock(doc), 'class: a\nmeta: x');
-  assert.equal(doc.querySelectorAll('script').length, 0);
+  // A block an author wrote on a later slide is theirs: not read, not removed (the red team's finding).
+  assert.equal(doc.querySelectorAll('script').length, 1);
+  const later = new JSDOM('<section><p>one</p></section><section><script type="application/lattice-settings">class: silent</script></section>').window.document;
+  assert.equal(readSettingsBlock(later), null);
   const json = new JSDOM('<script type="application/lattice-settings">"class: b \\u003c c"</script>').window.document;
   assert.equal(readSettingsBlock(json), 'class: b < c');
   assert.equal(readSettingsBlock(new JSDOM('<p>x</p>').window.document), null);
@@ -139,4 +142,20 @@ test('the fold reads the same open tag the writer writes (it keeps its own copy 
   const deck = `---\ntheme: indaco\n---\n${settingsBlock('class: no-progress')}\n# A\n`;
   assert.match(fold(deck), /^class: no-progress$/m);
   assert.doesNotMatch(fold(deck), /lattice-settings/);
+});
+
+test('one grammar: a malformed block is the author\'s text in BOTH folds, and never swallows a slide (red team)', () => {
+  const { foldSettingsBlock: fold } = require('../../../lib/core/settings-block-fold');
+  const { foldSettingsBlockCompact } = require('../../../lib/export/bundle-front-matter');
+  const { createEngine } = require('../../../lib/engine');
+  const midLine = ['---', 'marp: true', '---', '<script type="application/lattice-settings">', 'class: lead</script>', '',
+    '# Slide one', '---', '# Slide two', '```html', '<script>', '</script>', '```', '---', '# Slide three', ''].join('\n');
+  const heads = [...createEngine().render(midLine).html.matchAll(/<h1[^>]*>([^<]*)/g)].map((m) => m[1]);
+  assert.deepEqual(heads, ['Slide one', 'Slide two', 'Slide three'], 'no slide is folded into the front matter');
+  for (const shape of [midLine,
+    midLine.replace('class: lead</script>', 'class: lead\n  </script>'),
+    midLine.replace('<script type="application/lattice-settings">', '<script type="application/lattice-settings"> class: x')]) {
+    assert.equal(fold(shape), shape, 'the line fold leaves it');
+    assert.equal(foldSettingsBlockCompact(shape), shape, 'the compact fold agrees');
+  }
 });

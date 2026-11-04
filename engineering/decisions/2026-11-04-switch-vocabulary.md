@@ -102,7 +102,9 @@ recorded in `followups.d/3023-p3-marp-masks-component-pagination-and-asterisks.m
   now run after it (`afterDeckClass`, lib/integrations/markdown-it/plugins.js).
 - The pane spine read only the slide's own `no-spine`: `with-spine` did nothing and a deck-wide
   `class: no-spine` never reached the pane parser. `classLayout` (lib/core/pane-spec.js) now decides
-  it with `switchOn('spine', …)` over the deck's tokens and the slide's (the maker-checker pass).
+  it over the deck's tokens and the slide's by the switch rule, restated inline because pane-spec.js
+  stays require-free for the Studio (a test pins it to `switchOn`); the alias layout
+  (`<!-- panes: 40/60 -->`) gets the deck's switch in lib/core/panes.js (the maker-checker passes).
 - `no-period` strips a LONE trailing period, never an ellipsis: `To be continued...` keeps its dots.
   The old one-dot strip ate an ellipsis a dot per runtime pass (the maker-checker pass).
 
@@ -115,6 +117,29 @@ recorded in `followups.d/3023-p3-marp-masks-component-pagination-and-asterisks.m
 - **The Studio's page-number row** reads what the engine renders when the slide names no switch: the
   deck's `paginate:` and the layout's default (`slidePaginates`). The rail and logo rows read the switch
   itself, because `with-progress` cannot make a rail in a deck with no divider.
+
+## What the adversarial trio changed (red team, Munger inversion, second checker)
+
+- **One grammar for the settings block.** Two folds and the runtime each had their own idea of where a
+  block ends; a block closed mid-line made the line fold run to a later `</script>` line inside a fenced
+  example and swallow a slide. `settingsBlockAt` (lib/core/settings-block-fold.js) is now the one
+  reader both folds use: open tag alone on its line, no script tag in the body, `</script>` alone on its
+  line. The runtime reads a block only in the FIRST slide, so one an author wrote on slide 7 stays theirs.
+- **Every slide reads the deck's `class:`.** Three more readers saw only the slide's own classes: the
+  engine's page-number rule (`paginates`, lib/engine/slides.js), the callout reader the narrator and the
+  `legend-off` lint share (`calloutsOff`, lib/core/legend.js), and the retired-`_paginate` lint. All three
+  now add the deck's tokens. test/unit/core/switch-parity.test.js pins it for every switch: deck `no-X`
+  renders as the slide's own `no-X`, and deck `no-X` plus slide `with-X` renders as the slide's `with-X`.
+- **A switch removed after export brings the page number back in Marp.** With the deck's `paginate:`
+  visible, `syncMarpPagination` decides every slide by `slidePaginates`, not only the slides that name a
+  switch.
+- **The hard rename is loud where authors look.** The CLI render warns on every retired spelling by name,
+  four of which a reserved prefix used to hide; lint's message no longer says the slide "renders as a plain
+  slide"; a bundle's top `class:` is fixable in place.
+- **The pane spine follows the switch rule in both spellings** (`with-spine no-spine` in an alias marker
+  no longer lets the last word win), and its words stay on the slide as classes, as a deck-wide one does.
+- **The heading period is not wedged before trailing code or math** (`Use .npm`); a heading that ends in
+  either gets none, in the engine and the Marp mirror alike; `no-period` never empties a heading.
 
 ## Bytes
 

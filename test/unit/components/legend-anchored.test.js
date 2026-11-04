@@ -434,6 +434,9 @@ describe('the split: @callout and callout: off (2026-10-20-callout-placement.md 
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'callout: off' })), /Callout/);
     assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
     assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap with-callout'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
+    // A deck-wide `class: no-callout` silences the voice-over as it silences the render (inversion pass).
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'class: no-callout' })), /Callout/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap with-callout'), { frontMatter: 'class: no-callout' })), /Callout at Jan 2026, M1/);
   });
 });
 
