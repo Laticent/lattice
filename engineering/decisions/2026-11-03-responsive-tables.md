@@ -416,6 +416,37 @@ probe read its clipped text as lost content, and the fit check then held almost 
 docs/e2e/table-reflow-preview.spec.ts pins the cell names in Chromium, WebKit and Gecko. Not verified:
 a real screen reader's speech.
 
+## Charts: drawn for their box on a slide; the narrow form needs a second drawing
+
+Follow-up p9 said every chart scales like a picture when its box narrows. On a slide that is not so,
+and the reason decides what the narrow form has to be.
+
+- **A paged chart is drawn for its own box.** lib/transformers/chart-frame.js hands each kind the
+  slide's orientation and, in a pane, the pane's canvas (`paneView`); 16 of the 28 kinds read it
+  through `cart.viewFor`, and the pane catalog refuses a pane narrower than each kind can draw in
+  (quadrant and risk-matrix 35%, roadmap 65%). A portrait deck gets the portrait drawing. So no slide
+  shows a shrunk copy of a wide drawing.
+- **The gap is a box that changes AFTER the render.** The fluid view on a phone, a resizing live
+  preview and a continuous host all receive a drawing made for the authored box. CSS cannot redraw an
+  SVG: the label sizes, tick counts and the key's position are baked into the drawing.
+- **So the narrow form is a second drawing, and that is a decision, not a step.** The candidate the
+  analysis favors: the engine draws each chart twice, the second at a narrow view (about 110 × 200
+  chart units, a phone's width at slide type size), and puts the second in a `<template>`, which is
+  inert: no layout, no accessibility tree, no duplicate ids, invisible to text extraction. The runtime
+  swaps it in when the chart body falls below a width and back when it widens; a PDF never swaps.
+  What it costs: about twice the chart markup in every HTML export (an exported-bytes change, which
+  the Quality Bar routes to the owner), twice the chart render time (a bench run, HARD RULE #19), and
+  a post-sanitize markup swap inside the frame, which HARD RULE #22's fourth guard has to admit. What
+  it buys: every kind gets a narrow form from its existing view-following geometry, with per-kind
+  work only where that geometry is not enough (risk-matrix's key goes below the grid; quadrant's
+  corner labels). The alternative, a runtime that carries the chart kernels and redraws, costs the
+  runtime bundle the whole chart family.
+- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
+  quadrant, word-cloud, piechart, hub-spoke), and size containment lends the box no height. In a
+  continuous host the slide grows to its content, so the body collapsed to 0 and the chart vanished
+  (every quadrant, radar and pie chart in the Frame Lab, at every width). In a continuous host their
+  body now takes a 16:10 box from its width. No paged host sets the attribute, so no export changes.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
