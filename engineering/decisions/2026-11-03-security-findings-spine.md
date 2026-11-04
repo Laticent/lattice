@@ -325,12 +325,17 @@ rechecked alone. "The whole gate" is `findCssExfil`: the address reader with its
 
 | Seed | Engine | Sheets that fetched | Let through by the whole gate, old / new | Declarations that fetched | Let through by the door, old / new |
 |---|---|---|---|---|---|
-| 7 | Chromium 141 | 108 of 1,482 | 0 / 0 | 194 of 2,845 | 0 / 0 |
-| 7 | WebKit 26 | 116 | 0 / 0 | 224 | 0 / 0 |
-| 7 | Firefox 142 | 106 | 0 / 0 | 189 | 0 / 0 |
-| 11 | Chromium 141 | 103 of 1,530 | 0 / 0 | 203 of 3,062 | 0 / 0 |
-| 11 | WebKit 26 | 119 | 0 / 0 | 246 | 0 / 0 |
-| 11 | Firefox 142 | 102 | 0 / 0 | 198 | 0 / 0 |
+| 7 | Chromium 141 | 138 of 1,482 | 0 / 0 | 253 of 2,845 | 0 / 0 |
+| 7 | WebKit 26 | 147 | 0 / 0 | 283 | 0 / 0 |
+| 7 | Firefox 142 | 136 | 0 / 0 | 248 | 0 / 0 |
+| 11 | Chromium 141 | 131 of 1,530 | 0 / 0 | 265 of 3,062 | 0 / 0 |
+| 11 | WebKit 26 | 150 | 0 / 0 | 308 | 0 / 0 |
+| 11 | Firefox 142 | 130 | 0 / 0 | 260 | 0 / 0 |
+
+These are the second run. The first put `--q` and `--a` in one consumer declaration, which is invalid at computed-value time
+when either is undefined, so an input defining only one fetched nothing (the red team): it saw 108 sheets and 194
+declarations on Chromium seed 7, about a quarter fewer. The fuzz holds no escaped custom-property name, which is how the
+door bypass above went unseen; test/unit/cli/code-door.test.js pins that case.
 
 The fuzz spells each address around the beacon's port, so a run's inputs differ with the port. The first run, before
 the `image()` fix, held the `image()` sheet (seed 7, f7-2503): it fetched in all three engines and passed both the old
