@@ -102,6 +102,9 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		// meant a `reset()` during such a frame changed the state and never told anyone,
 		// stranding chrome at a scale that no longer existed.
 		onZoom?.(s.scale);
+		// Announced on window for preview-image-scale.ts, which waits for the gesture to rest and then
+		// asks a host that now draws wider for sharper photo copies.
+		dispatchEvent(new Event('lattice:preview-zoom'));
 		const el = target();
 		if (!el) return;
 		el.style.transformOrigin = '0 0';

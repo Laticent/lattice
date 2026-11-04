@@ -93,7 +93,8 @@ async function latticePanesProbe() {
 			await sleep(100);
 		}
 	};
-	const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+	// Not inside an `inert` subtree: the pre-paint skeleton draws look-alike buttons with the same labels that do nothing.
+	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const frame = () => document.querySelector('[aria-label="Live deck preview"] iframe.live');
 	const frameDoc = () => {
@@ -107,14 +108,8 @@ async function latticePanesProbe() {
 
 	/** Replace the deck source the way a person pasting does: one insertText into the focused editor. */
 	const setDeck = async (text) => {
-		if (narrow) {
-			const src = await until(() => button('Markdown source'), 15000, 'the Markdown source button');
-			src.click();
-		}
-		const el = await until(() => {
-			const e = document.querySelector('[aria-label="Deck source"]');
-			return visible(e) ? e : null;
-		}, 15000, 'a visible Deck source editor');
+		// Re-taps the Markdown source pane until the editor shows, and never taps the inert skeleton (show-editor.js, #2911).
+		const el = await latticeShowDeckEditor();
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) {
 			el.select();
@@ -171,7 +166,9 @@ async function latticePanesProbe() {
 	};
 
 	try {
-		await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor and its render metrics');
+		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
+		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
+		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
 		// On a cold page the first insert into a freshly hydrated editor can lose its opening characters (Playwright's
 		// WebKit dropped the deck's leading `---`, which turned the front matter into a fifth slide). So check the deck
 		// landed whole, by its slide count, and put it in again if it did not.

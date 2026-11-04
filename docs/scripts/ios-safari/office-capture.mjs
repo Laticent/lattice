@@ -39,10 +39,11 @@ async function capture(file, out, budget) {
 		await sleep(3000);
 		simctl('io', UDID, 'screenshot', out);
 		const now = PNG.sync.read(fs.readFileSync(out));
-		if (changed(now, last).share < 0.002) return now;
+		if (changed(now, last).share < 0.002) return { img: now, settled: true };
 		last = now;
 	}
-	return last;
+	// Never still within the budget: a preview still loading is not a slide, so the caller fails it.
+	return { img: last, settled: false };
 }
 
 /**
@@ -63,10 +64,12 @@ function changed(a, b) {
 	return { share: n / ((a.width * a.height) / 4), colors: colors.size };
 }
 
-/** The most common color of an image (4 bits a channel, every 4th pixel), as the bin's middle. */
-function dominant(img) {
+/** The most common color of an image (4 bits a channel, every 4th pixel), as the bin's middle; with `ink`, the most
+ * common one that is not near white. */
+function dominant(img, ink = false) {
 	const counts = new Map();
 	for (let i = 0; i < img.data.length; i += 16) {
+		if (ink && img.data[i] > 220 && img.data[i + 1] > 220 && img.data[i + 2] > 220) continue;
 		const k = ((img.data[i] >> 4) << 8) | ((img.data[i + 1] >> 4) << 4) | (img.data[i + 2] >> 4);
 		counts.set(k, (counts.get(k) || 0) + 1);
 	}
@@ -90,13 +93,13 @@ const inApp = (f) => path.join(docs, `${f.deck}-slide-${String(f.slide).padStart
 for (const f of index) fs.copyFileSync(path.join(root, f.path), inApp(f));
 // The baseline: the viewer with nothing to show. Twice, so a first launch's settling is not in it.
 await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 15000);
-const baseline = await capture('none', path.join(dir, `${LABEL}-baseline.png`), 15000);
+const baseline = (await capture('none', path.join(dir, `${LABEL}-baseline.png`), 15000)).img;
 const steps = [];
 for (const f of index) {
 	const name = `${f.deck} slide ${f.slide}`;
 	const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
 	try {
-		const shot = await capture(inApp(f), file, 30000);
+		const { img: shot, settled } = await capture(inApp(f), file, 30000);
 		const { share, colors } = changed(shot, baseline);
 		// The slide's own background is on screen: the dominant color of the same cut's Quick Look render (made by
 		// tools/office-quicklook.mjs earlier in this job) covers a real share of the screen. A download prompt (a dimmed
@@ -105,9 +108,13 @@ for (const f of index) {
 		const bg = fs.existsSync(ref) ? dominant(PNG.sync.read(fs.readFileSync(ref))) : null;
 		const cover = bg ? near(shot, bg) : 0;
 		const dim = near(shot, [153, 153, 153]);
+		// A near-white slide's background tells it from nothing, so the test there is its strongest OTHER color (its
+		// ink: the text, a tile, a rule), which an empty or still-loading viewer does not hold.
 		const white = bg?.every((v) => v > 235);
-		const pass = share > 0.05 && colors >= 24 && dim < 0.3 && (bg === null || white || cover > 0.08);
-		steps.push({ name, pass, detail: `${(share * 100).toFixed(1)}% differs from a blank page in ${colors} colors; slide background ${bg ? `rgb(${bg.join(',')})` : 'unknown'} covers ${(cover * 100).toFixed(1)}%, prompt gray ${(dim * 100).toFixed(1)}%` });
+		const ink = white && fs.existsSync(ref) ? dominant(PNG.sync.read(fs.readFileSync(ref)), true) : null;
+		const inkCover = ink ? near(shot, ink) : 0;
+		const pass = settled && share > 0.05 && colors >= 24 && dim < 0.3 && (bg === null || (white ? inkCover > 0.0005 : cover > 0.08));
+		steps.push({ name, pass, detail: `${settled ? 'settled' : 'never settled'}; ${(share * 100).toFixed(1)}% differs from a blank page in ${colors} colors; slide background ${bg ? `rgb(${bg.join(',')})` : 'unknown'} covers ${(cover * 100).toFixed(1)}%${ink ? `, its ink rgb(${ink.join(',')}) ${(inkCover * 100).toFixed(2)}%` : ''}, prompt gray ${(dim * 100).toFixed(1)}%` });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
 	}

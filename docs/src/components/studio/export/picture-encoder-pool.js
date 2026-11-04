@@ -2,7 +2,7 @@
 // main-thread writer as the fallback.
 //
 // Each request holds a slot for the length of its encode: a bitmap of a 4K slide is 33 MB, and a phone must not hold a deck's worth. A
-// browser without module workers, OffscreenCanvas or createImageBitmap, and a worker that fails, fall back to `encodeCanvas` on the main
+// browser without module workers or OffscreenCanvas, and a worker that fails, fall back to `encodeCanvas` on the main
 // thread: the export is slower there, never lost, and the same bytes.
 import { encodeCanvas } from '../../../../../lib/core/slide-camera.mjs';
 
@@ -12,7 +12,7 @@ export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2)
 }
 
 export function canEncodeOffThread() {
-	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined' && typeof CompressionStream !== 'undefined';
+	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof CompressionStream !== 'undefined';
 }
 
 /** A slide's picture takes well under a second to write. A worker silent for this long is gone (a phone kills workers under memory pressure without an error event). */
@@ -46,7 +46,7 @@ export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DE
 		if (next) next(worker);
 		else idle.push(worker);
 	};
-	const run = (worker, bitmap, format) =>
+	const run = (worker, pixels, format) =>
 		new Promise((resolve, reject) => {
 			const id = nextId++;
 			const timer = setTimeout(() => reject(new Error(`no answer in ${deadlineMs / 1000} s`)), deadlineMs);
@@ -57,7 +57,7 @@ export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DE
 			worker.onmessage = (e) => (e.data.id === id ? (e.data.error ? done(reject, new Error(e.data.error)) : done(resolve, e.data.bytes)) : undefined);
 			worker.onmessageerror = () => done(reject, new Error('picture worker sent a message that could not be read'));
 			worker.onerror = (e) => done(reject, new Error(e.message || 'picture worker failed'));
-			worker.postMessage({ id, bitmap, format }, [bitmap]);
+			worker.postMessage({ id, width: pixels.width, height: pixels.height, buffer: pixels.data.buffer, format }, [pixels.data.buffer]);
 		});
 
 	return {
@@ -83,8 +83,12 @@ export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DE
 				worker = await acquire();
 				// The pool broke while this request waited for a slot: every waiter is handed null so none waits forever.
 				if (!worker) return encodeCanvas(canvas, format);
-				const bitmap = await createImageBitmap(canvas);
-				const bytes = await run(worker, bitmap, format);
+				// The PIXELS go to the worker, not an ImageBitmap of the canvas: on WebKit the first bitmap a session sent arrived blank,
+				// and an iPhone's PowerPoint had a black title slide (decisions/2026-11-03-pictures-at-drawn-size.md). Reading them here
+				// also makes WebKit finish the canvas's drawing, and keeps partial alpha exact (a bitmap's round trip premultiplied it).
+				const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+				const pixels = { data, width: canvas.width, height: canvas.height };
+				const bytes = await run(worker, pixels, format);
 				release(worker);
 				return bytes;
 			} catch (e) {

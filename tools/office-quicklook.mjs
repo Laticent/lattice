@@ -80,7 +80,7 @@ for (const deck of decks) {
 				continue;
 			}
 			fs.writeFileSync(file, buf);
-			// Kept beside its render: the iOS probe (docs/scripts/ios-safari/run.sh, PROBE=office) opens each cut in Safari.
+			// Kept beside its render: the iOS probe (docs/scripts/ios-safari/run.sh, PROBE=office) shows each cut in QLProbe.
 			index.push({ deck: name, slide: n, variant, path: path.relative(OUT, file) });
 			if (!onMac) continue;
 			const r = spawnSync('qlmanage', ['-t', '-s', '1920', '-o', dir, file], { encoding: 'utf8', timeout: 120000 });

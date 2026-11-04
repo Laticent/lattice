@@ -57,7 +57,10 @@ const server = http2.createSecureServer({ key: fs.readFileSync(key), cert: fs.re
 		body = COMPRESSIBLE.test(type) ? { gz: true, bytes: zlib.gzipSync(raw) } : { gz: false, bytes: raw };
 		cache.set(file, body);
 	}
-	res.writeHead(200, { 'content-type': type, 'content-length': body.bytes.length, ...(body.gz ? { 'content-encoding': 'gzip' } : {}) });
+	// `access-control-allow-origin: *` on everything, as GitHub Pages sends it: the sandboxed (origin `null`) draw frame loads
+	// Mermaid's ES modules and the engine's fonts with CORS (docs/astro.config.mjs › drawFrameCors). Without it every diagram
+	// failed to draw under this server, so a bench measured a Studio whose diagrams errored out.
+	res.writeHead(200, { 'content-type': type, 'content-length': body.bytes.length, 'access-control-allow-origin': '*', ...(body.gz ? { 'content-encoding': 'gzip' } : {}) });
 	res.end(body.bytes);
 });
 server.listen(port, () => console.log(`serve-h2: ${root} on https://localhost:${port}/ (HTTP/2, gzip)`));

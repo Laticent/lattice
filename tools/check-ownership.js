@@ -7533,6 +7533,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/check-html-ref-spans.mjs',
+    why: 'folds CR to LF inside the attribute values it COMPARES, to undo what a spec parser\'s input stream '
+       + 'does before tokenizing (parse5 builds `a\\nb` from `a\\rb`), so the platform-parser differential '
+       + 'compares like with like. It reads repo-committed decks (and seeded fuzz inputs) and writes nothing; an on-demand diagnostic.',
+  },
+  {
     file: 'tools/squadra-fix-diff.js',
     why: 'folds the sources it COMPARES, not author input it renders: the lint unit tests\' own '
        + 'inputs (recorded while they run) and the REPO-COMMITTED tracked decks, which `.gitattributes` '
@@ -12185,6 +12191,9 @@ const NUL_TEXT_EXTENSIONS = [
   // The Open XML SDK checker (tools/office-conformance/openxml-check) and the vendored Office schemas
   // (test/conformance/office/schemas) — plain text source.
   '.cs', '.csproj', '.xsd',
+  // The office probe's test app around Apple's Quick Look viewer (docs/scripts/ios-safari/QLProbe.swift) and its
+  // Info.plist — plain text source.
+  '.swift', '.plist',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list

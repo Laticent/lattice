@@ -328,3 +328,23 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   engine-built document and assume it works because it works on a plain page. It
   is a `connect-src` fetch like any other. The same applies to `XMLHttpRequest`
   and to `new EventSource`/`WebSocket` against a same-document payload.
+
+## A regex that matches in Chromium returns NO MATCH in WebKit on a multi-megabyte string (a `data:` URL)
+
+- **Symptom:** In Safari or any iPhone browser, a photo pasted into the Studio as a `data:` URL never gets its
+  size read: the `image` slide keeps the Clean floor, the live preview looks almost right (its fallback box is the
+  wide one), and the PowerPoint and LibreOffice exports ship a different layout with a bigger photo box and a
+  bigger file. No error, no warning. Chromium and Firefox are fine.
+- **Cause:** JavaScriptCore's regex engine (Yarr) gives up on a quantified GROUP that it must backtrack into,
+  once the group repeats a few hundred thousand times, and returns `null` instead of throwing. Measured in
+  Playwright's WebKit: `((?:(?!&#39;|&quot;)[^'")])+)` (one lookahead per character) fails from 0.5 MB;
+  `((?:[^"\\]|\\.)*)` (an alternation per character) fails between 0.5 and 2 MB. V8 matches both at 7 MB. A
+  plain character class (`[^'")]+`) matches at 7 MB in both, in under 60 ms.
+- **Fix:** never run a per-character group over a payload that can be a picture. Match the payload with a plain
+  character class and cut it afterwards with `indexOf`, or scan it with `indexOf` outright:
+  `lib/core/image-aspect.js` (`BG_URL`) and `lib/core/css-url.js` (`firstCssUrl`). Both keep the old regex as
+  the oracle in their unit tests, fuzzed, so the scan answers the same.
+- **Triggered by:** `docs/e2e/export-photo-size.spec.ts` on `webkit-tablet` (the slide's `data-img-bucket` stays
+  unset); `engineering/decisions/2026-11-03-pictures-at-drawn-size.md` has the measurements. A unit test cannot
+  catch it: Node is V8.
+- **Removable when:** never for code that runs in a browser; JSC's backtracking limit is a design choice.

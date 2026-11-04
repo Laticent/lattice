@@ -80,6 +80,36 @@ test('writer: one page per slide, real text, vector shapes and clickable links',
 	assert.ok(embedded, 'the font is embedded, not referenced');
 });
 
+// The Studio writes the PDF in a worker (deck-export.js writePdfOffThread): the input is structured-cloned across, and
+// on a worker failure the SAME input is written again on the page. So the writer must not mutate its input (it once
+// cached each image's pdf-lib object on the `assets` entry, which made a second write reuse a reference from the first
+// document and made the input uncloneable), and a cloned input must write the same bytes.
+test('writer: a cloned input writes the same bytes, and the input is left as it was', async () => {
+	const subset = await subsetMod.createFontSubsetter(WASM);
+	const ttf = await subset(FONT, 'Hello', { wght: 400 });
+	const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+	const input = {
+		slides: [{
+			w: 1280, h: 720,
+			words: [{ t: 'Hello', fontKey: 'k', x: 100, top: 100, w: 60, h: 24, size: 20, ls: 0, color: [20, 30, 40, 1], op: 1 }],
+			shapes: [],
+			images: [{ kind: 'img', url: 'u', x: 0, y: 0, w: 10, h: 10, clips: [], op: 1, sid: 1, alt: 'a' }],
+			links: [],
+			photo: new Uint8Array(png), photoType: 'png', stats: {},
+		}],
+		fonts: new Map([['k', { ttf }]]),
+		meta: { title: 't', lang: 'en', date: new Date(0) },
+		assets: new Map([['u', { bytes: new Uint8Array(png), type: 'png' }]]),
+	};
+	const viaClone = await write.writeDeckPdf(structuredClone(input));
+	const first = await write.writeDeckPdf(input);
+	assert.deepEqual([...input.assets.values()].map((a) => Object.keys(a).sort()), [['bytes', 'type']], 'the assets carry nothing the writer added');
+	assert.doesNotThrow(() => structuredClone(input), 'the input still copies to a worker after a write');
+	const second = await write.writeDeckPdf(input);
+	assert.deepEqual(Buffer.from(viaClone.bytes), Buffer.from(first.bytes), 'a cloned input writes the same bytes');
+	assert.deepEqual(Buffer.from(second.bytes), Buffer.from(first.bytes), 'writing the same input twice gives the same file');
+});
+
 test('fontMetrics: USE_TYPO_METRICS picks the typo ascender, else hhea', () => {
 	const hhea = write.fontMetrics({ unitsPerEm: 1000, ascent: 900, descent: -300, 'OS/2': { fsSelection: 0, typoAscender: 800, typoDescender: -200 } });
 	assert.deepEqual(hhea, { asc: 0.9, desc: 0.3 });

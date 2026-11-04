@@ -40,10 +40,6 @@ function undoProbeKit(result) {
 	// with the same labels that do nothing, so a probe that picks one of them waits forever.
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
-	const editor = () => {
-		const e = document.querySelector('[aria-label="Deck source"]');
-		return visible(e) ? e : null;
-	};
 	/** The deck text the editor holds: CodeMirror's own document, or the plain textarea's value. */
 	const deckText = () => {
 		const e = document.querySelector('[aria-label="Deck source"]');
@@ -55,28 +51,9 @@ function undoProbeKit(result) {
 		[...document.querySelectorAll('span[role="status"][aria-live="polite"]')].map((s) => s.textContent ?? '').find((t) => /^(Undid|Redid|Nothing)/.test(t)) ?? '';
 	/** Show the editor (a phone shows one pane at a time) and put the caret at the end of the deck. */
 	const focusEnd = async () => {
-		// A tap that lands before the app has hydrated does nothing, so tap again every 2 s until the editor shows.
-		let tapped = 0;
-		const el = await until(
-			() => {
-				const e = editor();
-				if (!e && innerWidth <= 699 && Date.now() - tapped > 2000) {
-					tapped = Date.now();
-					button('Markdown source')?.click();
-				}
-				return e;
-			},
-			30000,
-			'a visible Deck source editor',
-		).catch((e) => {
-			// Say what the phone shows instead, so a red device run names the pane and the editor mode it found.
-			const shown = [...document.querySelectorAll('button[aria-label]')]
-				.filter(visible)
-				.map((b) => `${b.getAttribute('aria-label')}${b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true' ? '*' : ''}`)
-				.slice(0, 24);
-			const src = document.querySelector('[aria-label="Deck source"]');
-			throw new Error(`${e.message} (Deck source ${src ? `${src.tagName.toLowerCase()}, ${src.getClientRects().length} rects` : 'absent'}, .cm-content ${!!document.querySelector('.cm-content')}, contenteditable ${document.querySelectorAll('[contenteditable="true"]').length}, taps ${tapped ? 'yes' : 'no'}; buttons, * = pressed: ${shown.join(' | ')})`);
-		});
+		// Re-taps the Markdown source pane every 2 s until the editor shows, never the inert skeleton, and names what the
+		// phone shows on a timeout (show-editor.js, shared with the other Studio probes, #2911).
+		const el = await latticeShowDeckEditor();
 		el.focus();
 		if (el instanceof HTMLTextAreaElement) el.setSelectionRange(el.value.length, el.value.length);
 		else {
@@ -109,6 +86,12 @@ function undoProbeKit(result) {
 		addEventListener('beforeinput', spy, { capture: true });
 		addEventListener('input', spy, { capture: true });
 		addEventListener('beforeinput', after);
+		// WebKit raises the command's beforeinput only when it has a step to undo or redo, which is also when Edit → Undo is
+		// enabled for a person. A command sent right after typing could beat the typed step into WebKit's undo stack and
+		// raise nothing (#2911), so wait, briefly, for the command to be enabled, and log whether it was.
+		const t0 = Date.now();
+		while (!document.queryCommandEnabled(which) && Date.now() - t0 < 3000) await sleep(50);
+		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms`);
 		document.execCommand(which);
 		await sleep(300);
 		removeEventListener('beforeinput', spy, { capture: true });
@@ -206,7 +189,7 @@ async function latticeUndoProbe() {
 		await k.sleep(800);
 
 		const undoType = await k.command('undo');
-		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || 'no beforeinput');
+		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || `no beforeinput; events: ${(result.events || []).join(' ; ')}`);
 		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command').catch((e) => {
 			// Say where the undo went: one step too many (the paste gone too) or none, and what the Studio announced.
 			const now = k.deckText();
@@ -217,7 +200,7 @@ async function latticeUndoProbe() {
 		k.step('the Studio said what it undid', true, k.said().trim());
 
 		const redoType = await k.command('redo');
-		k.step('WebKit redo command raised historyRedo', redoType === 'historyRedo', redoType || 'no beforeinput');
+		k.step('WebKit redo command raised historyRedo', redoType === 'historyRedo', redoType || `no beforeinput; events: ${(result.events || []).join(' ; ')}`);
 		await k.until(() => k.deckText() === typed, 10000, 'the word back after redo');
 		k.step('the WebKit redo command brought it back', true);
 		// What the page saw during both commands, so a pass also shows whether Safari's own undo ran beside Filo's.

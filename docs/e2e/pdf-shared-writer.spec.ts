@@ -38,12 +38,14 @@ async function exportPdf(page: Parameters<typeof gotoStudio>[0], opts: { fourK?:
 
 test('Share → PDF writes real, tagged text and vector charts over one photo per page', async ({ page }) => {
 	const warnings: string[] = [];
-	page.on('console', (m) => { if (/shared PDF writer failed/.test(m.text())) warnings.push(m.text()); });
+	// Either fallback would still download a PDF: the photo lane, or the vector writer back on the main thread
+	// when its worker fails (deck-export.js `writePdfOffThread`).
+	page.on('console', (m) => { if (/shared PDF writer failed|PDF write worker failed/.test(m.text())) warnings.push(m.text()); });
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(4);
 	const bytes = await exportPdf(page);
-	expect(warnings, 'the shared writer must run, not fall back to photos').toEqual([]);
+	expect(warnings, 'the shared writer must run in its worker, not fall back to photos or the main thread').toEqual([]);
 
 	// updateMetadata: false, or pdf-lib stamps its own Producer over the one being checked.
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });

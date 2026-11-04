@@ -180,8 +180,8 @@ Each phase is shippable alone, reversible by a revert, and leaves the tree no wo
 | **R0** | Policy table inside `remote-ref.js`, including the `ping`/`action`/`formaction` rows (A). No new reader. | Export before/after (dark and light) for sign-off; `--wide` plain run drops to 0; fuzz default stream unchanged. |
 | **R1** (shipped 2026-10-29) | Segno core: `facts` (limits with `maxNodes`, anomalies, coverage) and the `ROLES` table. | Codegen differential (old vs new on the corpus); the 466-test suite; `mutate:segno` gains mutants for roles and the node cap; bake-off no-regress on the three Segno benches. See "R1 landed" below. |
 | **R2** | CSS island with `ref` roles, replacing `cssRefSpans`. | Rewrite and `blocked` lists byte-identical on the 433 decks; fuzz 0 requests in three engines; the failing arm still fails. |
-| **R3** | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
-| **R4** | Consumers migrate one at a time (gallery gate, export, linter, narrator); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. |
+| **R3** (shipped 2026-11-02) | HTML island: the WHATWG tokenizer states in a generated grammar, with tree-construction effects as `unsure` spans. | Soundness invariant on 100,000 inputs per engine; platform-parser differential on the corpus; `unsure` rate reported (a high rate means the island is not yet useful). |
+| **R4** (gallery gate, Studio export and narrator shipped 2026-11-03; the CLI export left) | Consumers migrate one at a time (gallery gate, export, linter, narrator, and the CLI's HTML export, found later); each deletes its scanner. | Census count of private ref readers goes down; each migration its own PR. See "R4: the gallery gate", "R4: the export" and "R4: the narrator, and the linter" below. The linter had no reader to migrate. |
 
 Cost is an estimate, not a measurement: R0 and R1 are small (days); R2 follows the pipeline's P5; R3 is the real work (the
 tokenizer is about 80 states; tree construction is deliberately out of scope behind `unsure`). Nothing in R0-R2 depends on R3.
@@ -292,6 +292,283 @@ D1 A on #2980 (raise the Studio ceiling by about 2.5 KB and switch now), and the
   failing to allocate that tape.
 - **Not done:** R3 (the HTML island) and R4 (each consumer deletes its scanner) stay open, as D8 says.
 
+### R3 landed (2026-11-02)
+
+`scanHtml` reads markup through a generated parser, held to the hand-written scanner it replaced by every
+test below, and to a spec parser by a differential the scanner never had. The work found six ways a web
+address got past the sanitizer, all older than R3; the hand-written scanner got all six fixes first, and R3
+is held to that fixed scanner. It was built on 2026-10-30 and held unwired for two days because the parser
+crossed the Studio's route-budget ceiling (D9); the owner's 5 KB raise in #3001 (for #2997) left room for it,
+so it is switched on with no ceiling moved, which the owner confirmed (D9 A).
+
+- **What is built.** `lib/core/html-ref-grammar.js` is a Segno grammar for the WHATWG tokenizer's data
+  state: tags, attributes, comments (the dash-counting states of §13.2.5.43-52, written as a regular
+  grammar), bogus comments, doctypes and `</>`. `tools/build-segno-grammar.js` generates
+  `lib/core/html-ref.generated.js`; `lib/core/html-ref-reader.js` (`makeScanHtml`) walks its tape and
+  returns the tags `scanHtml` returns. The scanner as it was at e6c3a4a is frozen in
+  `tools/segno-legacy/scan-html.js`.
+- **The open question, answered.** The note left open how tree-construction facts belong in a generated
+  grammar. They do not: the grammar stops wherever what follows depends on state it does not own, the
+  same mechanism R2 used for `url(`. Four stop kinds: `rtn` (the name of a raw-text start tag, whose
+  content the reader ends with an end-tag search), `copen` and `cend` (a comment, read by its own rule),
+  and `cdo` (`<![CDATA[`, a CDATA section or a bogus comment by the reader's foreign-content stack). The
+  rules a stop hands over end on stops of their own (`rgt`, `cdx`, `bog`). The foreign-content stack, and
+  the integration points open inside each foreign element, stay in the reader, as the block stack did in R2.
+  One trap: the generated parser's tape is module state, so a sub-parse overwrites the tape the reader is
+  walking. The first version read two offsets after a sub-parse and silently stopped scanning after
+  `<svg><title><![CDATA[x]]>` (the inversion review found it); every branch now reads its offsets first.
+- **`unsure` replaces `risky`.** The reader returns `unsure`, spans with a reason (`comment-unterminated`,
+  `foreign-content`, `foreign-breakout`, `integration-point`, `select`, `noscript`, `escaped-script`,
+  `foreign-cdata`), declared in the island's package (D6). Switched on, `blockWebImages` fails closed on any
+  of them by asking the spec parser (D7), as it does on `risky`.
+- **The switch.** `remote-ref.js` builds `scanHtml` from the reader over the generated parser, returning
+  `{ tags, risky, unsure }` (`risky` is whether any span is unsure), so `blockWebImages` reads it unchanged.
+  The hand-written scanner is frozen in `tools/segno-legacy/scan-html-fixed.js` as the oracle. Before the
+  switch, every gate below ran on a copy with the switch applied, so the evidence is for this code. The
+  docs-site dev shim and the code-door sanitizer page inline require-free siblings already (both new files
+  are require-free).
+- **What the work found, fixed in the hand-written scanner before the switch, each with a test.** Each fetched in Chromium
+  131 as written, and the sanitizer passed it:
+  1. A CDATA section inside an integration point: Chromium (131), WebKit (26.0) and parse5 read `<![CDATA[`
+     there as a bogus comment that ends at its first `>`, so `<math><mi><![CDATA[<picture><source srcset=…>]]>`
+     builds a live `<source>`. Firefox (142) reads a CDATA section, as the standard's text says. Found by
+     the parse5 differential.
+  2. The same section with no `]]>`: the scanner stopped reading at it (the checker found it).
+  3. `</svg>` or `</math>` inside an integration point: `desc` and `mi` are special to the HTML rules that
+     run there, so the end tag is ignored and the content stays foreign, and
+     `<svg><desc><x></svg></x></desc><style><img src=…>` has markup, not raw text, in its `<style>` (the
+     red team found it).
+  4. A start tag inside an integration point is HTML: `<svg><desc><title><!--</title><img src=…>-->` has a
+     `<title>` of text and a live `<img>` (the inversion review found it, live in all three engines).
+  5. Comments were quadratic: 400 KB of `<!-- x -->` took 29 s (the `--!>` search ran to the end once per
+     comment). The scanner now remembers its last search: 9 ms.
+  6. A stray `<body>` (or `<html>`) start tag gives its attributes to the page's own body, and the spec
+     parser's check (`verifyWithParser`) visited only the body's descendants, so on risky markup
+     `<select></select><table><td><table><BODY background=…>` went out unchanged and fetched in all three
+     engines (the browser fuzz found it, input fb-43615 of seed 11; it fetches at e6c3a4a too). The check
+     now refuses those attributes and re-serializes, which drops them.
+  The scanner does not track the current node, so 1 to 4 set `risky` where the readings can part (the
+  spec parser decides): a `>` before the `]]>` or no `]]>`; a `</svg>` or `</math>` while an integration
+  point is open; any start tag inside one. Lattice's own chart SVG has a `<title>` and a `<desc>` with
+  text only, so none of these touch a deck: 0 of 860 corpus texts are newly risky.
+- **Differential.** `test/unit/core/html-ref-differential.test.js` holds R3 to the fixed hand-written
+  scanner with nothing left out (the same tags field for field, `unsure` exactly where `risky` is). It also
+  holds the fixed scanner to the e6c3a4a one: the same tags, `risky` never dropped (where the earlier scanner
+  gave up at an unterminated CDATA section, its tags are where the fixed ones start). Inputs: 117 picked, one per state the readers depend on; every markdown, HTML and SVG
+  file under `lib`, `themes`, `examples`, the baseline decks and the test fixtures; 60,000 seeded token
+  soups and 30,000 seeded foreign-content structures (`test/fixtures/html-ref-soups.js`). Two arms must
+  fail and do: a parser generated from a grammar whose comment ends at `--!`, and the reader's own source
+  with its foreign stack cut out (caught on more than a quarter of 2,000 structures).
+- **Corpus.** `npm run check:html-ref-spans`: 430 decks, 860 texts (each as written and as rendered).
+  `blockWebImages` from the working tree and from e6c3a4a return the same bytes with no origin allowed and
+  with one, `fonts` off and on, with no spec parser and with jsdom's: 0 differences, 0 texts newly risky.
+- **Platform-parser differential.** The same tool parses every text with parse5 (a WHATWG tree builder,
+  scripting on) and requires every element it builds to be the reader's tag at the same source offset, with
+  the same attributes: 195,641 elements on the corpus, 0 missed. `--fuzz N --seed S` runs it on N inputs
+  of each of three streams; see the PR body for the run at 100,000 per stream.
+- **The `unsure` rate.** 0 of 860 corpus texts. On the hostile streams it is high on purpose, since they
+  are built from the constructs that raise it: see the PR body, by stream and by reason. No deck asks the
+  spec parser.
+- **Cost.** On the 443 rendered decks (13.6 MB) the reader takes 183 ms against the old scanner's 144 ms
+  (median of five). Both are linear on hostile input now (the unit test times both on ten floods).
+- **Bytes.** Measured with `docs/scripts/measure-route-base.sh` against main and the branch's docs build:
+  `_astro/remote-ref.js` grows by 2,701 gzip bytes on studio, playground and home as CI measures it (2,495 locally; the parser is 3,172 bytes
+  minified and gzipped; the reader 1,810 against the old scanner's 1,374), declared in
+  `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz measures 551.6 KB in CI against the
+  554.5 KB (567,832-byte) ceiling. Playground and home stay under theirs.
+- **Browser fuzz.** `npm run fuzz:web-refs -- --seed 11` in Chromium 131, WebKit 26.0 and Firefox 142, run in
+  resumable 3,000-input chunks (`--from`/`--count`), on the shipped scanner (`lib/` identical from 9498c3a to
+  513d0ef): 100,000 inputs per engine, 0 leaks, 0 unattributed requests, 0 hung inputs, 0 scanner errors;
+  17,125 (Chromium), 16,373 (WebKit) and 16,648 (Firefox) of them fetch as written. An earlier run, on the code
+  before the stray-`<body>` fix, found that leak (fb-43615, closed and replayed clean in all three). The failing arm, `--ref 3780dc9` (the
+  scanner before #2909's fuzz fixes), leaked 142 times in 2,400 inputs.
+- **Not done:** R4. Each consumer (gallery gate, export, linter, narrator) still keeps its own scan.
+
+### R4: the gallery gate (2026-11-03)
+
+The package gallery gate was the first consumer to move. Both halves, `lib/cli/gallery-gate.js` and the Studio's
+`library/gallery-gate.ts`, rendered a gallery and then parsed the result with a spec parser of their own (parse5 in
+the CLI, `DOMParser` in the Studio) to walk every element. Both now hand the rendered markup to `remote-ref.js`
+`remoteRefsInHtml`, and the two element walkers are deleted. The census of private reference readers goes from four
+consumers to three: export, linter and narrator.
+
+- **What `remoteRefsInHtml` does.** It reads the markup with `scanHtml` and turns each tag into the element
+  `remoteRefsInElements` already judged: names lowercased, attribute values decoded once with a NUL read as U+FFFD
+  (as the tokenizer does), and `text` the body of a raw-text element (as written, or decoded for `<title>` and
+  `<textarea>`).
+- **`unsure` is a refusal (D7).** Each reason becomes one `policy:` finding that names where its first span starts
+  (`foreign-content, at character 9`), so the gate asks no parser and needs none. This is the "refused" half of D7,
+  not the "ask the platform parser" half. It costs real packages something: a sample slide with an inline SVG that
+  carries a `<style>` (the usual output of a design tool's SVG export), a `<foreignObject>`, a `<select>` or a
+  `<noscript>` is now refused, where parse5 admitted it. No shipped gallery has one. If a third-party package needs
+  one, the answer is the other half of D7 (ask a spec parser on the unsure spans), not a looser reader.
+- **A diagram's text is read exactly or refused.** The runtime draws an element whose class names Mermaid from its
+  text content, which is not a raw-text body. Only a `<code>`, `<pre>` or `<div>` may carry the class (any other
+  element gets its own finding), and `diagramText` reads its text only where the reader can know it: text and
+  balanced `<span>`s up to its own end tag, which is what a fence renders (highlight.js spans). Anything else is a
+  `policy:` finding, so an HTML `<div class="mermaid">` with a `<br>` in a label is refused. In that text a NUL is
+  dropped (the tree builder never inserts one in body) and a legacy reference with no `;` decodes before a letter
+  (`&ltimg` is `<img` in text). Both were found by the red team on this PR: the first admitted
+  `img\0:` (latent, since markdown-it turns NUL into U+FFFD first), the second admitted `&ltimg` end to end from a
+  `gallery.md`; both now have tests and soup pieces. Two first tries failed the differential and are recorded so
+  nobody retries them: reading every diagram's text as ONE run to the end of the markup (concatenating two diagrams'
+  text changes how the CSS reader tokenizes the second, and lost `background:ur` on a seeded soup), and keeping
+  comments in the text (`img<!---->:` is `img:` to the runtime). Balanced spans also rule out the clone the tree
+  builder makes when an ancestor closes a `<code>` early (`<span><code class=mermaid></span>img: x`); a picked case
+  holds that, since the checker's mutations showed the soups do not.
+- **Differential.** `test/unit/core/gallery-html-differential.test.js` holds the new reader to the CLI's parse5
+  reader, frozen in `tools/segno-legacy/gallery-elements.js` (the Studio's `DOMParser` walker was not frozen; it read
+  the same shape). On the 446 rendered decks and galleries in the repo (96 component and chart-kind
+  `*.gallery.md`, `examples/`, the baseline decks) the two return the same references, 0 differences. On 60,000
+  seeded inputs (token soups, foreign-content structures and diagram soups) the new one refuses wherever the old one
+  does, and where it is neither unsure nor refusing a diagram it lists every reference the old one did. Two arms must
+  fail and do: the reader with its diagram classes renamed away (caught on more than 50 of 2,000 diagram soups), and
+  the reader with its unsure findings dropped (more than 20 of 2,000 foreign-content structures).
+- **What it costs.** No shipped gallery is newly refused: the gate itself, alone and as inserted, admits every
+  shipped gallery (`gallery-remote-refs.test.js`). The gate refuses more hostile markup than before, on purpose: in
+  an exploration run (not committed), 28,453 of 90,000 soups (32%) were refused where parse5 found nothing, 23,617 of
+  them for `unsure` and the rest for a diagram holding markup. Floods stay linear: 1 to 5 MB of diagram hosts or
+  spans in 0.4 to 2.5 s, roughly in proportion to size. `_astro/remote-ref.js` grows by about 560 gzip bytes measured
+  locally (esbuild, minified), declared in `docs/route-budget.d/r4-gallery-gate-scan-html.md`; no ceiling moves.
+  That code is the gate's and it now loads on every route that loads `remote-ref.js`; moving it to a module of its
+  own is blocked by the dev shim, which inlines only require-free siblings of `remote-ref.js`.
+- **Not done:** export (moved next, below), linter and narrator kept their own scans, one PR each (D8).
+
+### R4: the export (2026-11-03)
+
+The Studio's player export was the second consumer to move. `lib/export/inline-url-media.mjs` embeds every picture a
+deck names by URL as a `data:` URI (the player's policy loads nothing else), and it found those pictures with four
+regular expressions of its own: a start tag, an attribute, a `<style>` element and a `url(`. This PR deletes the four
+and has the module read tags with `scanHtml` and each `url()` with `cssRefSpans`. The census goes from three
+consumers to two: linter and narrator.
+
+- **Why not `remoteRefsInHtml`.** The gallery gate asks "which addresses does this markup fetch", and
+  `remoteRefsInHtml` answers with a list of strings. The export REWRITES each address in place, so it needs where
+  each one is: the tag's attribute offsets (`vq`, `vFrom`, `vTo`) and each `url()` span. Those are the facts
+  `remoteRefsInHtml` is built from, so the export reads the same reading one level down, as `blockWebImages` does.
+- **What it keeps.** On every deck in the repo the output is byte-for-byte the same. A picture attribute and a
+  `style` attribute are written back whole and double-quoted, a `url()` keeps its quote (or gains one when a data URI
+  needs it), and a font source and an attribute selector stay. The engine's string copy of a background
+  (`--background-image:"url(\"…\")"`) is a string span, which the export never reads.
+- **What it reads differently, on purpose.** Each of these was a place the old patterns disagreed with the browser.
+  - A tag inside a comment is not a tag (the walker fetched it and rewrote the comment).
+  - An escaped `u\72l(` is a `url()` (missed before).
+  - Entities in raw `<style>` text stay as written, as the CSS parser reads them (the walker decoded them).
+  - Only the first of two same-named attributes is read (the walker rewrote every copy).
+  - An HTML `<image src>` is an `<img>` to the tree builder, so it is embedded (missed before). The reader builds no
+    tree, so it cannot tell an SVG `<image>` from an HTML one and embeds every picture attribute of either. An extra
+    embed is an own-origin fetch the author allowed, written into an attribute that loads nothing.
+  - A bad-url token (`url(/a(b.png)`, `url(/a.png x)`) is not embedded: the browser never fetches one.
+    `cssRefSpans` reports it anyway, because a refusal errs that way.
+  - A custom property's `url()` is embedded whatever its name. The walker embedded only `--logo-mask`'s, and a
+    comment or string holding `--x:` hid a real `url()` after it. Deleting that rule changes 0 bytes on the corpus.
+- **An inline SVG `<style>`.** In foreign content a `<style>` holds markup, not raw text, and `scanHtml` gives it no
+  body. The export reads its text the way the tree builder builds it: the runs between the tags, comments and CDATA
+  markers inside it, a CDATA section as written and other text with references decoded, and a replacement written
+  back with `&` and `<` escaped outside CDATA. The red team, the inversion review and the checker each found the
+  first version skipping these, which the regex walker had embedded. That is the usual output of a design tool's SVG
+  export, so the fix is in this PR, with a picked test for each form.
+- **`unsure` is not a refusal here.** This pass only embeds pictures from origins the author allowed. Where
+  `scanHtml` is unsure it embeds what it reads, and `blockWebImages`, which runs right after it, refuses every other
+  site's address there (D7). A picture of our own it misses there is not refused by that pass: a relative address is
+  no web origin to it, and the completion warning leaves our own origin out. So that picture ships blank with no
+  warning. This was true of the walker too. The cases left are markup the reader cannot model, which no deck in the
+  repo has (0 of 446 are unsure).
+- **Differential.** `test/unit/export/inline-url-media-differential.test.js` holds the new reader to the regex walker,
+  frozen in `tools/segno-legacy/inline-url-media.mjs`.
+  - **The corpus.** The 446 rendered decks and galleries in the repo, rendered with the Studio's `samplesUrl` so
+    `sample:` art is a real address. Each runs with and without other sites allowed, against a transport that fails
+    one picture in five and returns both encodings. The two return the same bytes, count and `missing` list: 0
+    differences. Of the 446, 47 name a picture by URL, giving 389 picture references over the two runs. None has a
+    `<style>` with a `url()`, a poster or a `srcset`.
+  - **The soups.** That gap is covered by four seeded streams: picture soups, style soups (a `<style>` block of
+    picture CSS around a picture soup), token soups and foreign-content structures. On every input the reader is
+    not unsure of, three things are checked:
+    1. It fetches exactly the pictures parse5 finds. The CSS that parse5 finds is read by the same CSS reader, so
+       only the markup reading is compared.
+    2. After it embeds everything, parse5 finds no picture left to fetch.
+    3. The document parse5 builds is unchanged apart from the pictures (`shape`).
+  - **The counts.** The unit test runs 15,000 inputs. `INLINE_MEDIA_FUZZ=30000` runs 30,000 per stream, which
+    compared 24,624 picture soups, 23,342 style soups, 26,847 token soups and 2,365 foreign-content structures. The
+    new reader had 0 failures. The frozen walker disagreed with parse5 on 11,395, 21,166, 107 and 183 of them.
+  - **The arms.** Three arms must fail, and do on 2,000 inputs each:
+    - the frozen walker, caught on 776;
+    - an embed that eats the `<` of `</style>`, caught on 520 by the shape check alone;
+    - the new reader blind to `<style>` elements, caught on 103.
+- **Floods.** The first version checked each `url()`'s custom property with an unanchored search back to the last
+  `{` or `;`, which the red team made quadratic: a 64 KB `style` attribute held the export for 64 s. That check is
+  gone with the rule, and a unit test times the input at well under a second.
+- **Bytes.** `WebpageOptionsPanel.tsx` imports `webPictureOrigins` from the module statically, so it loads with the
+  Share sheet, which the Studio loads lazily. That sheet already imported `remote-ref.js`, and neither module is in
+  any route's eager JavaScript, so no route budget moves.
+- **Not moved:** `webPictureOrigins` in the same file. It reads deck SOURCE, not markup, to decide whether the
+  export panel shows its "Embed pictures from other sites" switch, and it is generous on purpose (a false yes shows a
+  harmless switch). It decides no fetch and no refusal, so it is not a reference reader in the census's sense.
+- **Not done:** the linter and narrator (done next, below).
+
+### R4: the narrator, and the linter (2026-11-03)
+
+The narrator moves, and the linter is found to have nothing to move. R4 is NOT closed: the inversion review of this
+change found a fifth reader that no list had named, in the CLI's HTML export (below, "Left").
+
+- **The linter had none.** The phasing table listed it as a consumer, but `lib/authoring/lint-core.js`,
+  `lint.js` and the CLI lint never read a web address out of markup or CSS. Their nearest matches are the `qr` payload
+  check (it looks for a URL scheme in a bullet's text) and the author `<script>` body scan (it finds a script, not an
+  address). So it had nothing to migrate, and the census went from two consumers to one when this was checked. What the
+  linter SHOULD say about unsafe content is a separate question, written up where it is asked (not here).
+- **The narrator.** `lib/transformers/prose-projection.mjs` rebuilds a video slide as a link card in the Reading view
+  and the export's article, and takes the poster from the embed's inline `style`. It read that with
+  `/background-image\s*:\s*url\((['"]?)(.*?)\1\)/i`. It now calls `posterInStyle`, which reads the style with
+  `cssRefSpans` and returns the first `url()` of the last `background-image` or `background` declaration, the one the
+  browser applies. It splits declarations at a `;` outside every span, comment and `(` block, decodes escapes in the
+  property name, lets `!important` beat a later declaration, and skips a declaration the browser drops: an empty
+  value, a bad url token, or a `background-image` value that is not a list of images. `safePosterUrl` and the card's
+  `cssSafe` check still decide what is written back, so a wrong reading costs a picture, not a fetch.
+- **Shared pieces it needed.** `cssEscape` and `cssString` moved from `remote-ref.js` into `lib/core/css-token-readers.js`
+  (not `css-escapes.js`, which the engine imports, so the engine's bundles do not carry them). The narrator builds
+  `cssRefSpans` from the same three parts `remote-ref.js` does (`css-ref-reader.js` `makeCssRefSpans`, the generated
+  parser, the token readers), so it reads CSS without loading the HTML scanner. Each part requires nothing, on purpose:
+  the docs dev server and the plugin code door's sanitizer page load a CommonJS `lib/` file only when every require in
+  it names a require-free sibling. A first version that had `css-ref-reader.js` require the other two broke both
+  (`vite-cjs-lib-dev.test.ts` and the code-door integration tests caught it). The export's check for a valid url token
+  moved into `css-ref-reader.js` as `isValidUrlToken`, and both callers use it.
+- **A bug the move found.** That check read an escape as one character after the backslash, so it called
+  `url(k\29 .png)` a bad url token. A hex escape takes one space after its digits, and Chromium paints that picture.
+  The fix is in the shared check, so the export now embeds such a picture too. No deck in the repo has one: the
+  export differential still returns the same bytes on all 446. The red team then found the first version of that
+  fix backtracking exponentially: as `[0-9a-fA-F]{1,6}`, each run of hex digits after a backslash could split six
+  ways against the plain-character branch, so a 10-escape bad url took 1.6 s to refuse and a 12-escape one 60 s,
+  in the Reading view and in the Webpage export alike. The digits are now matched atomically (a lookahead takes the
+  longest run, a backreference consumes exactly it), and 2,000 escapes refuse in under a millisecond. The test
+  times it.
+- **Differential.** `test/unit/transformers/prose-projection-poster.test.js` holds `posterInStyle` to the regex,
+  frozen in `tools/segno-legacy/poster-in-style.js`.
+  - **The corpus.** Every `style` attribute in the 462 rendered decks, galleries and fixtures: 14,277 of them. 124
+    name a background and 117 give a poster, video embeds among them. 0 differences.
+  - **Chromium (a scratch run, not committed).** A seeded run set 30,000 styles (three seeds of 10,000, from property, value and separator pieces)
+    on an element in a real Chromium and read `style.backgroundImage`. The new reader agreed on 29,329 (97.8%), the
+    regex on 12,921 (43%). Every one of the rest is a function left unclosed (`url("o.png"` or `garbage(` with no `)`),
+    which the browser closes at the end of input. `cssRefSpans` reports an unclosed `url("…"` as a string span, not a
+    url, so the card shows no poster there. The refusal scanner still refuses it, since it treats every string as a
+    possible address. That run lives in no committed tool, so it cannot be repeated from the tree; what is durable is
+    18 of its cases, pinned in the test with the value Chromium painted. The frozen regex gets 9 of them wrong (the
+    failing arm). Three more cases run the whole video card (`prose-projection.test.js`): an escaped `u\72l(`, the
+    last of two declarations, and an escaped `javascript:` that `safeHref` still drops.
+  - **Floods.** A 64 KB style, 2,000 escapes in a bad url and 32,000 declarations each read in well under a second
+    (timed in the test). The first version filtered every span once per declaration, so 32,000 declarations took 2.8 s;
+    a cursor over the spans, which come in source order, reads them once.
+- **The scanners still hold.** `npm run fuzz:web-refs` (seed 1, 2,000 inputs per engine) on this tree: 0 requests
+  after the rewrite in Chromium 153, WebKit 26 and Firefox 142, with 17-19% of the inputs fetching as written.
+- **Bytes.** The narrator now loads the CSS reader. The export's speech-projection bundle
+  (`lib/export/speech-projection-bundle.generated.mjs`, evaluated in the export's own Chromium page, never shipped to a
+  reader) grows from 55.0 KB to 74.8 KB, or 19.9 KB to 24.0 KB gzipped. No engine or Studio startup bundle changes.
+
+- **Left: the CLI's HTML export.** `lib/export/html-player.js` `inlineDocAssets` embeds a deck's local files into
+  the self-contained HTML, and finds them with a CSS reader of its own (`mapCssUrls`, with its own `cssString`,
+  `cssUnescape` and `mapSrcset`). It matches only a literal `url(`, so it misses `u\72l(a.png)`, which `cssRefSpans`
+  reads. It was never on the phasing table's list, so the census was short by one. It moves in its own PR with its
+  own differential, like the others (D8): `followups.d/2909-p4-segno-reference-model-css-and-html-islands.md`.
+
 ## Decisions for the owner
 
 - **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
@@ -315,6 +592,14 @@ built so far is hard to undo.
   starts only after R2's gate (433-deck byte identity, fuzz at 0 requests in three engines, the
   failing arm still failing) has run green. R4 stays one PR per consumer.
 
+- **D9. The Studio ceiling for R3. Answered by the owner on 2026-11-02 on #3002: A, keep R3 switched on.** Switching R3 on adds about 2.5 KB gzip to the Studio's eager JavaScript (2,495 bytes
+  locally, 2,701 in CI), which sat 164 bytes under its 562,200-byte ceiling, so on 2026-10-30 the switch was
+  held and the question put to the owner, with B (do not switch) as the default if silent. The owner did not
+  answer it. On 2026-11-02 the owner raised the ceiling by 5 KB in #3001 for #2997's 0.2 KB, and the session
+  switched R3 on inside that room (CI: 551.6 KB against 554.5 KB), declaring the bytes and moving no ceiling.
+  That spends about 2.7 KB of headroom raised for another PR; the owner accepted it ("go with A"). Overturning it later is one revert of the switch commit; the
+  hand-written scanner, with the six fixes, is frozen in tools/segno-legacy/scan-html-fixed.js.
+
 ## Not decided here
 
-How tree construction facts (foreign content, templates) are best expressed in a generated grammar is the open design question of R3; the note commits only to the soundness invariant and to `unsure` as the escape. The connection-with-no-request oracle cannot fail in headless Chromium today (the control opens no attributable idle connection), so `fetch/hint` has no measured coverage until that oracle is fixed.
+How tree construction facts (foreign content, templates) are best expressed in a generated grammar was the open design question of R3. R3 answered it with stops and a reader that keeps the state ("R3 landed"). The connection-with-no-request oracle cannot fail in headless Chromium today (the control opens no attributable idle connection), so `fetch/hint` has no measured coverage until that oracle is fixed.

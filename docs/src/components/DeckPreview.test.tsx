@@ -23,8 +23,9 @@ const { renderInto, dispose } = vi.hoisted(() => ({
 	),
 	dispose: vi.fn(),
 }));
+const created = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 vi.mock('@/playground/single-slide-render', () => ({
-	createSingleSlideRenderer: () => ({
+	createSingleSlideRenderer: (o: Record<string, unknown>) => (created.push(o), {
 		renderInto,
 		whenReady: () => Promise.resolve(),
 		onThemeChange: () => () => {},
@@ -400,5 +401,27 @@ describe('DeckPreview — followWhenParked', () => {
 			await new Promise((r) => setTimeout(r, 60));
 		});
 		expect(renderInto).not.toHaveBeenCalled();
+	});
+});
+
+// Preview-sized photo copies (lib/preview-image-scale.ts) are opt-in per renderer, and a host may opt in
+// only if it re-renders when a copy lands: the rewrite writes a photo with no url() until then.
+describe('DeckPreview — preview-sized photo copies', () => {
+	it('opts its renderer in to photo copies', async () => {
+		created.length = 0;
+		render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		expect(created.at(-1)?.scaleImages).toBe(true);
+	});
+
+	it('re-renders when a copy it waited for lands', async () => {
+		render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		const host = renderInto.mock.calls[0][0];
+		const before = renderInto.mock.calls.length;
+		act(() => {
+			host.dispatchEvent(new CustomEvent('lattice:preview-images-ready'));
+		});
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(before));
 	});
 });
