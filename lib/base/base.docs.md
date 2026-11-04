@@ -890,7 +890,7 @@ caveat gets the hairline treatment for free.
 A row of cards drops columns as its box narrows instead of squeezing each
 card: `cards-grid`, `verdict-grid`, `pricing`, `stats`, `statute-stack`,
 `decision`, `list-steps`, `compare-prose`, `team-profile`, `cards-stack
-horizontal`, `q-and-a`, `inventory cards`/`timeline` and `kpi`. It happens in
+horizontal`, `q-and-a`, `inventory cards`/`timeline`, `kpi` and `list principles`. It happens in
 a narrow pane, a narrow frame or on a phone, never on a full-width 16:9
 slide, and where a component already has a single-column form for tall decks
 the narrow form is that one. On a slide, a row that would overflow once it

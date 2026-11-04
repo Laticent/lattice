@@ -240,3 +240,15 @@ section.list > .cell-stage > ol > li {
 section.list > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). `principles` sets its counter at display size
+ * in a column reserved for it (`--list-ord-w`, 2.5 numerals wide in `roman`), so in a narrow box
+ * the column took half the row and the declaration ran past the slide's edge. Below 24em of the
+ * content area the counter sits above its line instead, and the line takes the full width. */
+@container lat-cards (width < 24em) {
+  /* The row rule was inset past the counter column; with the counter above, it spans the row.
+   * Set on the list, not the section: a query on the content area reaches only its descendants. */
+  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) { --lat-narrow: 1; --list-rule-inset: 0px; }
+  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li { flex-wrap: wrap; row-gap: var(--sp-2xs); }
+  section.list.list.principles > .cell-stage > ol:not(.lat-reflow-held) > li::before { flex-basis: 100%; }
+}

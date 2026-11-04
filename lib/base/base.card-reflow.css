@@ -23,4 +23,4 @@
  * already measured the slide's content box, which the content area spans, and in a pane the
  * pane is the container either way.
  * engineering/decisions/2026-11-03-responsive-tables.md §Card grids. */
-section:is(.cards-grid, .verdict-grid, .pricing, .stats, .statute-stack, .decision, .list-steps, .compare-prose, .team-profile, .cards-stack, .q-and-a, .inventory:is(.cards, .timeline), .kpi):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage { container: lat-cards / inline-size; }
+section:is(.cards-grid, .verdict-grid, .pricing, .stats, .statute-stack, .decision, .list-steps, .compare-prose, .team-profile, .cards-stack, .q-and-a, .inventory:is(.cards, .timeline), .kpi, .list):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage { container: lat-cards / inline-size; }

@@ -1085,3 +1085,15 @@ section.kpi.kpi.kpi[data-cards="center"] > .cell-stage > ol { align-content: saf
     border-top: 1px solid var(--border);
   }
 }
+/* `compliance` is already one column of rows, but each row is a grid whose number column is at
+ * least four h1 numerals wide (`min-width: 4ch`), so in a narrow box the label and its pill ran
+ * past the slide's edge. Below 24em the row is one column: the number, then its label, then the
+ * meta line. Every item is placed again, because the wide grid places each one explicitly (a
+ * one-column template alone sent the labels into an implicit column on top of the numbers). */
+@container lat-cards (width < 24em) {
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > strong { grid-column: 1; grid-row: 1; min-width: 0; text-align: start; align-self: start; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:first-child { grid-column: 1; grid-row: 2; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(2) { grid-column: 1; grid-row: 3; }
+  section.kpi.kpi.kpi.compliance > .cell-stage > ol:not(.lat-reflow-held) > li > ul > li:nth-child(n+3) { grid-column: 1; grid-row: auto; }
+}

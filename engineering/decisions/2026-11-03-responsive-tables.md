@@ -235,9 +235,12 @@ change type), and kpi takes only the layout half of its tall form for the same r
 
 **cards-grid's column count is one variable now**, `--cards-cols`, with `--cards-last` for a last card
 alone on its row. That fixed a real bug on the way: the tall/strip single-column rule was (0,3,3) and
-`.three` was (0,4,3), so a `three` grid stayed three across on every portrait and mobile deck, which is
-50 galleries' anti-pattern slide. Setting a variable cannot be out-ranked that way. The owner approved
-the visible change to those portrait and mobile pages (2026-11-04).
+`.three` was (0,4,3), so a `three` grid stayed three across on a portrait or mobile deck (50
+galleries' anti-pattern slide is one). Setting a variable cannot be out-ranked that way. The owner
+approved the visible change (2026-11-04), which then turned out smaller than the cascade suggested: an
+exported PDF auto-splits that slide one card per page, so the sweep against `main` found every portrait
+page identical. The bug showed only where nothing splits: the live preview, a Marp bundle, the fluid
+view.
 
 Three were left as they are, each for a reason: split-compare's row is the section itself, and a
 container query cannot restyle the box it measures, but the fluid view re-derives orientation from the
@@ -255,18 +258,36 @@ area now sits between them, so a component that sizes something in raw `cqi` (kp
 team-profile's avatars) shows it shrunk in the lab's held view. A continuous host that holds type would
 meet the same raw `cqi`; replacing it is the per-component `--_sec-1cqi` work, not this change.
 
+## The slide frame does not spill; the measurement did
+
+Follow-up p1 said the slide's header or footer ran past its edge at phone width in 69 of 79
+components, from the Frame Lab's "Header/footer spill" column. It does not. The lab measured each
+text node's own rectangles, and the running footer is deliberately ONE line in a band of fixed
+height that ellipsizes (`engineering/decisions/2026-07-27-footer-band-allocation.md`: the band never
+grows, so the page number never jumps from slide to slide). The text behind the ellipsis extends
+past the edge and is clipped; the lab counted it. Measured at 360px on seven components after the
+fix: the chrome column reads 0 everywhere, and a check that every flagged rectangle sat inside a
+clipping ancestor found none visible. tools/frame-lab/build.js now measures chrome by what a reader
+sees (clipped by the nearest clipping ancestor) and content at its full width, because clipped
+content is cut text a reader loses. The footer keeps its ellipsis: wrapping it would bring back
+the page-to-page jitter that decision removed.
+
+The corrected scan then found two real content spills at 360px, both a fixed numeral column
+starving its text: `list principles` (a counter column 2.5 numerals wide in `roman`) and `kpi
+compliance` (a number column at its widest content). Below 24em of the content area each puts the
+numeral above its line, through the same shared container.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
 
-1. The slide frame's header, footer and page number wrap when narrow (69 of 79 components spill).
-2. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
+1. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
    `matrix-grid` and `roadmap`.
-3. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
-4. Narrow forms for side-by-side components (redline, compare-code, split-panel).
-5. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+2. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
+3. Narrow forms for side-by-side components (redline, compare-code, split-panel).
+4. Narrow forms for the 28 chart kinds, including the three that take a table as data.
 
-(The table-owning components and the shared card grid were on this list; both moved into this change, above.)
+(The table-owning components, the shared card grid and the frame were on this list; all three moved into this change, above.)
 
 Each reuses this change's pattern: one narrow layout for both hosts, triggered by width in a continuous
 host and by width plus the fit check on a slide.

@@ -74,7 +74,21 @@ const FRAME_SCRIPT = `
         range.selectNodeContents(n);
         var rs = range.getClientRects();
         var isChrome = !!el.closest('header,footer,.lat-pagination');
-        for (var k = 0; k < rs.length; k++) { var q = rs[k]; if (!q.width || !q.height) continue; var d = Math.max(q.right - r.right, r.left - q.left); if (isChrome) chromeOver = Math.max(chromeOver, d); else over = Math.max(over, d); }
+        // Chrome: measure what a reader SEES. Text an ancestor clips (the footer band's designed ellipsis,
+        // a clipping cell) is not past the slide's edge, so the visible box is the nearest
+        // horizontally clipping ancestor's, not the text's own. (Without this the chrome column
+        // counted the footer's ellipsis as a spill on nearly every component.)
+        // Content is the other way round: clipped content is CUT text, which a reader loses, so it
+        // still counts at its full width.
+        var vl = -Infinity, vr = Infinity;
+        for (var a = el; isChrome && a && a !== s; a = a.parentElement) {
+          if (getComputedStyle(a).overflowX !== 'visible') { var ab = a.getBoundingClientRect(); vl = Math.max(vl, ab.left); vr = Math.min(vr, ab.right); }
+        }
+        for (var k = 0; k < rs.length; k++) {
+          var q = rs[k]; if (!q.width || !q.height) continue;
+          var d = Math.max(Math.min(q.right, vr) - r.right, r.left - Math.max(q.left, vl));
+          if (isChrome) chromeOver = Math.max(chromeOver, d); else over = Math.max(over, d);
+        }
       }
       s.querySelectorAll('img,svg,video,canvas,table,pre').forEach(function(m){
         if (m.closest('[aria-hidden="true"],[data-lattice-berth],header,footer') || (m.tagName === 'svg' && m.parentElement.closest('svg'))) return;
