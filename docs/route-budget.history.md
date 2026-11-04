@@ -6,6 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-04 — engine ceiling raised 2 KB by hand, for PR 2988's measured split
+
+Owner OK 2026-11-04 (asked in the PR 2988 session: "Raise ceiling 2KB", chosen over raising it inside PR 2988 or deleting about 1 KB of the split's code). PR 2988 adds the measured split's engine half and its carousel fixes to the shared split kernel: a measured plan per slide (lib/core/collections.js `groupSizes`, lib/core/auto-split.js, lib/engine/structural-split.js), the folded key insight (lib/core/split-envelope.js, lib/core/carousel.js), the centered default for split pages (`centerUnchosenCards`) and the pacing fixes from the owner's decks. Every surface's split runs this code, so it sits in the ESM engine; the measuring loop itself (lib/core/fit-measure.js, docs/src/lib/measured-split.ts) loads lazily and is not counted. Measured locally with docs/scripts/measure-route-base.sh on both sides: main at 65f11fe is 778160 bytes (759.9 KB) on the four engine routes, and PR 2988 at d772e64 is 780070 bytes, +1910 bytes (CI on that commit: 761.7 KB against the 760.8 KB ceiling). Nearly all of it is the ESM engine: getting-started's engine-only figure moved 311351 -> 313114 bytes (+1763); the other 147 bytes are the preview runtime. Removing PR 2988's narrow-box CSS that duplicated PR 3021's rules gave nothing back here, because the stylesheet is not in this metric. Only the engineJsGz ceiling of the four routes that carry the engine moves, by 2048 bytes, from 779016 to 781064, leaving 994 bytes of room; the soft targets are untouched and no other metric changes.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707731 | 707731 | +0 | 781064 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 781064 |
+| home | engineJsGz | 707731 | 707731 | +0 | 781064 |
+| components | engineJsGz | 707731 | 707731 | +0 | 781064 |
+
 ### 2026-11-04 — engine ceiling raised 1.5 KB by hand, for PR 3021's responsive tables
 
 Owner OK 2026-11-04 (asked in the PR 3021 session: "Raise ceiling 1.5 KB", chosen over lazy-loading the runtime's table code or dropping the card-line stamps from the Marp-path mirror). PR 3021 adds the table-kind detector (lib/core/table-shape.js), the markdown-it `tableReflow` plugin, the DOM mirror (lib/runtime/table-shape-dom.js) and the slide fit check (lib/core/table-reflow-fit.js); the detector ships in both bundles `engineJsGz` counts, the ESM engine and the preview runtime. Measured locally against main at c0cbc52: about +2.1 KB gzip in the engine and +2.9 KB in the runtime, 5.0 KB together, after moving the DOM mirror out of the engine (362 bytes given back). CI on f19e996 measured 759.8 KB against the 759.3 KB ceiling. The owner chose 1.5 KB rather than the tool's full reset (which would reset every soft target and re-slack each ceiling 10% over its measurement); it covers the 0.5 KB overage and this PR's last commit. Only the engineJsGz ceiling of the four routes that carry the engine moves, by 1536 bytes, from 777480 to 779016; the soft targets are untouched and no other metric changes.
