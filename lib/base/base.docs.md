@@ -885,6 +885,51 @@ A short paragraph directly after a table **is** promoted to a Below-Note (see
 above), on `content` and on an un-classed slide alike — so a source line or a
 caveat gets the hairline treatment for free.
 
+### When a row of cards runs out of width
+
+A row of cards drops columns as its box narrows instead of squeezing each
+card: `cards-grid`, `verdict-grid`, `pricing`, `stats`, `statute-stack`,
+`decision`, `list-steps`, `compare-prose`, `team-profile`, `cards-stack
+horizontal`, `q-and-a`, `inventory cards`/`timeline`, `kpi` and `list principles`. It happens in
+a narrow pane, a narrow frame or on a phone, never on a full-width 16:9
+slide, and where a component already has a single-column form for tall decks
+the narrow form is that one. On a slide, a row that would overflow once it
+wraps keeps its columns. There is nothing to author.
+
+### When a table runs out of width — `table-cards` · `table-pairs` · `no-table-reflow`
+
+A table whose box gets too narrow changes shape instead of squeezing. The
+engine names each table's kind (`lib/core/table-shape.js`) and gives it a
+narrow layout:
+
+| Kind | Narrow layout |
+|---|---|
+| A record list (each row is one thing: a person, a file, a risk) | each row becomes a card — the first cell is its title, every other cell a `LABEL value` line, the values aligned in one column; a label longer than 10 characters sits above its value instead |
+| A two-column table (a label and its value) | each label moves above its value |
+| Any other kind (a table read across rows and down columns) | keeps the table, for now |
+
+It switches only where the table genuinely breaks, measured against the
+table's own box: a narrow pane, a portrait canvas or a phone. A table on a
+full-width 16:9 slide, or in a half pane on one, never switches. And on a
+slide it switches only if the new layout FITS: a card is taller than the row
+it replaces and a slide does not grow, so when the cards would make the slide
+overflow, the table keeps its table form (the export prints an `ⓘ` line
+naming the page). On a continuous page there is no such limit.
+
+You do not need to do anything. Overrule the engine when it guessed wrong:
+`table-cards` forces the card layout, `table-pairs` the label/value layout,
+and `no-table-reflow` keeps the table at every width (it wins a slide
+carrying more than one). A slide's modifier reaches the tables in its panes;
+a pane marker can name its own (`<!-- _pane: content no-table-reflow -->`),
+which wins for that pane. A raw `<table>` written as HTML is not reflowed. See engineering/decisions/2026-11-03-responsive-tables.md.
+
+The components that own a table have their own narrow form, on the same
+rules: `glossary` puts each term above its definition, `math derivation`
+puts each justification under its step, and `obligation-matrix` and the
+`statute-stack lane` take the cards. `matrix-grid` and `roadmap` keep their
+grid. `no-table-reflow` keeps all four in table form in a narrow box; on
+the mobile canvas a glossary stacks regardless, as it always has.
+
 ---
 
 ## Universal variants

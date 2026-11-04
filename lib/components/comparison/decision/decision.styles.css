@@ -201,3 +201,24 @@ section.decision:where(:not(.compare-prose)) > .cell-stage > ol > li {
 section.decision:where(:not(.compare-prose)) > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The wide row keeps every option on one line
+ * (`min-width: 0`), so a narrow box squeezed each card. Below the width where a card would drop
+ * under about 11.5em (24em of the content area for two options, 36em for three or more) the
+ * options stack, the form a tall deck gets. */
+@container lat-cards (width < 36em) {
+  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol) > li:nth-child(3)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.decision.decision:where(:not(.compare-prose)):has(> .cell-stage > :is(ul, ol) > li:nth-child(3)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+    flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
+  }
+}
+@container lat-cards (width < 24em) {
+  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.decision.decision:where(:not(.compare-prose)) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+    flex: var(--cards-grow) 1 var(--cards-basis); min-height: auto; max-height: none;
+  }
+}

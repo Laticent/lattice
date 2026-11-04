@@ -509,3 +509,24 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
   padding: var(--sp-xs) 0 0 var(--qa-gutter);
 }
 
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The `grid` quadrants and the `rail`
+ * columns keep their tracks at any width, so a narrow box squeezed both. Below 28em of the
+ * content area they take the forms a tall deck gets: the grid becomes one column of pairs
+ * (its cross rules go), and in the rail the answer drops under its question. */
+@container lat-cards (width < 28em) {
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
+    display: flex; flex-direction: column; justify-content: var(--cards-align); align-items: stretch;
+    gap: var(--sp-lg); --lat-narrow: 1;
+  }
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::before,
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::after { display: none; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) { --lat-narrow: 1; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
+    flex-wrap: wrap; column-gap: var(--qa-col-gap); padding-inline-start: var(--sp-xs);
+    padding-bottom: var(--sp-lg); border-inline-start: 2px solid var(--accent);
+  }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > strong { flex: 1 1 0; padding-inline-end: 0; }
+  section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li > :is(ul, ol) { flex: 1 1 100%; }
+}

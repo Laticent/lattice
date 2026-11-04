@@ -192,3 +192,13 @@ section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="
 section.cards-stack.horizontal:not(:where([data-family="square"], [data-family="tall"], [data-family="strip"])) .cards-stack-inner > * {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). `horizontal` lays the cards on one row
+ * and never wraps them (a zero basis keeps them on one line), so a narrow box squeezed each
+ * card. Below 36em of the content area the row stacks back to the component's own column. */
+@container lat-cards (width < 36em) {
+  section.cards-stack.cards-stack.horizontal > .cell-stage > :is(ul, ol):not(.lat-reflow-held),
+  section.cards-stack.cards-stack.horizontal .cards-stack-inner:not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; --lat-narrow: 1;
+  }
+}

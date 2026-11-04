@@ -230,6 +230,10 @@ const FORMS_TILE_CSS_SOURCES = formCssSources('tile');
 const TAIL_SOURCES = [
   'lib/shared/shared.styles.css',
   'lib/base/base.variants.css',
+  // Table reflow — a table that runs out of width becomes cards or label/value pairs, inside a
+  // container query on its own box. After base.variants so it composes on the table switches.
+  'lib/base/base.table-reflow.css',
+  'lib/base/base.card-reflow.css',
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
   // Accent finishes (`rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the

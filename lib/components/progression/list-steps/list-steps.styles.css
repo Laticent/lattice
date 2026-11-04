@@ -457,3 +457,28 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
 section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):not(.ghost):not(.capsule):not(.lat-split-native):not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li {
   min-width: 0; max-height: 100%; box-sizing: border-box;
 }
+
+/* ── Width reflow (lib/base/base.card-reflow.css). The wide row keeps every step on one line,
+ * so a narrow box squeezed each step to a word per line. Below 36em of the content area (a step
+ * under about 11.5em at three across) the steps stack and the connector turns to point down,
+ * the form a tall deck gets. The variants with a shape of their own (timeline, chevron,
+ * converge, ghost) keep it. */
+@container lat-cards (width < 36em) {
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto; --lat-narrow: 1;
+  }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) > li { flex: 0 0 auto; }
+  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) > .cell-stage > ol:not(.lat-reflow-held) > li:not(:last-child)::after {
+    inset-inline-end: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
+    transform: translate(50%, 50%);
+    border-top: 10px solid var(--border); border-bottom: none;
+    border-inline-start: 10px solid transparent; border-inline-end: 10px solid transparent;
+  }
+}
+/* `chevron` keeps its rows, but its tab is a fixed 16cqi column holding a label set in slide-size
+ * type, so in a narrow pane the label clipped at the tab's edges. Below 36em the tab column takes
+ * its label's own width (wrapping only between words) and the description keeps the rest. */
+@container lat-cards (width < 36em) {
+  section.list-steps.list-steps.chevron > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
+  section.list-steps.list-steps.chevron > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
+}

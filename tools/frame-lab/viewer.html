@@ -1,0 +1,397 @@
+<title>Lattice Frame Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a tool bench. One control strip on top, the slide frames below on a
+   drafting-table ground; badges ride on the frames, never inside them. */
+:root {
+  --ground: #eef0f5;
+  --panel: #ffffff;
+  --ink: #1c2136;
+  --ink-2: #5a6180;
+  --rule: #d6d9e4;
+  --accent: #3a4bb8;
+  --accent-ink: #ffffff;
+  --cut: #b4302b;
+  --cut-bg: #fbe9e7;
+  --ok: #2d7a4f;
+  --ok-bg: #e6f3ec;
+  --mid: #8a5a00;
+  --mid-bg: #fbf0d9;
+  --frame-edge: #9aa1bd;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ground: #14172a; --panel: #1d2138; --ink: #e6e8f2; --ink-2: #a3a9c6; --rule: #343a5c;
+  --accent: #8e9cff; --accent-ink: #14172a; --cut: #ff8a80; --cut-bg: #3a1f22; --ok: #7fd3a2; --ok-bg: #1b3326; --mid: #f0c36a; --mid-bg: #3a2e14;
+  --frame-edge: #5a6189; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --ground: #14172a; --panel: #1d2138; --ink: #e6e8f2; --ink-2: #a3a9c6; --rule: #343a5c;
+  --accent: #8e9cff; --accent-ink: #14172a; --cut: #ff8a80; --cut-bg: #3a1f22; --ok: #7fd3a2; --ok-bg: #1b3326; --mid: #f0c36a; --mid-bg: #3a2e14;
+  --frame-edge: #5a6189; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 14px/1.45 var(--font-ui); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+header.top { display: flex; flex-direction: column; gap: 4px; max-width: 72ch; }
+h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.lede { margin: 0; color: var(--ink-2); }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ground); }
+.group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+select, button, input[type=range] { font: inherit; color: inherit; }
+select { background: var(--ground); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px; max-width: 100%; }
+button { background: var(--ground); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--frame-edge); }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.readout { font-family: var(--font-data); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+input[type=range] { width: 160px; accent-color: var(--accent); }
+.meta { color: var(--ink-2); font-size: 13px; }
+.meta b { color: var(--ink); font-weight: 600; }
+.note { font-size: 12.5px; color: var(--ink-2); max-width: 90ch; }
+
+/* Frames */
+.stage { position: relative; }
+.frame { position: relative; flex: 0 0 auto; }
+.frame iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; background: transparent; }
+.frame .edge { position: absolute; inset: 0; pointer-events: none; }
+.slot { position: absolute; left: 0; right: 0; outline: 1px solid var(--frame-edge); outline-offset: 0; pointer-events: none; }
+.badge { position: absolute; left: 0; transform: translateY(calc(-100% - 3px)); font: 500 11px/1 var(--font-data); padding: 3px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+.badge.cut { background: var(--cut-bg); color: var(--cut); }
+.badge.n { background: transparent; color: var(--ink-2); padding-left: 0; }
+.handle { position: absolute; top: 0; width: 18px; margin-left: -9px; cursor: ew-resize; touch-action: none; display: flex; justify-content: center; }
+.handle::before { content: ""; width: 4px; height: 100%; border-radius: 2px; background: var(--accent); opacity: .55; }
+.handle:hover::before, .handle.drag::before { opacity: 1; }
+.compare { display: flex; gap: 20px; overflow-x: auto; padding-top: 4px; padding-bottom: 8px; }
+.col { display: flex; flex-direction: column; gap: 22px; flex: 0 0 auto; }
+.colhead { font: 500 12px/1.2 var(--font-data); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.resize { padding-top: 22px; }
+
+/* Overview */
+.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+td.num, th.num { text-align: center; font-family: var(--font-data); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--ground); }
+.pill { display: inline-block; min-width: 2.2em; padding: 1px 6px; border-radius: 999px; font: 500 12px/1.5 var(--font-data); }
+.pill.cut { background: var(--cut-bg); color: var(--cut); }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.mid { background: var(--mid-bg); color: var(--mid); }
+.pill.eye { background: var(--ground); color: var(--ink-2); border: 1px solid var(--rule); }
+.bucket { color: var(--ink-2); }
+a.comp { color: var(--accent); text-decoration: none; font-weight: 500; }
+@media (max-width: 560px) { input[type=range] { width: 120px; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Lattice Frame Lab</h1>
+    <p class="lede">Every component's gallery slides, rendered by the engine, in a frame you can narrow. The slide has no height limit: it grows to fit its content. The engine's shape labels are removed, so only the CSS responds.</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="Frame controls">
+    <div class="group">
+      <span class="seg" role="group" aria-label="View">
+        <button id="v-overview" type="button" aria-pressed="true">Overview</button>
+        <button id="v-resize" type="button" aria-pressed="false">Resize</button>
+        <button id="v-compare" type="button" aria-pressed="false">Compare</button>
+      </span>
+    </div>
+    <div class="group" id="g-comp">
+      <label class="label" for="comp">Component</label>
+      <button id="prev" type="button" aria-label="Previous component">&#8592;</button>
+      <select id="comp"></select>
+      <button id="next" type="button" aria-label="Next component">&#8594;</button>
+    </div>
+    <div class="group" id="g-type">
+      <span class="label" id="type-label">Type</span>
+      <span class="seg" role="group" aria-labelledby="type-label">
+        <button id="t-hold" type="button" aria-pressed="true" title="Text stays the size it is on a 1280px slide">Holds size</button>
+        <button id="t-follow" type="button" aria-pressed="false" title="Text scales with the frame width (cqi of the frame)">Scales with frame</button>
+      </span>
+    </div>
+    <div class="group" id="g-proto">
+      <span class="label" id="proto-label">Prototype</span>
+      <span class="seg" role="group" aria-labelledby="proto-label">
+        <button id="pr-on" type="button" aria-pressed="true" title="The responsive-table CSS is applied">On</button>
+        <button id="pr-off" type="button" aria-pressed="false" title="The engine's own CSS, including the shipped records and key-value reflow">Off</button>
+      </span>
+    </div>
+    <div class="group" id="g-size">
+      <label class="label" for="w">Width</label>
+      <input id="w" type="range" min="280" max="1280" step="1" value="1280">
+      <span class="readout" id="readout"></span>
+    </div>
+    <div class="group" id="g-presets" aria-label="Frame presets"></div>
+  </div>
+
+  <div class="meta" id="meta"></div>
+  <main id="main"></main>
+  <p class="note"><b>Holds size</b>: text stays at its 1280px-slide size, so a narrower frame has to reflow. This is the responsive test. <b>Scales with frame</b>: text is a fraction of the frame's width, so a narrower frame is a smaller copy of the same layout. Each slide is at least 16:9 for its width, so full-bleed slides with nothing in normal flow keep a shape; content can grow it from there. Red badges mark content, or the header and footer, spilling past the frame's right edge. They miss content that overflows a box inside the slide, such as a pill running out of its card, so look as well. Light mode, indaco palette.</p>
+</div>
+
+<script>
+(function () {
+  var BUCKETS = ['prototype', 'anchor','statement','inventory','comparison','progression','evidence','imagery','chart','diagram','math','code','legal','connect','layout'];
+  var PRESETS = [
+    { id: 'p1280', label: 'Full slide', w: 1280 },
+    { id: 'p960', label: '960', w: 960 },
+    { id: 'p720', label: '720', w: 720 },
+    { id: 'p640', label: 'Half pane', w: 640 },
+    { id: 'p480', label: '480', w: 480 },
+    { id: 'p360', label: 'Phone', w: 360 }
+  ];
+  var COMPARE = [1280, 960, 640, 480, 360];
+  var state = { view: 'overview', comp: null, w: 1280, type: 'hold', proto: 'on' };
+  var comps = [];
+  // A Map, never a plain object: frame ids arrive by postMessage, and a plain-object key
+  // could name a prototype property (CodeQL js/prototype-polluting-assignment).
+  var frames = new Map();
+  var $ = function (id) { return document.getElementById(id); };
+  var main = $('main');
+
+  function makeFrame(key, comp, w, zoom) {
+    var box = document.createElement('div');
+    box.className = 'frame';
+    var ifr = document.createElement('iframe');
+    ifr.name = key;
+    ifr.title = comp.name + ' at ' + w + 'px wide';
+    ifr.src = 'f/' + comp.name + '.html';
+    var edge = document.createElement('div');
+    edge.className = 'edge';
+    box.appendChild(ifr); box.appendChild(edge);
+    var f = { box: box, ifr: ifr, edge: edge, w: w, zoom: zoom, total: comp.slides * 600, slides: [] };
+    frames.set(key, f);
+    ifr.addEventListener('load', function () { send(f); });
+    layout(f);
+    return f;
+  }
+  function send(f) { try { f.ifr.contentWindow.postMessage({ lab: 'frame', type: state.type, proto: state.proto }, '*'); } catch (e) {} }
+  function layout(f) {
+    f.ifr.style.width = f.w + 'px';
+    f.ifr.style.height = f.total + 'px';
+    f.ifr.style.transform = 'scale(' + f.zoom + ')';
+    f.box.style.width = Math.round(f.w * f.zoom) + 'px';
+    f.box.style.height = Math.round(f.total * f.zoom) + 'px';
+    f.edge.textContent = '';
+    f.slides.forEach(function (s, i) {
+      var slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.style.top = (s.top * f.zoom) + 'px';
+      slot.style.height = (s.h * f.zoom) + 'px';
+      var b = document.createElement('span');
+      var num = f.showNum ? (i + 1) + ' · ' : '';
+      if (s.over > 2 || s.chrome > 2) { b.className = 'badge cut'; b.textContent = num + (s.over > 2 ? 'content spills ' + s.over + 'px' : '') + (s.over > 2 && s.chrome > 2 ? ' · ' : '') + (s.chrome > 2 ? 'header/footer spills ' + s.chrome + 'px' : ''); }
+      else if (f.showNum) { b.className = 'badge n'; b.textContent = (i + 1) + (s.cls ? ' · ' + s.cls : '') + ' · ' + s.h + 'px tall'; }
+      if (b.textContent) slot.appendChild(b);
+      f.edge.appendChild(slot);
+    });
+  }
+  window.addEventListener('message', function (e) {
+    var m = e.data || {};
+    if (m.lab !== 'size' || typeof m.id !== 'string') return;
+    var f = frames.get(m.id);
+    // Only the frame's own window may resize it.
+    if (!f || e.source !== f.ifr.contentWindow) return;
+    f.total = m.total; f.slides = m.slides;
+    layout(f);
+  });
+  function availWidth() { return Math.max(200, main.clientWidth || document.documentElement.clientWidth - 32); }
+
+  function render() {
+    frames = new Map();
+    main.textContent = '';
+    ['overview','resize','compare'].forEach(function (v) { $('v-' + v).setAttribute('aria-pressed', String(state.view === v)); });
+    $('t-hold').setAttribute('aria-pressed', String(state.type === 'hold'));
+    $('t-follow').setAttribute('aria-pressed', String(state.type === 'follow'));
+    $('g-comp').hidden = state.view === 'overview';
+    $('g-type').hidden = state.view === 'overview';
+    $('g-proto').hidden = state.view === 'overview' || !state.comp || state.comp.bucket !== 'prototype';
+    $('pr-on').setAttribute('aria-pressed', String(state.proto === 'on'));
+    $('pr-off').setAttribute('aria-pressed', String(state.proto === 'off'));
+    $('g-size').hidden = state.view !== 'resize';
+    $('g-presets').hidden = state.view !== 'resize';
+    var c = state.comp;
+    $('meta').innerHTML = state.view === 'overview' ? overviewMeta()
+      : '<b>' + c.name + '</b> · ' + c.bucket + ' · ' + c.slides + ' slides · manifest says <b>' + (c.mode || 'none') + '</b>' +
+        (c.families.length ? ' (' + c.families.join(', ') + ')' : '');
+    if (state.view === 'overview') return renderOverview();
+    if (state.view === 'resize') return renderResize();
+    renderCompare();
+  }
+
+  function renderResize() {
+    var zoom = Math.min(1, (availWidth() - 12) / 1280);
+    var wrap = document.createElement('div');
+    wrap.className = 'resize stage';
+    var f = makeFrame('resize', state.comp, state.w, zoom);
+    f.showNum = true;
+    wrap.appendChild(f.box);
+    var hd = document.createElement('div');
+    hd.className = 'handle';
+    hd.setAttribute('aria-hidden', 'true');
+    function place() { hd.style.left = Math.round(state.w * zoom) + 'px'; hd.style.top = '22px'; hd.style.height = f.box.style.height; }
+    wrap.appendChild(hd);
+    main.appendChild(wrap);
+    place(); readout();
+    new MutationObserver(place).observe(f.box, { attributes: true, attributeFilter: ['style'] });
+    hd.addEventListener('pointerdown', function (e) {
+      hd.setPointerCapture(e.pointerId); hd.classList.add('drag');
+      var x0 = e.clientX, w0 = state.w;
+      function mv(ev) { setWidth(Math.round(w0 + (ev.clientX - x0) / zoom)); }
+      function up() { hd.classList.remove('drag'); hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up); }
+      hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
+    });
+  }
+  function setWidth(w) {
+    state.w = Math.max(280, Math.min(1280, w));
+    $('w').value = String(state.w);
+    readout();
+    var f = frames.get('resize'); if (!f) return;
+    f.w = state.w; layout(f);
+  }
+  function readout() {
+    $('readout').textContent = state.w + 'px wide';
+    PRESETS.forEach(function (p) { var b = $(p.id); if (b) b.setAttribute('aria-pressed', String(p.w === state.w)); });
+  }
+
+  function renderCompare() {
+    var total = COMPARE.reduce(function (a, w) { return a + w; }, 0), gaps = 20 * (COMPARE.length - 1);
+    var zoom = Math.max(0.16, Math.min(0.5, (availWidth() - gaps - 4) / total));
+    var row = document.createElement('div');
+    row.className = 'compare';
+    COMPARE.forEach(function (w, i) {
+      var col = document.createElement('div');
+      col.className = 'col';
+      var hd = document.createElement('div');
+      hd.className = 'colhead';
+      hd.textContent = w + 'px' + (w === 1280 ? ' · full slide' : w === 640 ? ' · half pane' : w === 360 ? ' · phone' : '');
+      var f = makeFrame('cmp' + i, state.comp, w, zoom);
+      col.appendChild(hd); col.appendChild(f.box);
+      row.appendChild(col);
+    });
+    main.appendChild(row);
+  }
+
+  // Overview, from a headless run with type held at slide size.
+  function verdict(r) {
+    if (!r || !r['1280']) return { k: 'na', t: 'Not measured', at: 0 };
+    for (var i = 0; i < COMPARE.length; i++) {
+      var x = r[String(COMPARE[i])];
+      if (x && x.spill) {
+        if (COMPARE[i] === 1280) return { k: 'eye', t: 'Spills at full width', at: 1280 };
+        return { k: COMPARE[i] >= 640 ? 'cut' : 'mid', t: 'Spills at ' + COMPARE[i] + 'px', at: COMPARE[i] };
+      }
+    }
+    return { k: 'ok', t: 'Fits down to 360px', at: 0 };
+  }
+  function overviewMeta() {
+    var s = window.SCAN || {}, t = { ok: 0, mid: 0, cut: 0, eye: 0 }, chrome = 0;
+    comps.forEach(function (c) { var v = verdict(s[c.name]); if (t[v.k] != null) t[v.k]++; if (s[c.name] && s[c.name]['360'].chrome) chrome++; });
+    return '<b>' + comps.length + '</b> components with type held at slide size, frame narrowed from 1280px to 360px. ' +
+      'Content spills past the frame edge at half-pane width or wider in <b>' + t.cut + '</b>, only below it in <b>' + t.mid + '</b>, never in <b>' + t.ok + '</b>, and already at full width in <b>' + t.eye + '</b>. ' +
+      'The header or footer spills at phone width in <b>' + chrome + '</b>. ' +
+      'Not spilling is not the same as looking good: open a component to check for squeezed columns and content overflowing its own boxes.';
+  }
+  function renderOverview() {
+    var s = window.SCAN || {};
+    var tw = document.createElement('div'); tw.className = 'tablewrap';
+    var t = document.createElement('table');
+    var head = '<thead><tr><th>Component</th><th>Bucket</th><th>Manifest</th><th>Verdict</th>' +
+      COMPARE.map(function (w) { return '<th class="num">Spill at ' + w + '</th>'; }).join('') +
+      '<th class="num">Header/footer spill at 360</th><th class="num">Height 1280 → 360</th></tr></thead>';
+    var order = { eye: 0, cut: 1, mid: 2, ok: 3, na: 4 };
+    var list = comps.slice().sort(function (a, b) {
+      var va = verdict(s[a.name]), vb = verdict(s[b.name]);
+      return order[va.k] - order[vb.k] || vb.at - va.at || a.name.localeCompare(b.name);
+    });
+    var rows = list.map(function (c) {
+      var r = s[c.name] || {}, v = verdict(r);
+      return '<tr data-c="' + c.name + '"><td><a class="comp" href="#' + c.name + '">' + c.name + '</a></td><td class="bucket">' + c.bucket +
+        '</td><td>' + (c.mode || '–') + '</td><td><span class="pill ' + (v.k === 'na' ? 'eye' : v.k) + '">' + v.t + '</span></td>' +
+        COMPARE.map(function (w) {
+          var x = r[String(w)];
+          if (!x) return '<td class="num">–</td>';
+          return '<td class="num">' + (x.spill ? '<span class="pill cut">' + x.spill + ' · ' + x.max + 'px</span>' : '0') + '</td>';
+        }).join('') +
+        '<td class="num">' + (r['360'] && r['360'].chrome ? '<span class="pill mid">' + r['360'].chrome + ' slides</span>' : '0') + '</td>' +
+        '<td class="num">' + (r['1280'] ? r['1280'].h + ' → ' + r['360'].h + 'px' : '–') + '</td></tr>';
+    }).join('');
+    t.innerHTML = head + '<tbody>' + rows + '</tbody>';
+    t.addEventListener('click', function (e) {
+      var tr = e.target.closest('tr[data-c]'); if (!tr) return;
+      e.preventDefault();
+      choose(tr.getAttribute('data-c'), 'compare');
+    });
+    tw.appendChild(t); main.appendChild(tw);
+  }
+
+  function save() { try { localStorage.setItem('lab-view', state.view); localStorage.setItem('lab-type', state.type); } catch (e) {} }
+  function choose(name, view) {
+    var c = comps.filter(function (x) { return x.name === name; })[0]; if (!c) return;
+    state.comp = c; $('comp').value = name;
+    if (view) state.view = view;
+    try { if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name); } catch (e) {}
+    save(); render();
+  }
+  function step(d) { var i = comps.indexOf(state.comp); choose(comps[(i + d + comps.length) % comps.length].name); }
+
+  function init(list) {
+    comps = list.slice().sort(function (a, b) { return BUCKETS.indexOf(a.bucket) - BUCKETS.indexOf(b.bucket) || a.name.localeCompare(b.name); });
+    var sel = $('comp');
+    BUCKETS.forEach(function (b) {
+      var g = document.createElement('optgroup'); g.label = b;
+      comps.filter(function (c) { return c.bucket === b; }).forEach(function (c) {
+        var o = document.createElement('option'); o.value = c.name; o.textContent = c.name; g.appendChild(o);
+      });
+      if (g.children.length) sel.appendChild(g);
+    });
+    PRESETS.forEach(function (p) {
+      var b = document.createElement('button'); b.type = 'button'; b.id = p.id; b.textContent = p.label;
+      b.addEventListener('click', function () { setWidth(p.w); });
+      $('g-presets').appendChild(b);
+    });
+    sel.addEventListener('change', function () { choose(sel.value); });
+    $('prev').addEventListener('click', function () { step(-1); });
+    $('next').addEventListener('click', function () { step(1); });
+    $('w').addEventListener('input', function () { setWidth(+$('w').value); });
+    ['hold', 'follow'].forEach(function (t) {
+      $('t-' + t).addEventListener('click', function () {
+        state.type = t; save();
+        $('t-hold').setAttribute('aria-pressed', String(t === 'hold'));
+        $('t-follow').setAttribute('aria-pressed', String(t === 'follow'));
+        frames.forEach(send);
+      });
+    });
+    ['on', 'off'].forEach(function (v) {
+      $('pr-' + v).addEventListener('click', function () {
+        state.proto = v;
+        $('pr-on').setAttribute('aria-pressed', String(v === 'on'));
+        $('pr-off').setAttribute('aria-pressed', String(v === 'off'));
+        frames.forEach(send);
+      });
+    });
+    ['overview','resize','compare'].forEach(function (v) {
+      $('v-' + v).addEventListener('click', function () { state.view = v; save(); render(); });
+    });
+    window.addEventListener('hashchange', function () { var n = location.hash.slice(1); if (n && (!state.comp || n !== state.comp.name)) choose(n); });
+    var tm; window.addEventListener('resize', function () { clearTimeout(tm); tm = setTimeout(render, 150); });
+    try { var v = localStorage.getItem('lab-view'); if (v) state.view = v; var ty = localStorage.getItem('lab-type'); if (ty) state.type = ty; } catch (e) {}
+    var start = location.hash.slice(1);
+    if (start && comps.some(function (c) { return c.name === start; })) state.view = 'compare';
+    choose(comps.some(function (c) { return c.name === start; }) ? start : 'verdict-grid');
+  }
+
+  window.SCAN = null; /*SCAN*/
+  init(/*COMPONENTS*/[]);
+})();
+</script>
