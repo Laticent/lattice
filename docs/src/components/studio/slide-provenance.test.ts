@@ -215,13 +215,13 @@ describe('spectrum provenance + override (brand bar)', () => {
 	it('setSpectrum writes off/solid, never stacks, and null clears to inherit/rainbow', () => {
 		let chunk = '<!-- _class: kpi spectrum-solid -->';
 		chunk = setSpectrum(chunk, 'off');
-		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['no-spectrum']);
-		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => t.startsWith('spectrum-'))).toBe(false);
+		expect(getClassTokens(chunk).filter((t) => /spectrum/.test(t))).toEqual(['no-spectrum']);
+		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => /spectrum/.test(t))).toBe(false);
 	});
 	it('setSpectrum writes the restore token `with-spectrum`, which reads back as this slide\'s own choice', () => {
 		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
 		const chunk = setSpectrum('<!-- _class: kpi spectrum-solid -->', 'on');
-		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['with-spectrum']);
+		expect(getClassTokens(chunk).filter((t) => /spectrum/.test(t))).toEqual(['with-spectrum']);
 		expect(spectrumProvenance(chunk, src)).toMatchObject({ state: 'on', value: 'on', deckValue: 'solid' });
 	});
 });

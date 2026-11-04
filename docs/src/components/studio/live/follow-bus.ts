@@ -22,7 +22,7 @@ export const FOCUS_ROWS = [
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',
 	'default-slide-class', 'delivery', 'eyebrow', 'finish', 'fit',
 	'footer', 'header', 'heading-rule', 'headline', 'headline-alignment', 'hide-footer',
-	'hide-header', 'hide-page-number', 'hide-rail', 'image-card', 'in-the-exported-player', 'inline-pills-and-marks',
+	'hide-header', 'hide-logo', 'hide-page-number', 'hide-rail', 'image-card', 'in-the-exported-player', 'inline-pills-and-marks',
 	'inline-validation', 'language', 'lexicon', 'logo', 'logo-style',
 	'meta-line', 'mode', 'motion-speed', 'motion-style', 'new-slide-on', 'pace',
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',

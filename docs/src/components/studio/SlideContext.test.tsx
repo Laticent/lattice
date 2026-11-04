@@ -283,6 +283,26 @@ describe('SlideContextBody controls', () => {
 		expect(applied()).toContain('no-progress');
 	});
 
+	it('a switch row reads the deck class, and turning it back on writes with-X (the switch precedence)', async () => {
+		const deck = '---\nclass: no-progress\n---\n\n<!-- _class: kpi -->\n\n# Hi';
+		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi', deck);
+		await goTab('Chrome');
+		const rail = screen.getByRole('switch', { name: /hide section rail/i });
+		expect(rail.getAttribute('aria-checked')).toBe('true');
+		fireEvent.click(rail);
+		expect(applied()).toContain('with-progress');
+		expect(applied()).not.toContain('no-progress');
+	});
+
+	it('on a silent slide each band row shows hidden, and bringing one back writes with-X', async () => {
+		const { applied } = setup('<!-- _class: kpi silent -->\n\n# Hi');
+		await goTab('Chrome');
+		const pag = screen.getByRole('switch', { name: /hide pagination/i });
+		expect(pag.getAttribute('aria-checked')).toBe('true');
+		fireEvent.click(pag);
+		expect(applied()).toEqual(expect.arrayContaining(['silent', 'with-pagination']));
+	});
+
 	it('sets a per-slide finish from the picker', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
 		await pickOption(/finish/i, 'Meridian');
