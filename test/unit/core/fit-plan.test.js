@@ -162,3 +162,22 @@ test('the fold pass folds what the host names, and undoes a fold that overflows'
   assert.ok(Array.isArray(run.plan['1']), 'and its fold was undone');
   assert.deepEqual(run.plan['2'], { foldCoda: true });
 });
+
+test('the measure and the verify release every hold first, so every surface measures the narrow form (§17)', () => {
+  const { JSDOM } = require('jsdom');
+  const { measureFit, overflowBySlide } = require('../../../lib/core/fit-measure');
+  const dom = new JSDOM('<section data-lattice-slide="1"><div class="cell-stage"><ul class="lat-reflow-held"><li>a</li></ul></div></section>');
+  const prior = global.document;
+  global.document = dom.window.document;
+  try {
+    const verdict = () => ({ fits: () => ({ ok: true, px: 0 }) });
+    const slides = (d) => [...d.querySelectorAll('section')];
+    overflowBySlide(verdict, {}, slides);
+    assert.equal(dom.window.document.querySelectorAll('.lat-reflow-held').length, 0, 'verify released the hold');
+    dom.window.document.querySelector('ul').classList.add('lat-reflow-held');
+    try { measureFit(verdict, {}, slides, []); } catch { /* jsdom has no layout; the release runs first */ }
+    assert.equal(dom.window.document.querySelectorAll('.lat-reflow-held').length, 0, 'measure released the hold');
+  } finally {
+    global.document = prior;
+  }
+});
