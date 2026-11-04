@@ -113,7 +113,8 @@ for (const f of index) {
 		const white = bg?.every((v) => v > 235);
 		const ink = white && fs.existsSync(ref) ? dominant(PNG.sync.read(fs.readFileSync(ref)), true) : null;
 		const inkCover = ink ? near(shot, ink) : 0;
-		const pass = settled && share > 0.05 && colors >= 24 && dim < 0.3 && (bg === null || (white ? inkCover > 0.0005 : cover > 0.08));
+		// No reference render means nothing to test the capture against: that slide fails rather than passing on share alone.
+		const pass = settled && bg !== null && share > 0.05 && colors >= 24 && dim < 0.3 && (white ? inkCover > 0.0005 : cover > 0.08);
 		steps.push({ name, pass, detail: `${settled ? 'settled' : 'never settled'}; ${(share * 100).toFixed(1)}% differs from a blank page in ${colors} colors; slide background ${bg ? `rgb(${bg.join(',')})` : 'unknown'} covers ${(cover * 100).toFixed(1)}%${ink ? `, its ink rgb(${ink.join(',')}) ${(inkCover * 100).toFixed(2)}%` : ''}, prompt gray ${(dim * 100).toFixed(1)}%` });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
