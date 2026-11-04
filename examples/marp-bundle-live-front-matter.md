@@ -3,7 +3,8 @@ marp: true
 theme: indaco
 paginate: true
 header: "Deck settings · one rule everywhere"
-class: no-progress
+footer: "Lattice · switches"
+class: no-progress no-footer
 ---
 
 <!-- _class: title -->
@@ -12,7 +13,7 @@ class: no-progress
 
 `Fix · deck-wide class`
 
-This deck says `class: no-progress` once, in its front matter.
+This deck says `class: no-progress no-footer` once, in its front matter.
 
 ---
 
@@ -20,7 +21,7 @@ This deck says `class: no-progress` once, in its front matter.
 
 `Section 01`
 
-## The deck turns the rail off
+## The deck turns the rail and the footer off
 
 ---
 
@@ -28,7 +29,7 @@ This deck says `class: no-progress` once, in its front matter.
 
 ## A plain slide follows the deck
 
-The front matter turned the section rail off, so this slide shows no dots in its footer band.
+The front matter turned the section rail and the running footer off, so this slide shows neither.
 
 _A deck class reaches every slide that names no class of its own._
 
@@ -47,15 +48,41 @@ _A deck class reaches every slide that names no class of its own._
 
 ---
 
-<!-- _class: content with-progress -->
+<!-- _class: content with-progress with-footer -->
 
-`with-progress`
+`with-progress · with-footer`
 
-## One slide can turn the rail back on
+## One slide can turn them back on
 
-This slide adds `with-progress` to its own class. The section dots return in its footer band.
+This slide adds `with-progress with-footer` to its own class. The section dots and the footer return.
 
-_A slide overrides the deck with an explicit token, the way `with-pagination` brings back a page number._
+_A slide's `with-X` wins over the deck's `no-X`, for every switch._
+
+---
+
+<!-- _class: content silent with-pagination -->
+
+`silent with-pagination`
+
+## A clean slide can keep one band
+
+`silent` hides the header, footer, page number and rail together. This slide brings back only its page number.
+
+---
+
+`One spelling`
+
+## Every switch reads the same way
+
+| Switch | Off | Back on |
+|---|---|---|
+| Section rail | `no-progress` | `with-progress` |
+| Running footer | `no-footer` | `with-footer` |
+| Page number | `no-pagination` | `with-pagination` |
+| Callouts | `no-callout` | `with-callout` |
+| Motion | `no-motion` | `with-motion` |
+
+_The old `callout-off`, `motion-on` and `finish-none` spellings are retired; `lint:deck` rewrites them._
 
 ---
 
@@ -77,7 +104,7 @@ marp: true
 theme: indaco
 ---
 <script type="application/lattice-settings">
-class: no-progress
+class: no-progress no-footer
 </script>
 ```
 
@@ -91,4 +118,4 @@ _Edit that block and marp-cli, the VS Code preview and VS Code's Export command 
 
 `Fix · deck-wide class`
 
-Override it on a slide with an explicit token.
+Turn a switch back on for one slide with `with-X`.
