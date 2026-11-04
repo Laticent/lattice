@@ -296,6 +296,15 @@ test('lint: a layout with fewer than two panes, two insights, a component in the
   assert.ok(lintText('<!-- _class: columns table -->\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && f.classToken === 'table'));
 });
 
+test('lint: a redline pane keeps its old and new quotes, so they are not Key Insights', () => {
+  // The carve leaves a blockquote in a pane whose component claims it (lib/core/panes.js `claimsOf`);
+  // the lint counted it anyway and warned on every paned redline.
+  const md = '<!-- _class: columns ratio-50-50 -->\n\n## T\n\n<!-- _pane: redline three-col -->\n\n> Old.\n\n> New.\n\n- **Why.** Because.\n\n<!-- _pane: list -->\n\n- a\n';
+  assert.ok(!paneRules(md).includes('pane-insight'));
+  // A pane that does not claim them still counts: two insights in list panes still warn.
+  assert.ok(paneRules('<!-- _class: columns -->\n\n<!-- _pane: list -->\n\n- a\n\n> One.\n\n<!-- _pane: list -->\n\n- b\n\n> Two.\n').includes('pane-insight'));
+});
+
 test('lint: a titled pane holds fewer items than an untitled one', () => {
   const items = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}`).join('\n');
   const md = (title, n) => `<!-- _class: columns -->\n\n## T\n\n<!-- _pane: list -->\n${title}\n\n${items(n)}\n\n<!-- _pane: content -->\n\nx\n`;

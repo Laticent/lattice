@@ -430,3 +430,29 @@ section.redline > .cell-stage > blockquote {
 section.redline > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Width reflow — the same COLLAPSE, triggered by the box's width ────────
+ * The portrait rule above answers the deck's aspect. A narrow box of a wide deck (a narrow pane,
+ * a continuous host, a resizing live preview) kept the read-across grid and squeezed each column
+ * to a word per line. The stage carries the grid, so it cannot query itself; an UNNAMED query
+ * answers its nearest container: the slide on a full-width slide (about 60em on 16:9, never
+ * switches), the pane in a pane, the host's deck root in a continuous host. Old and new need about
+ * 15em each, so `.split` stacks below 32em and `.three-col`, with its rationale column, below 40em.
+ * While stacked the stage sets `--lat-narrow: 1`; on a slide the fit check
+ * (lib/core/table-reflow-fit.js) holds a stack that would overflow (`lat-reflow-held`), so a slide
+ * never comes out worse than the grid it had. Each block sizes to its content, as in portrait, so
+ * an overflowing stack is visible to that check instead of clipped inside a block.
+ * engineering/decisions/2026-11-03-responsive-tables.md §Side-by-side components. */
+@container (width < 32em) {
+  section.redline.split.split > .cell-stage:not(.lat-reflow-held) {
+    display:flex; flex-direction:column; gap:var(--sp-sm); --lat-narrow: 1;
+  }
+  section.redline.split.split > .cell-stage:not(.lat-reflow-held) > blockquote { flex:0 0 auto; overflow:visible; }
+}
+@container (width < 40em) {
+  section.redline.three-col.three-col > .cell-stage:not(.lat-reflow-held) {
+    display:flex; flex-direction:column; gap:var(--sp-sm); --lat-narrow: 1;
+  }
+  section.redline.three-col.three-col > .cell-stage:not(.lat-reflow-held) > blockquote { flex:0 0 auto; overflow:visible; }
+  section.redline.three-col.three-col > .cell-stage:not(.lat-reflow-held) > :is(ol, ul) { align-self:stretch; }
+}

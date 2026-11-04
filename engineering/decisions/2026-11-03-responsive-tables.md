@@ -305,6 +305,34 @@ narrower than 35% (the pane catalog), so a paged chart is never a shrunk picture
 What remains is a host whose box changes AFTER the render (the fluid view on a phone, a resizing live
 preview), which needs a second drawing. That is the chart section below.
 
+## Side-by-side components get narrow forms
+
+In the Frame Lab, compare-code's pair spilled from a 960px frame, redline's `.split` and `.three-col`
+squeezed each column to a word per line by 640px, and split-panel's panels squeezed. Each already had a
+stacked form, keyed on the deck's shape: compare-code on `data-family` (square, tall, strip), redline and
+split-panel on `data-orientation="portrait"`. The question was which REAL boxes are narrow while those
+stamps still say wide.
+
+- **The runtime re-stamps both from the real box.** lib/runtime/index.js derives `data-family` and
+  `data-orientation` from each slide's measured aspect, so in the fluid view on a phone all three
+  already take their stacked form. The Frame Lab strips both stamps on purpose (it tests what CSS does
+  alone), which is why it shows the squeeze: for these three the lab's spill columns describe the lab.
+- **A pane is the one narrow box with a wide stamp.** compare-code and split-panel never sit in a pane
+  (pane catalog `side: false`); redline does, at half a 16:9 slide or more (`side: 50`, about 27em of
+  pane). There a `.three-col` redline gave each column about 8em. So redline gets a width trigger:
+  `.split` stacks below 32em and `.three-col` below 40em, with the portrait rule's declarations (old,
+  then new, then the rationale list). These numbers sit above the half pane on purpose, unlike the
+  card thresholds: two 13em columns of statute prose read badly, where two 13em cards read fine. No
+  tracked deck puts a redline in a pane.
+- **The grid is the content area, so the query is unnamed.** `.cell-stage` cannot query itself; an
+  unnamed `@container` query answers its nearest container: the pane in a pane, the slide (about
+  60em on 16:9, never switches) otherwise.
+- **The fit check reaches it.** lib/core/table-reflow-fit.js now also looks at a `.cell-stage` for the
+  same `--lat-narrow: 1` marker; a stack that would overflow is held (`lat-reflow-held`) as the grid.
+- **compare-code and split-panel get no new rule.** A width rule for either would fire only in a box
+  no host produces (narrow, wide-stamped, not a pane), and split-panel's portrait form is about twenty
+  rules that a second copy would have to track.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):

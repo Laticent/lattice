@@ -92,3 +92,16 @@ test('a card list whose narrow form is active (--lat-narrow: 1) is held like a t
   assert.deepEqual(holdUnfitReflow(dom2.window.document, () => ({ over: true }), '', '', 12), []);
   assert.ok(!dom2.window.document.querySelector('ul').classList.contains(HELD_CLASS));
 });
+
+test('a content area that stacks its own grid (redline) is held like a card list', () => {
+  const css = `section.redline > .cell-stage:not(.lat-reflow-held) { --lat-narrow: 1; }`;
+  const dom = new JSDOM(`<!doctype html><html><head><style>${css}</style></head><body>
+    <section class="redline" data-lattice-slide="1"><div class="cell-stage"><blockquote>old</blockquote><blockquote>new</blockquote></div></section>
+    <section class="redline" data-lattice-slide="2"><div class="cell-stage"><blockquote>old</blockquote><blockquote>new</blockquote></div></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  assert.deepEqual(holdUnfitReflow(doc, overOn([2]), '', '', 12), [2]);
+  const [fits, over] = doc.querySelectorAll('.cell-stage');
+  assert.ok(!fits.classList.contains(HELD_CLASS), 'a stack that fits keeps its narrow form');
+  assert.ok(over.classList.contains(HELD_CLASS), 'a stack that overflows is held as the grid');
+});

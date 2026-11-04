@@ -34,6 +34,10 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 - **Placing the citation paragraph BEFORE the heading instead of after it.** Immediately after the heading (the documented placement) the citation paragraph stays in the flow and gets redline's dedicated accent-mono citation styling. Before the heading, it's captured as the shared masthead eyebrow (mono-caps kicker) instead — a different, generic treatment. Keep it after the heading, matching the skeleton.
 - **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
 
+### Data shape
+
+- A `.split` or `.three-col` redline stacks old, new and the rationale in reading order when its box is narrow (below 32em for `.split`, 40em for `.three-col`: a half pane, a phone-width frame), the same form a portrait deck gets. On a slide, a stack that would overflow is held as the grid, so keep a paned redline short enough to stack (engineering/decisions/2026-11-03-responsive-tables.md)
+
 ## When to use
 
 - **Verbatim text matters.** When the amendment is the language — legal clauses, regulatory paragraphs, contract terms. Paraphrasing would lose the exact words the parties are bound by.
