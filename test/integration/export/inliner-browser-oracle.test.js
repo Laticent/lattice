@@ -275,10 +275,11 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
       const leaks = [...loaded].filter((n) => !read.has(n));
       assert.deepEqual(leaks.map((n) => `${n}: ${JSON.stringify(caseOf(n))}`), [], `${channel}: pictures the browser loads and the inliner does not read (their local path would ship)`);
       const over = [...read].filter((n) => !loaded.has(n));
-      // The second explained shape: a quoted `url(` with a modifier. Chromium 153 fetches it; WebKit 26 and Gecko 142 read
-      // the modifier as invalid and fetch nothing, so there the inliner embeds a picture the engine would not show. That is
-      // the side to err on: the alternative ships the author's local path in a file Chromium loads it from.
-      const explained = (c) => /url\(''\),/.test(c) || (process.env.INLINER_ORACLE_ENGINE && process.env.INLINER_ORACLE_ENGINE !== 'chromium' && / crossorigin\(anonymous\)\)/.test(c));
+      // The second explained shape: a quoted `url(` with a modifier. Whether a browser fetches it depends on its version, not
+      // only its engine: the sandbox's Chromium 153 does, CI's Chrome, WebKit 26 and Gecko 142 read the modifier as invalid
+      // and fetch nothing. Where it is not fetched the inliner embeds a picture the browser would not show. That is the side
+      // to err on: the alternative ships the author's local path in a file a browser that supports modifiers loads it from.
+      const explained = (c) => /url\(''\),/.test(c) || / crossorigin\(anonymous\)\)/.test(c);
       const unexplained = over.filter((n) => !explained(caseOf(n)) && !explained(cases.find((c) => c.includes(n)) ?? ''));
       assert.ok(unexplained.length === 0, `${channel}: over-reads outside the one invalid-CSS shape: ${unexplained.slice(0, 3).map((n) => JSON.stringify(caseOf(n))).join(' | ')}`);
       total += loaded.size;

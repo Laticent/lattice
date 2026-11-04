@@ -739,7 +739,7 @@ export, left the picture out and, for a local file, shipped its path.
 
   | Shape | Chromium 153 | WebKit 26 | Gecko 142 |
   |---|---|---|---|
-  | `url("a.png" crossorigin(anonymous))`, or any token before `)` | fetched | not fetched | not fetched |
+  | `url("a.png" crossorigin(anonymous))`, or any token before `)` | fetched (the CI runner's Chrome does not) | not fetched | not fetched |
   | `url("a.png" /*c*/)`, a comment before `)` | fetched | fetched | fetched |
   | `url("a.png`, closed by the end of the text | fetched | fetched | fetched |
 
@@ -767,10 +767,10 @@ export, left the picture out and, for a local file, shipped its path.
   - The red team showed that a refused file's stand-in, an SVG that carries `'`, ended a `'` string early or made a
     bare url bad, so it never painted. `rewriteFileUrls` now writes an address its quote cannot hold as a `"` string,
     escaped. A base64 picture always fits, so every deck exports the bytes it did.
-- **Erring toward the embed.** The modifier shape is fetched in Chromium only, so in WebKit and Gecko the export now
-  shows a picture those engines would not have loaded. That is the side to err on: the alternative ships the author's
-  local path in a file that Chromium loads it from. The inliner oracle allows that one over-read outside Chromium and
-  no other.
+- **Erring toward the embed.** Only some browsers fetch the modifier shape: the sandbox's Chromium 153 does, and the
+  CI runner's Chrome, WebKit 26 and Gecko 142 do not. Where a browser does not, the export now shows a picture it would
+  not have loaded. That is the side to err on: the alternative ships the author's local path in a file that a browser
+  supporting modifiers loads it from. The inliner oracle allows that one over-read, in every engine, and no other.
 - **The third shape, a custom property's string read by `image-set(var(--a))`, is left as a documented gap.** To
   embed it, the reader would have to call every closed string in a custom property an address, and
   `--label:"photo.png"` behind a `content:var(--label)` is text. An export that rewrote it to a data URI would show the
@@ -787,7 +787,8 @@ export, left the picture out and, for a local file, shipped its path.
   (`html-player-inline-differential.test.js`) still shows 0 differences: no tracked deck or sheet carries one of the
   shapes.
 - **Bytes.** `css-ref-reader.js`, eager on the Studio, Playground and home routes, goes from 1,471 to 1,499 bytes
-  minified and gzipped (+28), declared in `docs/route-budget.d/3024-p3-url-arg.md`.
+  minified and gzipped (+28) on its own, and +44 inside the built `remote-ref` chunk, which CI measures. It is declared in
+  `docs/route-budget.d/3024-p3-url-arg.md`.
 
 
 ## Decisions for the owner
