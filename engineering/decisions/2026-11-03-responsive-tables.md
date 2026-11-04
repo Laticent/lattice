@@ -3,10 +3,11 @@ status: in-progress
 summary: >
   A table that runs out of width changes shape instead of squeezing. Nine kinds of table, five narrow
   layouts; a kernel (lib/core/table-shape.js) names each table's kind from which way its values line up,
-  and base.table-reflow.css switches inside a container query on the table's own box. This first change
-  ships the two layouts that cover 73% of real tables: row → card, and label above value. Detection won a
-  bake-off on 225 independently labeled tables (82% right layout, against 43% for none). Switch widths are
-  deliberately low, because a slide has a fixed height and a card is taller than the row it replaces.
+  and base.table-reflow.css switches inside a container query on the table's own box. Every kind now has its
+  narrow layout: row → card, label above value, labels plus a run of columns, one block per option, two-line
+  rows, one block per column. The block layouts regroup cells with CSS `order` and copy no markup. Detection
+  won a bake-off on 225 independently labeled tables (83% right layout, against 43% for none). Switch widths
+  are deliberately low, because a slide has a fixed height and every narrow layout is taller than its table.
 ---
 
 # Responsive tables: name the kind, then change the shape (2026-11-03)
@@ -14,20 +15,20 @@ summary: >
 **Answer.** When a table's box gets too narrow, the right new shape depends on what the reader does
 with the table. So the engine first names the table's kind, then lays it out for that kind:
 
-| Kind | Example | Narrow layout | In this change |
-|---|---|---|---|
-| Record list | Name · Role · Location | each row becomes a card | **yes** |
-| Prose register | Risk · Impact · Mitigation | card with labeled paragraphs | **yes** (same card) |
-| Key–value | Spec · Value | label above value | **yes** |
-| Measure over time | Revenue × Q1–Q4 | labels + a run of columns | later |
-| Option comparison | Plans A/B/C × criteria | labels + one option per block | later |
-| Cross-tab | Region × Product | labels + a run of columns | later |
-| Independent lists | Strengths · Weaknesses · Risks | one block per column | later |
-| Ranked list | Rank · Account · ARR | two-line row | later |
-| Schedule | Date · Milestone · Owner | two-line row, date on top | later |
+| Kind | Example | Narrow layout | Layout (class) | Shipped |
+|---|---|---|---|---|
+| Record list | Name · Role · Location | each row becomes a card | `cards` | first change |
+| Prose register | Risk · Impact · Mitigation | card with labeled paragraphs | `cards` | first change |
+| Key–value | Spec · Value | label above value | `pairs` | first change |
+| Measure over time | Revenue × Q1–Q4 | labels + a run of two columns; one at the narrowest | `runs` | second change |
+| Option comparison | Plans A/B/C × criteria | labels + one option per block | `options` | second change |
+| Cross-tab | Region × Product | labels + a run of two columns; one at the narrowest | `runs` | second change |
+| Independent lists | Strengths · Weaknesses · Risks | one block per column (author's `table-lists`) | `lists` | second change |
+| Ranked list | Rank · Account · ARR | two-line row | `ranked` | second change |
+| Schedule | Date · Milestone · Owner | two-line row, date on top | `schedule` | second change |
 
-A kind with no layout yet keeps today's table. The design of all nine was prototyped and reviewed in the
-Frame Lab (`npm run lab:build`, the `table-types` entry); that prototype is the reference for the later steps.
+The design of all nine was prototyped and reviewed in the Frame Lab (`npm run lab:build`, the `table-types`
+entry); the engine follows that prototype, with the differences named under "The block layouts" below.
 
 ## Why the kind matters
 
@@ -56,15 +57,32 @@ names: two columns, a rank column, a date column, sentence-length cells.
 | Structure only | 74% | 49% |
 | Content rules | 75% | 51% |
 | Content rules, cautious | 76% | 56% |
-| **Uniformity + rules (shipped)** | **82%** | **67%** |
+| Uniformity + rules (first change) | 82% | 67% |
+| + one number format is a cross-tab | 83% | 68% |
+| **+ a year column over figures is not a schedule (shipped)** | **83%** | **71%** |
 
 Its misses fall back to cards, which stay readable; it turns one record table into a keep-the-grid shape.
 Records (88) and key-value (77) are 73% of the corpus, which is why they are the first two layouts.
 
 **Tried and dropped:** "a text first column over an all-number body is a cross-tab". It catches the lab's
 Region × Product table, but it read ten record tables such as `Region | Revenue | Headcount` the same way and
-cost four points on decks (67% → 63%). A cross-tab therefore falls back to cards for now; it gets its own
-layout in a later step, when the cue can be tested against that layout.
+cost four points on decks (67% → 63%).
+
+**Shipped instead, with the cross-tab layout:** the same cue, but only when every body value has ONE number
+format (the same currency, decimals and unit: all bare integers, all percentages) and the table has at least
+three value columns. A record table's columns each carry their own measure, so `$4.2M` sits beside `120` and
+the cue declines. On the corpus it gains two measure-over-time tables (read as cross-tab, the same layout) and
+costs one record table (`Function | Plan | Hired | Open`, all integers): 82% → 83%, decks 67% → 68%.
+
+The cue moves tables that were cards into `runs`: 31 in the tracked decks, 30 of them five columns or wider.
+A card table that wide switches below 24em, so a run table that wide does too (two columns per block from 20em
+to 24em); otherwise those tables would have kept their squeezed grid between 20em and 24em, where they had
+been cards (the checker caught a nine-column table clipping at 23em). A cross-tab too wide for the block
+layouts (past twelve columns) takes the cards, as before the cue.
+
+**And a schedule needs an item.** `Year | Revenue | Growth` read as a schedule (a time header over dates), and
+so would have become two-line rows; the bake-off labels it a record list. A schedule now also needs a body
+that is not mostly figures: decks 68% → 71%.
 
 ## Where the switch lives: the content area, not a wrapper
 
@@ -119,7 +137,7 @@ must work without jank in both a PAGED host (slides) and a CONTINUOUS one (long-
 variants, continuous pages). So the narrow layouts are the same in both, and only the trigger differs:
 
 - **Continuous** (`data-lattice-flow="continuous"` on the root): the width alone. The page grows. Today only
-  the Frame Lab declares it; the fluid and document views will.
+  the Frame Lab declares it; a document view will. The fluid view is paged (below).
 - **Paged** (everything else, today every export): the width AND a fit check. lib/core/table-reflow-fit.js
   measures each slide whose table switched, with the shared overflow probe, and if the slide now overflows it
   holds that slide's tables in their table form (`lat-reflow-held`). A slide therefore never comes out worse
@@ -136,6 +154,49 @@ the guards trim has); a held table is not re-judged if its box later widens in a
 The switch widths stay low (20em, 24em, 18em) in this change. With the fit check in place they could rise,
 which would switch more tables on today's slides where the cards fit; that changes existing exports, so it is
 a separate, reviewed step.
+
+## The fluid view is a paged host
+
+Follow-up p10 asked the fluid view to declare itself continuous (`data-lattice-flow="continuous"`), so
+its tables would reflow on width alone. It must not. lib/base/base.fluid-view.css gives each slide
+one screen (`height: 100dvh`, scroll-snap to the next) and keeps `section { overflow: hidden }`, so a
+slide still has a fixed height and what does not fit is cut, not pushed below. Declared continuous, the
+fit check would skip it and a narrow layout that overflows would stand. The fluid view is a PAGED host
+whose page is the phone's screen, and the fit check is exactly what it needs.
+
+What it was missing was the check itself. The fluid viewer's boot (lib/runtime/index.js `boot`) skips the
+live-preview transform pass, because the exported DOM is already rendered, and runs only what the fluid view
+needs: its controller, the geometry stamps, the overflow watcher. The hold lived in the skipped pass, so a
+fluid export never held anything. The fluid controller narrows every slide to the phone after load, a pane's
+table switches to cards there, and on `main` a long record table in a 30% pane read one letter per line and
+clipped. `scheduleReflowHold` now runs from both branches: after fonts and one frame, and again whenever a slide's box
+changes size. A re-judge RELEASES that slide's holds first, then judges the settled size: a hold made at one
+size is wrong at another, and a first cut that only ever added holds left all eight narrow tables of
+examples/responsive-tables.md held after one phone rotation, where a fresh load holds none (the checker's
+repro). The pass waits for the size reports to stop (150 ms) and one frame, judges only the slides that
+changed (a pass over a 126-slide deck cost about 200 ms), and watches slides, not the window: the fluid
+toggle resizes slides without a window resize, and the pass dispatches a window `resize` for the overflow
+watcher. Measured after rotating 390 × 844 → 844 × 390, after widening to 1280 × 800 and after rotating
+back: the runtime's holds equal a from-scratch judgment of the layout on screen, slide for slide.
+
+Two stale stamps made a resized slide differ from a fresh load at the same size, and the check judged
+the stale layout. The runtime never cleared `data-orientation="portrait"` when a box turned landscape again
+(it cleared `data-family` but not this), and it wrote the portrait canvas-scale style (`#lattice-orientation`:
+the type scale and the safe-area bands) once and never revised it, so a rotated phone kept a 446px content
+area where a fresh load has 518px. `stampOrientation` now clears the stamp and `injectOrientationStyle`
+follows the box. Measured in Chromium, WebKit and Gecko, and on WebKit's iPhone 15 Pro profile: after every
+rotation or widening the holds equal a fresh load's at that size. A section nested in a slide's content does not set the
+scale (it once could: a small landscape box in the last slide stripped the portrait scale from a deck).
+test/integration/export/fluid-reflow-hold.test.js pins all three on the real export; it fails on `main`.
+
+The held table still clips in that repro, as it does in table form on `main`: a 30% pane on a 390px
+phone is about 5em wide, and the fluid view keeps panes side by side where the mobile canvas splits them
+into slides. That is a fluid-view limit this change does not reach (`followups.d/3021-p13-fluid-panes-stack-on-a-phone.md`).
+
+**No continuous host exists yet.** The Studio's Read · Article view projects the deck to prose
+(`lp-*` markup), not to slides, so it never meets a slide layout. The Frame Lab stays the only host
+that declares itself continuous. The follow-up stays open for the document view, the host the
+attribute was written for.
 
 ## The components that own a table
 
@@ -277,17 +338,168 @@ starving its text: `list principles` (a counter column 2.5 numerals wide in `rom
 compliance` (a number column at its widest content). Below 24em of the content area each puts the
 numeral above its line, through the same shared container.
 
+## Position components keep their meaning when stacked
+
+`matrix-2x2` is a 2×2 where the place IS the meaning: declaration order puts the first card top-left
+and the fourth bottom-right, which carries the outcome ring. Squeezed, each quadrant went to a word per
+line at 360px; stacked naively, as the tall-deck single column already did, the reader loses which
+corner is which. The card title names both poles when the author follows the docs, but the place is
+gone.
+
+- **The narrow form is the tall deck's single column, plus a position mark.** It joins the shared card
+  contract (`lat-cards`, `--lat-narrow: 1`, skip a held list) and stacks below 24em of the content
+  area, the two-across-to-one step. Each stacked card carries a small drawn 2×2 in its top-right corner
+  with its own cell in `--accent` and the others in `--border`: drawn with background layers, not a
+  typed glyph (HARD RULE #29), split into longhands so a missing token costs one layer, not the mark.
+  The tall/strip family form gets the same mark, which is the one visible change on existing decks:
+  a portrait or mobile matrix-2x2 slide gains four small marks.
+- **A stacked card never shrinks below its content** (`min-height: min-content`, no flex shrink). A
+  quadrant cell clips its own overflow (`overflow: hidden`), which the stage probe cannot see, so a
+  shrinking stack would have clipped text silently. A stack that does not fit overflows the stage
+  instead, and the fit check holds the 2×2.
+- **Why no 16:9 slide changes:** the pane catalog gives matrix-2x2 at least half the slide (`side: 50`),
+  about 25.4em, above the 24em switch, and the mobile canvas splits panes into slides.
+
+`quadrant` and `risk-matrix` are charts, and they are the chart question, not this one: on a slide the
+engine draws each chart for its pane's own size (`cart.viewFor(…, paneView)`) and refuses a pane
+narrower than 35% (the pane catalog), so a paged chart is never a shrunk picture of a wide drawing.
+What remains is a host whose box changes AFTER the render (the fluid view on a phone, a resizing live
+preview), which needs a second drawing. That is the chart section below.
+
+## Side-by-side components get narrow forms
+
+In the Frame Lab, compare-code's pair spilled from a 960px frame, redline's `.split` and `.three-col`
+squeezed each column to a word per line by 640px, and split-panel's panels squeezed. Each already had a
+stacked form, keyed on the deck's shape: compare-code on `data-family` (square, tall, strip), redline and
+split-panel on `data-orientation="portrait"`. The question was which REAL boxes are narrow while those
+stamps still say wide.
+
+- **The runtime re-stamps both from the real box.** lib/runtime/index.js derives `data-family` and
+  `data-orientation` from each slide's measured aspect, so in the fluid view on a phone all three
+  already take their stacked form. The Frame Lab strips both stamps on purpose (it tests what CSS does
+  alone), which is why it shows the squeeze: for these three the lab's spill columns describe the lab.
+- **A pane is the one narrow box with a wide stamp.** compare-code and split-panel never sit in a pane
+  (pane catalog `side: false`); redline does, at half a 16:9 slide or more (`side: 50`, about 27em of
+  pane). There a `.three-col` redline gave each column about 8em. So redline gets a width trigger:
+  `.split` stacks below 32em and `.three-col` below 40em, with the portrait rule's declarations (old,
+  then new, then the rationale list). These numbers sit above the half pane on purpose, unlike the
+  card thresholds: two 13em columns of statute prose read badly, where two 13em cards read fine. No
+  tracked deck puts a redline in a pane.
+- **The grid is the content area, so the query is unnamed.** `.cell-stage` cannot query itself; an
+  unnamed `@container` query answers its nearest container: the pane in a pane, the slide (about
+  60em on 16:9, never switches) otherwise.
+- **The fit check reaches it.** lib/core/table-reflow-fit.js now also looks at a `.cell-stage` for the
+  same `--lat-narrow: 1` marker; a stack that would overflow is held (`lat-reflow-held`) as the grid.
+- **compare-code and split-panel get no new rule.** A width rule for either would fire only in a box
+  no host produces (narrow, wide-stamped, not a pane), and split-panel's portrait form is about twenty
+  rules that a second copy would have to track.
+
+## The block layouts copy no markup
+
+The prototype (tools/frame-lab/proto/proto.js) rendered a second and third form of each label-repeating table
+beside the first, because CSS cannot copy content. The engine does not, for three reasons: every table would
+then carry two copies for a screen reader, the Guide's marks and the fit check to reconcile; the markdown-it
+walker and the DOM mirror would both have to build the copies identically (HARD RULE #1); and the fit check
+judges an element by its first row's display, which a hidden copy would confuse.
+
+What it does instead:
+
+- **The rows dissolve.** In a block layout the table becomes a grid and its row groups and rows become
+  `display: contents`, so every cell is an item of that one grid.
+- **`order` regroups the cells by column.** Each column's cells carry `order` equal to the column number
+  (twelve rules, outside any query: a table cell is not a flex or grid item, so in table form `order` does
+  nothing, and within one row it never reorders because it rises with the column). In the two-per-block form
+  columns 2–3 share one `order`, 4–5 the next, and the first of each pair takes the wide track. A wider table
+  keeps its table form (`MAX_BLOCK_COLUMNS`, lib/core/table-shape.js).
+- **Each value cell prints its row label** from `data-lat-row`, a stamp both render paths write from the row's
+  first cell (only for `runs` and `options`), the way a card line prints its column header from `data-lat-col`.
+  The header cell of each column titles its block.
+
+Two differences from the prototype follow from that. A total column is not repeated in every block (it would
+need a copy), so it is simply the last block. And the recommended option (a bold header) is not moved to the
+front: reordering one column needs a per-table rule, and the author's column order already says something.
+
+The ranked and schedule rows need no regrouping: each row becomes a small grid (ranked) or a column (schedule),
+as in the prototype. The secondary lines stay at the reading size (`--fs-body`): a narrow box is no reason to
+shrink type (engineering/typography.md).
+
+**Independent lists are the author's call.** The corpus holds one, and its columns are as uniform as a record
+table's. A cue such as "columns of different lengths" caught two record tables in the corpus and none of the
+lists, so detection never names this kind; `table-lists` does.
+
+**Switch widths.** Every new layout switches below 20em (a run table of five or more columns below 24em, as
+above), and a run table goes from two columns per block to one
+below 15em (an `@container (width >= 15em) and (width < 20em)` range, so the two forms never overlap). A table
+in a half pane of a 16:9 slide (about 25em) and on a full-width mobile canvas (about 20.7em) keeps its form.
+
+**A width guard for the label column.** The parent session found the card form starving its values in
+the fluid view: a record table in a 30% pane of a 16:9 deck, viewed on a 390px phone, has a stage about 5em
+wide, and a fixed 10- or 6-character label column left the value one letter per line. Below 12em (10-character
+column), 8em (6-character column) and 10em (an option or run block's row label, a ranked row's figure) every
+label now sits above its value, the `stack` form, and a ranked row puts its figure under the name. The 12em
+step also fixes the Frame Lab's 360px frame (10.8em), where `LOCATION` and `MITIGATION` columns broke values
+mid-word. A 30% pane on a 16:9 slide is 15.3em (measured in indaco), above every step, so no 16:9 slide
+changes. A label on a two-line row is an inline-block, so its line breaks between the label and the value
+rather than inside the value.
+
+**`matrix-grid` and `roadmap` stay on the deny list.** Both are chart kinds whose table is the chart's data:
+matrix-grid wraps its table in its own figure, so the table is not a direct child of the stage these rules
+reach, and roadmap rewrites its table in JavaScript (`horizons` transposes it into phase cards, `swimlane`
+draws tracks). A per-column regrouping would fight both drawings. Their narrow forms belong with the other
+chart kinds (`followups.d/3021-p9-chart-narrow-forms.md`).
+
+
+**What a screen reader hears.** The card, pair, ranked and schedule forms hide the header row, so its
+column headers leave the accessibility tree (6 of the 16 in examples/responsive-tables.md at 390px, in
+Chromium and WebKit alike). Each value is not left without its column: the label a narrow line prints
+(`data-lat-col`, drawn by `::before`) is part of the cell's accessible name, so the tree reads
+`cell "Role Engineering lead"`, `cell "Sector Logistics"`, `cell "Owner Ada"`; the row's first cell is its
+title. Keeping the header row in the tree visually hidden instead was tried and dropped: the overflow
+probe read its clipped text as lost content, and the fit check then held almost every narrow table.
+docs/e2e/table-reflow-preview.spec.ts pins the cell names in Chromium, WebKit and Gecko. Not verified:
+a real screen reader's speech.
+
+## Charts: drawn for their box on a slide; the narrow form needs a second drawing
+
+Follow-up p9 said every chart scales like a picture when its box narrows. On a slide that is not so,
+and the reason decides what the narrow form has to be.
+
+- **A paged chart is drawn for its own box.** lib/transformers/chart-frame.js hands each kind the
+  slide's orientation and, in a pane, the pane's canvas (`paneView`); 16 of the 28 kinds read it
+  through `cart.viewFor`, and the pane catalog refuses a pane narrower than each kind can draw in
+  (quadrant and risk-matrix 35%, roadmap 65%). A portrait deck gets the portrait drawing. So no slide
+  shows a shrunk copy of a wide drawing.
+- **The gap is a box that changes AFTER the render.** The fluid view on a phone, a resizing live
+  preview and a continuous host all receive a drawing made for the authored box. CSS cannot redraw an
+  SVG: the label sizes, tick counts and the key's position are baked into the drawing.
+- **So the narrow form is a second drawing, and that is a decision, not a step.** The candidate the
+  analysis favors: the engine draws each chart twice, the second at a narrow view (about 110 × 200
+  chart units, a phone's width at slide type size), and puts the second in a `<template>`, which is
+  inert: no layout, no accessibility tree, no duplicate ids, invisible to text extraction. The runtime
+  swaps it in when the chart body falls below a width and back when it widens; a PDF never swaps.
+  What it costs: about twice the chart markup in every HTML export (an exported-bytes change, which
+  the Quality Bar routes to the owner), twice the chart render time (a bench run, HARD RULE #19), and
+  a post-sanitize markup swap inside the frame, which HARD RULE #22's fourth guard has to admit. What
+  it buys: every kind gets a narrow form from its existing view-following geometry, with per-kind
+  work only where that geometry is not enough (risk-matrix's key goes below the grid; quadrant's
+  corner labels). The alternative, a runtime that carries the chart kernels and redraws, costs the
+  runtime bundle the whole chart family.
+- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
+  quadrant, word-cloud, piechart, hub-spoke), and size containment lends the box no height. In a
+  continuous host the slide grows to its content, so the body collapsed to 0 and the chart vanished
+  (every quadrant, radar and pie chart in the Frame Lab, at every width). In a continuous host their
+  body now takes a 16:10 box from its width. No paged host sets the attribute, so no export changes.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
 
-1. The other table kinds' layouts (prototyped in tools/frame-lab/proto/), which also reach
-   `matrix-grid` and `roadmap`.
-2. Refined stacks for components whose meaning is position (matrix-2x2, quadrant, risk-matrix).
-3. Narrow forms for side-by-side components (redline, compare-code, split-panel).
-4. Narrow forms for the 28 chart kinds, including the three that take a table as data.
+1. Narrow forms for the 28 chart kinds, including the three that take a table as data (heatmap,
+   `matrix-grid`, `roadmap`) and the two position charts (quadrant, risk-matrix).
 
-(The table-owning components, the shared card grid and the frame were on this list; all three moved into this change, above.)
+(The table-owning components, the shared card grid and the frame were on this list; all three moved into the
+first change, above. The other table kinds' layouts, the position components and the side-by-side components
+followed in the second change: see their sections above.)
 
 Each reuses this change's pattern: one narrow layout for both hosts, triggered by width in a continuous
 host and by width plus the fit check on a slide.
@@ -310,4 +522,19 @@ host and by width plus the fit check on a slide.
   held by the runtime's fit check. It passes in Chromium, WebKit (tablet) and Firefox.
 - **The table-owning components are pixel-identical to `main`** on their galleries and the two table
   examples, at hd, portrait and mobile.
-- **Not verified:** the VS Code Marp preview.
+- **The second change (the other kinds) moves no existing deck either.** The same 85 decks rendered to HTML
+  through the CLI on this branch and on `main` at hd, portrait and mobile (510 renders, 627 tables), measured in
+  Chromium: the same 49 tables sit in a narrow form on both trees (glossary's mobile strip and the like), no
+  table changed form, and no element of a slide holding a table moved by more than 1px. The only deck that
+  differs is examples/responsive-tables.md, which this change edits.
+- **The fit check holds every new layout.** A deck with a tall table of each new kind in a 30% pane: the CLI
+  held all five slides (`ⓘ … pages 1, 2, 3, 4, 5`), and the one that overflowed in table form overflowed
+  identically on `main`.
+- **Both render paths agree** on the new stamps: the fidelity probe gained an option, ranked and schedule
+  table, and a `table-lists` slide, compared cell by cell (`data-lat-col` and `data-lat-row`).
+- **No table switches later than it did.** The 31 tables that went from cards to runs, plus a nine-column
+  cross-tab, rendered on both trees with every stage forced to 12–25em (384 checks): no table that was in a
+  narrow form on `main` is in table form here, no table clips that did not clip on `main`, and between 20em
+  and 24em the same 29 tables are narrow on both.
+- **Not verified:** the VS Code Marp preview; the Studio live preview of the new layouts (the e2e spec covers
+  the cards only).

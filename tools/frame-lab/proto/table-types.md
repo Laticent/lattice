@@ -85,7 +85,7 @@ Nine kinds of table, each with its own narrow layout.
 
 ---
 
-<!-- _class: table no-row-label -->
+<!-- _class: table no-row-label table-lists -->
 <!-- _footer: "6 · Independent lists — each column becomes a block" -->
 
 ## The review found three kinds of finding.

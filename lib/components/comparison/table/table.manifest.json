@@ -146,7 +146,7 @@
     },
     {
       "mistake": "Hand-building cards or a second table for narrow screens.",
-      "fix": "A table that runs out of width already changes shape on its own: a record list becomes one card per row, a two-column table puts each label above its value, and any other table keeps its grid. It switches only where the table genuinely breaks (a narrow pane, a portrait canvas, a phone), never on a full-width or half-pane 16:9 slide. Overrule a wrong guess with `table-cards`, `table-pairs` or `no-table-reflow`; a slide's modifier reaches its panes, and a pane marker can name its own."
+      "fix": "A table that runs out of width already changes shape on its own: a record list becomes one card per row, a two-column table puts each label above its value, a quarterly or cross-tab table splits into blocks that repeat its row labels, an option table becomes one block per option, and a ranked list or a schedule becomes two-line rows. It switches only where the table genuinely breaks (a narrow pane, a portrait canvas, a phone), never on a full-width or half-pane 16:9 slide. Overrule a wrong guess with `table-cards`, `table-pairs`, `table-lists` (one block per column, for independent lists) or `no-table-reflow`; a slide's modifier reaches its panes, and a pane marker can name its own."
     },
     {
       "mistake": "Reaching for a CSS override to make a short table fill the slide.",

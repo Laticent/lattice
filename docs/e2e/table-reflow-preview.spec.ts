@@ -56,6 +56,13 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		);
 		await expect(t).not.toHaveClass(/lat-reflow-held/);
 		expect(await rowDisplay(t)).not.toBe('table-row');
+		// A screen reader still hears each value's column. The card form hides the header row, so its
+		// column headers leave the accessibility tree; the label each card line prints (`data-lat-col`,
+		// drawn by `::before`) is part of the cell's accessible name instead. Measured identical in
+		// Chromium and WebKit; a regression here leaves values with no column at all.
+		const ax = await t.ariaSnapshot();
+		expect(ax).toContain('cell "Role Reviewer"');
+		expect(ax).toContain('cell "Status Open"');
 		const path = info.outputPath('three-rows-cards.png');
 		await page.screenshot({ path });
 		await info.attach('three-rows-cards.png', { path, contentType: 'image/png' });

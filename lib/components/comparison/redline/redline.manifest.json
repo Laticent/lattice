@@ -325,5 +325,8 @@
       }
     }
   },
-  "venueProbe": "<!-- _class: redline -->\n\n## The redline tracks an amendment verbatim.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out.\n\n- **Why this matters.** One duty, one uniform link title.\n"
+  "venueProbe": "<!-- _class: redline -->\n\n## The redline tracks an amendment verbatim.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out.\n\n- **Why this matters.** One duty, one uniform link title.\n",
+  "dataShapeGuidance": [
+    "A `.split` or `.three-col` redline stacks old, new and the rationale in reading order when its box is narrow (below 32em for `.split`, 40em for `.three-col`: a half pane, a phone-width frame), the same form a portrait deck gets. On a slide, a stack that would overflow is held as the grid, so keep a paned redline short enough to stack (engineering/decisions/2026-11-03-responsive-tables.md)"
+  ]
 }

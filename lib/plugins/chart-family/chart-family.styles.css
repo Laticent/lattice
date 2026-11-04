@@ -1587,6 +1587,24 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   stroke-width: 0.55;
 }
 
+/* ── A continuous host: a size-contained chart body needs a box of its own ──
+ * Six kinds fill a SIZE container (radar, map, quadrant's cohort and in-form plot, word-cloud,
+ * piechart, hub-spoke: the container-fill model above). Size containment means the content lends the
+ * box no height, which is right on a slide, where the stage hands it a definite one. In a continuous
+ * host (`data-lattice-flow="continuous"`, lib/core/table-reflow-fit.js) the slide grows to its
+ * content, the stage has no definite height, and the body collapsed to 0: in the Frame Lab every
+ * quadrant, radar and pie chart vanished at every width. There the body takes a 16:10 box from its
+ * width instead, the drawing fills it, and the rest of the slide flows around it. Nothing on a paged
+ * host sets the attribute, so no export changes.
+ * engineering/decisions/2026-11-03-responsive-tables.md §Charts.
+ * The host condition sits in a `:where()` after the slide, not as a `:root … section` prefix: the
+ * slide stays the selector's head, so the packed (preview) sheet does not read it as a slide inside
+ * a slide (test/unit/engine/css-scope.test.js), and the `:where()` adds no specificity. */
+section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spoke):where(:root[data-lattice-flow="continuous"] *) .chart-body {
+  aspect-ratio: 16 / 10;
+  flex: 0 0 auto;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * CARTESIAN CHROME — the shared plot furniture
  * ═══════════════════════════════════════════════════════════════════════════
@@ -1853,3 +1871,4 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   vector-effect: non-scaling-stroke;
   stroke-width: var(--chart-edge-strong);
 }
+

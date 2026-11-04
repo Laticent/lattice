@@ -7,12 +7,15 @@
  * form, because CSS cannot copy content: `.rt-k2` (labels + two columns per block) and
  * `.rt-k1` (labels + one column per block). For independent lists it renders `.rt-cols`,
  * one block per column. The type comes from the lab deck's footer number; in the real engine
- * it would come from the detection the bake-off picks. */
+ * it comes from lib/core/table-shape.js. With the prototype switched off the tables return to
+ * the stage, so the lab shows the engine's own layouts (lib/base/base.table-reflow.css). */
 (() => {
   const TYPES = { 1: 'records', 2: 'keyvalue', 3: 'periods', 4: 'options', 5: 'crosstab', 6: 'lists', 7: 'ranked', 8: 'prose', 9: 'schedule' };
   const REPEAT = { periods: 1, crosstab: 1, options: 1 };
 
   const cellsOf = (row) => [...row.cells];
+  const wrapped = []; // [wrapper, table]: with the prototype OFF the table goes back to the stage
+
   const el = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 
   for (const s of document.querySelectorAll('#deck > section')) {
@@ -39,6 +42,7 @@
     wrap.setAttribute('data-rt', type);
     t.parentNode.insertBefore(wrap, t);
     wrap.appendChild(t);
+    wrapped.push([wrap, t]);
     t.classList.add('rt-wide');
     // Container-query em resolves against the wrapper's own text size, so give the wrapper the
     // table's size: every switch point then reads in the table's real text. (The engine would
@@ -98,4 +102,17 @@
       wrap.appendChild(cols);
     }
   }
+
+  // With the prototype OFF, each table sits where the engine put it (a direct child of the
+  // stage), so the engine's own narrow layouts (base.table-reflow.css) are what the lab shows.
+  const root = document.documentElement;
+  const sync = () => {
+    const on = root.getAttribute('data-proto') === 'on';
+    for (const [wrap, t] of wrapped) {
+      if (on && t.parentNode !== wrap) wrap.insertBefore(t, wrap.firstChild);
+      if (!on && t.parentNode === wrap) wrap.parentNode.insertBefore(t, wrap);
+    }
+  };
+  new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['data-proto'] });
+  sync();
 })();

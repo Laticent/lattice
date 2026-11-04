@@ -69,25 +69,99 @@ A spec sheet reads in pairs. Side by side, the value column would be a few chara
 
 ### Why it did not switch
 
-A slide does not grow, and a card is taller than the row it replaces. So a table switches only where it genuinely breaks. A half pane on a 16:9 slide is wide enough, so nothing moves.
+A slide does not grow, and a card is taller than the row it replaces. So a table switches only where it genuinely breaks. A half pane on a 16:9 slide is wide enough, so nothing moves, and neither does a table on a full-width slide.
 
 ---
 
 <!-- _class: columns ratio-30-70 -->
-<!-- _footer: "Measure over time · read both ways, so it keeps its grid" -->
+<!-- _footer: "Measure over time · the row labels repeat beside each run of columns" -->
 
-## A quarterly table keeps its grid, even in a narrow pane.
+## A quarterly table splits into runs of columns, labels repeated.
 
 ### Revenue
 
-| Metric | Q1 | Q2 | Q3 |
-| --- | ---: | ---: | ---: |
-| Revenue | 40 | 45 | 51 |
-| Margin | 61% | 62% | 62% |
+| Metric | Q1 | Q2 | Q3 | Q4 |
+| --- | ---: | ---: | ---: | ---: |
+| Revenue | 40 | 45 | 51 | 58 |
+| Margin | 61% | 62% | 62% | 63% |
 
-### Why it kept its grid
+### What changed
 
-Each row is a measure and each column a quarter, so the reader compares in both directions. Cards would break that, so this kind keeps its table until it has a layout of its own.
+Each row is a measure and each column a quarter, so the reader compares both ways. Cards would break that. Instead the quarters split into blocks of two, and each block repeats the row labels, so Q1 still sits beside Q2. A cross-tab (region by product) takes the same layout; at the narrowest, one column per block.
+
+---
+
+<!-- _class: columns ratio-30-70 -->
+<!-- _footer: "Option comparison · one block per option" -->
+
+## An option table becomes one block per option.
+
+### Plans
+
+| Criterion | Starter | Team | Scale |
+| --- | --- | --- | --- |
+| Per seat | $12 | $24 | $48 |
+| Support | Email | Chat | Phone |
+
+### What changed
+
+Each column is an option, and the reader weighs one option at a time against the same criteria. So each option becomes a block, and every block lists the criteria beside its values.
+
+---
+
+<!-- _class: columns ratio-30-70 -->
+<!-- _footer: "Ranked list · a two-line row keeps rank, name and figure together" -->
+
+## A ranked list keeps rank, name and figure on one line.
+
+### Top accounts
+
+| Rank | Account | Sector | ARR |
+| ---: | --- | --- | ---: |
+| 1 | Northwind | Logistics | 1,240 |
+| 2 | Contoso | Retail | 980 |
+| 3 | Fabrikam | Industry | 860 |
+
+### What changed
+
+The reader scans a ranking down the rank, the name and the figure. Those three stay on the first line; the other columns move to a second line under the name, each with its label.
+
+---
+
+<!-- _class: columns ratio-30-70 -->
+<!-- _footer: "Schedule · the date sits above its item" -->
+
+## A schedule puts each date above its milestone.
+
+### The migration
+
+| Date | Milestone | Owner |
+| --- | --- | --- |
+| 12 Jan | Freeze the schema | Ada |
+| 2 Feb | Dual-write | Tomás |
+| 23 Feb | Backfill | Nia |
+
+### What changed
+
+A schedule reads as a sequence of dates. Each date becomes a small heading over its milestone, and the owner follows as a labeled line.
+
+---
+
+<!-- _class: columns ratio-30-70 table-lists -->
+<!-- _footer: "Independent lists · table-lists turns each column into a list" -->
+
+## Three lists in one table become three lists.
+
+### The review
+
+| Strengths | Gaps | Risks |
+| --- | --- | --- |
+| Strong API | Onboarding | Pricing |
+| Loyal base | Mobile app | Key person |
+
+### What changed
+
+The columns share nothing but the row they happen to sit on, so each becomes its own list. Detection cannot tell this kind from a record list, so the author names it with `table-lists`.
 
 ---
 
@@ -107,26 +181,4 @@ Each row is a measure and each column a quarter, so the reader compares in both 
 
 ### The override
 
-`no-table-reflow` on the pane's marker keeps this table at every width, here a short one that fits as a table. On a slide without panes it goes in the slide's class. `table-cards` and `table-pairs` force a layout instead.
-
----
-
-<!-- _footer: "Full width · a 16:9 slide never switches" -->
-
-## A table on a full-width slide renders exactly as before.
-
-| Name | Role | City | Since |
-| --- | --- | --- | --- |
-| Ada Okafor | Engineering lead | Lagos | 2019 |
-| Priya Raman | Design director | Bengaluru | 2021 |
-| Tomás Ruiz | Product manager | Madrid | 2020 |
-
-The change only adds a column label to each cell and a layout name to the table. Neither shows until the table's box gets narrow.
-
----
-
-<!-- _class: closing silent -->
-
-# Tables that fit their box
-
-`Records · Key-value · more kinds to follow`
+`no-table-reflow` on the pane's marker keeps this table at every width, here a short one that fits as a table. On a slide without panes it goes in the slide's class. `table-cards`, `table-pairs` and `table-lists` force a layout instead.

@@ -1104,7 +1104,14 @@ const PRESETS_ONLY = process.argv.includes('--presets');
     fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, `---\nsize: ${s.size}\ntheme: indaco\n---\n\n` + DECK.split('---\ntheme: indaco\n---\n\n')[1]);
     const base = path.join(os.tmpdir(), `vf-${s.size}-${process.pid}`);
-    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html', '--size', 'deck'],
+    // `--no-split`, like the oracle sweep. Since the split became STRUCTURAL (2026-09-01,
+    // `splitDoc` in lib/core/auto-split.js), an enrolled multi-member slide at a non-`wide`
+    // size is re-emitted as cover → body pages whether it fits or not. The two-option decision
+    // probe came back as `decision-split` sections with no `decision` token and no
+    // `.cell-stage` list, so it read MISSING at all four presentation sizes — a dead tier on
+    // the table while the tier was fine. This half asks whether the tier's CSS fires on the
+    // layout, not how the slide paginates, so it reads the un-split section.
+    execFileSync(process.execPath, [path.join(ROOT, 'lattice.js'), src, `${base}.pdf`, 'indaco', '-q', '--keep-html', '--size', 'deck', '--no-split'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
     const page = await browser.newPage();
     await page.setViewport({ width: s.vp[0], height: s.vp[1] });

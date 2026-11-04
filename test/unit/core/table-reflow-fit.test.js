@@ -92,3 +92,38 @@ test('a card list whose narrow form is active (--lat-narrow: 1) is held like a t
   assert.deepEqual(holdUnfitReflow(dom2.window.document, () => ({ over: true }), '', '', 12), []);
   assert.ok(!dom2.window.document.querySelector('ul').classList.contains(HELD_CLASS));
 });
+
+test('a content area that stacks its own grid (redline) is held like a card list', () => {
+  const css = `section.redline > .cell-stage:not(.lat-reflow-held) { --lat-narrow: 1; }`;
+  const dom = new JSDOM(`<!doctype html><html><head><style>${css}</style></head><body>
+    <section class="redline" data-lattice-slide="1"><div class="cell-stage"><blockquote>old</blockquote><blockquote>new</blockquote></div></section>
+    <section class="redline" data-lattice-slide="2"><div class="cell-stage"><blockquote>old</blockquote><blockquote>new</blockquote></div></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  assert.deepEqual(holdUnfitReflow(doc, overOn([2]), '', '', 12), [2]);
+  const [fits, over] = doc.querySelectorAll('.cell-stage');
+  assert.ok(!fits.classList.contains(HELD_CLASS), 'a stack that fits keeps its narrow form');
+  assert.ok(over.classList.contains(HELD_CLASS), 'a stack that overflows is held as the grid');
+});
+
+test('a list that only INHERITS the narrow marker from a stacked stage is not a second narrow layout', () => {
+  const css = `section.redline > .cell-stage:not(.lat-reflow-held) { --lat-narrow: 1; }`;
+  const dom = new JSDOM(`<!doctype html><html><head><style>${css}</style></head><body>
+    <section class="redline" data-lattice-slide="1"><div class="cell-stage"><blockquote>old</blockquote><ul><li>why</li></ul></div></section></body></html>`);
+  global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  const doc = dom.window.document;
+  // jsdom does not inherit custom properties, so set the inherited value on the list by hand.
+  doc.querySelector('ul').style.setProperty('--lat-narrow', '1');
+  assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12), [1]);
+  assert.ok(doc.querySelector('.cell-stage').classList.contains(HELD_CLASS));
+  assert.ok(!doc.querySelector('ul').classList.contains(HELD_CLASS), 'the list rode on its stage; it is not held itself');
+});
+
+test('`only` judges just the slides a resize changed, and reports each by its place in the deck', () => {
+  const doc = page();
+  const second = doc.querySelectorAll('section')[1];
+  assert.deepEqual(holdUnfitReflow(doc, () => ({ over: true }), '', '', 12, new Set([second])), [2]);
+  const [t1, t2] = doc.querySelectorAll('table');
+  assert.ok(!t1.classList.contains(HELD_CLASS), 'slide 1 was not in the set, so it was not judged');
+  assert.ok(t2.classList.contains(HELD_CLASS));
+});

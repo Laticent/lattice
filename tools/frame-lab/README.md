@@ -34,7 +34,7 @@ frame's right edge, header or footer spill, and median slide height, at 1280, 96
 |---|---|
 | `build.js` | renders the galleries, builds one frame page per component, runs the scan, writes the viewer |
 | `viewer.html` | the viewer page's template |
-| `proto/` | the nine-kind responsive-table prototype (`table-types` in the viewer, with an on/off switch). The markup step stands in for the engine, the CSS is generated per column count. Two of its nine layouts shipped as `lib/base/base.table-reflow.css`; the rest are the reference for the next steps |
+| `proto/` | the nine-kind responsive-table prototype (`table-types` in the viewer, with an on/off switch). The markup step stands in for the engine, the CSS is generated per column count. All nine layouts shipped in `lib/base/base.table-reflow.css`; with the switch off the tables return to the stage, so the entry shows the engine's own layouts |
 | `bakeoff/` | the detection bake-off: `corpus.json` (225 tables, frozen 2026-11-03), `labels.json` (each table's kind, labeled by an independent agent before any detector existed), `bakeoff.js` (the scorer), `corpus.js` (re-extracts the corpus) |
 
 The corpus and its labels are paired by id. Re-extracting the corpus is a re-labeling job, so

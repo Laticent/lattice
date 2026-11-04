@@ -182,6 +182,11 @@ const EXPECTED_OFF = Object.freeze([
   // data. Two tables, one OFF and one explicitly overruled.
   'examples/table-component.md: | Year | Revenue | Growth |',
   'examples/table-component.md: | Year | Revenue | Growth |',
+  // examples/responsive-tables.md demonstrates a ranked list and a schedule, whose first
+  // columns are a rank and a date: an ordinal and a year-like column, two of the shapes the
+  // rule exists to decline. Their narrow layouts (two-line rows) style that column themselves.
+  'examples/responsive-tables.md: | Rank | Account | Sector | ARR |',
+  'examples/responsive-tables.md: | Date | Milestone | Owner |',
 ]);
 
 test('every table in every shipped deck resolves as the design says', (t) => {
@@ -190,7 +195,7 @@ test('every table in every shipped deck resolves as the design says', (t) => {
   // `test/integration/baseline-decks/` and `lib/components/`. Widen the scope
   // and the totals move, which is why the scope is part of the claim.
   //
-  // Both arms are asserted. Every table resolves ON except the two demo tables
+  // Both arms are asserted. Every table resolves ON except the demo tables
   // above, so this catches a rule that fired OFF too eagerly AND one that
   // stopped firing OFF at all — the second is the arm that would have let the
   // `table-fill` gate bug back in.

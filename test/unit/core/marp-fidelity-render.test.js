@@ -284,7 +284,44 @@ const PROBES = {
     ].join('\n'),
     probe: (doc) => [...doc.querySelectorAll('section table')].map((t) =>
       `${t.getAttribute('data-lat-reflow')}|${t.getAttribute('role') || ''}|` +
-      [...t.querySelectorAll('td')].map((td) => td.getAttribute('data-lat-col') || '-').join(',')),
+      [...t.querySelectorAll('td')].map((td) => `${td.getAttribute('data-lat-col') || '-'}/${td.getAttribute('data-lat-row') || '-'}`).join(',')),
+  },
+
+  // The other layouts: an option comparison (its value cells carry their ROW label too, the
+  // stamp only the block layouts read), a ranked list and a schedule. Three verdicts on one
+  // slide, where each path must agree on every cell's column and row label.
+  'tableReflow@kinds': {
+    row: 'tableReflow',
+    min: 3,
+    section: 'content',
+    body: [
+      '## Three tables, three layouts', '',
+      '| Criterion | Plan A | Plan B | Plan C |', '|---|---|---|---|',
+      '| Price per seat | $12 | $24 | $48 |', '| Single sign-on | No | Yes | Yes |', '| Support | Email | Chat | Phone |', '',
+      '| Rank | Account | Industry | ARR |', '|---|---|---|---|',
+      '| 1 | Northwind | Logistics | 1,240 |', '| 2 | Contoso | Retail | 980 |', '| 3 | Fabrikam | Manufacturing | 860 |', '',
+      '| Date | Milestone | Owner |', '|---|---|---|',
+      '| 12 Jan | Freeze the schema | Ada Okafor |', '| 2 Feb | Dual-write | Tomás Ruiz |',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('section table')].map((t) =>
+      `${t.getAttribute('data-lat-reflow')}|${t.getAttribute('role') || ''}|` +
+      [...t.querySelectorAll('td')].map((td) => `${td.getAttribute('data-lat-col') || '-'}/${td.getAttribute('data-lat-row') || '-'}`).join(',')),
+  },
+
+  // An independent list, which detection never names: only the author's `table-lists` does,
+  // and the slide's class has to reach the walker on both paths.
+  'tableReflow@lists': {
+    row: 'tableReflow',
+    min: 1,
+    section: 'content table-lists',
+    body: [
+      '## One list per column', '',
+      '| Strengths | Weaknesses | Risks |', '|---|---|---|',
+      '| Strong API | Slow onboarding | Pricing pressure |', '| Loyal base | | Key-person risk |',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('section table')].map((t) =>
+      `${t.getAttribute('data-lat-reflow')}|${t.getAttribute('role') || ''}|` +
+      [...t.querySelectorAll('td')].map((td) => `${td.getAttribute('data-lat-col') || '-'}/${td.getAttribute('data-lat-row') || '-'}`).join(',')),
   },
 
   // The stamp that turns first-column row-label emphasis on. TWO tables, and only

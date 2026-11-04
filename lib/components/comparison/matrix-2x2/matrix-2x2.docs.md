@@ -31,6 +31,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 ### Data shape
 
 - Author exactly four outer list items, one per quadrant. The layout assumes a fixed 2×2 and does not clamp, reflow, or warn on a different count — a 3rd or 5th item is an authoring bug the engine won't catch; it just wraps into a broken grid.
+- In a narrow box (content area under 24em: a phone-width frame, a narrow live preview) and on a tall or strip deck the four quadrants stack in one column, and each stacked card carries a small drawn 2×2 with its own cell filled, so the reader still sees which corner it is. Keep both poles in each title; the mark gives the place, the title gives the meaning. On a slide, a stack that would overflow is held as the 2×2 (engineering/decisions/2026-11-03-responsive-tables.md)
 
 ## When to use
 
