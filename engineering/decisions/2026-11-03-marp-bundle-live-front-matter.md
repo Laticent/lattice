@@ -122,7 +122,13 @@ An independent checker reviewed the diff and confirmed five defects; all are fix
 ## What this does not cover
 
 - VS Code's **Strict** preview level runs no scripts at all, so nothing the runtime draws (the rail
-  included) exists there; the block sits in slide 1 as an invisible `<script>`. Unchanged.
+  included) exists there; the block sits in slide 1 as an invisible `<script>`. **Not unchanged for a deck
+  `class:`** (corrected 2026-11-04, the trio's inversion pass): before, Marp applied a top `class:` itself
+  to the slides with no `_class` of their own (4% of the 2,890 example slides; 126), so a CSS-only switch
+  (`no-header`, `no-footer`) reached those; now the class lives in the block, which only the runtime
+  reads, so at Strict it reaches none. Measured in VS Code 1.144.1 / Marp for VS Code 3.6.1 at Strict:
+  slide-level switches and page numbers (baked `_paginate`) are right; deck-wide CSS switches do not
+  apply. The owner's call on whether to also mirror `class:` at the top is recorded in the PR.
 - VS Code in **Restricted Mode** prints raw HTML as text, which now includes the settings block on
   slide 1 (it already printed the runtime tags on the last slide). The README's step 2 (trust the
   folder) is the remedy, as before.
