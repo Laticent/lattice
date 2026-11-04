@@ -539,11 +539,5 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
     position: static; display: inline-block; width: auto; padding-inline-end: var(--inv-ord-gap);
   }
 }
-/* NARROW, under ~47 characters: `cards` holds two fixed columns, so a card got ~20 characters.
-   `--fluid-cols` gives it two where each keeps 24 characters, and one where they would not. */
-@container lattice (width < 23em) {
-  section.inventory.cards > .cell-stage > ul {
-    --col-max: 2; --col-gap: var(--sp-md);
-    grid-template-columns: var(--fluid-cols);
-  }
-}
+/* NARROW: `cards` goes to one column under 24em in the width-reflow block above, on every deck
+   shape (2026-10-28-fit-everywhere-model.md §17; its own 23em rule was retired into it). */

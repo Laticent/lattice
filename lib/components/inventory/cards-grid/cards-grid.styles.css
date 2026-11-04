@@ -157,63 +157,10 @@ section.cards-grid.four .cards-grid-inner--ordered {
   --cards-cols: 4; --cards-last: calc(100% / 4 - 3 * var(--sp-md) / 4);
 }
 
-/* TEXT ROOM (2026-10-28-fit-everywhere-model.md §13, §16). Three or four cards across keep each
- * card's text at about a third or a quarter of the line, which crams below the medium threshold:
- * two cards side by side on a story page read five words a line. Under 34em (about 68 characters
- * a line) N-up steps down to the component's own 2-up, or to one column where the box's family
- * already stacks (tall, strip); under 23em (about 46) every card takes the full width. The rules
- * repeat the N-up selectors above so they win on source order at the same specificity. A 16:9
- * box never reaches either threshold. */
-@container lattice (width < 34em) {
-  section.cards-grid.three.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.three.cards-grid > .cell-stage > ol > li,
-  section.cards-grid.three .cards-grid-inner > .card,
-  section.cards-grid.three .cards-grid-inner--ordered > .card,
-  section.cards-grid.four.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.four.cards-grid > .cell-stage > ol > li,
-  section.cards-grid.four .cards-grid-inner > .card,
-  section.cards-grid.four .cards-grid-inner--ordered > .card {
-    width: calc(50% - var(--sp-md) / 2);
-  }
-  section.cards-grid.three.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.three.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-  section.cards-grid.three .cards-grid-inner > .card:last-child:nth-child(odd),
-  section.cards-grid.three .cards-grid-inner--ordered > .card:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-  section.cards-grid.four .cards-grid-inner > .card:last-child:nth-child(odd),
-  section.cards-grid.four .cards-grid-inner--ordered > .card:last-child:nth-child(odd),
-  section.cards-grid.three.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
-  section.cards-grid.three.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li,
-  section.cards-grid.four.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
-  section.cards-grid.four.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li,
-  section.cards-grid.three.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.three.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:last-child:nth-child(odd) {
-    width: 100%;
-  }
-}
-@container lattice (width < 23em) {
-  section.cards-grid.three.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.three.cards-grid > .cell-stage > ol > li,
-  section.cards-grid.three .cards-grid-inner > .card,
-  section.cards-grid.three .cards-grid-inner--ordered > .card,
-  section.cards-grid.four.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.four.cards-grid > .cell-stage > ol > li,
-  section.cards-grid.four .cards-grid-inner > .card,
-  section.cards-grid.four .cards-grid-inner--ordered > .card,
-  section.cards-grid.three.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.three.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-  section.cards-grid.three .cards-grid-inner > .card:last-child:nth-child(odd),
-  section.cards-grid.three .cards-grid-inner--ordered > .card:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid > .cell-stage > ul > li:last-child:nth-child(odd),
-  section.cards-grid.four.cards-grid > .cell-stage > ol > li:last-child:nth-child(odd),
-  section.cards-grid.four .cards-grid-inner > .card:last-child:nth-child(odd),
-  section.cards-grid.four .cards-grid-inner--ordered > .card:last-child:nth-child(odd) {
-    width: 100%;
-  }
-}
+/* TEXT ROOM (2026-10-28-fit-everywhere-model.md §13, §17). N-up steps down in the width-reflow
+ * block below (lib/base/base.card-reflow.css), which now answers on every deck shape: four go two
+ * across under 46em, three under 36em, and every card takes the full width under 24em. Its own
+ * text-room rules (34em, 23em) were retired into it on 2026-11-04. */
 
 
 /* Hardening: element siblings of <strong> in a card li don't inherit

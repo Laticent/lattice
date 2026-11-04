@@ -874,3 +874,53 @@ page only under `stretch`. Members keep their natural height. The cost the owner
 last page sits lower than a full one, so the start line can shift between pages; `cards: top` brings
 the single start line back. Pinned by test/unit/core/measured-plan.test.js and
 test/integration/parity/list-row-fit.test.js.
+
+## 17. One box for every narrow rule, after PR 3021 (2026-11-04)
+
+PR 3021 (responsive tables) landed on `main` while this PR was open. It taught tables and fourteen
+card components to reflow in their **content area** (`.cell-stage`, the `lat-cards` container),
+only on wide and square decks. This PR's text-room rules (§13) queried the **slide** (the `lattice`
+container) on every deck shape. Six components carried both, and the rebase conflicted in all six.
+The owner's direction: components should be responsive natively, by their own box, so the split
+only has to measure what they already did.
+
+**One container.** `base.elements.css` now makes every content area a width container carrying
+both names: `section:not(.collage) > .cell-stage { container: lattice lat-cards / inline-size; }`.
+A query from inside the content area answers with the nearest container, the content area itself.
+On a slide with no panes that box is exactly as wide as the slide's content box, so nothing moves;
+in a pane, the text-room rules now reflow as they would on a narrow slide. The declaration replaces
+PR 3021's own, which named only `lat-cards` and only wide and square decks (`container` names an
+element's whole list, so two rules would drop one name). Breakpoints stay in `em`: a query's `em` is
+the container's own text size, so a width in `em` counts characters a line at any venue, which a
+`cqi` or `px` breakpoint cannot.
+
+**What the one box cost, measured** (79 galleries plus `examples/panes`, at hd, square, portrait and
+mobile, 320 renders hashed before and after):
+
+| Change | Verdict |
+|---|---|
+| `collage` lost its grid width: its content area is sized by the photo grid inside it, and a width container ignores its contents when it sizes | left out of the rule (`:not(.collage)`) |
+| `list-steps` chevron took PR 3021's narrow-pane row on tall decks, over the tall deck's designed stacked tab | that rule keeps off tall and strip decks |
+| `pricing`'s stacked tiers shrank to their text and sat left (square decks on `main` too): the list wraps, and the `cards:` register centers the line | the stacked column sets `flex-wrap: nowrap`, as statute-stack's already did |
+| `list` principles, `kpi`, `q-and-a`, `inventory` on portrait and mobile take PR 3021's narrow forms | kept: each reads at least as well (the principle line gains its width back) |
+| `policy-recommendation`, 140 pixels of corner anti-aliasing at hd | kept: invisible |
+
+`collage` slide 6 also differed, but it differs between two screenshots of the same file, so it is
+not this change. The fit ratchet over the 94 galleries at square, portrait and story, laptop and
+hall: no count rose and 30 fell.
+
+**One rule per component.** Where PR 3021's rule now covers the same box, this PR's went:
+cards-grid's 34em and 23em step-downs, cards-stack's `horizontal` at 34em and inventory `cards` at
+23em (each gallery pixel-identical at four sizes after the removal), and statute-stack's status-pill
+rule, which PR 3021 wrote identically at 24em. What stays is what PR 3021 does not do: pricing's
+ribbon, the ordinal run-in under 17em, glossary on tall decks, and statute-stack's 17em pill padding.
+The statute-stack `lane` table keeps its own cards (from 34em) and leaves PR 3021's generic table
+cards, the same way glossary and math derivation do.
+
+**Split before hold.** PR 3021 holds a table or card row in its wide form when the narrow one would
+overflow its slide. The CLI runs the measured split before that hold, so a narrow form that
+overflows is split onto pages it fits, and the hold acts only where nothing can split the slide.
+
+**Bytes.** This PR's split code sits in the ESM engine every surface loads: +1.8 KB of `engineJsGz`
+over `main`, 1.0 KB past its ceiling. The owner raised the ceiling 2 KB in its own PR (#3028).
+
