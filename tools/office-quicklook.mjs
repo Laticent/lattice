@@ -11,6 +11,10 @@
  * What it writes, under platform-suite-artifacts/office-quicklook/:
  *   <deck>/<variant>/slide-NN.png   Quick Look's render of each slide (each slide is cut into a one-slide file first,
  *                                   because a Quick Look thumbnail shows only the first slide)
+ *   <deck>/<variant>/slides-AA-BB-CC.pptx, <deck>.pptx   three slides in a row, and the whole deck (a deck of at most
+ *                                   16 slides): the iOS probe scrolls through them, since the iPhone drew shapes from one
+ *                                   slide onto later ones
+ *   index.json                      every file the iOS probe opens
  *   report.json                     what was rendered, and anything that failed
  *
  * It renders the file as Calco writes it, one PNG per slide, to compare with the same file in LibreOffice. The variants
@@ -41,17 +45,20 @@ const report = { platform: process.platform, rendered: [], failed: [], skipped: 
 const SLIDE = /^ppt\/slides\/slide(\d+)\.xml$/;
 
 const VARIANTS = { 'as-exported': (x) => x };
+/** The most slides a deck may have to be read through whole on the iOS probe (the gallery is far past it). */
+const MAX_TOUR = 16;
 
 
-/** The file cut to slide `keep` (1-based): the other slides leave the slide list, so Quick Look's first page is this one. */
-async function oneSlide(zip, keep) {
+/** The file cut to the slides `keep` (1-based, in order): the other slides leave the slide list, so Quick Look's first
+ * page is the first of them. */
+async function cutTo(zip, keep) {
 	const pres = await zip.file('ppt/presentation.xml').async('string');
 	const rels = await zip.file('ppt/_rels/presentation.xml.rels').async('string');
 	const ids = [...pres.matchAll(/<p:sldId [^>]*r:id="([^"]+)"[^>]*\/>/g)];
 	const target = (rid) => rels.match(new RegExp(`Id="${rid}"[^>]*Target="([^"]+)"`))?.[1] || rels.match(new RegExp(`Target="([^"]+)"[^>]*Id="${rid}"`))?.[1];
-	const keepTag = ids.find(([, rid]) => target(rid) === `slides/slide${keep}.xml`)?.[0];
-	if (!keepTag) return null;
-	const cut = pres.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, `<p:sldIdLst>${keepTag}</p:sldIdLst>`);
+	const tags = keep.map((n) => ids.find(([, rid]) => target(rid) === `slides/slide${n}.xml`)?.[0]);
+	if (tags.some((t) => !t)) return null;
+	const cut = pres.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, `<p:sldIdLst>${tags.join('')}</p:sldIdLst>`);
 	const copy = await JSZip.loadAsync(await zip.generateAsync({ type: 'nodebuffer' }));
 	copy.file('ppt/presentation.xml', cut);
 	return copy.generateAsync({ type: 'nodebuffer' });
@@ -74,7 +81,7 @@ for (const deck of decks) {
 		for (const n of slides) {
 			if (custgeomOnly && !(await original.file(`ppt/slides/slide${n}.xml`).async('string')).includes('<a:custGeom>')) continue;
 			const file = path.join(dir, `slide-${String(n).padStart(2, '0')}.pptx`);
-			const buf = await oneSlide(zip, n);
+			const buf = await cutTo(zip, [n]);
 			if (!buf) {
 				report.failed.push({ deck: name, variant, slide: n, why: 'slide not in the slide list' });
 				continue;
@@ -89,6 +96,18 @@ for (const deck of decks) {
 				fs.renameSync(png, file.replace(/\.pptx$/, '.png'));
 				report.rendered.push({ deck: name, variant, slide: n });
 			} else report.failed.push({ deck: name, variant, slide: n, why: (r.stderr || r.stdout || `exit ${r.status}`).trim().slice(0, 400) });
+		}
+		// A deck short enough to read through also goes to the iOS probe WHOLE, scrolled a screen at a time (`tour`), and
+		// as every run of three slides in a row (one iPhone screen holds about three and a half). The owner's iPhone drew
+		// shapes from earlier slides onto later ones, which no one-slide file can show.
+		if (slides.length <= MAX_TOUR) {
+			index.push({ deck: name, slides, variant, path: path.relative(OUT, path.join(dir, `${name}.pptx`)), tour: true });
+			for (let i = 0; i + 2 < slides.length; i++) {
+				const run = slides.slice(i, i + 3);
+				const file = path.join(dir, `slides-${run.map((n) => String(n).padStart(2, '0')).join('-')}.pptx`);
+				fs.writeFileSync(file, await cutTo(zip, run));
+				index.push({ deck: name, slides: run, variant, path: path.relative(OUT, file) });
+			}
 		}
 	}
 }
