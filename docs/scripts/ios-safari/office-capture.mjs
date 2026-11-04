@@ -105,8 +105,10 @@ const steps = [];
 for (const f of index.filter((x) => x.slides)) {
 	const name = `${f.deck} ${f.variant} slides ${f.slides.join(', ')}`;
 	try {
-		const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000);
-		steps.push({ name, pass: settled, detail: settled ? 'settled' : 'never settled' });
+		// Twice: the first runs drew the carried-over shapes differently from one opening of the same file to the next.
+		let settledAll = true;
+		for (const take of ['a', 'b']) settledAll = (await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}-${take}.png`), 30000)).settled && settledAll;
+		steps.push({ name, pass: settledAll, detail: settledAll ? 'settled, twice' : 'never settled' });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
 	}
