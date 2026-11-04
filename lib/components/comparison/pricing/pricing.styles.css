@@ -203,7 +203,7 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
 }
 @container lat-cards (width < 36em) {
   section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) {
-    flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
   section.pricing.pricing:not(.two):not(.four):not(:has(> .cell-stage > ul > li:nth-child(4):last-child)) > .cell-stage > ul:not(.lat-reflow-held) > li {
     width: auto; flex: 0 0 auto; flex-grow: var(--cards-grow);
@@ -215,7 +215,7 @@ section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .ce
   section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held),
   section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held),
   section.pricing.pricing:has(> .cell-stage > ul > li:nth-child(4):last-child) > .cell-stage > ul:not(.lat-reflow-held) {
-    flex-direction: column; justify-content: var(--cards-align); --lat-narrow: 1;
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
   }
   section.pricing.pricing.pricing > .cell-stage > ul:not(.lat-reflow-held) > li,
   section.pricing.pricing.four > .cell-stage > ul:not(.lat-reflow-held) > li,

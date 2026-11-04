@@ -503,6 +503,6 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
  * type, so in a narrow pane the label clipped at the tab's edges. Below 36em the tab column takes
  * its label's own width (wrapping only between words) and the description keeps the rest. */
 @container lat-cards (width < 36em) {
-  section.list-steps.list-steps.chevron > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
-  section.list-steps.list-steps.chevron > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
+  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li { grid-template-columns: min-content 1fr; }
+  section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }
 }

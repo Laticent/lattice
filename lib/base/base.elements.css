@@ -127,8 +127,11 @@ section {
  * declaration, because `container` names the element's WHOLE list: a second rule naming one of
  * them would drop the other. `inline-size`, so a `cqh` inside still measures the slide.
  * The pane kernel (lib/core/pane-css.js) twins this onto every pane's own content area.
+ * `collage` is left out: its content area is sized by the photo grid it holds, and a width
+ * container ignores its contents when it sizes, so the grid lost its width (measured on the
+ * collage gallery at square and portrait).
  * engineering/decisions/2026-10-28-fit-everywhere-model.md §17. */
-section > .cell-stage { container: lattice lat-cards / inline-size; }
+section:not(.collage) > .cell-stage { container: lattice lat-cards / inline-size; }
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
    block above explains. Older engines keep the exact width: a custom property holding round() is invalid there at computed
    time, and that would zero the padding and the bar on every slide. */

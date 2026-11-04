@@ -468,19 +468,8 @@ section.statute-stack > .cell-stage {
 }
 
 /* ── TEXT ROOM (the text-room rule, base.elements.css) ───────────────────────
-   NARROW, under ~47 characters a line. hierarchy, bands and preemption pin the status pill
-   absolutely to the right of the jurisdiction label, which is safe only while the label is
-   short of the row: at square@hall and below, "FEDERAL" tracked at 0.16em ran under "In effect
-   since 2000" and the two printed over each other (followups.d/2962-p5-…). The pill returns to
-   the label's flow and wraps under it when the two do not share a line. */
-@container lattice (width < 23em) {
-  section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child {
-    flex-wrap: wrap; row-gap: var(--sp-2xs);
-  }
-  section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > .lat-pill:last-child:not(:first-child) {
-    position: static; transform: none;
-  }
-}
+   NARROW: the status pill returning to the label's flow is the 24em block above (it fixed the
+   same overprint at square@hall and below, followups.d/2962-p5-…). */
 /* TIGHT, under ~35 characters a line. Wrapping costs the card a line, and at portrait@hall a
    card alone on its page then clipped its last line of prose. The label and its citation pill
    missed sharing a line by under 10px (measured: 222 + 26 gap + 13 + 618 = 879px of an 888px
