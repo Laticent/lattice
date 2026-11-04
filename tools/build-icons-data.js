@@ -145,15 +145,28 @@ module.exports = Object.freeze({
   const lines = names.map((n) => `  ${JSON.stringify(n)}: ${JSON.stringify(icons[n])},`);
   // Each icon's Lattice Icons codepoint (lib/plugins/_icons-source/codepoints.json, kept by `npm run icons:font`):
   // the renderer writes the glyph beside the <svg>. An icon not in the font yet has none and draws as SVG only.
+  // Written as RUNS, not a name → codepoint map: [index of the first name in the SORTED list of `icons`' names (plain
+  // `.sort()`), its codepoint, how many follow
+  // one apart]. Every codepoint today is 0xE000 plus the name's place in the sorted list, so the whole table is one run;
+  // a codepoint is never moved, so an icon added later in the middle of the alphabet only splits a run. The map cost
+  // 1.3KB gzipped (16,106 to 14,823 bytes for the whole data file) in every page that loads the engine, which sat over
+  // its route-budget ceiling once main and PR #2992 met.
   const cpMap = fs.existsSync(CODEPOINTS) ? JSON.parse(fs.readFileSync(CODEPOINTS, 'utf8')).icons || {} : {};
-  const codepoints = Object.fromEntries(names.filter((n) => cpMap[n]).map((n) => [n, cpMap[n]]));
+  const codepointRuns = [];
+  [...names].sort().forEach((n, i) => {
+    if (!cpMap[n]) return;
+    const cp = Number.parseInt(cpMap[n], 16);
+    const run = codepointRuns[codepointRuns.length - 1];
+    if (run && run[0] + run[2] === i && run[1] + run[2] === cp) run[2]++;
+    else codepointRuns.push([i, cp, 1]);
+  });
   const data = `${header('The icon DRAWINGS: name → [[tag, geometry], …] on a 24-unit grid. Never required by a kernel; read through lib/core/plugin-data.js.')}
 /*! Tabler Icons — https://tabler.io/icons — stream and gateway are Lattice's own.
 ${MIT_NOTICE.split('\n').map((l) => ` *${l ? ` ${l}` : ''}`).join('\n')}
  */
 module.exports = Object.freeze({
   category: Object.freeze(${JSON.stringify(category)}),
-  codepoints: Object.freeze(${JSON.stringify(codepoints)}),
+  codepointRuns: Object.freeze(${JSON.stringify(codepointRuns)}),
   icons: Object.freeze({
 ${lines.join('\n')}
   }),
