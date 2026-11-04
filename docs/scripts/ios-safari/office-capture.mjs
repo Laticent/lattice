@@ -8,8 +8,8 @@
  * start pages and that prompt. So a slide passes only when its OWN background (the dominant color of the same cut's
  * Quick Look render, made earlier in this job) covers a real share of the screen, and no prompt gray does.
  *
- * Files of three slides in a row (index entries with `slides`) are shown too, in each variant the tool wrote, for a
- * person to compare: Quick Look runs out of process (QLHostRemoteView), so the app cannot scroll a whole deck.
+ * Files of three slides in a row (index entries with `slides`) are shown too, for a person to compare with the PDF
+ * (iPhone Preview draws one slide's shapes on another; the icon-font decision note § 3.6): Quick Look runs out of process (QLHostRemoteView), so the app cannot scroll a whole deck.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPhone OFFICE_INDEX=<index.json> APP_DIR=<QLProbe.app> ARTIFACT_DIR=<dir> node office-capture.mjs
  */
@@ -99,16 +99,14 @@ for (const f of index) fs.copyFileSync(path.join(root, f.path), inApp(f));
 await capture('none', path.join(dir, `${LABEL}-baseline-0.png`), 15000);
 const baseline = (await capture('none', path.join(dir, `${LABEL}-baseline.png`), 15000)).img;
 const steps = [];
-// Runs of three slides, each variant tools/office-quicklook.mjs wrote: evidence of what the viewer draws on a slide after
+// Runs of three slides that tools/office-quicklook.mjs cut: evidence of what the viewer draws on a slide after
 // other slides (the owner's iPhone drew shapes from earlier slides onto later ones). Each capture is kept for a person
-// to compare across variants; a run passes on a settled screen.
+// to compare with the PDF; a run passes on a settled screen.
 for (const f of index.filter((x) => x.slides)) {
 	const name = `${f.deck} ${f.variant} slides ${f.slides.join(', ')}`;
 	try {
-		// Twice: the first runs drew the carried-over shapes differently from one opening of the same file to the next.
-		let settledAll = true;
-		for (const take of ['a', 'b']) settledAll = (await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}-${take}.png`), 30000)).settled && settledAll;
-		steps.push({ name, pass: settledAll, detail: settledAll ? 'settled, twice' : 'never settled' });
+		const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000);
+		steps.push({ name, pass: settled, detail: settled ? 'settled' : 'never settled' });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
 	}

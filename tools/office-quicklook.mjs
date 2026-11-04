@@ -19,7 +19,7 @@
  * It renders the file as Calco writes it, one PNG per slide, to compare with the same file in LibreOffice. The variants
  * an earlier run compared (shapes ungrouped, marks regrouped, paths in a 21600 space, no child frame) settled the design
  * and were retired: engineering/decisions/2026-11-01-icon-font.md § 3.6 records what each drew. `VARIANTS` holds the
- * ones under test now.
+ * ones under test now (none but the file as written, today).
  * `--custgeom-only` renders just the slides that hold custom geometry (for a big deck such as the gallery).
  *
  * Usage (macOS):  node tools/office-quicklook.mjs [deck.md ...]      default: examples/inline-icons.md
@@ -45,19 +45,12 @@ const report = { platform: process.platform, rendered: [], failed: [], skipped: 
 const SLIDE = /^ppt\/slides\/slide(\d+)\.xml$/;
 
 /**
- * Each variant rewrites one slide's XML (`n` is its number). Only `as-exported` is cut to one-slide files and rendered
- * by qlmanage; every variant is cut to runs of three for the iOS probe. The others test why iPhone Preview drew shapes
- * from one slide onto a later one (engineering/decisions/2026-11-01-icon-font.md § 3.6): shape ids made unique across
- * the deck, no shape descriptions, icons as plain rectangles, and a background of the slide's own.
+ * Each variant rewrites one slide's XML (`n` is its number). `as-exported` is the file as Calco writes it. The variants
+ * the 2026-11-04 runs compared (ids unique across the deck, no descriptions, icons as rectangles, a background of each
+ * slide's own) showed iPhone Preview drawing one slide's shapes on another whatever the file held, and were retired:
+ * engineering/decisions/2026-11-01-icon-font.md § 3.6 records what each drew.
  */
-const VARIANTS = {
-	'as-exported': (x) => x,
-	'deck-unique-ids': (x, n) => x.replace(/(<p:cNvPr id=")(\d+)"/g, (_a, h, id) => `${h}${n * 1000 + Number(id)}"`).replace(/(<a:(?:stCxn|endCxn) id=")(\d+)"/g, (_a, h, id) => `${h}${n * 1000 + Number(id)}"`).replace(/( spid=")(\d+)"/g, (_a, h, id) => `${h}${n * 1000 + Number(id)}"`),
-	'no-descr': (x) => x.replace(/(<p:cNvPr [^>]*?) descr="[^"]*"/g, '$1'),
-	// Every custom shape (the icons) drawn as a plain rectangle instead: is custom geometry what the viewer carries over?
-	'no-custgeom': (x) => x.replace(/<a:custGeom>[\s\S]*?<\/a:custGeom>/g, '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'),
-	'own-background': (x) => (x.includes('<p:bg>') ? x : x.replace('<p:cSld>', '<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>').replace(/<p:cSld( [^>]*)>/, '<p:cSld$1><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>')),
-};
+const VARIANTS = { 'as-exported': (x) => x };
 /** The most slides a deck may have to be cut to runs of three for the iOS probe (the gallery is far past it). */
 const MAX_RUNS = 16;
 
