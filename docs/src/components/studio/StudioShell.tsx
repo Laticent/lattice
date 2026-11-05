@@ -168,7 +168,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
-import { createUndoDoorbell, type UndoDoorbell } from './undo-doorbell';
+import type { UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -4731,9 +4731,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	filoCanRef.current = filoCan;
 	const doorbellRef = React.useRef<UndoDoorbell | null>(null);
 	React.useEffect(() => {
-		const bell = createUndoDoorbell({ canUndo: () => filoCanRef.current.undo });
-		doorbellRef.current = bell;
-		const soon = () => setTimeout(() => bell.arm(), 0);
+		// Loaded on demand, off the Studio's start-up bytes: it matters only once someone has typed.
+		let bell: UndoDoorbell | null = null;
+		let gone = false;
+		import('./undo-doorbell')
+			.then(({ createUndoDoorbell }) => {
+				if (gone) return;
+				bell = createUndoDoorbell({ canUndo: () => filoCanRef.current.undo });
+				doorbellRef.current = bell;
+				bell.arm();
+			})
+			.catch(() => {});
+		const soon = () => setTimeout(() => bell?.arm(), 0);
 		const onLoad = (e: Event) => {
 			if (e.target instanceof HTMLIFrameElement) soon();
 		};
@@ -4752,7 +4761,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			document.removeEventListener('load', onLoad, true);
 			window.removeEventListener('focusin', onFocusIn, true);
 			window.removeEventListener('beforeinput', onHistory);
-			bell.dispose();
+			gone = true;
+			bell?.dispose();
 			doorbellRef.current = null;
 		};
 	}, []);
