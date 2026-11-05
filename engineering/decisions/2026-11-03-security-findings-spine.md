@@ -455,6 +455,67 @@ entries.
 - **Sign-off.** Moving this reader changes export bytes only for the spellings above, so the dark and light renders go
   to the owner with the merge ask (CLAUDE.md, Quality Bar). The camera's move (above) does the same.
 
+## The export's missing-picture probe, as built (2026-11-05)
+
+`recordUnreachableAssets` (`docs/src/components/studio/export/deck-export.js`) names a background the export lost by
+setting `new Image().src` to it in the capture frame. It now skips any address whose `webOrigin` is set and not on the
+frame's allow-list, the same list and the same fail-closed default (no list, no web origin) the capture sweep reads
+(`allowCaptureWebOrigins`, which `createCaptureFrame` calls). A relative path, `data:`, `blob:` and an allowed origin are
+probed as before.
+
+- **What it was.** The probe ran before the sweep and checked nothing, so every web background in a slide's computed
+  style was requested. In Chromium, WebKit and Firefox (Playwright), a probe from a `srcdoc` frame with no policy made
+  one network request for a web picture. The same probe in a frame that carries the export's policy
+  (`subresourceCspMeta`) made none, but failed, so the export named the address as a missing picture although the capture
+  draws the hatch for it on purpose.
+- **What reaches it.** In the real Studio, each authored channel tried here rewrites or refuses a web background
+  before the probe reads it: `![bg](…)`, a `style:` rule and `<!-- _backgroundImage -->` come out as the hatch, and
+  Fabricate refuses a component whose CSS names one (`css-url-remote`). The THEME's CSS does not: the Studio fetches it
+  (`/playground/v/<hash>/themes/<name>.css`) and the capture frame takes it as written, guarded by the frame's policy
+  alone. So a theme that names a web background reaches the probe.
+- **The failing arm, on the real surface.** `docs/e2e/export-missing-image.spec.ts` "the export never names a web
+  background the deck has not allowed as missing" serves the real theme sheet with one rule added that names a web
+  picture, and drives the Studio's real PDF export. With the old `deck-export.js`, the toast said "the file ships
+  without: …, https://tracker.example/pixel-9c1e.png" in Chromium (`desktop`), WebKit (`webkit-tablet`) and Firefox
+  (`gecko`); Firefox named only that address. With the fix, all three pass and no request reaches the address. The
+  unit tests in `deck-export.test.ts` hold the allow-list itself, the allowed origin and the site's own.
+- **Still open** (`followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`): the properties and elements neither
+  the sweep nor the probe reads, each waiting on a browser oracle.
+
+## The last census readers, decided (2026-11-05)
+
+The four readers the spine's follow-up left (five entries; `followups.d/3022-p2-security-spine-s0-s3.md`, deleted with this change) are each moved or kept with a reason
+in `SANCTIONED_SPINE_READERS`. The census holds 53 entries. The measure that decided three of them: **the engine the
+browser loads carries neither spine reader** (only the lint bundle does). The CSS reader would add 5.1 KB gzip
+(`css-ref.generated.js` 2,570 B, `css-ref-reader.js` 2,069 B, `css-token-readers.js` 475 B) and the HTML reader 1.9 KB to
+`engineJsGz` on every route. That metric sits 61.7 KB over its soft target, with 7.9 KB left under its ceiling.
+
+| Reader | What it decides | Outcome |
+|---|---|---|
+| `pane-css.js` markup scan (`style-closer`) | which `<style>` blocks of a panes document get pane twins | **Moved to the reader's rules, held by a differential.** It keeps its own scan (bytes, above) but ends a tag name, a raw-text element and a comment where `rawTextEnd` and `scanHtml` do. The entry is retired: the closer takes the tag name as an argument, so the census's `</style` pattern no longer sees it, and the differential test is what holds it now. |
+| `pane-css.js` `skipToken` (`url-reader`) | where an unquoted `url(` token ends, so the walk does not split it | **Kept.** It writes no address and decides no fetch; each block it writes goes through `sanitizeStyleText`. |
+| `url-scheme.js` `cssUrlVerdict` (`url-reader`) | whether a `backgroundImage` directive's schemes are allowed | **Kept, and now fails closed by itself.** It refuses any backslash before its pattern reads, so `u\72l(javascript:…)` no longer depends on its caller's `realDeclValueIsSafe`. Render output is the same (that caller refused it already); the diagnostic now names the escape. |
+| `web-image-hint.ts` (`url-reader`, `attr-reader`) | whether to count the deck's web images for the "Load them" strip | **Kept, fails closed.** A miss hides the strip and the images stay blocked. |
+| `inline-url-media.mjs` `webPictureOrigins` (`url-reader`, `attr-reader`) | whether the export panel shows "Embed pictures from other sites" | **Kept, fails closed.** A miss leaves the placeholder, the export's default. The embed itself reads with `scanHtml` and `cssRefSpans`. |
+
+- **What the pane differential found.** `test/unit/core/pane-css-style-blocks.test.js` builds the document
+  `widenStyleBlocks` should write from `scanHtml`'s style elements and compares bytes, over 5,000 fuzzed documents
+  (200,000 run once while fixing). The old scan (`tools/segno-legacy/pane-css-style-blocks.js`) disagrees with the reader
+  on seven shapes, and each is a named case with the old scan as its failing arm: `<style-x>` read as a style element,
+  `</styles>` read as its end, `<!-->`, `<!--->` and `--!>` not read as comment ends, a `<noscript>` (or `<iframe>`,
+  `<noembed>`, `<noframes>`) body read as markup, and a `<style>` left open not widened. The closer itself
+  (`rawTextClose`) equals `rawTextEnd` on 20,000 fuzzed tails.
+- **Bytes.** The 14 shipped decks that render a pane (`examples/`, `exemplars/`, the baseline decks, the component
+  galleries) give the same HTML, hash for hash, before and after.
+- **The scan's known limits**, named in the test: a `<style` inside another tag (an attribute value, or `</iframe<style>`,
+  one end tag), a bogus comment (`<!x …>`), foreign content, and a double-escaped `<script>` (its text can get pane twins). There the scan can widen text that is not a style
+  element, still through `sanitizeStyleText`, or miss one, leaving a pane unstyled. Neither writes markup the input did
+  not hold.
+- **Not done, and why.** Moving the two hints onto the lint rules' readers would put lint-core in the Studio's eager
+  bundle or the export panel for a check that already fails closed. Moving `pane-css.js` and `url-scheme.js` onto the
+  readers is the 5.1 KB (and 1.9 KB) above, on a metric already over its soft target. Either is a budget decision for
+  the owner, not a security fix.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

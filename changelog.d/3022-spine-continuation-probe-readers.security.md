@@ -1,0 +1,3 @@
+- The Studio export's missing-picture check no longer asks for a web background the deck has not allowed. It used to set an image to every background address, so the frame's policy refused it and the export could name it as a missing picture.
+- A `<!-- _backgroundImage -->` value written with a CSS escape is refused by the URL scheme check itself, and its diagnostic now says so. The slide renders as before: the engine already dropped such a value.
+- A deck with panes now widens its `<style>` blocks only where the browser reads a style element: a `<style-x>` tag, a `<noscript>` body and a style ended early by `</styles>` no longer get pane rules, and a style after `<!-->`, `<!--->` or `--!>` does.

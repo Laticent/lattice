@@ -47,6 +47,15 @@ describe('cssUrlVerdict', () => {
     assert.equal(cssUrlVerdict('linear-gradient(red, blue)').ok, true);
     assert.equal(cssUrlVerdict('none').ok, true);
   });
+  // The census follow-up (followups.d/3022): the reader's pattern misses an escaped `u\72l(`, and it used to be safe only
+  // because its one caller also refused a backslash. Now it fails closed by itself. Each of these passed it before.
+  test('a CSS escape is refused by the reader itself, not only by its caller', () => {
+    for (const v of ['u\\72l(javascript:alert(1))', 'url(java\\73 cript:alert(1))', 'url(http\\3a //x.example/a.png)', 'image-set(u\\72l(file:///x) 1x)']) {
+      const verdict = cssUrlVerdict(v);
+      assert.equal(verdict.ok, false, v);
+      assert.match(verdict.reason, /CSS escape/, v);
+    }
+  });
 });
 
 describe('the logo door', () => {
