@@ -44,5 +44,21 @@ asserted step passed. The probe now also watches that 800 ms window at 25 ms res
 what the page did in the 300 ms before it: editor DOM mutations, CodeMirror transactions (and whether one replaced the
 whole document), `history` calls, selection changes and focus moves. The next miss names its trigger.
 
+**Three more dispatches with the 25 ms watcher** (42020460970, 42020465251, 42020469835): every asserted step passed on all
+three devices, and 3 of 72 recorded iOS cycles missed, all on the iPad. They show **two different faults**:
+
+- **Undo stays enabled, but no `historyUndo` arrives** (run 42020469835, cycle #2). The editor element changed between the
+  typed word and the command (`div#1` → `div#2`). On the iPad the editor is rebuilt once, a few seconds in, in 3 of 5
+  runs (never on the iPhone or the Mac). `Editor.tsx` rebuilt its CodeMirror view whenever `known` changed, and the
+  Studio hands it the component list a moment after it paints. **Fixed in PR #3040**: `known` reaches the linter through its
+  existing reconfigure effect, and the view is no longer rebuilt for it (`editor-known-rebuild.test.tsx` fails without
+  the fix).
+- **Undo turns off with nothing on the page** (42013673985 iPhone #3; 42020460970 iPad #9 at 884 ms; 42020465251 iPad #10
+  at 444 ms). In the 300 ms before each flip the page did nothing the probe can see: no editor DOM mutation, no
+  CodeMirror transaction, no `history` call, no selection or focus change. Same element, focus held. So WebKit empties
+  its own undo stack, and nothing in the page asks it to. **Cause not named; it looks to be on WebKit's side.** If it
+  keeps failing the asserted step, the honest reclassification is "WebKit drops the step without a page trigger, about 1
+  cycle in 35"; the recorded cycles will show whether the editor fix changed that rate.
+
 done when — the cause is named with evidence, and `ios-safari-undo` passes 10 dispatched runs in a row on both devices, or the
 probe step is reclassified with the reason recorded.

@@ -470,9 +470,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
 	// in place when their vocabulary changes (e.g. you save a finish mid-session) —
-	// without tearing down the editor. The editor itself only rebuilds on a `known`
-	// change; finish/vocab changes flow through the reconfigure effects below, so a
-	// freshly-saved finish stops being flagged / starts completing immediately.
+	// without tearing down the editor. The editor itself rebuilds only on a new deck or
+	// a new live session; vocab and `known` changes flow through the reconfigure effects
+	// below, so a freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
 	// Read at completion time, so a new callback never rebuilds the editor.
 	const assetsRef = React.useRef(completionAssets);
@@ -815,7 +815,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// which sends them to Filo (studio-filo.ts); `data-filo-owned` on the host tells the root this
 	// editor's undo is Filo's. Every change leaves through `onChange` with its edits, and an undo
 	// comes back through the `value` sync like any shell write.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`docKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
+	// NOT ON `known`. The component list arrives a moment after the Studio paints, and rebuilding
+	// here then replaced the editor's DOM under whatever the author had just typed: WebKit's own undo
+	// step pointed at the removed element, so Safari's Edit → Undo, the iPad keyboard bar and shake
+	// sent no `historyUndo` at all (ios-safari-undo, followups.d/3034-p8: the probe saw the editor
+	// element change between a typed word and the undo command). The linter, the only consumer of
+	// `known`, is reconfigured in place by the `[vocabSets, known]` effect below.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `docKey`/`collabKey`; `value` seeds the doc and is synced separately, `collab` is read at build time through its key, and `known` reaches the linter through its reconfigure effect.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
@@ -1007,7 +1013,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			lastHasSelRef.current = false;
 			onSelectionChangeRef.current?.(false);
 		};
-	}, [known, docKey, collabKey]);
+	}, [docKey, collabKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
