@@ -257,15 +257,32 @@ test('when the Mermaid frame cannot load its modules, the host says so at once a
 		await gate;
 		await route.abort();
 	});
+	// A LISTENER, not a poll: the preview frame fires no event when it installs its Mermaid stand-in, so this traps the
+	// assignment itself. The init script runs at document start in every frame, including each document the preview swaps
+	// in, and calls back the moment `window.mermaid.render` is a function. Polling the frame instead raced those swaps:
+	// a read against a replaced document threw "Execution context was destroyed", and expect.poll does not retry a throw
+	// (studio-smoke, run 41949443186).
+	let standInInstalled: () => void = () => {};
+	const installed = new Promise<void>((resolve) => {
+		standInInstalled = resolve;
+	});
+	await page.exposeFunction('__latticeMermaidStandIn', () => standInInstalled());
+	await page.addInitScript(() => {
+		const w = window as unknown as { mermaid?: { render?: unknown }; __latticeMermaidStandIn?: () => void };
+		let value: unknown;
+		Object.defineProperty(window, 'mermaid', {
+			configurable: true,
+			get: () => value,
+			set: (v) => {
+				value = v;
+				if (typeof (v as { render?: unknown } | undefined)?.render === 'function') w.__latticeMermaidStandIn?.();
+			},
+		});
+	});
 	await gotoStudio(page);
 	const preview = livePreview(page);
 	await setEditorContent(page, FLOW_DECK);
-	// The preview can replace its document while this polls (a full write as the deck lands), and an evaluate against the
-	// document it replaced throws "Execution context was destroyed". expect.poll does not retry a callback that throws, so the
-	// test died in 3.4 s instead of waiting (studio-smoke, run 41949443186). A replaced document is "not yet": poll again.
-	await expect
-		.poll(() => preview.locator('html').evaluate(() => typeof (window as unknown as { mermaid?: { render?: unknown } }).mermaid?.render).catch(() => 'replaced'), { timeout: 60_000 })
-		.toBe('function');
+	await installed;
 	release();
 	// The host learns of the failure from the frame at once, not after its 30 s open timeout.
 	await expect
