@@ -1,0 +1,15 @@
+---
+origin: 3037
+recorded: 2026-11-05
+area: website
+swimlane: engineering/decisions/2026-11-05-fuoco-event-channel.md
+priority: P4
+severity: medium
+deferred: blocked — needs build 1, a trace of what the diagram poll costs, and the owner's export sign-off (a runtime change alters exported bytes).
+---
+
+# Fuoco event channel, build 4 (slice 2): the per-frame bridge, render, figure, plugin, chart and view events
+
+where     — lib/runtime/index.js; the host's frame builders; docs/src/components/studio/export/deck-export.js.
+what      — §4.3 of the note: `__latticeEvents` installed on each frame's own window before it loads, bound to `{ frameId, rev, role }`, frozen, inside the runtime's existing try, and KEPT in capture frames (unlike `__latticeDrawHost`). Host side: copy, closed schema, host-stamped origin/frame/rev, delivered on a host microtask. Events: `render.*`, `figure.*` (with `failed`, `reclaimed`), `plugin.library-*/diagnostic/degraded/used`, `chart.*`, `view.*`, `fonts.settled`, `fit.*`, the in-frame code-block copy. `waitForDiagrams` stays a state read and gains the event as its wake-up; its budgets and terminal release stay.
+done when — the diagram poll is gone (replaced by state read + wake-up), its wait is measured before and after, a preview's figure never satisfies a capture frame's wait (a test with both frames open), and a demo deck is signed off dark and light.
