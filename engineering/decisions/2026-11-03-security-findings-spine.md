@@ -482,6 +482,40 @@ probed as before.
 - **Still open** (`followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`): the properties and elements neither
   the sweep nor the probe reads, each waiting on a browser oracle.
 
+## The last census readers, decided (2026-11-05)
+
+The four readers the spine's follow-up left (five entries; `followups.d/3022-p2-security-spine-s0-s3.md`, deleted with this change) are each moved or kept with a reason
+in `SANCTIONED_SPINE_READERS`. The census holds 53 entries. The measure that decided three of them: **the engine the
+browser loads carries neither spine reader** (only the lint bundle does). The CSS reader would add 5.1 KB gzip
+(`css-ref.generated.js` 2,570 B, `css-ref-reader.js` 2,069 B, `css-token-readers.js` 475 B) and the HTML reader 1.9 KB to
+`engineJsGz` on every route. That metric sits 61.7 KB over its soft target, with 7.9 KB left under its ceiling.
+
+| Reader | What it decides | Outcome |
+|---|---|---|
+| `pane-css.js` markup scan (`style-closer`) | which `<style>` blocks of a panes document get pane twins | **Moved to the reader's rules, held by a differential.** It keeps its own scan (bytes, above) but ends a tag name, a raw-text element and a comment where `rawTextEnd` and `scanHtml` do. The entry is retired: the closer takes the tag name as an argument, so the census's `</style` pattern no longer sees it, and the differential test is what holds it now. |
+| `pane-css.js` `skipToken` (`url-reader`) | where an unquoted `url(` token ends, so the walk does not split it | **Kept.** It writes no address and decides no fetch; each block it writes goes through `sanitizeStyleText`. |
+| `url-scheme.js` `cssUrlVerdict` (`url-reader`) | whether a `backgroundImage` directive's schemes are allowed | **Kept, and now fails closed by itself.** It refuses any backslash before its pattern reads, so `u\72l(javascript:…)` no longer depends on its caller's `realDeclValueIsSafe`. Render output is the same (that caller refused it already); the diagnostic now names the escape. |
+| `web-image-hint.ts` (`url-reader`, `attr-reader`) | whether to count the deck's web images for the "Load them" strip | **Kept, fails closed.** A miss hides the strip and the images stay blocked. |
+| `inline-url-media.mjs` `webPictureOrigins` (`url-reader`, `attr-reader`) | whether the export panel shows "Embed pictures from other sites" | **Kept, fails closed.** A miss leaves the placeholder, the export's default. The embed itself reads with `scanHtml` and `cssRefSpans`. |
+
+- **What the pane differential found.** `test/unit/core/pane-css-style-blocks.test.js` builds the document
+  `widenStyleBlocks` should write from `scanHtml`'s style elements and compares bytes, over 5,000 fuzzed documents
+  (200,000 run once while fixing). The old scan (`tools/segno-legacy/pane-css-style-blocks.js`) disagrees with the reader
+  on seven shapes, and each is a named case with the old scan as its failing arm: `<style-x>` read as a style element,
+  `</styles>` read as its end, `<!-->`, `<!--->` and `--!>` not read as comment ends, a `<noscript>` (or `<iframe>`,
+  `<noembed>`, `<noframes>`) body read as markup, and a `<style>` left open not widened. The closer itself
+  (`rawTextClose`) equals `rawTextEnd` on 20,000 fuzzed tails.
+- **Bytes.** The 14 shipped decks that render a pane (`examples/`, `exemplars/`, the baseline decks, the component
+  galleries) give the same HTML, hash for hash, before and after.
+- **The scan's known limits**, named in the test: a `<style` inside another tag (an attribute value, or `</iframe<style>`,
+  one end tag), a bogus comment (`<!x …>`), foreign content, and a double-escaped `<script>` (its text can get pane twins). There the scan can widen text that is not a style
+  element, still through `sanitizeStyleText`, or miss one, leaving a pane unstyled. Neither writes markup the input did
+  not hold.
+- **Not done, and why.** Moving the two hints onto the lint rules' readers would put lint-core in the Studio's eager
+  bundle or the export panel for a check that already fails closed. Moving `pane-css.js` and `url-scheme.js` onto the
+  readers is the 5.1 KB (and 1.9 KB) above, on a metric already over its soft target. Either is a budget decision for
+  the owner, not a security fix.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

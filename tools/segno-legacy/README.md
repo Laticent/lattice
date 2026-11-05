@@ -57,3 +57,7 @@ reads them as the oracle; nothing in `lib/` may.
 `slide-camera-css.mjs` joined with the security spine's last export reader (followups.d/3024): `lib/core/slide-camera.mjs`'s
 `REL_URL` / `CSS_URL` / `layerUrl` as they were at 9dc7f3e, before the picture camera read CSS with `cssRefSpans`.
 `test/unit/core/slide-camera-css-differential.test.js` reads it as the oracle; nothing in `lib/` may.
+
+`pane-css-style-blocks.js` joined with the security spine's last readers (followups.d/3022): the scan of `lib/core/pane-css.js`
+`widenStyleBlocks` as it was at 2df7d832, before its tag names and comments ended where the HTML reader ends them.
+`test/unit/core/pane-css-style-blocks.test.js` reads it as the failing arm; nothing in `lib/` may.
