@@ -97,6 +97,10 @@ const STEPS = [
   // Markup, balanced-HTML string walking: the engine's transformers and the code plugin require it for the
   // code-line split, so it builds before anything that bundles lib/.
   { label: 'Markup library dist (ESM + CJS + .d.ts)', script: 'build-markup-lib.js', uncommitted: true },
+  // Segno-markdown, the deck model (2026-10-22-segno-deck-pipeline.md P2): lib/core/slide-boundaries.mjs and
+  // lib/core/section-source-split.js read every slide boundary through it, so it builds before anything that
+  // loads lib/core.
+  { label: 'Segno-markdown library dist (ESM + CJS + .d.ts)', script: 'build-segno-markdown-lib.js', uncommitted: true },
   // Mosaico, the box-packing library (2026-10-16-mosaico-layout-library.md). FOREGROUND and this
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.

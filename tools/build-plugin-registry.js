@@ -593,6 +593,7 @@ function renderBlocks(ordered) {
     ...[...entries].reverse().filter((e) => e.rule.anchor.after).map((e) => `  md.block.ruler.after(${JSON.stringify(e.rule.anchor.after)}, ${JSON.stringify(e.token)}, ${guard(e)});`),
   ];
   const opaque = entries.filter((e) => e.rule.opaque).map((e) => e.token);
+  const triggers = entries.map((e) => `${JSON.stringify(e.token)}: ${JSON.stringify(e.rule.triggers.join(''))}`);
   const ahead = entries.filter((e) => typeof e.rule.scansAhead === 'string').map((e) => `${JSON.stringify(e.token)}: ${JSON.stringify(e.rule.scansAhead)}`);
   return `${HEADER('Every plugin BLOCK rule, as the boundary parser installs it. Straight-line on purpose: it ships in the Studio\'s startup JavaScript.')}
 ${byModule(imports).join('\n')}${imports.length ? '\n' : ''}
@@ -612,6 +613,10 @@ export const OPAQUE_BLOCK_TOKENS = Object.freeze(${JSON.stringify(opaque)});
  *  lines that decision depends on (the manifest's \`scansAhead\`). The Studio's incremental slide
  *  index rebuilds the deck when an edit adds or removes such a line (docs/src/lib/deck-outline/deck-outline.ts). */
 export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join(', ')} ` : ''}});
+
+/** The characters each block rule starts on (the manifest's \`triggers\`), so a parser that knows the line's
+ *  first character tries only the rules that can open there (the deck model, lib/core/deck-model.mjs). */
+export const BLOCK_TRIGGERS = /* @__PURE__ */ Object.freeze({${triggers.length ? ` ${triggers.join(', ')} ` : ''}});
 
 /** Every shipped plugin's name, in dependency order — for a reader that needs only the names
  *  (lint-core's \`unknown-plugin\`), so it does not pull every plugin's grammar into a bundle. */

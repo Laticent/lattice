@@ -282,7 +282,7 @@ compiles runs in linear time. They belong in a package that depends on it (see D
 | Measure | Today | Target |
 |---|---|---|
 | A generated line pass, alone, on the bake-off corpus | 361 MB/s (median of five) | at least the hand-written loop's 665 MB/s, on the same machine (G6) |
-| S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | 3.6 ms for markdown-it's whole parse | under 0.5 ms |
+| S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | markdown-it's block parse, same machine | at least 3x faster than that, on the same machine (restated 2026-11-05: was "under 0.5 ms", see §P2 landed) |
 | S0-S2 (full CommonMark parse) over the same deck | 3.6 ms | under 1 ms |
 | Re-parse after a keystroke inside one slide | the whole deck, several times | one slide, tens of microseconds |
 | Structure work inside one lint of the gallery | about 17% of 73 ms, plus what each rule re-derives | near zero: rules read the model |
@@ -439,3 +439,95 @@ Second machine (a separate cloud container, Xeon 2.1 GHz, 4 vCPU, Node 22.22.0),
 So the target is met on this machine (90%) and missed on the first (77%). On both, the parse alone
 is faster than the hand loop (784 against 704 here, 650 against 615 there), which is the measured
 reason the rest is the second pass and not the parser.
+
+## P2 landed (2026-11-05)
+
+`deckModel(source)` exists: `@laticent/segno-markdown` (docs/src/lib/segno-markdown, the sibling package D4
+chose) holds S0 and S1, and `lib/core/deck-model.mjs` configures it as the engine configures markdown-it.
+
+**What S1 is.** markdown-it 14.1.1's eleven block rules (with `table`), ported rule for rule onto a lean state
+that writes a flat tape of seven integers per token (kind, level, nesting, `map[0]`, `map[1]`, flags, one
+per-kind number) and computes no `content` strings. It is not a Segno-generated grammar plus a hand driver, as
+§The design sketched. The bake-off had already shown the hand-written line pass beats the generated one once
+the arrays are materialized (§Tape trimming), and D3's bar is markdown-it's structure exactly; porting its
+rules makes the structure match by construction, and the differential below holds it there. A generated line
+classifier stays possible behind the same tape. Plugin block rules run unchanged through the plugin state
+facade (`lib/plugins/state-facade.mjs`), and each is tried only on the characters its manifest's `triggers`
+names (`BLOCK_TRIGGERS`, now generated into `blocks.generated.mjs`): before that, the two plugin rules were
+40% of the parse.
+
+**Parity (§Acceptance, CommonMark).** Token for token (type, level, nesting, line map, `hidden`) against
+markdown-it as Lattice configures it:
+
+| Input | Files | Differences |
+|---|---|---|
+| every committed deck (`examples/`, galleries, baseline decks) | 451 decks, 4,301 authored slides | 0, and 0 slide-boundary differences |
+| the bake-off corpus (decks and docs) | 1,323 files | 0 |
+| a fuzz over CommonMark's rule surface (atoms per rule edge) | 900,000 documents in development; 30,000 per unit run | 0 |
+| CommonMark 0.31.2 spec examples | 652 | 0 (block-identical to markdown-it; spec conformance of the HTML is P4's metric) |
+
+The corpus grew from 403 to 451 decks since §Acceptance was written. A mutation run of 20 hand mutants on the
+rules killed every one that changes an output (13 of 13); the 5 survivors are equivalent (a check another one
+already implies). It also found two atom gaps (two-marker lines like `**`, a `- | -` delimiter row), which the
+fuzz now has.
+
+**One dependency left.** A link reference destination holding an entity (`[a]: javascript&colon;x`) decides
+between a definition (no token) and a paragraph (which a `---` below makes a heading), so it needs the HTML
+entity table. The package takes that decision as a hook (`linkOk`), and the Lattice bridge answers with
+markdown-it's own `validateLink(normalizeLink(unescapeAll(dest)))`. Only that path touches markdown-it.
+
+**Speed** (`npm run parser:bakeoff:deck -- --model --runs 5`, 4-core Xeon 2.8 GHz, Node 22.23, median and range):
+
+| Measure | markdown-it block parse | Deck model |
+|---|---|---|
+| S0-S1, gallery (59 KB) | 2.13 ms (2.13-2.26) | **0.73 ms** (0.71-0.76), 3.0x |
+| S0-S1, data-viz (12 KB) | 0.63 ms | 0.23 ms, 2.7x |
+| S0-S1, card-tags (3 KB) | 0.15 ms | 0.05 ms, 2.8x |
+| the corpus, throughput | 37.5 MB/s | 158.9 MB/s, 4.2x |
+| a keystroke in the gallery's middle slide | the whole deck | **42 µs** with the editor's span, 54 µs diffed |
+
+The gallery target as first written (under 0.5 ms) was missed on this machine: 0.73 ms. It was set against the
+P0 audit's 3.6 ms for markdown-it's whole parse on another machine; on this one the whole parse is about
+5.1 ms, so the model is 7x the whole parse and 3x the block parse it replaces. **The owner restated the target
+on 2026-11-05 (D2 on PR #3038) as a ratio: at least 3x markdown-it's block parse on the same machine**, because
+an absolute time moves with the machine and a ratio does not. Met at 3.0x (range 2.79-3.11 over five runs).
+What is left is structural (one record per markdown-it token, the line index): a leaner tape would buy more,
+and the parity test would then have to map it back. The keystroke target (one slide, tens of microseconds) is
+met.
+
+**Incremental.** The model keeps its tape slide by slide. `updateDeckModel` re-parses from the break above the
+edit and stops at the first break below it that the old parse had at the same shifted line; every other slide's
+segment is reused by reference and only moves. Allocating one deck-sized typed array per keystroke cost 32 µs
+here, which is why the tape is segmented rather than spliced. An edit in the front matter re-reads the deck. So
+does any update where a forward-scanning rule (a manifest with `scansAhead`, today math's `$$`) was TRIED above
+the reused tail, in the old parse or the new one: such a rule reads past the break the re-parse starts from,
+and math's "no closer ahead" memo carries an answer from one slide into the next. The parser records each line
+such a rule is tried on, so this does not depend on a pattern matching the edited lines. The first cut did
+use the manifests' `scansAhead` patterns, and the red team broke it twice: a `> $$` in a quote sets the memo
+with no line the pattern sees, and a closer with a trailing no-break space is one only `trim()` sees. A deck
+with display math therefore re-reads the whole deck for an edit below its first `$$`. Held by a property
+(every update equals a full parse of the same text, 2,400 random edits per run per parser, including CRLF and
+BOM insertions and spans that lie), its failing arm (the rule not declared as scanning ahead goes red), and
+each case the review reproduced, pinned as a regression test.
+
+**The four readers.**
+
+| Reader | Now |
+|---|---|
+| `lib/core/section-source-split.js` | **moved:** its `hr` lines come from `bodyModel(body).boundaries` instead of a full `md.parse` |
+| `lib/core/slide-boundaries.mjs` | **moved:** `parseSlideBoundaries` reads `bodyModel(text).boundaries` and `.leadingEmpty`; every export above it is unchanged. This puts the model in the Studio's startup JavaScript and the lint core, past the route budget (below), which the owner raised for it |
+| the Studio deck outline (`deck-outline.ts`) | **moved** with slide-boundaries, which it reads separators through. Its heading sections still tokenize with the boundary parser: `headingSplitPoints` reads inline children, which the model holds from P4 |
+| `lib/core/boundary-parser.mjs` | **excluded, by design:** it stays the markdown-it instance for callers that need tokens with inline children (`bake-splits.js`, `slide-class-spans.js`) until P4. The model reads two things from it: the plugins a host switched off, and the entity-destination hook above |
+
+**The route budget, and the owner's call on it.** With slide-boundaries moved, the docs build failed `check-route-budget`: the Studio's
+lint core 147.9 KB gzipped against a 139.6 KB ceiling, its eager JavaScript 556.3 against 554.5, and the home
+route 286.4 against 281.6. Measured against the same tree with slide-boundaries held (both full docs builds),
+the move costs **+8.8 KB** gzipped in the lint core (139.1 to 147.9), **+8.4 KB** in the Studio's eager
+JavaScript (547.9 to 556.3) and **+8.3 KB** on the home route (278.1 to 286.4). markdown-it stays in those
+bundles (the outline's heading sections and the lint still use it), so nothing offsets the model until P4 lets
+the Studio drop markdown-it. Raising a ceiling is the owner's number. Asked with the options (wait for P4, or raise
+and move now), the owner chose to raise and move (D1 B on PR #3038, 2026-11-05); the raise landed in its own PR,
+each ceiling up by the measured growth rounded to 0.5 KB (docs/route-budget.history.md, 2026-11-05).
+
+Renders do not change: the engine's own split (`splitOnHr`) is untouched, and the moved reader's output is the
+same by the parity above. Squadra's M1b and spine S3 can read `lattice-deck` structure from the model now.

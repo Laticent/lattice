@@ -267,7 +267,7 @@ const calloutPlaceEsmPlugin = {
 // ONE MODULE IT MUST NOT SHARE: lib/core/boundary-parser.mjs. Its parser instance holds the enabled
 // plugin block rules, and the lint narrows them per deck (authoring-door.js) to the deck's plugin
 // admission. Shared, that would narrow the engine's parser too, and the engine's output would depend
-// on whether the lint core had loaded yet. So the lint modules that reach the parser (lint-core, notes-core, slide-boundaries) get their
+// on whether the lint core had loaded yet. So the lint modules that reach the parser (lint-core, notes-core, slide-boundaries, deck-model) get their
 // own module instance of it: same source, its own `boundaryParser` and `rulesGeneration`.
 // assertLintParserIsolated() fails the build if either side ever reaches the other's copy.
 const { ENTRY_CONTENTS: LINT_ENTRY_CONTENTS, SRC_DIR: AUTHORING_DIR } = require('./build-authoring-core.js');
@@ -277,6 +277,9 @@ const LINT_PARSER_IMPORTERS = new Set([
   path.join(ROOT, 'lib', 'authoring', 'lint-core.js'),
   path.join(ROOT, 'lib', 'authoring', 'notes-core.js'), // liveCommentOpeners parses to find live notes (#2012)
   path.join(ROOT, 'lib', 'core', 'slide-boundaries.mjs'),
+  // The deck model reads the plugin admission (the enabled rules, `boundaryRulesGeneration`) from the
+  // boundary parser it imports; slide-boundaries reaches it, so it must read the lint's copy, as slide-boundaries does.
+  path.join(ROOT, 'lib', 'core', 'deck-model.mjs'),
 ]);
 const lintEntryPlugin = {
   name: 'lint-entry',

@@ -225,6 +225,22 @@ paths consume. That two-file split (kernel co-located with its
 component or in `lib/core/`; adapter in `lib/transformers/`) keeps
 component folders free of render-path plumbing.
 
+## Reading a deck's structure from source: the deck model
+
+The render splits slides on markdown-it's top-level `hr` tokens. Everything that has to answer the same
+question from SOURCE (the Studio's outline and rail, the chat edit path, narration export) reads it from
+the **deck model**, `lib/core/deck-model.mjs`, never from its own regex. The model is
+`@laticent/segno-markdown` (docs/src/lib/segno-markdown), S0 and S1 of the Segno deck pipeline: markdown-it's
+block rules ported onto a flat tape, configured as `buildMd` configures markdown-it (plugin block rules
+included), and held to markdown-it token for token by `test/unit/core/deck-model.test.js`. It returns the
+slides, the boundaries, the front matter and the directive, fence, plugin-block and leaf ranges from one parse,
+and `updateDeckModel` re-reads only the slide an edit touched.
+
+`lib/core/slide-boundaries.mjs` (line numbers, chunks, character ranges) is the door most callers use.
+`lib/core/boundary-parser.mjs` remains the markdown-it instance for callers that need tokens with inline
+children (`headingSplitPoints`, through `bake-splits.js` and `slide-class-spans.js`), until the model has an
+inline pass (P4). Design and measurements: `engineering/decisions/2026-10-22-segno-deck-pipeline.md`.
+
 ## CSS owns layout; JS is a bounded post-processing set
 
 The division of labor across the engine is sharp, and worth stating as a
