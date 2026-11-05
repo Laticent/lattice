@@ -414,13 +414,14 @@ browser fetches: a `url` span outside an attribute selector that is a valid url 
   `…a.png?v\3d 1` gets its own picture and not `…a.png`'s spliced inside it.
 
 - **A Safari defect the raise loop found.** The camera keeps only valid url tokens (`isValidUrlToken`, css-ref-reader.js),
-  and that test was a regex over each character of the token. JavaScriptCore gives up on a token of about a megabyte and
-  answers false, so in WebKit the camera read a phone photo written inline as a `data:` URL as a bad url and did not draw
+  and that test was a regex over each character of the token. JavaScriptCore gives up and answers false on an unquoted
+  token of about half a megabyte (500,000 characters failed, 100,000 passed) and a quoted one of about a megabyte, so in WebKit the camera read a phone photo written inline as a `data:` URL as a bad url and did not draw
   it at its size: `export-photo-size.spec.ts` failed in webkit-tablet with a PowerPoint picture of 260,794 bytes against
   its 168,000 budget (it passes on main, where the camera's own regex never asked). `isValidUrlToken` is now a scan with
   the regex's answers (`test/unit/core/css-url-token-scan.test.js` holds the two to the same answer on hand cases and
   20,000 fuzzed tokens) that reads a 4 MB token in WebKit. The player export (`inline-url-media.mjs`) asked the same
-  test, so in Safari it now embeds those pictures too. The spec passes in webkit-tablet and gecko.
+  test, so in Safari it now embeds those pictures too, and the narrator (`prose-projection.mjs`) now takes a video's poster from
+  such a background instead of reading the declaration as dropped. The spec passes in webkit-tablet and gecko.
 
 ## The Studio export, as built (2026-11-05)
 
