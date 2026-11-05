@@ -551,7 +551,7 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// The site's own origin is not a web image: it serves the `sample:` art, and the frame
 		// already loads it (buildSrcdoc). The artifact carries PIXELS, never the URL, so nothing
 		// in the exported file can call back to the site (remote-ref.js withOwnOrigin).
-		CAPTURE_WEB_ORIGINS.set(doc, remoteRef.withOwnOrigin(webOrigins || []));
+		allowCaptureWebOrigins(doc, remoteRef.withOwnOrigin(webOrigins || []));
 		if (win?.__latticeFit) win.__latticeFit();
 		// Let fonts, layout, and any async diagrams (Mermaid) settle before capture.
 		try { if (doc.fonts?.ready) await withTimeout(doc.fonts.ready, 8000); } catch (_e) {}
@@ -1208,6 +1208,11 @@ export function forceSectionVisibleForCapture(section) {
 /** The allowed web origins of each capture frame's document (set by createCaptureFrame). */
 const CAPTURE_WEB_ORIGINS = new WeakMap();
 
+/** Record the web origins a capture frame's document may load (the deck's allow-list plus the site's own origin). */
+export function allowCaptureWebOrigins(doc, origins) {
+	CAPTURE_WEB_ORIGINS.set(doc, origins);
+}
+
 const WEB_URL_PROPS = ['background-image', 'mask-image', '-webkit-mask-image', 'border-image-source', 'list-style-image', 'cursor', 'content', 'filter', 'shape-outside'];
 const WEB_HATCH = 'repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px)';
 
@@ -1575,7 +1580,16 @@ export async function recordUnreachableAssets(sections, log) {
 	const win = sections[0]?.ownerDocument?.defaultView;
 	if (!win?.Image) return;
 	const urls = new Set();
-	for (const section of sections) for (const url of backgroundImageUrls(section)) urls.add(url);
+	for (const section of sections) {
+		// A web background the deck has not allowed is never probed: the probe would ask the author's machine for it, and
+		// the capture swaps it for the drawn hatch on purpose (sweepWebRefsForCapture), so it is not a missing picture.
+		// The same allow-list as the sweep, and the same fail-closed default when a frame has none.
+		const allowed = new Set(CAPTURE_WEB_ORIGINS.get(section.ownerDocument) || []);
+		for (const url of backgroundImageUrls(section)) {
+			const origin = remoteRef.webOrigin(url);
+			if (!origin || allowed.has(origin)) urls.add(url);
+		}
+	}
 	if (!urls.size) return;
 	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));
 	[...urls].forEach((url, i) => {

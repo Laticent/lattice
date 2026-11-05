@@ -1,0 +1,1 @@
+- The Studio export's missing-picture check no longer asks for a web background the deck has not allowed. It used to set an image to every background address, so the frame's policy refused it and the export could name it as a missing picture.

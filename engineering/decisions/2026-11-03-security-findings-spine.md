@@ -455,6 +455,33 @@ entries.
 - **Sign-off.** Moving this reader changes export bytes only for the spellings above, so the dark and light renders go
   to the owner with the merge ask (CLAUDE.md, Quality Bar). The camera's move (above) does the same.
 
+## The export's missing-picture probe, as built (2026-11-05)
+
+`recordUnreachableAssets` (`docs/src/components/studio/export/deck-export.js`) names a background the export lost by
+setting `new Image().src` to it in the capture frame. It now skips any address whose `webOrigin` is set and not on the
+frame's allow-list, the same list and the same fail-closed default (no list, no web origin) the capture sweep reads
+(`allowCaptureWebOrigins`, which `createCaptureFrame` calls). A relative path, `data:`, `blob:` and an allowed origin are
+probed as before.
+
+- **What it was.** The probe ran before the sweep and checked nothing, so every web background in a slide's computed
+  style was requested. In Chromium, WebKit and Firefox (Playwright), a probe from a `srcdoc` frame with no policy made
+  one network request for a web picture. The same probe in a frame that carries the export's policy
+  (`subresourceCspMeta`) made none, but failed, so the export named the address as a missing picture although the capture
+  draws the hatch for it on purpose.
+- **What reaches it.** In the real Studio, each authored channel tried here rewrites or refuses a web background
+  before the probe reads it: `![bg](…)`, a `style:` rule and `<!-- _backgroundImage -->` come out as the hatch, and
+  Fabricate refuses a component whose CSS names one (`css-url-remote`). The THEME's CSS does not: the Studio fetches it
+  (`/playground/v/<hash>/themes/<name>.css`) and the capture frame takes it as written, guarded by the frame's policy
+  alone. So a theme that names a web background reaches the probe.
+- **The failing arm, on the real surface.** `docs/e2e/export-missing-image.spec.ts` "the export never names a web
+  background the deck has not allowed as missing" serves the real theme sheet with one rule added that names a web
+  picture, and drives the Studio's real PDF export. With the old `deck-export.js`, the toast said "the file ships
+  without: …, https://tracker.example/pixel-9c1e.png" in Chromium (`desktop`), WebKit (`webkit-tablet`) and Firefox
+  (`gecko`); Firefox named only that address. With the fix, all three pass and no request reaches the address. The
+  unit tests in `deck-export.test.ts` hold the allow-list itself, the allowed origin and the site's own.
+- **Still open** (`followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`): the properties and elements neither
+  the sweep nor the probe reads, each waiting on a browser oracle.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

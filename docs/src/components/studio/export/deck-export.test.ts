@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
+import remoteRef from '../../../../../lib/core/remote-ref.js';
+import { allowCaptureWebOrigins, assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -717,6 +718,72 @@ describe('recordUnreachableAssets', () => {
 			expect(missingImageReason(log)).toContain('/missing-bg.png');
 		} finally {
 			restore();
+		}
+	});
+
+	it('never probes a web background the deck has not allowed, and does not call it missing', async () => {
+		// followups.d/3022-p2-export-probe: the probe set `new Image().src` to every computed background, so a web
+		// picture outside the allow-list was requested from the author's machine at export (or, where the frame's
+		// policy refused it, named as a missing picture although the capture draws the hatch for it on purpose).
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(https://tracker.example/pixel.png)"></div><div style="background-image:url(/missing-bg.png)"></div>';
+		document.body.append(section);
+		const asked: string[] = [];
+		const real = window.Image;
+		class Probe {
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			set src(value: string) {
+				asked.push(value);
+				queueMicrotask(() => this.onerror?.());
+			}
+		}
+		(window as unknown as { Image: unknown }).Image = Probe;
+		try {
+			const log = createImageFailureLog();
+			await recordUnreachableAssets([section], log);
+			expect(asked.some((u) => u.includes('tracker.example'))).toBe(false);
+			expect([...log.paths]).toEqual(['/missing-bg.png']);
+			expect(log.count).toBe(1);
+		} finally {
+			(window as unknown as { Image: unknown }).Image = real;
+			section.remove();
+		}
+	});
+
+	it('still probes a web background whose origin the deck allowed', async () => {
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(https://pictures.example/a.png)"></div><div style="background-image:url(https://tracker.example/b.png)"></div>';
+		document.body.append(section);
+		allowCaptureWebOrigins(document, ['https://pictures.example']);
+		const restore = stubImageLoader(['https://pictures.example/a.png', 'https://tracker.example/b.png']);
+		try {
+			const log = createImageFailureLog();
+			await recordUnreachableAssets([section], log);
+			expect([...log.paths]).toEqual(['https://pictures.example/a.png']);
+		} finally {
+			restore();
+			allowCaptureWebOrigins(document, []);
+			section.remove();
+		}
+	});
+
+	it('still probes the site\'s own pictures, which a real browser computes as absolute addresses', async () => {
+		// In a browser the computed `background-image` is absolute (`https://<site>/a.png`), so a same-site picture is
+		// probed only because createCaptureFrame adds the site's origin to the allow-list (remote-ref.js withOwnOrigin).
+		const section = document.createElement('section');
+		section.innerHTML = '<div style="background-image:url(https://site.example/missing.png)"></div>';
+		document.body.append(section);
+		allowCaptureWebOrigins(document, remoteRef.withOwnOrigin([], 'https://site.example'));
+		const restore = stubImageLoader(['https://site.example/missing.png']);
+		try {
+			const log = createImageFailureLog();
+			await recordUnreachableAssets([section], log);
+			expect([...log.paths]).toEqual(['https://site.example/missing.png']);
+		} finally {
+			restore();
+			allowCaptureWebOrigins(document, []);
+			section.remove();
 		}
 	});
 
