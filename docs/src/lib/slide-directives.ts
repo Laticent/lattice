@@ -10,7 +10,7 @@
 
 import { readMetaField, writeMeta } from '../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
+import { commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
 
 // The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
 // `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary
@@ -90,8 +90,13 @@ export function tidyOutsideFences(text: string): string {
 
 export type Comment = { start: number; end: number; body: string; bodyStart: number };
 
-/** Every HTML comment in `chunk` that is NOT inside a fenced code block, in order. */
+/** Every HTML comment in `chunk` that is NOT inside a fenced code block, in order, inline ones included: the
+ *  notes channel's reader (lib/core/meta-record.mjs `comments`). */
 export const comments: (chunk: string) => Comment[] = sharedComments;
+
+/** Every comment the engine reads a DIRECTIVE from: those inside the deck model's comment blocks
+ *  (lib/core/meta-record.mjs `commentBlocks`). The directive editors read this. */
+export const commentBlocks: (chunk: string) => Comment[] = sharedCommentBlocks;
 
 // ── The `_class` directive: read, and surgically write ───────────────────────
 

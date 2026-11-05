@@ -1910,20 +1910,10 @@ describe("lint-core: the topic anchor's `_track` override", () => {
       'two spaces then tab (code)': `${D}${H}  \t<!-- _track: A -->\n`,
       'three spaces then tab (code)': `${D}${H}   \t<!-- _track: A -->\n`,
     };
-    // The written-down cost of being a subset. Two families, both deliberate:
-    //   · a directive inside a CONTAINER (blockquote, list item) is a live
-    //     `html_block` the rule declines, because reading it means re-deriving
-    //     CommonMark's container-indent and tab-expansion rules — which is the
-    //     exact machinery six rounds of checkers falsified;
-    //   · a directive after a block that CLOSED above it — `<pre>x</pre>`, a
-    //     `<div>` ended by a blank line — is declined because the rule never
-    //     tries to work out whether a block closed, only that one opened.
-    const EXPECTED_QUIET = [
-      'blockquote', 'blockquote, four spaces', 'nested blockquote',
-      'nested blockquote, wide', 'bullet', 'bullet, four spaces', 'star bullet',
-      'plus bullet', 'ordered item', 'blockquote then bullet', 'bullet then tab',
-      'after a closed <pre>', 'after a div, spaces-only line between',
-    ];
+    // The rule reads the deck model's comment blocks (Segno P3), so it is no longer a subset: every shape the
+    // engine applies degenerately warns. The two families this list used to carry (a directive inside a
+    // container, one after a block that closed above it) were the price of the line model it replaced.
+    const EXPECTED_QUIET = [];
     const misses = [];
     const quiet = [];
     for (const [what, body] of Object.entries(SHAPES)) {
@@ -1946,29 +1936,19 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     }
     // The arm that bites: not one false warning, on any shape in the table.
     assert.deepEqual(misses, []);
-    // And the cost, written down. Every name here is a shape the engine applies
-    // degenerately and the rule declines to warn about, because proving it would
-    // mean modelling a block type — a container marker, raw text, a tag line, a
-    // processing instruction. Silence is the safe direction; the list is the
-    // price, and it is reviewed as a diff rather than discovered by a fuzz.
+    // And the other direction: not one silence where the engine applies a degenerate track.
     assert.deepEqual(quiet.sort(), [...EXPECTED_QUIET].sort());
   });
 
-  test('KNOWN RESIDUAL: a directive in list continuation is not seen', () => {
-    // Recorded rather than fixed. The cause has been RESTATED twice as the rule
-    // was rewritten under it, and a checker caught the second statement naming two
-    // functions this branch had already deleted — an instruction a future fix
-    // could not follow. Today it is silent for one reason only: `COMMENT_LINE`
-    // requires the comment to open its own line at most three spaces in, and a
-    // list continuation is indented four. That is the subset rule working as
-    // designed, not a defect to remove; the test pins the behaviour, and any
-    // future widening of that bound will notice it.
+  test('a directive in list continuation is seen (it was a known residual of the line model)', () => {
+    // The line model this rule kept required the comment to open its own line at most three spaces in, and a
+    // list continuation is indented four, so it was silent. The deck model's comment blocks are the engine's.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n- item\n\n    <!-- _track: A -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');
-    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
+    assert.ok(rule(src, 'track-directive'), 'and the rule warns, as the engine applies it');
   });
 
   /* A GENERATED fuzz, not a curated list — the curated table is what six rounds of
@@ -2065,38 +2045,14 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     }
     // The arm that bites.
     assert.deepEqual(warned, []);
-    // And the arm that keeps the SUBSET honest. A rule that went quiet everywhere
-    // would also pass "no false warnings"; it would not pass this. The counts move
-    // with the alphabet, so they are a reviewed diff rather than a discovery.
+    // And the other direction. A rule that went quiet everywhere would also pass "no false warnings"; it would not
+    // pass this. The line model this rule kept declined 21,523 of these (677 of the one-directive 1,077). On the deck
+    // model it declines 221, and every one carries the `## H` line: the engine opens a second slide there, the
+    // directive lands on it, and that slide is not a `topic`, so the rule rightly passes (`.scratch` replay).
     assert.equal(degenerate, 23955, 'shapes the engine applies degenerately');
-    // 21423 -> 21523 when lint began reading the slides the engine cuts: with the `## H`
-    // line the engine opens a second slide, the directive lands on it, and that slide is
-    // not a `topic` (the section reads data-frame="standard"), so the rule rightly passes.
-    assert.equal(silent, 21523, 'of those, the ones the subset rule declines');
-    // Split by directive count. Almost all the silence is the multi-directive
-    // half, where a declined later directive makes the answer unknowable and the
-    // rule voids the slide. The one-directive half is the ordinary deck: 1077 /
-    // 657, which moved from 1002 / 582 only because the bare deck-wide forms are
-    // now generated as a  value and count as one-directive shapes too.
+    assert.equal(silent, 221, 'of those, the ones the rule passes: all on the class-less second slide');
     assert.equal(deg1, 1077, 'one-directive shapes the engine applies degenerately');
-    // 657 -> 677: twenty of the hundred `## H` shapes above carry one directive.
-    assert.equal(sil1, 677, 'of those, the ones the subset rule declines');
-    // Split by directive count. Almost all the silence is the multi-directive
-    // half, where a declined later directive makes last-wins unknowable and the
-    // rule voids the slide. The one-directive half is the ordinary deck, and it
-    // is 1002 / 582 — unchanged by the last two rounds of fixes, which is the
-    // evidence that neither the voiding nor the empty-value clearing cost
-    // anything a real author would notice.
-
-    // SPLIT BY DIRECTIVE COUNT, because the aggregate hides the case that matters.
-    // Almost all the silence is the multi-directive half, where a poisoned later
-    // directive makes last-wins unknowable and the rule voids the slide rather
-    // than falling back to an earlier one. The one-directive half is the ordinary
-    // deck, and a checker caught an earlier version of this rule voiding 38% more
-    // of it than it needed to — only a skipped line that would ITSELF have been
-    // applied can supersede, so only that one blinds.
-
-
+    assert.equal(sil1, 29, 'of those, the ones the rule passes: all on the class-less second slide');
   });
 
   /* The delimiter scanner's own pins. A checker mutated it to `/-/` and to a form
@@ -2299,35 +2255,36 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     }
   });
 
-  test('KNOWN RESIDUAL: a raw-text block closed by a DIFFERENT tag', () => {
-    // CommonMark ends a type-1 block on `</pre>`, `</script>`, `</style>` OR
-    // `</textarea>` — whichever comes first — so the engine really does read the
-    // directive here. The rule never tries to work out whether a block closed, so
-    // it stays silent. Pinned because an earlier commit CLAIMED this shape was
-    // pinned when nothing in the tree recorded it; a checker caught the claim.
+  test('a raw-text block closed by a DIFFERENT tag is seen (it was a known residual)', () => {
+    // CommonMark ends a type-1 block on `</pre>`, `</script>`, `</style>` OR `</textarea>`, whichever comes first,
+    // so the engine reads the directive here. The line model never worked out whether a block closed.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<script>\n</style>\n<!-- _track: A -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');
-    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
+    assert.ok(rule(src, 'track-directive'), 'and the rule warns, as the engine applies it');
   });
 
-  test('KNOWN RESIDUAL: a markup line above a directive silences the rest', () => {
-    // NOT A BUG — the subset rule's headline cost, pinned so it is a written-down
-    // price rather than a discovery. `<b>bold</b> text` is a PARAGRAPH to
-    // markdown-it (type 7 wants the tag alone on the line, and `b` is not a type-6
-    // name), so the comment under it really is its own token and really is applied.
-    // The rule declines anyway, because it does not try to work out WHICH kind of
-    // block a markup line opened or whether it closed — that judgement is exactly
-    // what six rounds of checkers falsified. A false NEGATIVE, which is the safe
-    // direction for an advisory rule.
+  test('a markup line above a directive no longer silences the rest (it was a known residual)', () => {
+    // `<b>bold</b> text` is a PARAGRAPH to markdown-it (type 7 wants the tag alone on the line), so the comment under
+    // it is its own token and is applied. The line model declined after any markup line; the deck model does not.
     const { render } = require('../../../lib/engine');
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<b>bold</b> text\n<!-- _track: A -->\n`;
     const out = render(src, {});
     const html = typeof out === 'string' ? out : out.html;
     assert.match(html, /data-track="A"/, 'the engine really does apply it');
-    assert.equal(rule(src, 'track-directive'), undefined, 'and the rule really is silent');
+    assert.ok(rule(src, 'track-directive'), 'and the rule warns, as the engine applies it');
+  });
+
+  test('a BOM and lone-CR line ends: the lint reads the engine\'s geometry, so rule 12 reads the right slide', () => {
+    // The scan the rule reads normalizes; the chunk split did not, so on these sources the two numbered slides apart
+    // (and a BOM hid the front matter). Every shape gives the LF answer.
+    const s = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- _track: A | B -->\n`;
+    const of = (src) => core.lintTextWith(src, tv).filter((f) => f.rule === 'track-directive').map((f) => [f.slide, f.message]);
+    const lf = of(s);
+    assert.equal(lf.length, 1);
+    for (const src of [`\uFEFF${s}`, s.replace(/\n/g, '\r'), s.replace(/\n/g, '\r\n')]) assert.deepEqual(of(src), lf, JSON.stringify(src.slice(0, 8)));
   });
 
   test('a bare `track:` is reported as the DECK-WIDE form it is', () => {

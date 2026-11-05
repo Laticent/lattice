@@ -12,9 +12,9 @@
 // So a rename is not a field edit. It is a rename PLUS a rewrite of every deck that
 // referred to the old name, and this module is the rewrite half.
 //
-// BUILT OUT OF THE EXISTING PRIMITIVES, NOT A NEW PARSER. `comments()` finds the
-// directive comments fence-aware (so a `code` slide DEMONSTRATING `_class:` is not
-// edited); `getClassTokens`/`setClassTokens` read and splice a directive's tokens
+// BUILT OUT OF THE EXISTING PRIMITIVES, NOT A NEW PARSER. `commentBlocks()` finds the
+// comments the engine reads a directive from, off the deck model (so a `code` slide
+// DEMONSTRATING `_class:`, or a comment folded into a `<div>` block, is not edited); `getClassTokens`/`setClassTokens` read and splice a directive's tokens
 // span-surgically, touching no other byte; `writeFrontMatterLine` owns the front
 // matter. A regex sweep over the source would have been shorter and would have
 // rewritten the example inside the code fence — which is exactly the bug those
@@ -25,7 +25,7 @@
 // browser.
 
 import { getFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
-import { comments, directiveKey, getClassTokens, setClassTokens } from '../../lib/slide-directives';
+import { commentBlocks, directiveKey, getClassTokens, setClassTokens } from '../../lib/slide-directives';
 
 /** The asset kinds whose name appears in deck source. */
 export type RenamableKind = 'theme' | 'component' | 'finish';
@@ -44,7 +44,7 @@ function classTokenFor(kind: RenamableKind, name: string): string | null {
 /** Rewrite every `_class` directive token `from` → `to`. Right-to-left, so each
  *  splice leaves the spans of the ones still to come untouched. */
 function renameClassTokens(source: string, from: string, to: string): { source: string; hits: number } {
-	const dirs = comments(source).filter((c) => directiveKey(c.body) === 'class');
+	const dirs = commentBlocks(source).filter((c) => directiveKey(c.body) === 'class');
 	let out = source;
 	let hits = 0;
 	for (const c of [...dirs].reverse()) {

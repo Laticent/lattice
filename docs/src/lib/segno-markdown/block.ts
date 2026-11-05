@@ -630,6 +630,36 @@ class State implements BlockState {
 		return i;
 	}
 
+	/**
+	 * Record, as token `i`'s side `meta`, where markdown-it's `getLines(begin, end, indent, true)` takes each line from:
+	 * per line, the offset past its own start (its `\n` + 1, not the container-adjusted `bMarks`) and the spaces a
+	 * partly consumed tab pads it with. Offsets, never the string: a string built from `src` slices keeps the whole
+	 * parse source alive, and an incremental model keeps a segment for many keystrokes (DeckModel.blockContent).
+	 */
+	recordLines(i: number, begin: number, end: number, indent: number): void {
+		const src = this.src;
+		const at = new Int32Array((end - begin) * 2);
+		for (let line = begin, k = 0; line < end; line++, k += 2) {
+			let lineIndent = 0;
+			const lineStart = this.bMarks[line];
+			let first = lineStart;
+			const last = this.eMarks[line] + 1;
+			while (first < last && lineIndent < indent) {
+				const ch = src.charCodeAt(first);
+				if (ch === 0x20 || ch === 0x09) lineIndent += ch === 0x09 ? 4 - ((lineIndent + this.bsCount[line]) % 4) : 1;
+				else if (first - lineStart < this.tShift[line]) lineIndent++;
+				else break;
+				first++;
+			}
+			at[k] = first - (src.lastIndexOf('\n', lineStart - 1) + 1);
+			at[k + 1] = lineIndent > indent ? lineIndent - indent : 0;
+		}
+		this.tape[i * STRIDE + T_FLAGS] |= F_SIDE;
+		let r = this.side.get(i);
+		if (!r) this.side.set(i, (r = {}));
+		r.meta = at;
+	}
+
 	pushK(kind: number, nesting: number, l0: number, l1: number): number {
 		if ((this.n + 1) * STRIDE > this.tape.length) {
 			const grown = new Int32Array(this.tape.length * 2);
@@ -1313,7 +1343,13 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 			}
 		}
 		state.line = nextLine;
-		state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, 1);
+		const tok = state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, 1);
+		// Inside a container, markdown-it's token content drops the container's prefix (a quote's `>`, a list item's
+		// indent) from the block's later lines, and that content is what the engine reads a directive from. The tape
+		// keeps no per-line prefix, so a multi-line comment block in a container records where each line's content
+		// starts, as markdown-it's `getLines(startLine, nextLine, blkIndent, true)` takes it. Elsewhere the content is
+		// the lines as they stand.
+		if (state.level > 0 && nextLine > startLine + 1) state.recordLines(tok, startLine, nextLine, state.blkIndent);
 		return true;
 	}
 	let lineText = src.slice(pos, max);

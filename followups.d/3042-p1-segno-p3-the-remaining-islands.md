@@ -5,18 +5,18 @@ recorded: 2026-11-05
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-22-segno-deck-pipeline.md §P3 landed: the directive island
-deferred: large — four separate moves, two of them export-bytes changes that need the owner's sign-off (the front-matter split and the Mermaid matcher), each held to the corpus on its own
+deferred: blocked — the two moves left that change export bytes (the front-matter split, the Mermaid matcher) wait for the owner's sign-off on dark and light renders; the remaining lint-core comment scans are large, one rule at a time
 source: https://github.com/Laticent/lattice/pull/3042
 ---
 
-# Segno P3: the islands the directive island left
+# Segno P3: the islands still left
 
-why now   — P3's directive island moved `scanMetaSource` onto the deck model; four readers still find comments,
-            front matter and fences with their own scans.
-where     — lib/core/meta-record.mjs `comments()` and its callers (docs/src/lib/slide-directives.ts, lib/core/meta-edit.mjs,
-            `hasMarker`); lib/engine/directives.js `parseFrontMatter`; lib/plugins/mermaid/shared/mermaid-fences.js;
-            about 17 comment scans in lib/authoring/lint-core.js; and comment content from S1 so `unprefixed` in
-            lib/core/directive-island.mjs can go.
+why now   — the comment content (S1), `commentBlocks` for the directive editors and the track rule moved onto the deck
+            model (engineering/decisions/2026-10-22-segno-deck-pipeline.md §P3 islands). Three readers still find
+            front matter, fences and comments with their own scans.
+where     — lib/engine/directives.js `parseFrontMatter` (export bytes: a BOM-led deck's front matter);
+            lib/plugins/mermaid/shared/mermaid-fences.js (export bytes: a fence inside an HTML block);
+            about 16 comment scans in lib/authoring/lint-core.js, some of which read the rendered body on purpose.
 done when — each reads the model's ranges, lint and render byte-identical on the corpus (`npm run identity:check -- --strict`).
-evidence  — the identity check per move; the engine differential in test/unit/core/directive-island.test.js.
+evidence  — the identity check per move.
 verify    — tier 2, maker-checker per move; the two export moves get the owner's sign-off on dark and light renders.
