@@ -119,9 +119,9 @@ function lsEvents() {
 
 // biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
 async function lsPrepare(slides, burnMs) {
-	await lsUntil(() => document.querySelector('.cm-content'), 90000, 'the editor');
-	await lsUntil(() => document.querySelector('.pg-preview-wrap.is-live'), 90000, 'the live preview');
-	await lsUntil(() => lsSections().length >= slides, 90000, `${slides} slides in the preview`);
+	await lsUntil(() => document.querySelector('.cm-content'), 150000, 'the editor');
+	await lsUntil(() => document.querySelector('.pg-preview-wrap.is-live'), 150000, 'the live preview');
+	await lsUntil(() => lsSections().length >= slides, 150000, `${slides} slides in the preview`);
 	if (innerWidth <= 820) throw new Error(`the panes are stacked at ${innerWidth}px: the probe needs the two-pane layout`);
 	lsBurn(burnMs);
 	return { width: innerWidth, burnMs };

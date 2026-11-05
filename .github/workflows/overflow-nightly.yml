@@ -89,7 +89,9 @@ jobs:
     # opposite intent), so the issue is filed with an empty `kind` and reads "could not run",
     # which is the correct thing to say about a timed-out sweep. An earlier revision of this
     # comment asserted the reverse.
-    timeout-minutes: 30
+    # Raised 30 -> 45 on 2026-11-04 (owner call, D3 on #3034): the corpus grew from 279 to 493 decks and the sweep from
+    # 14 to 29 min, so 5 of 15 nights were cancelled at 30 (engineering/decisions/2026-11-04-ci-flake-audit.md §5).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -235,10 +235,10 @@ async function latticePhotoProbe() {
 	try {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which openSource does (#2911).
-		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
+		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
 		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
 		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
-		await until(() => shown() !== '', 90000, 'the first preview render').catch((e) => {
+		await until(() => shown() !== '', 150000, 'the first preview render').catch((e) => {
 			// Say what the frame held: an iPad run once timed out here with the slide drawn on screen (#2911).
 			throw new Error(`${e.message} (${previewState()})`);
 		});

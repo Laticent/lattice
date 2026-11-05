@@ -14,12 +14,13 @@
  * On a timeout it says what the phone shows instead (the Deck source element, the editor mode, the visible buttons),
  * so a red device run names the pane it found.
  *
- * @param {number} [ms] how long to wait, default 90 000: as long as the probes' first-render waits, because a slow
- *   Simulator can still be on the inert skeleton 30 s after the preview's first render (an iPhone run at deca0cb)
+ * @param {number} [ms] how long to wait, default 150 000: as long as the probes' first-render waits, because a slow
+ *   Simulator can still be on the inert skeleton 30 s after the preview's first render (an iPhone run at deca0cb). Raised
+ *   from 90 000 on 2026-11-04 (owner call, D3 on #3034): an iPhone nightly timed out at 90 s on a cold Studio (41447813149).
  * @returns {Promise<HTMLElement>} the visible Deck source editor
  */
 // A global on purpose, set rather than declared, so it is plainly one: the probes that run after this file call it.
-globalThis.latticeShowDeckEditor = async function latticeShowDeckEditor(ms = 90000) {
+globalThis.latticeShowDeckEditor = async function latticeShowDeckEditor(ms = 150000) {
 	const visible = (el) => !!el && !el.closest('[inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 	const button = (label) => [...document.querySelectorAll(`button[aria-label="${label}"]`)].find(visible);
 	const editor = () => {
