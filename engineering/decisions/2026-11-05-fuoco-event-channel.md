@@ -638,7 +638,10 @@ failure in `stats` and continues; a drain is capped per top-level call and repor
     (`deck-render.js:97-112`, a palette or theme flip); the virtual mount (`applyWindow` and its
     swap, `deck-render.js:213` on, which turns placeholders into sections from the latest patch's
     strings as the reader scrolls); and `patchSlideBody` (`single-slide-render.ts:274`, which
-    replaces the whole `.lattice` body).
+    replaces the whole `.lattice` body). The Print frame (`PrintOptionsPanel.tsx:196`, `role: 'print'`) is
+    written once, like a capture frame. Out of scope, because they carry no live slide content an
+    event reports on: the newcomer bake frame (`pages/playground.astro:451`), the player-prune
+    frame (`player-prune-browser.ts:57`), and the code-package runner and draw-host frames.
   - *Carrying it.* `emit` has to carry the id with the event, read when the runtime emits, because
     by the time the host looks the section may be gone; the host drops an id it did not issue to
     that frame. An id written onto a section already in the document fires the runtime's
