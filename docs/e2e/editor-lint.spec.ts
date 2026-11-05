@@ -111,15 +111,26 @@ const REFUSED_DECK = [
 ].join('\n');
 
 async function runFixAllFromPalette(page: import('@playwright/test').Page): Promise<void> {
-	await page.keyboard.press('ControlOrMeta+k');
-	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
-	// The row is offered once lint has counted a fixable issue; on WebKit, linting 501 cards takes longer
-	// than a click's default 15 s.
-	await page.getByRole('option', { name: 'Fix all issues' }).click({ timeout: 60_000 });
+	const row = page.getByRole('option', { name: 'Fix all issues' });
+	// The row is offered once lint has counted a fixable issue: 1.3 s after the 501-card deck is typed in Gecko, 7 s in
+	// WebKit (measured). A palette opened BEFORE that never gains the row, even when the search is typed again; reopening
+	// it does (followups.d/3033-p3-palette-misses-a-row-added-while-open.md). So open, look, and close to try again, as a
+	// person would, until lint has caught up. This waits on the row itself, at every width (the phone has no button).
+	await expect(async () => {
+		await page.keyboard.press('ControlOrMeta+k');
+		await page.getByPlaceholder('Search or run a command…').fill('Fix all');
+		try {
+			await expect(row).toBeVisible({ timeout: 3_000 });
+		} catch (e) {
+			await page.keyboard.press('Escape');
+			throw e;
+		}
+	}).toPass({ timeout: 90_000 });
+	await row.click();
 }
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko Fix all names a fix it refused, and why, then a second run finishes it', async ({ page }) => {
-	test.setTimeout(120_000);
+	test.setTimeout(240_000);
 	await setEditorContent(page, REFUSED_DECK);
 	await runFixAllFromPalette(page);
 	await expect(page.getByText('Fixed 500 issues. 1 fix was not applied.')).toBeVisible({ timeout: 60_000 });
