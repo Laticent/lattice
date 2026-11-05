@@ -506,6 +506,17 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
 - **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the
   `alert` job in the workflow: failed jobs and the run link; a person closes it). Pull requests do not alert, since their check shows red.
+  **No test ran is not a finding** (since 2026-11-04, D1 and D2 on #3034). `alert` sorts the failed jobs with
+  `tools/platform-suites-triage.js`: a job GitHub gave no runner (no steps), and an iOS job whose `run.sh` wrote `no-session`,
+  ran no test. When every failure is one of those, the first attempt files nothing and
+  `.github/workflows/platform-suites-supervisor.yml` re-runs the failed jobs once; a failure on that re-run is filed. Any real
+  failure is filed at once and never re-run. The hand-off is an `alert-held` artifact: the supervisor acts only on a held
+  run, and files the alert itself whenever it does not start the re-run, so a held failure is never left unfiled. Dispatch with
+  `simulate=no-session` to exercise the path: every iOS suite reports "no probe ran" without starting a simulator, and the
+  alert is written to the run's summary instead of the issue.
+- **One docs build:** the iOS suites that serve the docs site carry `"docs_site": true`. The workflow's `docs-site` job builds it
+  once on Linux, and each of those jobs downloads it into `docs/dist/`, where `run.sh` finds `.prebuilt` and skips its own build
+  (65–94 s a job). Run by hand, `run.sh` still builds it.
 - **Windows:** `build-windows` runs the full `npm run build` on `windows-latest` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
@@ -570,7 +581,8 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   margin), so a restart never gets the job cancelled and its later devices lost. The Studio suite (a docs build, then an
   iPhone that took 12 minutes on one runner) usually has no room for the iPad's; jpeg and focus-sync do. A device refused
   its second start still gets the third session attempt `main` always made, in place. A probe failure (exit 1) is never
-  retried.
+  retried. When every device that failed did so before any probe ran, `run.sh` exits 3 and writes
+  `platform-suite-artifacts/no-session`, which hands the job to the supervisor above.
 
 ## Integration test cache
 

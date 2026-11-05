@@ -1,0 +1,100 @@
+name: Platform suites supervisor
+
+# RE-RUN ONCE WHEN NO TEST RAN (D1 A on #3034, engineering/decisions/2026-11-04-ci-flake-audit.md §2 and §6).
+#
+# Four of the 15 iOS Simulator nightlies to 2026-11-04 were red because safaridriver never reached the simulator, so no probe
+# ran. Apple exposes no readiness signal for that, so no wait inside the job can fix it, and a retry inside the job ran out
+# of its 30 minutes (one failed start cost 772 s). The signal that does exist is how the job ENDED. This workflow reads it
+# after the run completes. When every failed job is "no test ran" (GitHub gave it no runner, or run.sh wrote `no-session`;
+# tools/platform-suites-triage.js), it re-runs the failed jobs once on fresh runners. The run's own `alert` job filed
+# nothing on that first attempt; on the re-run it files whatever still fails. A run with any real finding is never
+# re-run: its alert was already filed.
+#
+# Scope: scheduled and manual runs, first attempt only, so it re-runs a run at most once. Pull-request runs are left alone:
+# the PR shows the job, and gotchas/ci.md says what a no-runner job is.
+#
+# GitHub starts a `workflow_run` workflow only from the default branch, so this file takes effect once merged.
+
+on:
+  workflow_run:
+    workflows: ['Platform suites (macOS / Windows)']
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  supervise:
+    # Only runs whose `alert` job held the failure for it (the `alert-held` artifact, read below). `cancelled` counts: a run
+    # whose only failures were jobs GitHub gave no runner can conclude either way.
+    if: contains(fromJSON('["failure","cancelled"]'), github.event.workflow_run.conclusion) && github.event.workflow_run.run_attempt == 1 && github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # re-run the failed jobs
+      issues: write # file the alert when the re-run cannot happen
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools
+      - name: Did the run's alert hold the failure for us?
+        id: held
+        run: |
+          set -o pipefail
+          # An API error fails this step, and the last step then files the alert: a held failure must never go unfiled.
+          n=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --paginate --jq '[.artifacts[] | select(.name == "alert-held")] | length' | awk '{s+=$1} END {print s+0}')
+          if [ "$n" = 0 ]; then
+            echo "held=false" >> "$GITHUB_OUTPUT"
+            echo 'The run'"'"'s alert job filed its own alert (or nothing failed): nothing to supervise.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh run download "$RUN_ID" --repo "$REPO" --name alert-held --dir "$RUNNER_TEMP/held"
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          # A `simulate` dispatch writes `simulated` into the handshake: its alert must stay off the shared issue.
+          grep -q simulated "$RUNNER_TEMP/held/alert-held" && echo "simulated=1" >> "$GITHUB_OUTPUT" || true
+      - name: Sort the failed jobs again
+        id: triage
+        if: steps.held.outputs.held == 'true'
+        run: |
+          set -o pipefail
+          # A run whose only failures are no-runner jobs uploaded no suite artifacts: a failed download is that case, not an error.
+          gh run download "$RUN_ID" --repo "$REPO" --pattern 'platform-suite-*' --dir "$RUNNER_TEMP/artifacts" || echo 'no suite artifacts'
+          gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --paginate --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/jobs.json"
+          node tools/platform-suites-triage.js --jobs "$RUNNER_TEMP/jobs.json" --artifacts "$RUNNER_TEMP/artifacts" --github-output
+      - name: Re-run the failed jobs once
+        id: rerun
+        if: steps.triage.outputs.verdict == 'infra'
+        env:
+          FAILED: ${{ steps.triage.outputs.failed }}
+        run: |
+          { echo "### Re-running $RUN_URL once: no test ran on any failed job"; echo; printf '%s\n' "$FAILED"; } >> "$GITHUB_STEP_SUMMARY"
+          gh run rerun "$RUN_ID" --repo "$REPO" --failed
+          echo "started=true" >> "$GITHUB_OUTPUT"
+      - name: File the held failure (no re-run happened)
+        # The alert stood down for us, so every way this job can end without starting the re-run files it here: a step
+        # failed, or this triage disagreed with the alert's (a finding, not infrastructure). Filing twice is the safe error.
+        if: ${{ always() && steps.held.outputs.held != 'false' && steps.rerun.outputs.started != 'true' }}
+        env:
+          FAILED: ${{ steps.triage.outputs.failed }}
+          SIMULATED: ${{ steps.held.outputs.simulated }}
+        run: |
+          title='Nightly platform suites failed'
+          body=$(printf 'A run failed, its alert left it to the supervisor, and the supervisor did not re-run it: %s\n\nFailed jobs:\n%s\n\nThe supervisor run: %s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
+            "$RUN_URL" "${FAILED:-"(not sorted; open the run)"}" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          if [ -n "$SIMULATED" ]; then
+            { echo "### Alert (simulated: not filed)"; echo; printf '%s\n' "$body"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          existing=$(gh issue list --repo "$REPO" --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$title\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+          else
+            gh issue create --repo "$REPO" --title "$title" --body "$body"
+          fi

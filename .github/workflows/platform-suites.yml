@@ -15,6 +15,15 @@ name: Platform suites (macOS / Windows)
 # platform suites failed", or comments on the open one, with the failed jobs and the run link; a person closes it. The lookup matches the exact title and the bot author (the nightly family's form), so an issue someone else files under that title is never the thread; two failing runs that overlap could still each open one. Without it a red nightly is only a red row in the Actions tab and
 # GitHub's default failure email to whoever last edited the cron line. Pull requests do not alert: their check already shows red.
 #
+# NO TEST RAN IS NOT A FINDING (D1 A and D2 on #3034, engineering/decisions/2026-11-04-ci-flake-audit.md). `alert` sorts the
+# failed jobs with tools/platform-suites-triage.js. A job GitHub gave no runner (no steps), and an iOS job whose simulator never
+# connected (run.sh wrote `no-session`), ran no test: on a first attempt `alert` files nothing, and the supervisor
+# (.github/workflows/platform-suites-supervisor.yml) re-runs the failed jobs once on fresh runners. A failure on that re-run,
+# or any other failure, files the alert as before. The jobs themselves still show red: what changes is who acts.
+#
+# ONE DOCS BUILD (D1 B on #3034). The iOS suites that serve the docs site (`docs_site` in the registry) used to build it in
+# each macOS job, 65-94 s apiece. `docs-site` builds it once on Linux; those jobs download it, and run.sh skips its build.
+#
 # NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
 # suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
 # clean for a while (owner ruling 2026-10-18).
@@ -41,6 +50,12 @@ on:
         description: 'Suites to run, comma-separated (empty = every suite)'
         required: false
         default: ''
+      simulate:
+        description: 'no-session: every iOS Simulator suite reports "no probe ran" without starting a simulator, to exercise the triage and supervisor path; alerts are written to the summary, not filed'
+        required: false
+        default: 'none'
+        type: choice
+        options: ['none', 'no-session']
   pull_request:
 
 permissions:
@@ -60,6 +75,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       count: ${{ steps.plan.outputs.count }}
+      docs_site: ${{ steps.plan.outputs.docs_site }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,9 +101,42 @@ jobs:
           if [ -n "$SUITES" ]; then args+=(--suites "$SUITES"); fi
           node tools/platform-suites-plan.js "${args[@]}"
 
-  run:
+  docs-site:
+    # The docs site the iOS Studio and Playground probes serve, built once on Linux (see the header). Skipped when no planned
+    # suite needs it, which is every pull request: the iOS suites never run there.
     needs: plan
-    if: needs.plan.outputs.count != '0'
+    if: needs.plan.outputs.docs_site == 'true' && github.event.inputs.simulate != 'no-session'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        timeout-minutes: 10
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Build the docs site the probes serve
+        working-directory: docs
+        run: |
+          npm ci
+          npm run build:e2e
+          printf '%s built on %s\n' "$GITHUB_SHA" "$RUNNER_OS" > dist/.prebuilt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: docs/dist/
+          include-hidden-files: true
+          retention-days: 3
+
+  run:
+    needs: [plan, docs-site]
+    # `docs-site` is skipped when no suite needs it; a skipped need must not skip this job, a failed one must.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' && needs.docs-site.result != 'failure' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -106,9 +155,16 @@ jobs:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
+        timeout-minutes: 10
       # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
       - name: Build the generated bundles
         run: npm run build
+      - name: Download the prebuilt docs site
+        if: matrix.docs_site && github.event.inputs.simulate != 'no-session'
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-site
+          path: docs/dist/
       - name: Suite
         shell: bash
         env:
@@ -116,6 +172,7 @@ jobs:
           SUITE_OS: ${{ matrix.os }}
           SUITE_WHY: ${{ matrix.why }}
           SUITE_RUN: ${{ matrix.run }}
+          SIMULATE_NO_SESSION: ${{ github.event.inputs.simulate == 'no-session' && '1' || '' }}
         run: |
           {
             echo "### $SUITE_NAME on $SUITE_OS"
@@ -133,13 +190,15 @@ jobs:
           path: platform-suite-artifacts/
           if-no-files-found: ignore
           retention-days: 14
+          overwrite: true # the supervisor's re-run uploads the same name again
 
   alert:
-    # Runs when `plan` or any suite failed on a scheduled or manual run, and files the failure where a person will see it.
-    needs: [plan, run]
+    # Runs when `plan`, `docs-site` or any suite failed on a scheduled or manual run. It sorts the failures
+    # (tools/platform-suites-triage.js) and files the ones a person must see, or hands the run to the supervisor.
+    needs: [plan, docs-site, run]
     # `cancelled` counts: a job killed by its timeout reads that way. These runs have no supersession (the concurrency group is per run on a
-    # schedule or dispatch), so a cancel here is a timeout or a person.
-    if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
+    # schedule or dispatch), so a cancel here is a timeout, a person, or GitHub giving the job no runner (triage tells that one apart).
+    if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.docs-site.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -147,21 +206,61 @@ jobs:
       actions: read
       contents: read
     steps:
-      - name: Open or update the failure issue
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools
+      - name: Download the suites' artifacts (the no-session marks)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: platform-suite-*
+          path: ${{ runner.temp }}/artifacts
+        continue-on-error: true # no suite wrote anything: every failure then reads as a finding, which is the safe side
+      - name: Sort the failed jobs
+        id: triage
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
+        run: |
+          # A failed lookup must not stop the alert, and must never read as "nothing failed": this job only runs when something
+          # did, so an unreadable job list is filed as a finding with the run link.
+          set -o pipefail
+          if ! gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --paginate --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/jobs.json"; then
+            echo '[{"name":"(the job list could not be read)","status":"completed","conclusion":"failure","steps":[{}],"runner_name":"?"}]' > "$RUNNER_TEMP/jobs.json"
+          fi
+          node tools/platform-suites-triage.js --jobs "$RUNNER_TEMP/jobs.json" --artifacts "$RUNNER_TEMP/artifacts" --github-output
+      - name: File the failure, or leave it to the supervisor
+        id: file
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref_name }}
+          ATTEMPT: ${{ github.run_attempt }}
+          VERDICT: ${{ steps.triage.outputs.verdict }}
+          FAILED: ${{ steps.triage.outputs.failed }}
+          SIMULATED: ${{ github.event.inputs.simulate == 'no-session' && '1' || '' }}
         run: |
+          if [ "$VERDICT" = infra ] && [ "$ATTEMPT" = 1 ]; then
+            # No test ran on any failed job. Hand the run to the supervisor: the `alert-held` artifact is the handshake it
+            # acts on (re-run once, or file this alert itself if it cannot), so a held failure is never left unfiled.
+            mkdir -p "$RUNNER_TEMP/held"
+            printf '%s\n' "${SIMULATED:+simulated}" > "$RUNNER_TEMP/held/alert-held"
+            echo "held=true" >> "$GITHUB_OUTPUT"
+            { echo "### No test ran: left to the supervisor"; echo; printf '%s\n' "$FAILED"; echo; echo "platform-suites-supervisor.yml re-runs these jobs once; a failure on that attempt files the alert."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           title='Nightly platform suites failed'
-          # A failed lookup must not stop the alert: file the issue with the run link and no job list.
-          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | "- \(.name) (\(.conclusion)): \(.html_url)"') || failed=''
-          body=$(printf '%s run on `%s` failed: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
-            "$EVENT" "$REF" "$RUN_URL" "${failed:-"(none listed; open the run)"}")
+          again=''
+          [ "$ATTEMPT" != 1 ] && again=" (attempt $ATTEMPT, after the supervisor's re-run)"
+          body=$(printf '%s run on `%s` failed%s: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
+            "$EVENT" "$REF" "$again" "$RUN_URL" "${FAILED:-"(none listed; open the run)"}")
+          if [ -n "$SIMULATED" ]; then
+            # A `simulate` dispatch exercises this path; it must never touch the shared issue.
+            { echo "### Alert (simulated: not filed)"; echo; printf '%s\n' "$body"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # The family lookup: exact title AND the bot author, so an issue anyone else files under this title is never the thread.
           existing=$(gh issue list --repo "$REPO" --state open --limit 1000 --json number,title,author \
             --jq "[.[] | select(.title == \"$title\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number // empty")
@@ -172,3 +271,10 @@ jobs:
             url=$(gh issue create --repo "$REPO" --title "$title" --body "$body")
             echo "opened $url" >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Hand the run to the supervisor
+        if: steps.file.outputs.held == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: alert-held
+          path: ${{ runner.temp }}/held/alert-held
+          retention-days: 3

@@ -757,7 +757,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   same runners and make it likelier.
 - **What to do:** confirm the job has no steps (`list_workflow_jobs`: `steps` empty, `runner_name` empty). If so, re-run
   that job once, and only once, after the queue drains. Do not dispatch another copy alongside it, and do not debug the
-  suite. The platform suites are not a merge gate (`platform-suites.yml` header). A dispatch run's `alert` job also counts
-  the cancel and comments on the nightly issue; that comment is the same non-event.
-- **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5; the owner's options for reporting it as "no runner"
-  are in §6 there.
+  suite. The platform suites are not a merge gate (`platform-suites.yml` header). On a scheduled or dispatch run you need do
+  nothing: since 2026-11-04 the `alert` job files no issue for it, and `platform-suites-supervisor.yml` re-runs the job once.
+  `npm run evidence` no longer lists a suite for dispatch when the PR run already starts it.
+- **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5 and §6 (D2, decided A).

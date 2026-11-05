@@ -8862,6 +8862,12 @@ function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', '
         errors.push(`stale platform suite '${s.name}' — its \`paths\` names ${g}, which no longer exists, so a PR touching it would never select the suite. Update or remove it in .github/platform-suites.json.`);
       }
     }
+    if ('docs_site' in s && typeof s.docs_site !== 'boolean') {
+      errors.push(`${at}: \`docs_site\` must be true or false (true: the workflow's docs-site job builds the site this suite serves).`);
+    }
+    if (s.docs_site === true && !(typeof s.run === 'string' && /docs\/scripts\/ios-safari\/run\.sh/.test(s.run))) {
+      errors.push(`${at}: only an iOS Simulator suite (its \`run\` calls docs/scripts/ios-safari/run.sh) serves the docs site, so only one can set \`"docs_site": true\`.`);
+    }
     if ('on_pull_request' in s && typeof s.on_pull_request !== 'boolean') {
       errors.push(`${at}: \`on_pull_request\` must be true or false (false: nightly and dispatch only).`);
     }
