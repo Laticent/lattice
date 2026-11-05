@@ -22,10 +22,10 @@
 /**
  * Extra type → WebKit undo cycles run before the asserted one, RECORDED, not asserted. WebKit's undo missed a typed word
  * about 3 runs in 17 (followups.d/3034-p8), and one cycle per run is a thin sample of an intermittent fault: these give
- * each device thirteen. A missed cycle shows in the step's detail with WebKit's undo state, the editor element and focus at
+ * each device nine. A missed cycle shows in the step's detail with WebKit's undo state, the editor element and focus at
  * each moment, so the next red run names where the step went. It does not fail the run: the asserted cycle still does.
  */
-const UNDO_DIAG_CYCLES = 12;
+const UNDO_DIAG_CYCLES = 8;
 
 const UNDO_DECK = ['# Undo on a device', '', 'First slide.', '', '---', '', '# Second', '', 'Second slide.', ''].join('\n');
 
@@ -350,14 +350,117 @@ async function latticeUndoProbe() {
 			}
 		};
 		await runCycles('preview live', 1);
-		const collapse = k.button('Collapse preview');
-		if (collapse) {
-			collapse.click();
-			await k.sleep(1000);
-			await runCycles('preview collapsed', 1 + UNDO_DIAG_CYCLES);
-			k.button('Expand preview')?.click();
-			await k.sleep(1000);
-		} else k.step('no Collapse preview at this width: the control phase is skipped', true, `${innerWidth}px`);
+		// FRAME LAB (followups.d/3034-p8). Which frame event empties WebKit's undo stack: adding an empty frame, a new frame
+		// with `srcdoc`, rewriting an existing frame's `srcdoc`, `document.write` into an existing frame, or changing its body
+		// in place (the control). Each runs three times with a typed word on WebKit's stack; recorded, never asserted.
+		const labFrames = [];
+		const labFrame = (srcdoc) => {
+			const f = document.createElement('iframe');
+			f.setAttribute('aria-hidden', 'true');
+			f.tabIndex = -1;
+			f.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;border:0;opacity:0;pointer-events:none';
+			if (srcdoc != null) f.srcdoc = srcdoc;
+			document.body.appendChild(f);
+			labFrames.push(f);
+			return f;
+		};
+		const restoreDeck = async () => {
+			if (k.deckText() === pasted) return;
+			const before = k.said();
+			const btn = k.button('Undo');
+			if (btn && !btn.disabled) btn.click();
+			await k.until(() => k.deckText() === pasted || k.said() !== before, 3000, 'lab undo').catch(() => {});
+			if (k.deckText() !== pasted) {
+				const el = await k.focusEnd();
+				if (el instanceof HTMLTextAreaElement) el.select();
+				else document.execCommand('selectAll');
+				document.execCommand('insertText', false, pasted);
+				await k.until(() => k.deckText() === pasted, 10000, 'lab restore').catch(() => {});
+			}
+		};
+		const labRows = [];
+		const modes = [
+			['append empty frame', () => labFrame(null)],
+			['new frame with srcdoc', () => labFrame('<p>lab</p>')],
+			['rewrite srcdoc of existing frame', (pre) => {
+				pre.srcdoc = `<p>lab ${Date.now()}</p>`;
+			}],
+			['document.write into existing frame', (pre) => {
+				const d = pre.contentDocument;
+				d.open();
+				d.write(`<p>lab ${Date.now()}</p>`);
+				d.close();
+			}],
+			['change existing frame body in place', (pre) => {
+				pre.contentDocument.body.textContent = `lab ${Date.now()}`;
+			}],
+		];
+		let n = 0;
+		for (const [name, act] of modes) {
+			for (let r = 0; r < 3; r++) {
+				const pre = labFrame('<p>pre</p>');
+				await k.sleep(1500);
+				const word = ` L${++n}`;
+				await k.type(word);
+				await k.until(() => k.deckText().includes(word), 15000, `lab word ${n}`);
+				await k.sleep(300);
+				const before = document.queryCommandEnabled('undo');
+				act(pre);
+				await k.sleep(700);
+				labRows.push(`${name} #${r + 1}: undo ${before} → ${document.queryCommandEnabled('undo')}`);
+				await restoreDeck();
+			}
+		}
+		for (const f of labFrames) f.remove();
+		k.step('frame lab: which frame event empties WebKit’s undo stack', true, `\n    ${labRows.join('\n    ')}`);
+
+		// DOORBELL LAB (option 2). After a forced wipe, re-seed WebKit's undo from a hidden editable the Studio owns
+		// (`data-filo-owned`, so the request still routes to Filo), put focus and the caret back, then run WebKit's undo:
+		// does it raise historyUndo, undo the word through Filo, and leave focus and the caret where the typing left them?
+		const bell = document.createElement('div');
+		bell.setAttribute('contenteditable', 'true');
+		bell.setAttribute('data-filo-owned', '');
+		bell.setAttribute('aria-hidden', 'true');
+		bell.tabIndex = -1;
+		bell.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;pointer-events:none;overflow:hidden';
+		document.body.appendChild(bell);
+		const bellRows = [];
+		for (let r = 0; r < 3; r++) {
+			await k.sleep(1500);
+			const word = ` B${r + 1}`;
+			await k.type(word);
+			await k.until(() => k.deckText().includes(word), 15000, `bell word ${r + 1}`);
+			await k.sleep(300);
+			labFrame('<p>wipe</p>');
+			await k.sleep(700);
+			const wiped = document.queryCommandEnabled('undo');
+			const ed = document.activeElement;
+			const sel = getSelection();
+			const range = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+			const caretBefore = range ? `${range.startOffset}` : 'none';
+			bell.focus({ preventScroll: true });
+			getSelection().selectAllChildren(bell);
+			getSelection().collapseToEnd();
+			document.execCommand('insertText', false, '​');
+			ed?.focus({ preventScroll: true });
+			if (range) {
+				getSelection().removeAllRanges();
+				getSelection().addRange(range);
+			}
+			await k.sleep(50);
+			const seeded = document.queryCommandEnabled('undo');
+			const backInEditor = document.activeElement === ed;
+			const caretAfter = getSelection().rangeCount ? `${getSelection().getRangeAt(0).startOffset}` : 'none';
+			const fired = await k.command('undo');
+			const undone = await k.until(() => k.deckText() === pasted, 3000, 'bell undo').then(() => true, () => false);
+			bellRows.push(`#${r + 1}: after wipe undo ${wiped}; after re-seed ${seeded}; focus back ${backInEditor}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; still enabled ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}`);
+			await restoreDeck();
+		}
+		for (const f of labFrames) f.remove();
+		bell.remove();
+		k.step('doorbell lab: re-seeding WebKit’s undo after a wipe', true, `\n    ${bellRows.join('\n    ')}`);
+		result.events = [];
+
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
 		await k.sleep(1500);
 		const typing = await k.type(' ONE');
