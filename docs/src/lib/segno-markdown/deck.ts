@@ -198,7 +198,7 @@ export class DeckModel {
 	private _blocks?: BlockTape;
 	private _boundaries?: Int32Array;
 	private _slides?: Slide[];
-	private _ranges?: { directives: BlockRange[]; fences: BlockRange[]; plugins: BlockRange[]; leaves: BlockRange[] };
+	private _ranges?: { directives?: BlockRange[]; html?: BlockRange[]; fences?: BlockRange[]; plugins?: BlockRange[]; leaves?: BlockRange[] };
 
 	constructor(source: string, text: string, bodyStart: number, lines: number, segs: readonly Segment[], options: DeckModelOptions, flat?: BlockTape) {
 		this.source = source;
@@ -308,64 +308,74 @@ export class DeckModel {
 		return this._slides;
 	}
 
-	private ranges() {
-		if (!this._ranges) {
-			const directives: BlockRange[] = [];
-			const fences: BlockRange[] = [];
-			const plugins: BlockRange[] = [];
-			const leaves: BlockRange[] = [];
-			const kinds = this.options.parser.kinds;
-			const coreKinds = KIND.td_close;
-			// The open token of each level, so an inline leaf is named for its parent (paragraph, heading).
-			const parent: number[] = [];
-			for (let slide = 0; slide < this.segs.length; slide++) {
-				const g = this.segs[slide];
-				const tape = g.tape;
-				const dl = this.segLine[slide] - g.line0;
-				for (let j = 0; j < g.length; j++) {
-					const at = (g.t0 + j) * STRIDE;
-					const kind = tape[at + T_KIND];
-					const level = tape[at + T_LEVEL];
-					if (kind === KIND.hr && level === 0) continue;
-					if (tape[at + T_NEST] === 1) parent[level] = kind;
-					const l0 = tape[at + T_L0];
-					if (l0 < 0) continue;
-					const rec = (type: string): BlockRange => ({ type, fromLine: l0 + dl, toLine: tape[at + T_L1] + dl, level, slide, token: this.segTok[slide] + j });
-					if (kind === KIND.html_block) {
-						if (tape[at + T_AUX] === 1) directives.push(rec('html_block'));
-					} else if (kind === KIND.fence || kind === KIND.code_block) {
-						fences.push(rec(kinds[kind]));
-					} else if (kind === KIND.inline) {
+	/**
+	 * One kind of range, collected on its first read: a reader of the comment blocks does not pay for building every
+	 * leaf, which is most of the tape (on the gallery, the four together cost about five times the comments alone).
+	 */
+	private ranges(which: 'directives' | 'html' | 'fences' | 'plugins' | 'leaves'): BlockRange[] {
+		this._ranges ??= {};
+		const hit = this._ranges[which];
+		if (hit) return hit;
+		const out: BlockRange[] = [];
+		const kinds = this.options.parser.kinds;
+		const coreKinds = KIND.td_close;
+		// The open token of each level, so an inline leaf is named for its parent (paragraph, heading).
+		const parent: number[] = [];
+		for (let slide = 0; slide < this.segs.length; slide++) {
+			const g = this.segs[slide];
+			const tape = g.tape;
+			const dl = this.segLine[slide] - g.line0;
+			for (let j = 0; j < g.length; j++) {
+				const at = (g.t0 + j) * STRIDE;
+				const kind = tape[at + T_KIND];
+				const level = tape[at + T_LEVEL];
+				if (kind === KIND.hr && level === 0) continue;
+				if (tape[at + T_NEST] === 1) parent[level] = kind;
+				const l0 = tape[at + T_L0];
+				if (l0 < 0) continue;
+				let type: string | null = null;
+				if (kind === KIND.html_block) {
+					if (which === (tape[at + T_AUX] === 1 ? 'directives' : 'html')) type = 'html_block';
+				} else if (kind === KIND.fence || kind === KIND.code_block) {
+					if (which === 'fences') type = kinds[kind];
+				} else if (kind === KIND.inline) {
+					if (which === 'leaves') {
 						const pk = level > 0 ? kinds[parent[level - 1]] : '';
-						leaves.push(rec(pk ? pk.replace(/_open$/, '') : 'inline'));
-					} else if (kind > coreKinds) {
-						plugins.push(rec(kinds[kind]));
+						type = pk ? pk.replace(/_open$/, '') : 'inline';
 					}
+				} else if (kind > coreKinds) {
+					if (which === 'plugins') type = kinds[kind];
 				}
+				if (type !== null) out.push({ type, fromLine: l0 + dl, toLine: tape[at + T_L1] + dl, level, slide, token: this.segTok[slide] + j });
 			}
-			this._ranges = { directives, fences, plugins, leaves };
 		}
-		return this._ranges;
+		this._ranges[which] = out;
+		return out;
 	}
 
 	/** Every HTML comment block (`<!-- … -->`): directives, notes, anything commented out. */
 	get directives(): readonly BlockRange[] {
-		return this.ranges().directives;
+		return this.ranges('directives');
+	}
+
+	/** Every OTHER HTML block (`<div>`, `<pre>`, `<?…`, `<![CDATA[`, a lone tag): what a comment inside one folds into. */
+	get html(): readonly BlockRange[] {
+		return this.ranges('html');
 	}
 
 	/** Every fenced and indented code block. A fence's info string is `fenceInfo(range)`. */
 	get fences(): readonly BlockRange[] {
-		return this.ranges().fences;
+		return this.ranges('fences');
 	}
 
 	/** Every block a plugin rule claimed (`math_block`, `code_record`). */
 	get plugins(): readonly BlockRange[] {
-		return this.ranges().plugins;
+		return this.ranges('plugins');
 	}
 
 	/** Every leaf with a line range: the inline text of a paragraph or heading (S2 reads these). */
 	get leaves(): readonly BlockRange[] {
-		return this.ranges().leaves;
+		return this.ranges('leaves');
 	}
 
 	/** Offset in `body` where a body line starts (`body.length` past the last line). */

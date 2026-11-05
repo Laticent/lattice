@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BlockParser, type BlockState, type DeckModel, deckModel, deckModelStats, ingest, STRIDE, updateDeckModel } from './index.js';
+import { BlockParser, type BlockState, type DeckModel, deckModel, deckModelStats, ingest, releaseScratch, STRIDE, T_AUX, updateDeckModel } from './index.js';
 
 const parser = new BlockParser();
 
@@ -7,6 +7,54 @@ describe('S0 ingest', () => {
 	it('strips a BOM and folds CRLF and lone CR, and nothing else', () => {
 		expect(ingest('﻿a\r\nb\rc d')).toBe('a\nb\nc d');
 	});
+});
+
+describe('hostile input', () => {
+	it('a run of unclosed comments, each ended by its list item, costs one scan for `-->`, not one each', () => {
+		// Each item's comment block ends with the item; searching for its `-->` from every opener read to the end
+		// of the source each time: 20,000 of them took 5.3 s against markdown-it's 43 ms.
+		const src = '- <!-- open\n'.repeat(20000);
+		const t0 = performance.now();
+		const m = deckModel(src, { parser });
+		expect(performance.now() - t0).toBeLessThan(1000);
+		expect(m.directives.length).toBe(20000);
+		expect(m.directives.every((d) => d.toLine === d.fromLine + 1)).toBe(true);
+	});
+});
+
+describe('a token\'s per-kind number survives the push that grows the tape', () => {
+	// `releaseScratch` returns the shared tape to 1,024 tokens, so each parse below grows it six times, at token
+	// indices 1,024 x 2^k. A prefix of 0 to 5 one-token blocks (indented code) moves which token of the repeated unit
+	// lands on each growing push, so every token of every unit is the one that grows the tape for some prefix.
+	const auxOf = (t: { tape: Int32Array; length: number; kinds: readonly string[] }, kind: string) => {
+		const out: number[] = [];
+		for (let i = 0; i < t.length; i++) if (t.kinds[t.tape[i * STRIDE]] === kind) out.push(t.tape[i * STRIDE + T_AUX]);
+		return out;
+	};
+	const cases: [string, string, string, (aux: number, i: number) => boolean][] = [
+		['heading', '## h\n', 'heading_open', (x) => x === 2],
+		['setext heading', 'h\n==\n\n', 'heading_open', (x) => x === 9],
+		['fence', '````\nx\n````\n', 'fence', (x) => x === 4],
+		['hr', 'p\n\n***\n\n', 'hr', (x) => x === 0x2a],
+		['comment block', '<!-- c -->\n', 'html_block', (x) => x === 1],
+		['table cell', '| a | b |\n|:-|-:|\n| c | d |\n\n', 'td_open', (x, i) => x === (i % 2 === 0 ? 1 : 2)],
+		['table header', '| a | b |\n|:-|-:|\n\n', 'th_open', (x, i) => x === (i % 2 === 0 ? 1 : 2)],
+		['table inline', '| a | b |\n|-|-|\n\n', 'inline', (x, i) => x === i % 2],
+		['table body inline', '| a | b |\n|-|-|\n| c | d |\n\n', 'inline', (x, i) => x === i % 2],
+		['html block', '<div>\n\n', 'html_block', (x) => x === 5],
+	];
+	for (const [name, unit, kind, ok] of cases) {
+		it(name, () => {
+			for (let prefix = 0; prefix < 6; prefix++) {
+				releaseScratch();
+				const t = new BlockParser().parse(`${'    x\n\n'.repeat(prefix)}${unit.repeat(40_000)}`);
+				const aux = auxOf(t, kind);
+				expect(aux.length).toBeGreaterThan(0);
+				const bad = aux.findIndex((x, i) => !ok(x, i));
+				expect(bad, `${name}, prefix ${prefix}: token ${bad} of ${aux.length}`).toBe(-1);
+			}
+		});
+	}
 });
 
 describe('the deck model', () => {

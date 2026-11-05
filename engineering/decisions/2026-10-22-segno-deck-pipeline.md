@@ -531,3 +531,152 @@ each ceiling up by the measured growth rounded to 0.5 KB (docs/route-budget.hist
 
 Renders do not change: the engine's own split (`splitOnHr`) is untouched, and the moved reader's output is the
 same by the parity above. Squadra's M1b and spine S3 can read `lattice-deck` structure from the model now.
+
+## P3 landed: the directive island (2026-11-05)
+
+The first S3 island is in. `lib/core/directive-island.mjs` reads each comment block the model recorded
+(`model.directives`, the `html_block`s S1 opened for `<!--`) as an island: its text once, and the directive grammar
+(`readDirectiveComment`, lib/core/comment-directive.mjs) over it. `scanMetaSource`
+(lib/core/meta-record.mjs) is built on it. That is the reader lint-core's directive views, the class scan and the
+editor's "directive above the cursor" (`metaAt`) all go through. The line walk it replaced (`walkComments`, with
+its own fence, opener and `-->` regexes) is deleted. So is `parseCommentDirectives` in lib/engine/directives.js, a
+`/<!--…-->/g` reader with no production caller; its tests now read through `scanMetaSource`.
+
+**Two texts per island.** `raw` is the comment as the walk quoted it (first line from `<!--`, later lines whole),
+so a lint finding quotes the same bytes. `content` is what the grammar reads. It is the engine's text: markdown-it's
+token content drops a container's prefix from a block's later lines, so `> <!--` / `> _class: kpi` / `> -->` is a
+directive to the engine, and the walk never saw it. The tape does not record where a container prefix ends on each
+line, so `unprefixed` re-derives it from the first line's prefix (a quote marker, a list marker's width, or, for a
+list item's continuation paragraph, its spaces). The block pass knows the exact offset when it pushes the token
+(`blkIndent` and the quote-adjusted `bMarks`), so recording a comment block's content start there would let
+`unprefixed` go; that is owed below.
+
+**Folded comments.** The lint has rules whose subject is a comment the engine does NOT read: a record under an
+`<img>` line that the HTML block swallows (`meta-in-html-block`), a multi-line record that a blank line in a list
+item cuts off (`meta-block-in-container`). The walk listed those because it approximated block structure; the
+islands alone dropped them, and four tests in test/unit/authoring/meta-comment-lint.test.js went red. So
+`authoredComments` lists them beside the islands, marked `folded`, still from the model: a line-opening `<!--`
+inside a range the model calls another HTML block (the new `model.html`) or a plugin block, and a comment block its
+container ended before `-->`, extended to its `-->` unless a comment block the engine reads starts first. A folded
+comment is listed for the lint and resolves nothing.
+
+**The grammar is not memoized.** A first cut kept each island's answer keyed by its text. The inversion pass measured
+190 MB retained after 3,000 keystrokes inside a 30 KB comment; the red team then showed that a SHORT key leaks worse,
+because a key sliced from the deck body keeps the whole body alive (528 MB after 3,000 keystrokes in a short note on
+a 180 KB deck, against 0.6 MB on `main`). Reading every comment of the gallery costs about 60 µs, so the memo went;
+the islands of one model are still kept with that model.
+
+**What the red team broke and this fixes.** One normalization of the source, the one `chunkBoundaryLines` applies,
+so a deck with two BOMs no longer splits front matter differently from the boundaries (4 slides against 2, and a lost
+`unknown-class` finding). A BOM just after the front matter stays text, as the engine reads it, so the comment under
+it is a paragraph. A front-matter closer with text after it (`--- <!-- _class: k -->`) counts lines from its last
+`\n`, and a comment on that line belongs to the first slide, as the engine applies it. A quote continued by a `>`
+indented four spaces or a tab is still the quote. An exhaustive sweep of 1,274 first, middle and last line container
+shapes now has 0 disagreements with the engine.
+
+**What is still approximate.** A multi-line directive VALUE can keep different inner whitespace from the engine's
+token content where tabs or a list's continuation indent are involved (`- <!-- _class: a` / `\tb -->` reads `a\n\tb`
+where the engine reads `a\n  b`). The key is right in every case found. Comment content from S1, owed below, is the
+exact fix.
+
+**Held to.**
+
+| Measure | Result |
+|---|---|
+| `scanMetaSource` on every tracked `.md` (decks, docs, notes) | 4,306 files, 0 differences from `main` |
+| `lintText` on every deck and component doc | 553 files, 0 differences from `main` |
+| `npm run identity:check -- --strict` (every shipped deck through the engine of both trees) | 447 decks, 0 differ; lint 31 = 31; 39 stylesheets, 0 differ |
+| the engine differential: per slide, the directives `scanMetaSource` reads against `readDirectiveComment` on markdown-it's `html_block`s, over atoms for fences, indented code, HTML blocks, quotes, list items, unclosed comments and breaks | 300,000 random decks in development, 20,000 per unit run: **0** disagreements. The walk this replaced disagreed on 2,825 per 100,000 |
+
+The corpus has none of the shapes the walk got wrong, which is why lint output there did not move. The fuzz finds
+them in under 3% of random decks.
+
+**Speed** (`scanMetaSource`, a new string every call as typing produces, median of 7 x 40, three runs, this
+machine): **even with `main`**. The gallery was 1.21, 1.23 and 1.31 ms on `main` against 1.27, 1.20 and 1.38 ms here;
+data-viz 0.34 to 0.37 ms on both. The comments and the boundaries come from one parse (`slideBoundaryModel` reads
+the model from the memo `slideBoundaries` keeps), and each of the model's range lists is now built on its own
+first read: the four together had cost 0.44 ms on the gallery. The folded-comment pass spends what the shared
+parse saved.
+
+**The lint core's bytes.** The first push failed `check-route-budget`: the Studio's lint core measured 149.0 KB
+gzipped against its 148.6 KB ceiling. Raising a ceiling is the owner's number, so the bytes came back instead. The
+island was written smaller (one span builder for islands and folded comments, and a forward line scan bounded by the
+next island in place of a `-->` search memo and a binary search). The scan the linter reads moved to its own module,
+lib/core/meta-scan.mjs (`scanMetaSource`, `directiveKey`, and a `hasMarker` that reads the model), which meta-record
+re-exports. lint-core `require`s a whole module namespace, so while it read meta-record, the bundle carried the
+editing helpers the Studio uses (`comments`, `fenceRanges`). Measured on the built `esm/lint.js` closure: 149.5 KB
+before, 148.8 KB after, against 148.6 KB for `main`'s scan on the same build, with lint output identical on the corpus.
+
+**Two P2 defects the island found, fixed here.**
+
+- **A token's per-kind number was lost when its push grew the tape.** `state.tape[state.pushK(…) * STRIDE + T_AUX] = x`
+  reads `state.tape` before `pushK` runs. When the push grows the shared scratch tape, the write lands in the old
+  array. Ten sites did this: a comment block's mark, a fence's marker length, an `hr` marker, a heading's level, a
+  table cell's alignment and column. It hit one token per growth, so the corpus parity passed and a 10,050-item
+  list of comments did not (10,048 of 10,050 comment blocks). Every site now calls `pushAux`, which writes after
+  the push.
+- **A run of unclosed comments was quadratic.** Each comment block searched for `-->` from its own opener to the end
+  of the source, so 20,000 list items each holding `<!-- open` took 5.3 s (markdown-it: 43 ms). The parse now
+  keeps its last `-->` search and reuses it while it still answers: 54 ms for the whole scan. Both are pinned in
+  docs/src/lib/segno-markdown/deck.test.ts and test/unit/core/directive-island.test.js.
+
+**Also fixed on the way.** `tools/render-identity.mjs` found the workspace libraries to build with
+`/^build-[a-z]+-lib\.js$/`, which misses `build-segno-markdown-lib.js`, so since P2 it failed on every tree
+before rendering anything. The pattern now admits a hyphen.
+
+`metaAt` (the editor's completion) is slower: it parses the text above the cursor, a string no memo holds, and now
+reads its comments from that model. The inversion pass measured 1.61 to 1.98 ms with the cursor at the gallery's
+end, and 0.54 to 0.65 ms mid-deck, once per completion request.
+
+**What P3 still owes**, each recorded in followups.d/:
+
+- **`comments()` and its callers.** lib/core/meta-record.mjs `comments(chunk)` still finds `<!--` by `indexOf`
+  outside a fence, and the Studio's class editor (docs/src/lib/slide-directives.ts `getClassTokens` /
+  `setClassTokens`), lib/core/meta-edit.mjs and `hasMarker` read through it. So on the shapes this phase fixed
+  (`<div>` / `<!-- _class: kpi -->` / `</div>`) the class editor shows `kpi` while the lint and completion say no
+  class: before, all three agreed, wrongly.
+- **Comment content from S1.** Record each comment block's content start when the block pass pushes it, and
+  delete `unprefixed`.
+
+- **The front matter, through the register grammar.** `parseFrontMatter` keeps its regex. Moving the engine's
+  split onto the model's S0 text changes what a deck that opens with a BOM renders (S0 strips the BOM, so its front
+  matter becomes front matter), which is an export-bytes change for the owner to sign off.
+- **Fence records and `mermaid-fences.js`.** The Mermaid matcher deliberately finds a fence inside an HTML block,
+  which no `fence` token covers, and what it finds is what the export bakes. Moving it is an export-bytes change
+  too.
+- **lint-core's own comment scans.** About 17 sites in lib/authoring/lint-core.js still find `<!--` by regex or
+  `indexOf`, each for its own rule (comment blanking, the track scan, the record checks). They move one at a time,
+  each held to lint output on the corpus.
+
+## The outline keeps one deck model (2026-11-05)
+
+The Studio's deck outline (docs/src/lib/deck-outline/deck-outline.ts) now holds the model of its deck body and
+updates it per keystroke with `updateDeckModel`, instead of parsing a separators-bounded region from nothing. A full
+build reads the model from the memo `slideBoundaries` keeps (`slideBoundaryModel`), so the outline and the preview
+share that parse. The region logic and the unit ids are unchanged: the index still keeps every unit outside the
+region around the edit, and only when every separator outside it survived at its shifted character range. An edit
+whose region holds a forward-scanning line (`LOOKAHEAD_LINE`, math's `$$`) still rebuilds the units, as it always
+has, but from the model just updated, so it parses nothing from nothing. The model no longer needs that check (it
+re-reads the deck itself in that case); the ids do, because a rebuild gives a changed slide a fresh id and Fuoco's
+focus sync keys on ids. A first cut dropped the check, and the maker-checker pass found it carrying old ids across
+`$$` edits where `main` gave fresh ones (about 1,250 divergences per 15,000 random edit sequences, none a wrong-slide
+move). With the check back, an old-against-new differential over about 19,000 edit steps agrees on every id except
+two decks that open with two BOMs, where `main` normalized twice and split a slide the engine does not.
+
+| Per keystroke in the gallery's middle slide, with the editor's span | Before | After |
+|---|---|---|
+| deck-model parses from nothing (`deckModelStats.full`) | 1 (the region) | **0** |
+| incremental model updates (`deckModelStats.incremental`) | 0 | 1 |
+| wall time, flat strings, inside the vitest harness | 104-117 µs | 199-233 µs |
+
+The time is the honest cost: an update keeps the whole deck's model current (about 50 µs in plain Node; this harness
+runs slower), where the region parse read one slide and threw it away. It buys the model the next reader needs:
+the follow-up is for the Studio's other boundary readers (the preview's `slideBoundaries`, the lint) to read the
+model the outline holds instead of missing the memo on every keystroke, which is where the parses per keystroke
+actually go. `normalizeSourceText` and the engine's `normalizeSource` return the string unscanned when it holds no
+`\r` and no BOM, which the update made visible (two `replace` calls cost about 50 µs on the gallery with nothing to
+fold).
+
+Held by the outline's property (every incremental index equals a full build of the same text, 400 runs per unit run
+and 3 x 3,000 in development), its failing arm, and two counterexamples pinned from a rejected shortcut that compared
+the kept separators by line number instead of character range.

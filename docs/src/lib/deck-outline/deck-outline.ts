@@ -18,9 +18,10 @@
 // (engineering/decisions/2026-10-15-fuoco-focus-sync.md §3).
 //
 // WHAT IT REUSES, NOT REPLACES (HARD RULE #1):
-//   · separators come from `parseSlideBoundaries` (lib/core/slide-boundaries.mjs), which reads
-//     the deck model (lib/core/deck-model.mjs, Segno deck pipeline P2): markdown-it's block rules
-//     configured from the engine's own options, held to markdown-it token for token;
+//   · separators come from the deck model (lib/core/deck-model.mjs, Segno deck pipeline P2):
+//     markdown-it's block rules configured from the engine's own options, held to markdown-it token
+//     for token. A full build reads it from the memo `slideBoundaries` keeps (`slideBoundaryModel`),
+//     which the preview's call sites share; the index then HOLDS that model;
 //   · NOT YET the model: heading sections (`sectionsOf`) still tokenize with the boundary parser,
 //     because `headingSplitPoints` reads inline children (an eyebrow is one inline-code child),
 //     and the model holds no inline structure until P4 (a heading parse there reads one slide);
@@ -30,13 +31,14 @@
 //     here is `splitSlides(body)[i]`. Both follow the engine: an empty slide is a unit
 //     (the engine renders it), except an empty FIRST chunk, which the engine drops.
 //
-// INCREMENTAL. `updateDeckIndex(prev, next)` diffs the two sources to one changed span,
-// re-parses only the separators-bounded region around it, and shifts everything else. A
-// keystroke inside a slide parses that slide (and its neighbors), not the deck. The region
-// parse INCLUDES the separator that closes it and checks that line is still a separator,
-// so an edit that changes how later text parses — an opened fence, a setext underline, an
-// HTML block running on — falls back to a full build instead of answering wrongly. The
-// test suite holds every incremental result to the full build of the same text.
+// INCREMENTAL. `updateDeckIndex(prev, next)` diffs the two sources to one changed span and
+// updates the model it holds with `updateDeckModel`, which re-reads the slide the edit touched and
+// stops at the first break the old parse also had (and re-reads the deck when a forward-scanning
+// rule such as math's `$$` was tried above it). The index keeps every unit outside the
+// separators-bounded region around the edit, and only when every separator outside that region
+// survived, shifted; an edit that changes how later text parses (an opened fence, a setext
+// underline, an HTML block running on) moves one, and falls back to rebuilding the units from the
+// updated model. The test suite holds every incremental result to the full build of the same text.
 //
 // STABLE IDS. Every unit carries an id that survives edits: units outside the edited region
 // keep theirs, and inside it ids are matched from both ends by position. Splitting a slide in
@@ -44,9 +46,10 @@
 // addressed as (unit id, ordinal), since a heading section only exists as part of its slide.
 
 import { boundaryParser, boundaryRulesGeneration } from '../../../../lib/core/boundary-parser.mjs';
+import { updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
 import { headingSplitPoints as headingSplitPointsJs } from '../../../../lib/core/heading-split-core.mjs';
 import { resolveSplitMode as resolveSplitModeJs } from '../../../../lib/core/resolve-split.mjs';
-import { parseSlideBoundaries, slideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';
+import { slideBoundaryModel as slideBoundaryModelJs } from '../../../../lib/core/slide-boundaries.mjs';
 import { FORWARD_SCAN_LINES } from '../../../../lib/plugins/blocks.generated.mjs';
 import { frontMatterBlock } from '../front-matter';
 import { diffSpan, type EditSpan, type Kinds, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
@@ -54,6 +57,16 @@ import { normalizeSourceText } from '../normalize-source-text';
 
 const headingSplitPoints = headingSplitPointsJs as (tokens: unknown[]) => number[];
 const resolveSplitMode = resolveSplitModeJs as (md: string) => 'rule' | 'headings';
+
+/** The part of `@laticent/segno-markdown`'s DeckModel the outline reads (the model of a deck BODY). */
+interface BodyModel {
+	readonly body: string;
+	readonly boundaries: Int32Array;
+	lineStart(line: number): number;
+	lineEnd(line: number): number;
+}
+const slideBoundaryModel = slideBoundaryModelJs as (body: string) => BodyModel;
+const updateDeckModel = updateDeckModelJs as (prev: BodyModel, next: string, span?: EditSpan) => BodyModel;
 
 /** A Lattice deck as a Fuoco outline: units are authored slides (the text between separators),
  *  parts are the rendered slides a unit becomes (heading sections). */
@@ -65,6 +78,8 @@ export interface DeckIndex extends Outline {
 	readonly seps: readonly { index: number; length: number }[];
 	/** The parser rules this was built under (a plugin admission change invalidates it). */
 	readonly rulesGeneration: number;
+	/** The deck model of the body (`normalizeSourceText` of it), kept so a keystroke updates it instead of parsing. */
+	readonly model: BodyModel;
 }
 
 /**
@@ -112,17 +127,28 @@ function lineStarts(text: string): number[] {
 	return starts;
 }
 
-// The separators of `text` as absolute character ranges (`base` added), the separator line
-// plus its terminator. Normalizes only for the PARSE; offsets index the raw string. A whole
-// deck body goes through the engine kernel's memo (`slideBoundaries`), which the preview's
-// call sites share; a REGION goes through the unmemoized parse, so region strings never evict
-// the whole-deck entries.
-function separatorsOf(text: string, base: number, whole = false): { index: number; length: number }[] {
-	const normalized = normalizeSourceText(text);
-	const { lines } = whole ? slideBoundaries(normalized) : parseSlideBoundaries(normalized);
+// The separators of a body as absolute character ranges (`base` added), the separator line plus
+// its terminator, read off the body's model. Offsets index the RAW body: when it is the model's
+// text exactly (no `\r`, no BOM), the model's own line offsets; otherwise they are measured on the
+// raw string by the terminators markdown-it folds.
+function separatorsOf(model: BodyModel, body: string, base: number): { index: number; length: number }[] {
+	const lines = model.boundaries;
 	if (!lines.length) return [];
-	const starts = lineStarts(text);
-	return lines.map((ln: number) => ({ index: starts[ln] + base, length: (starts[ln + 1] ?? text.length) - starts[ln] }));
+	const out: { index: number; length: number }[] = new Array(lines.length);
+	if (model.body === body) {
+		for (let i = 0; i < lines.length; i++) {
+			const s = model.lineStart(lines[i]);
+			const e = model.lineEnd(lines[i]);
+			out[i] = { index: s + base, length: (e < body.length ? e + 1 : e) - s };
+		}
+		return out;
+	}
+	const starts = lineStarts(body);
+	for (let i = 0; i < lines.length; i++) {
+		const ln = lines[i];
+		out[i] = { index: starts[ln] + base, length: (starts[ln + 1] ?? body.length) - starts[ln] };
+	}
+	return out;
 }
 
 // A chunk can only split on headings if it holds at least two top-level h1/h2 candidates.
@@ -189,8 +215,8 @@ function rawChunks(source: string, bodyStart: number, seps: readonly { index: nu
 	return out;
 }
 
-function finish(source: string, bodyStart: number, mode: 'rule' | 'headings', units: Unit[], seps: { index: number; length: number }[]): DeckIndex {
-	return { rev: nextRevision(), kinds: DECK_KINDS, source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
+function finish(source: string, bodyStart: number, mode: 'rule' | 'headings', units: Unit[], seps: { index: number; length: number }[], model: BodyModel): DeckIndex {
+	return { rev: nextRevision(), kinds: DECK_KINDS, source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration(), model };
 }
 
 /**
@@ -242,11 +268,14 @@ function assignIds(fresh: readonly string[], old: readonly { id: UnitId; text: s
 
 /** Build an index of `source` from nothing. `prev`, when given, lends its ids to units that
  *  start at the same offset (the fallback path of `updateDeckIndex` uses it). */
-export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFrom: number) => number | undefined): DeckIndex {
+export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFrom: number) => number | undefined, held?: BodyModel): DeckIndex {
 	const text = String(source ?? '');
 	const bodyStart = frontMatterBlock(text).length;
 	const mode = resolveSplitMode(text);
-	const seps = separatorsOf(text.slice(bodyStart), bodyStart, true);
+	const body = text.slice(bodyStart);
+	// `held`: a model of this body the caller already has (an update that could not splice its units).
+	const model = held ?? slideBoundaryModel(body);
+	const seps = separatorsOf(model, body, bodyStart);
 	const byFrom = new Map<number, UnitId>();
 	if (prev && carry) for (const c of prev.units) {
 		const f = carry(c.from);
@@ -262,7 +291,7 @@ export function buildDeckIndex(source: string, prev?: DeckIndex, carry?: (newFro
 			)
 		: [];
 	const units: Unit[] = raws.map((r, i) => ({ id: ids[i] ?? nextUnitId(), from: r.from, start: r.start, end: r.end, parts: sectionsOf(text.slice(r.from, r.end), r.start - r.from, mode) }));
-	return finish(text, bodyStart, mode, units, seps);
+	return finish(text, bodyStart, mode, units, seps, model);
 }
 
 export interface UpdateOptions {
@@ -271,12 +300,11 @@ export interface UpdateOptions {
 }
 
 /**
- * Lines a FORWARD-SCANNING block rule reacts to. CommonMark's own block rules never decline
- * for want of a closer (a fence or an HTML block runs to the end of the input; a setext
- * underline is one line down, inside the region), so the region parse is exact for them. A
- * plugin rule may open only if some LATER line closes it, slides away. Each plugin block
- * rule must declare `scansAhead` in its manifest (lib/plugins/resolve.js refuses one that
- * does not), and the generated `FORWARD_SCAN_LINES` carries the patterns here.
+ * Lines a FORWARD-SCANNING block rule reacts to (each plugin block rule declares `scansAhead` in its manifest, and the
+ * generated `FORWARD_SCAN_LINES` carries the patterns). The MODEL no longer needs this: `updateDeckModel` re-reads the
+ * deck itself when such a rule was tried above the reused tail. The INDEX still does, for its unit ids: an edit whose
+ * region holds such a line has always rebuilt the units, so a changed slide there gets a fresh id, and Fuoco's focus
+ * sync keys on ids. The rebuild reads the model just updated, so it parses nothing from nothing.
  */
 const LOOKAHEAD_LINE = new RegExp(
 	Object.values(FORWARD_SCAN_LINES as Record<string, string>)
@@ -315,9 +343,9 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 	const delta = toB - toA;
 	// Map an offset in the old text to the new one, for units outside the edit.
 	const carry = (o: number) => (o <= from ? o : o >= toA ? o + delta : undefined);
-	const full = () => {
+	const full = (held?: BodyModel) => {
 		indexStats.full++;
-		const built = buildDeckIndex(text, prev, carry);
+		const built = buildDeckIndex(text, prev, carry, held);
 		// The SAME text re-split under new parser rules (a plugin admission change) is the same
 		// revision: an editor that fed this text holds this revision, and its next report must not
 		// read as stale (found by the checker: caret moves went dead until the next keystroke).
@@ -356,23 +384,43 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 	const closing = b < seps.length ? seps[b] : null;
 	const regionEndNew = closing ? closing.index + delta + closing.length : text.length;
 	const regionText = text.slice(regionStart, regionEndNew);
-	// A block rule that scans FORWARD for its closer parses the region differently from the
-	// deck when the closer (or the opener) sits outside it. Edits that add or remove such a
-	// line, in either version of the region, rebuild.
-	if (LOOKAHEAD_LINE.test(regionText) || LOOKAHEAD_LINE.test(prev.source.slice(regionStart, closing ? closing.index + closing.length : prev.source.length))) return full();
-	const found = separatorsOf(regionText, regionStart);
-	if (closing) {
-		// The closing separator must still be one, at the same place, and must be the last
-		// separator the region found; otherwise the text below it parses differently now.
-		const last = found[found.length - 1];
-		if (!opts?.skipClosingCheck && (!last || last.index !== closing.index + delta || last.length !== closing.length)) return full();
-		if (last && last.index === closing.index + delta) found.pop();
+	// THE MODEL, UPDATED: it re-reads the edited slide, and the whole deck when that is the only
+	// right answer (a forward-scanning rule, math's `$$`, read past a break). The editor's span is
+	// handed on in body offsets when both bodies are the model's text exactly; otherwise the model
+	// diffs the normalized bodies itself.
+	const body = text.slice(prev.bodyStart);
+	const norm = normalizeSourceText(body);
+	const plain = norm === body && prev.model.body.length === prev.source.length - prev.bodyStart;
+	const model = updateDeckModel(prev.model, norm, plain ? { from: from - prev.bodyStart, toA: toA - prev.bodyStart, toB: toB - prev.bodyStart } : undefined);
+	// The unit ids `main` gave an edit near a forward-scanning line: a rebuild (see LOOKAHEAD_LINE).
+	if (LOOKAHEAD_LINE.test(regionText) || LOOKAHEAD_LINE.test(prev.source.slice(regionStart, closing ? closing.index + closing.length : prev.source.length))) return full(model);
+	const all = separatorsOf(model, body, prev.bodyStart);
+	// The region's own separators: those that start inside it, before the closing one.
+	const shifted = (s: { index: number; length: number }) => ({ index: s.index + delta, length: s.length });
+	let lo = 0;
+	while (lo < all.length && all[lo].index < regionStart) lo++;
+	let hi = lo;
+	const regionEndNewBody = closing ? closing.index + delta : text.length;
+	while (hi < all.length && all[hi].index < regionEndNewBody) hi++;
+	const found = all.slice(lo, hi);
+	// Every separator outside the region must have survived, shifted, or units outside it no longer
+	// sit where they did: rebuild them from the updated model.
+	if (!opts?.skipClosingCheck) {
+		const tail = closing ? seps.length - b : 0;
+		let same = lo === a + 1 && all.length - hi === tail;
+		for (let i = 0; same && i <= a; i++) same = all[i].index === seps[i].index && all[i].length === seps[i].length;
+		for (let i = 0; same && i < tail; i++) {
+			const want = shifted(seps[b + i]);
+			same = all[hi + i].index === want.index && all[hi + i].length === want.length;
+		}
+		if (!same) return full(model);
 	}
 	indexStats.incremental++;
 	indexStats.regionChars += regionText.length;
 
-	const shifted = (s: { index: number; length: number }) => ({ index: s.index + delta, length: s.length });
-	const newSeps = [...seps.slice(0, a + 1), ...found, ...(closing ? [shifted(closing)] : []), ...seps.slice(b + 1).map(shifted)];
+	// The failing arm (`skipClosingCheck`) splices the region's separators onto the OLD tail, as the
+	// region parse this replaced did when the check was off.
+	const newSeps = opts?.skipClosingCheck ? [...seps.slice(0, a + 1), ...found, ...(closing ? [shifted(closing)] : []), ...seps.slice(b + 1).map(shifted)] : all;
 
 	// Old units split three ways: wholly before the region, inside it, wholly after it.
 	const regionEndOld = closing ? closing.index : prev.source.length;
@@ -388,7 +436,6 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 		else if (closing && c.from > regionEndOld) after.push(c);
 		else inside.push(c);
 	}
-	const regionEndNewBody = closing ? closing.index + delta : text.length;
 	const fresh = rawChunks(text, prev.bodyStart, found, 0, found.length, regionStart, regionEndNewBody);
 	// Ids inside the region (`assignIds`). The offset candidates: match from the front while the starts agree, then from
 	// the back while the distance to the region end agrees; and when the count is unchanged, a chunk edited in place
@@ -422,7 +469,7 @@ export function updateDeckIndex(prev: DeckIndex | null | undefined, next: string
 		parts: sectionsOf(text.slice(r.from, r.end), r.start - r.from, prev.mode),
 	}));
 	const moved: Unit[] = delta === 0 ? after : after.map((c) => ({ id: c.id, from: c.from + delta, start: c.start + delta, end: c.end + delta, parts: c.parts }));
-	return finish(text, prev.bodyStart, prev.mode, [...before, ...mid, ...moved], newSeps);
+	return finish(text, prev.bodyStart, prev.mode, [...before, ...mid, ...moved], newSeps, model);
 }
 
 /** The Lattice deck outliner, for `createFocusHub({ outliner: deckOutliner })`. */

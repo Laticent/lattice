@@ -4,6 +4,6 @@
  * engineering/decisions/2026-10-22-segno-deck-pipeline.md.
  */
 export type { BlockParserOptions, BlockRuleFn, BlockState, BlockTape, ExtraBlockRule, LineIndex, TokenHandle } from './block.js';
-export { BlockParser, CORE_KINDS, F_HIDDEN, F_SIDE, KIND, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
+export { BlockParser, CORE_KINDS, F_HIDDEN, F_SIDE, KIND, releaseScratch, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL, T_NEST } from './block.js';
 export type { BlockRange, DeckModelOptions, EditSpan, Slide } from './deck.js';
 export { DeckModel, deckModel, deckModelStats, diffSpan, ENGINE_FRONT_MATTER, ingest, spanHolds, updateDeckModel } from './deck.js';

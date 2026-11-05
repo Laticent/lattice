@@ -40,5 +40,8 @@
 export function normalizeSourceText(text: string): string;
 export function normalizeSourceText<T>(text: T): T;
 export function normalizeSourceText(text: unknown): unknown {
-	return typeof text === 'string' ? text.replace(/^﻿/, '').replace(/\r\n?/g, '\n') : text;
+	if (typeof text !== 'string') return text;
+	// No `\r` and no BOM: the same string back, with no scan by regular expression (lib/core/boundary-parser.mjs `normalizeSource`).
+	if (text.indexOf('\r') === -1 && text.charCodeAt(0) !== 0xfeff) return text;
+	return text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
 }

@@ -448,6 +448,15 @@ class Handle implements TokenHandle {
 
 const scratch = { lines: 0, bMarks: new Int32Array(0), eMarks: new Int32Array(0), tShift: new Int32Array(0), sCount: new Int32Array(0), bsCount: new Int32Array(0), tape: new Int32Array(1024 * STRIDE) };
 
+/**
+ * Give back the token scratch a large deck grew, returning it to its starting size. The scratch only grows, so after
+ * one very large deck a long-lived host holds that deck's tape until it calls this. The tests also use it to make a
+ * parse grow the tape on purpose.
+ */
+export function releaseScratch(): void {
+	scratch.tape = new Int32Array(1024 * STRIDE);
+}
+
 /** Grow the per-line scratch to `size` entries, keeping what is written. */
 function grow(size: number): number {
 	const keep = (old: Int32Array) => {
@@ -488,6 +497,21 @@ class State implements BlockState {
 	stopped = false;
 	/** Lines a `scansAhead` rule was tried on. */
 	forward: number[] = [];
+	/**
+	 * The last `-->` search: from `closeFrom`, the next one is at `closeAt` (-1: none to the end). Any search from
+	 * a position in `[closeFrom, closeAt]` (or past `closeFrom` when there is none) has the same answer, so a run
+	 * of unclosed comments costs one scan of the rest of the source, not one each.
+	 */
+	closeFrom = -1;
+	closeAt = -1;
+
+	/** The first `-->` at or after `from`, as `src.indexOf('-->', from)`, reusing the last search when it answers. */
+	nextClose(from: number): number {
+		if (this.closeFrom >= 0 && from >= this.closeFrom && (this.closeAt < 0 || from <= this.closeAt)) return this.closeAt;
+		this.closeFrom = from;
+		this.closeAt = this.src.indexOf('-->', from);
+		return this.closeAt;
+	}
 
 	constructor(src: string, p: BlockParser, index?: LineIndex) {
 		this.src = src;
@@ -592,6 +616,18 @@ class State implements BlockState {
 		this.bsCount.fill(0, index.from, lines + 1);
 		this.lineMax = lines;
 		this.tape = scratch.tape;
+	}
+
+	/**
+	 * `pushK`, then the token's per-kind number. A separate call because `state.tape[state.pushK(…) * STRIDE + T_AUX]`
+	 * reads `state.tape` BEFORE `pushK` runs, and a push that grows the tape replaces the array: the write then lands
+	 * in the old one and is lost. It lost a comment block's mark, a fence's marker length and a heading's level, on
+	 * whichever token a parse grew the shared scratch tape at (the first 10,050-item list in a process, say).
+	 */
+	pushAux(kind: number, nesting: number, l0: number, l1: number, aux: number): number {
+		const i = this.pushK(kind, nesting, l0, l1);
+		this.tape[i * STRIDE + T_AUX] = aux;
+		return i;
 	}
 
 	pushK(kind: number, nesting: number, l0: number, l1: number): number {
@@ -752,8 +788,8 @@ function table(state: State, startLine: number, endLine: number, silent: boolean
 	state.pushK(K_THEAD_OPEN, 1, startLine, startLine + 1);
 	state.pushK(K_TR_OPEN, 1, startLine, startLine + 1);
 	for (let i = 0; i < columnCount; i++) {
-		state.tape[state.pushK(K_TH_OPEN, 1, -1, -1) * STRIDE + T_AUX] = aligns[i];
-		state.tape[state.pushK(K_INLINE, 0, -1, -1) * STRIDE + T_AUX] = i;
+		state.pushAux(K_TH_OPEN, 1, -1, -1, aligns[i]);
+		state.pushAux(K_INLINE, 0, -1, -1, i);
 		state.pushK(K_TH_CLOSE, -1, -1, -1);
 	}
 	state.pushK(K_TR_CLOSE, -1, -1, -1);
@@ -773,8 +809,8 @@ function table(state: State, startLine: number, endLine: number, silent: boolean
 		if (nextLine === startLine + 2) tbodyTok = state.pushK(K_TBODY_OPEN, 1, startLine + 2, 0);
 		state.pushK(K_TR_OPEN, 1, nextLine, nextLine + 1);
 		for (let i = 0; i < columnCount; i++) {
-			state.tape[state.pushK(K_TD_OPEN, 1, -1, -1) * STRIDE + T_AUX] = aligns[i];
-			state.tape[state.pushK(K_INLINE, 0, -1, -1) * STRIDE + T_AUX] = i;
+			state.pushAux(K_TD_OPEN, 1, -1, -1, aligns[i]);
+			state.pushAux(K_INLINE, 0, -1, -1, i);
 			state.pushK(K_TD_CLOSE, -1, -1, -1);
 		}
 		state.pushK(K_TR_CLOSE, -1, -1, -1);
@@ -847,7 +883,7 @@ function fence(state: State, startLine: number, endLine: number, silent: boolean
 		break;
 	}
 	state.line = nextLine + (haveEndMarker ? 1 : 0);
-	state.tape[state.pushK(K_FENCE, 0, startLine, state.line) * STRIDE + T_AUX] = markerLen;
+	state.pushAux(K_FENCE, 0, startLine, state.line, markerLen);
 	return true;
 }
 
@@ -967,7 +1003,7 @@ function hr(state: State, startLine: number, _endLine: number, silent: boolean):
 	if (cnt < 3) return false;
 	if (silent) return true;
 	state.line = startLine + 1;
-	state.tape[state.pushK(K_HR, 0, startLine, state.line) * STRIDE + T_AUX] = marker;
+	state.pushAux(K_HR, 0, startLine, state.line, marker);
 	return true;
 }
 
@@ -1263,12 +1299,12 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 		let nextLine = startLine + 1;
 		// The next `-->` at or after a position, found once and reused until passed, so a long unclosed
 		// comment costs one scan, not one per line.
-		let close = src.indexOf('-->', pos);
+		let close = state.nextClose(pos);
 		if (close < 0 || close >= max) {
 			for (; nextLine < endLine; nextLine++) {
 				if (state.sCount[nextLine] < state.blkIndent) break;
 				const p = state.bMarks[nextLine] + state.tShift[nextLine];
-				if (close >= 0 && close < p) close = src.indexOf('-->', p);
+				if (close >= 0 && close < p) close = state.nextClose(p);
 				if (close < 0) continue;
 				if (close < state.eMarks[nextLine]) {
 					nextLine++;
@@ -1277,7 +1313,7 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 			}
 		}
 		state.line = nextLine;
-		state.tape[state.pushK(K_HTML_BLOCK, 0, startLine, nextLine) * STRIDE + T_AUX] = 1;
+		state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, 1);
 		return true;
 	}
 	let lineText = src.slice(pos, max);
@@ -1299,7 +1335,7 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 		}
 	}
 	state.line = nextLine;
-	state.tape[state.pushK(K_HTML_BLOCK, 0, startLine, nextLine) * STRIDE + T_AUX] = i;
+	state.pushAux(K_HTML_BLOCK, 0, startLine, nextLine, i);
 	return true;
 }
 
@@ -1319,7 +1355,7 @@ function heading(state: State, startLine: number, _endLine: number, silent: bool
 	if (level > 6 || (pos < max && !isSpace(ch))) return false;
 	if (silent) return true;
 	state.line = startLine + 1;
-	state.tape[state.pushK(K_HEADING_OPEN, 1, startLine, state.line) * STRIDE + T_AUX] = level;
+	state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level);
 	state.pushK(K_INLINE, 0, startLine, state.line);
 	state.pushK(K_HEADING_CLOSE, -1, -1, -1);
 	return true;
@@ -1358,7 +1394,7 @@ function lheading(state: State, startLine: number, endLine: number): boolean {
 	// stale 'paragraph' and restores it. Kept as markdown-it has it: parity is the contract, not tidiness.
 	if (!level) return false;
 	state.line = nextLine + 1;
-	state.tape[state.pushK(K_HEADING_OPEN, 1, startLine, state.line) * STRIDE + T_AUX] = level + 8;
+	state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level + 8);
 	state.pushK(K_INLINE, 0, startLine, state.line - 1);
 	state.pushK(K_HEADING_CLOSE, -1, -1, -1);
 	state.parentType = oldParentType;
