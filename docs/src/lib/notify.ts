@@ -122,7 +122,20 @@ export type NoticeHandle = string | number;
 type Wire = (closed: () => void) => Record<string, unknown>;
 /** `last` is the newest raise's arguments, kept so a raise that landed on a dying pill can be
  *  raised again on a fresh id (trap 3 in `raiseSlot`). */
-type Slot = { id: string; live: boolean; seq: number; raise: number; last?: { message: string; fields: Record<string, unknown>; wire?: Wire } };
+type Slot = { id: string; live: boolean; seq: number; raise: number; clicked?: number; last?: { message: string; fields: Record<string, unknown>; wire?: Wire } };
+/** A dying id → the id its message was raised again on (trap 3), so an old handle still dismisses it. */
+const moved = new Map<NoticeHandle, NoticeHandle>();
+const current = (h: NoticeHandle): NoticeHandle => {
+	let id = h;
+	for (let n = 0; moved.has(id) && n < 64; n++) id = moved.get(id) as NoticeHandle;
+	return id;
+};
+/** Dismissing the slot's own pill ends its life NOW: Sonner applies a dismiss two animation frames late,
+ *  so a raise in the same tick would otherwise reuse the id and be deleted with it. */
+function retire(id: NoticeHandle): void {
+	for (const slot of Object.values(slots)) if (slot.id === id) slot.live = false;
+	toast.dismiss(id);
+}
 const slots: Record<keyof typeof NOTICE_ID_PREFIX, Slot> = {
 	status: { id: '', live: false, seq: 0, raise: 0 },
 	action: { id: '', live: false, seq: 0, raise: 0 },
@@ -171,14 +184,30 @@ function raiseSlot(
 	const closed = () => {
 		if (slot.id !== id || !slot.live) return;
 		slot.live = false;
-		if (slot.raise !== token && slot.last) raiseSlot(kind, slot.last.message, slot.last.fields, slot.last.wire, slot.raise);
+		if (slot.raise !== token && slot.last) {
+			const fresh = raiseSlot(kind, slot.last.message, slot.last.fields, slot.last.wire, slot.raise);
+			// A caller holding the dying id (the Undo pill, download.js's Save) still retires the pill it raised.
+			moved.set(id, fresh);
+		}
 	};
+	// After a re-raise the dying pill and the fresh one both carry this raise's button for 200 ms, so a
+	// caller's action runs at most once per raise, whichever of the two is clicked.
+	const wired = wire?.(closed);
+	const action = wired?.action as { onClick?: (e?: unknown) => void } | undefined;
+	if (action?.onClick) {
+		const run = action.onClick;
+		action.onClick = (e?: unknown) => {
+			if (slot.clicked === token) return;
+			slot.clicked = token;
+			run(e);
+		};
+	}
 	// `fields` FIRST: the liveness callbacks are the slot's own bookkeeping and a
 	// caller's options must never be able to land on top of them. Spread the other way
 	// round, one future `onAutoClose` in an options object silently stops the slot
 	// tracking its own pill — which is finding #1 below, re-introduced for all three
 	// kinds by a one-line edit nothing would catch.
-	toast(message, { ...fields, ...(wire?.(closed) ?? {}), id: slot.id, onAutoClose: closed, onDismiss: closed });
+	toast(message, { ...fields, ...(wired ?? {}), id: slot.id, onAutoClose: closed, onDismiss: closed });
 	return slot.id;
 }
 
@@ -298,12 +327,12 @@ export function actionLive(raise: number): boolean {
 export function dismissActionNotice(handle: NoticeHandle, raise: number): void {
 	// The slot's CURRENT id, not the handle: after trap 3 the same raise may be standing on a
 	// fresh id. `actionLive(raise)` is what proves the current id is still this raise's.
-	if (actionLive(raise)) toast.dismiss(slots.action.id || handle);
+	if (actionLive(raise)) retire(slots.action.id || current(handle));
 }
 
 /** Retire a notice early. Safe to call on one already gone. */
 export function dismissNotice(handle: NoticeHandle): void {
-	toast.dismiss(handle);
+	retire(current(handle));
 }
 
 /**
@@ -317,5 +346,6 @@ export function dismissNotice(handle: NoticeHandle): void {
  * nothing and make each test's pills its own.
  */
 export function __resetNotify(): void {
-	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, raise: 0, last: undefined });
+	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, raise: 0, clicked: undefined, last: undefined });
+	moved.clear();
 }
