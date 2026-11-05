@@ -105,7 +105,14 @@ function undoProbeKit(result) {
 	};
 	/** WebKit's own undo or redo command, with focus in the editor. Returns the inputType the page saw. */
 	const command = async (which) => {
-		await focusEnd();
+		// A person's Edit → Undo, shake or keyboard-bar undo leaves the caret where the typing left it. Re-selecting the
+		// editor by script first (focusEnd) is not what a person does, and the iPad's asserted step once lost WebKit's undo
+		// in exactly that gap: enabled after the word and for the whole 800 ms watch, disabled at the command (dispatch
+		// 42026963629). So the probe only focuses when the editor does not already have focus.
+		const ed = editorEl();
+		const before = snapshot();
+		if (!ed?.contains(document.activeElement)) await focusEnd();
+		const moved = snapshot() !== before ? ` (focus set: ${before} → ${snapshot()})` : '';
 		let seen = '';
 		const log = [];
 		const spy = (e) => {
@@ -122,7 +129,7 @@ function undoProbeKit(result) {
 		// raise nothing (#2911), so wait, briefly, for the command to be enabled, and log whether it was.
 		const t0 = Date.now();
 		while (!document.queryCommandEnabled(which) && Date.now() - t0 < 3000) await sleep(50);
-		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms (${snapshot()})`);
+		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms (${snapshot()})${moved}`);
 		document.execCommand(which);
 		await sleep(300);
 		removeEventListener('beforeinput', spy, { capture: true });
