@@ -40,7 +40,7 @@ Failure lines from every red nightly (run id → suite → line):
 | **A. No session.** safaridriver never reaches Safari in the simulator, so no probe code runs | 40307494617 studio · 40485085426 studio · 40674748940 jpeg · 41301950082 focus-sync | `The session timed out while connecting to a Safari instance` / `The host application never became ready` |
 | **B. The probe read a parked preview** | 41829424180 photo (iPhone) | `the probe deck did not stay (the editor holds it; the preview shows "Everything you need to ship, already designed.")` |
 | **C. A fixed deadline overrun on a slow iPhone simulator** | 41044755916 photo · 41447813149 photo · 41301950082 studio | `timed out after 30000 ms waiting for the Coach photo finding on slide 2` · `90000 ms waiting for the Studio editor` · `15000 ms waiting for a visible Deck source editor` |
-| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Not seen in the 3 nightlies since `ded62e7` (#3004). Recorded, not chased |
+| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Recurred on the iPhone at `6ebacaa` (dispatch 41964538891; the iPad and the Mac passed). WebKit's undo stays disabled after a typed word that Filo did record. Open: `followups.d/3034-p8-ios-native-undo-not-enabled.md` |
 
 **Cause A is outside our code.** Apple's safaridriver pairs with Safari inside the simulator over Web Inspector. It
 exposes no "ready" signal: the only way to learn it is ready is to ask for a session, and safaridriver waits about
