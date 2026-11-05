@@ -747,3 +747,48 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
   comments included, are the right model, so they are not islands. The rest each need their own look, one at a time,
   held to lint output on the corpus.
 
+## The Studio's readers derive, not parse (2026-11-05)
+
+The boundary memo (lib/core/slide-boundaries.mjs) keyed six strings and, on a miss, parsed the new one from nothing. A
+keystroke made two readers miss: the lint's body (`chunkBoundaryLines`, through `scanMetaSource`) and the preview's
+`editorSample`, which StudioShell rebuilds from trimmed chunks. A miss now derives the model from the nearest entry it
+holds (`derivedModel`): `diffSpan` against each entry, and `updateDeckModel` from the one with the smallest span, which
+re-reads one slide and splices. When even the nearest span covers more than half the text, there is nothing to keep
+and it parses from nothing.
+
+| Per keystroke in the gallery's middle slide | Before | After |
+|---|---|---|
+| deck-model parses from nothing (`deckModelStats.full`), lint + preview | 2 | **0** |
+| incremental updates (`deckModelStats.incremental`) | 0 | 2 |
+| the outline's index, the lint scan and the preview sample, together, in vitest | 2 full + 1 incremental | 0 full + 3 incremental |
+| wall time, `scanMetaSource` + the preview's `slideBoundaries`, median of 7 x 40, plain Node | 1.69 ms | **1.17 ms** |
+
+`npm run bench` carries the count as the edit tier's `parses` column (test/benchmark/engine-bench.mjs
+`boundaryKeystrokes`), blessed in baseline.json and gated by `bench:check` like `typesets`: a rise is a regression.
+
+| edit tier, parses from nothing per keystroke | Before | After |
+|---|---|---|
+| normal (jargon) | 2 | 0 |
+| charts | 2 | 0 |
+| hub-spoke (gallery + tiered x3) | 2 | 0 |
+| math | 2 | **2** |
+
+**The math deck still parses from nothing**, by the model's own rule: `updateDeckModel` rebuilds whenever a
+forward-scanning block rule (math's `$$`) was tried above the tail it would reuse, because that rule reads past a
+break and its "no closer ahead" memo carries from one slide into the next (§P2 landed). Splicing past it needs the
+rule's reach recorded per slide; that is followups.d/3042-p2-segno-math-decks-still-parse.md. The bench's `ms`
+columns moved by up to 37% on columns this change does not touch, on a shared machine, so the timings above are
+commentary and the counts are the gate.
+
+**Why three updates and not one.** The outline's body and the lint's body are different strings: the Studio's
+front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
+engine's split keeps them in the body, so the two models' line numbers differ by those lines. A first cut handed the
+outline's model to the memo; it helped only a deck with no front matter, so it went. Sharing one model needs one
+front-matter split, which is followups.d/3042-p3 (`frontMatterBlock` and its nine writers). The preview's sample is a
+third string by design.
+
+Held by a differential in test/unit/core/slide-boundaries.test.js: a random walk of 1,000 edits over corpus-shaped
+atoms (fences, math, quotes, multi-line comments in containers, link definitions, setext lines), each model the memo
+derives compared with a parse from nothing on every view (boundaries, leading-empty, the five range lists, S1's comment
+content). It fails when the derived model is the stale one. The keystroke count is pinned in
+docs/src/lib/deck-outline/deck-outline.test.ts.
