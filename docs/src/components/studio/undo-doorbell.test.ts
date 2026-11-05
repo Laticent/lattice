@@ -65,6 +65,16 @@ describe('the undo doorbell', () => {
 		expect(inserted).toEqual([]);
 	});
 
+	it('stays silent during an IME composition, and rings once it ends', () => {
+		const bell = createUndoDoorbell({ canUndo: () => true });
+		editor.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+		expect(bell.arm()).toBe(false);
+		expect(inserted).toEqual([]);
+		editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+		expect(bell.arm()).toBe(true);
+		bell.dispose();
+	});
+
 	it('stays silent when Filo has nothing to undo', () => {
 		expect(createUndoDoorbell({ canUndo: () => false }).arm()).toBe(false);
 		expect(inserted).toEqual([]);

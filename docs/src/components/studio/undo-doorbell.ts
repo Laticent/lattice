@@ -51,6 +51,16 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 	const doc = opts.doc ?? document;
 	let bell: HTMLElement | null = null;
 	let ringing = false;
+	// An IME composition (Japanese, Chinese, Korean input) must never lose focus to the bell mid-word.
+	let composing = false;
+	const onCompositionStart = () => {
+		composing = true;
+	};
+	const onCompositionEnd = () => {
+		composing = false;
+	};
+	doc.addEventListener('compositionstart', onCompositionStart, true);
+	doc.addEventListener('compositionend', onCompositionEnd, true);
 	const ensureBell = () => {
 		if (bell?.isConnected) return bell;
 		const el = doc.createElement('div');
@@ -66,7 +76,7 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 	};
 	return {
 		arm() {
-			if (ringing || !opts.canUndo()) return false;
+			if (ringing || composing || !opts.canUndo()) return false;
 			// A step on WebKit's redo stack means a gesture undo just ran: an edit now would empty it, and the
 			// redo gesture would stop reaching Filo (iOS dispatch 42094642587).
 			if (nativeEnabled(doc, 'undo') !== false || nativeEnabled(doc, 'redo') !== false) return false;
@@ -95,6 +105,8 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 			return true;
 		},
 		dispose() {
+			doc.removeEventListener('compositionstart', onCompositionStart, true);
+			doc.removeEventListener('compositionend', onCompositionEnd, true);
 			bell?.remove();
 			bell = null;
 		},

@@ -4759,7 +4759,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Window out of it), so a capturing listener on `window` never hears a frame load.
 		document.addEventListener('load', onLoad, true);
 		window.addEventListener('focusin', onFocusIn, true);
+		// And a re-check every 400 ms: iOS can empty the stack after the frame's load event has fired (a burst of
+		// `srcdoc` writes; dispatch 42102243993, iPad cycle #8: wiped 453 ms after the word, the bell had rung at the
+		// load). `arm` reads two command states and returns at once unless the stack really is empty.
+		const tick = setInterval(() => {
+			if (document.visibilityState === 'visible') bell?.arm();
+		}, 400);
 		return () => {
+			clearInterval(tick);
 			document.removeEventListener('load', onLoad, true);
 			window.removeEventListener('focusin', onFocusIn, true);
 			gone = true;
