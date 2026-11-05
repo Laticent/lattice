@@ -835,7 +835,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// NOT ON `known`. The component list arrives a moment after the Studio paints, and rebuilding
 	// here then replaced the editor's DOM under whatever the author had just typed: WebKit's own undo
 	// step pointed at the removed element, so Safari's Edit → Undo, the iPad keyboard bar and shake
-	// sent no `historyUndo` at all (ios-safari-undo, followups.d/3034-p8: the probe saw the editor
+	// sent no `historyUndo` at all (ios-safari-undo, ci-flake-audit §3 (engineering/decisions/2026-11-04): the probe saw the editor
 	// element change between a typed word and the undo command). The linter, the only consumer of
 	// `known`, is reconfigured in place by the `[vocabSets, known]` effect below.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `docKey`/`collabKey`; `value` seeds the doc and is synced separately, `collab` is read at build time through its key, and `known` reaches the linter through its reconfigure effect.

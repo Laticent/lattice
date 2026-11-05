@@ -21,7 +21,7 @@
 
 /**
  * Extra type → WebKit undo cycles run before the asserted one, RECORDED, not asserted. WebKit's undo missed a typed word
- * about 3 runs in 17 (followups.d/3034-p8), and one cycle per run is a thin sample of an intermittent fault: these give
+ * about 3 runs in 17 (ci-flake-audit §3 (engineering/decisions/2026-11-04)), and one cycle per run is a thin sample of an intermittent fault: these give
  * each device nine. A missed cycle shows in the step's detail with WebKit's undo state, the editor element and focus at
  * each moment, so the next red run names where the step went. It does not fail the run: the asserted cycle still does.
  */
@@ -90,7 +90,7 @@ function undoProbeKit(result) {
 	 * Every frame load and every `srcdoc`/`src` rewrite on the page, with its time. In WebKit a frame's document load
 	 * can clear the page's undo history, and the live preview rewrites its iframe's document on some updates
 	 * (DeckPreview.tsx), so each recorded cycle says how many frame events it saw: a loss that always coincides with one,
-	 * against passing cycles that rarely do, names the preview as the trigger (followups.d/3034-p8).
+	 * against passing cycles that rarely do, names the preview as the trigger (ci-flake-audit §3 (engineering/decisions/2026-11-04)).
 	 */
 	const frames = [];
 	const frameEvent = (what) => frames.push([performance.now(), what]);
@@ -318,7 +318,7 @@ async function latticeUndoProbe() {
 		k.step('put the deck in the editor', true, `${pastes > 1 ? `${pastes} pastes; ` : ''}${k.snapshot()}; ${document.querySelectorAll('iframe').length} iframes, frame events so far: ${k.framesSince(0).length} (${k.framesSince(0).slice(-6).join(', ')})`);
 		// Recorded cycles (UNDO_DIAG_CYCLES): type → WebKit undo, with what each cycle saw.
 		// Recorded cycles, in two phases: the preview live, then (where the layout draws it) the preview collapsed, the
-		// control for the frame-load lead in followups.d/3034-p8. Each cycle records the frame events between its keystroke
+		// control for the frame-load lead in ci-flake-audit §3 (engineering/decisions/2026-11-04). Each cycle records the frame events between its keystroke
 		// and its undo command, so losses can be set against the frame activity of the cycles that passed.
 		const runCycles = async (phase, from) => {
 			const cycles = [];
@@ -350,7 +350,7 @@ async function latticeUndoProbe() {
 			}
 		};
 		await runCycles('preview live', 1);
-		// FRAME LAB (followups.d/3034-p8). With the Studio's undo doorbell installed, a frame event that empties WebKit's undo
+		// FRAME LAB (ci-flake-audit §3 (engineering/decisions/2026-11-04)). With the Studio's undo doorbell installed, a frame event that empties WebKit's undo
 		// stack is re-armed at once, so `→ true` here means the doorbell held. Which frame event empties it: adding an empty frame, a new frame
 		// with `srcdoc`, rewriting an existing frame's `srcdoc`, `document.write` into an existing frame, or changing its body
 		// in place (the control). Each runs three times with a typed word on WebKit's stack; recorded, never asserted.

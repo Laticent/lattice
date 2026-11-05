@@ -1799,4 +1799,4 @@ never turn "passed in headless" into "works on iOS."
   iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
   the caret back. Two traps it already avoids: never ring while WebKit holds a REDO step (the edit empties redo, and
   the redo gesture stops reaching Filo), and never ring on desktop WebKit, which undoes the bell's own step without a
-  beforeinput, so a ⌘Z would go to the bell instead of Filo. `followups.d/3034-p8` has the runs.
+  beforeinput, so a ⌘Z would go to the bell instead of Filo. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.

@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadStudioPanels } from '@/test/panels';
 import { Editor } from './Editor';
 
-// THE EDITOR SURVIVES THE COMPONENT LIST ARRIVING (followups.d/3034-p8). The Studio hands the
+// THE EDITOR SURVIVES THE COMPONENT LIST ARRIVING (ci-flake-audit §3 (engineering/decisions/2026-11-04)). The Studio hands the
 // editor its known component names a moment after it paints. Rebuilding the CodeMirror view then
 // replaced the editor's DOM under a word the author had just typed, and WebKit's own undo (Safari's
 // Edit → Undo, the iPad keyboard bar, shake) lost its step: ios-safari-undo saw the editor element

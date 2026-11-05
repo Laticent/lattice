@@ -8,7 +8,7 @@
  * WebKit's stack is empty while Filo's is not, those gestures do nothing and Filo never hears them.
  *
  * WebKit empties that stack on every frame navigation in the page: a new iframe, an iframe's `srcdoc`
- * set or rewritten (followups.d/3034-p8: the frame lab in docs/scripts/ios-safari/undo-probe.js;
+ * set or rewritten (ci-flake-audit §3 (engineering/decisions/2026-11-04): the frame lab in docs/scripts/ios-safari/undo-probe.js;
  * `document.write` and an in-place body change do not). The live preview builds its frame and
  * rewrites its `srcdoc` on full writes, so a word typed just before one lost every system undo
  * gesture. A reloaded page also starts empty while Filo restores its stored history (the macOS

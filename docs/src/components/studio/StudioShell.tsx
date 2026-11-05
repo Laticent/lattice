@@ -4728,7 +4728,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// and rewrites its `srcdoc`), and a reloaded page starts empty. The doorbell re-arms that stack with one
 	// invisible edit in a hidden field the Studio owns, after a frame load, on focus and when Filo's history
 	// gains its first step, and only while Filo has a step to undo, WebKit has neither an undo nor a redo
-	// step, and focus is in an editable surface Filo owns (followups.d/3034-p8). Never after a history
+	// step, and focus is in an editable surface Filo owns (ci-flake-audit §3 (engineering/decisions/2026-11-04)). Never after a history
 	// gesture: that edit would empty WebKit's redo and the redo gesture would stop reaching Filo.
 	// iOS and iPadOS only. Desktop Safari never empties its stack on a frame load, and there WebKit undoes
 	// the bell's own step without a beforeinput, so a ⌘Z would go to the bell and not to Filo.

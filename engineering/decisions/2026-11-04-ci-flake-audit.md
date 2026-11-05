@@ -40,7 +40,7 @@ Failure lines from every red nightly (run id → suite → line):
 | **A. No session.** safaridriver never reaches Safari in the simulator, so no probe code runs | 40307494617 studio · 40485085426 studio · 40674748940 jpeg · 41301950082 focus-sync | `The session timed out while connecting to a Safari instance` / `The host application never became ready` |
 | **B. The probe read a parked preview** | 41829424180 photo (iPhone) | `the probe deck did not stay (the editor holds it; the preview shows "Everything you need to ship, already designed.")` |
 | **C. A fixed deadline overrun on a slow iPhone simulator** | 41044755916 photo · 41447813149 photo · 41301950082 studio | `timed out after 30000 ms waiting for the Coach photo finding on slide 2` · `90000 ms waiting for the Studio editor` · `15000 ms waiting for a visible Deck source editor` |
-| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Recurred on the iPhone at `6ebacaa` (dispatch 41964538891; the iPad and the Mac passed). WebKit's undo stays disabled after a typed word that Filo did record. A control on unchanged `main` (dispatch 41972682339) failed the same step on the iPad (undo enabled, no `historyUndo`), so it is not this PR's. **Continuation PR #3040 split it in two.** (1) Undo enabled but no `historyUndo`: the deck editor was rebuilt under the typed word when the component list arrived (`Editor.tsx` rebuilt on `known`). Fixed; the iPad rebuild went from 3 of 5 runs to 0 of 10. (2) Undo disabled: WebKit empties its own undo stack 0.4–0.9 s after the word, in 7 of 312 recorded iOS cycles on both devices, with no page activity a 25 ms watcher can see in 6 of the 8 losses it caught. Most likely WebKit's, not proven; open in `followups.d/3034-p8-ios-native-undo-not-enabled.md` |
+| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Recurred on the iPhone at `6ebacaa` (dispatch 41964538891; the iPad and the Mac passed). WebKit's undo stays disabled after a typed word that Filo did record. A control on unchanged `main` (dispatch 41972682339) failed the same step on the iPad (undo enabled, no `historyUndo`), so it is not this PR's. **Continuation PR #3040 split it in two.** (1) Undo enabled but no `historyUndo`: the deck editor was rebuilt under the typed word when the component list arrived (`Editor.tsx` rebuilt on `known`). Fixed; the iPad rebuild went from 3 of 5 runs to 0 of 10. (2) Undo disabled: iOS WebKit empties its own undo stack on any frame navigation in the page, and the live preview builds its frame and rewrites its `srcdoc`. Fixed by the undo doorbell; see §3. Closed, with `followups.d/3034-p8` |
 
 **Cause A is outside our code.** Apple's safaridriver pairs with Safari inside the simulator over Web Inspector. It
 exposes no "ready" signal: the only way to learn it is ready is to ask for a session, and safaridriver waits about
@@ -89,6 +89,24 @@ in `notify.ts` (trap 3): a close is judged by the pill's id, and a message that 
 a fresh one. `notify.dom.test.tsx` reproduces both losses against real Sonner with fake timers and fails without the fix, and `e2e/status-pill.spec.ts` stages the same order on the built Studio (the page's own timers queue the raise ahead of the close). It fails 9 of 9 without the fix and passes 9 of 9 with it, on Chromium, WebKit and Gecko.
 The spec also gains a case that clicks Save inside the same task that commits the generated draft. Evidence is in the
 continuation PR.
+
+**Fixed later, by the continuation PR: `ios-safari-undo` "WebKit undo command raised historyUndo" (row D).** Two
+faults. (1) The deck editor rebuilt its CodeMirror view when the component list arrived, a moment after the Studio
+painted, so WebKit's undo step pointed at the removed DOM: `Editor.tsx` now updates the lint in place, and the iPad
+rebuild went from 3 of 5 runs to 0 of 10. (2) WebKit's undo turned off 0.4 to 0.9 s after a typed word, in 7 of 312
+recorded iOS cycles. A frame tracker in `undo-probe.js` tied it to the live preview: a "frame lab" on the real
+simulators showed that adding a frame, a new `srcdoc` frame or a `srcdoc` rewrite empties iOS WebKit's undo stack, while
+`document.write` and an in-place body change do not, and macOS Safari never does. Filo owns the history, but iOS only
+sends a gesture's `historyUndo` while WebKit's own stack has a step. The fix is `undo-doorbell.ts`, installed on iOS and
+iPadOS: one invisible edit in a hidden `data-filo-owned` field re-arms the stack after a frame load, on focus, when
+Filo's history gains its first step and on a 400 ms re-check, then focus and the caret go back. It never rings while
+WebKit holds a redo step (the first version did, and redo stopped reaching Filo on every device: dispatch
+42094642587), during an IME composition, or on desktop WebKit, which undoes the bell's own step without a beforeinput.
+Evidence, all at `7a1a709`: 7 dispatches, every checked step passed on the iPad (7 of 7) and the iPhone (7 of 7), and on
+the Mac in 6 (the seventh job reached its 30-minute limit before the Mac, cause A). 112 of 112 recorded iOS cycles
+undid, 7 of them right after a frame event, and the doorbell re-armed 42 of 42 forced wipes with focus and the caret
+kept. Counting from `7ccda7a`, which had the redo fix but not the re-check, the iPad has 10 checked passes in a row and
+the iPhone 9, with one run cut off before the iPhone and none failed; the PR body has the final count.
 
 Not changed: `editor-lint.spec.ts` "Fix all names a fix it refused" (3 failed, 4 flaky in 6 nightlies). Its click
 already waits for the palette row, which appears once lint counts the 501-card deck. That passed 3/3 here in about
