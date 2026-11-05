@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about eighty events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
+  and a catalog of about eighty-five events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -61,6 +61,7 @@ Read from the code on `9dc7f3ed`.
 | A command ran | The Studio's one action list, 26 `StudioCommandId` verbs (`studio-commands.ts`), run from the palette (`CommandPalette.tsx:193`), a lesson, or a menu | The caller only. The palette's `onRun` closes it; nothing records what ran or how |
 | A keyboard shortcut fired | `keydown` listeners in 7 Studio files (`StudioShell.tsx` alone has five, :566 to :5053), CodeMirror's keymaps, the present keymap (`lib/core/present-transport.mjs` `PRESENT_KEYMAP`) | Each listener only |
 | Text was copied or cut | Seven clipboard writers: the code block's copy button (`window.__latticeCodeCopy`, in the preview runtime), the crash report, Finish Studio's CSS, the read-aloud trace, Live, and the editors' own ⌘C / ⌘X | Each writer, which shows its own "Copied" notice or none |
+| Something was dragged or dropped | Six owners, each with its own wiring: a deck file dropped anywhere opens it (`deck-drop.ts`, which REFUSES a drop in the editors, a dialog or Present); the slide strips reorder by press-and-drag (`strip-actions/drag.ts`, plain DOM); the Library splits a dropped set of files (`Library.tsx:82`); the motion drawing well (`MotionStudio.tsx:449`); Compose and the Markdown editor place dropped text or images at a caret (`ComposeView.tsx` `handleDrop`); the Architect chat takes dropped photos (`ChatAttach.tsx`, `ChatPhotos.tsx`) | Each owner. A refused drop shows its own toast; no other zone knows a drag is in progress |
 | A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
@@ -185,7 +186,7 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About eighty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About eighty-five names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
@@ -234,6 +235,22 @@ preview is already a `pick` (`Focus.element`). **No clipboard event carries the 
 reach every `*` listener, including logging on the `idle` lane, and a paste can be a password or a
 client's numbers; a listener that needs the text reads it from the editor that holds it.
 
+**Drag and drop.** One lifecycle per drag (§4.2), not one event set per drop zone:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `drag.started` | `id`, `source: 'strip' \| 'library' \| 'editor' \| 'external'`, `what: 'slide' \| 'file' \| 'text' \| 'image' \| 'asset'`, `count` | 3 | Every drop zone lights up at once when a file from the desktop enters the window, instead of each finding out on its own `dragenter` |
+| `drag.zone-changed` | `id`, `zone` (`shell`, `library`, `markdown`, `compose`, `chat`, `motion`, `strip`, or null) | 3 | — (one "drop here to …" hint that names what the drop will do) |
+| `drag.dropped` | `id`, `zone`, `outcome: 'opened' \| 'moved' \| 'inserted' \| 'imported' \| 'attached' \| 'refused'`, `reason` when refused (`present`, `dialog`, `editor-owns-drop`, `too-large`, `unsupported`) | 3 | One refusal notice instead of a toast per zone |
+| `drag.cancelled` | `id` (Escape, a pointer that left the window, a strip drag released where it started) | 3 | — |
+| `slide.moved` | `unit` (the stable id), `from`, `to`, `via: 'drag' \| 'menu' \| 'key' \| 'ai'` | 3 | The rail and the map animate the move. `doc.changed` says the text changed; this says what the change MEANT, which an animation needs and a span cannot tell it |
+
+`drag.started` for an `external` drag fires on the window's first `dragenter`; the browser does not
+say what is inside until the drop, so `what` is `file` and `count` is the number of items it
+reports. Dragging a split-pane divider is a resize, and reports as `view.resize-started` /
+`view.resized` for the pane, not as a drag. Every drop zone keeps the decision of what to accept:
+the events report, they do not route (§4.2).
+
 **Panels.** One pair, not one name per panel: `panel.opened` / `panel.closed` with
 `{ panel, via: 'click' | 'key' | 'command' | 'tour' | 'restore', surface: 'desktop' | 'tablet' | 'mobile' }`, where
 `panel` is a closed union of the shell's own names (`history`, `share`, `workspace`, `command`,
@@ -256,6 +273,7 @@ it. These fail that test, or are already covered:
 | Every `keydown`, and every palette keystroke | A keystroke is text (`doc.changed`) or a shortcut (`shortcut.fired`); a palette search is judged when it closes (`command.not-found`) |
 | A selection growing during a drag | It is the focus; only the finished range (`selection.settled`) is acted on |
 | Clipboard contents | Never on an event (above) |
+| `dragover` and the dragged copy's position | Sixty a second, and only the strip that drew the copy reads it; `drag.zone-changed` fires only when the zone changes |
 | A React render, a `useMemo` recompute | Implementation, not a fact; it changes whenever the code does |
 | Every intermediate resize | `view.resized` once the size holds (below) |
 | CodeMirror's viewport (which lines are drawn) | An implementation detail of its virtual rendering |
@@ -341,3 +359,8 @@ selection events. Commands ride the one action list (`command.*`), shortcuts fir
 (`shortcut.fired`), a selection is published once it is finished (`selection.settled`), and the
 clipboard events never carry the text (§5, Commands and shortcuts; Selection and the clipboard).
 `editor.pasted` became `clipboard.pasted`.
+
+**Added 2026-11-05, fifth.** The owner asked for drag and drop events. Six owners wire their own
+today; the events are one lifecycle per drag (`drag.started` → `drag.zone-changed` →
+`drag.dropped` or `drag.cancelled`), plus `slide.moved` for what a strip reorder means
+(§5, Drag and drop).
