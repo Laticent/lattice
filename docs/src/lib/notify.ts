@@ -67,7 +67,12 @@
 //    `onDismiss` rather than a clock of ours, so a hover that pauses the dwell keeps
 //    the pill live and keeps the rewrite in place.
 //
-// Raising twice in ONE tick is a third thing, and it is not a bug to fix here: it is
+// 3. THE RAISE THAT LANDS ON A DYING PILL — the other edge of the same window: a rewrite
+//    raised just BEFORE the dwell ends, whose deferred publish arrives after the close.
+//    `raiseSlot` carries the mechanism and the fix (close judged by id, the rewrite raised
+//    again on a fresh one).
+//
+// Raising twice in ONE tick is a fourth thing, and it is not a bug to fix here: it is
 // what sharing a pill MEANS. The second message destroys the first. Compose one
 // message instead — the Library's import funnel learned this by telling a reader a
 // corrupt file was empty.
@@ -114,7 +119,10 @@ export type ActionOptions = NotifyOptions & {
  *  its own notice early (the Studio's Undo withdraws when the source moves under it). */
 export type NoticeHandle = string | number;
 
-type Slot = { id: string; live: boolean; seq: number; raise: number };
+type Wire = (closed: () => void) => Record<string, unknown>;
+/** `last` is the newest raise's arguments, kept so a raise that landed on a dying pill can be
+ *  raised again on a fresh id (trap 3 in `raiseSlot`). */
+type Slot = { id: string; live: boolean; seq: number; raise: number; last?: { message: string; fields: Record<string, unknown>; wire?: Wire } };
 const slots: Record<keyof typeof NOTICE_ID_PREFIX, Slot> = {
 	status: { id: '', live: false, seq: 0, raise: 0 },
 	action: { id: '', live: false, seq: 0, raise: 0 },
@@ -134,18 +142,36 @@ function raiseSlot(
 	fields: Record<string, unknown>,
 	/** Handed the slot's own "this pill is gone" callback, for a kind that has a close
 	 *  path Sonner does not report (see `notifyAction`). */
-	wire?: (closed: () => void) => Record<string, unknown>,
+	wire?: Wire,
+	/** Internal: a re-raise after trap 3 keeps the raise number it is standing in for. */
+	again?: number,
 ): NoticeHandle {
 	const slot = slots[kind];
 	if (!slot.live) slot.id = `${NOTICE_ID_PREFIX[kind]}#${++slot.seq}`;
 	slot.live = true;
-	// Tokened, NOT compared by id: a rewrite in place reuses the id by design, so an
-	// id is exactly what cannot tell a superseded raise from the current one. A stale
-	// callback marking the live pill dead would rotate the next message onto a fresh
-	// id and put two pills of one kind on screen.
-	const token = ++slot.raise;
+	const id = slot.id;
+	const token = again ?? ++slot.raise;
+	slot.last = { message, fields, wire };
+	// 3. THE RAISE THAT LANDS ON A DYING PILL. Sonner publishes a toast a macrotask late
+	//    (`setTimeout` + `flushSync` in the Toaster's subscriber, `dist/index.mjs:966`), so a
+	//    rewrite raised just before the live pill's dwell ends reuses its id, and the pill's
+	//    own close timer can fire BEFORE the rewrite lands. The pill then dies with the new
+	//    text merged into it (`data-removed`), and the rewrite never shows. studio-smoke hit
+	//    it (ci-flake-audit §3): "Generated .pricing-trio" raised 2.6 s after "Saved
+	//    .quarter-callout", and the "Saved .pricing-trio" after it vanished too.
+	//
+	//    So a close is judged by ID, not by which raise registered the callback. Any close
+	//    callback that fires means the pill with that id is going: Sonner re-runs its timer
+	//    and reads the merged `onDismiss` / action whenever a rewrite lands, so a superseded
+	//    raise's callback can only fire in the gap before the rewrite reached the pill, and
+	//    that pill is already being deleted. The slot then stops being live, and if a newer
+	//    raise went to that dying id, its message is raised again on a fresh one, keeping its
+	//    raise number so `actionLive` still recognizes it. A callback for an id the slot has
+	//    already moved past does nothing.
 	const closed = () => {
-		if (slot.raise === token) slot.live = false;
+		if (slot.id !== id || !slot.live) return;
+		slot.live = false;
+		if (slot.raise !== token && slot.last) raiseSlot(kind, slot.last.message, slot.last.fields, slot.last.wire, slot.raise);
 	};
 	// `fields` FIRST: the liveness callbacks are the slot's own bookkeeping and a
 	// caller's options must never be able to land on top of them. Spread the other way
@@ -270,7 +296,9 @@ export function actionLive(raise: number): boolean {
  * something else was raised or the pill is gone.
  */
 export function dismissActionNotice(handle: NoticeHandle, raise: number): void {
-	if (actionLive(raise)) toast.dismiss(handle);
+	// The slot's CURRENT id, not the handle: after trap 3 the same raise may be standing on a
+	// fresh id. `actionLive(raise)` is what proves the current id is still this raise's.
+	if (actionLive(raise)) toast.dismiss(slots.action.id || handle);
 }
 
 /** Retire a notice early. Safe to call on one already gone. */
@@ -289,5 +317,5 @@ export function dismissNotice(handle: NoticeHandle): void {
  * nothing and make each test's pills its own.
  */
 export function __resetNotify(): void {
-	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, raise: 0 });
+	for (const slot of Object.values(slots)) Object.assign(slot, { id: '', live: false, raise: 0, last: undefined });
 }

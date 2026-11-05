@@ -1,6 +1,6 @@
 import { cleanup, render } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toaster } from '@/components/ui/sonner';
 import { __resetNotify, notify, notifyAction } from '@/lib/notify';
 
@@ -106,6 +106,77 @@ describe('the message kernel, against real Sonner', () => {
 		});
 		await tick(400); // past the previous toast's pending removal
 		expect(pills().join('|')).toContain('Second message.');
+	});
+
+	// THE OTHER EDGE OF THE WINDOW (ci-flake-audit §3). Sonner publishes a toast a
+	// macrotask late (`setTimeout` + `flushSync` in the Toaster's subscriber), so a message
+	// raised a moment BEFORE the live pill's dwell ends reuses its id, and then the pill's
+	// own close timer fires before the merge lands. The pill dies with the new text merged
+	// into it, and the old raise's close callback, now superseded, used to leave the slot
+	// marked live: the NEXT message reused the dying id too and vanished the same way.
+	// studio-smoke caught it: "Generated .pricing-trio" landed 2.6 s after "Saved
+	// .quarter-callout", and the "Saved .pricing-trio" that followed never showed.
+	// Fake timers, because the order is the whole test: the raise must run in the same
+	// tick as the close, ahead of it, which real time cannot schedule on purpose.
+	it('a message raised just before the live pill closes, and the one after it, both survive', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			render(<Toaster />);
+			// Queued BEFORE the pill's own close timer exists, at the same due time, so it
+			// runs first in that tick: the raise is ahead of the close, its publish behind it.
+			act(() => {
+				notify('Saved “.quarter-callout”.');
+				setTimeout(() => notify('Generated “.pricing-trio”.'), 2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(pills().join('|')).toContain('quarter-callout');
+			await act(async () => {
+				vi.advanceTimersByTime(2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|'), 'the message raised as the old pill closed').toContain('Generated');
+			act(() => {
+				notify('Saved “.pricing-trio”.');
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|'), 'the message after it').toContain('Saved “.pricing-trio”.');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	// The same race, then the next message INSIDE the dying pill's 200 ms exit: the
+	// studio-smoke timing, where Save finished about 100 ms after the generate's notice.
+	it('the message after that race survives even inside the dying pill\'s exit window', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			render(<Toaster />);
+			act(() => {
+				notify('Saved “.quarter-callout”.');
+				setTimeout(() => notify('Generated “.pricing-trio”.'), 2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(2600 + 50);
+			});
+			act(() => {
+				notify('Saved “.pricing-trio”.');
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|')).toContain('Saved “.pricing-trio”.');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	// The kinds are separate SLOTS, and this is the claim the Toaster's

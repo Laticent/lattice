@@ -51,15 +51,32 @@ describe('notify — the status kind', () => {
 		expect(opts(1).id).not.toBe(opts(0).id);
 	});
 
-	// A callback from a pill we have already moved past must not mark the CURRENT
-	// one dead — that would rotate the next message onto a fresh id and put two
-	// pills on screen where one was asked for.
-	it('ignores a stale close from a pill that was already replaced', () => {
+	// A callback for an id the slot has already moved past must not mark the CURRENT
+	// pill dead — that would rotate the next message onto a fresh id and put two pills
+	// on screen where one was asked for.
+	it('ignores a late close for an id the slot has already moved past', () => {
 		notify('First message.');
-		notify('Second message.'); // replaces in place, same id
-		autoClose(0); // the first call's callback, fired late
+		autoClose(0); // the first pill closes: the id rotates
+		notify('Second message.');
+		autoClose(0); // the first pill's callback again, late
 		notify('Third message.');
+		expect(opts(1).id).not.toBe(opts(0).id);
 		expect(opts(2).id).toBe(opts(1).id);
+	});
+
+	// Trap 3 (ci-flake-audit §3). The first raise's close firing AFTER a rewrite was
+	// raised onto its id is not stale: Sonner re-arms the timer whenever a rewrite lands,
+	// so that close can only fire before the rewrite reached the pill, and the pill (with
+	// the rewrite merged into it) is being deleted. The rewrite is raised again on a fresh
+	// id, and the next message rewrites THAT pill in place: still one pill.
+	it('raises a rewrite again on a fresh id when the pill it landed on closes', () => {
+		notify('First message.');
+		notify('Second message.'); // a rewrite, same id
+		autoClose(0); // the first raise's close, before the rewrite reached the pill
+		expect(opts(2).id).not.toBe(opts(1).id);
+		expect(toast.mock.calls[2][0]).toBe('Second message.');
+		notify('Third message.');
+		expect(opts(3).id).toBe(opts(2).id);
 	});
 
 	// Sonner merges by id (`{...toast, ...data}`), so a key this function omits

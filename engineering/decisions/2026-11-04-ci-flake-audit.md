@@ -78,6 +78,18 @@ Each one waited on a clock, or read state once, where the thing it needed could 
 | `e2e/draw-frame-preview.spec.ts` Mermaid fallback (found on this PR) | `locator.evaluate: Execution context was destroyed` at 3.4 s (studio-smoke 41949443186, on a commit that changed only this note) | the poll read the preview frame while the preview replaced its document, and `expect.poll` does not retry a callback that throws | no poll: an init script traps the frame's `window.mermaid` assignment in every document the preview swaps in, and calls the test back when the stand-in lands | desktop, 8/8 at 4 workers |
 | `confine-cli` / `mermaid-worker-confine` (Windows) | `null !== 0` at 120 s, empty stderr (41877087984; re-run passed in 5.4 s) | the spawn's 120 s kill fired before anything spoke | the CLI's own render watchdog now fires first (60 s), and the assertion names the signal and output | Linux 4/4; **the hang itself is not explained** (UNVERIFIED cause) |
 
+**Fixed later, by the continuation PR: `e2e/library-reopen-generate.spec.ts` Save after a generate.** studio-smoke
+41951781635 clicked an enabled Save about 90 ms after a component generate landed, and `Saved .pricing-trio` never
+showed. The trace answers it, and the cause is not the Save button. The previous notice, `Saved .quarter-callout`,
+reached the end of its 2.6 s dwell just as `Generated .pricing-trio` was raised. That raise reused the live pill's id,
+but Sonner publishes a toast one macrotask late, so the old pill's close fired first. The trace shows the generate's text
+inside a pill marked `data-removed: true`. That close came from a superseded raise, so `notify.ts` ignored it, and the
+slot stayed live on the dying id. The save's own notice then landed on the same id and was deleted with it. The fix is
+in `notify.ts` (trap 3): a close is judged by the pill's id, and a message that landed on a dying pill is raised again on
+a fresh one. `notify.dom.test.tsx` reproduces both losses against real Sonner with fake timers and fails without the fix.
+The spec also gains a case that clicks Save inside the same task that commits the generated draft. Evidence is in the
+continuation PR.
+
 Not changed: `editor-lint.spec.ts` "Fix all names a fix it refused" (3 failed, 4 flaky in 6 nightlies). Its click
 already waits for the palette row, which appears once lint counts the 501-card deck. That passed 3/3 here in about
 15 s per run and overruns 60 s on CI. That is a deadline on a loaded runner, so replacing it with a signal changes nothing.

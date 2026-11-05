@@ -926,6 +926,17 @@ never turn "passed in headless" into "works on iOS."
   while it is LIVE, and rotates once it has closed. If you introduce another shared
   id anywhere, you inherit this and must do the same. Liveness must come from
   Sonner's `onAutoClose`/`onDismiss`, not a clock: a hover pauses the dwell.
+- **The other edge (trap 3):** Sonner shows a toast one macrotask after `toast()`
+  is called (`setTimeout` + `flushSync` in the Toaster's subscriber). A message
+  raised a moment BEFORE the dwell ends reuses the live id, and the old pill's close
+  can fire before the merge lands: the new text merges into a pill already marked
+  `data-removed`. The close is therefore judged by id, not by which raise registered
+  it, and the swallowed message is raised again on a fresh id. Before that, the slot
+  also stayed "live" on the dead id, so the next message vanished as well. That is
+  how studio-smoke lost "Saved .pricing-trio" after a component generate
+  (`engineering/decisions/2026-11-04-ci-flake-audit.md` §3). `notify.dom.test.tsx`
+  pins both halves with fake timers, because only they can order the raise ahead of
+  the close on purpose.
 - **Related:** raising twice in ONE tick is a different thing and still destroys the
   first message — that is what sharing a pill MEANS. Compose one message instead;
   the Library's import funnel did exactly this and told the reader a corrupt file
