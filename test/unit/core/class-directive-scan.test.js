@@ -490,10 +490,17 @@ describe('cost — this runs on every keystroke', () => {
     // wall-clock number, so it means the same thing on a loaded sandbox: linear
     // costs a small constant factor, quadratic costs three orders of magnitude.
     const body = 'some ordinary prose line here\n'.repeat(20000);
+    //
+    // BEST OF SEVEN, against a ceiling of 100. Since the directive island (#3042) the clean scan takes about 0.05 ms,
+    // and one sample of a time that short swings with any stall: one-sample ratios here ran a median of 10 and a
+    // maximum of 58, failing about 3 runs in 100 against the old ceiling of 25. The fastest of seven timings on each
+    // side drops a stall: 600 runs gave a maximum of 21. The quadratic consumption this guards against costs three
+    // orders of magnitude or more (8 s against 5 ms, measured), so 100 still fails it by a wide margin.
     const clean = () => { const t = performance.now(); slideClassDirectives(body); return performance.now() - t; };
     const poisoned = () => { const t = performance.now(); slideClassDirectives(`<!-- oops\n${body}`); return performance.now() - t; };
+    const best = (fn) => { let t = Infinity; for (let i = 0; i < 7; i++) t = Math.min(t, fn()); return t; };
     clean(); poisoned(); // warm
-    const ratio = Math.max(poisoned(), 0.01) / Math.max(clean(), 0.01);
-    assert.ok(ratio < 25, `an unterminated \`<!--\` cost ${ratio.toFixed(0)}× a clean scan of the same deck — the consumption is re-scanning its buffer`);
+    const ratio = Math.max(best(poisoned), 0.01) / Math.max(best(clean), 0.01);
+    assert.ok(ratio < 100, `an unterminated \`<!--\` cost ${ratio.toFixed(0)}× a clean scan of the same deck — the consumption is re-scanning its buffer`);
   });
 });
