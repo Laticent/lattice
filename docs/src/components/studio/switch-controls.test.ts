@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SWITCHES } from '../../../../lib/core/switches.mjs';
-import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, SWITCH_HOMES, switchState, withSwitchState } from './switch-controls';
+import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, switchState, withSwitchState } from './switch-controls';
+import { SWITCH_HOMES } from './switch-homes';
 
 const read = (f: string) => readFileSync(join(__dirname, f), 'utf8');
 const PANELS = { deck: read('StudioShell.tsx'), slide: read('SlideContext.tsx') } as const;

@@ -188,7 +188,7 @@ The owner asked that every switch have a Studio control at the deck AND the slid
 way (followup `3023-p2`, now deleted). The owner was away, so the session took the followup's own
 suggested grouping, trimmed to the tabs both panels already had plus one new one.
 
-**Where each switch lives.** `docs/src/components/studio/switch-controls.ts` `SWITCH_HOMES` holds it,
+**Where each switch lives.** `docs/src/components/studio/switch-homes.ts` `SWITCH_HOMES` holds it (a module only its test imports, so it ships in no bundle),
 one row per `SWITCHES` name. `switch-controls.test.ts` fails when a switch has no home, when a home
 names a tab or row label the panel does not draw, or when a home names a name that is not a switch.
 
