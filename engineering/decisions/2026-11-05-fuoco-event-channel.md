@@ -86,7 +86,8 @@ Read from the code on `9dc7f3ed`.
 
 Twenty non-test files under `docs/src` dispatch ad-hoc `window` events
 (`grep -rlE "dispatchEvent\??\.?\(new (Custom)?Event\(" docs/src`, with test, spec, `dist/` and
-generated files excluded): 17 in the Studio and its libraries, and three site `.astro` pages
+generated files excluded): 17 in the Studio, the Playground and their shared libraries (one of them
+`lib/site-chrome.ts`), and three site `.astro` pages
 (`components/site/PwaHead.astro` and the Fuoco and Filo library demo pages), which are the
 docs site's own chrome and stay out of scope. Beside the five named in the table there are about ten more, each a constant:
 `SETTINGS_EVENT` (`lattice:settings`), `lattice:notify-action` / `-dismiss`, `lattice:preview-zoom`,
@@ -131,7 +132,7 @@ subscribe. The map declares which each entry is. A consumer that WAITS on someth
 on each wake: the event is the wake-up and the state is the truth.
 
 Why the same hub and not a sibling: the guarantees are the hub's, and an event is most useful
-stamped against the focus and revision it happened in (`render.settled` for `rev` 41 is stale the
+stamped against the revision it happened in (`render.settled` for `rev` 41 is stale the
 moment `rev` 42 exists). `followups.d/2884-p1` already recommends exactly this shape for its change
 channel (`hub.subscribeChanges`); this generalizes it rather than building it twice.
 
@@ -153,20 +154,30 @@ built on. The few real veto points (leave with unsaved changes, export with lint
 REQUESTS, not events, and stay as explicit calls at the one place that decides. Add a cancelable
 form only when a named case cannot be written that way.
 
-**4.3 A frame bridge, installed by the host, one per frame.** The host installs
-`__latticeEvents` on each frame's OWN window (`iframe.contentWindow`) before its document loads,
-bound to `{ frameId, rev, role: 'preview' | 'capture' | 'print' }`, with `defineProperty` so the
-frame cannot replace it (as `preview-draw-host.ts:35` does). The runtime calls it when present and
-does nothing when absent, inside the same `try` that guards its other host lookups
-(`index.js:3779-3790`), because a cross-origin parent throws on access. It is NOT copied from
-`__latticeDrawHost` in one respect: that one returns null in capture frames (`index.js:3783-3785`),
-and the bridge must stay installed there, because the export is its first consumer. The host side
-copies each payload (`structuredClone`), checks it against the event's closed schema, stamps
-`origin`, `frameId` and `rev` itself, and delivers on a host microtask, never inside the frame's
-call, so nothing thrown on the host unwinds into the runtime mid-pass. The CLI export, the player
-and marp-vscode install nothing, so they behave exactly as now. The Stage window and the draw host
-keep `postMessage` (separate realms); their receivers re-emit only the types they are allowed, and
-the draw host's only for job ids the host issued, so plugin code cannot forge a `figure.drawn`.
+**4.3 A frame bridge, installed by the host on the parent, one record per frame.** The host
+installs ONE `__latticeEvents` object on the page that embeds the frames, as
+`installPreviewDrawHost` installs `__latticeDrawHost` (`preview-draw-host.ts:35`, `defineProperty`,
+so nothing can replace it), and the runtime reaches it through `window.parent` inside the same
+`try` that guards its other host lookups (`index.js:3779-3790`), because a cross-origin parent
+throws on access. It cannot live on the frame's own window: a property defined on
+`iframe.contentWindow` does not survive the frame loading its `srcdoc` (a Chromium probe, §8), and
+every builder sets `srcdoc` (`deck-export.js:546`, `deck-render.js:584`,
+`single-slide-render.ts:2400`, `PrintOptionsPanel.tsx:196`).
+
+The runtime calls `emit(window, type, payload)`, passing its own window. The host keeps a map from
+each frame's window to its record `{ frameId, role: 'preview' | 'capture' | 'print' }`, written when
+it creates the frame (`role` read from the same `data-lattice-export` marker the draw host keys on),
+and drops a call from a window it does not know. It is NOT copied from `__latticeDrawHost` in one
+respect: that one returns null in capture frames (`index.js:3783-3785`), and the bridge must answer
+there, because the export is its first consumer.
+
+The host side copies each payload (`structuredClone`), checks it against the event's closed schema,
+stamps `origin`, `frameId` and `rev` itself (§10.4 says from what), and delivers on a host
+microtask, never inside the frame's call, so nothing thrown on the host unwinds into the runtime
+mid-pass. The CLI export, the player and marp-vscode install nothing, so they behave exactly as
+now. The Stage window and the draw host keep `postMessage` (separate realms); their receivers
+re-emit only the types they are allowed, and the draw host's only for job ids the host issued, so
+plugin code cannot forge a `figure.drawn`.
 
 This is a `lib/runtime` change, and the runtime is bundled into exports, so the exported bytes
 change even though their behavior does not. Per the QUALITY BAR that needs the owner's export
@@ -196,26 +207,26 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `figure.unavailable` | `plugin`, `unit`, `id`, `reason` | 2 | Export; an author-facing "this diagram did not draw" |
 | `figure.failed` | `plugin`, `unit`, `id`, `reason` (the `error` state) | 2 | Crash report sheet |
 | `figure.reclaimed` | `plugin`, `unit`, `id` (a late library took an `unavailable` figure back) | 2 | — |
-| `plugin.library-loading` / `plugin.library-loaded` / `plugin.library-failed` | `plugin`, `file`, `ms`, `reason` | 2 | Export: await the library instead of polling its figures; an "offline, Mermaid could not load" cue |
+| `plugin.library-loading` / `plugin.library-loaded` / `plugin.library-failed` (a FACT) | `plugin`, `file` (our staged file name: a planned `SANCTIONED_EVENT_STRINGS` entry), `ms`, `reason` | 2 | Export: a wake-up for its `until` read of the figures; an "offline, Mermaid could not load" cue |
 | `plugin.diagnostic` | `plugin`, `id`, `message` (the plugin's DECLARED text), `detail` (deck-derived: SENSITIVE, and rendered as text only, §10.5), `unit` | 2 | The lint panel, live instead of after the render |
 | `plugin.degraded` | `plugin`, `unit`, `fence`, `reason: 'threw' \| 'timed-out' \| 'non-string'` | 2 | An author-facing "this block fell back, and why" |
 | `plugin.used` | `plugins[]` (the set the deck now uses), `added[]`, `removed[]` | 2 | Library "in use" badges; warming a library before its first figure (§4.8 of the plugin note) |
 | `plugin.saved` / `plugin.deleted` | Folded into `library.saved` / `library.deleted` with `kind: 'plugin'` (below) | — | — |
 | `chart.started` | `kind` (`funnel`, `state-chart`, …), `unit`, `id`, `path: 'engine' \| 'runtime'` | 2 | — |
-| `chart.drawn` | `kind`, `unit`, `id`, `path`, `ms`, `orientation` | 2 | Export: one more thing to await instead of poll |
+| `chart.drawn` | `kind`, `unit`, `id`, `path`, `ms`, `orientation` | 2 | Export: a wake-up for its `until` read (there is no chart poll today; a runtime-laid-out chart is read the same way as a figure) |
 | `chart.fallback` | `kind`, `unit`, `id`, `reason` (`layout-engine-missing`, …) | 2 | Replaces the `console.warn` with an author-facing cue |
 | `view.resize-started` / `view.resized` | `view`, `width`, `height`, `canvasScale` | 2 | Fit sweep and chart re-layout, in the host instead of each pane |
 | `view.orientation-changed` | `view`, `unit` (null for the whole view), `from`, `to` (`landscape` \| `square` \| `portrait`), `cause: 'resize' \| 'fluid-toggle' \| 'device'` | 2 | Rail thumbnails and the Stage, which re-fit on a turn |
 | `view.mode-changed` | `view`, `mode: 'fixed' \| 'fluid'` | 2 | — |
-| `fonts.settled` | `families[]`, `ms` | 2 | Export: a wake-up for its `doc.fonts.ready` wait (`deck-export.js:556`) |
+| `fonts.settled` | `families[]` (deck-derived, SENSITIVE), `ms` | 2 | Export: a wake-up for its `doc.fonts.ready` wait (`deck-export.js:556`) |
 | `fit.overflow` / `fit.resolved` | `unit`, `part` | 2 | Rail pill warning |
 | `asset.loaded` | `kind: 'image' \| 'video' \| 'audio'`, `asset` (a host-issued id, never the URL: a `src` can be a signed URL or a multi-megabyte `data:`), `unit`, `ms`, `bytes?` | 3 | — |
 | `asset.failed` | `kind`, `asset`, `unit`, `reason` | 3 | — (an author-facing broken-image cue) |
-| `media.played` / `media.paused` / `media.ended` | `src`, `unit`, `at` (seconds) | 3 | — (auto-advance, narration sync, presenter timer) |
+| `media.played` / `media.paused` / `media.ended` | `asset` (host-issued id), `unit`, `at` (seconds) | 3 | — (auto-advance, narration sync, presenter timer) |
 | `present.*`, `stage.*`, `rehearsal.*` | See §5, Present mode | 3 | |
 | `export.*` | See §5, Export | 3 | |
 | `lint.changed` | `errors`, `warnings` | 3 | — |
-| `ai.requested` / `ai.replied` / `ai.applied` | `id`, `model`, `surface` (`chat`, `fabricate`, `reshape`, `describe-photo`, …), `tokens`, `usd`, `units[]` | 4 | Change flash attribution (`2884-p1` axis 4). This is the MODEL layer, for every surface that calls one; the conversation is `chat.*` (below) |
+| `ai.requested` / `ai.replied` / `ai.applied` | `id`, `model` (a planned `SANCTIONED_EVENT_STRINGS` entry), `surface` (`chat`, `fabricate`, `reshape`, `describe-photo`, …), `tokens`, `usd`, `units[]` | 4 | Change flash attribution (`2884-p1` axis 4). This is the MODEL layer, for every surface that calls one; the conversation is `chat.*` (below) |
 | `spend.changed` | `usd` | 4 | Replaces `window` `lattice-spend-changed` |
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
@@ -232,7 +243,7 @@ that leaves out:
 | `editor.focused` / `editor.blurred` | `editor: 'markdown' \| 'compose' \| 'notes'` | 3 | Which editor owns the keyboard, for the global undo keymap (`2026-10-27-filo-undo-history.md`) and the shortcut sheet |
 | `editor.mode-changed` | `from`, `to` (`markdown` \| `compose`, the shell's `editMode`) | 3 | — |
 | `editor.pasted` | Folded into `clipboard.pasted` (below) | — | — |
-| `editor.completed` | `editor`, `kind: 'component' \| 'modifier' \| 'asset' \| …`, `label` | 3 | — (ranking completions by what authors pick) |
+| `editor.completed` | `editor`, `kind: 'component' \| 'modifier' \| 'asset' \| …`, `label` (SENSITIVE: an asset label is the author's) | 3 | — (ranking completions by what authors pick) |
 | `compose.block-inserted` | `kind` (`image`, `table`, `code`, `raw`, a component), `unit` | 3 | — |
 | `compose.resync-parked` / `compose.resync-applied` | `rev`, `waitedMs` | 3 | The change flash, and an "outside change waiting" cue while the caret is in a note |
 
@@ -247,11 +258,12 @@ then runs it, so one event covers them all; without that, a shortcut-run verb wo
 | `command.ran` | `id` (a `StudioCommandId`), `via: 'palette' \| 'shortcut' \| 'lesson' \| 'menu' \| 'tour'`, `ms` (only for a verb that returns a promise) | 3 | — (a "recent commands" group in the palette; lessons check a step happened by hearing it instead of reading the DOM) |
 | `command.failed` | `id`, `via`, `reason` (only for a verb that returns a promise) | 3 | Crash report sheet |
 | `command.not-found` | `query` (what was typed into the palette when it closed with no match; SENSITIVE, §10.5: never delivered to `*`, never logged, never crosses a tab) | 3 | — (finding the verbs authors look for and we do not have) |
-| `shortcut.fired` | `keys` (`Mod+Shift+P`), `scope: 'global' \| 'markdown' \| 'compose' \| 'present' \| 'stage'`, `command` (the `StudioCommandId` it ran, if any) | 3 | The shortcut sheet could highlight the keys an author actually uses |
+| `shortcut.fired` | `keys` (`Mod+Shift+P`; a planned `SANCTIONED_EVENT_STRINGS` entry, since it is our keymap's text), `scope: 'global' \| 'markdown' \| 'compose' \| 'present' \| 'stage'`, `command` (the `StudioCommandId` it ran, if any) | 3 | The shortcut sheet could highlight the keys an author actually uses |
 
 `shortcut.fired` fires when a MAPPED shortcut ran, never on a plain `keydown`: a keystroke is text,
-and `doc.changed` already carries it. A shortcut that runs a command emits both events, in that
-order, with the same `seq` basis, so a listener that wants "what ran" hears `command.ran` alone.
+and `doc.changed` already carries it. A shortcut that runs a command emits `command.ran` and then
+`shortcut.fired`, with consecutive event sequence numbers, so a listener that wants "what ran"
+hears `command.ran` alone.
 The palette opening and closing is `panel.opened` / `panel.closed` with `panel: 'command'`.
 
 **Selection and the clipboard.** A selection changing is the focus (`head` and `anchor`), which the
@@ -268,7 +280,8 @@ is the moment a selection is FINISHED, which is the moment anything acts on it:
 `selection.settled` fires once per selection, when the pointer lifts or the shift-arrow key is
 released and the range is not empty, never while a drag is in progress. A selection on the
 preview is already a `pick` (`Focus.element`). **No clipboard event carries the text.** Events
-reach every `*` listener, including logging on the `idle` lane, and a paste can be a password or a
+reach every `*` listener (all but their SENSITIVE fields, §10.5), including logging on the `idle`
+lane, and a paste can be a password or a
 client's numbers; a listener that needs the text reads it from the editor that holds it.
 
 **The Library.** One store, so one family, keyed by `kind` rather than one name per kind:
@@ -276,11 +289,11 @@ client's numbers; a listener that needs the text reads it from the editor that h
 | Event | Payload | Slice | Consumer on day one |
 |---|---|---|---|
 | `library.saved` | `kind`, `id`, `name` (SENSITIVE, §10.5), `created` (new, or an overwrite), `changed[]` (for an edit in place: a photo's `scope` or `caption`), `version` (for the three versioned kinds: theme, component, finish) | 3 | The per-kind `list*` loaders' callers re-read on the event instead of on mount: an open Library panel, the theme picker, the fence catalog and Compose's insert menu (for a plugin) |
-| `library.deleted` | `kind`, `id`, `name` | 3 | The same readers; a deck that names the deleted theme can warn |
+| `library.deleted` | `kind`, `id`, `name` (SENSITIVE) | 3 | The same readers; a deck that names the deleted theme can warn |
 | `library.restored` | `kind`, `id`, `version` | 3 | The same readers, and the version list |
-| `library.imported` | `counts` (per kind), `renamed[]` (`backupRenames`), `skipped[]` | 3 | One import summary for the Library's drop, the package zip and an import from a deck |
-| `library.refused` | `kind`, `name`, `reason: 'name-clash' \| 'reserved' \| 'remote-refs' \| 'quota' \| 'too-large'` | 3 | One refusal notice, the same one `drag.dropped` uses |
-| `library.applied` | `kind`, `name`, `unit` (null for the whole deck) | 3 | — (which Library items decks actually use) |
+| `library.imported` | `counts` (per kind), `renamed[]` and `skipped[]` (asset names, SENSITIVE) | 3 | One import summary for the Library's drop, the package zip and an import from a deck |
+| `library.refused` | `kind`, `name` (SENSITIVE), `reason: 'name-clash' \| 'reserved' \| 'remote-refs' \| 'quota' \| 'too-large'` | 3 | One refusal notice, the same one `drag.dropped` uses |
+| `library.applied` | `kind`, `name` (SENSITIVE), `unit` (null for the whole deck) | 3 | — (which Library items decks actually use) |
 
 `library.*` is emitted by the STORE layer (`asset-store.js`, `media-store.ts`), once per logical
 operation, after the first transaction COMMITS (`oncomplete`, the moment `asset-history.js` already
@@ -346,7 +359,7 @@ conversation around it:
 | `chat.stopped` | `id` (the author pressed Stop) | 4 | — |
 | `chat.failed` | `id`, `reason: 'offline' \| 'no-key' \| 'rate-limit' \| 'model-error'` | 4 | One error surface instead of the chat's own |
 | `chat.compacted` | `before`, `after` (transcript sizes), `usd` | 4 | — |
-| `model.loading` / `model.loaded` / `model.failed` | `model`, `file`, `progress` (0-1) | 4 | Replaces `lattice-chat-agent-ready`; one loading bar for the in-browser model |
+| `model.loading` / `model.loaded` / `model.failed` | `model`, `file` (our model ids and file names: planned `SANCTIONED_EVENT_STRINGS` entries), `progress` (0-1) | 4 | Replaces `lattice-chat-agent-ready`; one loading bar for the in-browser model |
 
 A streamed token is not an event. It is the same text as the reply, sixty times a second, and only
 the bubble drawing it reads it; `chat.replied` fires once it is done. No chat event carries the
@@ -394,7 +407,7 @@ audience's Stage window, and the rehearsal planner.
 | `stage.opened` / `stage.closed` | `reason` on close (`closed-by-presenter`, `window-closed`, `present-ended`) | 3 | The presenter view, which appears only while a Stage is open (`PresentOverlay.tsx:626`) |
 | `stage.shown` | `flat` (what the AUDIENCE sees, which can lag the presenter by a message) | 3 | A presenter-view check that the audience is on the same slide |
 | `rehearsal.started` / `rehearsal.ended` | `targetMs`; on end `ms`, `overMs` | 3 | — |
-| `rehearsal.beat` | `flat`, `kind: 'eye' \| 'transition' \| 'pause' \| 'breathe' \| 'emphasis'` (the planner's own beat kinds, `rehearsal.js:134-157` `beatsFor`) | 3 | A cue a phone could vibrate on, or narration could follow |
+| `rehearsal.beat` | `flat`, `kind: 'eye' \| 'transition' \| 'pause' \| 'breathe' \| 'emphasis'` (the planner's own beat kinds, `rehearsal.js:134-159` `beatsFor`; the planner's `over` state, `:313`, is `rehearsal.pace`) | 3 | A cue a phone could vibrate on, or narration could follow |
 | `rehearsal.pace` | `flat`, `overMs` (positive when the speaker is behind the plan) | 3 | — |
 
 The presenter notes opening and closing is `panel.opened` / `panel.closed` with
@@ -498,7 +511,9 @@ dispatch ad-hoc `window` events (20, 17 of them in the Studio, with the `grep` i
 built hub (`docs/src/lib/fuoco/dist/index.mjs`): a sync listener that throws escapes into the
 unrelated caller of `go()`, the next subscriber never hears the move, and a call it had queued
 replays inside a later `report` (§10.3); and a listener that re-publishes on every delivery ran
-100,001 times in 33 ms with a flat stack until the probe's own cap stopped it (§10.3). Not measured: the time slice 2 would save
+100,001 times in 33 ms with a flat stack until the probe's own cap stopped it (§10.3). The re-read of
+the fold ran a third, in Playwright Chromium: a property defined on an iframe's `contentWindow`
+before its `srcdoc` is set is gone in the document that loads (§4.3). Not measured: the time slice 2 would save
 an export (the poll's worst-case slack is 120 ms per wait, the real figure needs a trace), and the
 hub's per-event cost under a full gallery render. Both are slice 2's first measurements.
 
@@ -587,7 +602,7 @@ builds on the lie. **Rule:** `docs/src/lib/lattice-events.test.ts`, in the style
   whose type is not a string literal, so a declared event nothing emits is caught;
 - the count of entries with no consumer is a ratchet that may only fall;
 - no file in `docs/src/lib/fuoco/` contains a dotted event name, which `checkFuocoBoundary`
-  (imports only) cannot see.
+  (imports only) cannot see; the core's one reserved shape, `{ missed }` (§10.4), is not dotted.
 The human-readable catalog is generated from the map into `dist/`, like `components.pick.md`; once
 slice 1 lands, §5 here becomes the record of the design and the generated file the live list.
 
@@ -604,21 +619,26 @@ failure in `stats` and continues; a drain is capped per top-level call and repor
   silently drop the editor's caret reports.
 - *Revision.* An event carries the `rev` its emitter computed it against, never the hub's current
   one: a render of rev 41 that settles after the author typed rev 42 must say 41, or the staleness
-  ledger marks a stale pane fresh. The host records which `rev` it built each frame's document for,
-  and the bridge stamps that.
+  ledger marks a stale pane fresh. A frame lives across many revisions: the preview keeps one
+  iframe and patches `<section>` nodes into it (`preview-virtual.js:11-15`,
+  `single-slide-render.ts:274-279`), so a rev bound to the frame goes stale on the next patch.
+  The host keeps a map from each WRITE or PATCH to the rev it was built from, keyed by the
+  `data-lattice-write` id it already stamps (`deck-render.js:584`); the runtime reports the write id
+  of the content an event is about, and the bridge stamps that write's rev.
 - *Render time.* The shell feeds the hub inside a React render (`StudioShell.tsx:1888`,
   `duringRender: true`). Events obey the same rule as focus: delivered on the microtask after the
   render, after the focus that edit moved.
 - *Bounded batches.* `requestAnimationFrame` stops in a background tab, and the default scheduler
   has no fallback (`hub.ts:200-205`), so a `frame` batch would grow for as long as the tab is hidden
   while Live edits and other-tab saves keep arriving. The event `frame` lane gets a timer fallback
-  and a per-listener cap that collapses to one `events.missed { count }`, after which a listener
-  re-reads state.
+  and a per-listener cap. Past the cap, the listener's batch collapses and the listener is called
+  once with `{ missed: count }` in place of the dropped events (a reserved, non-dotted shape the
+  core owns, so it is not an event name), after which it re-reads state.
 
 **10.5 What a payload may carry.** The "never the text" rule covered the clipboard, chat and Live,
 and the catalog broke it elsewhere: the palette query, a knocker's typed name, asset URLs (signed
 URLs carry tokens), deck-derived names and diagnostic detail. **Rule:** a payload field is a union,
-a number, an id or a boolean. A free string is admitted only through a
+a number, an id or a boolean, or an array or record of these (`spans[]`, `units[]`, `counts`). A free string is admitted only through a
 `SANCTIONED_EVENT_STRINGS` list in the ledger test, with its justification, failing on a stale
 entry, the shape the repo's other `SANCTIONED_*` lists use. A field that must stay text is marked
 SENSITIVE: it is never delivered to `*`, never logged, and never crosses a tab. URLs become
@@ -657,3 +677,11 @@ Mechanisms that were overstated:
 
 Smaller fixes: line references (`resyncFrom`, ProseMirror's drop handling, the Coach's `jump`
 field) and §7's presence bullet, which contradicted §5.
+
+**10.8 The re-read of this section.** The card grader asked for one independent read of the fold
+itself, and it found the §4.3 bridge as first written could not work (installed on the frame's own
+window, it does not survive `srcdoc`; bound to one rev per frame, it goes stale on the preview's
+patch path), a reserved `events.missed` name the ledger's own rule forbade, and payload fields
+that still broke §10.5. All are corrected above: the bridge is one parent object with a per-frame
+record, `rev` is stamped per write, overflow is a non-dotted `{ missed }`, and the remaining free
+strings are SENSITIVE or planned sanctioned entries.
