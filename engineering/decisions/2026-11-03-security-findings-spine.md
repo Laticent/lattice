@@ -419,9 +419,10 @@ browser fetches: a `url` span outside an attribute selector that is a valid url 
   it at its size: `export-photo-size.spec.ts` failed in webkit-tablet with a PowerPoint picture of 260,794 bytes against
   its 168,000 budget (it passes on main, where the camera's own regex never asked). `isValidUrlToken` is now a scan with
   the regex's answers (`test/unit/core/css-url-token-scan.test.js` holds the two to the same answer on hand cases and
-  20,000 fuzzed tokens) that reads a 4 MB token in WebKit. The narrator (`prose-projection.mjs`) asks the same test, so in
-  Safari it now takes a video's poster from such a background instead of reading the declaration as dropped. The player
-  export (`inline-url-media.mjs`) asks it too, but leaves a `data:` URL as it is, so nothing it writes changes. The spec passes in webkit-tablet and gecko.
+  20,000 fuzzed tokens) that reads a 4 MB token in WebKit. Two other callers ask the same test. The player export
+  (`inline-url-media.mjs`) returns early on a `data:` URL, so nothing it writes changes. The narrator
+  (`prose-projection.mjs`) reads whether a background declaration is dropped; its answer for such a long token in Safari
+  now matches Chromium's, which the fuzz differential holds, but no WebKit run of the narrator was made. The spec passes in webkit-tablet and gecko.
 
 ## The Studio export, as built (2026-11-05)
 
