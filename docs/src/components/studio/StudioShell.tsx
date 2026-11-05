@@ -4743,11 +4743,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const onHistory = (e: InputEvent) => {
 			if (historyInput(e.inputType)) soon();
 		};
-		window.addEventListener('load', onLoad, true);
+		// On `document`, not `window`: a load event's path stops at the document (the HTML spec leaves the
+		// Window out of it), so a capturing listener on `window` never hears a frame load.
+		document.addEventListener('load', onLoad, true);
 		window.addEventListener('focusin', onFocusIn, true);
 		window.addEventListener('beforeinput', onHistory);
 		return () => {
-			window.removeEventListener('load', onLoad, true);
+			document.removeEventListener('load', onLoad, true);
 			window.removeEventListener('focusin', onFocusIn, true);
 			window.removeEventListener('beforeinput', onHistory);
 			bell.dispose();
