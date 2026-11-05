@@ -93,7 +93,8 @@ test(`slide Content: a slide brings back what the deck turned off, and the engin
 });
 }
 
-test("slide Marks: a slide hides the deck's tints with no-treatment", async ({ page }) => {
+for (const tag of [' @gecko', ' @webkit-tablet']) {
+	test(`slide Marks: a slide hides the deck's tints with no-treatment${tag}`, async ({ page }) => {
 	await typeDeck(page, DECK.replace('title: Switches', 'title: Switches\nclass: tint-ambient'));
 	await page.getByRole('button', { name: CHROME.slideSettings }).first().click();
 	await openSection(page, CHROME.slideTab.marks);
@@ -103,6 +104,7 @@ test("slide Marks: a slide hides the deck's tints with no-treatment", async ({ p
 	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: columns no-treatment -->');
 	await expect(slideSection(page)).toHaveClass(/\bno-treatment\b/);
 });
+}
 
 // Screenshot evidence at the three shipped widths (QUALITY BAR). Not a golden diff: the shots land in
 // test-results for a human to look at.
