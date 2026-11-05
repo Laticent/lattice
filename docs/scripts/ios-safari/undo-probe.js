@@ -86,6 +86,34 @@ function undoProbeKit(result) {
 	const editorEl = () => document.querySelector('.cm-content') || document.querySelector('[aria-label="Deck source"]');
 	const snapshot = () =>
 		`undo ${document.queryCommandEnabled('undo')} redo ${document.queryCommandEnabled('redo')} editor ${tag(editorEl())} active ${tag(document.activeElement)} hasFocus ${document.hasFocus()}`;
+	/**
+	 * Every frame load and every `srcdoc`/`src` rewrite on the page, with its time. In WebKit a frame's document load
+	 * can clear the page's undo history, and the live preview rewrites its iframe's document on some updates
+	 * (DeckPreview.tsx), so each recorded cycle says how many frame events it saw: a loss that always coincides with one,
+	 * against passing cycles that rarely do, names the preview as the trigger (followups.d/3034-p8).
+	 */
+	const frames = [];
+	const frameEvent = (what) => frames.push([performance.now(), what]);
+	const watchFrame = (f) => {
+		if (f.__undoProbeWatched) return;
+		f.__undoProbeWatched = true;
+		f.addEventListener('load', () => frameEvent(`load ${tag(f)}`));
+	};
+	for (const f of document.querySelectorAll('iframe')) watchFrame(f);
+	new MutationObserver((list) => {
+		for (const m of list) {
+			if (m.type === 'attributes' && m.target.tagName === 'IFRAME') frameEvent(`${m.attributeName} ${tag(m.target)}`);
+			for (const n of m.addedNodes || []) {
+				const added = n.tagName === 'IFRAME' ? [n] : n.querySelectorAll ? [...n.querySelectorAll('iframe')] : [];
+				for (const f of added) {
+					watchFrame(f);
+					frameEvent(`added ${tag(f)}`);
+				}
+			}
+		}
+	}).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['srcdoc', 'src'] });
+	/** Frame events since `since` (a performance.now() time), as "Δms:what" relative to `since`. */
+	const framesSince = (since) => frames.filter(([t]) => t >= since).map(([t, w]) => `${Math.round(t - since)}:${w}`);
 	/** Type `text` as one input, the way a keyboard's committed word arrives. Returns what happened to the input. */
 	const type = async (text) => {
 		const el = await focusEnd();
@@ -223,7 +251,9 @@ function undoProbeKit(result) {
 			if (now !== was && !flip) {
 				const at = Date.now() - t0;
 				const near = seen.filter(([t]) => t >= at - 300 && t <= at).map(([t, w]) => `${t}:${w}`);
-				flip = `undo ${was}→${now} at ${at} ms after: ${near.join(', ') || 'nothing seen'}`;
+				const p = performance.now();
+				const frameNear = frames.filter(([t]) => t >= p - 1500).map(([t, w]) => `${Math.round(t - p)}:${w}`);
+				flip = `undo ${was}→${now} at ${at} ms after: ${near.join(', ') || 'nothing seen'}; frames in the 1.5 s before: ${frameNear.join(', ') || 'none'}`;
 			}
 			was = now;
 		}
@@ -235,7 +265,7 @@ function undoProbeKit(result) {
 		removeEventListener('focusout', onFocus, true);
 		return flip;
 	};
-	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot, watchUndo };
+	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot, watchUndo, framesSince };
 }
 
 async function latticeUndoProbe() {
@@ -285,32 +315,49 @@ async function latticeUndoProbe() {
 				throw new Error(`${e.message} (${pastes} pastes; the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
 			});
 		const pasted = k.deckText();
-		k.step('put the deck in the editor', true, `${pastes > 1 ? `${pastes} pastes; ` : ''}${k.snapshot()}`);
+		k.step('put the deck in the editor', true, `${pastes > 1 ? `${pastes} pastes; ` : ''}${k.snapshot()}; ${document.querySelectorAll('iframe').length} iframes, frame events so far: ${k.framesSince(0).length} (${k.framesSince(0).slice(-6).join(', ')})`);
 		// Recorded cycles (UNDO_DIAG_CYCLES): type → WebKit undo, with what each cycle saw.
-		const cycles = [];
-		for (let i = 1; i <= UNDO_DIAG_CYCLES; i++) {
-			await k.sleep(1500);
-			const word = ` D${i}`;
-			const typing = await k.type(word);
-			await k.until(() => k.deckText().includes(word), 15000, `diag word ${i}`);
-			const held = k.snapshot();
-			const flip = await k.watchUndo(800);
-			const fired = await k.command('undo');
-			const undone = await k.until(() => k.deckText() === pasted, 3000, 'diag undo').then(() => true, () => false);
-			cycles.push(`#${i} ${fired || 'NONE'} undone ${undone} | typing: ${typing} | held: ${held}${flip ? ` | FLIP ${flip}` : ''} | cmd: ${(result.events || []).at(-1)}`);
-			if (!undone) {
-				const el = await k.focusEnd();
-				if (el instanceof HTMLTextAreaElement) el.select();
-				else document.execCommand('selectAll');
-				document.execCommand('insertText', false, pasted);
-				await k.until(() => k.deckText() === pasted, 10000, 'diag restore').catch(() => {});
+		// Recorded cycles, in two phases: the preview live, then (where the layout draws it) the preview collapsed, the
+		// control for the frame-load lead in followups.d/3034-p8. Each cycle records the frame events between its keystroke
+		// and its undo command, so losses can be set against the frame activity of the cycles that passed.
+		const runCycles = async (phase, from) => {
+			const cycles = [];
+			for (let i = from; i < from + UNDO_DIAG_CYCLES; i++) {
+				await k.sleep(1500);
+				const word = ` D${i}`;
+				const t0 = performance.now();
+				const typing = await k.type(word);
+				await k.until(() => k.deckText().includes(word), 15000, `diag word ${i}`);
+				const held = k.snapshot();
+				const flip = await k.watchUndo(800);
+				const fired = await k.command('undo');
+				const framed = k.framesSince(t0);
+				const undone = await k.until(() => k.deckText() === pasted, 3000, 'diag undo').then(() => true, () => false);
+				cycles.push(`#${i} ${fired || 'NONE'} undone ${undone} | frames ${framed.length}${framed.length ? ` (${framed.join(', ')})` : ''} | typing: ${typing} | held: ${held}${flip ? ` | FLIP ${flip}` : ''} | cmd: ${(result.events || []).at(-1)}`);
+				if (!undone) {
+					const el = await k.focusEnd();
+					if (el instanceof HTMLTextAreaElement) el.select();
+					else document.execCommand('selectAll');
+					document.execCommand('insertText', false, pasted);
+					await k.until(() => k.deckText() === pasted, 10000, 'diag restore').catch(() => {});
+				}
 			}
-		}
-		if (cycles.length) {
-			const bad = cycles.filter((c) => !/^#\d+ historyUndo undone true/.test(c)).length;
-			k.step(`recorded: ${cycles.length - bad} of ${cycles.length} type → WebKit undo cycles raised historyUndo and undid`, true, `\n    ${cycles.join('\n    ')}`);
-			result.events = [];
-		}
+			if (cycles.length) {
+				const bad = cycles.filter((c) => !/^#\d+ historyUndo undone true/.test(c)).length;
+				const framedCycles = cycles.filter((c) => !/\| frames 0 \|/.test(c)).length;
+				k.step(`recorded (${phase}): ${cycles.length - bad} of ${cycles.length} type → WebKit undo cycles raised historyUndo and undid; ${framedCycles} of ${cycles.length} saw a frame event`, true, `\n    ${cycles.join('\n    ')}`);
+				result.events = [];
+			}
+		};
+		await runCycles('preview live', 1);
+		const collapse = k.button('Collapse preview');
+		if (collapse) {
+			collapse.click();
+			await k.sleep(1000);
+			await runCycles('preview collapsed', 1 + UNDO_DIAG_CYCLES);
+			k.button('Expand preview')?.click();
+			await k.sleep(1000);
+		} else k.step('no Collapse preview at this width: the control phase is skipped', true, `${innerWidth}px`);
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
 		await k.sleep(1500);
 		const typing = await k.type(' ONE');
