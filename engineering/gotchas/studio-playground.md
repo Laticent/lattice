@@ -935,8 +935,8 @@ never turn "passed in headless" into "works on iOS."
   also stayed "live" on the dead id, so the next message vanished as well. That is
   how studio-smoke lost "Saved .pricing-trio" after a component generate
   (`engineering/decisions/2026-11-04-ci-flake-audit.md` §3). `notify.dom.test.tsx`
-  pins both halves with fake timers, because only they can order the raise ahead of
-  the close on purpose.
+  pins both halves with fake timers, and `e2e/status-pill.spec.ts` stages the same order
+  in Chromium, WebKit and Gecko by queuing the raise ahead of the dwell timer.
 - **Related:** raising twice in ONE tick is a different thing and still destroys the
   first message — that is what sharing a pill MEANS. Compose one message instead;
   the Library's import funnel did exactly this and told the reader a corrupt file

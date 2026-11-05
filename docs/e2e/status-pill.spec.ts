@@ -246,3 +246,61 @@ test('an action message raised inside a CLICKED affordance’s exit window survi
 	await expect(exitingPill(page)).toHaveCount(0);
 	await expect(pills(page).filter({ hasText: 'Auto-glossary on' })).toHaveCount(1);
 });
+
+// TRAP 3, on the real surface (notify.ts; ci-flake-audit §3). The OTHER edge of the exit window: a message raised just
+// BEFORE the live pill's 2600 ms dwell ends. Sonner publishes a toast a macrotask late (`setTimeout` + `flushSync`), so
+// the raise reuses the live id while the pill's own close timer, already due, fires first: the new text merges into a
+// pill marked `data-removed` and goes with it, and the slot used to stay "live" on that dead id, so the NEXT message
+// vanished too. That is how studio-smoke lost "Saved .pricing-trio".
+//
+// A click from outside cannot land in that one task on purpose, so the page's own timers place it: the next timer armed
+// with the status dwell (2600 ms) gets a twin queued ahead of it, at the same delay, that clicks "Save a version". The
+// raise then runs in the same tick as the close and before it, and its publish lands after: the order the trace showed.
+// One body, two titles: `desktop` skips any `@webkit` title, and a phone width does not draw "Version history", so the
+// `@gecko` copy runs on Chromium desktop and Gecko, and the `@webkit-tablet` copy on WebKit.
+for (const tag of ['@gecko', '@webkit-tablet'])
+test(`${tag} a status message raised just before the live pill closes, and the next one, both show`, async ({ page }) => {
+	await gotoStudio(page);
+	await page.getByRole('button', { name: 'Version history' }).click();
+	const save = page.getByRole('button', { name: 'Save a version' }).first();
+	await page.mouse.move(0, 0);
+
+	await page.evaluate(() => {
+		const w = window as unknown as { __trap3?: { armed: boolean; fired: boolean } };
+		w.__trap3 = { armed: true, fired: false };
+		const native = window.setTimeout.bind(window);
+		window.setTimeout = ((fn: TimerHandler, delay?: number, ...rest: unknown[]) => {
+			if (w.__trap3?.armed && delay === 2600) {
+				w.__trap3.armed = false;
+				native(() => {
+					// Found at click time: the panel re-renders, so a mark set on the button earlier is gone by now.
+					const btn = [...document.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') || b.textContent || '').trim() === 'Save a version');
+					btn?.click();
+					if (w.__trap3) w.__trap3.fired = !!btn;
+				}, 2600);
+			}
+			return native(fn, delay, ...rest);
+		}) as typeof window.setTimeout;
+	});
+
+	// Message A, by a script click so no pointer hovers the stack (a hover pauses the dwell and re-arms a shorter timer).
+	await save.evaluate((el) => (el as HTMLElement).click());
+	await expect(pills(page).first()).toContainText('Version saved to history.');
+	await expect
+		.poll(() => page.evaluate(() => (window as unknown as { __trap3?: { fired: boolean } }).__trap3?.fired ?? false), {
+			timeout: 10_000,
+			message: 'the dwell timer never armed, or no Save a version button was there to click: the race was never staged',
+		})
+		.toBe(true);
+
+	// Message B, raised in the close's own tick: it must outlive the dying pill.
+	const live = page.locator('[data-sonner-toast]:not([data-removed="true"])');
+	await expect(exitingPill(page)).toHaveCount(0);
+	await expect(live, 'the message raised as the old pill closed').toHaveCount(1);
+	await expect(live.first()).toContainText('Version saved to history.');
+
+	// Message C, right after: the slot must not still point at the dead pill.
+	await save.evaluate((el) => (el as HTMLElement).click());
+	await expect(live, 'the message after it').toHaveCount(1);
+	await expect(live.first()).toContainText('Version saved to history.');
+});

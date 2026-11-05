@@ -60,40 +60,39 @@ three devices, and 3 of 72 recorded iOS cycles missed, all on the iPad. They sho
   keeps failing the asserted step, the honest reclassification is "WebKit drops the step without a page trigger, about 1
   cycle in 35"; the recorded cycles will show whether the editor fix changed that rate.
 
-**After the fixes (PR #3040).**
+**After the fixes (PR #3040).** Ten dispatches: five at `31123288` (the editor fix) and five at `c3d60088` (the probe fix).
 
-- **Editor fix (`31123288`): five dispatches.** The iPad editor never rebuilt (`div#1` throughout, against 3 of 5 runs
-  before), and there was no "enabled but no `historyUndo`" miss.
-- **Probe fix (`c3d60088`).** The command no longer re-selects the editor first. One iPad asserted step at `31123288`
-  had lost undo in that gap (42026963629).
-- **Recorded iOS cycles across 11 dispatches with the watcher.** 6 of 264 lost undo with nothing on the page:
-  - 42020460970 iPad #9, 884 ms;
-  - 42020465251 iPad #10, 444 ms;
-  - 42026968243 iPhone #1, 448 ms, about 280 ms after a CodeMirror transaction that changed nothing;
-  - 42026959032 iPad #12, 756 ms;
-  - 42031880242 iPad #5, 654 ms;
-  - 42031886663 iPhone #1, 482 ms.
-- **One recorded cycle where the undo did not land** (42031892694 iPad #9). `historyUndo` arrived and was handled, but the
-  word was not back within 3 s. That is a Filo-side miss, seen once.
+- **Mode 1 is gone.** The iPad editor stayed `div#1` in all 10 runs; before the fix it rebuilt in 3 of 5. No
+  "enabled but no `historyUndo`" miss in 240 recorded iOS cycles.
+- **The probe fix.** The command no longer re-selects the editor first. One iPad checked step at `31123288` had lost undo
+  in that gap (42026963629): enabled through the whole 800 ms watch, disabled at the command.
+- **Mode 2: WebKit empties its own undo stack.** Recorded iOS cycles with the 25 ms watcher (13 dispatches since
+  `8c6d33a`, 312 cycles) lost undo 7 times, 0.4 to 0.9 s after the word:
 
-**The five dispatches at `c3d60088`** (42031880242, 42031886663, 42031892694, 42031898658, 42031903887):
+  | Run | Device, cycle | Flip | What the page did in the 300 ms before |
+  |---|---|---|---|
+  | 42020460970 | iPad #9 | 884 ms | nothing |
+  | 42020465251 | iPad #10 | 444 ms | nothing |
+  | 42026968243 | iPhone #1 | 448 ms | a CodeMirror transaction that changed nothing, 278 ms earlier |
+  | 42026959032 | iPad #12 | 756 ms | nothing |
+  | 42031880242 | iPad #5 | 654 ms | nothing |
+  | 42031886663 | iPhone #1 | 482 ms | nothing |
+  | 42031898658 | iPad #9 | 891 ms | nothing |
 
-| Device | Checked step | Recorded cycles |
-|---|---|---|
-| iPhone | 5 of 5 passed | — |
-| iPad | 4 of 5 passed | 2 more mode-2 losses with nothing on the page (#5, #12, #9) |
-| Mac | 4 passed | — |
+  One checked step had the same loss (42031903887, iPad): 35 ms into the watch, 21 ms after a `selectionchange` the
+  probe did not cause, most likely CodeMirror re-applying its caret after the word. So 6 of the 8 caught losses had no
+  page event at all, and the other two had one the page does after every keystroke. That points at WebKit, not our
+  code, but it is not proven.
+- **One recorded cycle where the undo did not land** (42031892694, iPad #9). `historyUndo` arrived and was handled, but
+  the word was not back within 3 s. That is a Filo-side miss, seen once in 312 cycles, in a recorded cycle only.
+- **Checked steps at `c3d60088`.** iPhone 5 of 5. iPad 4 of 5, the failure being the loss above. Mac 4 passed; the fifth
+  run's job hit its 30-minute limit after the iPad's simulator took 892 s to give a session (audit §2, cause A).
 
-- **The iPad's failed checked step** (42031903887) gives the one lead so far: undo turned off 35 ms into the watch, 21 ms
-  after a `selectionchange` the probe did not cause. CodeMirror most likely re-applied its caret after the word. That is
-  1 of 9 caught losses with any page event before it; the other 8 had none.
-- **The Mac's fifth run did not finish.** Its job hit the 30-minute limit after the iPad's simulator took 892 s to give a
-  session. That is the session budget problem in audit §2, cause A.
-
-**Verdict.** Mode 1 is named and fixed. Mode 2 is WebKit emptying its own undo stack with no page trigger the probe can
-see. About 2.3% of cycles per device puts a red nightly at roughly 1 in 20 from this alone. Not met: 10 asserted passes in a
-row (the longest run since the fixes is 3; the iPad failed again at `c3d60088`). Whether to reclassify the asserted step is the owner's decision (PR
-#3040's decision card). Until then it stays asserted.
+**Verdict.** Mode 1 is named and fixed. Mode 2 is WebKit emptying its own undo stack, in about 2.2% of recorded cycles
+(7 of 312), with no page trigger in 6 of 8 caught cases. With two iOS devices that puts a red nightly at roughly 1 in 20
+from this alone. **Not met:** 10 checked passes in a row on both devices. The iPad failed once at each fixed head, so the
+longest clean streak since the fixes is 3. Whether to reclassify the checked step is the owner's decision (PR #3040's
+decision card). Until then it stays asserted.
 
 done when — the cause is named with evidence, and `ios-safari-undo` passes 10 dispatched runs in a row on both devices, or the
 probe step is reclassified with the reason recorded.
