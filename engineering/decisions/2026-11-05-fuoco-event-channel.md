@@ -1,5 +1,5 @@
 ---
-status: decided
+status: proposed
 summary: >
   Audit of what the Studio publishes through Fuoco and what it does not. Fuoco today is a FOCUS
   hub: one record of where the reader is, delivered through selectors. Images, video, diagrams,
