@@ -421,8 +421,13 @@ browser fetches: a `url` span outside an attribute selector that is a valid url 
   the regex's answers (`test/unit/core/css-url-token-scan.test.js` holds the two to the same answer on hand cases and
   20,000 fuzzed tokens) that reads a 4 MB token in WebKit. Two other callers ask the same test. The player export
   (`inline-url-media.mjs`) returns early on a `data:` URL, so nothing it writes changes. The narrator
-  (`prose-projection.mjs`) reads whether a background declaration is dropped; its answer for such a long token in Safari
-  now matches Chromium's, which the fuzz differential holds, but no WebKit run of the narrator was made. The spec passes in webkit-tablet and gecko.
+  (`prose-projection.mjs`) reads whether a background declaration is dropped. Run in real WebKit (Playwright) on a
+  `background-image` holding a `data:` URL, main's `posterInStyle` found no poster for an unquoted 600 KB address and none
+  for either spelling at 2 MB; this branch's finds it at 100 KB, 600 KB and 2 MB, quoted and bare, as Chromium does on both.
+- **What the reader costs in a browser.** Timed in Chromium, WebKit and Firefox (Playwright) on the 2.9 MB built sheet,
+  two runs each: the first read of a page's sheet takes 30 to 70 ms, and absolutizing it, which the camera does once per
+  document, up to 128 ms in Firefox. Each later slide's read of the same sheet costs about 1.2 ms in Chromium, 4 to 5 ms
+  in WebKit and 5 to 6 ms in Firefox, against the old regex's 1.5 to 4 ms; a 50-slide export in Safari pays about 0.1 s more. The spec passes in webkit-tablet and gecko.
 
 ## The Studio export, as built (2026-11-05)
 
