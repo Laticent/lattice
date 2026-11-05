@@ -622,13 +622,31 @@ failure in `stats` and continues; a drain is capped per top-level call and repor
   ledger marks a stale pane fresh. A frame lives across many revisions: the preview keeps one
   iframe and patches `<section>` nodes into it (`preview-virtual.js:11-15`,
   `single-slide-render.ts:274-279`), so a rev bound to the frame goes stale on the next patch.
-  The host keeps a map from each WRITE or PATCH to the rev it was built from. Today only a full
-  write carries an id: `deck-render.js` bumps `st.writeId` in its full-write branch (`:566`) and
-  stamps `data-lattice-write` on the new document's `<html>` (`:584`), and neither patch path
-  (`patchSections`, `patchSlideBody`, `single-slide-render.ts:274-279`) stamps anything. So this is
-  NEW work in build 4: both patch paths stamp a per-patch id on each `<section>` they write
-  (`data-lattice-patch`), the host records that id's rev, and the runtime reports the id of the
-  section an event is about. The bridge stamps that patch's rev, falling back to the write's.
+  **The requirement** is that an event's `rev` is the rev of the content it is about, whichever
+  write put that content in the frame. **The mechanism is build 4's to design, not this note's**:
+  three drafts of it here were each wrong against the code, so the note fixes the requirement,
+  the inventory of writers it must cover, and the tests that prove it.
+  - *What exists today.* Only the Playground's full write carries an id (`deck-render.js` bumps
+    `st.writeId` at `:566` and stamps `data-lattice-write` on the new `<html>` at `:584`). The
+    Studio's full write (`single-slide-render.ts:2400`) stamps none, and neither do the export's
+    capture frames (`deck-export.js:546`, written once). The Studio's renderer holds no hub `rev`
+    at all (`DeckPreview.tsx`, `playground-engine.ts`), so the render call must be handed the rev
+    its source text was read at.
+  - *Every writer of slide content, which build 4 must cover.* The full writes above;
+    `patchSections` (`deck-render.js:33`, both branches: its count-change branch rebuilds the
+    body through one `innerHTML`, so an id goes into the strings); `restyleDocument`
+    (`deck-render.js:97-112`, a palette or theme flip); the virtual mount (`applyWindow` and its
+    swap, `deck-render.js:213` on, which turns placeholders into sections from the latest patch's
+    strings as the reader scrolls); and `patchSlideBody` (`single-slide-render.ts:274`, which
+    replaces the whole `.lattice` body).
+  - *Carrying it.* `emit` has to carry the id with the event, read when the runtime emits, because
+    by the time the host looks the section may be gone; the host drops an id it did not issue to
+    that frame. An id written onto a section already in the document fires the runtime's
+    attribute observer (`index.js:2796`), so it is written before the node is inserted or inside
+    the HTML string.
+  - *The proof* (p4's done-when): a figure patched in at one rev that settles after the next patch
+    keeps its own rev; a section mounted by scrolling after a patch carries that patch's rev; a
+    restyle does not reset it; a frame cannot claim another frame's id.
 - *Render time.* The shell feeds the hub inside a React render (`StudioShell.tsx:1888`,
   `duringRender: true`). Events obey the same rule as focus: delivered on the microtask after the
   render, after the focus that edit moved.
@@ -687,6 +705,6 @@ itself, and it found the §4.3 bridge as first written could not work (installed
 window, it does not survive `srcdoc`; bound to one rev per frame, it goes stale on the preview's
 patch path), a reserved `events.missed` name the ledger's own rule forbade, and payload fields
 that still broke §10.5. All are corrected above: the bridge is one parent object with a per-frame
-record, `rev` is stamped per write and per patch (the patch id is new work, since only a full write
-stamps one today), overflow is a non-dotted `{ missed }`, and the remaining free
+record, `rev` is fixed as a requirement with the full inventory of content writers and its tests
+(its mechanism is build 4's, after three drafts of it were wrong against the code), overflow is a non-dotted `{ missed }`, and the remaining free
 strings are SENSITIVE or planned sanctioned entries.
