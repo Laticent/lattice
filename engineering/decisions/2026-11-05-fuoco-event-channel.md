@@ -5,7 +5,7 @@ summary: >
   hub: one record of where the reader is, delivered through selectors. Images, video, diagrams,
   renders, exports and AI edits publish nothing, and the preview frame, where most of them happen,
   has no outward channel at all: the export polls the frame every 120 ms for diagrams, seven places
-  each hold their own idea of "is the preview stale", and 17 files pass ad-hoc `window` events.
+  each hold their own idea of "is the preview stale", and 17 Studio files pass ad-hoc `window` events.
   Decided (§9), not built: a typed channel beside the focus record, in the same hub, in two parts:
   OCCURRENCES (a stream, every one delivered) and FACTS (state that changes, with its last value
   kept, so a late listener is never stranded). A per-frame bridge carries the preview runtime's
@@ -84,9 +84,11 @@ Read from the code on `9dc7f3ed`.
 | A speaker note was committed or left | Notes editor | `window` events `cs-note-commit`, `cs-note-left` |
 | The Stage window opened, showed a slide | `present/stage-window.js` | `postMessage` to the opener, read in one place |
 
-Seventeen non-test files under `docs/src` dispatch ad-hoc `window` events
-(`grep -rlE "dispatchEvent\??\.?\(new (Custom)?Event\(" docs/src`, tests, `dist/` and generated
-files excluded). Beside the five named in the table there are about ten more, each a constant:
+Twenty non-test files under `docs/src` dispatch ad-hoc `window` events
+(`grep -rlE "dispatchEvent\??\.?\(new (Custom)?Event\(" docs/src`, with test, spec, `dist/` and
+generated files excluded): 17 in the Studio and its libraries, and three site `.astro` pages
+(`components/site/PwaHead.astro` and the Fuoco and Filo library demo pages), which are the
+docs site's own chrome and stay out of scope. Beside the five named in the table there are about ten more, each a constant:
 `SETTINGS_EVENT` (`lattice:settings`), `lattice:notify-action` / `-dismiss`, `lattice:preview-zoom`,
 `COMMENTS_EVENT`, `CHROME_CHANGE_EVENT`, `DECKS_CLEARED_EVENT`, `FLUSH_EVENT`,
 `OPEN_CRASH_REPORT_EVENT`, `READY_EVENT`. Each is an untyped,
@@ -470,7 +472,7 @@ exported bytes waits for its own measurement.
 | Build | Slice | What | Needs | Deletes or unblocks |
 |---|---|---|---|---|
 | 1st | 1 | The channel (`events.ts`), facts and `until`, the integrity rules of §10, the ledger test; `doc.*`, `history.*` | nothing | `followups.d/2884-p1` (Compose's hand diff) |
-| 2nd | 4 | Fold the ad-hoc `window` events (§2's list, one commit each), plus `ai.*`, `chat.*`, `model.*` | slice 1 | 17 untyped channels; the cheapest proof the channel works |
+| 2nd | 4 | Fold the ad-hoc `window` events (§2's list, one commit each), plus `ai.*`, `chat.*`, `model.*` | slice 1 | The Studio's 17 files of untyped channels; the cheapest proof the channel works |
 | 3rd | 3 (host side, with a consumer) | `library.*` and the cross-tab adapter; `export.*`; `command.*` with the `runCommand(id, via)` routing; `panel.*` | slice 1 | Stale Library panels across tabs; the per-sheet export status lines |
 | 4th | 2 | The per-frame bridge; `render.*`, `figure.*`, `plugin.*` (library, diagnostic, degraded, used), `chart.*`, `view.*`, `fonts.settled`, `fit.*`, and the in-frame code-block copy | slice 1, a trace of what the diagram poll costs (§8), the owner's export sign-off (§4.3) | Turns the export's one poll (`waitForDiagrams`) into a state read woken by an event; the `2026-10-23` design-A ledger |
 | 5th | 3 (the rest) | `asset.*` and `media.*` (these need slice 2's bridge), and the remaining host-side families (`editor.*`, `compose.*`, `selection.*`, `clipboard.*`, `shortcut.fired`, `drag.*`, `slide.moved`, `live.*`, `coach.*`, `present.*`, `stage.*`, `rehearsal.*`, `lint.changed`), in small per-domain batches | slices 1 and 2 | Ships ahead of consumers, as the owner asked, each batch under the ledger's ratchet (§10.2) |
@@ -492,7 +494,7 @@ cross the frame bridge, because those are the ones a harness cannot stand in for
 
 Measured: nothing timed. Read from the code: the hub's API and guarantees, the runtime's internal
 signals, the export's poll intervals and budgets (120 ms, 4 s, 12 s), and the count of files that
-dispatch ad-hoc `window` events (17, with the `grep` in §2). The trio ran two probes against the
+dispatch ad-hoc `window` events (20, 17 of them in the Studio, with the `grep` in §2). The trio ran two probes against the
 built hub (`docs/src/lib/fuoco/dist/index.mjs`): a sync listener that throws escapes into the
 unrelated caller of `go()`, the next subscriber never hears the move, and a call it had queued
 replays inside a later `report` (§10.3); and a listener that re-publishes on every delivery ran
@@ -645,7 +647,7 @@ Counts that did not reproduce, and the right figures:
 | Chart kinds | 31 | 28 |
 | `listAssets` readers | 14 | 12 (11 outside the store) |
 | Clipboard writers | 7 | at least 9 |
-| Files with ad-hoc `window` events | 11 | 17, with the grep named in §2 |
+| Files with ad-hoc `window` events | 11 | 20 (17 in the Studio, 3 site `.astro` pages), with the grep named in §2 |
 
 Mechanisms that were overstated:
 - the palette, menus and shortcuts do not go through `runCommand`, so slice 3 routes them;
