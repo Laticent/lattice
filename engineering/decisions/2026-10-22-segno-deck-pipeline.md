@@ -282,7 +282,7 @@ compiles runs in linear time. They belong in a package that depends on it (see D
 | Measure | Today | Target |
 |---|---|---|
 | A generated line pass, alone, on the bake-off corpus | 361 MB/s (median of five) | at least the hand-written loop's 665 MB/s, on the same machine (G6) |
-| S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | 3.6 ms for markdown-it's whole parse | under 0.5 ms |
+| S0-S1 over the 59 KB gallery (structure, boundaries, directive ranges) | markdown-it's block parse, same machine | at least 3x faster than that, on the same machine (restated 2026-11-05: was "under 0.5 ms", see §P2 landed) |
 | S0-S2 (full CommonMark parse) over the same deck | 3.6 ms | under 1 ms |
 | Re-parse after a keystroke inside one slide | the whole deck, several times | one slide, tens of microseconds |
 | Structure work inside one lint of the gallery | about 17% of 73 ms, plus what each rule re-derives | near zero: rules read the model |
@@ -486,11 +486,14 @@ markdown-it's own `validateLink(normalizeLink(unescapeAll(dest)))`. Only that pa
 | the corpus, throughput | 37.5 MB/s | 158.9 MB/s, 4.2x |
 | a keystroke in the gallery's middle slide | the whole deck | **42 µs** with the editor's span, 54 µs diffed |
 
-The gallery target (under 0.5 ms) is **not met** on this machine: 0.73 ms. The target was set against the P0
-audit's 3.6 ms for markdown-it's whole parse on another machine; on this one the whole parse is about 5.1 ms,
-so the model is 7x the whole parse and 3x the block parse it replaces. The rest is structural (one record per
-markdown-it token, the line index), and is followups.d/3038-p2-deck-model-gallery-half-millisecond.md. The
-keystroke target (one slide, tens of microseconds) is met.
+The gallery target as first written (under 0.5 ms) was missed on this machine: 0.73 ms. It was set against the
+P0 audit's 3.6 ms for markdown-it's whole parse on another machine; on this one the whole parse is about
+5.1 ms, so the model is 7x the whole parse and 3x the block parse it replaces. **The owner restated the target
+on 2026-11-05 (D2 on PR #3038) as a ratio: at least 3x markdown-it's block parse on the same machine**, because
+an absolute time moves with the machine and a ratio does not. Met at 3.0x (range 2.79-3.11 over five runs).
+What is left is structural (one record per markdown-it token, the line index): a leaner tape would buy more,
+and the parity test would then have to map it back. The keystroke target (one slide, tens of microseconds) is
+met.
 
 **Incremental.** The model keeps its tape slide by slide. `updateDeckModel` re-parses from the break above the
 edit and stops at the first break below it that the old parse had at the same shifted line; every other slide's
