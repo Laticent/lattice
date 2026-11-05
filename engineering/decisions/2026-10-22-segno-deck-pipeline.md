@@ -751,8 +751,8 @@ docblock are gone (lint-core.js: 28 lines in, 255 out).
 
 The boundary memo (lib/core/slide-boundaries.mjs) keyed six strings and, on a miss, parsed the new one from nothing. A
 keystroke made two readers miss: the lint's body (`chunkBoundaryLines`, through `scanMetaSource`) and the preview's
-`editorSample`, which StudioShell rebuilds from trimmed chunks. A miss now derives the model from the nearest entry it
-holds (`derivedModel`): `diffSpan` against each entry, and `updateDeckModel` from the one with the smallest span, which
+`editorSample`, which StudioShell rebuilds from trimmed chunks. With a deriver installed, a miss now derives the model from the nearest
+entry it holds (`derivedModel`): `diffSpan` against each entry, and `updateDeckModel` from the one with the smallest span, which
 re-reads one slide and splices. When even the nearest span covers more than half the text, there is nothing to keep
 and it parses from nothing.
 
@@ -779,6 +779,16 @@ break and its "no closer ahead" memo carries from one slide into the next (§P2 
 rule's reach recorded per slide; that is followups.d/3042-p2-segno-math-decks-still-parse.md. The bench's `ms`
 columns moved by up to 37% on columns this change does not touch, on a shared machine, so the timings above are
 commentary and the counts are the gate.
+
+**Not installed in the browser yet, for its bytes.** The deriver is `updateDeckModel` plus `diffSpan`. Imported by
+slide-boundaries, it put the Studio's lint core 1.1 KB gzipped over its ceiling on the first push (`lintCoreGz`, 149.4 KB
+against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `setBoundaryDeriver`, with
+`deriveFromNearest` in lib/core/deck-model.mjs, which a bundle that never calls it tree-shakes away). In the browser,
+both readers run inside the engine's esm bundles: the preview renders through `renderMarkdown(PG, …)`, and the lint is
+esm/lint.js beside it. Installing the deriver there costs 1.1 KB of either the engine's first-paint bytes
+(`engineJsGz`, 8 KB under its ceiling) or the lint core's ceiling, and which bundle pays is the owner's call
+(followups.d/3042-p2-segno-lint-core-still-parses.md). Until then **a browser keystroke still parses twice**. The figures
+above, the bench and the tests install the deriver in one Node instance; they measure the mechanism, not the Studio.
 
 **Why three updates and not one.** The outline's body and the lint's body are different strings: the Studio's
 front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the

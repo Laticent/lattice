@@ -409,7 +409,9 @@ test('degenerate input does not throw', () => {
 // fresh parse's. A random walk of edits over corpus-shaped atoms, each asked through the memo and compared with a model
 // read from nothing: the boundaries, the leading-empty flag, every range list, and S1's comment content.
 test('a memo miss derived from a held model is a full parse of the same text', async () => {
-	const { slideBoundaryModel } = require('../../../lib/core/slide-boundaries.mjs');
+	const { slideBoundaryModel, setBoundaryDeriver } = require('../../../lib/core/slide-boundaries.mjs');
+	const { deriveFromNearest } = require('../../../lib/core/deck-model.mjs');
+	setBoundaryDeriver(deriveFromNearest);
 	const { bodyModel } = require('../../../lib/core/deck-model.mjs');
 	const { deckModelStats } = await import('@laticent/segno-markdown');
 	const ATOMS = ['# A', 'text', '', '---', '***', '- item', '> quote', '```', '~~~', '<div>', '</div>', '<!-- _class: a -->', '<!--', '-->',
@@ -437,4 +439,5 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 	}
 	// The failing arm: the walk really did go through the incremental path.
 	assert.ok(deckModelStats.incremental - before.incremental > 500);
+	setBoundaryDeriver(null);
 });

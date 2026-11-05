@@ -3,9 +3,10 @@ import path from 'node:path';
 import { deckModelStats } from '@laticent/segno-markdown';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { deriveFromNearest } from '../../../../lib/core/deck-model.mjs';
 import { scanMetaSource } from '../../../../lib/core/meta-scan.mjs';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
-import { frontMatterBlockOf, slideBoundaries, splitSlideChunks } from '../../../../lib/core/slide-boundaries.mjs';
+import { frontMatterBlockOf, setBoundaryDeriver, slideBoundaries, splitSlideChunks } from '../../../../lib/core/slide-boundaries.mjs';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide } from '../../components/studio/deck-ops';
 import { splitSlides } from '../deck-lint';
 import { createFocusHub } from '../fuoco/hub';
@@ -186,12 +187,15 @@ describe('DeckIndex — incremental update', () => {
 		// The three boundary readers of one keystroke, in the Studio's order: the outline's index, the lint's comment
 		// scan (`chunkBoundaryLines` of the editor's body, through `scanMetaSource`) and the preview's `editorSample`,
 		// which StudioShell rebuilds from trimmed chunks. Before, the lint and the preview each missed the boundary
-		// memo and parsed the deck from nothing: 2 full parses per keystroke.
+		// memo and parsed the deck from nothing: 2 full parses per keystroke. This run installs the memo's deriver
+		// (`setBoundaryDeriver(deriveFromNearest)`) in its one module instance; the browser does not install it yet
+		// (followups.d/3042-p2-segno-lint-core-still-parses.md).
 		const src = fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8');
 		const sampleOf = (t: string) => {
 			const fm = frontMatterBlockOf(t);
 			return fm + (splitSlideChunks(t.slice(fm.length)) as { chunks: string[] }).chunks.map((c) => c.trim()).join('\n\n---\n\n');
 		};
+		setBoundaryDeriver(deriveFromNearest);
 		let ix = buildDeckIndex(src);
 		let text = src;
 		scanMetaSource(text);
@@ -210,6 +214,7 @@ describe('DeckIndex — incremental update', () => {
 		// strings (the Studio's front-matter reader keeps the blank lines after `---` out of the outline's body, the
 		// engine's split keeps them in the lint's), each one slide away from what the same reader asked a keystroke ago.
 		expect(deckModelStats.incremental - before.incremental).toBe(30);
+		setBoundaryDeriver(null);
 	});
 
 	it('a keystroke inside one slide of a large deck rebuilds the units of one region, not the deck', () => {

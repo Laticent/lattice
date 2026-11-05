@@ -426,10 +426,14 @@ const EDIT_BURST = 12;
 // (`scanMetaSource`, which reads `chunkBoundaryLines` of the editor's body) and the preview's `editorSample`, which
 // StudioShell rebuilds from trimmed chunks. `parses` counts deck models built FROM NOTHING (`deckModelStats.full`)
 // per keystroke, a work count like `typesets`: 2 when each missed the boundary memo and parsed, 0 since a miss derives
-// from the nearest held model. Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
+// from the nearest held model (`deriveFromNearest`, installed here; the browser does not install it yet,
+// followups.d/3042-p2-segno-lint-core-still-parses.md). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
 async function studioBoundaryReaders() {
   try {
     const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-markdown')]);
+    // The memo's deriver (absent in a tree that predates it).
+    const dm = await import('../../lib/core/deck-model.mjs');
+    if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);
     if (!segno.deckModelStats || !sb.splitSlideChunks || !sb.resetBoundaryMemo) return null;
     return { sb, scanMetaSource: ms.scanMetaSource, stats: segno.deckModelStats };
   } catch {
