@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about sixty-five events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
+  and a catalog of about eighty events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -58,6 +58,9 @@ Read from the code on `9dc7f3ed`.
 | A plugin renderer threw, or a hydrate ran past its budget | The host degrades it to `degradesTo`, or settles it `final` (`2026-09-27-plugin-system.md` §4.6) | Nobody: the author sees the fallback without a reason |
 | The Markdown editor gained or lost the keyboard, took a paste, accepted a completion, folded a slide | CodeMirror (`docs/src/components/studio/Editor.tsx`: `autocompletion` at :491, the paste filter at :105, `lintGutter` at :867) | The editor itself. The hub hears the caret (`report`) and the text (`update`), nothing else |
 | Compose inserted a block, opened a node view, parked or applied an outside change | ProseMirror (`ComposeView.tsx`; the image, raw and code node views; `resyncFrom` at :226) | Compose itself, through about 22 refs (`followups.d/2884-p1`) |
+| A command ran | The Studio's one action list, 26 `StudioCommandId` verbs (`studio-commands.ts`), run from the palette (`CommandPalette.tsx:193`), a lesson, or a menu | The caller only. The palette's `onRun` closes it; nothing records what ran or how |
+| A keyboard shortcut fired | `keydown` listeners in 7 Studio files (`StudioShell.tsx` alone has five, :566 to :5053), CodeMirror's keymaps, the present keymap (`lib/core/present-transport.mjs` `PRESENT_KEYMAP`) | Each listener only |
+| Text was copied or cut | Seven clipboard writers: the code block's copy button (`window.__latticeCodeCopy`, in the preview runtime), the crash report, Finish Studio's CSS, the read-aloud trace, Live, and the editors' own ⌘C / ⌘X | Each writer, which shows its own "Copied" notice or none |
 | A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
@@ -182,7 +185,7 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About sixty-five names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About eighty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
@@ -193,11 +196,43 @@ that leaves out:
 |---|---|---|---|
 | `editor.focused` / `editor.blurred` | `editor: 'markdown' \| 'compose' \| 'notes'` | 3 | Which editor owns the keyboard, for the global undo keymap (`2026-10-27-filo-undo-history.md`) and the shortcut sheet |
 | `editor.mode-changed` | `from`, `to` (`markdown` \| `compose`, the shell's `editMode`) | 3 | — |
-| `editor.pasted` | `editor`, `bytes`, `lines`, `kind: 'text' \| 'html' \| 'image'`, `stripped` (what the paste filter removed) | 3 | — (a "pasted from a model?" check; ingest telemetry) |
+| `editor.pasted` | Folded into `clipboard.pasted` (below) | — | — |
 | `editor.completed` | `editor`, `kind: 'component' \| 'modifier' \| 'asset' \| …`, `label` | 3 | — (ranking completions by what authors pick) |
 | `editor.folded` / `editor.unfolded` | `editor`, `unit` | 3 | The rail could dim a folded slide |
 | `compose.block-inserted` | `kind` (`image`, `table`, `code`, `raw`, a component), `unit` | 3 | — |
 | `compose.resync-parked` / `compose.resync-applied` | `rev`, `waitedMs` | 3 | The change flash, and an "outside change waiting" cue while the caret is in a note |
+
+**Commands and shortcuts.** Every palette row, lesson step and menu verb already runs through one
+list, so one event covers them all:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `command.ran` | `id` (a `StudioCommandId`), `via: 'palette' \| 'shortcut' \| 'lesson' \| 'menu' \| 'tour'`, `ms` | 3 | — (a "recent commands" group in the palette; lessons check a step happened by hearing it instead of reading the DOM) |
+| `command.failed` | `id`, `via`, `reason` | 3 | Crash report sheet |
+| `command.not-found` | `query` (what was typed into the palette when it closed with no match) | 3 | — (finding the verbs authors look for and we do not have) |
+| `shortcut.fired` | `keys` (`Mod+Shift+P`), `scope: 'global' \| 'markdown' \| 'compose' \| 'present' \| 'stage'`, `command` (the `StudioCommandId` it ran, if any) | 3 | The shortcut sheet could highlight the keys an author actually uses |
+
+`shortcut.fired` fires when a MAPPED shortcut ran, never on a plain `keydown`: a keystroke is text,
+and `doc.changed` already carries it. A shortcut that runs a command emits both events, in that
+order, with the same `seq` basis, so a listener that wants "what ran" hears `command.ran` alone.
+The palette opening and closing is `panel.opened` / `panel.closed` with `panel: 'command'`.
+
+**Selection and the clipboard.** A selection changing is the focus (`head` and `anchor`), which the
+hub already publishes and coalesces per frame, so it stays off the event channel. What is missing
+is the moment a selection is FINISHED, which is the moment anything acts on it:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `selection.settled` | `surface` (`markdown`, `compose`, `notes`), `from`, `to`, `length`, `units[]` | 3 | — (a floating format bar; "ask the Architect about this"; restyling a picked range) |
+| `selection.cleared` | `surface` | 3 | The same, to hide |
+| `clipboard.copied` / `clipboard.cut` | `surface`, `what` (`selection`, `code-block`, `crash-report`, `css`, `trace`, …), `kind: 'text' \| 'html' \| 'image'`, `bytes` | 3 (2 for `code-block`, which copies inside the preview frame) | One "Copied" notice instead of seven |
+| `clipboard.pasted` | `surface`, `kind`, `bytes`, `lines`, `stripped` (what the paste filter removed) | 3 | — (replaces `editor.pasted` above) |
+
+`selection.settled` fires once per selection, when the pointer lifts or the shift-arrow key is
+released and the range is not empty, never while a drag is in progress. A selection on the
+preview is already a `pick` (`Focus.element`). **No clipboard event carries the text.** Events
+reach every `*` listener, including logging on the `idle` lane, and a paste can be a password or a
+client's numbers; a listener that needs the text reads it from the editor that holds it.
 
 **Panels.** One pair, not one name per panel: `panel.opened` / `panel.closed` with
 `{ panel, via: 'click' | 'key' | 'command' | 'tour' | 'restore', surface: 'desktop' | 'tablet' | 'mobile' }`, where
@@ -218,6 +253,9 @@ it. These fail that test, or are already covered:
 | Scroll position | Sixty a second; `align.ts` maps scroll between panes directly, and the hub hears the result as `reportUnit` |
 | Hover, pointer move, tooltip shown | No second consumer, and the volume would swamp `*` listeners |
 | Moving through the completion list | Only the accepted pick (`editor.completed`) means anything |
+| Every `keydown`, and every palette keystroke | A keystroke is text (`doc.changed`) or a shortcut (`shortcut.fired`); a palette search is judged when it closes (`command.not-found`) |
+| A selection growing during a drag | It is the focus; only the finished range (`selection.settled`) is acted on |
+| Clipboard contents | Never on an event (above) |
 | A React render, a `useMemo` recompute | Implementation, not a fact; it changes whenever the code does |
 | Every intermediate resize | `view.resized` once the size holds (below) |
 | CodeMirror's viewport (which lines are drawn) | An implementation detail of its virtual rendering |
@@ -297,3 +335,9 @@ plugin host involved.
 **Added 2026-11-05, third.** The owner asked about the editors, panels, and which events are not
 worth having. The editors and panels go in slice 3 (§5, The editors; Panels), and the facts left
 out, with the reason for each, are §5 Not worth publishing.
+
+**Added 2026-11-05, fourth.** The owner asked for keyboard shortcut, command palette, clipboard and
+selection events. Commands ride the one action list (`command.*`), shortcuts fire only when mapped
+(`shortcut.fired`), a selection is published once it is finished (`selection.settled`), and the
+clipboard events never carry the text (§5, Commands and shortcuts; Selection and the clipboard).
+`editor.pasted` became `clipboard.pasted`.
