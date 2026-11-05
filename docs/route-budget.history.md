@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-05 — three ceilings raised by hand, for the deck model in the Studio (PR 3038)
+
+Owner OK 2026-11-05 (D1 B on PR 3038: "raise 3 ceilings, move now", chosen over keeping the Studio on markdown-it until P4 of the Segno deck pipeline). PR 3038 moves `lib/core/slide-boundaries.mjs`, which the Studio loads at startup and the lint core loads, from markdown-it's block parser onto the deck model (`@laticent/segno-markdown`, a port of markdown-it's block rules held to it token for token). markdown-it stays in both bundles (the outline's heading sections and the lint still use it), so the model's bytes are added, not swapped. Measured with two full docs builds of PR 3038, with the move held and with it applied: lintCoreGz +8.8 KB, studio eagerJsGz +8.5 KB, home eagerJsGz +8.4 KB; with the move, `--measure` reads lintCoreGz 151,496 B, studio eagerJsGz 569,743 B and home eagerJsGz 293,403 B. Each ceiling rises by that growth rounded up to the next 0.5 KB (9,216, 8,704 and 8,704 B), so each route keeps the headroom it had. The soft targets are unchanged; PR 3038 declares its bytes above soft in its own `docs/route-budget.d/` file. These bytes come back when P4 lets the Studio drop markdown-it.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 576536 |
+| studio | lintCoreGz | 112808 | 112808 | +0 | 152193 |
+| home | eagerJsGz | 264041 | 264041 | +0 | 297040 |
+
 ### 2026-11-04 — lint-core ceiling raised by the measured 127 B, by hand: `readGlobalStyle` moved out of the Studio's startup
 
 Owner OK 2026-11-03 (D5, as below). `readGlobalStyle` first moved into `lib/core/front-matter-key.js`, which the Studio loads at startup, and CI measured +123 B of eager JS on studio and playground (PR 3033, 5156be9). It now lives in its own file, `lib/core/front-matter-style.js`, which only lint and the CLI export load, so those bytes leave the startup bundle and count in the lint chunk instead: lintCoreGz 141,552 -> 141,679 B (+127), measured with the gate's own hash fixing. The bytes moved rather than grew; the ceiling moves by exactly that.
