@@ -6222,6 +6222,22 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 2000, count: 1,
+    why: 'ORDERING WAIT with no signal (PR #3040): after inline validation goes off, @codemirror/lint runs the NEWER '
+       + 'pass on its own 750ms timer, and with validation off that pass answers "nothing", which changes nothing '
+       + 'on the page to poll. The race under test is the OLDER pass landing after it, so the held lint core is '
+       + 'released only once that timer has had time to fire. Without the wait the older pass lands first and is '
+       + 'overwritten, and the spec passed vacuously against a guard-less build (measured).',
+  },
+  {
+    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 1500, count: 1,
+    why: 'ABSENCE ASSERTION (PR #3040): once the held lint core has loaded, the stale pass must put back NO '
+       + 'underline. There is no signal for a diagnostic that must not appear, and a poll of a zero count goes '
+       + 'green on its first tick. The wait is signal-first (the lint core response), then 1500ms for evaluation '
+       + 'and the dispatch. The control arm with the generation guard disabled fails this line 6 of 6 on WebKit '
+       + 'tablet and Gecko, so the assertion can see what it says is absent.',
+  },
+  {
     file: 'docs/e2e/restyle-overlap.spec.ts', ms: 1500, count: 1,
     why: 'ABSENCE ASSERTION: after the held-back theme file of the OLDER render has finished loading, that render '
        + 'must change nothing (#2916: it used to take the frame back from the newer one). A stale render that '
