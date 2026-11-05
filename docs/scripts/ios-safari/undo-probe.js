@@ -85,7 +85,7 @@ function undoProbeKit(result) {
 	};
 	const editorEl = () => document.querySelector('.cm-content') || document.querySelector('[aria-label="Deck source"]');
 	const snapshot = () =>
-		`undo ${document.queryCommandEnabled('undo')} redo ${document.queryCommandEnabled('redo')} editor ${tag(editorEl())} active ${tag(document.activeElement)} hasFocus ${document.hasFocus()}`;
+		`undo ${document.queryCommandEnabled('undo')} redo ${document.queryCommandEnabled('redo')} editor ${tag(editorEl())} active ${tag(document.activeElement)} hasFocus ${document.hasFocus()} bell ${document.querySelector('[data-undo-doorbell]')?.textContent.length ?? 'none'}`;
 	/**
 	 * Every frame load and every `srcdoc`/`src` rewrite on the page, with its time. In WebKit a frame's document load
 	 * can clear the page's undo history, and the live preview rewrites its iframe's document on some updates
@@ -538,7 +538,7 @@ async function latticeUndoAfterReload(before, after) {
 					? ''
 					: document.queryCommandEnabled('undo')
 						? "WebKit's undo command is enabled but raised no historyUndo, so the system undo does not reach the stored history (and this width draws no Undo button)"
-						: "queryCommandEnabled('undo') is false: a fresh page's own undo list is empty, so the system undo has nothing to send and this width draws no Undo button",
+						: `queryCommandEnabled('undo') is false: a fresh page's own undo list is empty, so the system undo has nothing to send and this width draws no Undo button (${k.snapshot()}; Studio Undo button ${k.button('Undo') ? (k.button('Undo').disabled ? 'disabled' : 'enabled') : 'none'})`,
 			);
 		k.step('Undo after the reload took back the edit made before it', k.deckText() === before, JSON.stringify(k.deckText().slice(-40)));
 		result.ok = true;

@@ -110,6 +110,7 @@ import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
 import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
+import { isIOSLike } from './ios-like';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
@@ -4724,13 +4725,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// THE UNDO DOORBELL (undo-doorbell.ts). Filo owns the history, but Safari's Edit → Undo, the iOS shake
 	// and swipe and the iPad keyboard bar's undo key only reach Filo while WebKit's OWN undo stack has a
 	// step, and WebKit empties it on every frame navigation in the page (the live preview builds its frame
-	// and rewrites its `srcdoc`), after each gesture undo, and on a reload. The doorbell re-arms that stack
-	// with one invisible edit in a hidden field the Studio owns, at exactly those moments, and only while
-	// Filo has a step to undo and focus is in an editable surface Filo owns (followups.d/3034-p8).
+	// and rewrites its `srcdoc`), and a reloaded page starts empty. The doorbell re-arms that stack with one
+	// invisible edit in a hidden field the Studio owns, after a frame load, on focus and when Filo's history
+	// gains its first step, and only while Filo has a step to undo, WebKit has neither an undo nor a redo
+	// step, and focus is in an editable surface Filo owns (followups.d/3034-p8). Never after a history
+	// gesture: that edit would empty WebKit's redo and the redo gesture would stop reaching Filo.
+	// iOS and iPadOS only. Desktop Safari never empties its stack on a frame load, and there WebKit undoes
+	// the bell's own step without a beforeinput, so a ⌘Z would go to the bell and not to Filo.
 	const filoCanRef = React.useRef(filoCan);
 	filoCanRef.current = filoCan;
 	const doorbellRef = React.useRef<UndoDoorbell | null>(null);
 	React.useEffect(() => {
+		if (!isIOSLike()) return;
 		// Loaded on demand, off the Studio's start-up bytes: it matters only once someone has typed.
 		let bell: UndoDoorbell | null = null;
 		let gone = false;
@@ -4749,18 +4755,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const onFocusIn = (e: FocusEvent) => {
 			if (!(e.target instanceof Element) || !e.target.closest('[data-undo-doorbell]')) soon();
 		};
-		const onHistory = (e: InputEvent) => {
-			if (historyInput(e.inputType)) soon();
-		};
 		// On `document`, not `window`: a load event's path stops at the document (the HTML spec leaves the
 		// Window out of it), so a capturing listener on `window` never hears a frame load.
 		document.addEventListener('load', onLoad, true);
 		window.addEventListener('focusin', onFocusIn, true);
-		window.addEventListener('beforeinput', onHistory);
 		return () => {
 			document.removeEventListener('load', onLoad, true);
 			window.removeEventListener('focusin', onFocusIn, true);
-			window.removeEventListener('beforeinput', onHistory);
 			gone = true;
 			bell?.dispose();
 			doorbellRef.current = null;

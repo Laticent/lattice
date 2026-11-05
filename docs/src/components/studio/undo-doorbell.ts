@@ -11,14 +11,15 @@
  * set or rewritten (followups.d/3034-p8: the frame lab in docs/scripts/ios-safari/undo-probe.js;
  * `document.write` and an in-place body change do not). The live preview builds its frame and
  * rewrites its `srcdoc` on full writes, so a word typed just before one lost every system undo
- * gesture. It also empties after each gesture undo Filo handles, and a reloaded page starts empty
- * while Filo restores its stored history (the macOS after-reload gap, followups.d/2959-p3).
+ * gesture. A reloaded page also starts empty while Filo restores its stored history (the macOS
+ * after-reload gap, followups.d/2959-p3).
  *
  * The doorbell re-arms the native stack in those moments: one invisible edit in a hidden editable the
  * Studio owns (`data-filo-owned`, so `undoOwner` still routes the request to Filo), then focus and the
  * caret go back exactly where they were. It never touches the deck's text and never runs while the
- * native stack already has a step, Filo has nothing to undo, or focus is not in an editable surface
- * Filo owns.
+ * native stack already has an undo or a redo step, Filo has nothing to undo, or focus is not in an
+ * editable surface Filo owns. The redo guard matters: an edit after a gesture undo empties WebKit's
+ * redo stack, and on macOS a bell step on top of the stack swallowed an undo without a beforeinput.
  */
 
 import { undoOwner } from './studio-filo';
@@ -33,9 +34,9 @@ export type UndoDoorbell = {
 /** The bell's text is a run of zero-width spaces; it is trimmed back once it grows past this. */
 const MAX_BELL_TEXT = 64;
 
-function nativeUndoEnabled(doc: Document): boolean | null {
+function nativeEnabled(doc: Document, command: 'undo' | 'redo'): boolean | null {
 	try {
-		return typeof doc.queryCommandEnabled === 'function' ? doc.queryCommandEnabled('undo') : null;
+		return typeof doc.queryCommandEnabled === 'function' ? doc.queryCommandEnabled(command) : null;
 	} catch {
 		return null;
 	}
@@ -66,7 +67,9 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 	return {
 		arm() {
 			if (ringing || !opts.canUndo()) return false;
-			if (nativeUndoEnabled(doc) !== false) return false;
+			// A step on WebKit's redo stack means a gesture undo just ran: an edit now would empty it, and the
+			// redo gesture would stop reaching Filo (iOS dispatch 42094642587).
+			if (nativeEnabled(doc, 'undo') !== false || nativeEnabled(doc, 'redo') !== false) return false;
 			const active = doc.activeElement;
 			if (!isFiloEditable(active)) return false;
 			const sel = doc.getSelection();

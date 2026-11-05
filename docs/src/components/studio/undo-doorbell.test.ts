@@ -7,6 +7,7 @@ import { createUndoDoorbell } from './undo-doorbell';
 
 let editor: HTMLElement;
 let enabled: boolean;
+let redoEnabled: boolean;
 const inserted: string[] = [];
 
 beforeEach(() => {
@@ -20,8 +21,9 @@ beforeEach(() => {
 		},
 	});
 	enabled = false;
+	redoEnabled = false;
 	inserted.length = 0;
-	document.queryCommandEnabled = vi.fn(() => enabled);
+	document.queryCommandEnabled = vi.fn((cmd: string) => (cmd === 'redo' ? redoEnabled : enabled));
 	document.execCommand = vi.fn((cmd: string, _ui?: boolean, value?: string) => {
 		if (cmd === 'insertText') {
 			inserted.push(`${(document.activeElement as HTMLElement | null)?.getAttribute('data-undo-doorbell') !== null ? 'bell' : 'other'}:${value}`);
@@ -53,6 +55,12 @@ describe('the undo doorbell', () => {
 
 	it('stays silent when the browser already has a step', () => {
 		enabled = true;
+		expect(createUndoDoorbell({ canUndo: () => true }).arm()).toBe(false);
+		expect(inserted).toEqual([]);
+	});
+
+	it('stays silent while the browser holds a redo step, so a gesture redo still reaches Filo', () => {
+		redoEnabled = true;
 		expect(createUndoDoorbell({ canUndo: () => true }).arm()).toBe(false);
 		expect(inserted).toEqual([]);
 	});
