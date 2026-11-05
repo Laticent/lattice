@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: decided
 summary: >
   Audit of what the Studio publishes through Fuoco and what it does not. Fuoco today is a FOCUS
   hub: one record of where the reader is, delivered through selectors. Images, video, diagrams,
@@ -18,7 +18,7 @@ summary: >
 drawing publish nothing. The ask is a true event system that every part of the Studio talks
 through, with critical events published even before they have a consumer, and possibly pre and
 post events. This note audits what is published today, names the axes, proposes a catalog and
-recommends an order. Nothing in the code changes until the owner picks.
+recommends an order. The owner picked on 2026-11-05 (§9); nothing is built yet.
 
 ## 1. What Fuoco is today
 
@@ -198,3 +198,15 @@ signals, the export's poll intervals and budgets (120 ms, 4 s, 12 s), and the co
 pass ad-hoc `window` events (11, `grep`, tests excluded). Not measured: the time slice 2 would save
 an export (the poll's worst-case slack is 120 ms per wait, the real figure needs a trace), and the
 hub's per-event cost under a full gallery render. Both are slice 2's first measurements.
+
+## 9. Decisions (2026-11-05)
+
+The owner answered in one round:
+
+| Question | Answer |
+|---|---|
+| Where events live | A second channel in the Fuoco hub (§4.1), not a sibling library |
+| Pre and post | Lifecycle pairs, notify-only (§4.2); no cancelable events |
+| First build | None yet: this note merges as the record, and the four slices of §6 wait |
+
+The slices are tracked in `followups.d/` so the work outlives this session.
