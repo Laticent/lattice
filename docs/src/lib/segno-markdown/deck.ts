@@ -241,7 +241,6 @@ export class DeckModel {
 			const eMarks = new Int32Array(this.lines + 1);
 			const side = new Map<number, Side>();
 			const forward: number[] = [];
-			let kinds: readonly string[] = this.options.parser.kinds;
 			for (let i = 0; i < this.segs.length; i++) {
 				const g = this.segs[i];
 				const at = this.segTok[i] * STRIDE;
@@ -264,8 +263,7 @@ export class DeckModel {
 			}
 			bMarks[this.lines] = this.body.length;
 			eMarks[this.lines] = this.body.length;
-			kinds = this.options.parser.kinds;
-			this._blocks = { src: this.body, kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward };
+			this._blocks = { src: this.body, kinds: this.options.parser.kinds, tape, length, lines: this.lines, bMarks, eMarks, side, forward };
 		}
 		return this._blocks;
 	}

@@ -821,7 +821,7 @@ function fence(state: State, startLine: number, endLine: number, silent: boolean
 	if (marker !== 0x7e && marker !== 0x60) return false;
 	let mem = pos;
 	pos = state.skipChars(pos, marker);
-	let len = pos - mem;
+	const len = pos - mem;
 	if (len < 3) return false;
 	const markerLen = len;
 	if (marker === 0x60) {
@@ -846,7 +846,6 @@ function fence(state: State, startLine: number, endLine: number, silent: boolean
 		haveEndMarker = true;
 		break;
 	}
-	len = state.sCount[startLine];
 	state.line = nextLine + (haveEndMarker ? 1 : 0);
 	state.tape[state.pushK(K_FENCE, 0, startLine, state.line) * STRIDE + T_AUX] = markerLen;
 	return true;
@@ -854,7 +853,7 @@ function fence(state: State, startLine: number, endLine: number, silent: boolean
 
 function blockquote(state: State, startLine: number, endLine: number, silent: boolean): boolean {
 	let pos = state.bMarks[startLine] + state.tShift[startLine];
-	let max = state.eMarks[startLine];
+	let max: number;
 	const oldLineMax = state.lineMax;
 	if (state.sCount[startLine] - state.blkIndent >= 4) return false;
 	const src = state.src;
@@ -1105,7 +1104,6 @@ function list(state: State, startLine: number, endLine: number, silent: boolean)
 		if (isOrdered) {
 			posAfterMarker = skipOrderedListMarker(state, nextLine);
 			if (posAfterMarker < 0) break;
-			start = state.bMarks[nextLine] + state.tShift[nextLine];
 		} else {
 			posAfterMarker = skipBulletListMarker(state, nextLine);
 			if (posAfterMarker < 0) break;
@@ -1235,7 +1233,6 @@ function reference(state: State, startLine: number, _endLine: number, silent: bo
 	}
 	if (pos < max && str.charCodeAt(pos) !== 0x0a) {
 		if (title) {
-			title = false;
 			pos = destEndPos;
 			nextLine = destEndLineNo;
 			while (pos < max) {
