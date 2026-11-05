@@ -229,19 +229,17 @@ component folders free of render-path plumbing.
 
 The render splits slides on markdown-it's top-level `hr` tokens. Everything that has to answer the same
 question from SOURCE (the Studio's outline and rail, the chat edit path, narration export) reads it from
-one shared derivation, never from its own regex; that derivation is moving onto the **deck model**,
-`lib/core/deck-model.mjs`. The model is
+the **deck model**, `lib/core/deck-model.mjs`, never from its own regex. The model is
 `@laticent/segno-markdown` (docs/src/lib/segno-markdown), S0 and S1 of the Segno deck pipeline: markdown-it's
 block rules ported onto a flat tape, configured as `buildMd` configures markdown-it (plugin block rules
 included), and held to markdown-it token for token by `test/unit/core/deck-model.test.js`. It returns the
 slides, the boundaries, the front matter and the directive, fence, plugin-block and leaf ranges from one parse,
 and `updateDeckModel` re-reads only the slide an edit touched.
 
-`lib/core/slide-boundaries.mjs` (line numbers, chunks, character ranges) is the door most callers use; it
-still asks markdown-it (`lib/core/boundary-parser.mjs`) until the model's bytes fit the Studio's route budget,
-and `section-source-split.js` already reads the model. `boundary-parser.mjs` also remains the markdown-it
-instance for callers that need tokens with inline children (`headingSplitPoints`, through `bake-splits.js`
-and `slide-class-spans.js`), until the model has an inline pass (P4). Design and measurements: `engineering/decisions/2026-10-22-segno-deck-pipeline.md`.
+`lib/core/slide-boundaries.mjs` (line numbers, chunks, character ranges) is the door most callers use.
+`lib/core/boundary-parser.mjs` remains the markdown-it instance for callers that need tokens with inline
+children (`headingSplitPoints`, through `bake-splits.js` and `slide-class-spans.js`), until the model has an
+inline pass (P4). Design and measurements: `engineering/decisions/2026-10-22-segno-deck-pipeline.md`.
 
 ## CSS owns layout; JS is a bounded post-processing set
 

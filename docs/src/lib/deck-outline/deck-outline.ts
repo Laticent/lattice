@@ -18,8 +18,12 @@
 // (engineering/decisions/2026-10-15-fuoco-focus-sync.md §3).
 //
 // WHAT IT REUSES, NOT REPLACES (HARD RULE #1):
-//   · separators come from `parseSlideBoundaries` (lib/core/slide-boundaries.mjs), the
-//     parser configured from the engine's own options;
+//   · separators come from `parseSlideBoundaries` (lib/core/slide-boundaries.mjs), which reads
+//     the deck model (lib/core/deck-model.mjs, Segno deck pipeline P2): markdown-it's block rules
+//     configured from the engine's own options, held to markdown-it token for token;
+//   · NOT YET the model: heading sections (`sectionsOf`) still tokenize with the boundary parser,
+//     because `headingSplitPoints` reads inline children (an eyebrow is one inline-code child),
+//     and the model holds no inline structure until P4 (a heading parse there reads one slide);
 //   · heading sections come from `headingSplitPoints`, the function the engine's ruler
 //     injects its breaks at;
 //   · the unit model is `splitSlides`'s (docs/src/lib/deck-lint.ts), so unit `i`

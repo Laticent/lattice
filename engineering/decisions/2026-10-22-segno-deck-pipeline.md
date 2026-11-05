@@ -512,17 +512,19 @@ each case the review reproduced, pinned as a regression test.
 | Reader | Now |
 |---|---|
 | `lib/core/section-source-split.js` | **moved:** its `hr` lines come from `bodyModel(body).boundaries` instead of a full `md.parse` |
-| `lib/core/slide-boundaries.mjs` | **held, pending the owner:** moving it is a two-line change (`parseSlideBoundaries` reads `bodyModel(text).boundaries` and `.leadingEmpty`), built and tested on this branch. It was reverted because it puts the model in the Studio's startup JavaScript and the lint core, over the route budget (below) |
-| the Studio deck outline (`deck-outline.ts`) | **held** with slide-boundaries, which it reads separators through. Its heading sections tokenize with the boundary parser in any case: `headingSplitPoints` reads inline children, which the model holds from P4 |
+| `lib/core/slide-boundaries.mjs` | **moved:** `parseSlideBoundaries` reads `bodyModel(text).boundaries` and `.leadingEmpty`; every export above it is unchanged. This puts the model in the Studio's startup JavaScript and the lint core, past the route budget (below), which the owner raised for it |
+| the Studio deck outline (`deck-outline.ts`) | **moved** with slide-boundaries, which it reads separators through. Its heading sections still tokenize with the boundary parser: `headingSplitPoints` reads inline children, which the model holds from P4 |
 | `lib/core/boundary-parser.mjs` | **excluded, by design:** it stays the markdown-it instance for callers that need tokens with inline children (`bake-splits.js`, `slide-class-spans.js`) until P4. The model reads two things from it: the plugins a host switched off, and the entity-destination hook above |
 
-**The route budget.** With slide-boundaries moved, the docs build failed `check-route-budget`: the Studio's
+**The route budget, and the owner's call on it.** With slide-boundaries moved, the docs build failed `check-route-budget`: the Studio's
 lint core 147.9 KB gzipped against a 139.6 KB ceiling, its eager JavaScript 556.3 against 554.5, and the home
 route 286.4 against 281.6. Measured against the same tree with slide-boundaries held (both full docs builds),
 the move costs **+8.8 KB** gzipped in the lint core (139.1 to 147.9), **+8.4 KB** in the Studio's eager
 JavaScript (547.9 to 556.3) and **+8.3 KB** on the home route (278.1 to 286.4). markdown-it stays in those
 bundles (the outline's heading sections and the lint still use it), so nothing offsets the model until P4 lets
-the Studio drop markdown-it. Raising a ceiling is the owner's number, so the browser readers wait for that call.
+the Studio drop markdown-it. Raising a ceiling is the owner's number. Asked with the options (wait for P4, or raise
+and move now), the owner chose to raise and move (D1 B on PR #3038, 2026-11-05); the raise landed in its own PR,
+each ceiling up by the measured growth rounded to 0.5 KB (docs/route-budget.history.md, 2026-11-05).
 
 Renders do not change: the engine's own split (`splitOnHr`) is untouched, and the moved reader's output is the
 same by the parity above. Squadra's M1b and spine S3 can read `lattice-deck` structure from the model now.
