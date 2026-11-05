@@ -19,6 +19,9 @@
  */
 // biome-ignore-all lint/correctness/noUnusedVariables: globals for WebDriver's execute-script and Playwright's addScriptTag
 
+/** Temporary diagnosis of followups.d/3034-p8: how many type → undo cycles to record before the asserted run. */
+const UNDO_DIAG_CYCLES = 8;
+
 const UNDO_DECK = ['# Undo on a device', '', 'First slide.', '', '---', '', '# Second', '', 'Second slide.', ''].join('\n');
 
 function undoProbeKit(result) {
@@ -64,13 +67,36 @@ function undoProbeKit(result) {
 		await sleep(50);
 		return el;
 	};
-	/** Type `text` as one input, the way a keyboard's committed word arrives. */
+	/**
+	 * What WebKit's undo depends on, read at one moment: whether its undo and redo commands are enabled, which editor
+	 * element has focus (each element the probe meets gets a number, so a remounted editor shows as a new one), and
+	 * whether the page has focus at all. A failed undo step prints these, so a red run says where the step went.
+	 */
+	let tags = 0;
+	const tag = (el) => {
+		if (!el) return 'none';
+		el.__undoProbeTag ??= ++tags;
+		return `${el.tagName.toLowerCase()}#${el.__undoProbeTag}`;
+	};
+	const editorEl = () => document.querySelector('.cm-content') || document.querySelector('[aria-label="Deck source"]');
+	const snapshot = () =>
+		`undo ${document.queryCommandEnabled('undo')} redo ${document.queryCommandEnabled('redo')} editor ${tag(editorEl())} active ${tag(document.activeElement)} hasFocus ${document.hasFocus()}`;
+	/** Type `text` as one input, the way a keyboard's committed word arrives. Returns what happened to the input. */
 	const type = async (text) => {
 		const el = await focusEnd();
-		if (!document.execCommand('insertText', false, text) && el instanceof HTMLTextAreaElement) {
+		const seen = [];
+		const before = (e) => seen.push(`beforeinput:${e.inputType}`);
+		const after = (e) => seen.push(`prevented ${e.defaultPrevented}`);
+		addEventListener('beforeinput', before, { capture: true });
+		addEventListener('beforeinput', after);
+		const ran = document.execCommand('insertText', false, text);
+		removeEventListener('beforeinput', before, { capture: true });
+		removeEventListener('beforeinput', after);
+		if (!ran && el instanceof HTMLTextAreaElement) {
 			el.setRangeText(text, el.value.length, el.value.length, 'end');
 			el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
 		}
+		return `insertText ran ${ran} into ${tag(el)}: ${seen.join(', ') || 'no beforeinput'}; then ${snapshot()}`;
 	};
 	/** WebKit's own undo or redo command, with focus in the editor. Returns the inputType the page saw. */
 	const command = async (which) => {
@@ -91,7 +117,7 @@ function undoProbeKit(result) {
 		// raise nothing (#2911), so wait, briefly, for the command to be enabled, and log whether it was.
 		const t0 = Date.now();
 		while (!document.queryCommandEnabled(which) && Date.now() - t0 < 3000) await sleep(50);
-		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms`);
+		log.push(`enabled ${document.queryCommandEnabled(which)} after ${Date.now() - t0} ms (${snapshot()})`);
 		document.execCommand(which);
 		await sleep(300);
 		removeEventListener('beforeinput', spy, { capture: true });
@@ -130,7 +156,7 @@ function undoProbeKit(result) {
 			throw new Error(`${e.message} (render metrics ${!!window.__latticeRenderMetrics}, Deck source ${!!document.querySelector('[aria-label="Deck source"]')}, ${location.pathname}, ${document.readyState}, ${innerWidth}px; buttons: ${panes.join(' | ') || 'none'})`);
 		}
 	};
-	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready };
+	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot };
 }
 
 async function latticeUndoProbe() {
@@ -180,12 +206,37 @@ async function latticeUndoProbe() {
 				throw new Error(`${e.message} (${pastes} pastes; the editor holds ${k.deckText().length} chars: ${JSON.stringify(k.deckText().slice(0, 80))})`);
 			});
 		const pasted = k.deckText();
-		k.step('put the deck in the editor', true, pastes > 1 ? `${pastes} pastes` : '');
+		k.step('put the deck in the editor', true, `${pastes > 1 ? `${pastes} pastes; ` : ''}${k.snapshot()}`);
+		// DIAGNOSTIC (temporary, followups.d/3034-p8): repeat type → WebKit undo, recording what each cycle saw.
+		const cycles = [];
+		for (let i = 1; i <= UNDO_DIAG_CYCLES; i++) {
+			await k.sleep(1500);
+			const word = ` D${i}`;
+			const typing = await k.type(word);
+			await k.until(() => k.deckText().includes(word), 15000, `diag word ${i}`);
+			const held = k.snapshot();
+			await k.sleep(800);
+			const fired = await k.command('undo');
+			const undone = await k.until(() => k.deckText() === pasted, 3000, 'diag undo').then(() => true, () => false);
+			cycles.push(`#${i} ${fired || 'NONE'} undone ${undone} | typing: ${typing} | held: ${held} | cmd: ${(result.events || []).at(-1)}`);
+			if (!undone) {
+				const el = await k.focusEnd();
+				if (el instanceof HTMLTextAreaElement) el.select();
+				else document.execCommand('selectAll');
+				document.execCommand('insertText', false, pasted);
+				await k.until(() => k.deckText() === pasted, 10000, 'diag restore').catch(() => {});
+			}
+		}
+		if (cycles.length) {
+			const bad = cycles.filter((c) => !/^#\d+ historyUndo undone true/.test(c)).length;
+			k.step(`diagnostic: ${cycles.length - bad} of ${cycles.length} type → WebKit undo cycles raised historyUndo and undid`, true, `\n    ${cycles.join('\n    ')}`);
+			result.events = [];
+		}
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
 		await k.sleep(1500);
-		await k.type(' ONE');
+		const typing = await k.type(' ONE');
 		const typed = await k.until(() => (k.deckText().includes(' ONE') ? k.deckText() : ''), 15000, 'the typed word');
-		k.step('typed a word as its own step', true);
+		k.step('typed a word as its own step', true, `${typing}; once the editor held it, ${k.snapshot()}`);
 		await k.sleep(800);
 
 		const undoType = await k.command('undo');
