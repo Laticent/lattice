@@ -37,7 +37,7 @@ permissions:
 
 jobs:
   preview:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Secrets are withheld from fork PRs, so wrangler can't authenticate there —
     # skip cleanly rather than fail. Same-repo branches (claude/*, ci/*, …) run.
     if: github.event.pull_request.head.repo.full_name == github.repository

@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   lint-closing-keywords:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/github-script@v7
         with:

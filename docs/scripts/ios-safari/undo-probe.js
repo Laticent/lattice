@@ -123,7 +123,7 @@ function undoProbeKit(result) {
 	const ready = async () => {
 		try {
 			// A phone opens on the preview, so its editor mounts only once the Markdown source pane is shown (focusEnd).
-			await until(() => window.__latticeRenderMetrics && (document.querySelector('[aria-label="Deck source"]') || (innerWidth <= 699 && button('Markdown source'))), 90000, 'the Studio editor');
+			await until(() => window.__latticeRenderMetrics && (document.querySelector('[aria-label="Deck source"]') || (innerWidth <= 699 && button('Markdown source'))), 150000, 'the Studio editor');
 		} catch (e) {
 			// Say what the page did have, so a red device run explains itself.
 			const panes = [...document.querySelectorAll('button[aria-label]')].filter(visible).map((b) => b.getAttribute('aria-label')).slice(0, 20);

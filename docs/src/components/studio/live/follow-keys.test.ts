@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { cleanView } from '@/lib/tavola/view';
+import { CONTENT_SWITCHES } from '../switch-controls';
 import { FOCUS_ROWS, rowIdOf } from './follow-bus';
 import { changedWords, describeMove, placeOf, placeWords, SECTIONS, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 
@@ -80,6 +81,8 @@ describe('settings rows that can be marked', () => {
 		const rows = new Set<string>();
 		for (const f of ['StudioShell.tsx', 'SlideContext.tsx']) for (const m of read(f).matchAll(/<(?:Field|TextRow|Row) label="([^"]+)"/g)) rows.add(slug(m[1]));
 		for (const m of read('StudioShell.tsx').matchAll(/settingsWrite\(\s*[`'"]([^`'"$→]+?)\s*(?:→|[`'"])/g)) rows.add(slug(m[1]));
+		// The Content tab draws its rows from the switch table, so their labels are data, not literals.
+		for (const sw of CONTENT_SWITCHES) rows.add(slug(sw.label));
 		// Every Slide-panel edit goes through one generic label, "This slide": it names no row, so it is not one.
 		rows.delete('this-slide');
 		expect([...FOCUS_ROWS].sort()).toEqual([...rows].sort());

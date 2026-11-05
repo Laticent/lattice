@@ -1508,7 +1508,7 @@ describe('check-ownership', () => {
       fs.rmSync(dir, { recursive: true, force: true });
       return errors;
     };
-    const good = { name: 'ok-suite', os: ['macos-latest'], paths: ['lib/**'], run: 'node --test test/unit/cli/check-ownership.test.js', why: 'Proves a thing Linux cannot show.' };
+    const good = { name: 'ok-suite', os: ['macos-26'], paths: ['lib/**'], run: 'node --test test/unit/cli/check-ownership.test.js', why: 'Proves a thing Linux cannot show.' };
 
     test('the live registry is well formed', () => {
       const errors = [];

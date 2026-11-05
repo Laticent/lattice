@@ -53,6 +53,9 @@ test('the shortcuts act on the focused slide, keep focus in the strip, and are a
 	await tabToStrip(page);
 	await page.keyboard.press('ArrowRight');
 	await expect(counter(page)).toHaveText('Slide 2 / 4');
+	// A key press is fire-and-forget: wait until the strip has moved its focus to slide 2, so Mod+D reaches the handler
+	// that acts on it. Pressing on the counter alone lost the press 2 of 6 nightlies ("Bravo" never duplicated).
+	await expect.poll(() => focused(page)).toBe('1');
 
 	await page.keyboard.press(`${m}+d`);
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Bravo Charlie Delta');

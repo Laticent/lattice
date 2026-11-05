@@ -31,7 +31,8 @@ test('a flowchart image node naming a file outside the deck is refused; one insi
     const jobFile = path.join(base, 'job.json');
     fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
-    assert.equal(r.status, 0, r.stderr);
+    // A spawn-timeout kill reads as status null with an empty stderr (Windows platform suite, run 41877087984): say so.
+    assert.equal(r.status, 0, `status ${r.status}, signal ${r.signal}${r.error ? `, ${r.error.code || r.error.message}` : ''}\nstderr: ${r.stderr}\nstdout: ${String(r.stdout).slice(-2000)}`);
     const result = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
     assert.equal(result.ok, true);
     // Node A (outside) drew the 16:9 stand-in at the node's height; node B (inside) drew the real 1:3 picture.
@@ -70,7 +71,8 @@ test('a picture in a folder with parentheses and an apostrophe loads, and its lo
     const jobFile = path.join(base, 'job.json');
     fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [deck], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
-    assert.equal(r.status, 0, r.stderr);
+    // A spawn-timeout kill reads as status null with an empty stderr (Windows platform suite, run 41877087984): say so.
+    assert.equal(r.status, 0, `status ${r.status}, signal ${r.signal}${r.error ? `, ${r.error.code || r.error.message}` : ''}\nstderr: ${r.stderr}\nstdout: ${String(r.stdout).slice(-2000)}`);
     const { svg } = JSON.parse(fs.readFileSync(outFile, 'utf8')).results[0];
     const width = Number(/<image[^>]*?\bwidth="([\d.]+)"/.exec(svg)?.[1]);
     assert.ok(width < 40, `the real 1:3 picture drew (width ${width}), not the 16:9 stand-in`);
@@ -101,7 +103,8 @@ test('a diagram that names a web picture reaches no listener from the locked pag
     const definition = `flowchart LR\n A@{ img: "${at}/locked.svg", label: "A", pos: "b", w: 80, h: 60 }\n A --> B`;
     fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB, pkgRoot: ROOT, chromePath: process.env.CHROME_PATH || undefined, backgroundColor: 'transparent', svgId: 'x', outFile, confineRoots: [base], diagrams: [{ definition, config: {} }] }));
     const r = spawnSync(process.execPath, [WORKER, jobFile], { encoding: 'utf8', timeout: 120000 });
-    assert.equal(r.status, 0, r.stderr);
+    // A spawn-timeout kill reads as status null with an empty stderr (Windows platform suite, run 41877087984): say so.
+    assert.equal(r.status, 0, `status ${r.status}, signal ${r.signal}${r.error ? `, ${r.error.code || r.error.message}` : ''}\nstderr: ${r.stderr}\nstdout: ${String(r.stdout).slice(-2000)}`);
     // Whether Mermaid draws a node whose picture never loads is its own business (the export swaps a web picture for
     // the stand-in before the worker sees it, lib/core/remote-ref.js); what matters here is where the request went.
     const out = JSON.parse(fs.readFileSync(outFile, 'utf8'));

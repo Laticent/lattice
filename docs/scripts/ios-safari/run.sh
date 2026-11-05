@@ -20,6 +20,20 @@ OUT="$ROOT/platform-suite-artifacts/ios-safari"
 mkdir -p "$OUT"
 PORT=4321
 PROBE=${PROBE:-studio}
+# NO PROBE RAN. When every device that failed did so before any probe code ran (no WebDriver session: run.mjs exit 3,
+# a stuck boot or a dead safaridriver: 4 and 5), this file names it and the script exits 3 instead of 1. The workflow's
+# alert job reads it and leaves the run to the supervisor (.github/workflows/platform-suites-supervisor.yml), which
+# re-runs the job once on a fresh runner; only a second such failure files the alert (D1 A on #3034). A probe failure
+# (exit 1) never writes it.
+NO_SESSION_MARK="$ROOT/platform-suite-artifacts/no-session"
+rm -f "$NO_SESSION_MARK"
+# A dispatch can ask for this outcome without an outage (SIMULATE_NO_SESSION=1, the workflow's `simulate` input), to prove
+# the supervisor path end to end. It runs nothing else.
+if [ "${SIMULATE_NO_SESSION:-}" = 1 ]; then
+  echo 'SIMULATE_NO_SESSION=1: reporting "no probe ran" without starting a simulator'
+  printf 'simulated\n' > "$NO_SESSION_MARK"
+  exit 3
+fi
 
 # KEEP THE IMAGE'S DEFAULT XCODE; only check it. Switching with `xcode-select -s`, even to the same 26.x, is what
 # makes safaridriver fail every session with "Could not find Simulator.app or a devices:// URL handler" (seen on
@@ -57,8 +71,15 @@ elif [ "$PROBE" = jpeg ] || [ "$PROBE" = photo-memory ]; then
   server=$!
   ready="http://localhost:$PORT/"
 else
-  # The docs site, built and served the way the e2e suite serves it.
-  (cd docs && npm ci && npm run build:e2e)
+  # The docs site, served the way the e2e suite serves it. The workflow's docs-site job builds it once on Linux and this
+  # job downloads it into docs/dist (D1 B on #3034: that build cost each macOS job 65-94 s); serving still needs docs'
+  # own dependencies. Run by hand, or without the download, the script builds it here as before.
+  if [ -f docs/dist/.prebuilt ]; then
+    echo "using the prebuilt docs site ($(cat docs/dist/.prebuilt))"
+    (cd docs && npm ci)
+  else
+    (cd docs && npm ci && npm run build:e2e)
+  fi
   (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/studio/"
@@ -94,6 +115,8 @@ if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; e
 echo "runtime: $runtime"
 
 status=0
+# A device that failed before any probe ran (rc 3-5) is the infrastructure; one whose probe failed (rc 1) is a finding.
+probe_failed=0
 families='iPad iPhone'
 # The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
 # is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
@@ -108,7 +131,8 @@ for family in $families; do
     '[.devices[$rt][] | select(.name | startswith($f))] as $all
      | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
      | .deviceTypeIdentifier // empty')
-  if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; continue; fi
+  # A missing device type is a runner-image or script fault, not a simulator that would not connect: a finding, never re-run.
+  if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; probe_failed=1; continue; fi
   xcrun simctl shutdown all || true
   udid=$(xcrun simctl create "lattice-$family" "$device_type" "$runtime")
   echo "$family: $device_type ($udid)"
@@ -130,7 +154,7 @@ for family in $families; do
     xcrun simctl shutdown "$udid" || true
     xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b
     SIM_UDID="$udid" SIM_LABEL="$family" OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" \
-      APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || status=1
+      APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || { status=1; probe_failed=1; }
     xcrun simctl shutdown "$udid" || true
     left=$((left - 1))
     continue
@@ -191,7 +215,8 @@ for family in $families; do
   done
   if [ "$rc" != 0 ]; then
     status=1
-    [ "$rc" -ge 3 ] && echo "$family: $why, so no probe ran: the simulator or safaridriver failed, not the probe" >&2
+    case "$rc" in 3|4|5) ;; *) probe_failed=1 ;; esac
+    case "$rc" in 3|4|5) echo "$family: $why, so no probe ran: the simulator or safaridriver failed, not the probe" >&2 ;; esac
     xcrun simctl list devices booted || true
     for domain in com.apple.webinspectord com.apple.mobilesafari; do
       echo "--- $domain"; xcrun simctl spawn "$udid" defaults read "$domain" || true
@@ -206,6 +231,7 @@ if [ "$PROBE" = undo ]; then
   xcrun simctl shutdown all || true
   if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1
+    probe_failed=1
   fi
 fi
 
@@ -224,4 +250,9 @@ fi
     jq -r '"**\(.session.label)**: Safari'"'"'s encoder \(.total.native) B, ours \(.total.ours) B", "", "| picture | Safari | ours |", "|---|---|---|", (.rows[] | "| \(.name) | \(.native.bytes) B, \(.native.sampling), \(.native.psnr * 100 | round / 100) dB | \(.ours.bytes) B, \(.ours.sampling), \(.ours.psnr * 100 | round / 100) dB, \(.ours.ms | round) ms |")' "$f"
   done
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+if [ "$status" != 0 ] && [ "$probe_failed" = 0 ]; then
+  echo 'no probe ran on any device that failed: exit 3, so the supervisor re-runs this job once (NO_SESSION_MARK)' >&2
+  printf 'no-session\n' > "$NO_SESSION_MARK"
+  exit 3
+fi
 exit $status
