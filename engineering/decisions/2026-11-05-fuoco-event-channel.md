@@ -622,9 +622,13 @@ failure in `stats` and continues; a drain is capped per top-level call and repor
   ledger marks a stale pane fresh. A frame lives across many revisions: the preview keeps one
   iframe and patches `<section>` nodes into it (`preview-virtual.js:11-15`,
   `single-slide-render.ts:274-279`), so a rev bound to the frame goes stale on the next patch.
-  The host keeps a map from each WRITE or PATCH to the rev it was built from, keyed by the
-  `data-lattice-write` id it already stamps (`deck-render.js:584`); the runtime reports the write id
-  of the content an event is about, and the bridge stamps that write's rev.
+  The host keeps a map from each WRITE or PATCH to the rev it was built from. Today only a full
+  write carries an id: `deck-render.js` bumps `st.writeId` in its full-write branch (`:566`) and
+  stamps `data-lattice-write` on the new document's `<html>` (`:584`), and neither patch path
+  (`patchSections`, `patchSlideBody`, `single-slide-render.ts:274-279`) stamps anything. So this is
+  NEW work in build 4: both patch paths stamp a per-patch id on each `<section>` they write
+  (`data-lattice-patch`), the host records that id's rev, and the runtime reports the id of the
+  section an event is about. The bridge stamps that patch's rev, falling back to the write's.
 - *Render time.* The shell feeds the hub inside a React render (`StudioShell.tsx:1888`,
   `duringRender: true`). Events obey the same rule as focus: delivered on the microtask after the
   render, after the focus that edit moved.
@@ -683,5 +687,6 @@ itself, and it found the §4.3 bridge as first written could not work (installed
 window, it does not survive `srcdoc`; bound to one rev per frame, it goes stale on the preview's
 patch path), a reserved `events.missed` name the ledger's own rule forbade, and payload fields
 that still broke §10.5. All are corrected above: the bridge is one parent object with a per-frame
-record, `rev` is stamped per write, overflow is a non-dotted `{ missed }`, and the remaining free
+record, `rev` is stamped per write and per patch (the patch id is new work, since only a full write
+stamps one today), overflow is a non-dotted `{ missed }`, and the remaining free
 strings are SENSITIVE or planned sanctioned entries.
