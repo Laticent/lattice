@@ -647,3 +647,36 @@ end, and 0.54 to 0.65 ms mid-deck, once per completion request.
 - **lint-core's own comment scans.** About 17 sites in lib/authoring/lint-core.js still find `<!--` by regex or
   `indexOf`, each for its own rule (comment blanking, the track scan, the record checks). They move one at a time,
   each held to lint output on the corpus.
+
+## The outline keeps one deck model (2026-11-05)
+
+The Studio's deck outline (docs/src/lib/deck-outline/deck-outline.ts) now holds the model of its deck body and
+updates it per keystroke with `updateDeckModel`, instead of parsing a separators-bounded region from nothing. A full
+build reads the model from the memo `slideBoundaries` keeps (`slideBoundaryModel`), so the outline and the preview
+share that parse. The region logic and the unit ids are unchanged: the index still keeps every unit outside the
+region around the edit, and only when every separator outside it survived at its shifted character range. An edit
+whose region holds a forward-scanning line (`LOOKAHEAD_LINE`, math's `$$`) still rebuilds the units, as it always
+has, but from the model just updated, so it parses nothing from nothing. The model no longer needs that check (it
+re-reads the deck itself in that case); the ids do, because a rebuild gives a changed slide a fresh id and Fuoco's
+focus sync keys on ids. A first cut dropped the check, and the maker-checker pass found it carrying old ids across
+`$$` edits where `main` gave fresh ones (about 1,250 divergences per 15,000 random edit sequences, none a wrong-slide
+move). With the check back, an old-against-new differential over about 19,000 edit steps agrees on every id except
+two decks that open with two BOMs, where `main` normalized twice and split a slide the engine does not.
+
+| Per keystroke in the gallery's middle slide, with the editor's span | Before | After |
+|---|---|---|
+| deck-model parses from nothing (`deckModelStats.full`) | 1 (the region) | **0** |
+| incremental model updates (`deckModelStats.incremental`) | 0 | 1 |
+| wall time, flat strings, inside the vitest harness | 104-117 µs | 199-233 µs |
+
+The time is the honest cost: an update keeps the whole deck's model current (about 50 µs in plain Node; this harness
+runs slower), where the region parse read one slide and threw it away. It buys the model the next reader needs:
+the follow-up is for the Studio's other boundary readers (the preview's `slideBoundaries`, the lint) to read the
+model the outline holds instead of missing the memo on every keystroke, which is where the parses per keystroke
+actually go. `normalizeSourceText` and the engine's `normalizeSource` return the string unscanned when it holds no
+`\r` and no BOM, which the update made visible (two `replace` calls cost about 50 µs on the gallery with nothing to
+fold).
+
+Held by the outline's property (every incremental index equals a full build of the same text, 400 runs per unit run
+and 3 x 3,000 in development), its failing arm, and two counterexamples pinned from a rejected shortcut that compared
+the kept separators by line number instead of character range.

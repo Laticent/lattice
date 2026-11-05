@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { deckModelStats } from '@laticent/segno-markdown';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
@@ -128,6 +129,23 @@ describe('DeckIndex — incremental update', () => {
 		);
 	});
 
+	it('two counterexamples a separator shortcut by line number got wrong stay right', () => {
+		// Comparing the kept separators by LINE instead of by character range accepted both; recorded so it cannot return.
+		const cases: [string, { at: number; del: number; ins: string }[]][] = [
+			['===\n---\n- item\n---\n`EYEBROW`\ntext line\n# Head\n', [{ at: 1342883304, del: 6, ins: '-' }, { at: 0, del: 0, ins: '' }]],
+			['# Head\n- - -\n', [{ at: 0, del: 7, ins: '-' }, { at: 0, del: 0, ins: '\n---\n' }]],
+		];
+		for (const [deck, edits] of cases) {
+			let ix = buildDeckIndex(deck);
+			let src = deck;
+			for (const e of edits) {
+				src = apply(src, e);
+				ix = updateDeckIndex(ix, src);
+				expect(shape(ix)).toEqual(shape(buildDeckIndex(src)));
+			}
+		}
+	});
+
 	it('FAILING ARM: without the closing-separator check the same property goes red', () => {
 		const run = () =>
 			fc.assert(
@@ -145,7 +163,24 @@ describe('DeckIndex — incremental update', () => {
 		expect(run).toThrow();
 	});
 
-	it('a keystroke inside one slide of a large deck parses a region, not the deck', () => {
+	it('a keystroke updates the deck model the index holds: no parse from nothing', () => {
+		const src = fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8');
+		let ix = buildDeckIndex(src);
+		let text = src;
+		const before = { ...deckModelStats };
+		// Ten keystrokes in the gallery's middle slide, each with the editor's span.
+		for (let i = 0; i < 10; i++) {
+			const at = text.indexOf('\n', Math.floor(text.length / 2));
+			const next = `${text.slice(0, at)}x${text.slice(at)}`;
+			ix = updateDeckIndex(ix, next, { span: { from: at, toA: at, toB: at + 1 } });
+			text = next;
+		}
+		expect(deckModelStats.full - before.full).toBe(0);
+		expect(deckModelStats.incremental - before.incremental).toBe(10);
+		expect(shape(ix)).toEqual(shape(buildDeckIndex(text)));
+	});
+
+	it('a keystroke inside one slide of a large deck rebuilds the units of one region, not the deck', () => {
 		const src = fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8');
 		const ix = buildDeckIndex(src);
 		const at = src.indexOf('\n', Math.floor(src.length / 2));
