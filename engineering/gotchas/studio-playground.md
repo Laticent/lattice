@@ -1785,3 +1785,18 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — `docs/src/components/studio/Editor.tsx` keeps the text its value-sync pushed in (`syncedValueRef`) and does
   not report a sync transaction whose text is that same value. A sync that changed the text (a stripped leading BOM)
   still goes out. `editor-value-echo.test.tsx` fails on the old code; the `@webkit-phone` arm passes.
+
+## On an iPad or iPhone, Edit → Undo, shake or the keyboard bar does nothing, though the Studio's Undo button works
+
+- **Symptom** — a word typed in the deck editor just before the live preview redraws cannot be taken back with a system
+  undo gesture on iOS. The Studio's own Undo arrow is enabled, and `document.queryCommandEnabled('undo')` reads `false`.
+- **Cause** — Filo owns the history, but iOS sends a gesture's `historyUndo` beforeinput only while WebKit's OWN undo
+  stack has a step, and iOS WebKit empties that stack on any frame navigation in the page: adding a frame, a new
+  `srcdoc` frame, or a `srcdoc` rewrite (`document.write` and an in-place body change do not). The live preview does
+  exactly that (`single-slide-render.ts`). The frame lab in `docs/scripts/ios-safari/undo-probe.js` measured it on
+  real iOS Simulators; macOS Safari never empties its stack this way.
+- **Fix** — the undo doorbell (`docs/src/components/studio/undo-doorbell.ts`, installed by `StudioShell` on iOS and
+  iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
+  the caret back. Two traps it already avoids: never ring while WebKit holds a REDO step (the edit empties redo, and
+  the redo gesture stops reaching Filo), and never ring on desktop WebKit, which undoes the bell's own step without a
+  beforeinput, so a ⌘Z would go to the bell instead of Filo. `followups.d/3034-p8` has the runs.
