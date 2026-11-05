@@ -249,9 +249,15 @@ const ATTRIBUTE = `(?:\\s+${ATTR_NAME}(?:\\s*=\\s*${ATTR_VALUE})?)`;
 const OPEN_TAG = `<[A-Za-z][A-Za-z0-9\\-]*${ATTRIBUTE}*\\s*\\/?>`;
 const CLOSE_TAG = '<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>';
 const HTML_OPEN_CLOSE_TAG = `^(?:${OPEN_TAG}|${CLOSE_TAG})`;
+// markdown-it's seven HTML-block start/end conditions (CommonMark §4.6), which decide where a BLOCK ends, not
+// what HTML is safe: sanitizing is `sanitizeSlideHtml`'s job (HARD RULE #22), and widening an end condition
+// here would split blocks differently from the renderer. Condition 2, the comment (`<!--` to `-->`), is
+// decided in `htmlBlock`'s fast path before this table is read, so its slot holds a pattern that never
+// matches; the slot stays so the condition numbers (the tape's T_AUX, `1` for a comment) keep markdown-it's.
+const NEVER = /(?!)/;
 const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
 	[/^<(script|pre|style|textarea)(?=(\s|>|$))/i, /<\/(script|pre|style|textarea)>/i, true],
-	[/^<!--/, /-->/, true],
+	[NEVER, NEVER, true],
 	[/^<\?/, /\?>/, true],
 	[/^<![A-Z]/, />/, true],
 	[/^<!\[CDATA\[/, /\]\]>/, true],
