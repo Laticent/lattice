@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about eighty-five events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
+  and a catalog of about ninety events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -64,6 +64,7 @@ Read from the code on `9dc7f3ed`.
 | Something was dragged or dropped | Six owners, each with its own wiring: a deck file dropped anywhere opens it (`deck-drop.ts`, which REFUSES a drop in the editors, a dialog or Present); the slide strips reorder by press-and-drag (`strip-actions/drag.ts`, plain DOM); the Library splits a dropped set of files (`Library.tsx:82`); the motion drawing well (`MotionStudio.tsx:449`); Compose and the Markdown editor place dropped text or images at a caret (`ComposeView.tsx` `handleDrop`); the Architect chat takes dropped photos (`ChatAttach.tsx`, `ChatPhotos.tsx`) | Each owner. A refused drop shows its own toast; no other zone knows a drag is in progress |
 | A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
+| The Library changed: an asset saved, deleted, restored to a version, imported or refused | One IndexedDB store, `library/asset-store.js` (`putAsset` :188, `deleteAsset` :379, `restoreAssetVersion` :360), holding seven kinds: `theme`, `component`, `finish`, `plugin`, `scene`, `refdoc` and media. Imports go through `importParsedBundle` (`library/import-parsed.ts`), refusals through `refuseGallery` and the name guards (`save-guard.ts`, `reserved-names.ts`) | Nobody. Fourteen non-test call sites re-read the store with `listAssets` when they mount or after their own write, so a theme saved in Finish Studio reaches an open Library panel only when it is re-opened. Another tab's save is never seen, except by Finish Studio's own `storage` listener (`FinishStudio.tsx:274`) |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
 | A slide's orientation changed | `stampOrientation` writes `data-orientation` from the slide's measured aspect (`index.js:2710`); the fluid-view toggle flips it (`index.js:3838`) | CSS and the chart transforms, through markup. The host is never told |
 | The view resized | `window` `resize` (`index.js:2798`, `3687`) and a `ResizeObserver` on the slide box (`index.js:284`) | In-frame re-measure and the fit sweep only |
@@ -165,7 +166,7 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `plugin.diagnostic` | `plugin`, `id`, `message`, `detail`, `unit` | 2 | The lint panel, live instead of after the render |
 | `plugin.degraded` | `plugin`, `unit`, `fence`, `reason: 'threw' \| 'timed-out' \| 'non-string'` | 2 | An author-facing "this block fell back, and why" |
 | `plugin.used` | `plugins[]` (the set the deck now uses), `added[]`, `removed[]` | 2 | Library "in use" badges; warming a library before its first figure (§4.8 of the plugin note) |
-| `plugin.saved` / `plugin.deleted` | `id`, `name`, `fence` | 3 | The fence catalog and Compose's insert menu, which today re-list on mount |
+| `plugin.saved` / `plugin.deleted` | Folded into `library.saved` / `library.deleted` with `kind: 'plugin'` (below) | — | — |
 | `chart.started` | `kind` (`funnel`, `state-chart`, …), `unit`, `id`, `path: 'engine' \| 'runtime'` | 2 | — |
 | `chart.drawn` | `kind`, `unit`, `id`, `path`, `ms`, `orientation` | 2 | Export: one more thing to await instead of poll |
 | `chart.fallback` | `kind`, `unit`, `id`, `reason` (`layout-engine-missing`, …) | 2 | Replaces the `console.warn` with an author-facing cue |
@@ -186,7 +187,7 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About eighty-five names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About ninety names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
@@ -234,6 +235,25 @@ released and the range is not empty, never while a drag is in progress. A select
 preview is already a `pick` (`Focus.element`). **No clipboard event carries the text.** Events
 reach every `*` listener, including logging on the `idle` lane, and a paste can be a password or a
 client's numbers; a listener that needs the text reads it from the editor that holds it.
+
+**The Library.** One store, so one family, keyed by `kind` rather than one name per kind:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `library.saved` | `kind`, `id`, `name`, `created` (new, or an overwrite), `version` (for the three versioned kinds: theme, component, finish) | 3 | The fourteen `listAssets` readers re-read on the event instead of on mount: an open Library panel, the theme picker, the fence catalog and Compose's insert menu (for a plugin) |
+| `library.deleted` | `kind`, `id`, `name` | 3 | The same readers; a deck that names the deleted theme can warn |
+| `library.restored` | `kind`, `id`, `version` | 3 | The same readers, and the version list |
+| `library.imported` | `counts` (per kind), `renamed[]` (`backupRenames`), `skipped[]` | 3 | One import summary for the Library's drop, the package zip and an import from a deck |
+| `library.refused` | `kind`, `name`, `reason: 'name-clash' \| 'reserved' \| 'remote-refs' \| 'quota' \| 'too-large'` | 3 | One refusal notice, the same one `drag.dropped` uses |
+| `library.applied` | `kind`, `name`, `unit` (null for the whole deck) | 3 | — (which Library items decks actually use) |
+
+`library.saved` fires after the IndexedDB transaction COMMITS (`oncomplete`, the same moment
+`asset-history.js` already treats as "it is saved"), never on the request, so a listener that
+re-reads the store finds the new record. **Other tabs.** The store is shared by every tab on the
+origin and the hub is not (§7). A small adapter that re-emits `library.*` from a
+`BroadcastChannel` with `origin: 'other-tab'` would close the gap Finish Studio's `storage`
+listener patches today. It is the one cross-tab piece in this note, because the shared store makes
+the other tab's save a fact about THIS tab's Library; it is still for the owner to say yes to.
 
 **Drag and drop.** One lifecycle per drag (§4.2), not one event set per drop zone:
 
@@ -364,3 +384,7 @@ clipboard events never carry the text (§5, Commands and shortcuts; Selection an
 today; the events are one lifecycle per drag (`drag.started` → `drag.zone-changed` →
 `drag.dropped` or `drag.cancelled`), plus `slide.moved` for what a strip reorder means
 (§5, Drag and drop).
+
+**Added 2026-11-05, sixth.** The owner asked for Library events. The Library is one IndexedDB store
+with seven kinds, so it gets one `library.*` family keyed by `kind`; `plugin.saved` /
+`plugin.deleted` fold into it. A cross-tab adapter is proposed and left to the owner (§5, The Library).
