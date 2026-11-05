@@ -165,6 +165,9 @@ const noLeadingBom = EditorState.transactionFilter.of((tr) => {
 	return [tr, { changes: { from: 0, to: 1 }, sequential: true }];
 });
 
+/** What a superseded lint pass returns: it never settles, so CodeMirror never dispatches it (see `buildLint`). */
+const NEVER_LINT: Promise<Diagnostic[]> = new Promise(() => {});
+
 function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Array<{ autofixable?: boolean }>) => void) {
 	return linter((view): Diagnostic[] => {
 		const text = view.state.doc.toString();
@@ -526,8 +529,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 		}),
 	];
-	const buildLint = () =>
-		useRealLint && vocabSets
+	// ONE LIVE LINT CONFIGURATION. Each `buildLint()` takes a generation; a pass from an older one that
+	// resumes after an await (the first slide, the lint core, the ink-fix chunk) never answers. That used to
+	// be the view rebuild's job: a pass from the destroyed view failed `reportLint`'s identity check. Since
+	// `known` reconfigures the linter in place rather than rebuilding the view, the same view survives, so a
+	// pass started with validation ON could land after validation was turned OFF and put back an underline and
+	// a lit "Fix all" that does nothing (checker review, PR #3040). It must not resolve to `[]` either:
+	// CodeMirror would dispatch that and wipe the newer pass's diagnostics. A promise that never settles is
+	// dropped by `@codemirror/lint`, which holds no lock on a pending pass.
+	const lintGenRef = React.useRef(0);
+	const buildLint = () => {
+		const gen = ++lintGenRef.current;
+		const stale = () => gen !== lintGenRef.current;
+		return useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
 					// Validation is gated by the Studio's toggle: with it off the editor is
 					// handed an empty known-set, so we stand down too.
@@ -539,6 +553,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					// it ran before the slide on a phone (Studio performance audit, PR #2868). Later passes find it cached.
 					if (!lintCoreMod) await firstSlideShown;
 					const core = lintCoreMod || (await loadLintCore());
+					if (stale()) return NEVER_LINT;
 					if (!core) {
 						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
 						return [];
@@ -599,6 +614,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					if (thin.length || photoWanted) {
 						// A chunk that will not load (offline after a deploy) must not take the editor's diagnostics with it.
 						const fix = await import('./thin-card-fix').catch(() => null);
+						if (stale()) return NEVER_LINT;
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
 							const text = view.state.doc.toString();
@@ -614,6 +630,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
 				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null, needsRefresh: wantsRelint })
 			: makeLinter(known, reportLint);
+	};
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
 	// a swipe, the shell after a slide operation, Live) moves the focus, and when a new view is

@@ -1515,7 +1515,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Keep a STABLE reference when nothing actually changed. The store resolves
 		// async to a fresh array each call (often an empty one when IndexedDB is
 		// absent); blindly setting it would flip `localComponents` identity, churn
-		// `knownWithLocal`, and needlessly re-init the editor (wiping its doc state).
+		// `knownWithLocal`, and make the editor reconfigure its linter and lint the whole deck again for nothing.
 		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name && c.pkg?.files?.['transform.js'] === b[i].pkg?.files?.['transform.js'] && c.pkg?.manifest?.facts === b[i].pkg?.manifest?.facts);
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
