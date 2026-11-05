@@ -1,12 +1,12 @@
 ---
-origin: 3034
+origin: 3038
 priority: P2
 recorded: 2026-11-05
 area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-22-segno-deck-pipeline.md §Speed targets
 deferred: large — the remaining cost is structural (one tape record per markdown-it token, the line index pass), not a tunable; closing it means a leaner tape or the generated line classifier, a design step of its own
-source: https://github.com/Laticent/lattice/pull/3034
+source: https://github.com/Laticent/lattice/pull/3038
 ---
 
 # The deck model's S0-S1 over the gallery: 0.73 ms against a 0.5 ms target

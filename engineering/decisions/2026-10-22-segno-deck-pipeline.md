@@ -489,7 +489,7 @@ markdown-it's own `validateLink(normalizeLink(unescapeAll(dest)))`. Only that pa
 The gallery target (under 0.5 ms) is **not met** on this machine: 0.73 ms. The target was set against the P0
 audit's 3.6 ms for markdown-it's whole parse on another machine; on this one the whole parse is about 5.1 ms,
 so the model is 7x the whole parse and 3x the block parse it replaces. The rest is structural (one record per
-markdown-it token, the line index), and is followups.d/3034-p2-deck-model-gallery-half-millisecond.md. The
+markdown-it token, the line index), and is followups.d/3038-p2-deck-model-gallery-half-millisecond.md. The
 keystroke target (one slide, tens of microseconds) is met.
 
 **Incremental.** The model keeps its tape slide by slide. `updateDeckModel` re-parses from the break above the
