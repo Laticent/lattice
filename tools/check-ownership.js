@@ -7483,6 +7483,13 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'test/unit/core/boundary-parser.test.js pins the two spellings together.',
   },
   {
+    file: 'docs/src/lib/segno-markdown/deck.ts',
+    why: 'ingest() — S0 of the Segno deck pipeline, the deck model\'s door (2026-10-22-segno-deck-pipeline.md '
+       + '§The design: "no later stage normalizes again"). It strips the BOM and folds \\r\\n and a lone \\r, '
+       + 'as the engine does. A zero-dependency package, so it cannot import normalizeSourceText; '
+       + 'docs/src/lib/segno-markdown/deck.test.ts pins what it folds and what it leaves (U+2028).',
+  },
+  {
     file: 'docs/src/lib/normalize-source-text.ts',
     why: 'the shared `docs/src` helper — the ONE raw implementation in the docs site. Every other '
        + 'docs/src ingest (StudioShell\'s file open, studio-store\'s session merge, '
@@ -9879,6 +9886,23 @@ function checkMarkupBoundary(errors, dir = MARKUP_DIR) {
       `${rel} imports '${spec}', which escapes the Markup folder. @laticent/markup reads only the string it is ` +
       `given and depends on nothing, so the engine and the plugins can share it; every import must resolve inside ` +
       `docs/src/lib/markup/ (2026-11-01-plugin-contract-hollywood.md §5).`,
+  });
+}
+
+// ── Segno-markdown (docs/src/lib/segno-markdown) — the deck model ───────────
+// S0 and S1 of the Segno deck pipeline (engineering/decisions/2026-10-22-segno-deck-pipeline.md §D4): a sibling
+// package the engine, the linter and the Studio all read slide structure through. It takes the host's block rules
+// as data (lib/core/deck-model.mjs wires Lattice's plugins in), so it imports nothing outside its folder, not even
+// `node:`, and not markdown-it, whose rules it ports. Tests may import their runner.
+const SEGNO_MARKDOWN_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'segno-markdown');
+function checkSegnoMarkdownBoundary(errors, dir = SEGNO_MARKDOWN_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Segno-markdown folder. @laticent/segno-markdown takes the host's ` +
+      `block rules as options and depends on nothing; every import must resolve inside docs/src/lib/segno-markdown/ ` +
+      `(2026-10-22-segno-deck-pipeline.md §D4).`,
   });
 }
 
@@ -14590,6 +14614,7 @@ function run() {
   checkVedutaBoundary(errors);
   checkFiloBoundary(errors);
   checkMarkupBoundary(errors);
+  checkSegnoMarkdownBoundary(errors);
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
   checkFluidoBoundary(errors);
@@ -14665,6 +14690,7 @@ module.exports = {
   checkVedutaBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
+  checkSegnoMarkdownBoundary,
   checkFiloCommitPath,
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,

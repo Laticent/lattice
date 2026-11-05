@@ -97,6 +97,7 @@ const {
   checkVedutaBoundary,
   checkFiloBoundary,
   checkMarkupBoundary,
+  checkSegnoMarkdownBoundary,
   checkFiloCommitPath,
   checkMosaicoBoundary,
   checkFluidoBoundary,
@@ -2329,6 +2330,34 @@ describe('check-ownership', () => {
         assert.equal(run({ 'code-lines.ts': src }).length, 1, `not caught: ${src}`);
       }
       assert.deepEqual(run({ 'code-lines.test.ts': "import hljs from 'highlight.js';\nimport { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Segno-markdown: the deck model takes the host's block rules as options, so it depends on nothing, not even
+  // markdown-it, whose rules it ports (2026-10-22-segno-deck-pipeline.md §D4).
+  describe('Segno-markdown import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'segno-markdown-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkSegnoMarkdownBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkSegnoMarkdownBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; not markdown-it, Lattice, a plugin or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { BlockParser } from './block.js';", 'block.ts': 'export class BlockParser {}' }), []);
+      for (const src of ["import MarkdownIt from 'markdown-it';", "import { installPluginBlocks } from '../../../../lib/plugins/blocks.generated.mjs';", "import fs from 'node:fs';"]) {
+        assert.equal(run({ 'block.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'block.test.ts': "import { it } from 'vitest';" }), []);
     });
   });
 

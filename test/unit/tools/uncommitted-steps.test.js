@@ -100,6 +100,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-segno-lib.js',
   // Its whole write set is docs/src/lib/markup/dist/, covered by docs/.gitignore's `dist/`.
   'build-markup-lib.js',
+  // Its whole write set is docs/src/lib/segno-markdown/dist/, covered by docs/.gitignore's `dist/`.
+  'build-segno-markdown-lib.js',
   'build-suono-lib.js',
   // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
   'build-tavola-lib.js',
