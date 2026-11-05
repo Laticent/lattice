@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about one hundred and twenty events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
+  and a catalog of about one hundred and forty events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -61,6 +61,7 @@ Read from the code on `9dc7f3ed`.
 | A command ran | The Studio's one action list, 26 `StudioCommandId` verbs (`studio-commands.ts`), run from the palette (`CommandPalette.tsx:193`), a lesson, or a menu | The caller only. The palette's `onRun` closes it; nothing records what ran or how |
 | A keyboard shortcut fired | `keydown` listeners in 7 Studio files (`StudioShell.tsx` alone has five, :566 to :5053), CodeMirror's keymaps, the present keymap (`lib/core/present-transport.mjs` `PRESENT_KEYMAP`) | Each listener only |
 | Text was copied or cut | Seven clipboard writers: the code block's copy button (`window.__latticeCodeCopy`, in the preview runtime), the crash report, Finish Studio's CSS, the read-aloud trace, Live, and the editors' own ⌘C / ⌘X | Each writer, which shows its own "Copied" notice or none |
+| Present started, a slide was shown, the Stage window opened or closed, notes toggled, a rehearsal ran | `PresentOverlay.tsx` (notes :182, rehearsal clock :264, auto-advance :550-576, presenter view :626); `present/stage-window.js` (the `ready` / `nav` / `closed` handshake over `postMessage`, :792-813); `present/rehearsal.js` (the dwell plan and its coaching beats); the keys, swipes and wheel through `lib/core/present-transport.mjs` | The overlay's own state. The Stage's messages reach one handler in `stage-window.js` |
 | Something was dragged or dropped | Six owners, each with its own wiring: a deck file dropped anywhere opens it (`deck-drop.ts`, which REFUSES a drop in the editors, a dialog or Present); the slide strips reorder by press-and-drag (`strip-actions/drag.ts`, plain DOM); the Library splits a dropped set of files (`Library.tsx:82`); the motion drawing well (`MotionStudio.tsx:449`); Compose and the Markdown editor place dropped text or images at a caret (`ComposeView.tsx` `handleDrop`); the Architect chat takes dropped photos (`ChatAttach.tsx`, `ChatPhotos.tsx`) | Each owner. A refused drop shows its own toast; no other zone knows a drag is in progress |
 | A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
@@ -75,7 +76,7 @@ Read from the code on `9dc7f3ed`.
 | A slide overflowed / fit resolved | Fit sweep, `fitGeneration` (`index.js:3456`) | Markup classes only |
 | An image loaded or failed | The browser | Nobody: the runtime listens to no `load` / `error` on media |
 | A video played, paused, ended | The browser (`imagery/video`) | Nobody |
-| An export started, progressed, failed | `deck-export.js`, `share-export.ts` | The calling component's own promise |
+| An export started, moved through its stages, met an unreachable image, finished, failed | `export/deck-export.js` (`onProgress(done, total, phase)` with `photo` and `write` phases, :2212; `recordUnreachableImages` :1498; the PDF, PPTX and picture workers), `share-export.ts` (`onProgress` :799) | The status line of the sheet that started it, through an `onStatus` callback. An export started from the palette and one from the Share sheet each draw their own |
 | An AI reply arrived, an edit was applied, spend changed | `ArchitectChat.tsx`, `chat-agent.ts` | `window` event `lattice-spend-changed` |
 | The model or voice setting changed | `architect-model.js`, TTS settings | `window` events `db-model-changed`, `db-voice-changed` |
 | A speaker note was committed or left | Notes editor | `window` events `cs-note-commit`, `cs-note-left` |
@@ -181,16 +182,15 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `asset.loaded` | `kind: 'image' \| 'video' \| 'audio'`, `src`, `unit`, `ms`, `bytes?` | 3 | — |
 | `asset.failed` | `kind`, `src`, `unit`, `reason` | 3 | — (an author-facing broken-image cue) |
 | `media.played` / `media.paused` / `media.ended` | `src`, `unit`, `at` (seconds) | 3 | — (auto-advance, narration sync, presenter timer) |
-| `present.started` / `present.ended` | `surface: 'stage' \| 'present' \| 'player'` | 3 | — |
-| `stage.shown` | `flat` (what the audience sees) | 3 | — (presenter view) |
-| `export.started` / `export.progress` / `export.settled` / `export.failed` | `format`, `id`, `done/total`, `bytes`, `reason` | 3 | — (one progress UI instead of one per format) |
+| `present.*`, `stage.*`, `rehearsal.*` | See §5, Present mode | 3 | |
+| `export.*` | See §5, Export | 3 | |
 | `lint.changed` | `errors`, `warnings` | 3 | — |
 | `ai.requested` / `ai.replied` / `ai.applied` | `id`, `model`, `surface` (`chat`, `fabricate`, `reshape`, `describe-photo`, …), `tokens`, `usd`, `units[]` | 4 | Change flash attribution (`2884-p1` axis 4). This is the MODEL layer, for every surface that calls one; the conversation is `chat.*` (below) |
 | `spend.changed` | `usd` | 4 | Replaces `window` `lattice-spend-changed` |
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About one hundred and twenty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About one hundred and forty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
@@ -316,6 +316,43 @@ message or the reply text.
 `coach.assessed` carries the `rev` it judged, so a listener can tell a verdict on older text from a
 current one: the same rule a stale `render.settled` follows. The Coach itself can stop scheduling
 its own re-runs and listen for `doc.changed` on the `idle` lane.
+
+**Export.** One lifecycle per export (§4.2), whatever the format and whichever control started it:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `export.started` | `id`, `format: 'pdf' \| 'png' \| 'pptx' \| 'webpage' \| 'print' \| 'lattice' \| 'marp' \| 'markdown'`, `slides`, `via: 'share' \| 'palette' \| 'shortcut'` | 3 | One progress strip for every export, instead of each sheet's `onStatus` line |
+| `export.phase` | `id`, `phase: 'capture' \| 'wait-figures' \| 'render' \| 'encode' \| 'write' \| 'assemble'`, `done`, `total` | 3 | The same strip. Replaces `export.progress`: the PDF path already reports `photo` and `write` phases, and the others get named ones |
+| `export.asset-missing` | `id`, `src`, `unit`, `reason` (`recordUnreachableImages`: cross-origin, 404, too large) | 3 | One "these photos are not in the file" notice, which today is assembled per format (`latticePhotoNote`) |
+| `export.settled` | `id`, `bytes`, `pages`, `ms`, `name` | 3 | The "export again" row, and a lesson step that checks an export happened |
+| `export.failed` | `id`, `phase`, `unit` (the slide that broke it, when known), `reason` | 3 | Crash report sheet |
+| `export.cancelled` | `id` | 3 | — |
+| `export.delivered` | `id`, `via: 'download' \| 'share-sheet' \| 'clipboard' \| 'link'` | 3 | — |
+
+These are emitted by the HOST code that runs the export, not by the runtime inside the capture
+frame, so they change no exported byte: the QUALITY BAR's export sign-off is owed by slice 2's
+runtime bridge, never by these. `export.phase` with `wait-figures` is the step slice 2's
+`figure.drawn` will shorten, so the two together show how long an export waited on diagrams.
+
+**Present mode.** Presenting has three parts with their own events: the presenter's overlay, the
+audience's Stage window, and the rehearsal planner.
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `present.started` / `present.ended` | `surface: 'present' \| 'player' \| 'rehearsal'`, `flat` (start slide); on end `ms`, `shown` (how many slides were shown) | 3 | — |
+| `present.slide-shown` | `flat`, `via: 'key' \| 'swipe' \| 'wheel' \| 'click' \| 'auto' \| 'stage'`, `dwellMs` (time on the slide before it) | 3 | The rehearsal's pace check, which today keeps its own clock. Fires once the slide LANDS, never per key: a held arrow that crosses three slides in a frame is one event, the way focus coalesces |
+| `present.auto-advanced` | `flat`, `afterMs` | 3 | — |
+| `stage.opened` / `stage.closed` | `reason` on close (`closed-by-presenter`, `window-closed`, `present-ended`) | 3 | The presenter view, which appears only while a Stage is open (`PresentOverlay.tsx:626`) |
+| `stage.shown` | `flat` (what the AUDIENCE sees, which can lag the presenter by a message) | 3 | A presenter-view check that the audience is on the same slide |
+| `rehearsal.started` / `rehearsal.ended` | `targetMs`; on end `ms`, `overMs` | 3 | — |
+| `rehearsal.beat` | `flat`, `kind: 'pause' \| 'look-up' \| 'breathe' \| 'hinge'` (the planner's coaching beats) | 3 | A cue a phone could vibrate on, or narration could follow |
+| `rehearsal.pace` | `flat`, `overMs` (positive when the speaker is behind the plan) | 3 | — |
+
+The presenter notes opening and closing is `panel.opened` / `panel.closed` with
+`panel: 'present-notes'`. `present.slide-shown` and the focus are different facts: focus is
+where the AUTHOR is in the document, and in Present the shown slide is where the TALK is, with the
+dwell time the focus record does not keep. The Stage's own `postMessage` handshake stays the wire
+between the two windows; its handler re-emits `stage.*` on the hub (§4.3).
 
 **Drag and drop.** One lifecycle per drag (§4.2), not one event set per drop zone:
 
@@ -458,3 +495,8 @@ with seven kinds, so it gets one `library.*` family keyed by `kind`; `plugin.sav
 Live gets `live.*`, heard locally, and a collaborator's edit becomes a `doc.changed` with a peer
 origin; nothing new is sent over Tavola. The chat gets `chat.*` and `model.*` beside the existing
 `ai.*`. The Coach gets `coach.*`, its verdicts stamped with the `rev` they judged (§5).
+
+**Added 2026-11-05, eighth.** The owner asked for export and Present mode events. The two
+placeholder rows became full sections: `export.*` as one lifecycle with named phases, a missing
+asset event and the delivery, all host-side so they change no exported byte; and `present.*`,
+`stage.*` and `rehearsal.*` for the overlay, the audience window and the rehearsal planner (§5).
