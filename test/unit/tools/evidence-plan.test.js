@@ -52,6 +52,23 @@ test('a path in the platform-suites registry plans a dispatch for that suite', (
   assert.match(step.command, /suites=.*ios-safari-studio/);
 });
 
+test('a suite the PR run already starts is read from the PR, never dispatched again', () => {
+  // file-confine.js is in export-confine's paths, and export-confine runs on pull requests: the PR run starts it.
+  const plan = evidencePlan(['lib/core/file-confine.js']);
+  const read = plan.steps.find((x) => x.kind === 'read');
+  assert.ok(read, 'a read row for the PR run');
+  assert.match(read.surface, /export-confine/);
+  const dispatch = plan.steps.find((x) => x.kind === 'dispatch');
+  assert.ok(!dispatch || !/export-confine/.test(dispatch.command), 'export-confine is not dispatched a second time');
+});
+
+test('a suite off pull requests is dispatched, and only that one', () => {
+  // sanitize-slide-html.mjs reaches ios-safari-studio, which never runs on a pull request.
+  const plan = evidencePlan(['lib/core/sanitize-slide-html.mjs']);
+  const dispatch = plan.steps.find((x) => x.kind === 'dispatch');
+  for (const name of dispatch.command.replace(/.*suites=/, '').split(',')) assert.match(name, /^ios-safari-/, `${name} is dispatched though the PR run starts it`);
+});
+
 test('a component doc alone owes no render tier', () => {
   assert.ok(!surfaces(['lib/plugins/chart-family/kinds/bar/bar.docs.md']).some((x) => /integration tier/.test(x)));
 });
