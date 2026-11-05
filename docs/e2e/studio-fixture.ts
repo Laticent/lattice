@@ -55,6 +55,7 @@ export const CHROME = {
 	deckTab: {
 		look: 'Look',
 		chrome: 'Chrome',
+		content: 'Content',
 		general: 'General',
 		accent: 'Accent',
 		image: 'Image',
@@ -66,6 +67,7 @@ export const CHROME = {
 		look: 'Look',
 		notes: 'Notes',
 		chrome: 'Chrome',
+		content: 'Content',
 		marks: 'Marks',
 		accent: 'Accent',
 		image: 'Image',

@@ -181,3 +181,49 @@ Net: the PR leaves `engineJsGz` about 4.9 KB BELOW `main` (measured locally, 202
 - The Studio's Chrome tab hid its three band rows on a `silent` slide, so a band could not be brought
   back there; each row now shows what the slide actually shows and writes `no-X` or `with-X`. A logo
   row was added.
+
+## Studio controls (follow-up, 2026-11-05)
+
+The owner asked that every switch have a Studio control at the deck AND the slide level, organized one
+way (followup `3023-p2`, now deleted). The owner was away, so the session took the followup's own
+suggested grouping, trimmed to the tabs both panels already had plus one new one.
+
+**Where each switch lives.** `docs/src/components/studio/switch-controls.ts` `SWITCH_HOMES` holds it,
+one row per `SWITCHES` name. `switch-controls.test.ts` fails when a switch has no home, when a home
+names a tab or row label the panel does not draw, or when a home names a name that is not a switch.
+
+| tab (both panels) | switches | control |
+|---|---|---|
+| Chrome | header, footer, pagination, progress, logo | deck: text rows, Page numbers, Section rail, Logo; slide: the Hide rows, unchanged |
+| **Content** (new) | note, period, row-label, spine, callout | deck: a toggle, or Auto / On / Off for a switch with a measured default (period, row label); slide: Auto / On / Off |
+| Accent | spectrum, spectrum-edge, spectrum-card, spectrum-trim, heading-rule | the existing pickers; Off / None is the switch's `no-X` |
+| Look | finish | Finish ▸ None writes `no-finish` |
+| Marks (slide) | treatment | "Hide the deck's tints", which writes `no-treatment`; shown when the deck's `class:` stamps a tint or mark |
+| Motion | motion | Play |
+
+**Two switches have no control at one scope, on purpose.** `backdrop` has none at either: `no-backdrop`
+is the old spelling of `no-finish`, and both clear the finish, so Finish ▸ None (which writes `no-finish`)
+is its control. The two are not byte-identical: `no-backdrop` also matches the treatment compositor's
+reset in `base.treatments.css`. `treatment` has none at the deck: a
+tint or a mark is set slide by slide, and a deck that stamps one in `class:` edits it in General ▸ Default
+slide class.
+
+**The Content rows are drawn from one list**, `CONTENT_SWITCHES`, by both panels, so a label, its option
+words and the token it writes cannot drift between scopes. The deck writes `class: no-X` / `with-X`,
+except callouts, which keep their front-matter word (`callout: off`, the "front matter keeps plain
+words" ruling). The slide's Auto writes neither token, and its hint names the deck's word when the deck
+set one. On or Off writes the token even when the deck says the same, so the slide keeps its choice if
+the deck changes later. A slide row shows only where the layout takes the switch (the catalog's
+`effectiveVariants`, so Pane spine shows on `columns`). Table row label shows on a slide with a
+markdown table, and Callouts on a chart or a slide that writes a callout. The Default slide class field hides the Content tokens, as it already hid
+`no-progress`, so a stray edit there cannot flip a toggle.
+
+**A deck's On cannot be undone by a slide's Off.** The precedence is `with-X` > `no-X`, and the deck's
+`class:` reaches every slide, so a slide's `no-X` beside a deck's `with-X` loses (the checker rendered
+it: deck `with-period`, slide `no-period`, the period stays). Only the tri-state switches (period, row
+label) let the deck write `with-X`, and a hand-written deck `with-X` or `callout: on` does the same. So
+when the deck says On, the slide's Off is disabled and the row says to set the deck to Auto. Changing the
+precedence for this case is the owner's call, and was not taken here.
+
+**Not moved:** the Accent and Look rows stay where they are. Moving the heading rule into Content would
+split the Accent tab's family of rules and bars, and its control is a picker with five values, not a switch.

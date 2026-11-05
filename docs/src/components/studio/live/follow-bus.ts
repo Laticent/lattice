@@ -29,6 +29,8 @@ export const FOCUS_ROWS = [
 	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
 	'structural-trim', 'style', 'theme', 'tone-shape',
 	'type-scale', 'venue',
+	// The Content tab's switches (switch-controls.ts `CONTENT_SWITCHES`), drawn from the table, not typed labels.
+	'below-note', 'heading-period', 'table-row-label', 'pane-spine', 'callouts', 'hide-the-deck-s-tints',
 ] as const;
 const ROW_SET: ReadonlySet<string> = new Set(FOCUS_ROWS);
 /** The row id for a label, or null when the label is not one of the listed rows (a dynamic or user-named one).

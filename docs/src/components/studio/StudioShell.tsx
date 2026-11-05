@@ -164,6 +164,7 @@ import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type St
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
@@ -276,7 +277,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'image' | 'motion' | 'speech' | 'plugins';
+type DeckTab = 'look' | 'chrome' | 'content' | 'general' | 'brand' | 'image' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -2622,13 +2623,30 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// per-slide override can never offer different shapes.
 	const stampVocab = (lintVocab as { stampStyles?: { boardroom: string[]; range: string[] } } | null)?.stampStyles ?? { boardroom: [], range: [] };
 	const toneVocab = (lintVocab as { toneStyles?: string[] } | null)?.toneStyles ?? [];
-	const RAIL_TOKEN = 'no-progress';
-	const deckClass = (getFrontMatter(source, 'class') || '').split(/\s+/).filter((t) => t && t !== RAIL_TOKEN).join(' ');
+	// The Content tab's switches own their tokens in the same key, for the same reason.
+	const OWNED_CLASS = new Set(['no-progress', ...CONTENT_SWITCH_TOKENS]);
+	const deckClass = (getFrontMatter(source, 'class') || '').split(/\s+/).filter((t) => t && !OWNED_CLASS.has(t)).join(' ');
 	const setDeckClass = (v: string) => settingsWrite('Default slide class', (s) => {
-		const kept = v.trim().split(/\s+/).filter(Boolean);
-		if (!deckRail) kept.push(RAIL_TOKEN); // the rail toggle's token survives the edit
+		const owned = (getFrontMatter(s, 'class') || '').split(/\s+/).filter((t) => OWNED_CLASS.has(t));
+		// The toggles' tokens survive the edit; one typed here joins them once.
+		const kept = [...new Set([...v.trim().split(/\s+/).filter(Boolean), ...owned])];
 		return writeFrontMatterLine(s, 'class', kept.length ? kept.join(' ') : null);
 	});
+	// The CONTENT switches (switch-controls.ts) at the deck: `class: no-X` / `with-X`, or for a
+	// switch with its own front-matter key (`callout:`) that key's off / on word. A tri-state
+	// switch (period, row label) is Auto / On / Off; the rest are on by default, so a toggle.
+	const deckSwitchState = (sw: ContentSwitch, src: string = source): SwitchState => {
+		const word = sw.register ? (getFrontMatter(src, sw.register) || '').trim() : '';
+		const own = switchState(sw.name, (getFrontMatter(src, 'class') || '').split(/\s+/));
+		return own ?? (word === 'off' ? 'off' : word === 'on' ? 'on' : null);
+	};
+	const setDeckSwitch = (sw: ContentSwitch, state: SwitchState) =>
+		settingsWrite(`${sw.label} → ${state ?? 'auto'}`, (s) => {
+			let out = removeClassTokens(s, `no-${sw.name} with-${sw.name}`);
+			if (sw.register) out = writeFrontMatterLine(out, sw.register, state);
+			else if (state) out = mergeClassTokens(out, `${state === 'on' ? 'with' : 'no'}-${sw.name}`);
+			return out;
+		});
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -6142,6 +6160,34 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			),
 		},
 		{
+			value: 'content',
+			label: 'Content',
+			keywords: 'switches parts inside',
+			body: () => (
+			<div>
+				<TabNote>Parts the engine draws inside each slide's content — the ruled note, the heading period, a table's row label, the pane spine and chart callouts. Any slide can override each one in its own Content settings.</TabNote>
+				{CONTENT_SWITCHES.map((sw) => {
+					const state = deckSwitchState(sw);
+					return (
+						<Field key={sw.name} label={sw.label} desc={sw.desc} help={sw.help} find={`no-${sw.name} with-${sw.name}`}>
+							{sw.tri ? (
+								<CatalogSelect
+									ariaLabel={`Choose ${sw.label.toLowerCase()}`}
+									className="w-full"
+									value={state ?? AUTO_VALUE}
+									onValueChange={(v) => setDeckSwitch(sw, v === AUTO_VALUE ? null : (v as SwitchState))}
+									groups={withAutoHead([{ options: [{ value: 'on', label: sw.on ?? 'On' }, { value: 'off', label: sw.off ?? 'Off' }] }], { label: sw.auto })}
+								/>
+							) : (
+								<Toggle label={sw.label} on={state !== 'off'} onClick={() => setDeckSwitch(sw, state === 'off' ? null : 'off')} />
+							)}
+						</Field>
+					);
+				})}
+			</div>
+			),
+		},
+		{
 			value: 'general',
 			label: 'General',
 			keywords: 'structure setup basics about this deck',
@@ -6181,7 +6227,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
-				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />
+				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>safe</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle and the Content tab own their tokens in this key, so those are not shown here.</>} value={deckClass} placeholder="e.g. safe" onCommit={setDeckClass} />
 				{/* Developer — the two preview-only authoring aids. They used to be a footer
 				    disclosure hanging below the tab strip; they are facts about this deck like
 				    everything else here, so they live in General's own "more" instead. */}

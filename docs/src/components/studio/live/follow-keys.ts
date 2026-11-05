@@ -9,7 +9,7 @@ import type { LiveDoing } from './live-model';
 
 /** The section ids of the Deck and Slide panels. A tab whose id is not here is not shown to others (the gate drops
  *  it and the connection log counts it); `follow-keys.test.ts` re-reads both panels and fails when a tab is missing. */
-export const SECTIONS = ['look', 'chrome', 'general', 'brand', 'image', 'motion', 'speech', 'plugins', 'notes', 'marks', 'comments'] as const;
+export const SECTIONS = ['look', 'chrome', 'content', 'general', 'brand', 'image', 'motion', 'speech', 'plugins', 'notes', 'marks', 'comments'] as const;
 
 /** `none` is "no side panel open": an absent key means "no information", which is a different thing. */
 export const VIEW_KEYS = defineViewKeys({
