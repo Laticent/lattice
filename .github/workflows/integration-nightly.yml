@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   nightly:
-    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
@@ -475,7 +475,7 @@ jobs:
       # It stays report-only anyway, and the evidence above is what a future case for
       # changing that should build on rather than replace. One corpus and one runner pair
       # is not every corpus and every runner pair, a green day here says nothing about a
-      # `windows-2025` or an arm64 runner, and the gate is 72 minutes — which is a
+      # `windows-latest` or an arm64 runner, and the gate is 72 minutes — which is a
       # nightly's budget, not a PR's. What HAS changed is that "we think it flakes" is no
       # longer the argument; anyone proposing to block on it now has a number to beat.
       # EXPECT IT RED until the corpus is re-blessed: the 196 are real. That re-bless is

@@ -939,7 +939,7 @@ jobs:
     # It is NOT moved to studio-e2e-nightly: that suite failed all 10 of its scheduled runs to 2026-10-28, so a
     # drift caught only there would sit in a red issue nobody can tell apart from the rest.
     if: needs.changes.outputs.docs == 'true' && github.event_name == 'pull_request'
-    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
@@ -1019,7 +1019,7 @@ jobs:
   player-webkit:
     needs: changes
     if: needs.changes.outputs.player == 'true'
-    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04

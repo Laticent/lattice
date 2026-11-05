@@ -5,7 +5,7 @@ recorded: 2026-11-04
 area: infra
 severity: high
 swimlane: engineering/decisions/2026-11-04-ci-flake-audit.md §5
-deferred: large — real breakage in tools/golden-bless.mjs, its own PR
+deferred: off-path — tools/golden-bless.mjs broke with the chart move (#2997), before this PR; this PR changes nothing it runs
 ---
 
 # golden-bless exits 3: rasterize-showcase needs a chart gallery PDF that is not rendered yet

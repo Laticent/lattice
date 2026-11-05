@@ -36,7 +36,7 @@ env:
 
 jobs:
   bless:
-    # Pinned, not ubuntu-24.04, and ci.yml's golden-diff job is pinned to the same image:
+    # Pinned, not ubuntu-latest, and ci.yml's golden-diff job is pinned to the same image:
     # the bot blesses what PRs render, so a new OS image (its fonts, its poppler) must land
     # as a reviewed PR that moves both, not as one night where every golden drifts. The image
     # still takes GitHub's weekly patch updates within 24.04. integration-nightly.yml's

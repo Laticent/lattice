@@ -24,7 +24,7 @@ name: Fit nightly (per-component split ratchet)
 #
 # COST. 94 galleries x 3 boxes x 2 venues x 2 renders (as shipped, and whole) = 1,128 CLI
 # renders of the AUTHORED slides only (`--edits none`), then the in-page scoring. Measured on
-# ubuntu-24.04 (4 cores) before `--edits none`, with every perturbed copy as well: 2,421 s to
+# ubuntu-latest (4 cores) before `--edits none`, with every perturbed copy as well: 2,421 s to
 # render and 2,009 s to score, 74 minutes, which a 75-minute ceiling cut at its last step
 # (run 40839485067, 2026-10-29). The ratchet counts authored slides only, so the edits bought
 # the nightly nothing.
@@ -38,7 +38,7 @@ name: Fit nightly (per-component split ratchet)
 # run disagreed with a sandbox bless by one slide in two cells (run 40856957057). So every run
 # also writes the baseline it measured into its artifact (`baseline.json`), and a re-bless copies that file over
 # `test/fit/baseline.json` rather than blessing locally. Measured with `--edits none` on
-# ubuntu-24.04: 1,596 s to render, 661 s to score, 38 minutes for the job.
+# ubuntu-latest: 1,596 s to render, 661 s to score, 38 minutes for the job.
 #
 # REPORT-ONLY, deliberately, as `2026-06-28-experience-gating-playwright.md` §3 requires of a
 # browser-dependent check: it becomes blocking only after an observed green streak on a real
