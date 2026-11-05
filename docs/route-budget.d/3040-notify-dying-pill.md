@@ -1,0 +1,3 @@
+studio: +260
+playground: +260
+The Studio's notice kernel (`docs/src/lib/notify.ts`, in the eager `lazy-panel` chunk) now raises again a message that landed on a dying pill. It keeps a map from a dying id to its replacement so an old handle still dismisses it, guards a re-raised action so it runs once, and retires the slot on a dismiss. That fixes the lost "Saved" notice behind studio-smoke 41951781635 and the checker's three gaps (PR #3040). CI measured +205 B gz on both routes at `8c6d33a`; +260 covers this head with room for gzip spread. Given back first: none. The code is four small closures, and the explanatory comments are stripped from the build.
