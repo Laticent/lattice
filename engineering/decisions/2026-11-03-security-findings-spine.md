@@ -413,6 +413,32 @@ browser fetches: a `url` span outside an attribute selector that is a valid url 
   (Node, `dist/lattice.css`). (3) With an escaped address, the span pass runs before the literal pass, so an escaped
   `…a.png?v\3d 1` gets its own picture and not `…a.png`'s spliced inside it.
 
+## The Studio export, as built (2026-11-05)
+
+`docs/src/components/studio/export/deck-export.js` reads each `url()` in a slide's computed style with `cssRefSpans`
+(`computedUrlSpans`), in the two places it had its own regex: `valueWithoutWebUrls`, which swaps a web picture outside
+the deck's allow-list for the hatch before the capture, and `backgroundImageUrls`, which names the backgrounds to probe
+for a missing picture. The media elements and the attributes on them that the sweep reads now come from the policy
+table (`content-policy.js` `WEB_MEDIA` and `MEDIA_FETCH_ATTRS`), not a per-tag list of its own. The census holds 54
+entries.
+
+- **The fix.** A `content` value that only spells `url(https://…)` inside a string keeps its text; the old regex
+  matched it and set `content: none`. An escaped address in a computed value is decoded as the browser decodes it.
+- **Bytes.** The Studio's PDF export of a four-slide deck (a full-bleed picture, a picture beside the text, and a web
+  picture the deck has not allowed) is identical before and after, in `color-mode: dark` and `light`, except the
+  export's own `/ModDate`. Every page rasterizes to the same pixels. That deck's `::after` with a `url(` in its
+  `content` string draws in neither export (the scoped `<style>` does not reach the capture), so the `content` fix
+  is held by the unit test (`deck-export.test.ts`, with the old regex as the failing arm), not by the render.
+- **The attribute table.** `web-sweep.test.ts` pins each element and attribute the sweep reads, so a change to
+  `WEB_MEDIA` or `MEDIA_FETCH_ATTRS` shows up as a changed verdict there. The sweep reads a few attributes the old list
+  did not (`video srcset`, `img poster`); none fetches, and the restore puts each back.
+- **Review.** The red team ran every computed-value shape it could build (`image-set()`, `cursor` lists, `content`,
+  `filter`, `shape-outside`, hostile addresses) through Chromium, WebKit and Firefox and found no web picture the old
+  sweep replaced that the new one lets through. It found a pre-existing leak off this change, logged as
+  `followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`.
+- **Sign-off.** Moving this reader changes export bytes only for the spellings above, so the dark and light renders go
+  to the owner with the merge ask (CLAUDE.md, Quality Bar). The camera's move (above) does the same.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

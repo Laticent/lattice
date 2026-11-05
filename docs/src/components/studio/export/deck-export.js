@@ -38,6 +38,7 @@
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
+import contentPolicy from '../../../../../lib/core/content-policy.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import dataBlockCore from '../../../../../lib/core/data-block.js';
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
@@ -1210,18 +1211,28 @@ const CAPTURE_WEB_ORIGINS = new WeakMap();
 const WEB_URL_PROPS = ['background-image', 'mask-image', '-webkit-mask-image', 'border-image-source', 'list-style-image', 'cursor', 'content', 'filter', 'shape-outside'];
 const WEB_HATCH = 'repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px)';
 
+/**
+ * The `url(…)` spans of a computed value, read with the renderer's CSS reader (security spine; followups.d/3022), so the
+ * export reads a `url(` where the browser does: a `url(` written inside a `content` string is text, not a picture.
+ * @param {string} value
+ * @returns {Array<{ from: number, to: number, value: string }>}
+ */
+export function computedUrlSpans(value) {
+	if (!value || value.indexOf('(') === -1) return [];
+	return remoteRef.cssRefSpans(value).filter((sp) => sp.kind === 'url' && !sp.selector);
+}
+
 /** A computed value with every web `url()` outside `allowed` replaced; null when there is none. */
-function valueWithoutWebUrls(value, allowed, replacement) {
-	if (!value || value.indexOf('url(') === -1) return null;
-	let changed = false;
-	const next = value.replace(/url\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^)]*))\s*\)/g, (whole, dq, sq, bare) => {
-		const target = (dq ?? sq ?? bare ?? '').replace(/\\(.)/g, '$1').trim();
-		const origin = remoteRef.webOrigin(target);
-		if (!origin || allowed.has(origin)) return whole;
-		changed = true;
-		return replacement;
-	});
-	return changed ? next : null;
+export function valueWithoutWebUrls(value, allowed, replacement) {
+	let out = '';
+	let at = 0;
+	for (const sp of computedUrlSpans(value)) {
+		const origin = remoteRef.webOrigin(sp.value.trim());
+		if (!origin || allowed.has(origin)) continue;
+		out += value.slice(at, sp.from) + replacement;
+		at = sp.to;
+	}
+	return at ? out + value.slice(at) : null;
 }
 
 /**
@@ -1266,9 +1277,12 @@ export function sweepWebRefsForCapture(section) {
 			pseudoRules.push(`[data-lattice-web-sweep="${key}"]${pseudo}{${decls.join(';')}}`);
 			undo.push(() => (prevKey === null ? el.removeAttribute('data-lattice-web-sweep') : el.setAttribute('data-lattice-web-sweep', prevKey)));
 		}
+		// The media elements and the attributes on them that fetch, from the spine's policy table (lib/core/content-policy.js).
+		// `href` fetches only on SVG `<image>`.
 		const tag = el.localName;
-		const attrs = tag === 'img' ? ['src', 'srcset'] : tag === 'image' ? ['href', 'xlink:href'] : tag === 'video' ? ['poster', 'src'] : tag === 'source' || tag === 'audio' ? ['src', 'srcset'] : [];
-		for (const name of attrs) {
+		if (!contentPolicy.WEB_MEDIA.has(tag)) continue;
+		for (const name of contentPolicy.MEDIA_FETCH_ATTRS) {
+			if (name.endsWith('href') && tag !== 'image') continue;
 			const value = el.getAttribute(name);
 			if (value == null) continue;
 			const targets = name.endsWith('srcset') ? value.split(',').map((c) => c.trim().split(/\s+/)[0]) : [value];
@@ -1520,7 +1534,7 @@ export function backgroundImageUrls(section) {
 	for (const el of [section, ...section.querySelectorAll('*')]) {
 		const value = win.getComputedStyle(el).backgroundImage;
 		if (!value || value === 'none') continue;
-		for (const [, , url] of value.matchAll(/url\((['"]?)(.*?)\1\)/g)) {
+		for (const { value: url } of computedUrlSpans(value)) {
 			// `data:` is already inline — it cannot 404, and html-to-image passes it through
 			// untouched, so naming one would accuse an image the export never lost.
 			if (url && !url.startsWith('data:')) urls.add(url);
@@ -1686,7 +1700,7 @@ export async function canvasToPictureBlob(canvas, section, images) {
 	const { resolveImagePolicy } = imagePolicyCore;
 	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
-	// Both through the shared writers (lib/core/slide-camera.mjs `encodeCanvas`) in the worker pool. The JPEG writer lands transparency
+	// Both through the shared writers (lib/core/canvas-encode.mjs `encodeCanvas`) in the worker pool. The JPEG writer lands transparency
 	// on white itself; the browser's own JPEG encoder is not used, because its size depends on the engine (an iPhone's picture
 	// PowerPoint came out 43.3 MB where Chromium's was 12.5 MB).
 	const encode = async (format) => new Blob([await sharedPictureEncoder().encode(canvas, format)], { type: `image/${format.type}` });
