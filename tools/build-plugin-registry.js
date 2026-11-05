@@ -616,7 +616,7 @@ export const FORWARD_SCAN_LINES = Object.freeze({${ahead.length ? ` ${ahead.join
 
 /** The characters each block rule starts on (the manifest's \`triggers\`), so a parser that knows the line's
  *  first character tries only the rules that can open there (the deck model, lib/core/deck-model.mjs). */
-export const BLOCK_TRIGGERS = Object.freeze({${triggers.length ? ` ${triggers.join(', ')} ` : ''}});
+export const BLOCK_TRIGGERS = /* @__PURE__ */ Object.freeze({${triggers.length ? ` ${triggers.join(', ')} ` : ''}});
 
 /** Every shipped plugin's name, in dependency order — for a reader that needs only the names
  *  (lint-core's \`unknown-plugin\`), so it does not pull every plugin's grammar into a bundle. */
