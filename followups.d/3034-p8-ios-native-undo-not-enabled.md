@@ -18,6 +18,11 @@ typed word in the editor and the Studio's own Undo arrow enabled: Filo's history
 On a device that would mean Safari's Edit → Undo, shake-to-undo and the three-finger swipe offer nothing, while the Studio's own
 Undo button still works.
 
+**It is not this PR's (control run).** PR 3034's branch failed it on the iPhone twice (dispatch 41964538891, attempts 1 and 2),
+so a control ran the same suite on unchanged `main` (dispatch 41972682339, 2026-11-05): there the iPhone and the Mac passed and the
+iPad failed the same step, as "no beforeinput; undo: enabled true after 7 ms". So it fails on `main` too, on either device, in two
+forms: WebKit's undo never enabled (the iPhone runs), or enabled but no `historyUndo` sent (the iPad runs).
+
 Leads, unverified: something rebuilds or refocuses the CodeMirror element between the typed word and the command (a phone
 remounts the editor when its pane opens), or CodeMirror applies that input itself, so WebKit records no native step. Next: log
 `queryCommandEnabled('undo')` right after the typed word, and the editor element's identity before and after, in a dispatch that
