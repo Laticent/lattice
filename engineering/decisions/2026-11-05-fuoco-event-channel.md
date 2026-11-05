@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about ninety events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
+  and a catalog of about one hundred and twenty events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -64,6 +64,9 @@ Read from the code on `9dc7f3ed`.
 | Something was dragged or dropped | Six owners, each with its own wiring: a deck file dropped anywhere opens it (`deck-drop.ts`, which REFUSES a drop in the editors, a dialog or Present); the slide strips reorder by press-and-drag (`strip-actions/drag.ts`, plain DOM); the Library splits a dropped set of files (`Library.tsx:82`); the motion drawing well (`MotionStudio.tsx:449`); Compose and the Markdown editor place dropped text or images at a caret (`ComposeView.tsx` `handleDrop`); the Architect chat takes dropped photos (`ChatAttach.tsx`, `ChatPhotos.tsx`) | Each owner. A refused drop shows its own toast; no other zone knows a drag is in progress |
 | A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
+| A Live session started, someone knocked, joined, left, reconnected, or a remote edit arrived | Tavola (`docs/src/lib/tavola/session.ts`: `onPeerJoin` :923, `onPeerLeave` :947, `onMessage` :983) and the Studio's controller (`live/live-controller.ts`, 3,103 lines); Follow has its own small seam (`live/follow-bus.ts`, `useViewKey` / `useAppliedKey`) | The Live panel and pill, through the controller's own React state. A remote edit reaches the hub as an ordinary `update` from the shell, so the change flash cannot tell a collaborator's edit from the Architect's |
+| The Architect was asked, used a tool, streamed, replied, was stopped, failed or compacted | `ArchitectChat.tsx` (Stop through its `AbortController`, :391), `chat-agent.ts`, `chat-activity.ts`, `chat-compact-run.ts`; the in-browser model's worker posts `progress` / `loaded` / `token` / `done` (`ai/architect-model.js` :617-628) | The chat panel's own state, plus `window` `lattice-spend-changed` (5 senders) and `lattice-chat-agent-ready` |
+| The Coach assessed the deck, a finding was opened or fixed, the deck profile changed | `coach/coach-core.ts` (`assessDeck` :54, `applyProfileToSource` :116), `coach/FindingCard.tsx`, `coach/photo-contrast-watch.ts` | The Coach panel only. It re-runs its assessment on its own schedule; the rail cannot mark a slide the Coach has a finding on |
 | The Library changed: an asset saved, deleted, restored to a version, imported or refused | One IndexedDB store, `library/asset-store.js` (`putAsset` :188, `deleteAsset` :379, `restoreAssetVersion` :360), holding seven kinds: `theme`, `component`, `finish`, `plugin`, `scene` and `refdoc`, and media, which writes to the same object store through its own module (`media-store.ts`: `saveMedia`, `deleteMedia`, `setMediaScope`, `setMediaCaption`). Imports go through `importParsedBundle` (`library/import-parsed.ts`), refusals through `refuseGallery` and the name guards (`save-guard.ts`, `reserved-names.ts`) | Nobody. Fourteen non-test call sites re-read the store with `listAssets` when they mount or after their own write, so a theme saved in Finish Studio reaches an open Library panel only when it is re-opened. Another tab's save is never seen, except by Finish Studio's own `storage` listener (`FinishStudio.tsx:274`) |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
 | A slide's orientation changed | `stampOrientation` writes `data-orientation` from the slide's measured aspect (`index.js:2710`); the fluid-view toggle flips it (`index.js:3838`) | CSS and the chart transforms, through markup. The host is never told |
@@ -182,12 +185,12 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `stage.shown` | `flat` (what the audience sees) | 3 | — (presenter view) |
 | `export.started` / `export.progress` / `export.settled` / `export.failed` | `format`, `id`, `done/total`, `bytes`, `reason` | 3 | — (one progress UI instead of one per format) |
 | `lint.changed` | `errors`, `warnings` | 3 | — |
-| `ai.requested` / `ai.replied` / `ai.applied` | `id`, `model`, `tokens`, `units[]` | 4 | Change flash attribution (`2884-p1` axis 4) |
+| `ai.requested` / `ai.replied` / `ai.applied` | `id`, `model`, `surface` (`chat`, `fabricate`, `reshape`, `describe-photo`, …), `tokens`, `usd`, `units[]` | 4 | Change flash attribution (`2884-p1` axis 4). This is the MODEL layer, for every surface that calls one; the conversation is `chat.*` (below) |
 | `spend.changed` | `usd` | 4 | Replaces `window` `lattice-spend-changed` |
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About ninety names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About one hundred and twenty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
@@ -259,6 +262,61 @@ tab never re-broadcasts an event that arrived from another tab, so two tabs cann
 back and forth; the payload is the same metadata, never the asset itself (the receiving tab
 re-reads the store); and Finish Studio's `storage` listener is deleted in the same change.
 
+**Live collaboration.** Tavola stays the wire: it carries bytes between browsers, under its own
+gate (only admitted members, only editors' edits). **The event channel never sends anything over
+it.** What changes is that the LOCAL tab hears about the session, and that a collaborator's edit
+says whose it is:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `live.started` / `live.ended` | `role: 'host' \| 'guest'`, `reason` on end (`left`, `host-ended`, `denied`, `dropped`) | 3 | The pill and the panel, which read the controller's state today |
+| `live.knocked` | `peer` (a session id, never a typed name), `name` | 3 | The host's admit prompt; a sound or a title-bar badge when the Studio is in the background |
+| `live.admitted` / `live.denied` | `peer`, `may: 'edit' \| 'view'` | 3 | — |
+| `live.joined` / `live.left` | `peer`, `color` (one of the four session colors) | 3 | The rail and map can show who is on which slide without each reading Tavola |
+| `live.reconnecting` / `live.reconnected` | `peer` (null for this tab's own link), `waitedMs` | 3 | One "reconnecting" notice |
+| `live.path-changed` | `peer`, `path: 'host' \| 'srflx' \| 'prflx' \| 'relay'` | 3 | — (the diagnostics overlay) |
+| `live.follow-started` / `live.follow-stopped` | `target` (a peer) | 3 | Every pane that `useAppliedKey`s, so a pane can show "following Ada" without the follow bus knowing about panes |
+| `live.message` | `from` (Tavola's transport sender), `bytes` | 3 | The chat badge. Never the text (the clipboard rule, §5) |
+
+**A remote edit is a `doc.changed` with `origin: 'peer:<id>'`.** That is the one change to an
+existing event: the controller feeds the hub with the peer's id as `by`, so the change flash can
+paint a collaborator's edit in their session color, and attribution works without a new event. A
+collaborator's caret is AWARENESS (Tavola's presence state), which is state, not an event: it
+stays on Tavola's own channel and the `LivePointers` view, the way the local caret stays on focus.
+`follow-bus.ts` stays as it is. It is a registry of "where is this pane" keys, which is the job of
+a key-value map, and the events above report around it.
+
+**The Architect chat.** `ai.*` is the model call, whichever surface made it; `chat.*` is the
+conversation around it:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `chat.sent` | `id`, `attachments` (count by kind), `grounded` (slides the message was grounded on) | 4 | — |
+| `chat.tool-used` | `id`, `tool` (the agent's tool name), `ms` | 4 | The activity row (`chat-activity.ts`), which today parses the run |
+| `chat.replied` | `id`, `ms`, `tokens`, `usd` | 4 | The cost row; `spend.changed` follows it |
+| `chat.stopped` | `id` (the author pressed Stop) | 4 | — |
+| `chat.failed` | `id`, `reason: 'offline' \| 'no-key' \| 'rate-limit' \| 'model-error'` | 4 | One error surface instead of the chat's own |
+| `chat.compacted` | `before`, `after` (transcript sizes), `usd` | 4 | — |
+| `model.loading` / `model.loaded` / `model.failed` | `model`, `file`, `progress` (0-1) | 4 | Replaces `lattice-chat-agent-ready`; one loading bar for the in-browser model |
+
+A streamed token is not an event. It is the same text as the reply, sixty times a second, and only
+the bubble drawing it reads it; `chat.replied` fires once it is done. No chat event carries the
+message or the reply text.
+
+**The Coach.** The Coach is a reader of the deck, so its events are its verdicts:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `coach.assessed` | `rev`, `craft`, `style` (scores), `findings` (count by severity), `profile` | 3 | The rail marks a slide with a finding; the pre-export check reads the last verdict instead of re-running it |
+| `coach.finding-opened` | `rule`, `unit` | 3 | The editor reveals the slide (today a `jump` prop) |
+| `coach.fix-applied` | `rule`, `unit`, `via: 'coach' \| 'architect'` | 3 | — (which rules authors accept a fix for) |
+| `coach.profile-changed` | `from`, `to` (`applyProfileToSource`) | 3 | — |
+| `coach.photo-contrast` | `unit`, `src`, `ratio`, `passes` | 3 | The photo coach's warning (`photo-contrast-watch.ts`) |
+
+`coach.assessed` carries the `rev` it judged, so a listener can tell a verdict on older text from a
+current one: the same rule a stale `render.settled` follows. The Coach itself can stop scheduling
+its own re-runs and listen for `doc.changed` on the `idle` lane.
+
 **Drag and drop.** One lifecycle per drag (§4.2), not one event set per drop zone:
 
 | Event | Payload | Slice | Consumer on day one |
@@ -297,6 +355,9 @@ it. These fail that test, or are already covered:
 | Every `keydown`, and every palette keystroke | A keystroke is text (`doc.changed`) or a shortcut (`shortcut.fired`); a palette search is judged when it closes (`command.not-found`) |
 | A selection growing during a drag | It is the focus; only the finished range (`selection.settled`) is acted on |
 | Clipboard contents | Never on an event (above) |
+| A streamed reply token, the in-browser model's per-token `token` message | The reply, sixty times a second; `chat.replied` fires when it is done |
+| A collaborator's caret and selection | Awareness: Tavola's presence state, on its own channel |
+| Chat and Live message text | Never on an event, like the clipboard |
 | `dragover` and the dragged copy's position | Sixty a second, and only the strip that drew the copy reads it; `drag.zone-changed` fires only when the zone changes |
 | A React render, a `useMemo` recompute | Implementation, not a fact; it changes whenever the code does |
 | Every intermediate resize | `view.resized` once the size holds (below) |
@@ -392,3 +453,8 @@ today; the events are one lifecycle per drag (`drag.started` → `drag.zone-chan
 **Added 2026-11-05, sixth.** The owner asked for Library events. The Library is one IndexedDB store
 with seven kinds, so it gets one `library.*` family keyed by `kind`; `plugin.saved` /
 `plugin.deleted` fold into it. A cross-tab adapter is proposed (§5, The Library); the owner said yes the same day, so it ships in slice 3.
+
+**Added 2026-11-05, seventh.** The owner asked about live collaboration, the chat and the Coach.
+Live gets `live.*`, heard locally, and a collaborator's edit becomes a `doc.changed` with a peer
+origin; nothing new is sent over Tavola. The chat gets `chat.*` and `model.*` beside the existing
+`ai.*`. The Coach gets `coach.*`, its verdicts stamped with the `rev` they judged (§5).
