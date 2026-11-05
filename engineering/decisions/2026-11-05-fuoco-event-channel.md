@@ -192,7 +192,7 @@ that leaves out:
 | Event | Payload | Slice | Consumer on day one |
 |---|---|---|---|
 | `editor.focused` / `editor.blurred` | `editor: 'markdown' \| 'compose' \| 'notes'` | 3 | Which editor owns the keyboard, for the global undo keymap (`2026-10-27-filo-undo-history.md`) and the shortcut sheet |
-| `editor.mode-changed` | `from`, `to` (`markdown` \| `compose` \| `split`) | 3 | — |
+| `editor.mode-changed` | `from`, `to` (`markdown` \| `compose`, the shell's `editMode`) | 3 | — |
 | `editor.pasted` | `editor`, `bytes`, `lines`, `kind: 'text' \| 'html' \| 'image'`, `stripped` (what the paste filter removed) | 3 | — (a "pasted from a model?" check; ingest telemetry) |
 | `editor.completed` | `editor`, `kind: 'component' \| 'modifier' \| 'asset' \| …`, `label` | 3 | — (ranking completions by what authors pick) |
 | `editor.folded` / `editor.unfolded` | `editor`, `unit` | 3 | The rail could dim a folded slide |
