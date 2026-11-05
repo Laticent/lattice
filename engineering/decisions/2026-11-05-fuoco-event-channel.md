@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about forty events in four slices ordered by the code each one deletes.
+  and a catalog of about fifty events in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -53,6 +53,10 @@ Read from the code on `9dc7f3ed`.
 | A render started / painted / settled | `DeckPreview`, `single-slide-render.ts`, `lib/runtime/index.js` | Nobody outside: seven holders keep their own staleness (`2026-10-23-fuoco-owns-preview-state.md` §How an edit travels) |
 | The runtime's content pass finished | `onContentSettled` (`lib/runtime/index.js:558`) | In-frame listeners only (the overflow sweep) |
 | A diagram drew, or gave up | Plugin host, markup `data-lattice-settle` | The export POLLS for it every 120 ms, for up to 4 s, then 12 s (`deck-export.js:647` `waitForDiagrams`); `waitForMeasuring` polls the same way |
+| A plugin's library loaded or failed | `ensurePayload` injects a `<script>` and settles it `loaded` or `failed` (`lib/plugins/host-browser.mjs:157`) | The plugin host only, which then hydrates or releases its figures |
+| A plugin reported a diagnostic | `ctx.report(id, detail)` pushes onto `env.pluginDiagnostics` during the render (`lib/plugins/host.js:110`) | Whoever reads that render's `env` afterwards. Nothing is told when one appears |
+| A plugin renderer threw, or a hydrate ran past its budget | The host degrades it to `degradesTo`, or settles it `final` (`2026-09-27-plugin-system.md` §4.6) | Nobody: the author sees the fallback without a reason |
+| An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
 | A slide's orientation changed | `stampOrientation` writes `data-orientation` from the slide's measured aspect (`index.js:2710`); the fluid-view toggle flips it (`index.js:3838`) | CSS and the chart transforms, through markup. The host is never told |
 | The view resized | `window` `resize` (`index.js:2798`, `3687`) and a `ResizeObserver` on the slide box (`index.js:284`) | In-frame re-measure and the fit sweep only |
@@ -145,9 +149,16 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `render.painted` | `view`, `id`, `ms` | 2 | Ledger; the flash bench reads it instead of a mutation observer |
 | `render.settled` | `view`, `id`, `ms`, `generation` | 2 | Ledger; replaces `playground-sync`'s `renderedSource` |
 | `render.failed` | `view`, `id`, `reason` | 2 | Crash report sheet |
-| `figure.started` | `plugin` (`mermaid`, `plot`, …), `unit`, `id` | 2 | — |
+| `figure.started` (`figure.*` follows the plugin host's one state machine, `ctx.settle`: `pending → rendered \| error \| unavailable → final`) | `plugin` (`mermaid`, `plot`, …), `unit`, `id` | 2 | — |
 | `figure.drawn` | `plugin`, `unit`, `id`, `ms` | 2 | Export: replaces `waitForDiagrams`'s 120 ms poll with an await |
 | `figure.unavailable` | `plugin`, `unit`, `id`, `reason` | 2 | Export; an author-facing "this diagram did not draw" |
+| `figure.failed` | `plugin`, `unit`, `id`, `reason` (the `error` state) | 2 | Crash report sheet |
+| `figure.reclaimed` | `plugin`, `unit`, `id` (a late library took an `unavailable` figure back) | 2 | — |
+| `plugin.library-loading` / `plugin.library-loaded` / `plugin.library-failed` | `plugin`, `file`, `ms`, `reason` | 2 | Export: await the library instead of polling its figures; an "offline, Mermaid could not load" cue |
+| `plugin.diagnostic` | `plugin`, `id`, `message`, `detail`, `unit` | 2 | The lint panel, live instead of after the render |
+| `plugin.degraded` | `plugin`, `unit`, `fence`, `reason: 'threw' \| 'timed-out' \| 'non-string'` | 2 | An author-facing "this block fell back, and why" |
+| `plugin.used` | `plugins[]` (the set the deck now uses), `added[]`, `removed[]` | 2 | Library "in use" badges; warming a library before its first figure (§4.8 of the plugin note) |
+| `plugin.saved` / `plugin.deleted` | `id`, `name`, `fence` | 3 | The fence catalog and Compose's insert menu, which today re-list on mount |
 | `chart.started` | `kind` (`funnel`, `state-chart`, …), `unit`, `id`, `path: 'engine' \| 'runtime'` | 2 | — |
 | `chart.drawn` | `kind`, `unit`, `id`, `path`, `ms`, `orientation` | 2 | Export: one more thing to await instead of poll |
 | `chart.fallback` | `kind`, `unit`, `id`, `reason` (`layout-engine-missing`, …) | 2 | Replaces the `console.warn` with an author-facing cue |
@@ -168,7 +179,7 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About forty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About fifty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
 
 **Resize is a lifecycle, not a stream.** A window drag fires `resize` dozens of times a second. The
@@ -194,7 +205,7 @@ Ordered by what each slice deletes or unblocks:
    never re-entrant; a broken hub must go red), plus `doc.*`. Closes `followups.d/2884-p1`. No
    frame, no runtime, no export bytes.
 2. **The frame bridge, renders and figures.** `__latticeEvents` in the runtime, `render.*`,
-   `figure.*`, `chart.*`, `view.*` (resize, orientation, mode), `fonts.settled`, `fit.*`. Deletes the export's two polling loops and gives design A
+   `figure.*`, `plugin.*` (library, diagnostic, degraded, used), `chart.*`, `view.*` (resize, orientation, mode), `fonts.settled`, `fit.*`. Deletes the export's two polling loops and gives design A
    of `2026-10-23` its ledger. Needs the export sign-off (§4.3).
 3. **Assets, media, presenting, export progress.** The events the owner named, ahead of their
    consumers.
@@ -231,3 +242,13 @@ The slices are tracked in `followups.d/` so the work outlives this session.
 **Added 2026-11-05, after the first round.** The owner asked for chart, orientation and resize
 events. All three happen inside the preview frame, so they join slice 2: `chart.*`, and
 `view.resize-started` / `view.resized` / `view.orientation-changed` / `view.mode-changed` (§2, §5).
+
+**Added 2026-11-05, second.** The owner asked for plugin events. A plugin's life has four places
+worth hearing: its library loading, its figures settling, its diagnostics, and an author saving
+one in the Studio. `figure.*` already covered the second, and now names the state machine it
+mirrors (`ctx.settle`) and adds its two missing states, `failed` and `reclaimed`. The rest are
+`plugin.*`: the library, diagnostic, degraded and used events ride the frame bridge in slice 2;
+`plugin.saved` / `plugin.deleted` need only slice 1's channel, and sit in slice 3 because nothing
+urgent reads them. Charts are one plugin (`2026-11-01-charts-one-plugin.md`), so `chart.*` is a
+plugin family's events under its own name, because a chart also draws through the engine with no
+plugin host involved.

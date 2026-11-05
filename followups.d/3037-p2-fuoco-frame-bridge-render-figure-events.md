@@ -11,5 +11,5 @@ swimlane: engineering/decisions/2026-11-05-fuoco-event-channel.md
 # Fuoco event channel, slice 2: the frame bridge, render, figure, chart and view events
 
 where     — lib/runtime/index.js (a host-installed `__latticeEvents`, like `__latticeDrawHost`); docs/src/components/studio/export/deck-export.js.
-what      — §5 slice 2: `render.*`, `figure.*`, `chart.*` (engine- and runtime-drawn, plus `chart.fallback` in place of the dagre `console.warn`), `view.resize-started/resized/orientation-changed/mode-changed`, `fonts.settled`, `fit.*`. Replace `waitForDiagrams` / `waitForMeasuring` polling with awaits; give the 2026-10-23 design-A ledger its data.
+what      — §5 slice 2: `render.*`, `figure.*` (plus `failed` and `reclaimed`), `plugin.library-*/diagnostic/degraded/used`, `chart.*` (engine- and runtime-drawn, plus `chart.fallback` in place of the dagre `console.warn`), `view.resize-started/resized/orientation-changed/mode-changed`, `fonts.settled`, `fit.*`. Replace `waitForDiagrams` / `waitForMeasuring` polling with awaits; give the 2026-10-23 design-A ledger its data.
 done when — both polls are gone, the export's wait is measured before/after, and a demo deck is signed off dark and light.
