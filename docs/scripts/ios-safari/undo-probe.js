@@ -3,7 +3,7 @@
  * an iPhone iOS Simulator, and Safari on the macOS runner. Playwright's WebKit runs it locally first (probe.selftest.mjs).
  * It is the device half of the Filo undo checks (engineering/decisions/2026-10-27-filo-undo-history.md; PR #2959's P3):
  *
- *   1. put a deck in the editor, then type a word as a step of its own;
+ *   1. put a deck in the editor, record UNDO_DIAG_CYCLES type → undo cycles (below), then type a word as a step of its own;
  *   2. run WebKit's own undo command, `document.execCommand('undo')`. Safari's Edit → Undo, the iOS shake and the
  *      three-finger swipe all send this command, which reaches the page as a `historyUndo` beforeinput: the probe
  *      asserts that event fired (the witness), that the word went, and that the Studio said "Undid". The gesture
@@ -19,8 +19,13 @@
  */
 // biome-ignore-all lint/correctness/noUnusedVariables: globals for WebDriver's execute-script and Playwright's addScriptTag
 
-/** Temporary diagnosis of followups.d/3034-p8: how many type → undo cycles to record before the asserted run. */
-const UNDO_DIAG_CYCLES = 8;
+/**
+ * Extra type → WebKit undo cycles run before the asserted one, RECORDED, not asserted. WebKit's undo missed a typed word
+ * about 3 runs in 17 (followups.d/3034-p8), and one cycle per run is a thin sample of an intermittent fault: these give
+ * each device thirteen. A missed cycle shows in the step's detail with WebKit's undo state, the editor element and focus at
+ * each moment, so the next red run names where the step went. It does not fail the run: the asserted cycle still does.
+ */
+const UNDO_DIAG_CYCLES = 12;
 
 const UNDO_DECK = ['# Undo on a device', '', 'First slide.', '', '---', '', '# Second', '', 'Second slide.', ''].join('\n');
 
@@ -156,7 +161,74 @@ function undoProbeKit(result) {
 			throw new Error(`${e.message} (render metrics ${!!window.__latticeRenderMetrics}, Deck source ${!!document.querySelector('[aria-label="Deck source"]')}, ${location.pathname}, ${document.readyState}, ${innerWidth}px; buttons: ${panes.join(' | ') || 'none'})`);
 		}
 	};
-	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot };
+	/**
+	 * Wait `ms` while watching WebKit's undo state every 25 ms. If it flips, say when, and what the page did in the
+	 * 300 ms before: editor DOM mutations, CodeMirror transactions (by user event, and whether one replaced the whole
+	 * document), `history` calls, selection changes and focus moves. The followup's iPhone run lost undo inside this
+	 * wait with the editor and focus unchanged, so this is the window that names the cause.
+	 */
+	const watchUndo = async (ms) => {
+		const t0 = Date.now();
+		const seen = [];
+		const note = (what) => seen.push([Date.now() - t0, what]);
+		const mo = new MutationObserver((list) => {
+			let added = 0;
+			let removed = 0;
+			let text = 0;
+			for (const m of list) {
+				added += m.addedNodes.length;
+				removed += m.removedNodes.length;
+				if (m.type === 'characterData') text++;
+			}
+			note(`dom +${added} -${removed} ~${text}`);
+		});
+		const ed = editorEl();
+		if (ed) mo.observe(ed, { subtree: true, childList: true, characterData: true });
+		const view = document.querySelector('.cm-content')?.cmTile?.root?.view;
+		const dispatch = view?.dispatch;
+		if (view && dispatch) {
+			view.dispatch = function (...args) {
+				const tr = args[0];
+				const user = tr?.annotations?.find?.((a) => typeof a.value === 'string')?.value;
+				const whole = tr?.changes && !tr.changes.empty && tr.changes.length === view.state.doc.length && tr.changes.newLength > 0;
+				note(`cm ${user || (tr?.changes?.empty === false ? 'change' : 'other')}${whole ? ' WHOLE-DOC' : ''}`);
+				return dispatch.apply(this, args);
+			};
+		}
+		const hist = {};
+		for (const f of ['pushState', 'replaceState']) {
+			hist[f] = history[f];
+			history[f] = function (...args) {
+				note(`history.${f}`);
+				return hist[f].apply(this, args);
+			};
+		}
+		const onSel = () => note('selectionchange');
+		const onFocus = (e) => note(`${e.type} ${tag(e.target)}`);
+		document.addEventListener('selectionchange', onSel);
+		addEventListener('focusin', onFocus, true);
+		addEventListener('focusout', onFocus, true);
+		let flip = '';
+		let was = document.queryCommandEnabled('undo');
+		while (Date.now() - t0 < ms) {
+			await sleep(25);
+			const now = document.queryCommandEnabled('undo');
+			if (now !== was && !flip) {
+				const at = Date.now() - t0;
+				const near = seen.filter(([t]) => t >= at - 300 && t <= at).map(([t, w]) => `${t}:${w}`);
+				flip = `undo ${was}→${now} at ${at} ms after: ${near.join(', ') || 'nothing seen'}`;
+			}
+			was = now;
+		}
+		mo.disconnect();
+		if (view && dispatch) view.dispatch = dispatch;
+		for (const f of Object.keys(hist)) history[f] = hist[f];
+		document.removeEventListener('selectionchange', onSel);
+		removeEventListener('focusin', onFocus, true);
+		removeEventListener('focusout', onFocus, true);
+		return flip;
+	};
+	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot, watchUndo };
 }
 
 async function latticeUndoProbe() {
@@ -207,7 +279,7 @@ async function latticeUndoProbe() {
 			});
 		const pasted = k.deckText();
 		k.step('put the deck in the editor', true, `${pastes > 1 ? `${pastes} pastes; ` : ''}${k.snapshot()}`);
-		// DIAGNOSTIC (temporary, followups.d/3034-p8): repeat type → WebKit undo, recording what each cycle saw.
+		// Recorded cycles (UNDO_DIAG_CYCLES): type → WebKit undo, with what each cycle saw.
 		const cycles = [];
 		for (let i = 1; i <= UNDO_DIAG_CYCLES; i++) {
 			await k.sleep(1500);
@@ -215,10 +287,10 @@ async function latticeUndoProbe() {
 			const typing = await k.type(word);
 			await k.until(() => k.deckText().includes(word), 15000, `diag word ${i}`);
 			const held = k.snapshot();
-			await k.sleep(800);
+			const flip = await k.watchUndo(800);
 			const fired = await k.command('undo');
 			const undone = await k.until(() => k.deckText() === pasted, 3000, 'diag undo').then(() => true, () => false);
-			cycles.push(`#${i} ${fired || 'NONE'} undone ${undone} | typing: ${typing} | held: ${held} | cmd: ${(result.events || []).at(-1)}`);
+			cycles.push(`#${i} ${fired || 'NONE'} undone ${undone} | typing: ${typing} | held: ${held}${flip ? ` | FLIP ${flip}` : ''} | cmd: ${(result.events || []).at(-1)}`);
 			if (!undone) {
 				const el = await k.focusEnd();
 				if (el instanceof HTMLTextAreaElement) el.select();
@@ -229,7 +301,7 @@ async function latticeUndoProbe() {
 		}
 		if (cycles.length) {
 			const bad = cycles.filter((c) => !/^#\d+ historyUndo undone true/.test(c)).length;
-			k.step(`diagnostic: ${cycles.length - bad} of ${cycles.length} type → WebKit undo cycles raised historyUndo and undid`, true, `\n    ${cycles.join('\n    ')}`);
+			k.step(`recorded: ${cycles.length - bad} of ${cycles.length} type → WebKit undo cycles raised historyUndo and undid`, true, `\n    ${cycles.join('\n    ')}`);
 			result.events = [];
 		}
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
@@ -237,10 +309,10 @@ async function latticeUndoProbe() {
 		const typing = await k.type(' ONE');
 		const typed = await k.until(() => (k.deckText().includes(' ONE') ? k.deckText() : ''), 15000, 'the typed word');
 		k.step('typed a word as its own step', true, `${typing}; once the editor held it, ${k.snapshot()}`);
-		await k.sleep(800);
+		const flip = await k.watchUndo(800);
 
 		const undoType = await k.command('undo');
-		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || `no beforeinput; events: ${(result.events || []).join(' ; ')}`);
+		k.step('WebKit undo command raised historyUndo (Edit → Undo, shake and three-finger swipe send this)', undoType === 'historyUndo', undoType || `no beforeinput; ${flip ? `FLIP ${flip}; ` : ''}events: ${(result.events || []).join(' ; ')}`);
 		await k.until(() => k.deckText() === pasted, 10000, 'the word undone by the WebKit undo command').catch((e) => {
 			// Say where the undo went: one step too many (the paste gone too) or none, and what the Studio announced.
 			const now = k.deckText();

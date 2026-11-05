@@ -28,5 +28,21 @@ remounts the editor when its pane opens), or CodeMirror applies that input itsel
 `queryCommandEnabled('undo')` right after the typed word, and the editor element's identity before and after, in a dispatch that
 repeats the step 10 times per device.
 
+**2026-11-05, continuation PR: the window is under a second, and the editor does not remount.** The probe now
+records, at every step, whether WebKit's undo and redo are enabled, which editor element has focus (numbered, so a
+remount shows), whether the page has focus, and whether the typed input's `beforeinput` was cancelled. It also runs
+recorded type → undo cycles before the asserted one. Two dispatches (42013673985, 42013679163) ran 8 cycles per device;
+one iPhone cycle reproduced the fault (job 127199955289, cycle #3):
+
+- right after the typed word landed: `undo true … editor div#1 active div#1 hasFocus true`;
+- 800 ms later, at the command: `undo false redo false editor div#1 active div#1 hasFocus true`, and it stayed false for 3 s.
+
+So WebKit's undo stack is emptied within about 0.8 s of the typed word, with the same editor element and focus held:
+**not a remount and not a focus loss**, the lead above. The iPad in the same run did remount its editor (`div#1` →
+`div#2`) and undo kept working. All other cycles (35 of 36 on the two iOS devices, 16 of 16 on the Mac) and every
+asserted step passed. The probe now also watches that 800 ms window at 25 ms resolution and, when undo flips, names
+what the page did in the 300 ms before it: editor DOM mutations, CodeMirror transactions (and whether one replaced the
+whole document), `history` calls, selection changes and focus moves. The next miss names its trigger.
+
 done when — the cause is named with evidence, and `ios-safari-undo` passes 10 dispatched runs in a row on both devices, or the
 probe step is reclassified with the reason recorded.
