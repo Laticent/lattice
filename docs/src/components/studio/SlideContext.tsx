@@ -58,6 +58,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang } from './studio-language';
+import { CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState, withSwitchState } from './switch-controls';
 
 type CatalogEntry = { name: string; bucket?: string; effectiveVariants?: string[]; familyModifiers?: string[] };
 type LintVocab = {
@@ -203,7 +204,7 @@ function Switch({ on, onClick, label, disabled }: { on?: boolean; onClick?: () =
 // a real ARIA radiogroup that never deselects. A null option value → the
 // `__seg_default__` sentinel (Radix items need a non-empty value).
 const SEG_DEFAULT = '__seg_default__';
-function Seg({ options, value, onChange, ariaLabel }: { options: { label: string; value: string | null }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {
+function Seg({ options, value, onChange, ariaLabel }: { options: { label: string; value: string | null; disabled?: boolean }[]; value: string | null; onChange: (v: string | null) => void; ariaLabel: string }) {
 	return (
 		<RadioGroup
 			aria-label={ariaLabel}
@@ -215,9 +216,10 @@ function Seg({ options, value, onChange, ariaLabel }: { options: { label: string
 				<RadioGroupItem
 					key={o.value ?? SEG_DEFAULT}
 					value={o.value ?? SEG_DEFAULT}
+					disabled={o.disabled}
 					// `flex-1` + a `min-w-0` so the segments share the column evenly and the row
 					// lines up with every dropdown, rather than the control sizing to its labels.
-					className={cn('min-w-0 flex-1 px-2 py-1 text-center text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground', i > 0 && 'border-l border-border')}
+					className={cn('min-w-0 flex-1 px-2 py-1 text-center text-[12px] text-foreground hover:bg-[var(--accent-soft)] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40', i > 0 && 'border-l border-border')}
 				>
 					{o.label}
 				</RadioGroupItem>
@@ -408,6 +410,22 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const canvas = React.useMemo(() => canvasProvenance(chunk, source), [chunk, source]);
 	const finish = React.useMemo(() => finishProvenance(chunk, source), [chunk, source]);
 	const deck = React.useMemo(() => deckDefaults(source), [source]);
+
+	// The CONTENT switches (switch-controls.ts): one Auto / On / Off row each. Auto writes neither
+	// token, so the slide follows the deck — its `class:`, or for callouts its `callout:` line — and
+	// the hint names the deck's word when it set one. On or Off writes that token even when the deck
+	// says the same, so the slide keeps its choice if the deck changes. A row shows where the layout takes
+	// the switch (`effectiveVariants`); callouts show on a chart, or on a slide that writes one; the
+	// row label on a slide with a table. When the DECK says `with-X`, a slide's `no-X` loses (the one
+	// precedence, `with-X` > `no-X`), so the slide's Off is disabled and the row says why.
+	const deckContentState = (s: ContentSwitch): SwitchState => {
+		const word = s.register ? getFrontMatter(source, s.register)?.trim() : '';
+		return switchState(s.name, [...deck.classTokens, ...(word === 'off' ? [`no-${s.name}`] : word === 'on' ? [`with-${s.name}`] : [])]);
+	};
+	const setContentSwitch = (s: ContentSwitch, v: SwitchState) => onMutate((c) => setClassTokens(c, withSwitchState(s.name, getClassTokens(c), v)));
+	const contentWord = (s: ContentSwitch, v: 'on' | 'off') => (v === 'on' ? (s.on ?? 'On') : (s.off ?? 'Off'));
+	const contentRows = CONTENT_SWITCHES.filter((s) =>
+		switchState(s.name, tokens) !== null || (s.name === 'callout' ? entry?.bucket === 'chart' || /@(callout|legend)\{/.test(chunk) : s.name === 'row-label' ? /^\s*\|.*\|/m.test(chunk) : accepts(`no-${s.name}`)));
 
 	// Finish: the SAME shared selector the deck Inspector uses (CatalogSelect), fed
 	// the shared finish groups — Auto (only when the deck sets one) + None heads,
@@ -645,6 +663,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		if (phrase) kept = kept.concat(phrase.split(/\s+/));
 		return setClassTokens(c, kept);
 	});
+	// The deck's own tint / mark tokens (its `class:`), which only `no-treatment` clears on one slide.
+	const deckTreated = deck.classTokens.some((t) => /^(tint|mark)-/.test(t)) || has('no-treatment');
 	const decorLabel = (phrase: string) => cap(phrase.split(/\s+/)[0].replace(/^(tint|mark)-/, ''));
 
 	// The emitted line, with inherited deck tokens ghosted after the authored ones.
@@ -986,6 +1006,31 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 						</div>
 			),
 		}] : []),
+		// CONTENT — the switches drawn inside the content (switch-controls.ts), each Auto / On / Off.
+		...(editable && contentRows.length ? [{
+			value: 'content',
+			label: 'Content',
+			keywords: 'switches parts inside',
+			body: () => (
+						<div className="py-1">
+							<TabIntro>Parts drawn inside this slide's content. Auto follows the deck's Content settings; On or Off decides for this slide alone.</TabIntro>
+							{contentRows.map((s) => {
+								const fromDeck = deckContentState(s);
+								const offLocked = fromDeck === 'on';
+								return (
+									<Row key={s.name} label={s.label} hint={switchState(s.name, tokens) === null && fromDeck ? `${contentWord(s, fromDeck)} · deck` : undefined} desc={offLocked ? `${s.desc} The deck's ${contentWord(s, 'on')} wins over ${contentWord(s, 'off')} on a slide; set the deck to Auto to choose here.` : s.desc} help={s.help} find={`no-${s.name} with-${s.name}`}>
+										<Seg
+											ariaLabel={s.label}
+											value={switchState(s.name, tokens)}
+											onChange={(v) => setContentSwitch(s, v as SwitchState)}
+											options={[{ label: 'Auto', value: null }, { label: contentWord(s, 'on'), value: 'on' }, { label: contentWord(s, 'off'), value: 'off', disabled: offLocked }]}
+										/>
+									</Row>
+								);
+							})}
+						</div>
+			),
+		}] : []),
 		// MARKS — everything stamped ON TOP of the slide's content: the state
 		// badge and review tone (which carry meaning) and the tint and mark
 		// treatments (which do not). Two tabs until 2026-08-18; one idea.
@@ -1029,6 +1074,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								// only a divider while there is something above it, so it goes with the query.
 								<SettingsScope label="Says nothing" keywords="decoration atmosphere" className={hasStatus && !query ? 'mt-4 border-t border-border/60 pt-3' : undefined}>
 									<SectionHead label="Says nothing" desc="Purely visual — atmosphere in the margins, carrying no meaning a reader has to decode." />
+									{deckTreated && (
+										// The `treatment` switch: a deck that stamps a tint or mark in `class:` paints every slide,
+										// and clearing this slide's chips cannot remove the deck's. `no-treatment` can.
+										<Row label="Hide the deck's tints" desc="Clear the tints and marks the deck puts on every slide." help={<>Writes <code className="font-mono">no-treatment</code> on this slide. Picking a tint or mark below turns it back off.</>}>
+											<Switch label="Hide the deck's tints" on={has('no-treatment')} onClick={() => toggle('no-treatment')} />
+										</Row>
+									)}
 									{tints.length > 0 && (
 										<SettingsScope label="Tint" keywords="wash color corner edge decoration" className="my-1.5">
 											<GroupHead label="Tint" desc="A soft color wash in a corner or along an edge." />

@@ -67,6 +67,18 @@ number and rail off together. Any one comes back with its own `with-X`:
 | Finish backdrop | `no-backdrop` | `with-backdrop` | Keeps the finish, drops its backdrop. |
 | Tints and marks | `no-treatment` | `with-treatment` | Clears every `tint-*` and `mark-*` on the slide. |
 
+## In the Studio
+
+Every switch has a control in **Deck Settings** and **Slide Settings**, under
+the same tab name in both. **Chrome** holds the frame. The new **Content** tab
+holds the below-note, the heading period, the table row label, the pane spine
+and callouts. **Accent** holds the spectrum family and the heading rule, **Look**
+holds the finish, and **Motion** holds Play. On a slide, **Auto** follows the
+deck. **On** writes `with-X`, and **Off** writes `no-X`. When the deck itself says
+**On**, a slide's Off cannot win (`with-X` beats `no-X`), so the Studio
+disables it there. **Marks** holds tints and marks, and a slide hides the deck's
+own with **Hide the deck's tints** (`no-treatment`).
+
 ## Old spellings
 
 These were renamed, and the old spelling no longer does anything.
