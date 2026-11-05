@@ -253,7 +253,11 @@ re-reads the store finds the new record. **Other tabs.** The store is shared by 
 origin and the hub is not (§7). A small adapter that re-emits `library.*` from a
 `BroadcastChannel` with `origin: 'other-tab'` would close the gap Finish Studio's `storage`
 listener patches today. It is the one cross-tab piece in this note, because the shared store makes
-the other tab's save a fact about THIS tab's Library; it is still for the owner to say yes to.
+the other tab's save a fact about THIS tab's Library. **The owner said yes (2026-11-05); it ships
+in slice 3.** Its rules: only `library.*` crosses, never focus, selection or clipboard events; a
+tab never re-broadcasts an event that arrived from another tab, so two tabs cannot echo one save
+back and forth; the payload is the same metadata, never the asset itself (the receiving tab
+re-reads the store); and Finish Studio's `storage` listener is deleted in the same change.
 
 **Drag and drop.** One lifecycle per drag (§4.2), not one event set per drop zone:
 
@@ -333,7 +337,7 @@ Ordered by what each slice deletes or unblocks:
 - It does not move render scheduling into the hub (`2026-10-23` design B, not recommended there).
 - It does not move the deck text into Fuoco (`followups.d/2822-p1`).
 - It adds no cancelable events (§4.2).
-- It is not a cross-tab or cross-device bus. Presence and collaboration would ride on it later,
+- It is not a cross-tab or cross-device bus, apart from the one Library adapter in §5. Presence and collaboration would ride on it later,
   through the `idle` lane, but a transport between browsers is its own design.
 
 ## 8. What was measured and what was not
@@ -387,4 +391,4 @@ today; the events are one lifecycle per drag (`drag.started` → `drag.zone-chan
 
 **Added 2026-11-05, sixth.** The owner asked for Library events. The Library is one IndexedDB store
 with seven kinds, so it gets one `library.*` family keyed by `kind`; `plugin.saved` /
-`plugin.deleted` fold into it. A cross-tab adapter is proposed and left to the owner (§5, The Library).
+`plugin.deleted` fold into it. A cross-tab adapter is proposed (§5, The Library); the owner said yes the same day, so it ships in slice 3.
