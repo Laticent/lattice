@@ -42,14 +42,14 @@ concurrency:
 jobs:
   e2e:
     # RESTORED. `runs-on` was dropped by #1500 (5e9deb3), whose diff replaced the
-    # `runs-on: ubuntu-latest` + `timeout-minutes: 30` pair with the comment below and
+    # `runs-on: ubuntu-24.04` + `timeout-minutes: 30` pair with the comment below and
     # `timeout-minutes: 60` — and did not put `runs-on` back. A job without it fails
     # workflow VALIDATION, so since that merge this file has not been loadable: every
     # run is a startup failure with ZERO jobs, and the run is named after the file path
     # rather than the workflow. The cron cannot fire, and neither job below has run.
     # Nothing catches this, because no workflow lints workflows and this one has no
     # pull_request trigger.
-    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04

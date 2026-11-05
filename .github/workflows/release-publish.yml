@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # This phase needs no PAT — it pushes a tag, which the ruleset doesn't cover.
     # It declares the environment for NPM_TOKEN, the most dangerous secret in the
     # repo: stored here rather than repo-wide, it is unreadable from a PR branch,

@@ -28,7 +28,7 @@ jobs:
     # Only runs whose `alert` job held the failure for it (the `alert-held` artifact, read below). `cancelled` counts: a run
     # whose only failures were jobs GitHub gave no runner can conclude either way.
     if: contains(fromJSON('["failure","cancelled"]'), github.event.workflow_run.conclusion) && github.event.workflow_run.run_attempt == 1 && github.event.workflow_run.event != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write # re-run the failed jobs

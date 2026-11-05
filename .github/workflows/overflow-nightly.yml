@@ -76,7 +76,7 @@ concurrency:
 
 jobs:
   overflow:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # ~7 min expected (see the budget note above). 30 leaves ~2x headroom for a 2-vCPU runner,
     # where the worker count halves: measured 332s at 2 workers on 4 vCPU, so ~11m of sweep at
     # 1 worker plus ~2.5-3.5m of setup is ~14m worst case, and that also absorbs a few decks

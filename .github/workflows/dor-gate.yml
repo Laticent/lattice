@@ -15,7 +15,7 @@ permissions:
 jobs:
   validate:
     if: github.event.label.name == 'status:ready'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4 # for .github/scripts/issue-form.js
       - uses: actions/github-script@v7

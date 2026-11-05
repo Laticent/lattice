@@ -49,7 +49,7 @@ env:
 
 jobs:
   mirror:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # AUTOMATION_PAT lives in this environment, NOT in the repo secrets, and the
     # environment only admits `main`. A repo secret is readable by any workflow
     # in the repo — including one added by a PR branch, which in an agent-driven

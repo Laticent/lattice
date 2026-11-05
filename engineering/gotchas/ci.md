@@ -724,7 +724,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Fix:** the jobs that run `npx playwright install --with-deps` are pinned to `ubuntu-24.04` (`golden-diff` already was, for another reason). Nothing else in them changes.
 - **How to tell it from a real failure:** the job log stops at `npx playwright install` and the Playwright report artifact is empty. A real test failure prints the failing spec.
 - **Triggered by:** GitHub moving the `ubuntu-latest` label.
-- **Removable when:** the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) moves to a version that supports the new image; then unpin each job in the same PR as the bump.
+- **Removable when:** never, as a rule: since 2026-11-05 every runner is pinned to a named image (`checkRunnerPins`). Move to a newer image in its own PR, once the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) supports it.
 
 ## `studio-smoke` red on "the pre-paint replay never ran"
 

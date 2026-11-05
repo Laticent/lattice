@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   watch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
       HEAD_OUT: ${{ github.workspace }}/.perf-out/head
@@ -288,7 +288,7 @@ jobs:
   #    on one runner cancels that drift; comparing against a stored number does not.
   #    See engineering/decisions/2026-08-03-performance-guard.md.
   engine-perf:
-    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04

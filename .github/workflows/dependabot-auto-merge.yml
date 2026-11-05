@@ -31,7 +31,7 @@ jobs:
     # `user.login` rather than github.actor: actor is whoever caused THIS event,
     # which is not necessarily the PR's author on a re-run or a manual retrigger.
     if: github.event.pull_request.user.login == 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Read the update metadata
         id: meta

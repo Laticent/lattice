@@ -70,7 +70,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -106,7 +106,7 @@ jobs:
     # suite needs it, which is every pull request: the iOS suites never run there.
     needs: plan
     if: needs.plan.outputs.docs_site == 'true' && github.event.inputs.simulate != 'no-session'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -199,7 +199,7 @@ jobs:
     # `cancelled` counts: a job killed by its timeout reads that way. These runs have no supersession (the concurrency group is per run on a
     # schedule or dispatch), so a cancel here is a timeout, a person, or GitHub giving the job no runner (triage tells that one apart).
     if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.docs-site.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       issues: write

@@ -1,10 +1,10 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. `docs_site`: true when the suite serves the built docs site; the workflow's `docs-site` job builds it once on Linux and the suite's job downloads it. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-26, windows-2025). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. `docs_site`: true when the suite serves the built docs site; the workflow's `docs-site` job builds it once on Linux and the suite's job downloads it. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
   "suites": [
     {
       "name": "export-confine",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "lib/core/file-confine.js",
@@ -27,7 +27,7 @@
     {
       "name": "export-confine-windows",
       "os": [
-        "windows-latest"
+        "windows-2025"
       ],
       "paths": [
         "lib/core/file-confine.js",
@@ -50,7 +50,7 @@
     {
       "name": "wait-for-macos",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "tools/wait-for.sh",
@@ -64,7 +64,7 @@
     {
       "name": "build-windows",
       "os": [
-        "windows-latest"
+        "windows-2025"
       ],
       "paths": [
         "tools/check-ownership.js",
@@ -79,8 +79,8 @@
     {
       "name": "os-sandbox-measure",
       "os": [
-        "macos-latest",
-        "windows-latest"
+        "macos-26",
+        "windows-2025"
       ],
       "paths": [
         "lib/core/os-sandbox.js",
@@ -98,7 +98,7 @@
     {
       "name": "ios-safari-studio",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -122,7 +122,7 @@
     {
       "name": "ios-safari-photo-memory",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -138,7 +138,7 @@
     {
       "name": "ios-safari-undo",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/*",
@@ -155,7 +155,7 @@
     {
       "name": "ios-safari-photo",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -180,7 +180,7 @@
     {
       "name": "ios-safari-jpeg",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "lib/core/jpeg-encode.mjs",
@@ -195,7 +195,7 @@
     {
       "name": "ios-safari-focus-sync",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -212,7 +212,7 @@
     {
       "name": "office-quicklook",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "tools/office-quicklook.mjs",

@@ -517,7 +517,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
 - **One docs build:** the iOS suites that serve the docs site carry `"docs_site": true`. The workflow's `docs-site` job builds it
   once on Linux, and each of those jobs downloads it into `docs/dist/`, where `run.sh` finds `.prebuilt` and skips its own build
   (65–94 s a job). Run by hand, `run.sh` still builds it.
-- **Windows:** `build-windows` runs the full `npm run build` on `windows-latest` and `export-confine-windows` runs the CLI confinement
+- **Runner images are pinned:** every `runs-on` and every registry `os` names an image (`ubuntu-24.04`, `macos-26`,
+  `windows-2025`), never `-latest`; `checkRunnerPins` in `tools/check-ownership.js` fails the build on one. A `-latest` label moves
+  when GitHub says so, and Dependabot does not bump runner labels, so moving to a newer image is its own PR
+  (`followups.d/3034-p7-review-runner-image-pins.md`).
+- **Windows:** `build-windows` runs the full `npm run build` on `windows-2025` and `export-confine-windows` runs the CLI confinement
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
@@ -525,7 +529,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   as an editable PowerPoint and renders every slide through `qlmanage` on macOS, the same Office importer iPhone Preview uses (it
   ignores embedded fonts and drew grouped icon shapes as specks: `decisions/2026-11-01-icon-font.md` § 3.6). It also renders rewritten
   variants of the same file (icons ungrouped, icons in their own group), so one run compares ways of writing a slide. The PNGs land in
-  the run's `platform-suite-office-quicklook-macos-latest` artifact.
+  the run's `platform-suite-office-quicklook-macos-26` artifact.
 - **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
   serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
@@ -700,7 +704,7 @@ predicate.
 
 **macOS itself remains UNVERIFIED** (HARD RULE #23): what is tested is the
 mechanism the macOS path would use, on Linux. Nothing in reach can close that —
-every runner in `.github/workflows/` is `ubuntu-latest`, and a Linux transcript
+every runner the per-PR CI uses is Linux, and a Linux transcript
 is not evidence about a Mac. It takes someone running the four checks on a real
 Mac: `--job x -- true` exits 0; a second waiter on a live job exits 2; a
 SIGKILLed holder frees the job; and without coreutils it exits 69 naming

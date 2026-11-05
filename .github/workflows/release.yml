@@ -41,7 +41,7 @@ permissions:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # AUTOMATION_PAT lives here rather than in the repo secrets, and the
     # environment only admits `main` — so a PR branch can't read it. Dispatching
     # this workflow from any other ref fails on the environment rule, which is

@@ -146,7 +146,7 @@ jobs:
   # test/. An engine change (lib/, themes/, dist/, …) sets BOTH, because the
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       # On merge_group (the merge queue's combined-state run) run EVERYTHING:
@@ -233,7 +233,7 @@ jobs:
   # PUPPETEER_SKIP_DOWNLOAD keeps `npm ci` from pulling ~150 MB of Chromium
   # that nothing here uses.
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
@@ -318,7 +318,7 @@ jobs:
   # merge queue since 2026-10-29), and a prose-only PR waits ~7.5 min for `ci`
   # instead of ~1 min.
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
     strategy:
       fail-fast: false
@@ -455,7 +455,7 @@ jobs:
   integration:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # PER LEG. Raised 25 -> 45 on 2026-10-05 when the unsharded suite outgrew 25 (the
     # INTEGRATION RE-SAMPLE note at the top of this file has the numbers); cut to
     # 25 on 2026-10-09 with the four-way shard.
@@ -809,7 +809,7 @@ jobs:
   docs-build:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1' # the build is render-free; overflow uses a system Chrome
@@ -939,7 +939,7 @@ jobs:
     # It is NOT moved to studio-e2e-nightly: that suite failed all 10 of its scheduled runs to 2026-10-28, so a
     # drift caught only there would sit in a red issue nobody can tell apart from the rest.
     if: needs.changes.outputs.docs == 'true' && github.event_name == 'pull_request'
-    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
@@ -1019,7 +1019,7 @@ jobs:
   player-webkit:
     needs: changes
     if: needs.changes.outputs.player == 'true'
-    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # Pinned to ubuntu-24.04: ubuntu-24.04 moved to 26.04, which Playwright 1.56.1 cannot install browsers on
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
@@ -1073,7 +1073,7 @@ jobs:
   ci:
     if: always()
     needs: [changes, lint, unit, integration, docs-build, player-webkit]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session

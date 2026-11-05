@@ -26,7 +26,7 @@ const path = require('node:path');
 const REPORTING = new Set(['alert', 'supervise']);
 const FAILED = new Set(['failure', 'cancelled', 'timed_out']);
 
-/** "ios-safari-photo (macos-latest)" → "platform-suite-ios-safari-photo-macos-latest", the artifact the job uploads. */
+/** "ios-safari-photo (macos-26)" → "platform-suite-ios-safari-photo-macos-26", the artifact the job uploads. */
 function artifactFor(jobName) {
 	const m = /^(.+) \(([^)]+)\)$/.exec(jobName);
 	return m ? `platform-suite-${m[1]}-${m[2]}` : null;

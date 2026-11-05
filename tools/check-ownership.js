@@ -8827,7 +8827,43 @@ function checkMediaSourceCensus(errors, rows = require('../lib/core/media-source
 // the registry on every build: each suite has a unique kebab-case name, a non-empty `os` from the runner labels we allow, a
 // non-empty `paths` and `why`, and every `test/` or `tools/` file its `run` command names exists (a stale entry fails, like the
 // SANCTIONED_* lists).
-const PLATFORM_SUITE_OS = ['macos-latest', 'windows-latest'];
+const PLATFORM_SUITE_OS = ['macos-26', 'windows-2025'];
+
+// ── Runner images are pinned, never `-latest` (owner call on #3034, 2026-11-05) ──
+// A `-latest` label moves when GitHub says so: `ubuntu-latest` moving to 26.04 broke every Playwright install in one evening
+// (engineering/gotchas/ci.md), and the iOS suites stop working the day `macos-latest` ships Xcode 27 (docs/scripts/ios-safari/run.sh).
+// So every `runs-on`, and every OS in the platform-suites registry, names an image. Dependabot does not bump runner labels: moving to
+// a newer image is a deliberate PR (followups.d/3034-p7-review-runner-image-pins.md says when to look).
+const FLOATING_RUNNER = /\b(?:ubuntu|macos|windows)-latest\b/;
+
+function checkRunnerPins(errors, workflowDir = path.join(ROOT, '.github', 'workflows'), registryPath = path.join(ROOT, '.github', 'platform-suites.json')) {
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  for (const f of files) {
+    const lines = fs.readFileSync(path.join(workflowDir, f), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      const code = line.replace(/\s+#.*$/, '');
+      if (/^\s*#/.test(line)) return;
+      if (/\bruns-on:/.test(code) && FLOATING_RUNNER.test(code)) {
+        errors.push(`.github/workflows/${f}:${i + 1}: \`${code.trim()}\` floats on a -latest image. Name the image (ubuntu-24.04, macos-26, windows-2025): a -latest label changes under you when GitHub moves it.`);
+      }
+    });
+  }
+  try {
+    const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    for (const s of registry.suites || []) {
+      for (const os of s.os || []) {
+        if (FLOATING_RUNNER.test(os)) errors.push(`.github/platform-suites.json: suite "${s.name}" runs on \`${os}\`, a -latest image. Name the image.`);
+      }
+    }
+  } catch {
+    /* checkPlatformSuites reports a missing or malformed registry */
+  }
+}
 
 function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
   let registry;
@@ -14412,6 +14448,7 @@ function run() {
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
   checkPlatformSuites(errors);
+  checkRunnerPins(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -14672,6 +14709,7 @@ module.exports = {
   checkMediaSourceCensus,
   SANCTIONED_MEDIA_SOURCES,
   checkPlatformSuites,
+  checkRunnerPins,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
