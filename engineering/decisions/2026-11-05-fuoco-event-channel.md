@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about fifty events in four slices ordered by the code each one deletes.
+  and a catalog of about sixty-five events, a list of what is not worth publishing, in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -56,6 +56,9 @@ Read from the code on `9dc7f3ed`.
 | A plugin's library loaded or failed | `ensurePayload` injects a `<script>` and settles it `loaded` or `failed` (`lib/plugins/host-browser.mjs:157`) | The plugin host only, which then hydrates or releases its figures |
 | A plugin reported a diagnostic | `ctx.report(id, detail)` pushes onto `env.pluginDiagnostics` during the render (`lib/plugins/host.js:110`) | Whoever reads that render's `env` afterwards. Nothing is told when one appears |
 | A plugin renderer threw, or a hydrate ran past its budget | The host degrades it to `degradesTo`, or settles it `final` (`2026-09-27-plugin-system.md` §4.6) | Nobody: the author sees the fallback without a reason |
+| The Markdown editor gained or lost the keyboard, took a paste, accepted a completion, folded a slide | CodeMirror (`docs/src/components/studio/Editor.tsx`: `autocompletion` at :491, the paste filter at :105, `lintGutter` at :867) | The editor itself. The hub hears the caret (`report`) and the text (`update`), nothing else |
+| Compose inserted a block, opened a node view, parked or applied an outside change | ProseMirror (`ComposeView.tsx`; the image, raw and code node views; `resyncFrom` at :226) | Compose itself, through about 22 refs (`followups.d/2884-p1`) |
+| A panel, sheet, drawer or menu opened or closed | About 25 `useState` flags in `StudioShell.tsx` (`historyOpen`, `shareOpen`, `workspaceOpen`, `cmdOpen`, `insertOpen`, `iconsOpen`, `presentOpen`, `deckTab`, `settingsView`, `mobilePane`, `chromeCollapsed`, …) | Only the shell. The tour library (Vetrina) learns that a panel opened by polling the DOM (`lib/vetrina/recipes.ts` `waitFor`, "the one public poll-wait"); focus return after a drawer child closes is its own flag (`drawerPendingReturn`, `StudioShell.tsx:951`) |
 | An author saved or deleted a Studio plugin | `saveStudioPlugin` / `deleteStudioPlugin` (`docs/src/components/studio/plugin-library.ts`) | The caller's own promise |
 | A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
 | A slide's orientation changed | `stampOrientation` writes `data-orientation` from the slide's measured aspect (`index.js:2710`); the fluid-view toggle flips it (`index.js:3838`) | CSS and the chart transforms, through markup. The host is never told |
@@ -179,8 +182,45 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About fifty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About sixty-five names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
+
+**The editors.** "Code" is the Markdown source editor (CodeMirror); "prose" is Compose, the rich
+editor (ProseMirror). The hub already hears each one's caret and text, so these events cover what
+that leaves out:
+
+| Event | Payload | Slice | Consumer on day one |
+|---|---|---|---|
+| `editor.focused` / `editor.blurred` | `editor: 'markdown' \| 'compose' \| 'notes'` | 3 | Which editor owns the keyboard, for the global undo keymap (`2026-10-27-filo-undo-history.md`) and the shortcut sheet |
+| `editor.mode-changed` | `from`, `to` (`markdown` \| `compose` \| `split`) | 3 | — |
+| `editor.pasted` | `editor`, `bytes`, `lines`, `kind: 'text' \| 'html' \| 'image'`, `stripped` (what the paste filter removed) | 3 | — (a "pasted from a model?" check; ingest telemetry) |
+| `editor.completed` | `editor`, `kind: 'component' \| 'modifier' \| 'asset' \| …`, `label` | 3 | — (ranking completions by what authors pick) |
+| `editor.folded` / `editor.unfolded` | `editor`, `unit` | 3 | The rail could dim a folded slide |
+| `compose.block-inserted` | `kind` (`image`, `table`, `code`, `raw`, a component), `unit` | 3 | — |
+| `compose.resync-parked` / `compose.resync-applied` | `rev`, `waitedMs` | 3 | The change flash, and an "outside change waiting" cue while the caret is in a note |
+
+**Panels.** One pair, not one name per panel: `panel.opened` / `panel.closed` with
+`{ panel, via: 'click' | 'key' | 'command' | 'tour' | 'restore', surface: 'desktop' | 'tablet' | 'mobile' }`, where
+`panel` is a closed union of the shell's own names (`history`, `share`, `workspace`, `command`,
+`insert`, `icons`, `present`, `settings`, `deck-tab:<tab>`, `pane:<mobile pane>`, …). Slice 3.
+Two consumers exist today: Vetrina's tours wait on a panel by polling the DOM and could await the
+event, and focus return could hear `panel.closed` instead of keeping `drawerPendingReturn`. The
+event reports the shell's state; it never sets it. "Opening Share closes the menu" stays a rule in
+the shell, because an event cannot refuse (§4.2).
+
+**Not worth publishing.** An event earns its place when a second part of the Studio could act on
+it. These fail that test, or are already covered:
+
+| Fact | Why not |
+|---|---|
+| Every keystroke, every CodeMirror or ProseMirror transaction | `doc.changed` carries the edit with its span and origin, once per text change |
+| Every selection change | It is the focus, which the hub already publishes, with lanes that coalesce it |
+| Scroll position | Sixty a second; `align.ts` maps scroll between panes directly, and the hub hears the result as `reportUnit` |
+| Hover, pointer move, tooltip shown | No second consumer, and the volume would swamp `*` listeners |
+| Moving through the completion list | Only the accepted pick (`editor.completed`) means anything |
+| A React render, a `useMemo` recompute | Implementation, not a fact; it changes whenever the code does |
+| Every intermediate resize | `view.resized` once the size holds (below) |
+| CodeMirror's viewport (which lines are drawn) | An implementation detail of its virtual rendering |
 
 **Resize is a lifecycle, not a stream.** A window drag fires `resize` dozens of times a second. The
 hub publishes `view.resize-started` on the first one and `view.resized` once the size has held for
@@ -207,8 +247,9 @@ Ordered by what each slice deletes or unblocks:
 2. **The frame bridge, renders and figures.** `__latticeEvents` in the runtime, `render.*`,
    `figure.*`, `plugin.*` (library, diagnostic, degraded, used), `chart.*`, `view.*` (resize, orientation, mode), `fonts.settled`, `fit.*`. Deletes the export's two polling loops and gives design A
    of `2026-10-23` its ledger. Needs the export sign-off (§4.3).
-3. **Assets, media, presenting, export progress.** The events the owner named, ahead of their
-   consumers.
+3. **Assets, media, presenting, export progress, editors and panels.** The events the owner named,
+   ahead of their consumers. The editor and panel events need only slice 1's channel, not the
+   frame bridge, so they can move ahead of slice 2 if a consumer turns up.
 4. **Fold the ad-hoc `window` events.** One file at a time; each deletion is its own commit.
 
 ## 7. What this does not do
@@ -252,3 +293,7 @@ mirrors (`ctx.settle`) and adds its two missing states, `failed` and `reclaimed`
 urgent reads them. Charts are one plugin (`2026-11-01-charts-one-plugin.md`), so `chart.*` is a
 plugin family's events under its own name, because a chart also draws through the engine with no
 plugin host involved.
+
+**Added 2026-11-05, third.** The owner asked about the editors, panels, and which events are not
+worth having. The editors and panels go in slice 3 (§5, The editors; Panels), and the facts left
+out, with the reason for each, are §5 Not worth publishing.
