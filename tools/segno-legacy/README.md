@@ -53,3 +53,7 @@ lib/export/player-prune.js as it was at a1b278c, a regex on a literal `url(` and
 `lib/core/css-scan.js` `findAddressStrings` and `lib/core/door-attr.mjs` `cssRefTargets` as they were at 158a43c,
 before both were rebuilt on `cssRefSpans` with `decls: true`. `test/unit/core/css-decl-readers-differential.test.js`
 reads them as the oracle; nothing in `lib/` may.
+
+`slide-camera-css.mjs` joined with the security spine's last export reader (followups.d/3024): `lib/core/slide-camera.mjs`'s
+`REL_URL` / `CSS_URL` / `layerUrl` as they were at 9dc7f3e, before the picture camera read CSS with `cssRefSpans`.
+`test/unit/core/slide-camera-css-differential.test.js` reads it as the oracle; nothing in `lib/` may.

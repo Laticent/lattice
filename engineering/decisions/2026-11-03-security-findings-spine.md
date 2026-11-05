@@ -381,6 +381,38 @@ The census takes 0.34 s per run.
 (`{ img: ['src'] }`), `.astro` files, and a reader written as a character scan are not seen; and a count cannot tell one
 reader swapped for another in a file already sanctioned at that count. The census catches the shapes the tree has used.
 
+## The picture camera, as built (2026-11-05)
+
+`lib/core/slide-camera.mjs` (the one camera behind the PNG, JPEG and PDF photo layer, in the CLI and the Studio) reads
+CSS with `cssRefSpans` now. Its three regex readers are gone: `REL_URL` (which relative `url()` it makes absolute),
+`CSS_URL` (which pictures it fetches and inlines) and `layerUrl`'s pattern (which background a computed style draws).
+The census holds 55 entries; the camera keeps one, the `list-copy` false match. `cssUrlSpans` keeps only what the
+browser fetches: a `url` span outside an attribute selector that is a valid url token.
+
+- **The fix.** `u\72l(` is a `url(` to the browser and to the camera now, so the picture draws instead of coming out
+  blank. An address spelled with an escape (`url(https\3a //…)`) is fetched, and `urlSwap` writes the data over its span,
+  since its literal text is not in the CSS. A `url(` inside a comment or a string is no longer fetched or rewritten.
+- **What it reads.** The camera notes addresses from the sheet, the clone's inline styles and its `<style>` elements:
+  the places the swap writes. The old reader matched the whole serialized slide too, so a picture address written as
+  text on a slide was fetched and never used.
+- **Bytes.** Picture export is byte-identical on the demo decks: `bg-on-any-slide.md` and `adaptive-image.md`, each
+  in `color-mode: dark` and `light`, 32 of 32 PNGs identical before and after. Over the 193 shipped stylesheets the
+  camera notes the same addresses, and the absolutized sheet differs only inside comments in 5 of them, where the old
+  regex rewrote a `url(…)` written as prose (`test/unit/core/slide-camera-css-differential.test.js`, against the regexes
+  frozen in `tools/segno-legacy/slide-camera-css.mjs`).
+- **The browser oracle.** `test/integration/export/slide-camera.test.js` draws an escaped `u\72l(` background and an
+  escaped address in Chromium. The old camera fails each assertion on its own; the new one passes both.
+- **What the checker found, and fixed before merge.** (1) The Studio's picture-encode worker imports only `encodeCanvas`,
+  yet a camera that loads the parser put it in the worker's bundle: 52 KB (10.3 KB gzip) where it was 14.8 KB. The PNG
+  and JPEG writers moved to `lib/core/canvas-encode.mjs`, which the camera re-exports, and the worker is 14.7 KB (5.1 KB gzip) again. The worker and the encoder pool import it
+  directly. The PDF composer still imports `encodeCanvas` through the camera, which keeps the camera a core file with a
+  core consumer (`tools/structure.js` `CORE_SINGLE_CONSUMER_CEILING`); its worker bundle is the same 1,546,417 bytes
+  either way, because its other imports already carry the parser. (2) The parser reads the 2.9 MB
+  built sheet in about 49 ms where the regex took 2 ms, and the camera reads the page sheet once per slide, so
+  `cssUrlSpans` keeps the spans of its last four texts over 4 KB: a later slide's read of the same sheet costs about 5 ms
+  (Node, `dist/lattice.css`). (3) With an escaped address, the span pass runs before the literal pass, so an escaped
+  `…a.png?v\3d 1` gets its own picture and not `…a.png`'s spliced inside it.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

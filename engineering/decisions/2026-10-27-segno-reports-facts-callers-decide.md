@@ -831,7 +831,9 @@ have their exclusion written, with the reason, for the security spine's S3 censu
 - **`slide-camera.mjs` `CSS_URL` / `REL_URL`, excluded for now.** They choose which pictures a picture export inlines
   and make relative `url()`s absolute. That is not a refusal, and the known miss (`u\72l(`) costs a missing picture,
   not a leak. Moving them changes export bytes for those spellings, so the move ships with a dark and a light render of
-  a representative deck for the owner's sign-off (CLAUDE.md, Quality Bar).
+  a representative deck for the owner's sign-off (CLAUDE.md, Quality Bar). **Moved on 2026-11-05**: the camera reads CSS
+  with `cssRefSpans`, and picture export is byte-identical on the demo decks (security spine note, "The picture camera, as
+  built").
 
 ## Decisions for the owner
 

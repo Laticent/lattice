@@ -108,7 +108,7 @@ for (const deck of DECKS) {
 
 // What reviewers found the camera got wrong, each as a slide the old screenshot path drew correctly. The page is a plain HTML
 // file so the case is exactly one feature; the oracle is Chrome's own screenshot of it.
-test('the slide camera draws what an author can put on a slide: control characters, relative urls, <picture>, <video poster>, SVG <defs>', { timeout: 240_000 }, async () => {
+test('the slide camera draws what an author can put on a slide: control characters, relative urls, escaped urls, <picture>, <video poster>, SVG <defs>', { timeout: 240_000 }, async () => {
   assert.ok(fs.existsSync(BUNDLE), 'run `npm run build` first');
   const puppeteer = require('puppeteer');
   const { PNG } = require('pngjs');
@@ -122,11 +122,17 @@ test('the slide camera draws what an author can put on a slide: control characte
     .pic{position:absolute;left:300px;top:300px;width:200px;height:200px}.pic img{width:200px;height:200px}
     .vid{position:absolute;left:560px;top:300px;width:200px;height:200px}
     .tex{position:absolute;left:820px;top:300px;width:200px;height:200px;fill:url(#p1)}
+    /* An escaped url( is a url( to the browser (followups.d/3024): the camera reads CSS with the renderer's reader, so it draws.
+       A url( inside this comment is not one: url(missing.png) */
+    .esc{position:absolute;left:40px;top:540px;width:160px;height:140px;background:u\\72l(blue.png) 0 0/40px 40px}
+    .esc-abs{position:absolute;left:300px;top:540px;width:160px;height:140px}
   </style></head><body><svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="p1" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="#223"/><path d="M0 0L8 8" stroke="#fc0" stroke-width="2"/></pattern></defs></svg>
     <main id="deck"><section data-lattice-slide="1"><p style="margin:20px">Form\u000Cfeed and vertical\u000Btab</p>
       <div class="bg"></div><picture class="pic"><source srcset="blue.png"><img src="red.png" alt=""></picture>
-      <video class="vid" poster="blue.png"></video><svg class="tex" viewBox="0 0 200 200"><rect width="200" height="200"/></svg><p id="credit" style="margin:20px"></p></section></main>
-    <script>document.getElementById('credit').textContent = 'Photo: ' + new URL('red.png', location.href).href;</script></body></html>`.replace(/\\u000C/g, '\u000C').replace(/\\u000B/g, '\u000B');
+      <video class="vid" poster="blue.png"></video><svg class="tex" viewBox="0 0 200 200"><rect width="200" height="200"/></svg><p id="credit" style="margin:20px"></p><div class="esc"></div><div class="esc-abs" id="escabs"></div></section></main>
+    <script>document.getElementById('credit').textContent = 'Photo: ' + new URL('red.png', location.href).href;
+      // An absolute address with its colon escaped: the browser reads file:///…/red.png, and so must the camera's swap.
+      document.getElementById('escabs').setAttribute('style', 'background:url(' + new URL('red.png', location.href).href.replace(':', '\\\\3a ') + ') 0 0/40px 40px');</script></body></html>`.replace(/\\u000C/g, '\u000C').replace(/\\u000B/g, '\u000B');
   const file = path.join(tmp, 'features.html');
   fs.writeFileSync(file, page_);
   // This page asserts no text pixels (it checks the picture, video, texture and control-character paths), so the runner's fontconfig
@@ -165,6 +171,8 @@ test('the slide camera draws what an author can put on a slide: control characte
     // The browser picks the <source> (blue.png) over the <img>'s own src (red.png); the camera must draw what the browser chose.
     assert.ok(near(px(400, 400), [20, 20, 220]), 'a <picture> draws the source the browser chose (blue expected)');
     assert.ok(near(px(660, 400), [20, 20, 220]), 'a <video poster> draws as its poster (blue expected)');
+    assert.ok(near(px(120, 610), [20, 20, 220]), 'an escaped u\\72l( background draws (blue expected)');
+    assert.ok(near(px(380, 610), [220, 20, 20]), 'a url() whose address is spelled with an escape draws (red expected)');
     let textured = 0;
     for (let y = 300; y < 500; y += 3) for (let x = 820; x < 1020; x += 3) if (near(px(x, y), [255, 204, 0], 60)) textured++;
     assert.ok(textured > 50, `a pattern fill from page-level <defs> draws (found ${textured} yellow stripe samples)`);
