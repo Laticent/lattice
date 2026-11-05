@@ -89,6 +89,6 @@ describe('hostile-input cost, round 1 findings', () => {
     const t = '<!-- open\n'.repeat(20000);
     const t0 = performance.now();
     m.scanMetaSource(t);
-    assert.ok(performance.now() - t0 < 1500, 'walkComments rescanned to EOF per opener');
+    assert.ok(performance.now() - t0 < 1500, 'the comment scan rescanned to EOF per opener');
   });
 });

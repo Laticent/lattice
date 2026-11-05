@@ -10,7 +10,11 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const build = require('../../../lib/transformers/build');
-const { parseCommentDirectives, KNOWN_DIRECTIVES, APPLIED_DIRECTIVES } = require('../../../lib/engine/directives');
+const { KNOWN_DIRECTIVES, APPLIED_DIRECTIVES } = require('../../../lib/engine/directives');
+// The source-side directive reader: the deck model's comment blocks read as islands (lib/core/directive-island.mjs).
+const { scanMetaSource } = require('../../../lib/core/meta-record.mjs');
+const comments = (src) => scanMetaSource(src).slides[0].comments;
+const directive = (src, key) => comments(src).find((c) => c.kind === 'directive' && c.key === key);
 
 const dom = (html) => new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
 const steps = (sec) => sec.getAttribute('data-build-steps');
@@ -152,27 +156,24 @@ describe('build — directive plumbing', () => {
     assert.ok(APPLIED_DIRECTIVES.has('build'));
   });
   test('bare <!-- _build --> parses to an empty-value spot directive', () => {
-    const { local } = parseCommentDirectives('<!-- _build -->\n## Title');
-    assert.equal(local.build, '');
+    const d = directive('<!-- _build -->\n## Title', 'build');
+    assert.equal(d.value, '');
+    assert.equal(d.spot, true);
   });
   test('<!-- _build: rows --> carries the value', () => {
-    const { local } = parseCommentDirectives('<!-- _build: rows -->');
-    assert.equal(local.build, 'rows');
+    assert.equal(directive('<!-- _build: rows -->', 'build').value, 'rows');
   });
   test('a prose comment is not a directive', () => {
-    const { local, global } = parseCommentDirectives('<!-- just a note -->');
-    assert.equal(local.build, undefined);
-    assert.equal(global.build, undefined);
+    assert.deepEqual(comments('<!-- just a note -->').map((c) => c.kind), ['note']);
   });
   test('bare value is scoped to FLAG directives — a bare non-flag word stays prose', () => {
     // `build` is the only flag directive; a bare known-directive word like
     // `color`/`header` must NOT be swallowed as a directive (regression guard for
     // the optional-value regex widening).
-    const r = parseCommentDirectives('<!-- color -->\n<!-- header -->');
-    assert.equal(r.global.color, undefined);
-    assert.equal(r.global.header, undefined);
-    assert.match(r.body, /<!-- color -->/); // left intact as a comment
-    // …but a colon form still works.
-    assert.equal(parseCommentDirectives('<!-- color: red -->').global.color, 'red');
+    assert.deepEqual(comments('<!-- color -->\n<!-- header -->').map((c) => c.kind), ['note', 'note']);
+    // …but a colon form still works, as a global.
+    const d = directive('<!-- color: red -->', 'color');
+    assert.equal(d.value, 'red');
+    assert.equal(d.spot, false);
   });
 });

@@ -34,7 +34,7 @@ model = updateDeckModel(model, '# One!\n\n---\n\n# Two\n');
 | `deckModel(source, { parser, frontMatter?, raw? })` | S0 (skipped with `raw`), the front-matter split (the engine's rule by default), S1 over the body |
 | `updateDeckModel(prev, next, span?)` | The model of `next`, re-parsing from the slide the edit starts in until a break realigns with the old parse. `span` is the editor's account of the edit, checked and never trusted |
 | `model.boundaries` · `model.leadingEmpty` · `model.slides` | Where the engine splits slides; whether the body opens with a break (the engine then drops the empty group before it); each authored slide's line and token range |
-| `model.directives` · `model.fences` · `model.plugins` · `model.leaves` | HTML comment blocks; fenced and indented code; blocks a host rule claimed; inline leaves (paragraphs, headings) |
+| `model.directives` · `model.html` · `model.fences` · `model.plugins` · `model.leaves` | HTML comment blocks; every other HTML block; fenced and indented code; blocks a host rule claimed; inline leaves (paragraphs, headings). Each list is built on its first read, so a reader of one does not pay for the others |
 | `model.blocks` | The whole body's tape, flat |
 | `ingest(source)` | S0 alone |
 
