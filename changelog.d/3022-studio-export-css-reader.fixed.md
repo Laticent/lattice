@@ -1,0 +1,1 @@
+- The Studio's export reads each `url()` in a slide's computed style with the renderer's own CSS reader, the security spine's one reader, instead of a regex of its own. A `content` string that only spells `url(https://…)` keeps its text instead of being cleared, and an escaped address is read the way the browser reads it. Exports of ordinary decks are unchanged.

@@ -1,0 +1,2 @@
+- A picture export (PNG, JPEG, and the PDF's photo layer) now draws a background written as `u\72l(…)` or with an escaped address, the way the browser does; it came out blank before. The camera reads CSS with the renderer's own reader, so a `url(` inside a comment or a string is no longer fetched. Exports of ordinary decks are byte-identical.
+- In Safari, a picture written inline as a `data:` URL of about half a megabyte or more is drawn at its size in a picture export. The check for a valid `url()` gave up on a token that long and dropped the picture.

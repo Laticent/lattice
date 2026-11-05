@@ -57,9 +57,10 @@ describe('security spine census (S3)', () => {
   });
 
   test('failing arm: one more reader in a sanctioned file, and a stale entry, each fail', () => {
-    const s = SANCTIONED_SPINE_READERS.find((x) => x.file === 'lib/core/slide-camera.mjs' && x.shape === 'url-reader');
-    assert.ok(s, 'slide-camera.mjs is sanctioned on day one');
-    assert.match(spineCensusFindings([{ file: s.file, shape: s.shape, n: s.count + 1 }], [s])[0], /holds 4 url-reader .*3 sanctioned/);
+    // Any sanctioned url reader serves: the entries shrink as readers move onto the spine (slide-camera.mjs moved, followups.d/3024).
+    const s = SANCTIONED_SPINE_READERS.find((x) => x.shape === 'url-reader');
+    assert.ok(s, 'a url reader is sanctioned');
+    assert.match(spineCensusFindings([{ file: s.file, shape: s.shape, n: s.count + 1 }], [s])[0], new RegExp(`holds ${s.count + 1} url-reader .*${s.count} sanctioned`));
     assert.match(spineCensusFindings([], [s])[0], /^stale security-spine sanction/);
   });
 

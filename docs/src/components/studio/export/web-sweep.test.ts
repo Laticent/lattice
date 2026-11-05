@@ -33,4 +33,41 @@ describe('sweepWebRefsForCapture', () => {
 		expect((s.querySelector('#b') as HTMLElement).style.getPropertyPriority('background-image')).toBe('');
 		restore();
 	});
+
+	// Every element and attribute the sweep reads, from the policy table (lib/core/content-policy.js WEB_MEDIA and
+	// MEDIA_FETCH_ATTRS): a picture keeps a placeholder in its place, anything else that fetches is removed, and the
+	// restore puts each one back. A change to the table changes this table's verdicts, so it is pinned here.
+	it('sweeps each media element and fetching attribute, as the policy table names them', () => {
+		const web = 'https://t.example/x.png';
+		const rows: Array<[string, string, string, 'placeholder' | 'removed' | 'kept']> = [
+			['img', 'src', web, 'placeholder'],
+			['img', 'srcset', `${web} 2x`, 'removed'],
+			['video', 'poster', web, 'placeholder'],
+			['video', 'src', web, 'removed'],
+			['audio', 'src', web, 'removed'],
+			['source', 'src', web, 'removed'],
+			['source', 'srcset', `${web} 1x`, 'removed'],
+			['img', 'href', web, 'kept'], // `href` fetches only on SVG <image>
+			['div', 'src', web, 'kept'], // not a media element
+		];
+		for (const [tag, attr, value, want] of rows) {
+			const s = section(`<${tag} id="el" ${attr}="${value}"></${tag}>`);
+			const el = s.querySelector('#el') as Element;
+			const restore = sweepWebRefsForCapture(s);
+			if (want === 'placeholder') expect(el.getAttribute(attr), `${tag} ${attr}`).toMatch(/^data:image\/svg\+xml/);
+			else if (want === 'removed') expect(el.hasAttribute(attr), `${tag} ${attr}`).toBe(false);
+			else expect(el.getAttribute(attr), `${tag} ${attr}`).toBe(value);
+			restore();
+			expect(el.getAttribute(attr), `${tag} ${attr} restored`).toBe(value);
+		}
+		// SVG <image> reads `href` and `xlink:href`.
+		for (const attr of ['href', 'xlink:href']) {
+			const s = section(`<svg><image id="el" ${attr}="${web}"></image></svg>`);
+			const el = s.querySelector('#el') as Element;
+			const restore = sweepWebRefsForCapture(s);
+			expect(el.getAttribute(attr), `image ${attr}`).toMatch(/^data:image\/svg\+xml/);
+			restore();
+			expect(el.getAttribute(attr)).toBe(web);
+		}
+	});
 });

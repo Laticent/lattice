@@ -5,7 +5,7 @@ recorded: 2026-11-03
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-11-03-security-findings-spine.md §Phasing
-deferred: off-path — pre-existing readers the S3 census found, each sanctioned with its reason; none is a defect this PR made. deck-export.js is also blocked: moving it changes export bytes, which waits on the owner's sign-off on a dark and a light render
+deferred: off-path — pre-existing readers the S3 census found, each sanctioned with its reason; none is a defect this PR made
 source: https://github.com/Laticent/lattice/pull/3022
 ---
 
@@ -57,5 +57,13 @@ sanctioned entry in `SANCTIONED_SPINE_READERS` that names this file: move `docs/
 url() inliner onto `cssRefSpans` (it changes the Studio export's bytes, so it ships with a dark and a light render for the
 owner's sign-off), `lib/core/pane-css.js`'s raw-text closers onto the HTML reader's `rawTextEnd`, and the source hints in
 `web-image-hint.ts` and `inline-url-media.mjs` onto the lint rules' readers, and `lib/core/url-scheme.js` `cssUrlVerdict`
-onto `cssRefSpans` (its pattern misses `u\72l(`; today its one caller also refuses any backslash, so nothing passes). `slide-camera.mjs` is followups.d/3024's.
+onto `cssRefSpans` (its pattern misses `u\72l(`; today its one caller also refuses any backslash, so nothing passes). `slide-camera.mjs` (followups.d/3024's) moved on 2026-11-05.
 
+
+## Status after the continuation (2026-11-05)
+
+`deck-export.js` moved onto `cssRefSpans` and the policy table (decision note, "The Studio export, as built"), and
+`slide-camera.mjs` onto `cssRefSpans` ("The picture camera, as built"). Both change export bytes only for the spellings
+they fix, and both wait on the owner's export sign-off of the dark and light renders attached to that PR. What remains: `pane-css.js`'s raw-text closers
+onto `rawTextEnd`, the source hints in `web-image-hint.ts` and `inline-url-media.mjs` onto the lint rules' readers, and
+`url-scheme.js` `cssUrlVerdict` onto `cssRefSpans`.

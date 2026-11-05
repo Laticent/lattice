@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, waitForDiagrams, waitForMeasuring } from './deck-export.js';
+import { assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -753,5 +753,48 @@ describe('bakeDeckSections — freezeTokens is opt-in', () => {
 		expect(svg.style.getPropertyValue('--cat-1')).toBe('rgb(1, 2, 3)');
 		// …and the scratch attribute never survives onto a shipped element.
 		expect(svg.hasAttribute('data-lattice-tokens')).toBe(false);
+	});
+});
+
+// Security spine (followups.d/3022): the Studio export reads a computed value's `url()`s with the renderer's CSS reader,
+// not its own regexes. The old regexes are the failing arms below.
+describe('computed url() reading, on the spine', () => {
+	const allowed = new Set(['https://ok.test']);
+	const OLD_SWEEP = /url\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^)]*))\s*\)/g;
+
+	it('replaces a web url() outside the allow-list, and keeps an allowed one, as Chromium serializes them', () => {
+		const value = 'url("https://evil.test/a.png"), url("https://ok.test/b.png"), linear-gradient(red, blue)';
+		expect(valueWithoutWebUrls(value, allowed, 'none')).toBe('none, url("https://ok.test/b.png"), linear-gradient(red, blue)');
+		expect(valueWithoutWebUrls('url("/local.png")', allowed, 'none')).toBeNull();
+		expect(valueWithoutWebUrls('none', allowed, 'none')).toBeNull();
+	});
+
+	it('leaves a `content` string that only spells a url() alone (the old regex replaced the text)', () => {
+		const value = '"see url(https://evil.test/a.png)"';
+		expect(valueWithoutWebUrls(value, allowed, 'none')).toBeNull();
+		expect(value.replace(OLD_SWEEP, 'none')).not.toBe(value); // the failing arm
+	});
+
+	it('decodes an escaped address the way the browser does', () => {
+		const value = 'url("https\\3a //evil.test/a.png")';
+		expect(computedUrlSpans(value).map((s) => s.value)).toEqual(['https://evil.test/a.png']);
+		expect(valueWithoutWebUrls(value, allowed, 'none')).toBe('none');
+	});
+
+	it('names a background by its decoded address, as the missing-picture probe (backgroundImageUrls) reads it', () => {
+		// jsdom drops an escaped url() from a computed style, so the reader backgroundImageUrls calls is held directly.
+		expect(computedUrlSpans('url("/a\\3a b.png")').map((sp) => sp.value)).toEqual(['/a:b.png']);
+		// The failing arm: the old pattern returned the escaped text, which names no picture.
+		expect([...'url("/a\\3a b.png")'.matchAll(/url\((['"]?)(.*?)\1\)/g)].map((m) => m[2])).toEqual(['/a\\3a b.png']);
+	});
+
+	it('names the same backgrounds as before on the shapes Chromium writes', () => {
+		for (const [value, want] of [
+			['url("/photo.jpg")', ['/photo.jpg']],
+			['url("https://x.test/a.png"), url("blob:https://site.test/1")', ['https://x.test/a.png', 'blob:https://site.test/1']],
+			['linear-gradient(red, blue)', []],
+		] as const) {
+			expect(computedUrlSpans(value).map((s) => s.value)).toEqual(want);
+		}
 	});
 });

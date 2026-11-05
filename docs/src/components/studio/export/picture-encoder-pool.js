@@ -4,7 +4,7 @@
 // Each request holds a slot for the length of its encode: a bitmap of a 4K slide is 33 MB, and a phone must not hold a deck's worth. A
 // browser without module workers or OffscreenCanvas, and a worker that fails, fall back to `encodeCanvas` on the main
 // thread: the export is slower there, never lost, and the same bytes.
-import { encodeCanvas } from '../../../../../lib/core/slide-camera.mjs';
+import { encodeCanvas } from '../../../../../lib/core/canvas-encode.mjs';
 
 /** How many encodes may be in flight: one worker each, at most 2 (a third buys little and costs another 33 MB bitmap). */
 export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2) {

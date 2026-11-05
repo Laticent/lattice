@@ -381,6 +381,80 @@ The census takes 0.34 s per run.
 (`{ img: ['src'] }`), `.astro` files, and a reader written as a character scan are not seen; and a count cannot tell one
 reader swapped for another in a file already sanctioned at that count. The census catches the shapes the tree has used.
 
+## The picture camera, as built (2026-11-05)
+
+`lib/core/slide-camera.mjs` (the one camera behind the PNG, JPEG and PDF photo layer, in the CLI and the Studio) reads
+CSS with `cssRefSpans` now. Its three regex readers are gone: `REL_URL` (which relative `url()` it makes absolute),
+`CSS_URL` (which pictures it fetches and inlines) and `layerUrl`'s pattern (which background a computed style draws).
+The census holds 55 entries; the camera keeps one, the `list-copy` false match. `cssUrlSpans` keeps only what the
+browser fetches: a `url` span outside an attribute selector that is a valid url token.
+
+- **The fix.** `u\72l(` is a `url(` to the browser and to the camera now, so the picture draws instead of coming out
+  blank. An address spelled with an escape (`url(https\3a //…)`) is fetched, and `urlSwap` writes the data over its span,
+  since its literal text is not in the CSS. A `url(` inside a comment or a string is no longer fetched or rewritten.
+- **What it reads.** The camera notes addresses from the sheet, the clone's inline styles and its `<style>` elements:
+  the places the swap writes. The old reader matched the whole serialized slide too, so a picture address written as
+  text on a slide was fetched and never used.
+- **Bytes.** Picture export is byte-identical on the demo decks: `bg-on-any-slide.md` and `adaptive-image.md`, each
+  in `color-mode: dark` and `light`, 32 of 32 PNGs identical before and after. Over the 193 shipped stylesheets the
+  camera notes the same addresses, and the absolutized sheet differs only inside comments in 5 of them, where the old
+  regex rewrote a `url(…)` written as prose (`test/unit/core/slide-camera-css-differential.test.js`, against the regexes
+  frozen in `tools/segno-legacy/slide-camera-css.mjs`).
+- **The browser oracle.** `test/integration/export/slide-camera.test.js` draws an escaped `u\72l(` background and an
+  escaped address in Chromium. The old camera fails each assertion on its own; the new one passes both.
+- **What the checker found, and fixed before merge.** (1) The Studio's picture-encode worker imports only `encodeCanvas`,
+  yet a camera that loads the parser put it in the worker's bundle: 52 KB (10.3 KB gzip) where it was 14.8 KB. The PNG
+  and JPEG writers moved to `lib/core/canvas-encode.mjs`, which the camera re-exports, and the worker is 14.7 KB (5.1 KB gzip) again. The worker and the encoder pool import it
+  directly. The PDF composer still imports `encodeCanvas` through the camera, which keeps the camera a core file with a
+  core consumer (`tools/structure.js` `CORE_SINGLE_CONSUMER_CEILING`); its worker bundle is the same 1,546,417 bytes
+  either way, because its other imports already carry the parser. (2) The parser reads the 2.9 MB
+  built sheet in about 49 ms where the regex took 2 ms, and the camera reads the page sheet once per slide, so
+  `cssUrlSpans` keeps the spans of its last four texts over 4 KB: a later slide's read of the same sheet costs about 5 ms
+  (Node, `dist/lattice.css`). (3) With an escaped address, the span pass runs before the literal pass, so an escaped
+  `…a.png?v\3d 1` gets its own picture and not `…a.png`'s spliced inside it.
+
+- **A Safari defect the raise loop found.** The camera keeps only valid url tokens (`isValidUrlToken`, css-ref-reader.js),
+  and that test was a regex over each character of the token. JavaScriptCore gives up and answers false on an unquoted
+  token of about half a megabyte (500,000 characters failed, 100,000 passed) and a quoted one of about a megabyte, so in WebKit the camera read a phone photo written inline as a `data:` URL as a bad url and did not draw
+  it at its size: `export-photo-size.spec.ts` failed in webkit-tablet with a PowerPoint picture of 260,794 bytes against
+  its 168,000 budget (it passes on main, where the camera's own regex never asked). `isValidUrlToken` is now a scan with
+  the regex's answers (`test/unit/core/css-url-token-scan.test.js` holds the two to the same answer on hand cases and
+  20,000 fuzzed tokens) that reads a 4 MB token in WebKit. Two other callers ask the same test. The player export
+  (`inline-url-media.mjs`) returns early on a `data:` URL, so nothing it writes changes. The narrator
+  (`prose-projection.mjs`) reads whether a background declaration is dropped. Run in real WebKit (Playwright) on a
+  `background-image` holding a `data:` URL, main's `posterInStyle` found no poster for an unquoted 600 KB address and none
+  for either spelling at 2 MB; this branch's finds it at 100 KB, 600 KB and 2 MB, quoted and bare, as Chromium does on both.
+- **What the reader costs in a browser.** Timed in Chromium, WebKit and Firefox (Playwright) on the 2.9 MB built sheet,
+  two runs each: the first read of a page's sheet takes 30 to 70 ms, and absolutizing it, which the camera does once per
+  document, up to 128 ms in Firefox. Each later slide's read of the same sheet costs about 1.2 ms in Chromium, 4 to 5 ms
+  in WebKit and 5 to 6 ms in Firefox, against the old regex's 1.5 to 4 ms; a 50-slide export in Safari pays about 0.1 s more. The spec passes in webkit-tablet and gecko.
+
+## The Studio export, as built (2026-11-05)
+
+`docs/src/components/studio/export/deck-export.js` reads each `url()` in a slide's computed style with `cssRefSpans`
+(`computedUrlSpans`), in the two places it had its own regex: `valueWithoutWebUrls`, which swaps a web picture outside
+the deck's allow-list for the hatch before the capture, and `backgroundImageUrls`, which names the backgrounds to probe
+for a missing picture. The media elements and the attributes on them that the sweep reads now come from the policy
+table (`content-policy.js` `WEB_MEDIA` and `MEDIA_FETCH_ATTRS`), not a per-tag list of its own. The census holds 54
+entries.
+
+- **The fix.** A `content` value that only spells `url(https://…)` inside a string keeps its text; the old regex
+  matched it and set `content: none`. An escaped address in a computed value is decoded as the browser decodes it.
+- **Bytes.** The Studio's PDF export of a four-slide deck (a full-bleed picture, a picture beside the text, and a web
+  picture the deck has not allowed) is identical before and after, in `color-mode: dark` and `light`, except the
+  export's own `/ModDate`. Every page rasterizes to the same pixels. That deck's `::after` with a `url(` in its
+  `content` string draws in neither export (the scoped `<style>` does not reach the capture), so the `content` fix
+  is held by the unit test (`deck-export.test.ts`, with the old regex as the failing arm), not by the render.
+- **The attribute table.** `web-sweep.test.ts` pins each element and attribute the sweep reads, so a change to
+  `WEB_MEDIA` or `MEDIA_FETCH_ATTRS` shows up as a changed verdict there. The sweep reads a few attributes the old list
+  did not (`video srcset`, `img poster`); none fetches, and the restore puts each back.
+- **Review.** The red team ran every computed-value shape it could build (`image-set()`, `cursor` lists, `content`,
+  `filter`, `shape-outside`, hostile addresses) through Chromium, WebKit and Firefox and found no web picture the old
+  sweep replaced that the new one lets through. It found a pre-existing leak off this change, logged as
+  `followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`.
+- **Sign-off.** Moving this reader changes export bytes only for the spellings above, so the dark and light renders go
+  to the owner with the merge ask (CLAUDE.md, Quality Bar). The camera's move (above) does the same.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.
