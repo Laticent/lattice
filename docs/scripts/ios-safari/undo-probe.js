@@ -350,7 +350,8 @@ async function latticeUndoProbe() {
 			}
 		};
 		await runCycles('preview live', 1);
-		// FRAME LAB (followups.d/3034-p8). Which frame event empties WebKit's undo stack: adding an empty frame, a new frame
+		// FRAME LAB (followups.d/3034-p8). With the Studio's undo doorbell installed, a frame event that empties WebKit's undo
+		// stack is re-armed at once, so `→ true` here means the doorbell held. Which frame event empties it: adding an empty frame, a new frame
 		// with `srcdoc`, rewriting an existing frame's `srcdoc`, `document.write` into an existing frame, or changing its body
 		// in place (the control). Each runs three times with a typed word on WebKit's stack; recorded, never asserted.
 		const labFrames = [];
@@ -414,16 +415,10 @@ async function latticeUndoProbe() {
 		for (const f of labFrames) f.remove();
 		k.step('frame lab: which frame event empties WebKit’s undo stack', true, `\n    ${labRows.join('\n    ')}`);
 
-		// DOORBELL LAB (option 2). After a forced wipe, re-seed WebKit's undo from a hidden editable the Studio owns
-		// (`data-filo-owned`, so the request still routes to Filo), put focus and the caret back, then run WebKit's undo:
-		// does it raise historyUndo, undo the word through Filo, and leave focus and the caret where the typing left them?
-		const bell = document.createElement('div');
-		bell.setAttribute('contenteditable', 'true');
-		bell.setAttribute('data-filo-owned', '');
-		bell.setAttribute('aria-hidden', 'true');
-		bell.tabIndex = -1;
-		bell.style.cssText = 'position:fixed;left:-9999px;top:0;width:10px;height:10px;opacity:0;pointer-events:none;overflow:hidden';
-		document.body.appendChild(bell);
+		// DOORBELL CHECK (undo-doorbell.ts). The Studio's doorbell re-arms WebKit's undo after a frame navigation empties
+		// it. Force the wipe the live preview causes (a new frame with `srcdoc`) with a typed word on Filo's history, then,
+		// without the probe touching anything: is WebKit's undo available again, does the command reach Filo and undo the
+		// word, and are focus and the caret where the typing left them? Recorded here; the asserted cycle below covers it too.
 		const bellRows = [];
 		for (let r = 0; r < 3; r++) {
 			await k.sleep(1500);
@@ -431,34 +426,23 @@ async function latticeUndoProbe() {
 			await k.type(word);
 			await k.until(() => k.deckText().includes(word), 15000, `bell word ${r + 1}`);
 			await k.sleep(300);
-			labFrame('<p>wipe</p>');
-			await k.sleep(700);
-			const wiped = document.queryCommandEnabled('undo');
 			const ed = document.activeElement;
 			const sel = getSelection();
-			const range = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
-			const caretBefore = range ? `${range.startOffset}` : 'none';
-			bell.focus({ preventScroll: true });
-			getSelection().selectAllChildren(bell);
-			getSelection().collapseToEnd();
-			document.execCommand('insertText', false, '​');
-			ed?.focus({ preventScroll: true });
-			if (range) {
-				getSelection().removeAllRanges();
-				getSelection().addRange(range);
-			}
-			await k.sleep(50);
-			const seeded = document.queryCommandEnabled('undo');
-			const backInEditor = document.activeElement === ed;
+			const caretBefore = sel.rangeCount ? `${sel.getRangeAt(0).startOffset}` : 'none';
+			labFrame('<p>wipe</p>');
+			await k.sleep(700);
+			const rearmed = document.queryCommandEnabled('undo');
+			const focusKept = document.activeElement === ed;
 			const caretAfter = getSelection().rangeCount ? `${getSelection().getRangeAt(0).startOffset}` : 'none';
 			const fired = await k.command('undo');
 			const undone = await k.until(() => k.deckText() === pasted, 3000, 'bell undo').then(() => true, () => false);
-			bellRows.push(`#${r + 1}: after wipe undo ${wiped}; after re-seed ${seeded}; focus back ${backInEditor}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; still enabled ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}`);
+			await k.sleep(300);
+			bellRows.push(`#${r + 1}: after the wipe undo ${rearmed}; focus kept ${focusKept}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; enabled after ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}`);
 			await restoreDeck();
 		}
 		for (const f of labFrames) f.remove();
-		bell.remove();
-		k.step('doorbell lab: re-seeding WebKit’s undo after a wipe', true, `\n    ${bellRows.join('\n    ')}`);
+		const rung = bellRows.filter((r) => /undo true; focus kept true;.* command historyUndo; undid the word true/.test(r)).length;
+		k.step(`doorbell: ${rung} of ${bellRows.length} frame wipes re-armed WebKit's undo, reached Filo and kept focus`, true, `\n    ${bellRows.join('\n    ')}`);
 		result.events = [];
 
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.

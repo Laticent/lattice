@@ -168,6 +168,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
+import { createUndoDoorbell, type UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -4720,6 +4721,43 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		read();
 		return h.subscribe((st) => `${st.canUndo}|${st.canRedo}`, read);
 	}, [filo, filoDoc]);
+	// THE UNDO DOORBELL (undo-doorbell.ts). Filo owns the history, but Safari's Edit → Undo, the iOS shake
+	// and swipe and the iPad keyboard bar's undo key only reach Filo while WebKit's OWN undo stack has a
+	// step, and WebKit empties it on every frame navigation in the page (the live preview builds its frame
+	// and rewrites its `srcdoc`), after each gesture undo, and on a reload. The doorbell re-arms that stack
+	// with one invisible edit in a hidden field the Studio owns, at exactly those moments, and only while
+	// Filo has a step to undo and focus is in an editable surface Filo owns (followups.d/3034-p8).
+	const filoCanRef = React.useRef(filoCan);
+	filoCanRef.current = filoCan;
+	const doorbellRef = React.useRef<UndoDoorbell | null>(null);
+	React.useEffect(() => {
+		const bell = createUndoDoorbell({ canUndo: () => filoCanRef.current.undo });
+		doorbellRef.current = bell;
+		const soon = () => setTimeout(() => bell.arm(), 0);
+		const onLoad = (e: Event) => {
+			if (e.target instanceof HTMLIFrameElement) soon();
+		};
+		const onFocusIn = (e: FocusEvent) => {
+			if (!(e.target instanceof Element) || !e.target.closest('[data-undo-doorbell]')) soon();
+		};
+		const onHistory = (e: InputEvent) => {
+			if (historyInput(e.inputType)) soon();
+		};
+		window.addEventListener('load', onLoad, true);
+		window.addEventListener('focusin', onFocusIn, true);
+		window.addEventListener('beforeinput', onHistory);
+		return () => {
+			window.removeEventListener('load', onLoad, true);
+			window.removeEventListener('focusin', onFocusIn, true);
+			window.removeEventListener('beforeinput', onHistory);
+			bell.dispose();
+			doorbellRef.current = null;
+		};
+	}, []);
+	// A history that just gained its first step (a fresh edit, or a stored history landing after a reload).
+	React.useEffect(() => {
+		if (filoCan.undo) doorbellRef.current?.arm();
+	}, [filoCan.undo]);
 	// THE ROOT KEYMAP (§3.5). Bubble phase, so an editor that handles the chord itself (a code field
 	// with its own history, the live binding) has already claimed it.
 	React.useEffect(() => {
