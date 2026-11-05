@@ -34,7 +34,7 @@ const { plan: platformPlan } = require('./platform-suites-plan');
 const ROOT = path.resolve(__dirname, '..');
 
 // One row per surface. `match` takes a repo-relative path. A row fires when any changed file matches.
-// `kind` says who acts: `local` runs here, `dispatch` is a workflow_dispatch, `owner` is the one
+// `kind` says who acts: `local` runs here, `dispatch` is a workflow_dispatch, `read` is a check the PR already runs, `owner` is the one
 // legitimate stop (export bytes need the owner's sign-off; the Quality Bar's single exception).
 const SURFACES = [
 	{
@@ -114,13 +114,28 @@ function evidencePlan(changed, registry = JSON.parse(fs.readFileSync(path.join(R
 	}
 	// Every suite the change reaches, including those off pull requests (the iOS Simulator suites): the PR run skips
 	// them, so the dispatch below is the only way they run before the merge.
-	const suites = [...new Set(platformPlan(registry, { event: 'pull_request', changed, everySuite: true }).include.map((i) => i.suite))];
-	if (suites.length) {
+	const names = (p) => [...new Set(p.include.map((i) => i.suite))];
+	const suites = names(platformPlan(registry, { event: 'pull_request', changed, everySuite: true }));
+	// The suites the PR's own platform-suites run already starts for this diff. Dispatching them as well queued a second
+	// copy of the same job on the same commit, which competes for the same scarce macOS runners: two sessions did it within a
+	// minute of their own PR run, and those copies got no runner (engineering/decisions/2026-11-04-ci-flake-audit.md §5).
+	const onPr = new Set(names(platformPlan(registry, { event: 'pull_request', changed })));
+	const ridden = suites.filter((n) => onPr.has(n));
+	const dispatch = suites.filter((n) => !onPr.has(n));
+	if (ridden.length) {
 		steps.push({
-			surface: `real macOS / Windows / iOS Simulator: ${suites.join(', ')}`,
+			surface: `real macOS / Windows: ${ridden.join(', ')} (the PR run)`,
+			kind: 'read',
+			command: 'read the "Platform suites (macOS / Windows)" check on the PR head; do not dispatch these again',
+			why: 'the PR run already starts these for this diff. A second copy on the same commit only competes for the same runners. If its job ran no steps, GitHub gave it no runner: re-run that job once (engineering/gotchas/ci.md)',
+		});
+	}
+	if (dispatch.length) {
+		steps.push({
+			surface: `real macOS / Windows / iOS Simulator: ${dispatch.join(', ')}`,
 			kind: 'dispatch',
-			command: `workflow_dispatch platform-suites.yml on this branch with suites=${suites.join(',')}`,
-			why: 'Linux CI cannot reach these OSes; the PR run is report-only and skips the nightly-only suites (the iOS Simulator), so dispatch and read the result before the card',
+			command: `workflow_dispatch platform-suites.yml on this branch with suites=${dispatch.join(',')}`,
+			why: 'the PR run skips these (the iOS Simulator suites run nightly only), so a dispatch is the only way they run before the merge; read the result before the card',
 		});
 	}
 	return { changed, steps, ownerStop: steps.some((s) => s.kind === 'owner') };

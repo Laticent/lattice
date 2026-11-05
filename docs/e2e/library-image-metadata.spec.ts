@@ -401,6 +401,9 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	// A second deck, which becomes the open one. Deck A is then a stored deck.
 	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
 	await page.getByRole('menuitem', { name: 'New deck' }).click();
+	// Wait for the new deck to be the open one before typing into it: typing at once could land while the switch was still
+	// in flight (studio-smoke 39768706852, 40839795246: "B probe" never drawn).
+	await expect(page.getByRole('button', { name: /Untitled deck/ })).toBeVisible();
 	const craft = page.locator('header').getByText('Craft', { exact: true });
 	if (await craft.isVisible().catch(() => false)) await craft.click();
 	await setEditorContent(page, '# Deck B\n\n![B probe](asset:shared-probe)\n');

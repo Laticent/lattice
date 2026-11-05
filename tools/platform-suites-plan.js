@@ -21,7 +21,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const REGISTRY = path.join(ROOT, '.github', 'platform-suites.json');
 // Edits to these re-run every suite on a pull request: the plumbing has no `paths` of its own.
-const PLUMBING = ['.github/platform-suites.json', '.github/workflows/platform-suites.yml', 'tools/platform-suites-plan.js'];
+const PLUMBING = ['.github/platform-suites.json', '.github/workflows/platform-suites.yml', 'tools/platform-suites-plan.js', 'tools/platform-suites-triage.js'];
 
 /** A glob (`*` within a segment, `**` across segments) as an anchored regex. */
 function globToRegExp(glob) {
@@ -65,8 +65,10 @@ function plan(registry, { event, changed = [], suites = [], everySuite = false }
 		if (!everySuite) selected = selected.filter((s) => !offPullRequest(s));
 		selected = everything ? selected : selected.filter((s) => s.paths.some((g) => changed.some((f) => globToRegExp(g).test(f))));
 	} // schedule, and anything else: every suite
-	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why })));
-	return { include, count: include.length };
+	// `docs_site`: the suite serves the built docs site (the iOS Studio and Playground probes). The workflow's `docs-site` job
+	// builds it once on Linux for every such suite, instead of each macOS job building its own (D1 B on #3034).
+	const include = selected.flatMap((s) => s.os.map((os) => ({ suite: s.name, os, run: s.run, why: s.why, docs_site: s.docs_site === true })));
+	return { include, count: include.length, docsSite: include.some((i) => i.docs_site) };
 }
 
 if (require.main === module) {
@@ -87,7 +89,7 @@ if (require.main === module) {
 	const result = plan(registry, { event: arg('event'), changed, suites: names });
 	const matrix = JSON.stringify({ include: result.include });
 	if (argv.includes('--github-output') && process.env.GITHUB_OUTPUT) {
-		fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\ncount=${result.count}\n`);
+		fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\ncount=${result.count}\ndocs_site=${result.docsSite}\n`);
 	}
 	console.log(JSON.stringify(result, null, 2));
 }

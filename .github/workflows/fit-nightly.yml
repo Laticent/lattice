@@ -63,7 +63,7 @@ concurrency:
 
 jobs:
   fit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 38 minutes measured (COST above); 75 leaves room for a slower runner. Without a ceiling a hung
     # render would inherit GitHub's 360-minute default.
     timeout-minutes: 75

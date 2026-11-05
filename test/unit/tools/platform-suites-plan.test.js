@@ -5,24 +5,24 @@ const { plan, globToRegExp } = require('../../../tools/platform-suites-plan.js')
 
 const registry = {
   suites: [
-    { name: 'export-confine', os: ['macos-latest'], paths: ['lib/core/file-confine.js', 'test/unit/export/*.test.js'], run: 'a', why: 'w1' },
-    { name: 'paths-everywhere', os: ['macos-latest', 'windows-latest'], paths: ['lib/**/*.js'], run: 'b', why: 'w2' },
+    { name: 'export-confine', os: ['macos-26'], paths: ['lib/core/file-confine.js', 'test/unit/export/*.test.js'], run: 'a', why: 'w1' },
+    { name: 'paths-everywhere', os: ['macos-26', 'windows-2025'], paths: ['lib/**/*.js'], run: 'b', why: 'w2' },
   ],
 };
 const names = (r) => r.include.map((i) => `${i.suite}@${i.os}`);
 
 test('the nightly runs every suite, one row per OS', () => {
-  assert.deepEqual(names(plan(registry, { event: 'schedule' })), ['export-confine@macos-latest', 'paths-everywhere@macos-latest', 'paths-everywhere@windows-latest']);
+  assert.deepEqual(names(plan(registry, { event: 'schedule' })), ['export-confine@macos-26', 'paths-everywhere@macos-26', 'paths-everywhere@windows-2025']);
 });
 
 test('a dispatch runs the suites it names, or all of them when it names none', () => {
-  assert.deepEqual(names(plan(registry, { event: 'workflow_dispatch', suites: ['export-confine'] })), ['export-confine@macos-latest']);
+  assert.deepEqual(names(plan(registry, { event: 'workflow_dispatch', suites: ['export-confine'] })), ['export-confine@macos-26']);
   assert.equal(plan(registry, { event: 'workflow_dispatch' }).count, 3);
 });
 
 test('a pull request runs only the suites whose paths match a changed file', () => {
-  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['lib/core/file-confine.js'] })), ['export-confine@macos-latest', 'paths-everywhere@macos-latest', 'paths-everywhere@windows-latest']);
-  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['test/unit/export/a.test.js'] })), ['export-confine@macos-latest']);
+  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['lib/core/file-confine.js'] })), ['export-confine@macos-26', 'paths-everywhere@macos-26', 'paths-everywhere@windows-2025']);
+  assert.deepEqual(names(plan(registry, { event: 'pull_request', changed: ['test/unit/export/a.test.js'] })), ['export-confine@macos-26']);
   assert.equal(plan(registry, { event: 'pull_request', changed: ['README.md', 'docs/x.md'] }).count, 0, 'an unrelated PR selects nothing');
 });
 
@@ -33,19 +33,19 @@ test('editing the registry, the planner or the workflow runs every suite on a pu
 });
 
 test('a suite marked on_pull_request: false runs nightly and on dispatch, never on a pull request', () => {
-  const r = { suites: [...registry.suites, { name: 'ios-thing', os: ['macos-latest'], paths: ['lib/ios/*.js'], run: 'c', why: 'w3', on_pull_request: false }] };
+  const r = { suites: [...registry.suites, { name: 'ios-thing', os: ['macos-26'], paths: ['lib/ios/*.js'], run: 'c', why: 'w3', on_pull_request: false }] };
   assert.equal(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'] }).count, 2, 'its own path selects it not, only the lib/** suite');
-  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-thing@macos-latest'), 'not even a plumbing edit');
-  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-thing@macos-latest'));
-  assert.deepEqual(names(plan(r, { event: 'workflow_dispatch', suites: ['ios-thing'] })), ['ios-thing@macos-latest']);
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-thing@macos-26'), 'not even a plumbing edit');
+  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-thing@macos-26'));
+  assert.deepEqual(names(plan(r, { event: 'workflow_dispatch', suites: ['ios-thing'] })), ['ios-thing@macos-26']);
 });
 
 test('an iOS Simulator suite is off pull requests by its command, with no flag', () => {
-  const r = { suites: [...registry.suites, { name: 'ios-new', os: ['macos-latest'], paths: ['lib/ios/*.js'], run: 'PROBE=x bash docs/scripts/ios-safari/run.sh', why: 'w4' }] };
-  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'] })).includes('ios-new@macos-latest'));
-  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-new@macos-latest'), 'not even a plumbing edit');
-  assert.ok(names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'], everySuite: true })).includes('ios-new@macos-latest'), 'the evidence plan still sees it');
-  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-new@macos-latest'));
+  const r = { suites: [...registry.suites, { name: 'ios-new', os: ['macos-26'], paths: ['lib/ios/*.js'], run: 'PROBE=x bash docs/scripts/ios-safari/run.sh', why: 'w4' }] };
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'] })).includes('ios-new@macos-26'));
+  assert.ok(!names(plan(r, { event: 'pull_request', changed: ['.github/platform-suites.json'] })).includes('ios-new@macos-26'), 'not even a plumbing edit');
+  assert.ok(names(plan(r, { event: 'pull_request', changed: ['lib/ios/a.js'], everySuite: true })).includes('ios-new@macos-26'), 'the evidence plan still sees it');
+  assert.ok(names(plan(r, { event: 'schedule' })).includes('ios-new@macos-26'));
 });
 
 test('globs: * stays inside a segment, ** crosses them, dots are literal', () => {

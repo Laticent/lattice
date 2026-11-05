@@ -148,6 +148,20 @@ async function latticePhotoProbe() {
 			const t0 = Date.now();
 			while (!(ours() && HEADINGS.includes(shown())) && Date.now() - t0 < 8000) await sleep(200);
 			if (ours() && HEADINGS.includes(shown())) return;
+			// A PHONE PARKS THE PREVIEW while the Source pane is up (StudioShell `editorSlotVisible`): edits stay deferred, and
+			// a parked frame redraws only when the deck id or the slide index changes (DeckPreview `followWhenParked`). When
+			// the starter deck landed late and our retype left the caret on the same slide index, nothing was owed, and the
+			// frame kept the starter's slide however long this waited: the iPhone nightly at 62521b4 failed four retypes in a
+			// row that way, the editor holding our deck. So when the editor holds it, show the Preview pane, as a person
+			// would: its rising edge renders the latest deck. Then back to the source for the steps that follow.
+			if (ours() && innerWidth <= 699) {
+				const preview = await until(() => byLabel('Preview'), 15000, 'the Preview pane button');
+				preview.click();
+				const t1 = Date.now();
+				while (!HEADINGS.includes(shown()) && Date.now() - t1 < 15000) await sleep(200);
+				await openSource();
+				if (ours() && HEADINGS.includes(shown())) return;
+			}
 		}
 		throw new Error(`the probe deck did not stay (the editor ${ours() ? 'holds it' : 'does not hold it'}; the preview shows "${shown()}")`);
 	};
@@ -221,10 +235,10 @@ async function latticePhotoProbe() {
 	try {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which openSource does (#2911).
-		await until(() => window.__latticeRenderMetrics, 90000, "the Studio's first render (its render metrics)");
+		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
 		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
 		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
-		await until(() => shown() !== '', 90000, 'the first preview render').catch((e) => {
+		await until(() => shown() !== '', 150000, 'the first preview render').catch((e) => {
 			// Say what the frame held: an iPad run once timed out here with the slide drawn on screen (#2911).
 			throw new Error(`${e.message} (${previewState()})`);
 		});

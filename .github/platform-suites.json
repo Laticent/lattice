@@ -1,10 +1,10 @@
 {
-  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-26, windows-2025). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `on_pull_request`: false runs the suite nightly and on dispatch only, never on a pull request (the iOS Simulator suites, 2026-10-29: 49 PR jobs and about 820 macOS minutes in the 100 PR runs from 2026-10-28T10:50Z to 2026-10-29T02:25Z, 27 of them not green, gating nothing). `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. `docs_site`: true when the suite serves the built docs site; the workflow's `docs-site` job builds it once on Linux and the suite's job downloads it. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
   "suites": [
     {
       "name": "export-confine",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "lib/core/file-confine.js",
@@ -27,7 +27,7 @@
     {
       "name": "export-confine-windows",
       "os": [
-        "windows-latest"
+        "windows-2025"
       ],
       "paths": [
         "lib/core/file-confine.js",
@@ -50,7 +50,7 @@
     {
       "name": "wait-for-macos",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "tools/wait-for.sh",
@@ -64,7 +64,7 @@
     {
       "name": "build-windows",
       "os": [
-        "windows-latest"
+        "windows-2025"
       ],
       "paths": [
         "tools/check-ownership.js",
@@ -79,8 +79,8 @@
     {
       "name": "os-sandbox-measure",
       "os": [
-        "macos-latest",
-        "windows-latest"
+        "macos-26",
+        "windows-2025"
       ],
       "paths": [
         "lib/core/os-sandbox.js",
@@ -98,7 +98,7 @@
     {
       "name": "ios-safari-studio",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -116,12 +116,13 @@
       ],
       "run": "bash docs/scripts/ios-safari/run.sh",
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device.",
-      "on_pull_request": false
+      "on_pull_request": false,
+      "docs_site": true
     },
     {
       "name": "ios-safari-photo-memory",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -137,7 +138,7 @@
     {
       "name": "ios-safari-undo",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/*",
@@ -148,12 +149,13 @@
         "docs/src/components/studio/StudioChromeSkeleton.tsx"
       ],
       "run": "PROBE=undo bash docs/scripts/ios-safari/run.sh",
-      "why": "Filo's undo in real Safari: Mobile Safari in an iPad and an iPhone iOS Simulator, then the Mac's own Safari. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3)."
+      "why": "Filo's undo in real Safari: Mobile Safari in an iPad and an iPhone iOS Simulator, then the Mac's own Safari. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+      "docs_site": true
     },
     {
       "name": "ios-safari-photo",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -172,12 +174,13 @@
       ],
       "run": "PROBE=photo bash docs/scripts/ios-safari/run.sh",
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, checks the Studio's photo verdict (#2942): the Coach's photo finding and the editor's warning agree word for word, the Coach's fix lands without the preview leaving the slide, and a finding leaves with its slide. It was part of ios-safari-studio until that one job ran out of its 30 minutes on a slow runner (#2961); as its own suite it runs when the photo code changes, not when the sanitizer does. A simulator runs on the Mac's hardware, so it is not a physical device.",
-      "on_pull_request": false
+      "on_pull_request": false,
+      "docs_site": true
     },
     {
       "name": "ios-safari-jpeg",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "lib/core/jpeg-encode.mjs",
@@ -192,7 +195,7 @@
     {
       "name": "ios-safari-focus-sync",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "docs/scripts/ios-safari/run.sh",
@@ -203,12 +206,13 @@
       ],
       "run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",
       "why": "A click on a line in the Playground editor must center its slide in the preview and leave the editor where it is. The sync once judged its own preview scroll by time since the write, so a busy page delivered the event after the 120 ms echo window and the editor jumped 136 px (followup 2937-p2). Linux WebKit showed it only under CPU load and is not iOS Safari. This taps the editor 40 times in real Mobile Safari on an iPad Pro iOS Simulator, with the page kept busy on purpose, and fails if any tap moves the editor 2 px or more. The same probe fails 39 of 40 taps on the old code in Playwright's WebKit, so it can fail. A simulator runs on the Mac's CPU, so it is not a physical device. The iPhone is not run: a phone is never wide enough for the two-pane layout.",
-      "on_pull_request": false
+      "on_pull_request": false,
+      "docs_site": true
     },
     {
       "name": "office-quicklook",
       "os": [
-        "macos-latest"
+        "macos-26"
       ],
       "paths": [
         "tools/office-quicklook.mjs",
