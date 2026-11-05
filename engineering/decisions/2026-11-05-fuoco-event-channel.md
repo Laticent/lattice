@@ -9,7 +9,7 @@ summary: >
   Proposed: a typed EVENT channel beside the focus record, in the same hub, sharing its origin,
   revision and no-re-entry guarantees; a bridge that carries the preview runtime's facts out of the
   frame; lifecycle events (`started` / `settled` / `failed`) as the "pre and post" pair, notify-only;
-  and a catalog of about thirty events in four slices ordered by the code each one deletes.
+  and a catalog of about forty events in four slices ordered by the code each one deletes.
 ---
 
 # Fuoco as the Studio's event channel
@@ -53,6 +53,9 @@ Read from the code on `9dc7f3ed`.
 | A render started / painted / settled | `DeckPreview`, `single-slide-render.ts`, `lib/runtime/index.js` | Nobody outside: seven holders keep their own staleness (`2026-10-23-fuoco-owns-preview-state.md` §How an edit travels) |
 | The runtime's content pass finished | `onContentSettled` (`lib/runtime/index.js:558`) | In-frame listeners only (the overflow sweep) |
 | A diagram drew, or gave up | Plugin host, markup `data-lattice-settle` | The export POLLS for it every 120 ms, for up to 4 s, then 12 s (`deck-export.js:647` `waitForDiagrams`); `waitForMeasuring` polls the same way |
+| A chart drew, or fell back | Engine-drawn SVG for most of the 31 kinds; the runtime lays out `state-chart` and `flowchart` with dagre (`index.js:52-80`) | Nobody. When dagre is missing, the chart falls back to the reading-order grid and the only signal is a `console.warn` (`index.js:197`) |
+| A slide's orientation changed | `stampOrientation` writes `data-orientation` from the slide's measured aspect (`index.js:2710`); the fluid-view toggle flips it (`index.js:3838`) | CSS and the chart transforms, through markup. The host is never told |
+| The view resized | `window` `resize` (`index.js:2798`, `3687`) and a `ResizeObserver` on the slide box (`index.js:284`) | In-frame re-measure and the fit sweep only |
 | Fonts finished loading | `document.fonts` `loadingdone` (`index.js:455`) | In-frame re-measure only |
 | A slide overflowed / fit resolved | Fit sweep, `fitGeneration` (`index.js:3456`) | Markup classes only |
 | An image loaded or failed | The browser | Nobody: the runtime listens to no `load` / `error` on media |
@@ -145,6 +148,12 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `figure.started` | `plugin` (`mermaid`, `plot`, …), `unit`, `id` | 2 | — |
 | `figure.drawn` | `plugin`, `unit`, `id`, `ms` | 2 | Export: replaces `waitForDiagrams`'s 120 ms poll with an await |
 | `figure.unavailable` | `plugin`, `unit`, `id`, `reason` | 2 | Export; an author-facing "this diagram did not draw" |
+| `chart.started` | `kind` (`funnel`, `state-chart`, …), `unit`, `id`, `path: 'engine' \| 'runtime'` | 2 | — |
+| `chart.drawn` | `kind`, `unit`, `id`, `path`, `ms`, `orientation` | 2 | Export: one more thing to await instead of poll |
+| `chart.fallback` | `kind`, `unit`, `id`, `reason` (`layout-engine-missing`, …) | 2 | Replaces the `console.warn` with an author-facing cue |
+| `view.resize-started` / `view.resized` | `view`, `width`, `height`, `canvasScale` | 2 | Fit sweep and chart re-layout, in the host instead of each pane |
+| `view.orientation-changed` | `view`, `unit` (null for the whole view), `from`, `to` (`landscape` \| `square` \| `portrait`), `cause: 'resize' \| 'fluid-toggle' \| 'device'` | 2 | Rail thumbnails and the Stage, which re-fit on a turn |
+| `view.mode-changed` | `view`, `mode: 'fixed' \| 'fluid'` | 2 | — |
 | `fonts.settled` | `families[]`, `ms` | 2 | Export: replaces part of `waitForMeasuring` |
 | `fit.overflow` / `fit.resolved` | `unit`, `part` | 2 | Rail pill warning |
 | `asset.loaded` | `kind: 'image' \| 'video' \| 'audio'`, `src`, `unit`, `ms`, `bytes?` | 3 | — |
@@ -159,8 +168,16 @@ would read it on day one; a dash means it ships ahead of a consumer, as asked.
 | `settings.changed` | `key` (`model`, `voice`, …) | 4 | Replaces `db-model-changed`, `db-voice-changed` |
 | `note.committed` / `note.left` | `unit` | 4 | Replaces `cs-note-commit`, `cs-note-left` |
 
-About thirty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
+About forty names. Image `load` and video `play` are in slice 3 because nothing reads them yet;
 they are cheap to add once the bridge in slice 2 exists, and expensive before it.
+
+**Resize is a lifecycle, not a stream.** A window drag fires `resize` dozens of times a second. The
+hub publishes `view.resize-started` on the first one and `view.resized` once the size has held for
+a frame, with the final size, per §4.2. A listener that needs every intermediate size (a live
+ruler) reads the frame's own `ResizeObserver`; nothing on the hub needs it. `view.orientation-changed`
+fires only when a slide's measured orientation actually flips, after `stampOrientation` has written
+the new stamp, so a listener that reads the slide sees the new geometry. It fires before the chart
+transforms rebuild, and those then report `chart.drawn` with the new `orientation`.
 
 **Event volume.** The heaviest stream is `asset.loaded`: one per image per render. The hub's cost
 per event is one queue push and one loop over listeners of that type, so a 60-image deck adds 60
@@ -177,7 +194,7 @@ Ordered by what each slice deletes or unblocks:
    never re-entrant; a broken hub must go red), plus `doc.*`. Closes `followups.d/2884-p1`. No
    frame, no runtime, no export bytes.
 2. **The frame bridge, renders and figures.** `__latticeEvents` in the runtime, `render.*`,
-   `figure.*`, `fonts.settled`, `fit.*`. Deletes the export's two polling loops and gives design A
+   `figure.*`, `chart.*`, `view.*` (resize, orientation, mode), `fonts.settled`, `fit.*`. Deletes the export's two polling loops and gives design A
    of `2026-10-23` its ledger. Needs the export sign-off (§4.3).
 3. **Assets, media, presenting, export progress.** The events the owner named, ahead of their
    consumers.
@@ -210,3 +227,7 @@ The owner answered in one round:
 | First build | None yet: this note merges as the record, and the four slices of §6 wait |
 
 The slices are tracked in `followups.d/` so the work outlives this session.
+
+**Added 2026-11-05, after the first round.** The owner asked for chart, orientation and resize
+events. All three happen inside the preview frame, so they join slice 2: `chart.*`, and
+`view.resize-started` / `view.resized` / `view.orientation-changed` / `view.mode-changed` (§2, §5).
