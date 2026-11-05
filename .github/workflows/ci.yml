@@ -972,8 +972,18 @@ jobs:
         run: npm ci
         timeout-minutes: 10
         working-directory: docs
+      # NO APT, AND THE BROWSER CACHED (owner call on #3034, 2026-11-05). `--with-deps` ran apt-get on every run, and a slow
+      # package mirror once took this step from 31 s to 3 min 10 s: with the suite at about 15 min, that cancelled the job at
+      # its 20-minute limit with no test failed (run 41954689913). The ubuntu-24.04 image already carries Chrome's system
+      # libraries, so only the browser download is needed, and the cache makes that a restore. A library the image ever
+      # drops fails at browser launch, loudly, not as a slow step.
+      - name: Cache the Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('docs/package-lock.json') }}
       - name: Install Playwright browser (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
         working-directory: docs
       # playwright.config.ts's webServer builds then previews; test:e2e:smoke runs
       # the desktop @smoke subset against it. NOT the production document —

@@ -117,7 +117,9 @@ replay dedupe (#2960); `ubuntu-latest` moving to 26.04 (pinned to 24.04). No rec
 `platform-suites-supervisor.yml` with `tools/platform-suites-triage.js` and an `alert-held` hand-off (1, 2); the
 `docs-site` job (1, B); `tools/evidence-plan.js` reading the PR run instead of re-dispatching it (2); and the limits (3):
 the overflow sweep 45 min, integration shard 4 30 min, the iOS cold-start waits 150 s (WebDriver script limit 360 s), and
-10 minutes on every `npm ci` step in `ci.yml` and `platform-suites.yml`. Items 4 and 5 stay open (`followups.d/3034-p4`).
+10 minutes on every `npm ci` step in `ci.yml` and `platform-suites.yml`. Then, on 2026-11-05: `studio-smoke` ran out of its 20 minutes with no test failed,
+because the browser install's apt-get hit the slow mirror (31 s became 3 min 10 s, run 41954689913). Owner's pick: install
+Chromium without `--with-deps` and cache the browser, so that job no longer touches apt. Items 4 and 5 stay open (`followups.d/3034-p4`).
 
 Each of these changes the CI contract, a number someone set, or what an alarm means (CLAUDE.md, second filter), so none
 is in this PR. The ❓ decision card on the PR carries the options.
