@@ -937,6 +937,25 @@ does not count. Scored old against new over 237 renders (79 galleries at square@
 portrait@conference and story@hall): 7 slides flip, the 3 actors and 4 checklist pages, all real; the
 two decks then split to 19 and 21 pages with no failing page.
 
+**The checker's findings on the narrow rules and the Studio (2026-11-05).** An independent checker read
+`af95fecf5..f1ebd54c8` and confirmed, in rendered output:
+
+| Finding | Fix |
+|---|---|
+| list-tabular's meta stayed inline under 17em: the `def`/`fit-name` split raised the narrow blocks to (0,4,4), past the TIGHT rule's (0,2,4) | the TIGHT rule repeats the class to (0,5,4); every variant's meta takes its own line at story@hall |
+| the chevron's shared tab column was `max-content`, so a long label widened every row's tab (a 44-character label left each description 85px wide) | `fit-content(40%)`: a label wraps between words at 40% of the row |
+| a LOOSE checklist (a blank line between items) wraps its text in a `<p>`, which the run-in's reset zeroed, so the text ran under the mark | the reset skips the first paragraph; text starts clear of the mark |
+| the card-spill check measured lines a `line-clamp` box hides, and failed `line-height: 1` text by the glyph's own overshoot | the walk stops at any box that clips; the tolerance is 15% of the font size, 2px at least |
+| "keep the first plan" kept it whenever today's split failed too, without comparing | kept only when it failed no worse: an overflow by its depth, a cram or clip ranked worse than any overflow |
+| the Studio's plan cache keyed the stylesheets by LENGTH, so `1.40rem` to `1.60rem` reused a stale plan; it left out the slide's rendered number | keyed by hash, as the render memo is, and by the rendered number |
+| a measurement taken with a fallback face was cached for good | used for that render, not cached |
+| a pause measurement ran after a newer keystroke when its idle callback fired, warned on every cancel, and kept running after the author moved to a slide without the split | re-checked at idle, quiet on a cancel, called off on such a slide |
+| column packing skipped the §11 memory, and its fold summed a page's members as a stack | one row-aware page load (`pageLoad`) for the fold and the memory |
+
+New tests: `docs/src/lib/measured-split.test.ts` (reuse, pause, cancel, fonts), the e2e now proves the
+ready event re-renders the preview, and `fit-plan.test.js` covers the first-plan comparison and column
+packing. The idle re-check has no unit test: jsdom has no `requestIdleCallback`, so that path runs at once.
+
 **Split before hold.** PR 3021 holds a table or card row in its wide form when the narrow one would
 overflow its slide. The CLI runs the measured split before that hold, so a narrow form that
 overflows is split onto pages it fits, and the hold acts only where nothing can split the slide.

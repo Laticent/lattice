@@ -15,7 +15,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 const items = (n: number) => Array.from({ length: n }, (_, i) => `- Item ${i + 1} on the agenda`).join('\n');
 const deck = (fit: string, size: string, n: number) => `---\nmarp: true\ntheme: indaco\nsize: ${size}\n${fit ? `fit: ${fit}\n` : ''}---\n\n<!-- _class: agenda -->\n\n## The agenda\n\n${items(n)}\n`;
 
-type Measured = { plan: Record<string, unknown>; remembered: string[]; facts: { slide: string; over: boolean }[]; rounds: number; fellBack: number } | null;
+type Measured = { plan: Record<string, unknown>; remembered: string[]; facts: { slide: string; over: boolean }[]; rounds: number; fellBack: number; reused?: boolean } | null;
 /** What the Studio's hidden frame last measured and planned (docs/src/lib/measured-split.ts). */
 function lastMeasured(page: import('@playwright/test').Page): Promise<Measured> {
 	return page.evaluate(() => ((window as unknown as { __latticeLastMeasuredSplit?: Measured }).__latticeLastMeasuredSplit ?? null));
@@ -118,6 +118,10 @@ test.describe('@crosswidth @webkit-tablet @gecko typing in a fit: pack slide', (
 		// The pause measures once, and the pages settle on the plan for the new text.
 		await expect.poll(count, { timeout: 15000 }).toBe(before + 1);
 		await expect.poll(async () => Object.values((await lastMeasured(page))?.plan ?? {}).find((v) => Array.isArray(v)), { timeout: 15000 }).toEqual([9, 9]);
+		// The preview RE-RENDERED with that plan: a measurement writes its record without `reused`, and
+		// only the render the `lattice:measured-split-ready` event triggers reads the cached plan and
+		// marks it `reused`. Without the event the record would stay as the measurement left it.
+		await expect.poll(async () => (await lastMeasured(page))?.reused === true, { timeout: 15000 }).toBe(true);
 	});
 });
 

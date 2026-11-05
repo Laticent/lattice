@@ -197,3 +197,64 @@ test('a slide whose pages fail on today\'s split too keeps its first measured pl
   assert.deepEqual(run.plan['1'], plans[0]['1'], 'back on its first plan');
   assert.equal(run.fellBack, 0);
 });
+
+test('the first plan comes back only when it failed no worse than today\'s split (checker, 2026-11-05)', async () => {
+  const facts = () => [over('1', [300, 300, 300, 300], 700)];
+  const runWith = async (measured, today) => {
+    let last = null;
+    return measuredSplit({
+      facts: facts(), pack, packer: 'greedy',
+      split: async (plan) => { last = plan; return { planned: Object.keys(plan) }; },
+      verify: async () => (last?.['1'] ? measured : today),
+    });
+  };
+  // The measured plan crams (0, no depth) and today's split only overflows by 5px: today's stays.
+  const crammed = await runWith({ 1: 0 }, { 1: 5 });
+  assert.equal(crammed.plan['1'], undefined, 'a crammed first plan is not kept over a shallow overflow');
+  assert.equal(crammed.fellBack, 1);
+  // The measured plan overflows by 3px and today's split by 9px: the first plan, the fewer pages, comes back.
+  const shallower = await runWith({ 1: 3 }, { 1: 9 });
+  assert.deepEqual(shallower.plan['1'], [2, 2]);
+  assert.equal(shallower.fellBack, 0);
+});
+
+describe('planFromFacts, members side by side (§17; checker, 2026-11-05)', () => {
+  // Two columns: six members make three rows, each as tall as its taller member.
+  const grid = (heights, capacity, extra = {}) => ({ slide: '1', over: true, members: { heights, gap: 10, columns: 2, rowGap: 10 }, capacity, ...extra });
+
+  test('packs by rows, not by stacking every member', () => {
+    // Rows of 200, 200, 200: two rows (410) fit a 480 room under its margin, so 4 + 2 members, two pages.
+    const plan = planFromFacts([grid([200, 150, 200, 120, 200, 100], 480)], {}, pack, 'greedy');
+    assert.deepEqual(plan['1'], [4, 2]);
+  });
+
+  test('remembers the pages while every page\'s rows still fit', () => {
+    const mem = { 1: { split: true, sizes: [2, 4] } };
+    // As remembered: page 1 one row (200), page 2 two rows (200 + 10 + 200). Both fit 480.
+    const plan = planFromFacts([grid([200, 150, 200, 120, 200, 100], 480)], {}, pack, 'greedy', mem);
+    assert.deepEqual(plan['1'], [2, 4]);
+  });
+
+  test('folds the closing beats onto the last page by its rows, not by a stack of its members', () => {
+    // The last page holds 2 members in one row of 200: a coda of 200 folds into a 480 room (410).
+    // Summed as a stack (200 + 10 + 100 = 310, + 200 = 510) it would not have.
+    const plan = planFromFacts([grid([200, 150, 200, 120, 200, 100], 480, { coda: 200 })], {}, pack, 'greedy');
+    assert.deepEqual(plan['1'], { sizes: [4, 2], foldCoda: true });
+  });
+
+  test('a grid whose pages still fail is packed again as a column, from the whole room', async () => {
+    const facts = [grid([200, 150, 200, 120, 200, 100], 480)];
+    const plans = [];
+    let round = 0;
+    const run = await measuredSplit({
+      facts, pack, packer: 'greedy',
+      split: async (plan) => { plans.push(JSON.parse(JSON.stringify(plan))); return { planned: Object.keys(plan) }; },
+      // The row packing fails once; the column packing that follows fits.
+      verify: async () => (round++ === 0 ? { 1: 40 } : {}),
+    });
+    assert.deepEqual(plans[0]['1'], [4, 2], 'first by rows');
+    // As a column of 200, 150, 200, 120, 200, 100 with gaps of 10 in a 480 room: 2, 2, 2.
+    assert.deepEqual(run.plan['1'], [2, 2, 2], 'then as a column');
+    assert.equal(run.fellBack, 0);
+  });
+});

@@ -3913,7 +3913,8 @@ async function renderBody(browser, g, closeBrowser) {
       // MEASURE on the whole render (already in the page), PLAN in Node with the pure packer,
       // SPLIT, then VERIFY: a body page that still overflows tightens its slide's room by the
       // overflow and plans again, at most three rounds. A slide still overflowing after that
-      // falls back to today's split, so the measured path is never worse than the structural one.
+      // falls back to today's split, unless today's split fails there too and the first measured
+      // plan failed no worse (fewer pages for no loss; fit-measure.js `measuredSplit`).
       const fm = require('./lib/core/fit-measure');
       const { pack } = require('@laticent/fluido');
       // The verdict is the harness's own (lib/core/fit-measure.js): overflow, a clip outside

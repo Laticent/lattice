@@ -506,10 +506,12 @@ section.list-steps:not(.vertical):not(.timeline):not(.chevron):not(.converge):no
  * (`min-content` per row) started every card at a different x, a ragged column (square at hall,
  * owner, 2026-11-04). The list is the grid and each row a subgrid of it, so the rows share the
  * column. Below 23em the band form (the text-room block above) takes over: the two ranges do not
- * overlap, so the two rules never fight over a row (fit-everywhere-model.md §17). */
+ * overlap, so the two rules never fight over a row (fit-everywhere-model.md §17). The column is
+ * `fit-content(40%)`, not `max-content`: a long label wraps between words at 40% of the row
+ * instead of widening every row's tab and starving every description (checker, 2026-11-05). */
 @container lat-cards (23em <= width < 36em) {
   section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol {
-    display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 2cqi; row-gap: 1.4cqi;
+    display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); column-gap: 2cqi; row-gap: 1.4cqi;
   }
   section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li { grid-column: 1 / -1; grid-template-columns: subgrid; }
   section.list-steps.list-steps.chevron:not(:where([data-family="tall"], [data-family="strip"])) > .cell-stage > ol > li > strong { padding-inline: var(--sp-xs); }

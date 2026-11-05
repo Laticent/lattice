@@ -69,6 +69,8 @@ export interface MeasuredSplitOutput extends SplitResult {
 	rounds: number;
 	fellBack: number;
 	ms: number;
+	/** Every font had loaded when the frame was measured: only such a plan is cached (§17). */
+	fontsLoaded: boolean;
 }
 
 // The slides of a PREVIEW frame. The export's finder (lib/core/deck-slides.js) reads the export's
@@ -91,7 +93,7 @@ let writes = 0;
  * document, or the blank one, would plan from the wrong facts. `cancelled()` aborts the same way,
  * so a preview torn down mid-measure does not keep its hidden frame working.
  */
-function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancelled: () => boolean): Promise<void> {
+function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancelled: () => boolean): Promise<boolean> {
 	const mark = String(++writes);
 	return new Promise((resolve, reject) => {
 		let done = false;
@@ -110,6 +112,9 @@ function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancell
 			// than called unmeasurable (WebKit's font settle can outlast the load deadline).
 			clearTimeout(timer);
 			const settled = new Promise((r) => setTimeout(r, settleMs));
+			// Whether every face loaded before the bounded wait ran out: a measurement taken with a
+			// fallback face is right for this render and wrong to cache (checker, 2026-11-05).
+			let fontsLoaded = true;
 			try {
 				// Author media in a frame nobody sees must not play: mute and pause it before anything waits.
 				for (const m of win.document.querySelectorAll('audio, video')) {
@@ -118,7 +123,7 @@ function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancell
 					(m as HTMLMediaElement).pause();
 				}
 				const fonts = win.document.fonts;
-				if (fonts) await Promise.race([Promise.all([...fonts].map((f) => f.load().catch(() => undefined))).then(() => fonts.ready), settled]);
+				if (fonts) fontsLoaded = await Promise.race([Promise.all([...fonts].map((f) => f.load().catch(() => undefined))).then(() => fonts.ready).then(() => true), settled.then(() => false)]);
 				for (const draw of Object.values(win.__latticeGraphFlush || {})) {
 					try {
 						draw();
@@ -135,7 +140,7 @@ function settle(frame: HTMLIFrameElement, doc: string, settleMs: number, cancell
 			if (cancelled()) return fail('the preview was torn down');
 			if (!done) {
 				done = true;
-				resolve();
+				resolve(fontsLoaded);
 			}
 		};
 		frame.srcdoc = doc.replace(/<html\b/i, `<html data-lattice-measure="${mark}"`);
@@ -178,7 +183,7 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 	try {
 		// The deck unsplit but STAMPED: a slide's number comes from the split pass, and the plan is
 		// keyed by it, so the frame measures the engine's own whole pass, not the raw render.
-		await settle(frame, buildDoc(split(html, 'whole').html), settleMs, cancelled);
+		let fontsLoaded = await settle(frame, buildDoc(split(html, 'whole').html), settleMs, cancelled);
 		const remembered = memory ? Object.keys(memory).filter((n) => memory[n]?.split) : [];
 		const facts = inFrame<unknown[]>(frame, `(${fitMeasure.MEASURE_FIT_SRC})(${PROBE_ARGS}, ${JSON.stringify(remembered)})`);
 		// No slide found is not "every slide fits": it is a frame this module could not read.
@@ -190,7 +195,7 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 			memory,
 			split: async (plan: Record<string, unknown>) => {
 				const r = split(html, plan);
-				await settle(frame, buildDoc(r.html), settleMs, cancelled);
+				if (!(await settle(frame, buildDoc(r.html), settleMs, cancelled))) fontsLoaded = false;
 				return r;
 			},
 			verify: async () => inFrame<Record<string, number>>(frame, `(${fitMeasure.OVERFLOW_BY_SLIDE_SRC})(${PROBE_ARGS})`) ?? {},
@@ -214,6 +219,7 @@ export async function measuredSplitInFrame(input: MeasuredSplitInput): Promise<M
 			rounds: run.rounds,
 			fellBack: run.fellBack,
 			ms: performance.now() - t0,
+			fontsLoaded,
 		};
 	} finally {
 		frame.remove();
@@ -288,6 +294,22 @@ const settleByHost = new WeakMap<object, { timer: ReturnType<typeof setTimeout>;
 
 type Planned<S> = S & { plan: Record<string, unknown> };
 
+/** Cancel a host's pending pause measurement: the host now shows a slide that does not take the
+ *  measured split (not cut, or no `fit: pack`), so the old slide's result would only overwrite its
+ *  memory and fire a needless re-render (checker, 2026-11-05). */
+export function cancelPendingMeasure(host: object): void {
+	const pending = settleByHost.get(host);
+	if (!pending) return;
+	clearTimeout(pending.timer);
+	pending.stale = true;
+	settleByHost.delete(host);
+}
+
+/** A measurement the preview itself called off (a newer keystroke, another slide, teardown). */
+export function isCanceledMeasure(e: unknown): boolean {
+	return e instanceof UnmeasuredError && /torn down/.test(e.message);
+}
+
 /**
  * The Studio's measured split for one shown slide (§16, §17): the plan to draw it with NOW, and,
  * while the author types, one measurement after they pause. Lives here, in the lazy chunk, so the
@@ -309,13 +331,15 @@ export async function studioPlan<S extends object>(o: {
 	source: string;
 	layout: string;
 	split: (plan: Record<string, unknown>) => S;
-	measure: (isCanceled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory }) | null>;
+	measure: (isCanceled: () => boolean) => Promise<(S & { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean }) | null>;
 	alive: () => boolean;
 }): Promise<Planned<S> | null> {
-	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory } | null) => {
+	const keep = (m: { plan: Record<string, unknown>; memory: FitMemory; fontsLoaded?: boolean } | null) => {
 		if (!m) return;
 		rememberFit(o.key, o.source, m.memory);
-		cachePlan(o.layout, m.plan);
+		// A plan measured with a fallback face is used for this render only: the next render of this
+		// layout measures again, once the face has loaded (checker, 2026-11-05).
+		if (m.fontsLoaded !== false) cachePlan(o.layout, m.plan);
 		notePlanFor(o.key, m.plan);
 	};
 	const pending = settleByHost.get(o.host);
@@ -336,7 +360,11 @@ export async function studioPlan<S extends object>(o: {
 	const ready = () => !entry.stale && o.alive();
 	entry.timer = setTimeout(() => {
 		if (!ready()) return;
+		// Re-checked when the idle callback fires: a keystroke between the timer and the idle time
+		// has already marked this pass stale, and building the hidden frame would cost the main
+		// thread for a result nobody reads (checker, 2026-11-05).
 		const run = () =>
+			ready() &&
 			o.measure(() => entry.stale).then((m) => {
 				if (!ready() || !m) return;
 				keep(m);

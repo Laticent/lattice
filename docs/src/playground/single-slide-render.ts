@@ -829,6 +829,8 @@ function sanitizeOnce(html: string): string {
 	}
 	return safe;
 }
+/** The measured-split module once a `fit: pack` slide has loaded it (lazy; never loaded for other decks). */
+let measuredSplitModule: typeof import('../lib/measured-split') | null = null;
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
@@ -1871,17 +1873,25 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// §11 memory so a slide does not re-split as the author types. Only a slide the
 					// structural split cuts can need it; the module loads on the first such slide. A failed
 					// load, or a frame that cannot be measured, keeps today's split.
+					// A slide that does not take the measured split calls off the host's pending pause
+					// measurement for the slide shown before it (once the lazy module has loaded).
+					if (!(r.changed && mayWantMeasuredSplit(slideSource))) measuredSplitModule?.cancelPendingMeasure(host);
 					if (r.changed && mayWantMeasuredSplit(slideSource)) {
 						const ms = await import('../lib/measured-split').catch((e) => {
 							console.warn('lattice: the measured split could not load, so this slide keeps the structural split', e);
 							return null;
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						if (ms) measuredSplitModule = ms;
+						if (ms && !ms.measuredSplitWanted(slideSource)) ms.cancelPendingMeasure(host);
 						if (ms?.measuredSplitWanted(slideSource)) {
 							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
 							// Stepping to another page of the same slide re-renders it: reuse the plan made for
 							// this exact text, box, mode and stylesheet instead of measuring again (§17).
-							const layout = ms.layoutKey(key, slideSource, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${out.css.length}|${extraCss?.length ?? 0}`);
+							// The stylesheets by HASH, as the render memo keys them (`memoKey`): an edit that keeps a
+							// sheet's length (`1.40rem` to `1.60rem`) must not reuse a stale plan. And the slide's
+							// rendered number: the plan is keyed by it, and an earlier panes slide can move it.
+							const layout = ms.layoutKey(key, slideSource, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(out.css)}|${hashString(extraCss ?? '')}|${splitOpts.firstSlide}`);
 							// The whole slide as rendered now: a pause measurement runs after this render has narrowed
 							// `out.html` to the one page it shows.
 							const wholeHtml = out.html;
@@ -1906,7 +1916,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										memory: ms.fitMemoryFor(key, slideSource),
 										cancelled: () => disposed || !host.isConnected || isCanceled(),
 									}).catch((e) => {
-										console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
+										// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
+										if (!ms.isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
 										return null;
 									}),
 							});

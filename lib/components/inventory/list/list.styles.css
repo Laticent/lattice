@@ -266,6 +266,8 @@ section.list > .cell-stage {
     display: inline-block; padding-inline-end: var(--sp-sm);
   }
   /* The row rule was inset past the number's column; with the number run in, it spans the row.
-   * On the list, not the section: a query on the content area reaches only its descendants. */
-  section.list > .cell-stage > ol { --list-rule-inset: 0px; }
+   * On the list, not the section: a query on the content area reaches only its descendants. The
+   * takeaway list with nested rows keeps its hanging ordinal, so it keeps its inset too. */
+  section.list.principles > .cell-stage > ol,
+  section.list.takeaway.numbered > .cell-stage > :is(ul,ol):not(:has(> li > :is(ul,ol))) { --list-rule-inset: 0px; }
 }

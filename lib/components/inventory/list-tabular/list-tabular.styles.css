@@ -582,7 +582,9 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
   }
 }
 @container lattice (width < 17em) {
-  section.list-tabular.list-tabular ol > li > code {
+  /* Five classes: the narrow blocks above reach (0,4,4) (`:not(.def):not(.fit-name)`), and this
+     rule must win in every variant, as it did when they were (0,2,4). */
+  section.list-tabular.list-tabular.list-tabular.list-tabular.list-tabular ol > li > code {
     display: block;
     padding-inline-start: 0;
     padding-top: var(--sp-2xs);
