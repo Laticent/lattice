@@ -19,6 +19,7 @@ import { type AssetChoice, type CompletionComponent, type CompletionVocab, front
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
+import { blurToDoorbell } from './studio-filo';
 import type { MeasuredPhoto } from './thin-card-fix';
 import { tourChromeMargin } from './tour-chrome';
 
@@ -905,7 +906,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 						// editor is its "save": formatting while the author types would move the text under
 						// the caret, and code mid-edit does not parse anyway (lib/authoring/code-format/).
 						EditorView.domEventHandlers({
-							blur: (_e, view) => {
+							blur: (e, view) => {
+								// The undo doorbell's ring is not the author leaving: focus comes straight back.
+								if (blurToDoorbell(e)) return false;
 								if (!view.state.facet(EditorState.readOnly) && wantsFormat(view.state.doc.toString())) void formatInto(view, false);
 								return false;
 							},

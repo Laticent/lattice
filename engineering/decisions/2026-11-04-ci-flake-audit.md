@@ -101,7 +101,11 @@ sends a gesture's `historyUndo` while WebKit's own stack has a step. The fix is 
 iPadOS: one invisible edit in a hidden `data-filo-owned` field re-arms the stack after a frame load, on focus, when
 Filo's history gains its first step and on a 400 ms re-check, then focus and the caret go back. It never rings while
 WebKit holds a redo step (the first version did, and redo stopped reaching Filo on every device: dispatch
-42094642587), during an IME composition, or on desktop WebKit, which undoes the bell's own step without a beforeinput.
+42094642587), during an IME composition, or on desktop WebKit, which undoes the bell's own step without a beforeinput. A checker
+review found that the ring's focus round-trip fires a real `blur`, which ran CodeMirror's format-on-blur and Compose's
+parked resync under the author's caret; both now skip a blur whose `relatedTarget` is the bell (`blurToDoorbell`), and
+the bell also waits while a finger is down, a selection is up or a completion list is open, and backs off after 3
+rings that did not take.
 Evidence, all at `7a1a709`: 7 dispatches, every checked step passed on the iPad (7 of 7) and the iPhone (7 of 7), and on
 the Mac in 6 (the seventh job reached its 30-minute limit before the Mac, cause A). 112 of 112 recorded iOS cycles
 undid, 7 of them right after a frame event, and the doorbell re-armed 42 of 42 forced wipes with focus and the caret

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { blurToDoorbell } from './studio-filo';
 import { createUndoDoorbell } from './undo-doorbell';
 
 // jsdom has no editing commands, so the browser's undo state and `insertText` are stubbed: the test
@@ -53,6 +54,15 @@ describe('the undo doorbell', () => {
 		expect(editor.textContent).toBe('Hello world');
 	});
 
+	it("tells the editor's blur handlers that the ring is not the author leaving", () => {
+		const seen: boolean[] = [];
+		editor.addEventListener('blur', (e) => seen.push(blurToDoorbell(e)));
+		createUndoDoorbell({ canUndo: () => true }).arm();
+		expect(seen).toEqual([true]);
+		(document.getElementById('other') as HTMLInputElement).focus();
+		expect(seen).toEqual([true, false]);
+	});
+
 	it('stays silent when the browser already has a step', () => {
 		enabled = true;
 		expect(createUndoDoorbell({ canUndo: () => true }).arm()).toBe(false);
@@ -72,6 +82,37 @@ describe('the undo doorbell', () => {
 		expect(inserted).toEqual([]);
 		editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
 		expect(bell.arm()).toBe(true);
+		bell.dispose();
+	});
+
+	it('stays silent while a finger is down, with a selection, or with a completion list open', () => {
+		const bell = createUndoDoorbell({ canUndo: () => true });
+		document.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerId: 1 }));
+		expect(bell.arm()).toBe(false);
+		document.dispatchEvent(Object.assign(new Event('pointerup'), { pointerId: 1 }));
+		const r = document.createRange();
+		r.setStart(editor.firstChild as Text, 0);
+		r.setEnd(editor.firstChild as Text, 5);
+		getSelection()?.removeAllRanges();
+		getSelection()?.addRange(r);
+		expect(bell.arm()).toBe(false);
+		r.collapse(false);
+		getSelection()?.removeAllRanges();
+		getSelection()?.addRange(r);
+		const tip = document.body.appendChild(document.createElement('div'));
+		tip.className = 'cm-tooltip-autocomplete';
+		expect(bell.arm()).toBe(false);
+		tip.remove();
+		expect(inserted).toEqual([]);
+		expect(bell.arm()).toBe(true);
+		bell.dispose();
+	});
+
+	it('backs off when its edit never takes', () => {
+		document.execCommand = vi.fn(() => true); // WebKit refuses: undo stays off
+		const bell = createUndoDoorbell({ canUndo: () => true });
+		const rang = Array.from({ length: 6 }, () => bell.arm());
+		expect(rang).toEqual([true, true, true, false, false, false]);
 		bell.dispose();
 	});
 

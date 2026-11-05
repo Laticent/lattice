@@ -33,6 +33,9 @@ export type UndoDoorbell = {
 
 /** The bell's text is a run of zero-width spaces; it is trimmed back once it grows past this. */
 const MAX_BELL_TEXT = 64;
+/** After this many rings in a row that left WebKit's undo off, ring at most once per BACKOFF_MS. */
+const MAX_MISSES = 3;
+const BACKOFF_MS = 10_000;
 
 function nativeEnabled(doc: Document, command: 'undo' | 'redo'): boolean | null {
 	try {
@@ -56,11 +59,32 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 	const onCompositionStart = () => {
 		composing = true;
 	};
+	// A `compositionend` iOS drops (a keyboard switch, a blur) must not silence the bell for good.
 	const onCompositionEnd = () => {
 		composing = false;
 	};
-	doc.addEventListener('compositionstart', onCompositionStart, true);
-	doc.addEventListener('compositionend', onCompositionEnd, true);
+	// A finger or pen on the screen: a long-press selection, a handle drag, a callout menu. A ring then would
+	// move focus mid-gesture, so it waits for the next trigger.
+	const pointers = new Set<number>();
+	const onPointerDown = (e: PointerEvent) => {
+		pointers.add(e.pointerId);
+	};
+	const onPointerUp = (e: PointerEvent) => {
+		pointers.delete(e.pointerId);
+	};
+	// A ring that does not take (WebKit refused the edit) is retried at most once per BACKOFF_MS, so a
+	// browser that never registers it is not blurred and refocused every 400 ms.
+	let misses = 0;
+	let lastMiss = 0;
+	const listeners: [string, EventListener][] = [
+		['compositionstart', onCompositionStart],
+		['compositionend', onCompositionEnd],
+		['focusout', onCompositionEnd],
+		['pointerdown', onPointerDown as EventListener],
+		['pointerup', onPointerUp as EventListener],
+		['pointercancel', onPointerUp as EventListener],
+	];
+	for (const [type, fn] of listeners) doc.addEventListener(type, fn, true);
 	const ensureBell = () => {
 		if (bell?.isConnected) return bell;
 		const el = doc.createElement('div');
@@ -76,14 +100,18 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 	};
 	return {
 		arm() {
-			if (ringing || composing || !opts.canUndo()) return false;
+			if (ringing || composing || pointers.size > 0 || !opts.canUndo()) return false;
+			if (misses >= MAX_MISSES && Date.now() - lastMiss < BACKOFF_MS) return false;
 			// A step on WebKit's redo stack means a gesture undo just ran: an edit now would empty it, and the
 			// redo gesture would stop reaching Filo (iOS dispatch 42094642587).
 			if (nativeEnabled(doc, 'undo') !== false || nativeEnabled(doc, 'redo') !== false) return false;
 			const active = doc.activeElement;
 			if (!isFiloEditable(active)) return false;
+			// An open completion list closes on blur, and a selection (not a caret) is an author mid-choice.
+			if (doc.querySelector('.cm-tooltip-autocomplete')) return false;
 			const sel = doc.getSelection();
 			const range = sel?.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+			if (range && !range.collapsed) return false;
 			ringing = true;
 			try {
 				const el = ensureBell();
@@ -102,11 +130,14 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 				}
 				ringing = false;
 			}
+			if (nativeEnabled(doc, 'undo') === false) {
+				misses++;
+				lastMiss = Date.now();
+			} else misses = 0;
 			return true;
 		},
 		dispose() {
-			doc.removeEventListener('compositionstart', onCompositionStart, true);
-			doc.removeEventListener('compositionend', onCompositionEnd, true);
+			for (const [type, fn] of listeners) doc.removeEventListener(type, fn, true);
 			bell?.remove();
 			bell = null;
 		},

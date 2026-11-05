@@ -1799,4 +1799,8 @@ never turn "passed in headless" into "works on iOS."
   iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
   the caret back. Two traps it already avoids: never ring while WebKit holds a REDO step (the edit empties redo, and
   the redo gesture stops reaching Filo), and never ring on desktop WebKit, which undoes the bell's own step without a
-  beforeinput, so a ⌘Z would go to the bell instead of Filo. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+  beforeinput, so a ⌘Z would go to the bell instead of Filo. A ring moves focus to the bell and straight back, which
+  fires a real `blur` on the editor: an editor's leave-work (CodeMirror's format-on-blur, Compose's parked resync and
+  selection bar) must skip it with `blurToDoorbell(e)` (`studio-filo.ts`), and any NEW blur handler on a Filo-owned
+  editable needs the same check. The bell also waits while a finger is down, a selection (not a caret) is up, a
+  completion list is open or an IME is composing, and backs off after 3 rings that did not take. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
