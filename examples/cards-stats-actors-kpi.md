@@ -7,11 +7,11 @@ header: "Lattice · align: stats, actors, kpi"
 
 <!-- _class: title silent -->
 
-`Feature demo · the cards: register`
+`Feature demo · the align: register`
 
 # stats, actors and kpi now follow it.
 
-Short rows and tiles hug their text and sit where the deck's `align:` says. `fill` is the old fill-the-stage look.
+Short rows and tiles hug their text and sit where the deck's `align:` says. `fill` brings back the old full-height look.
 
 ---
 

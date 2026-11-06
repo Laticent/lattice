@@ -10,30 +10,30 @@ export type AlignEntry = {
 	/** the `align:` word (and engine VERTICAL / HORIZONTAL member) */
 	name: string;
 	label: string;
-	blurb: string;
-	/** CSS for the preview chip: one block placed in a frame */
+	blurb?: string;
+	/** unused beside the icon; CatalogSelect's entry shape requires one */
 	swatch: { background: string; backgroundSize?: string };
 };
 
-const INK = (pct: number) => `color-mix(in srgb, var(--text-heading) ${pct}%, transparent)`;
-const block = (x: string, y: string, w: string, h: string) => `linear-gradient(${INK(26)}, ${INK(26)}) ${x} ${y} / ${w} ${h} no-repeat`;
-const chip = (...blocks: string[]) => `${blocks.join(', ')}, var(--bg)`;
+// The pickers draw an icon for every entry (option-glyphs.tsx `alignV` / `alignH`), which
+// CatalogSelect paints in place of a swatch, so every entry carries the same plain one.
+const swatch = { background: 'var(--bg)' };
 
 // Up and down, ordered as the picker shows them.
 export const ALIGN_VERTICAL: AlignEntry[] = [
-	{ name: 'top', label: 'Top', blurb: 'Content starts under the title; spare space falls below.', swatch: { background: chip(block('50%', '14%', '70%', '16%'), block('50%', '38%', '70%', '16%')) } },
-	{ name: 'middle', label: 'Middle', blurb: 'Content sits together in the middle of the frame.', swatch: { background: chip(block('50%', '38%', '70%', '16%'), block('50%', '62%', '70%', '16%')) } },
-	{ name: 'bottom', label: 'Bottom', blurb: 'Content sits on the floor of the frame; spare space rises above.', swatch: { background: chip(block('50%', '62%', '70%', '16%'), block('50%', '86%', '70%', '16%')) } },
-	{ name: 'spread', label: 'Spread', blurb: 'Rows keep their height and share the spare space evenly between them.', swatch: { background: chip(block('50%', '24%', '70%', '16%'), block('50%', '76%', '70%', '16%')) } },
-	{ name: 'fill', label: 'Fill', blurb: 'Rows grow to share the whole frame height.', swatch: { background: chip(block('50%', '12%', '70%', '36%'), block('50%', '88%', '70%', '36%')) } },
+	{ name: 'top', label: 'Top', swatch },
+	{ name: 'middle', label: 'Middle', swatch },
+	{ name: 'bottom', label: 'Bottom', swatch },
+	{ name: 'spread', label: 'Spread', swatch },
+	{ name: 'fill', label: 'Fill', swatch },
 ];
 
 // Side to side, ordered as the picker shows them.
 export const ALIGN_HORIZONTAL: AlignEntry[] = [
-	{ name: 'left', label: 'Left', blurb: 'Content starts at the left edge.', swatch: { background: chip(block('14%', '50%', '40%', '40%')) } },
-	{ name: 'center', label: 'Center', blurb: 'Content sits in the middle, side to side. Alone, `center` centers both ways.', swatch: { background: chip(block('50%', '50%', '40%', '40%')) } },
-	{ name: 'right', label: 'Right', blurb: 'Content ends at the right edge.', swatch: { background: chip(block('86%', '50%', '40%', '40%')) } },
-	{ name: 'full', label: 'Full', blurb: 'Content runs the full width.', swatch: { background: chip(block('50%', '50%', '86%', '40%')) } },
+	{ name: 'left', label: 'Left', swatch },
+	{ name: 'center', label: 'Center', swatch },
+	{ name: 'right', label: 'Right', swatch },
+	{ name: 'full', label: 'Full', swatch },
 ];
 
 const byName = (rows: AlignEntry[]): Record<string, AlignEntry> => Object.fromEntries(rows.map((s) => [s.name, s]));

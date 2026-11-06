@@ -375,3 +375,42 @@ export async function studioPlan<S extends object>(o: {
 	settleByHost.set(o.host, entry);
 	return { ...o.split(last), plan: last };
 }
+
+/**
+ * The Studio preview's whole measured-split step for one slide (single-slide-render.ts): decline
+ * a slide the split does not measure, then reuse, redraw or measure through `studioPlan`. It lives
+ * here, in the lazy module, so the preview's start-up bundle carries only the call. `layoutTag`
+ * names the box, mode and stylesheets the plan is good for; null keeps today's split.
+ */
+export async function previewPlan(o: {
+	host: HTMLElement;
+	key: string;
+	source: string;
+	layoutTag: string;
+	html: string;
+	split: MeasuredSplitInput['split'];
+	buildDoc: MeasuredSplitInput['buildDoc'];
+	verdictConfig: unknown;
+	width: number;
+	height: number;
+	alive: () => boolean;
+}): Promise<Planned<SplitResult> | null> {
+	if (!measuredSplitWanted(o.source)) {
+		cancelPendingMeasure(o.host);
+		return null;
+	}
+	return studioPlan({
+		host: o.host,
+		key: o.key,
+		source: o.source,
+		layout: layoutKey(o.key, o.source, o.layoutTag),
+		split: (plan) => o.split(o.html, plan),
+		alive: o.alive,
+		measure: (isCanceled) =>
+			measuredSplitInFrame({ ...o, memory: fitMemoryFor(o.key, o.source), cancelled: () => !o.alive() || isCanceled() }).catch((e) => {
+				// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
+				if (!isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
+				return null;
+			}),
+	});
+}

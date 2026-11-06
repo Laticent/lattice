@@ -45,7 +45,6 @@ import { math as MATH } from '../../../lib/plugins/detect.generated.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
 import { pluginDataMissing } from '../lib/ensure-plugin-data';
-import { mayWantMeasuredSplit } from '../lib/fit-pack-wanted';
 import { ensureEngine } from '../lib/load-engine';
 import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
@@ -1875,51 +1874,34 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// load, or a frame that cannot be measured, keeps today's split.
 					// A slide that does not take the measured split calls off the host's pending pause
 					// measurement for the slide shown before it (once the lazy module has loaded).
-					if (!(r.changed && mayWantMeasuredSplit(slideSource))) measuredSplitModule?.cancelPendingMeasure(host);
-					if (r.changed && mayWantMeasuredSplit(slideSource)) {
+					if (!r.changed) measuredSplitModule?.cancelPendingMeasure(host);
+					if (r.changed) {
 						const ms = await import('../lib/measured-split').catch((e) => {
 							console.warn('lattice: the measured split could not load, so this slide keeps the structural split', e);
 							return null;
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 						if (ms) measuredSplitModule = ms;
-						if (ms && !ms.measuredSplitWanted(slideSource)) ms.cancelPendingMeasure(host);
-						if (ms?.measuredSplitWanted(slideSource)) {
+						if (ms) {
 							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
-							// Stepping to another page of the same slide re-renders it: reuse the plan made for
-							// this exact text, box, mode and stylesheet instead of measuring again (§17).
-							// The stylesheets by HASH, as the render memo keys them (`memoKey`): an edit that keeps a
-							// sheet's length (`1.40rem` to `1.60rem`) must not reuse a stale plan. And the slide's
-							// rendered number: the plan is keyed by it, and an earlier panes slide can move it.
-							const layout = ms.layoutKey(key, slideSource, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(out.css)}|${hashString(extraCss ?? '')}|${splitOpts.firstSlide}`);
-							// The whole slide as rendered now: a pause measurement runs after this render has narrowed
-							// `out.html` to the one page it shows.
-							const wholeHtml = out.html;
-							const split = (html: string, plan: Record<string, unknown> | 'whole' | null) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan });
-							// Reuse, redraw while typing, or measure: measured-split.ts `studioPlan` (§17), lazy.
-							const measured = await ms.studioPlan({
+							// Decline, reuse, redraw while typing, or measure: measured-split.ts `previewPlan` (§17), lazy.
+							// The layout tag: stepping to another page of the same slide re-renders it, and the plan made
+							// for this exact text, box, mode and stylesheets (by HASH, as `memoKey` keys them, so an edit
+							// that keeps a sheet's length still measures again) and rendered number is reused.
+							const measured = await ms.previewPlan({
 								host,
 								key,
 								source: slideSource,
-								layout,
-								split: (plan) => split(wholeHtml, plan),
+								layoutTag: `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(out.css)}|${hashString(extraCss ?? '')}|${splitOpts.firstSlide}`,
+								// The whole slide as rendered now: a pause measurement runs after this render has narrowed
+								// `out.html` to the one page it shows.
+								html: out.html,
+								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
+								verdictConfig: PG.fitVerdictConfig?.(),
+								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
+								width: out.width || DEFAULT_W,
+								height: out.height || DEFAULT_H,
 								alive: () => !disposed && host.isConnected,
-								measure: (isCanceled) =>
-									ms.measuredSplitInFrame({
-										html: wholeHtml,
-										split,
-										// The geometry the frame is written with below (`geom`, declared after this split).
-										verdictConfig: PG.fitVerdictConfig?.(),
-										buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
-										width: out.width || DEFAULT_W,
-										height: out.height || DEFAULT_H,
-										memory: ms.fitMemoryFor(key, slideSource),
-										cancelled: () => disposed || !host.isConnected || isCanceled(),
-									}).catch((e) => {
-										// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
-										if (!ms.isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
-										return null;
-									}),
 							});
 							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 							if (measured) r = measured;
