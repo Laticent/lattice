@@ -47,9 +47,10 @@ const loadUniversalSpy = vi.hoisted(() => vi.fn(async () => true));
 const statusSpy = vi.hoisted(() => vi.fn(() => connectedStatus));
 const spendSpy = vi.hoisted(() => vi.fn(() => ({ total: 0, session: 0.032, totalTokens: 0, sessionTokens: 9800, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } })));
 
-vi.mock('./api-key', () => ({
-	saveOpenRouterKey: vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' })),
-}));
+vi.mock('./api-key', () => {
+	const refuse = vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' }));
+	return { saveOpenRouterKey: refuse, saveProviderKey: refuse, disconnectAllProviders: vi.fn(), removeProviderKey: vi.fn(), switchProvider: vi.fn() };
+});
 
 vi.mock('./architect', () => ({
 	useArchitectStatus: statusSpy,
@@ -164,6 +165,32 @@ describe('WorkspaceSheet — a rejected key', () => {
 			statusSpy.mockReturnValue(connectedStatus);
 		}
 	});
+	it('a rejected DIRECT key names its provider and offers Replace key, not an OAuth Reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'anthropic', openRouterKeyInvalid: true, wallet: null });
+		try {
+			const { user, sheet } = openSheet();
+			const alert = await sheet.findByRole('alert');
+			expect(alert).toHaveTextContent('Anthropic — key rejected');
+			expect(within(alert).queryByRole('button', { name: 'Reconnect' })).toBeNull();
+			await user.click(within(alert).getByRole('button', { name: 'Replace key' }));
+			// It opens the API key tab, where the key is replaced.
+			expect(sheet.getByRole('tab', { name: 'API key' })).toHaveAttribute('aria-selected', 'true');
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('Spend on a direct key: no balance, a billing link, and an estimate label', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'openai', wallet: null, price: null });
+		try {
+			const { sheet } = openSheet();
+			expect(await sheet.findByText('Balance not available for this provider')).toBeInTheDocument();
+			expect(sheet.getByRole('link', { name: /OpenAI billing/ })).toHaveAttribute('href', expect.stringMatching(/platform\.openai\.com/));
+			expect(sheet.getByText('This session · estimate')).toBeInTheDocument();
+			expect(sheet.getByText(/no price, so its calls are not counted/)).toBeInTheDocument();
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
 });
 
 describe('WorkspaceSheet — the API key tab', () => {
@@ -188,8 +215,8 @@ describe('WorkspaceSheet — the API key tab', () => {
 			await user.click(sheet.getByRole('tab', { name: 'API key' }));
 			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
 			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
-			expect(sheet.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
-			expect(sheet.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Replace the OpenRouter key' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Remove the OpenRouter key' })).toBeInTheDocument();
 		} finally {
 			localStorage.removeItem('lattice-db-or-key');
 		}
