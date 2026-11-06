@@ -1029,9 +1029,13 @@ capacity budget measured there applies exactly. The stylesheet applies the defau
 section's `data-family` stamp, so it follows the box a slide renders at; `venue: laptop` stamps
 `venue-laptop` to opt out. Lint reads a venue at the smallest measured rung at or above its step
 (`venueRung`), so a budget never promises room the slide does not have. The lead-in, fact-claim and
-lone-member steps are removed. Math's equation scale stays, as the one named exception: the
-factorization is one expression that cannot wrap, and without the scale it overflows on 4 slides
-per shape even at the default size, which no venue can fix.
+lone-member steps are removed. Math's equation scale stayed at first as the one named exception: the
+factorization is one expression that could not wrap, and without the scale it overflowed on 4 slides
+per shape even at the default size, which no venue can fix. **Superseded the same day (owner: "we
+should split. sizing down diminishes readability"):** `lib/plugins/math/shared/tex-linebreak.js`
+now treats a matrix environment as one term and breaks the factorization at its `=` and between
+its matrices, so it keeps 2.1em on two lines and fits portrait, square, story and mobile; the
+1.55em step is gone and no exception is left.
 
 **Shown to the owner before it was built** (examples/kaizen-craftsmanship.md, fit: pack, hall):
 story 4 failing pages to 1 (40 pages to 36), portrait 8 to 5 (54 to 42), mobile 2 to 0 (39 to 34),

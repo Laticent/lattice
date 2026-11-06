@@ -44,6 +44,9 @@ const { render } = require('../../../lib/engine');
 const NO_FAMILY_REFLOW = Object.freeze({
   theorem: 'the card rhythm was re-tuned for the stage at EVERY size (--sp-xs vertical, was --sp-sm), '
     + 'which is 71px on the committed portrait sample against a 26px shortfall — a tall box needs nothing further',
+  decompose: 'the engine reflows it, not the stylesheet: lib/plugins/math/shared/tex-linebreak.js breaks the lead '
+    + 'factorization at its = and between its matrices on every shape but 16:9, so it keeps 2.1em on two lines; measured '
+    + 'fitting at portrait, square, story and mobile (2026-11-06), where the 1.55em CSS step it replaced shrank the type',
 });
 
 test('every math variant keeps a FAMILY reflow, or declares why it needs none', () => {
