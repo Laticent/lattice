@@ -922,6 +922,10 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       // floor reply from "the model said nothing", and it has a better fallback than the
       // floor: the one-shot chat, for a model that refuses `tools` outright.
       if (opts?.tools?.length) throw e;
+      // A caller that can NAME the failure opts in with `surfaceErrors`. The theme and
+      // component faculties do: flooring a 402 into an empty reply left them saying "no
+      // usable palette" or "no model connected" when the account was out of credits.
+      if (opts?.surfaceErrors) throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }

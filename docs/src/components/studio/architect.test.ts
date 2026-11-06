@@ -815,3 +815,56 @@ describe('applyProposedEditsChecked — blocks and slides are different units', 
 		expect(run.slides).toBe(2);
 	});
 });
+
+// P1 of the Studio BYOK hardening: the theme and component faculties used to floor every
+// model failure into an empty reply, so a 402 (out of credits) read as "the model returned
+// no usable palette" or, through the catch, "No model connected". They now opt in to
+// `surfaceErrors` and name the cause with the chat's own `describeModelError`.
+describe('theme + component AI — a failed model call names its cause', () => {
+	const throwing = (message: string) => ({
+		name: 'mock',
+		async complete() { throw new Error(message); },
+		async embed() { return null; },
+	});
+	async function withThrow(message: string, run: () => Promise<void>) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(throwing(message));
+		try { await run(); } finally { m.__setBackend(null); }
+	}
+	const CASES: [string, string, RegExp][] = [
+		['401', 'OpenRouter error 401: {"error":{"message":"User not found.","code":401}}', /reconnect in Workspace/],
+		['402', 'OpenRouter error 402: {"error":{"message":"Insufficient credits","code":402}}', /out of credits/],
+		['429', 'OpenRouter error 429: {"error":{"message":"Rate limit exceeded","code":429}}', /rate-limiting/],
+		['offline', 'TypeError: Failed to fetch', /never reached OpenRouter/],
+	];
+	const current = {
+		name: 'card', description: 'A card.', function: 'inventory', form: 'panel', substance: 'structure', bucket: 'inventory',
+		tags: [], adapt: { mode: 'native' }, capacity: null, density: null, css: 'section.card {}', skeleton: '<!-- _class: card -->',
+	};
+	for (const [label, message, expected] of CASES) {
+		it(`a ${label} reaches generateTheme, generateComponent and refineComponent as its own sentence`, async () => {
+			await withThrow(message, async () => {
+				const theme = await generateTheme({}, 'deep navy');
+				const comp = await generateComponent('a grid of cards', []);
+				const refine = await refineComponent('bolder', current as never);
+				for (const out of [theme, comp, refine]) {
+					expect(out.status).toBe('failed');
+					if (out.status !== 'failed') return;
+					expect(out.note).toMatch(expected);
+					expect(out.note).not.toMatch(/No model connected/);
+				}
+			});
+		});
+	}
+	it('the four failures produce four different sentences', async () => {
+		const notes = new Set<string>();
+		for (const [, message] of CASES) {
+			await withThrow(message, async () => {
+				const out = await generateTheme({}, 'deep navy');
+				if (out.status === 'failed') notes.add(out.note.replace(/ \(OpenRouter said:.*$/, ''));
+			});
+		}
+		expect(notes.size).toBe(4);
+	});
+});
+

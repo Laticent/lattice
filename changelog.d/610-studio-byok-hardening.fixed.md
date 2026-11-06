@@ -1,0 +1,1 @@
+- Studio: when a theme or component request to the model fails, Fabricate now says why — reconnect (401), out of credits (402), rate-limited (429) or no network — instead of "no usable palette" or "No model connected".

@@ -16,6 +16,7 @@ import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../li
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
+import { describeModelError } from './model-error';
 import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -245,7 +246,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -544,7 +545,12 @@ export type ThemeAudit = {
 
 export type ThemeEssentials = Record<string, string>;
 
+// The text of whatever a failed model call threw, for describeModelError.
+const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e ?? ''));
+
 export type ThemeGenOutcome =
+	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
+	| { status: 'failed'; note: string }
 	| {
 			status: 'ok';
 			essentials: ThemeEssentials;
@@ -591,10 +597,11 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 			messages: ground.messages,
 			plugins: ground.plugins,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: describeModelError(errorText(e)) };
 	}
 	const { essentials, rampStrategy, name, description, applied, ok } = tc.coerceEssentials(reply, fallback);
 	// A connected model that proposed nothing usable (e.g. the json:true floor
@@ -855,6 +862,8 @@ export type ComponentDraft = {
 	skeleton: string;
 };
 export type ComponentGenOutcome =
+	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
+	| { status: 'failed'; note: string }
 	// `refined` = SILENT gate-repair passes that cleared errors; `improved` = design
 	// self-refine rounds that raised the quality score (the effort dial). Both 0 when the
 	// first draft was already clean / effort is low. The UI surfaces "auto-fixed / refined".
@@ -1115,10 +1124,11 @@ export async function generateComponent(
 			plugins: ground.plugins,
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: describeModelError(errorText(e)) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	if (coerced.decline) {
@@ -1210,10 +1220,11 @@ export async function refineComponent(
 			messages: (await loadLayoutCore()).askComponentRefineMessages(current, instruction),
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: describeModelError(errorText(e)) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
