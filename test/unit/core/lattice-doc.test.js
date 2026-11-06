@@ -12,6 +12,7 @@ const {
 	parseEnvelope,
 	readEnvelopePayload,
 } = require('../../../lib/core/lattice-doc.js');
+const { scanWork } = require('../../helpers/work-count');
 
 // The Lattice document envelope (lib/core/lattice-doc.js) — the P2 kernel from
 // 2026-07-07-html-lattice-player.md. Two contracts under test: lossless round-trip
@@ -115,7 +116,7 @@ test('escape-safety: a hostile </script> title cannot break out of the envelope'
 });
 
 test('escape-safety: U+2028/U+2029 and lone surrogates survive the round-trip', () => {
-	const tricky = { source: 'line1 line2 line3 \u{1F600} end\n', title: 'ok' };
+	const tricky = { source: 'line1\u2028line2\u2029line3 \u{1F600} end\n', title: 'ok' };
 	const m = parseEnvelope(buildEnvelope(tricky));
 	assert.equal(m.source, tricky.source);
 });
@@ -285,14 +286,23 @@ describe('readEnvelopePayload — linear on hostile pages, same answers as the r
 		assert.equal(readEnvelopePayload('<script id="lattice-doc">!</script><script id="lattice-doc">QUJD</script>'), 'QUJD');
 	});
 	test('stays fast on every repeating shape that defeated the regex', () => {
+		// Counted, not timed (HARD RULE #32). The scan searches each character at most about 4.3 times. One that
+		// finds the close tag again for every candidate searched about 1,000 times per character on 50 KB.
 		for (const unit of ['<script id="lattice-doc" ', 'id="lattice-doc"', '<script id="lattice-doc">', '<id="lattice-doc"', '<script id="lattice-doc">!<']) {
-			const html = `${unit.repeat(Math.ceil(5e6 / unit.length))}</script>`;
-			const t = process.hrtime.bigint();
-			readEnvelopePayload(html);
-			const ms = Number(process.hrtime.bigint() - t) / 1e6;
-			// ~40 ms measured per 5 MB; the regex needed seconds for 25 KB. A 2 s ceiling
-			// fails a regression to anything super-linear, and never a loaded CI box.
-			assert.ok(ms < 2000, `${JSON.stringify(unit)} × 5 MB took ${ms.toFixed(0)} ms`);
+			const html = `${unit.repeat(Math.ceil(1e6 / unit.length))}</script>`;
+			const { result, scanned } = scanWork(() => readEnvelopePayload(html));
+			assert.ok(scanned <= 8 * html.length, `${JSON.stringify(unit)}: ${scanned} characters searched on ${html.length}`);
+			assert.equal(result, unit === '<script id="lattice-doc">' ? '' : null, JSON.stringify(unit));
 		}
+	});
+	test('a page of unclosed envelope tags cannot hang the reader', () => {
+		// A hang guard, not a speed test (HARD RULE #32, F4). The single regex the scan replaced backtracks inside one
+		// match, where no count reaches it: 3 s at 20 KB, growing with the cube, about 80 s at 60 KB. The scan
+		// returns at the first tag with no `>`, in well under a millisecond.
+		const html = `${'<script id="lattice-doc" '.repeat(2400)}</script>`;
+		const t = process.hrtime.bigint();
+		assert.equal(readEnvelopePayload(html), null);
+		const ms = Number(process.hrtime.bigint() - t) / 1e6;
+		assert.ok(ms < 5000, `60 KB of unclosed envelope tags took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear under 1 ms, the old shape ~80 s at this size (3 s measured at 20 KB, cubic)
 	});
 });

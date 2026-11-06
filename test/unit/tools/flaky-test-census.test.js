@@ -83,6 +83,13 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.deepEqual(flakyTestHits(fn), {});
   });
 
+  test('a flaky-ok mark is read on its own line after a string holding U+2028 or U+2029', () => {
+    // TypeScript breaks lines at both; reading the mark from split('\n') once looked two lines off and ignored it.
+    const src = `const s = '\u2028\u2029';\n${HELPER_SLEEP} // flaky-ok: the tick of a polling loop`;
+    assert.deepEqual(flakyTestHits(src), {});
+    assert.deepEqual(flakyTestHits(src.replace(' // flaky-ok: the tick of a polling loop', '')), { 'fixed-sleep': 1 });
+  });
+
   test('a bare flaky-ok, with no reason, still counts', () => {
     assert.deepEqual(flakyTestHits(`${HELPER_SLEEP} // flaky-ok:`), { 'fixed-sleep': 1 });
   });

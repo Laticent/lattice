@@ -4,6 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 let open;
 test.before(async () => {
@@ -13,7 +14,10 @@ test.before(async () => {
 function page() {
   const dom = new JSDOM('<!doctype html><body><button id="t">tile</button></body>', { pretendToBeVisual: true });
   const doc = dom.window.document;
-  return { dom, doc, win: dom.window };
+  // The close tears down on a timer (`setTimeout(teardown, 0)` under reduced motion). A virtual clock lets a test wait
+  // for that timer to have run, a signal, where a 20 ms sleep hoped it had (HARD RULE #32).
+  const { settle } = virtualClock(dom.window);
+  return { dom, doc, win: dom.window, settle };
 }
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 
@@ -46,14 +50,14 @@ test('the caption is text, never markup', () => {
 });
 
 test('Escape closes it, returns focus and restores scroll', async () => {
-  const { doc, win } = page();
+  const { doc, win, settle } = page();
   doc.getElementById('t').focus();
   doc.documentElement.style.overflow = 'auto';
   let closed = 0;
   open(doc, { src: PNG, alt: 'x', reducedMotion: true, onClose: () => closed++ });
   assert.equal(doc.documentElement.style.overflow, 'hidden');
   doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  await new Promise((r) => setTimeout(r, 20));
+  await settle();
   assert.equal(doc.querySelector('.collage-lightbox'), null);
   assert.equal(doc.documentElement.style.overflow, 'auto');
   assert.equal(doc.activeElement.id, 't');
@@ -61,12 +65,12 @@ test('Escape closes it, returns focus and restores scroll', async () => {
 });
 
 test('the close button closes it; a click on the photo does not', async () => {
-  const { doc, win } = page();
+  const { doc, win, settle } = page();
   open(doc, { src: PNG, alt: 'x', reducedMotion: true });
   doc.querySelector('.collage-lightbox img').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
   assert.ok(doc.querySelector('.collage-lightbox'), 'photo click leaves it open');
   doc.querySelector('.collage-lightbox button').click();
-  await new Promise((r) => setTimeout(r, 20));
+  await settle();
   assert.equal(doc.querySelector('.collage-lightbox'), null);
 });
 
@@ -111,12 +115,12 @@ test('closeNow tears down at once and restores scroll, so a second open cannot s
 });
 
 test('closing twice is safe and onClose still fires once', async () => {
-  const { doc } = page();
+  const { doc, settle } = page();
   let closed = 0;
   const h = open(doc, { src: PNG, reducedMotion: true, onClose: () => closed++ });
   h.close();
   h.close();
-  await new Promise((r) => setTimeout(r, 30));
+  await settle();
   assert.equal(closed, 1);
   assert.equal(doc.querySelector('.collage-lightbox'), null);
 });
@@ -275,7 +279,7 @@ test('stepping: a close glides back to the tile of the photo it is on', async ()
   const h = open(p.doc, { items, index: 0, reducedMotion: true, kernel });
   h.step(2);
   h.close();
-  await new Promise((r) => setTimeout(r, 30));
+  await p.settle();
   assert.deepEqual(asked, [2]);
 });
 
@@ -389,7 +393,7 @@ test('zoom: + and - step it, 0 and the pill return to fit, and it never goes pas
 });
 
 test('zoom: stepping to another photo, and closing, return to fit first', async () => {
-  const { root, key, h } = stepper();
+  const { root, key, h, settle } = stepper();
   key('+');
   assert.ok(scaleOf(root) > 1);
   key('ArrowRight');
@@ -397,7 +401,7 @@ test('zoom: stepping to another photo, and closing, return to fit first', async 
   key('+');
   h.close();
   assert.equal(scaleOf(root), 1, 'a close starts from fit');
-  await new Promise((r) => setTimeout(r, 30));
+  await settle();
 });
 
 test('zoom: a double click toggles between fit and zoomed', () => {

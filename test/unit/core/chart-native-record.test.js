@@ -4,7 +4,6 @@
 // Every arm carries its control: the field is not vacuously equal because both sides dropped it.
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const MarkdownIt = require('markdown-it');
@@ -16,6 +15,7 @@ const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const lintCore = require('../../../lib/authoring/lint-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint');
 const { loadAll } = require('../../../lib/components');
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const vocab = buildVocab(loadAll(path.join(ROOT, 'lib', 'components')));
 const slide = (cls, body) => `<!-- _class: ${cls} -->\n\n## KPIs\n\n${body}\n`;
@@ -203,10 +203,7 @@ describe('runtime: the browser draws a record\'s extra fields as the engine does
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom);
     return dom.window.document.querySelector('section').innerHTML;
   }
   for (const [chart, c] of Object.entries(CASES)) {

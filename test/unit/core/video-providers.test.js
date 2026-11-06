@@ -59,12 +59,16 @@ describe('the registry is one table, and every row is whole', () => {
 			const src = p.id.toString();
 			assert.ok(!src.includes('.*'), `${p.key}: no unbounded wildcard`);
 		}
-		// A long, hostile query cannot make extraction superlinear.
-		const long = `https://www.youtube.com/watch?${'&'.repeat(200000)}v=aqz-KE-bpKQ`;
+		// A long, hostile query still yields its id.
+		assert.equal(detectProvider(`https://www.youtube.com/watch?${'&'.repeat(400000)}v=aqz-KE-bpKQ`).id, 'aqz-KE-bpKQ');
+		// A hang guard, not a speed test (HARD RULE #32, F4): backtracking lives inside one regex match, where no
+		// count reaches it. A query with no id is where a wildcard extractor fails at every start: `.*[?&]v=` over
+		// the href took 8 s at 80k and grows with the square, about 200 s here. The table reads it in about 15 ms.
+		const noId = `https://www.youtube.com/watch?${'&'.repeat(400000)}x=1`;
 		const t0 = process.hrtime.bigint();
-		assert.equal(detectProvider(long).id, 'aqz-KE-bpKQ');
+		assert.equal(detectProvider(noId).id, '');
 		const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-		assert.ok(ms < 500, `extraction took ${ms.toFixed(1)}ms on a 200k-char query`);
+		assert.ok(ms < 15000, `extraction took ${ms.toFixed(0)} ms on a 400k-char query with no id`); // flaky-ok: hang guard — linear ~15 ms, the old shape (`.*[?&]v=`) ~200 s at this size (8 s measured at 80k)
 	});
 
 	test('each row carries the full descriptor, with the right types', () => {

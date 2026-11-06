@@ -159,14 +159,14 @@ describe('a fenced code block cannot swallow the axis', () => {
     // swallowed every fence and ran linear, so this arm passed with the fix
     // reverted. Without one, every `<pre>` start scans to the end and fails.
     const many = (n) => '<pre><code>x</code></pre>\n'.repeat(n) + TABLE;
-    // The fastest of several runs at sizes well above timer noise: one ~1 ms
-    // sample per size let a single GC pause under full-suite load decide it.
-    // 8x the input is ~8x the time when linear and ~64x when quadratic.
-    const once = (html) => { const t = process.hrtime.bigint(); liftBracketSpans(html, { bodyTags: ['<table'] }); return Number(process.hrtime.bigint() - t) / 1e6; };
-    const best = (n) => { const html = many(n); once(html); return Math.min(...Array.from({ length: 7 }, () => once(html))); };
-    const small = best(500);
-    const large = best(4000);
-    assert.ok(large < small * 24, `growth must not square: ${small.toFixed(3)}ms at 500, ${large.toFixed(3)}ms at 4000`);
+    // A hang guard sized by F4 (HARD RULE #32), in place of a ratio of two timings. The defect is backtracking inside
+    // one regex exec, which `charReads` cannot see (it reads 2.00 per character with the defect and without), so the
+    // input is one the old `<p[^>]*>` needs 29 s for, measured on a copy of this module with it put back. Today: 2.7 ms.
+    const html = many(60000);
+    const t0 = process.hrtime.bigint();
+    liftBracketSpans(html, { bodyTags: ['<table'] });
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(ms < 2500, `60,000 fenced blocks took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — 2.7 ms today; the old pattern 29 s at this size
   });
 });
 

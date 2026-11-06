@@ -6,6 +6,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { countLiveAuthorHtml, formatLiveAuthorHtmlWarning } = require('../../../lib/core/live-author-html');
+const { scanWork } = require('../../helpers/work-count');
 
 test('an author <script> and an on… handler are counted', () => {
   const html = '<section><img src=x onerror="top.p=1"><script>window.q=1</script></section>';
@@ -163,10 +164,15 @@ test('strip: a Marp directive comment is stripped although plain markdown-it rea
 });
 
 test('strip: linear on adversarial input (no rescan to the end from every `<`)', () => {
+  // Counted, not timed (HARD RULE #32), on the tag scan, the one pass that replaced the rescanning regexes (8.6 s at
+  // 128 KB): its string searches and per-character regex tests cover at most twice the input. A scan that went back
+  // to the next `<` after an unclosed tag covers 500 to 2,000 times it at a tenth of this size. The whole strip is not
+  // counted: markdown-it tests anchored regexes at every `<`, which the count reads as searches to the end.
+  const { scanTags } = require('../../../lib/core/live-author-html')._internal;
   for (const md of ['<a onclick=1>' + '<a b'.repeat(40000), '<script '.repeat(20000), '<a b="'.repeat(30000)]) {
-    const t = Date.now();
-    withoutLiveAuthorHtml(md);
-    assert.ok(Date.now() - t < 3000, `${md.slice(0, 12)}… took ${Date.now() - t} ms`);
+    const { scanned } = scanWork(() => [...scanTags(md, md)]);
+    assert.ok(scanned <= 5 * md.length, `${md.slice(0, 12)}… scanned ${scanned} chars for ${md.length}`);
+    assert.doesNotMatch(withoutLiveAuthorHtml(md).markdown, /onclick=/);
   }
 });
 

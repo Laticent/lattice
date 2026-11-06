@@ -222,14 +222,15 @@ test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadrati
 		assert.ok(!LEGACY_ON[key].source.startsWith('^\\s*'), `${key}: leading \\s* is the quadratic shape`);
 	}
 
-	// Backstop with ~600x headroom: 20k newlines measured at 0.2ms through the reader and
-	// 596ms when the verbatim pattern was wired in. Times the READER, not the pattern.
-	const block = `fluid:${'\n'.repeat(20000)}`;
-	readRenderTargetKey(block, 'fluid'); // warm
+	// A hang guard, not a speed test (HARD RULE #32, F4). The backtracking lives inside one regex
+	// match, where no count reaches it, so this times the READER with a bound no runner gets near:
+	// 250k newlines read in 1.4 ms, and the verbatim pattern wired in would take about 86 s
+	// (35 s measured at 160k, growing with the square).
+	const block = `fluid:${'\n'.repeat(250000)}`;
 	const t0 = process.hrtime.bigint();
-	readRenderTargetKey(block, 'fluid');
+	assert.equal(readRenderTargetKey(block, 'fluid'), false);
 	const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-	assert.ok(ms < 100, `the reader took ${ms.toFixed(1)}ms on 20k newlines — the quadratic pattern took 596ms here`);
+	assert.ok(ms < 5000, `the reader took ${ms.toFixed(0)} ms on 250k newlines; the quadratic pattern takes about 86 s`); // flaky-ok: hang guard — linear 1.4 ms, the old shape ~86 s at this size (35 s measured at 160k)
 });
 
 test('an absent key is off, and one key never answers for another', () => {

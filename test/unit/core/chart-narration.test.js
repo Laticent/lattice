@@ -917,13 +917,15 @@ test('narrateDiagram: inline-text solid/thick edges bail (ReDoS-safe scope) — 
   }
 });
 
-test('narrateDiagram: returns quickly on a pathological connector line (no super-linear backtracking)', () => {
-  // A ReDoS in the connector regexes would hang for seconds+ on this; linear-time returns instantly.
-  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(40000)}\n\`\`\``;
+test('narrateDiagram: a pathological connector line does not hang (no super-linear backtracking)', () => {
+  // The `x` after the run matters: a line is trimmed before any connector regex reads it, so trailing spaces alone
+  // never reach one. A hang guard, not a speed test (HARD RULE #32, F4). The old inline-text form
+  // /^--\s*(.+?)\s*-->/ split this run among three quantifiers: 2.8 s at 2,000 spaces, 21 s at 4,000, hours here.
+  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(40000)}x\n\`\`\``;
   const t = process.hrtime.bigint();
-  narrateDiagram(md);
+  assert.equal(narrateDiagram(md), null);
   const ms = Number(process.hrtime.bigint() - t) / 1e6;
-  assert.ok(ms < 1000, `took ${ms}ms — possible ReDoS`);
+  assert.ok(ms < 10_000, `took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 3-6 ms, the old shape ~6 h at this size
 });
 
 // ── label GRAMMAR: verb vs. noun vs. condition (the trio's central inversion) ──────────────
@@ -2270,4 +2272,40 @@ test('scatter narration says only the rows the chart draws: a point comes from i
   assert.match(out, /Alpha/);
   assert.match(out, /Gamma/);
   assert.doesNotMatch(out, /Beta/, 'the chart draws no Beta, so the voice says none');
+});
+
+test('stripTrailingPills: one pass reads the same as the per-pill regex it replaced, and costs linear work', () => {
+  const { __stripTrailingPillsForTest: strip } = require('../../../lib/core/chart-narration.js');
+  const { charReads } = require('../../helpers/work-count');
+  // The old reader: right as a spec, quadratic as a loop (it re-read the remaining lead once per pill).
+  const regexStrip = (lead) => {
+    const pills = [];
+    let s = lead;
+    for (;;) {
+      const m = s.match(/^([\s\S]*?)\s*`([^`]+)`\s*$/);
+      if (!m) break;
+      pills.unshift(m[2].trim());
+      s = m[1];
+    }
+    return { label: s.trim(), pills };
+  };
+  // Seeded (HARD RULE #32): short strings over the characters that matter, empty `` pairs and a no-break space included.
+  const SEED = 3059;
+  let state = SEED;
+  const next = () => { state = (state * 1103515245 + 12345) % 2147483648; return state / 2147483648; };
+  const parts = ['a', 'b', ' ', '`', '\n', '\t', ' ', 'x y', '``'];
+  for (let i = 0; i < 20000; i++) {
+    let s = '';
+    for (let k = Math.floor(next() * 16); k > 0; k--) s += parts[Math.floor(next() * parts.length)];
+    assert.deepEqual(strip(s), regexStrip(s), `seed ${SEED}, case ${i}: ${JSON.stringify(s)}`);
+  }
+  // Counted, not timed: the work per character holds flat from 100 to 1,600 pills. Measured 1.57 at both; the regex
+  // loop measured 51 and 801, growing with the pill count.
+  const perChar = (n) => {
+    const lead = `Lead label${' `1, 2`'.repeat(n)}`;
+    const { reads, scanned } = charReads(() => strip(lead));
+    return (reads + scanned) / lead.length;
+  };
+  assert.ok(perChar(1600) <= 4, `${perChar(1600).toFixed(2)} per character at 1,600 pills`);
+  assert.ok(Math.abs(perChar(1600) - perChar(100)) < 0.5, 'the work per character grew with the pill count');
 });

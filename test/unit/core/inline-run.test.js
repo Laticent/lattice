@@ -11,6 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
+const { scanWork } = require('../../helpers/work-count');
 const run = require('../../../lib/core/inline-run.js');
 const transformer = require('../../../lib/transformers/inline-run.js');
 const catalog = require('../../../lib/core/inline-run-catalog.generated.js');
@@ -278,15 +279,19 @@ describe('inline-run — attribute values are one piece (followups.d 2853-p1)', 
     assert.ok(run.wrapHtml(plain, [1]).endsWith('<plaintext></li><li>e <b>f</b> g</li></ul>'));
   });
 
-  test('linear: 10,000 comments in one item and 5,000 items both wrap in well under a second', () => {
-    const time = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
-    // On the first cut of this tokenizer each comment searched to the end for `--!>`: 9.4 s for this item.
+  test('linear: 10,000 comments in one item and 5,000 items both wrap in linear work', () => {
+    // Counted, not timed (HARD RULE #32): the characters every string search and regex covers, about 1.5 times the
+    // input for each case today.
+    // On the first cut of this tokenizer each comment searched to the end for `--!>`: 9.4 s for this item, and about
+    // 5,000 times the input counted.
     const comments = `<ul><li>a <b>b</b> ${'<!--a-->'.repeat(10000)} c</li></ul>`;
-    assert.ok(time(() => run.wrapHtml(comments, [1])) < 500);
-    // Tokenizing the whole section again for every item was quadratic: 5.8 s for 2,000 items.
+    const c = scanWork(() => run.wrapHtml(comments, [1]));
+    assert.ok(c.scanned <= 5 * comments.length, `${c.scanned} chars scanned for ${comments.length}`);
+    // Tokenizing the whole section again for every item was quadratic: 5.8 s for 2,000 items, and about 1,500 times
+    // the input counted at 1,000.
     const items = `<ul>${'<li>a <b>b</b> c</li>'.repeat(5000)}</ul>`;
-    let out;
-    assert.ok(time(() => { out = run.wrapHtml(items, [1]); }) < 500);
+    const { result: out, scanned } = scanWork(() => run.wrapHtml(items, [1]));
+    assert.ok(scanned <= 5 * items.length, `${scanned} chars scanned for ${items.length}`);
     assert.equal((out.match(/lat-run/g) || []).length, 5000);
   });
 

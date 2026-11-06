@@ -32,10 +32,13 @@ describe('buildLatticeZip', () => {
     assert.deepEqual([...(await zip.file('packages/component/probe/probe.bin').async('uint8array'))], [0, 1, 2]);
   });
 
-  test('with a date, two builds are the same bytes; a pre-1980 date clamps to 1980', async () => {
+  test('with a date, two builds are the same bytes; a pre-1980 date clamps to 1980', async (t) => {
+    // The wall clock moves 2 s between the builds (a zip's DOS time has 2 s resolution), so a stamp taken from it would
+    // differ. Mocked, not slept (#32): the 1.1 s sleep this replaced crossed a DOS-time step only when it straddled one.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 0, 1, 12, 0, 0) });
     const at = new Date(0);
     const a = await k.buildLatticeZip(JSZip, { source: SOURCE, title: 't', date: at });
-    await new Promise((r) => setTimeout(r, 1100)); // a wall-clock stamp would now differ
+    t.mock.timers.tick(2_000);
     const b = await k.buildLatticeZip(JSZip, { source: SOURCE, title: 't', date: at });
     assert.ok(Buffer.from(a).equals(Buffer.from(b)));
     const zip = await JSZip.loadAsync(a);
