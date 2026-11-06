@@ -11,7 +11,7 @@ source: https://github.com/Laticent/lattice/pull/3049
 
 # Mermaid's export still inserts its pictures before the engine runs
 
-why now   — D2 slice 3 moved Mermaid's bake onto the fences the engine parses (`ctx.fences()`, lib/plugins/host-fences.mjs),
+why now   — D2 slice 3 moved Mermaid's bake onto the fences the engine parses (`ctx.fences()`, lib/core/plugin-fences.mjs),
             so the export draws exactly the diagrams the preview draws; 43 Mermaid decks export identically apart from
             Mermaid's own random ids. The bake itself remains: it draws in a locked page and splices SVG into the
             SOURCE before the engine renders, which is the one contribution point that rewrites a deck's text.

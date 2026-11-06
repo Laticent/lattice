@@ -1526,7 +1526,6 @@
         "hydrate.js",
         "manifest.json",
         "page.js",
-        "services.js",
         "styles.css"
       ],
       "code": true

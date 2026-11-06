@@ -1,10 +1,10 @@
 /**
- * `ctx.fences()` (lib/plugins/host-fences.mjs): a bake receives the fences the ENGINE parses, never a reader of its own
+ * `ctx.fences()` (lib/core/plugin-fences.mjs): a bake receives the fences the ENGINE parses, never a reader of its own
  * (engineering/decisions/2026-11-06-plugin-patterns.md §4, D2 slice 3). Each case states the engine's reading.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { pluginFences } = require('../../../lib/plugins/host-fences.mjs');
+const { pluginFences } = require('../../../lib/core/plugin-fences.mjs');
 
 const MERMAID = { fences: { mermaid: { aliases: [] } } };
 const fences = (src) => pluginFences(src, MERMAID);
@@ -40,6 +40,8 @@ describe('the fences the engine parses', () => {
   });
   test('an unclosed fence is not handed over: splicing it would take what follows', () => {
     assert.deepEqual(bodies('```mermaid\nx\n\n---\n\n# next slide\n'), []);
+    // A tab is four columns to the engine, so a tab-indented closer does not close: the fence runs on, unclosed.
+    assert.deepEqual(bodies('```mermaid\nx\n\t```\n'), []);
   });
   test('a closed fence whose body holds a thematic break is a fence: the engine never splits a slide inside it', () => {
     assert.deepEqual(bodies('```mermaid\ngraph LR\n***\nA-->B\n```\n'), ['graph LR\n***\nA-->B\n']);

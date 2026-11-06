@@ -231,7 +231,7 @@ CLI's locked page agree byte for byte), test/unit/plugins/hydrate-host.test.js (
 draw host and never a library in the page).
 
 **Slice 3 — Mermaid's export draws the fences the engine parses (done; `bake` not yet retired).** The host hands a bake
-its plugin's fences as the ENGINE parses the source (`ctx.fences()`, lib/plugins/host-fences.mjs: the engine's own block
+its plugin's fences as the ENGINE parses the source (`ctx.fences()`, lib/core/plugin-fences.mjs: the engine's own block
 grammar, lib/core/boundary-parser.mjs). Mermaid's bake reads them instead of its line walker (`mermaid-fences.js`) and
 its second markdown-it pass (`nested-fences.js`, which imitated the math block by counting `$$` lines). What moves:
 a fence inside an HTML block or a `$$` block is no longer drawn (the engine reads HTML or math there, and the preview
@@ -240,6 +240,23 @@ all 43 decks in the repo with a Mermaid fence exported to HTML before and after 
 ids are masked (gitGraph's id-less merge commits and the architecture diagram's icon ids differ between two runs of the
 SAME code; shown on examples/cat-ink-tier.md); none of them holds a shape the two readers disagreed on.
 `examples/mermaid-engine-fences.md` shows the change, rendered dark and light for the owner's sign-off.
+
+**Slice 4 — every other reader of Mermaid fences reads the engine's parse (done).** `lib/core/plugin-fences.mjs`
+`fencesOfPlugin(name, source)` is the one fence reader: the engine's block grammar plus the manifest's fence names. The
+narrator (`lib/core/chart-narration.js`) and both gallery gates (`lib/cli/gallery-gate.js`, the Studio's
+`docs/src/components/studio/library/gallery-gate.ts`) call it directly; they are host code, so they need no service from
+the plugin. That left Mermaid's `fences` and `firstFenceBody` services with no caller, so they are gone, with
+`mermaid.services.js`, its manifest entry, the line walker `mermaid-fences.js` and its test. `nested-fences.js` keeps
+only the splice helpers the bake uses (`reprefix`, `blankLineAfter`). The fence-recognizer conformance table
+(test/unit/core/fence-recognizer-conformance.test.js) now holds the EXPORT's reader to the engine: it found that a
+tab-indented closer was being read as a closer (the engine counts the tab as four columns and runs the fence on), so the
+reader decides "closed" from the token itself, not the last line's text.
+
+**The gallery gates over-report on purpose.** They scan the engine's fences AND every fence-SHAPED block
+(`fenceShapedMermaidBodies`, lib/core/remote-ref.js): one inside an HTML block, an unclosed one. Nothing draws those
+since slice 3, so their URLs are never fetched, but a security gate does not admit a gallery on a reader's word that a
+block is inert; a false alarm is the safe direction (test/unit/core/gallery-remote-refs.test.js keeps its HTML-block
+cases).
 
 **`bake` is not retired.** Mermaid still inserts its pictures into the source before the engine renders. Retiring it
 means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that

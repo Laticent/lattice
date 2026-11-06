@@ -36,9 +36,10 @@ either — but the export's substitution was backtick-only until 2026-09-06, and
 `~~~mermaid` fence therefore rendered in the preview the author was working in and printed
 as raw source in the PDF. Both callers then read one walker
 (`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
-slide from the same fence it renders. **Since 2026-11-06 the export's bake does not walk lines:**
-it receives the fences the ENGINE parses (`ctx.fences()`, lib/plugins/host-fences.mjs), so it
-draws exactly the diagrams the preview draws (engineering/decisions/2026-11-06-plugin-patterns.md §9).
+slide from the same fence it renders. **Since 2026-11-06 neither walks lines:** the export's bake
+receives the fences the ENGINE parses (`ctx.fences()`), and the narrator reads the same list
+(lib/core/plugin-fences.mjs `fencesOfPlugin`), so both see exactly the diagrams the preview draws.
+The walker described below is deleted (engineering/decisions/2026-11-06-plugin-patterns.md §9).
 
 It walks lines rather than matching a regex, because a regex got five things wrong that only
 became reachable once tildes were recognized — a longer closing run left a stray `~` on the
