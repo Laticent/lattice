@@ -1,4 +1,4 @@
-studio: +1200
+studio: +1219
 playground: +360
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
@@ -19,3 +19,8 @@ The handheld venues (fit-everywhere-model.md §18) then gave the Studio's venue 
 table and phone and tablet rows (`src/components/studio/venue.ts`), and the island reads the deck's
 shape for it: CI on a09e5df measured +1122 B gz on studio (+427 single-slide-render, +391 venue.ts,
 +272 StudioIsland), +292 on playground and +463 on home, all inside the 2048 B a PR may declare.
+The `align:` register (engineering/decisions/2026-11-06-unified-align.md) added the Studio's two Align
+pickers and their catalog (`src/components/studio/align-catalog.ts`); the measured-split preview's
+orchestration moved into the lazy module (`previewPlan`) to make room. CI on 9b29219 measured +1219 B gz
+on studio (+408 venue.ts, +307 single-slide-render, +306 the chunk that carries the align catalog, +166
+StudioIsland, +16 DeckPreview).
