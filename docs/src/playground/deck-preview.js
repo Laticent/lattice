@@ -508,10 +508,9 @@ export function buildSrcdoc({
 	// something draws it. TWO callers pass `false`, and they are the two documents whose
 	// bytes the author KEEPS rather than watches:
 	//
-	//   · the offscreen EXPORT capture frame (`deck-export.js`), which also passes
-	//     `csp: false` for the mirror-image reason. It is rasterized, and `html-to-image`
-	//     copies the COMPUTED style onto its clone — so a `visibility:hidden` this rule
-	//     applied is baked into the .pdf / .png / .pptx;
+	//   · the offscreen EXPORT capture frame (`deck-export.js`). It is rasterized, so a
+	//     `visibility:hidden` this rule applied is baked into the .pdf / .png / .pptx. (It
+	//     keeps the default `csp`: the policy is what stops a web picture at export.)
 	//   · the desktop VECTOR PRINT document (`PrintOptionsPanel.tsx`), mounted off-screen at
 	//     -10000px and handed straight to `print()`.
 	//
