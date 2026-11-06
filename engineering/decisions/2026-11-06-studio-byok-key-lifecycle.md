@@ -353,3 +353,13 @@ key; a reload opens it; a plaintext key is migrated; a lost sealing key reads as
 sealing key cannot be exported; no IndexedDB means memory only), and
 `docs/e2e/workspace-api-key.spec.ts` (a saved key is stored sealed, opens to the key, and a page
 reload shows it again), on desktop Chromium, mobile Chromium and WebKit iPhone.
+
+**Reverting this is not a plain revert.** Once deployed, the first load re-seals every stored key
+as `v1:<iv>:<ciphertext>`. The pre-encryption reader returns `localStorage` as it is, so a build
+without §9 would send the ciphertext as the API key, and every request would fail with a 401 until
+the author connected again (the §2 mark would then show "key rejected · Reconnect"; nothing is
+spent). A rollback must therefore do one of two things: **keep a `v1:` reader** (revert the
+features but keep `openrouter-key.js`'s load/unseal path), or **clear the sealed value** on first
+load (`localStorage.removeItem('lattice-db-or-key')` when it starts with `v1:`) so the author is
+asked to connect again instead of failing on every request. Graded as this PR's weakest axis by
+the card's checker, 2026-11-06.
