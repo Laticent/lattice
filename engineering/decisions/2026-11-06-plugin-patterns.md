@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 summary: >
   The 16 contribution points plugins use fall into six standard patterns: grammar, data provider, service, check,
   slot and figure. One rule splits the figure pattern in two: a library that needs a layout engine to measure text
