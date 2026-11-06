@@ -5,7 +5,7 @@ summary: >
   slot and figure. One rule splits the figure pattern in two: a library that needs a layout engine to measure text
   draws a DEFERRED figure (a placeholder now, an SVG string later, from a locked page); every other library draws an
   IMMEDIATE figure inside the render. Mermaid is the one plugin whose export breaks the pattern: it finds its fences
-  in raw Markdown before the engine parses. The proposal moves Mermaid's export onto the host path function-plot
+  with its own readers of the source before the engine parses. The proposal moves Mermaid's export onto the host path function-plot
   already uses (read placeholders from the rendered page, draw in the locked page), makes that path manifest-driven,
   moves the preview's flicker protection from Mermaid into the shared host, and retires `bake`.
 ---
@@ -38,7 +38,7 @@ Mapped from every `lib/plugins/*/*.manifest.json` against the host code that cal
 | **Grammar**: teach the parser a syntax and render it | `syntax`, `fences`, `codeRenderer`, `inline`, `highlight` | the token's content and attributes (a `state` facade for `syntax`) | an HTML string; on a throw the host degrades to `degradesTo` (`lib/plugins/host.js:91-102`) | engine render, synchronous | math, code, anima, function-plot, mermaid, avatars, checks, icons, pills, sparks, video |
 | **Data provider**: tables the host reads, no plugin code at render | `data`, `providers`, `registers`, `meta` | nothing; the host reads the table | data | build time, or a lazy read on first use (`lib/core/plugin-data.js:27-51`) | avatars, icons, video, callout, sparks, meta |
 | **Service**: a function another plugin calls | `services` | the owning plugin's `ctx`, bound by the host | a value, or null when the plugin is off | when called, synchronous | avatars, checks, icons, mermaid, pills |
-| **Check**: findings about a deck | `lint`, `diagnostics` | the deck (lint) or the render (diagnostics) | findings; an undeclared rule or id is refused (`host.js:110-119`) | lint, or render; synchronous and pure | video, function-plot, meta |
+| **Check**: findings about a deck | `lint`, `diagnostics` | the deck (lint) or the render (diagnostics) | findings; an undeclared diagnostic id throws (`host.js:110-119`), an undeclared lint export is never installed (`tools/build-plugin-registry.js:129`) | lint, or render; synchronous and pure | video, function-plot, meta |
 | **Slot**: fill a slot a component declares | `extensionPoints` | the section's HTML and a frozen `ctx` | `html \| {html, cls} \| null` | engine section transform, synchronous | chart-family |
 | **Figure**: draw a picture from an author's text | `fences` (the placeholder), `hydrate`, `draw`, `bake`, `render.surfaces` | the figure's source and its slide context | immediate: HTML/SVG from the render; deferred: §3 | §3 | math, chart-family (immediate); function-plot, mermaid (deferred) |
 
@@ -56,10 +56,10 @@ tap (`docs/src/playground/video-overlay.js:92`).
 
 | Plugin | Library needs a layout engine? | Preview | CLI export (PDF, PNG, PPTX, player) |
 |---|---|---|---|
-| chart-family (30 kinds) | no, our own code | drawn **inside the render**: `transformSection(html, ctx)` splices an inline SVG (`lib/plugins/chart-family/chart-family.dispatch.js`). The kernels a deck uses load first (`docs/src/lib/ensure-charts.ts`) | the same kernels, the same render |
+| chart-family (28 kinds) | no, our own code | drawn **inside the render**: `transformSection(html, ctx)` splices an inline SVG (`lib/plugins/chart-family/chart-family.dispatch.js`). The kernels a deck uses load first (`docs/src/lib/ensure-charts.ts`) | the same kernels, the same render |
 | math (KaTeX) | no, it only computes | inside the render | KaTeX in QuickJS compiled to WebAssembly, in the CLI's own process (`lib/plugins/host-katex-wall.js`); the call returns before the next line runs |
 | function-plot | **yes** | the engine emits a placeholder; `hydrate` draws it in the page or the sandboxed draw frame | **the host reads the placeholders from the rendered capture page** and runs the same `hydrate` in a locked page (`lib/export/locked-figures.js`), sanitizing each drawing with the slide sanitizer |
-| mermaid | **yes** | the engine emits the source as a code block; the runtime's pass draws it in the sandboxed draw frame and gets an **SVG string** back, sanitized with the diagram profile (`lib/core/sanitize-diagram-svg.mjs`) | **`bake` scans the raw Markdown** for fences (`lib/plugins/mermaid/shared/mermaid-fences.js`), draws each in a locked page, and pastes the **SVG string** into the source before the engine runs (`lib/plugins/mermaid/mermaid.bake.js`) |
+| mermaid | **yes** | the engine emits the source as a code block; the runtime's pass draws it in the sandboxed draw frame and gets an **SVG string** back, sanitized with the diagram profile (`lib/core/sanitize-diagram-svg.mjs`) | **`bake` finds fences itself**: a line walker over raw Markdown (`lib/plugins/mermaid/shared/mermaid-fences.js`) plus a markdown-it pass for fences in a quote or list (`nested-fences.js`); it draws each in a locked page, and pastes the **SVG string** into the source before the engine runs (`lib/plugins/mermaid/mermaid.bake.js`) |
 
 So both deferred plugins already return a string, and three of the four export paths already let the engine find the
 figure. Mermaid's export is the exception, for history rather than need: the bake predates the plugin contract (it was
@@ -99,7 +99,7 @@ the first frame the browser paints already holds it. A deferred figure needs the
 
 ## 4. The change: Mermaid's export finds its fences through the engine
 
-**Today:** find fences in raw text → draw → paste SVG into the text → the engine reads the result.
+**Today:** find fences in the source with the plugin's own readers → draw → paste SVG into the text → the engine reads the result.
 **Proposed:** the engine renders → the host reads Mermaid's placeholders from the capture page → draws each in the
 locked page → sanitizes → writes. This is `locked-figures.js`'s flow, which function-plot already uses.
 
@@ -107,7 +107,8 @@ Steps:
 
 1. **Make `locked-figures.js` manifest-driven.** Today it names function-plot (`NAME = 'function-plot'`, `:42`). It
    becomes the host's deferred-figure driver for every plugin whose manifest declares a `draw` block and
-   `surfaces.pdf: "figure"`, reading the placeholder selector, the library and the output kind from the manifest.
+   `surfaces.pdf: "figure"`. (function-plot's manifest says `player: "figure-baked"` although this module serves
+   `--player` too, `locked-figures.js:2-3`; slice 2 corrects the manifest so the driver can key on it.) reading the placeholder selector, the library and the output kind from the manifest.
 2. **Move Mermaid onto it.** Mermaid's `surfaces.pdf` and `surfaces.player` change from `figure-baked` to `figure`.
    The per-slide band and palette come from the placeholder's section (the rendered page already knows the slide),
    which removes `ctx.slideAt(offset)` and `paneOrientations` from the bake's needs. The image-set export's re-bake
@@ -115,8 +116,10 @@ Steps:
 3. **Delete the raw scanner from the draw path.** `mermaid.bake.js` and the `bake` call in `lib/plugins/host-bake.js`
    go. `bake` then has no user and is retired from the schema, unless the owner wants it kept for a future plugin
    (question 2).
-4. **Move the other readers of `mermaid-fences.js` onto model ranges.** The narrator (`lib/core/chart-narration.js`),
-   `slide-speech.js` and `web-ref-readers.js` read Mermaid fences from source today. Each moves to the deck model's
+4. **Move the other readers of `mermaid-fences.js` onto model ranges.** Five read Mermaid fences from source today:
+   the narrator (`lib/core/chart-narration.js`), `slide-speech.js`, `web-ref-readers.js`, Mermaid's exported
+   `fences(markdown)` service (`lib/plugins/mermaid/mermaid.services.js:12`, whose callers move with it) and the
+   host's "uses mermaid" check (`lib/plugins/host-grammar.mjs:213`, which only decides whether the plugin loads). Each moves to the deck model's
    fence ranges (`docs/src/lib/segno-markdown`), so narration, speech and the security scan agree with the drawing.
    The URL scan (`mermaidRemoteRefs`) keeps over-reporting by design: it may read every fence-shaped block, because a
    false alarm is the safe direction (§7).
@@ -124,9 +127,10 @@ Steps:
 **What moves in exported bytes.** Only shapes where the scanner and the engine disagree today:
 
 - a fence inside an HTML block (`<div>` … `~~~mermaid` … `</div>`): the engine reads HTML, so no diagram; today's
-  export draws one. After: no diagram, matching the preview.
-- a fence inside a blockquote: recorded as a known gap in `2026-09-27-plugin-system.md` (phase D: "the CLI does not
-  draw a blockquoted fence") while the preview does. After: drawn, matching the preview.
+  line walker matches it (checked: `matchMermaidFences` returns the fence, markdown-it with `html: true` returns the
+  block as HTML), so the export draws one. After: no diagram, matching the preview. Fences in a blockquote or a list
+  are already drawn by the export since 2026-10-18 (`nested-fences.js`, `followups.d/2739-p7`), so they should not
+  move.
 - anything else the corpus differential finds.
 
 Every shipped deck is measured before and after: `npm run identity:check -- --strict` for the engine's HTML, and
@@ -172,7 +176,7 @@ One PR per slice, each measured and independently revertible:
    contribution point that rewrites the deck's source before the parse is the hole this note closes, and a future
    plugin that wants it should argue for it in review.
 3. **The flicker protections in the host** (§5), so every deferred figure gets them. Recommendation: yes, as slice 1.
-4. **`returns`** has no user (it was added for npm plugins, `2026-10-16-npm-plugin-threat-model.md` §10–12). Out of
+4. **`returns`** has no user (it was added for npm plugins, `2026-10-16-npm-plugin-threat-model.md` decisions 10–12, §6 and §6.1). Out of
    scope here; noted so the catalog is complete.
 
 ## 8. Not verified
