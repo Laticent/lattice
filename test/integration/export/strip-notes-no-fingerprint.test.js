@@ -99,9 +99,6 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const logs = new Map();
   function exportHtml(dir, deck, name, args) {
     const out = path.join(dir, name);
-    // A player strips notes by default since #1833. The unstripped render is the deck AS AUTHORED,
-    // notes included, so it says so with --with-notes; a stripped render keeps its own flag.
-    if (args.includes('--player') && !args.includes('--strip-notes')) args = [...args, '--with-notes'];
     const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', ...args], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });

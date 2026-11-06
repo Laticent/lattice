@@ -238,8 +238,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// copy with a finish baked in) and the saved packages it uses — and no comments, ever.
 	const embedPayload = (opts: ExportOptions) => (opts.embedSource ? embeddableLattice(source, deckTitle, Date.now(), deckPackages, deckId) : Promise.resolve(undefined));
 
-	// Webpage (.html) export from its options step: `stripNotes` (on by default, #1833)
-	// scrubs notes from every copy in the shared file (see WebpageOptionsPanel).
+	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
+	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
 	const exportHtml = (choice: WebpageExportChoice) => {
 		setNarrationFailures(null);
 		bakeRef.current = new AbortController();

@@ -74,10 +74,8 @@ export function WebpageOptionsPanel({
 	/** Edits the deck (the off-fence notice's "Turn on"); absent, the notice offers no action. */
 	onWrite?: (label: string, updater: (s: string) => string) => void;
 }) {
-	// On by default (#1833): a webpage export is a file you send, and its Present view opens the
-	// notes sheet with one key. Turning it off keeps notes, for presenting from the file yourself.
-	// The CLI matches: `--player` strips notes unless the author passes `--with-notes`.
-	const [stripNotes, setStripNotes] = React.useState(true);
+	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
+	const [stripNotes, setStripNotes] = React.useState(false);
 	// Default ON: the export inherits what the deck already asked for, so a deck that
 	// animates in the Playground animates for whoever opens the file. The row only appears
 	// when the deck HAS motion to carry — offering "keep the motion" on a deck with no
@@ -182,7 +180,7 @@ export function WebpageOptionsPanel({
 				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies="the player stores" />
 				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} />
 
-				{/* Strip speaker notes — on by default for a shared file; off to present from it. */}
+				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">
 					<div className="flex items-start justify-between gap-3">
 						<span className="flex items-start gap-2">
@@ -192,7 +190,7 @@ export function WebpageOptionsPanel({
 								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 									{stripNotes
 										? 'Speaker-note text is removed from every copy — the DOM and the re-import source. (The file still embeds the deck’s editable Markdown for re-opening here, so this removes notes, not everything.)'
-										: 'Speaker notes ride into the player’s Present-mode notes sheet, and anyone you send the file to can open them. Keep this off only to present from the file yourself.'}
+										: 'Speaker notes ride into the player’s Present-mode notes sheet. Turn on to remove them from the shared file.'}
 								</span>
 							</span>
 						</span>

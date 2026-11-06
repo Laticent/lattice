@@ -152,10 +152,6 @@ describe('strip-notes: every export format', () => {
 
   function render(dir, c, extra = []) {
     const out = path.join(dir, c.out);
-    // A player strips notes by default since #1833. The unstripped render is the deck AS AUTHORED,
-    // notes included, so it says so with --with-notes; a stripped render keeps its own flag.
-    const all = [...c.args, ...extra];
-    if (all.includes('--player') && !all.includes('--strip-notes')) extra = [...extra, '--with-notes'];
     // --keep-html: the HTML sidecar is deleted by default for a non-html format now, so this
     // sidecar-contents test opts in to keep it (the point here is that it carries no stripped note).
     const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--keep-html', ...c.args, ...extra], {

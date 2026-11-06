@@ -56,8 +56,8 @@ async function exportWebpage(
 //   2. the docs PRODUCTION build minifies player-core, renaming the transport kernel
 //      functions, so the `.toString()`-inlined script threw `createTransport is not
 //      defined`, stripped `.lp-js`, and fell back to the no-JS floor on every browser.
-// "Strip speaker notes" is ON by default since #1833 (a webpage export is a file you send), so a
-// test sets the state it means instead of clicking, which would flip whichever default ships.
+// A test sets the "Strip speaker notes" switch to the state it means instead of clicking it, so it
+// holds whichever default ships. Notes ride by default; the author strips them (#1833).
 async function setStripNotes(page: import('@playwright/test').Page, on: boolean): Promise<void> {
 	const sw = page.getByRole('switch', { name: 'Strip speaker notes' });
 	if ((await sw.getAttribute('aria-checked')) !== String(on)) await sw.click();

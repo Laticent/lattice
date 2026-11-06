@@ -431,11 +431,11 @@ a security defect in the player JS lives **forever** in every file already sent.
     the track equals the viewport). Verified in real Chromium at 1280×800 and 390×844 (a geometry integration
     test locks the slide within the viewport): swipe-left/right navigate, a vertical drag does NOT, fullscreen
     wires, desktop framing unchanged, mobile slide on-screen.
-  - **2026-11-06 (#1833): the default flipped.** A `--player` export (and a `player: true` deck,
-    and the Studio's webpage export) now strips notes unless the author passes `--with-notes` (the
-    Studio: turns "Strip speaker notes" off). A player is a file you send, and its Present view
-    opened the notes sheet with one key, so "notes are only for the author" meant the default was
-    the wrong way round. P3d below records the original default-in decision.
+  - **2026-11-06 (#1833): notes stay in by default, and stripping is the author's choice.** The
+    release audit asked whether a speaker note reaching a player's recipient is a leak. The owner's
+    answer: it is the author's call, so the default stays notes-in (you present from the file), the
+    Studio's webpage export keeps its "Strip speaker notes" switch, and the CLI keeps
+    `--strip-notes`. A flip to strip-by-default was built on PR #3051 and reverted there.
   - **P3d — speaker-notes sheet + strip-all-copies — SHIPPED (2026-07-08).** Notes ride by default: the
     emulator already materializes each note as a hidden `aside.lattice-notes` in the baked DOM, so the player's
     notes sheet READS that aside (no new copy) — a slide-up panel over the present stage, toggled by the ☰

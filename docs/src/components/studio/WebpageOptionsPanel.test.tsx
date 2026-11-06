@@ -44,12 +44,8 @@ describe('WebpageOptionsPanel — notes and narration are independent channels',
 		panel();
 		const strip = screen.getByRole('switch', { name: 'Strip speaker notes' });
 		const captions = screen.getByRole('switch', { name: /captions/i });
-		// Notes are stripped by default (#1833): a webpage export is a file you send.
-		expect(strip).toBeChecked();
 		expect(captions).toBeEnabled();
 
-		await user.click(strip);
-		expect(strip).not.toBeChecked();
 		await user.click(strip);
 		expect(strip).toBeChecked();
 		// THE REGRESSION. Before the fix this switch was disabled the moment notes were
@@ -60,10 +56,7 @@ describe('WebpageOptionsPanel — notes and narration are independent channels',
 	it('does not tell the author that narration is unavailable because of notes', async () => {
 		const user = userEvent.setup();
 		panel();
-		// On by default; toggle off and back on so the stripped state is the one under test.
 		await user.click(screen.getByRole('switch', { name: 'Strip speaker notes' }));
-		await user.click(screen.getByRole('switch', { name: 'Strip speaker notes' }));
-		expect(screen.getByRole('switch', { name: 'Strip speaker notes' })).toBeChecked();
 		// The panel used to show "Unavailable while speaker notes are stripped — for most
 		// decks the narration you rehearsed IS your notes, so either switch would hand them
 		// back." Every clause of that is now false.
