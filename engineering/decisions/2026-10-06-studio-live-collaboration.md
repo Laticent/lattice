@@ -612,6 +612,12 @@ follow, bring-everyone, session chat, role changes, remove, end, a guest's linke
 and host reloads, and the Share sheet's *Collaborate live* row. Calls (S4, S5) are not built, so
 every mic control is hidden rather than shown dead.
 
+**Who sees an IP address (2026-11-06, followups.d/2547-p2-live-privacy-note.md).** The start
+card and the lobby now say it: a guest's browser connects directly to the host and everyone in
+the session at the knock, before admission, and the public servers that help browsers find each
+other (Google's and Cloudflare's STUN servers, and the Nostr relays) see the address too. The
+wording waits on the owner's approval; the docs site has no privacy page to link yet.
+
 **Deviations from the design above.**
 - The guest's copy is an ordinary deck with the host's title; the "Shared by" tag in the deck
   switcher (§5.5) is not drawn yet.
