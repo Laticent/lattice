@@ -1142,3 +1142,14 @@ the compare columns fit; the stats hero still clips (a layout bug, fixed separat
 lost its 60cqi cap (as tall and strip had), compare stacks to one column, and the function plot on
 canvas draws at 1/k size and scales up, so its axis numbers stay whole (`function-plot.hydrate.js`).
 
+## 19. A split cover that cannot hold its subtitle moves it to page 1 (owner, 2026-11-06)
+
+The owner saw a split cover's lead-in run into its footer on a phone and ruled: "Subtitle moves to page
+1". A cover's type is never shrunk (§18), so `lib/core/cover-lift.js` measures each cover's content
+bottom against its footer's top and, while it runs past, moves the subtitle and then the lede to the
+top of the run's first body page, where base.modifiers.css sets them at body size above the members.
+The export runs the pass before each verify round, so the measured split re-plans a first page the
+moved text makes too full; the runtime runs the same kernel. On the export check deck at square, the
+slide 9 cover ran 57px into its footer and now fits; its first page carries the subtitle. The running
+footer keeps cutting off with an ellipsis, also by the owner's ruling. A plain `.html` export has no
+script, so its covers stay as they were.
