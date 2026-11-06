@@ -20,6 +20,9 @@ import { coerceRecipe } from './finish-generate';
 const state: { generation: string; reply: string } = { generation: 'floor', reply: '' };
 
 vi.mock('@/components/studio/ai/architect-model.js', () => ({
+	// The module's own export, which architectModel() awaits before building the model: opening
+	// the at-rest-sealed key. Nothing is stored in this fake, so it opens to none.
+	loadOpenRouterKey: async () => null,
 	createArchitectModel: () => ({
 		availability: () => ({ generation: state.generation, promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, modelOn: true }),
 		refreshAvailability: async () => {},

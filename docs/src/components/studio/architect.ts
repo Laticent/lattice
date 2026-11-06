@@ -238,6 +238,8 @@ export type ModelAvailability = {
 	webllmReady: boolean;
 	universalReady: boolean;
 	openRouterReady: boolean;
+	/** OpenRouter answered 401 for the stored key (revoked, deleted or expired). */
+	openRouterKeyInvalid?: boolean;
 	modelOn: boolean;
 };
 
@@ -245,7 +247,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high' }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -257,6 +259,9 @@ export type ArchitectModel = {
 	beginOpenRouterAuth: (cb: string) => Promise<string | null>;
 	resumeOpenRouterAuth: (code: string) => Promise<boolean>;
 	hasPendingOpenRouterAuth: () => boolean;
+	clearPendingOpenRouterAuth?: () => void;
+	checkOpenRouterKey?: (key: string) => Promise<number>;
+	restoreOpenRouter?: (key: string) => void;
 	disconnectOpenRouter: () => void;
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
@@ -314,7 +319,12 @@ export function architectModel(): Promise<ArchitectModel | null> {
 			// theme, component, finding-fix — and pushed the hard-stop budget gate to price
 			// 16K of output for all of them, so "shorten this sentence" started estimating
 			// ~$0.25 and got refused under a cap that used to allow it (inversion, checker).
-			.then((m) => m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel)
+			// The stored key is sealed at rest; open it before the model answers "is a key
+			// connected?", or a reload would read "not connected" until it arrived.
+			.then(async (m) => {
+				await m.loadOpenRouterKey?.();
+				return m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
+			})
 			.catch(() => null);
 	}
 	return modelPromise;
@@ -544,7 +554,16 @@ export type ThemeAudit = {
 
 export type ThemeEssentials = Record<string, string>;
 
+// The text of whatever a failed model call threw, for describeModelError.
+const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e ?? ''));
+// The sentence for a failed request, loaded only when a request fails: the per-cause sentences are
+// most of model-error.ts's weight, and a first load that never fails should not pay for them
+// (docs/route-budget.json). The chat agent imports it statically, inside its own lazy chunk.
+const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e));
+
 export type ThemeGenOutcome =
+	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
+	| { status: 'failed'; note: string }
 	| {
 			status: 'ok';
 			essentials: ThemeEssentials;
@@ -591,10 +610,11 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 			messages: ground.messages,
 			plugins: ground.plugins,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const { essentials, rampStrategy, name, description, applied, ok } = tc.coerceEssentials(reply, fallback);
 	// A connected model that proposed nothing usable (e.g. the json:true floor
@@ -620,6 +640,7 @@ export type FinishRecipeOut = {
 };
 export type FinishGenOutcome =
 	| { status: 'ok'; recipe: FinishRecipeOut; name?: string }
+	| { status: 'failed'; note: string }
 	| { status: 'offline' }
 	| { status: 'blocked'; note: string }
 	| { status: 'nochange'; note: string };
@@ -681,10 +702,11 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 			],
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const parsed = parseFinishReply(reply);
 	if (!parsed) return { status: 'nochange', note: 'The model returned no usable finish recipe.' };
@@ -723,7 +745,7 @@ const DRAWING_SYSTEM = [
 	'Prefer rect, circle, ellipse, line, polyline and path. Keep stroke-width between 2 and 4. Leave generous margins inside the viewBox.',
 ].join('\n');
 
-export type DrawingGenOutcome = { status: 'ok'; svg: string } | { status: 'offline' } | { status: 'blocked'; note: string } | { status: 'nochange'; note: string };
+export type DrawingGenOutcome = { status: 'ok'; svg: string } | { status: 'offline' } | { status: 'blocked'; note: string } | { status: 'nochange'; note: string } | { status: 'failed'; note: string };
 
 /**
  * Ask a model for a drawing to choreograph. Honest like the rest: `offline` with no model
@@ -752,10 +774,11 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 				{ role: 'user', content: `Draw: ${prompt.trim()}` },
 			],
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const svg = extractSvg(reply);
 	if (!svg) {
@@ -800,17 +823,23 @@ export function extractSvg(reply: string): string | null {
 // (finish-generate's coerceRecipe) — here we only extract + lightly normalize.
 // Exported for unit tests (the AI-recipe extraction contract: structured fields only,
 // never a forwarded model string).
-export function parseFinishReply(reply: string): { recipe: FinishRecipeOut; name?: string } | null {
-	const text = String(reply || '').trim();
-	if (!text) return null;
-	const start = text.indexOf('{');
-	const end = text.lastIndexOf('}');
-	if (start < 0 || end <= start) return null;
+export function parseFinishReply(reply: string | Record<string, unknown>): { recipe: FinishRecipeOut; name?: string } | null {
+	// `generateFinish` asks the adapter for `json: true`, which hands back the PARSED object.
+	// Reading only strings turned that object into "[object Object]", so a real cloud reply
+	// never parsed (found by the live run, 2026-11-06; the unit tests fed strings only).
 	let obj: Record<string, unknown>;
-	try {
-		obj = JSON.parse(text.slice(start, end + 1));
-	} catch {
-		return null;
+	if (reply && typeof reply === 'object') obj = reply;
+	else {
+		const text = String(reply || '').trim();
+		if (!text) return null;
+		const start = text.indexOf('{');
+		const end = text.lastIndexOf('}');
+		if (start < 0 || end <= start) return null;
+		try {
+			obj = JSON.parse(text.slice(start, end + 1));
+		} catch {
+			return null;
+		}
 	}
 	if (!obj || typeof obj !== 'object') return null;
 	const layer = (v: unknown) => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
@@ -855,6 +884,8 @@ export type ComponentDraft = {
 	skeleton: string;
 };
 export type ComponentGenOutcome =
+	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
+	| { status: 'failed'; note: string }
 	// `refined` = SILENT gate-repair passes that cleared errors; `improved` = design
 	// self-refine rounds that raised the quality score (the effort dial). Both 0 when the
 	// first draft was already clean / effort is low. The UI surfaces "auto-fixed / refined".
@@ -1115,10 +1146,11 @@ export async function generateComponent(
 			plugins: ground.plugins,
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	if (coerced.decline) {
@@ -1210,10 +1242,11 @@ export async function refineComponent(
 			messages: (await loadLayoutCore()).askComponentRefineMessages(current, instruction),
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
@@ -1859,12 +1892,14 @@ export type ArchitectStatus = {
 	webllmReady: boolean;
 	universalReady: boolean;
 	openRouterReady: boolean;
+	/** The stored key was rejected (401): the Workspace offers Reconnect. */
+	openRouterKeyInvalid: boolean;
 };
 
 const FLOOR_STATUS: ArchitectStatus = {
 	ready: false, generation: 'floor', modelName: null, modelId: null, remaining: null, usage: null, limit: null,
 	usageMonthly: null, limitReset: null, wallet: null, price: null, keySettingsUrl: null,
-	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false,
+	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, openRouterKeyInvalid: false,
 };
 
 // The universal Transformers.js backend reports its active name as 'transformers'
@@ -1920,6 +1955,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				webllmReady: a.webllmReady,
 				universalReady: a.universalReady,
 				openRouterReady: a.openRouterReady,
+				openRouterKeyInvalid: !!a.openRouterKeyInvalid,
 			});
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.
@@ -2029,7 +2065,6 @@ export async function connectOpenRouter(): Promise<void> {
 	if (url) location.href = url;
 }
 
-/** On return from OAuth (`?code=`), exchange the code and clean the URL. */
 /**
  * The OAuth return URL with `code` removed and everything else intact.
  *
@@ -2045,15 +2080,48 @@ export function scrubOAuthCode(pathname: string, search: string, hash: string): 
 	return pathname + (qs ? `?${qs}` : '') + hash;
 }
 
-export async function resumePendingAuth(): Promise<boolean> {
+/** What the OAuth return did: nothing to resume, a key stored, or a failure the author
+ *  must hear about (`note` says what came back). */
+export type AuthResume = { status: 'none' } | { status: 'connected' } | { status: 'failed'; note: string; retry: 'connect' | 'reload' };
+
+// Single-flight: React StrictMode runs the mount effect twice in development, and two
+// exchanges of one single-use code mean one of them fails and reports a false "did not
+// connect" after a sign-in that worked.
+let resumeInflight: Promise<AuthResume> | null = null;
+export function resumePendingAuth(): Promise<AuthResume> {
+	resumeInflight ??= resumeOnce().finally(() => {
+		resumeInflight = null;
+	});
+	return resumeInflight;
+}
+
+async function resumeOnce(): Promise<AuthResume> {
 	const m = await architectModel();
-	if (!m) return false;
-	const code = new URLSearchParams(location.search).get('code');
-	if (!code || !m.hasPendingOpenRouterAuth()) return false;
+	if (!m) return { status: 'none' };
+	const params = new URLSearchParams(location.search);
+	const code = params.get('code');
+	if (!m.hasPendingOpenRouterAuth()) return { status: 'none' };
+	// The author started a sign-in and came back with no code: OpenRouter sends `?error=`
+	// when they cancel or it refuses. That used to look exactly like "nothing to resume",
+	// so Connect appeared to do nothing at all.
+	if (!code) {
+		const error = params.get('error');
+		if (!error) return { status: 'none' };
+		m.clearPendingOpenRouterAuth?.();
+		return { status: 'failed', note: `OpenRouter did not connect (${error.slice(0, 80)}).`, retry: 'connect' };
+	}
 	try {
 		await m.resumeOpenRouterAuth(code);
-	} catch {
-		return false;
+	} catch (e) {
+		const status = /auth failed \((\d{3})\)/.exec(errorText(e))?.[1];
+		const refused = !!status || /returned no key/.test(errorText(e));
+		// OpenRouter never answered: the code is unspent and the adapter kept the verifier, so
+		// leave the code in the URL and let a reload finish the sign-in.
+		if (!refused) return { status: 'failed', note: 'Could not reach OpenRouter to finish signing in — check the connection, then reload.', retry: 'reload' };
+		// OpenRouter refused: the code is single-use and the adapter already dropped the
+		// verifier, so scrub the code too, and a reload cannot replay a dead exchange.
+		history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
+		return { status: 'failed', note: `OpenRouter did not connect${status ? ` (error ${status})` : ''} — the sign-in came back without a key.`, retry: 'connect' };
 	}
 	// Scrub ONLY the OAuth code, and carry `history.state` through.
 	//
@@ -2072,7 +2140,7 @@ export async function resumePendingAuth(): Promise<boolean> {
 	// all that ever comes back. Rebuilding from URLSearchParams costs nothing and stops the
 	// next parameter anyone adds from being collateral, but it fixes no observed bug today.
 	history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
-	return true;
+	return { status: 'connected' };
 }
 
 export async function disconnectOpenRouter(): Promise<void> {

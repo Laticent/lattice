@@ -1,6 +1,6 @@
 ---
-status: in-progress
-summary: Durable tracker for the 29 polish + feature items a live mobile/landscape review of the Studio surfaced, grouped into cohesive workstreams (G1–G8) each shipped as its own PR with merge sign-off. G1/G2 (mobile chrome, preview/notes, grouped theme picker + light/dark) and G3 (editable light/dark contract, explicit naming) have shipped; G6 (AI model picker, on-device tier, live spend) shipped with the live key (#610). The remaining AI-chat (theme/component) + voice items (G7) are next on the same key. Delete once the backlog is cleared.
+status: shipped
+summary: Durable tracker for the 29 polish + feature items a live mobile/landscape review of the Studio surfaced, grouped into workstreams G1–G8. All eight are closed. The last three key-gated items (theme AI, component AI, cloud voice) were verified on a live OpenRouter key on 2026-11-06 (#610); browser speechSynthesis was answered by the earlier read-aloud decision rather than built. One engine follow-up (G5 chart hues) remains, off-path.
 ---
 
 # Studio polish backlog (mobile review, 2026-06-28)
@@ -53,8 +53,9 @@ thing). A group may split into two PRs if a sub-item balloons.
   live, and a reset restores the engine value. *(#48 — shipped)*
 - ✅ **Light vs dark curation** made explicit by the same two-column contract table — you
   pick light, the engine derives an AA-safe dark, override either side. *(#49 — shipped)*
-- ⏸️ **AI "describe a look"** → generate a theme, AA-compliant via
-  `deriveTheme`/`auditBoth`. *(#47 — deferred, needs OpenRouter key)*
+- ✅ **AI "describe a look"** → generate a theme, AA-compliant via
+  `deriveTheme`/`auditBoth`. *(#47 — shipped; verified on a live key 2026-11-06, Haiku and
+  Sonnet: `2026-11-06-studio-byok-key-lifecycle.md` §6)*
 - ✅ Theme **naming consistent with Component** — no magic default; you name it, Save is
   disabled until you do. *(#57 — shipped)*
 - ✅ Save/Export as **icon buttons on the Studio header row** (theme tab). *(#58 — shipped;
@@ -75,8 +76,9 @@ thing). A group may split into two PRs if a sub-item balloons.
   `CodeField` (css + markdown) reusing the deck editor's theme (`editor-theme`), with a
   palette-cohesive `HighlightStyle` (light + dark) and a `<textarea>` fallback for jsdom.
   *(#51 — shipped)*
-- ⏸️ **AI "describe a component"** → generate scoped, palette-blind CSS + skeleton,
-  gated by `gateCss`/`skeletonInvokes`. *(#52 — deferred, needs OpenRouter key)*
+- ✅ **AI "describe a component"** → generate scoped, palette-blind CSS + skeleton,
+  gated by `gateCss`/`skeletonInvokes`. *(#52 — shipped; verified on a live key 2026-11-06,
+  gate-clean on Haiku and Sonnet: `2026-11-06-studio-byok-key-lifecycle.md` §6)*
 
 ## G5 · Asset library & sharing  *(no key)*
 - ✅ **Unify** the save/share model across themes + components — one Library with a
@@ -105,10 +107,14 @@ thing). A group may split into two PRs if a sub-item balloons.
   tally, replacing the broken local "all-time" that always read $0. Also fixed the status hook
   so the account network call no longer blocks the tier/picker render.
 
-## G7 · Real voice / TTS  *(verify w/ live key)*
-- Get **browser TTS actually speaking** (not silently falling through to captions).
-- Wire **OpenRouter TTS** (never got working) per
-  <https://openrouter.ai/docs/guides/overview/multimodal/tts>.
+## G7 · Real voice / TTS  ✅ closed — #610
+- ⛔ **Browser TTS** — answered by an earlier decision, not built: raw `speechSynthesis` is
+  banned in the product as a per-device lottery (`2026-06-14-read-aloud-kokoro.md`, which
+  predates this item). The voice ladder is OpenRouter → on-device Kokoro → captions.
+- ✅ **OpenRouter TTS** wired (`ai/tts-catalog.js`, `TtsSettings.tsx`) and verified on a live
+  key 2026-11-06: `/audio/speech` returned a 2.1 s `audio/mpeg` clip at speech-level energy
+  (`2026-11-06-studio-byok-key-lifecycle.md` §6). How it sounds to a listener, and the
+  narrated-Present timing claims, stay open on #1398.
 
 ## G8 · Performance  *(no key)*  ✅ shipped — #43
 - ✅ **Profiled first; the premise didn't hold.** The "3-second hang" was largely a

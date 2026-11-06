@@ -20,6 +20,7 @@ import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOve
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
+import { ApiKeyPanel } from './ApiKeyPanel';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
@@ -79,7 +80,9 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // the AI model, so they live as sections under AI rather than as sibling tabs.
 const TABS = WORKSPACE_TABS;
 type Tab = WorkspaceTab;
-type GenView = 'cloud' | 'ondevice';
+// `apikey` is a way to CONNECT the cloud tier (a pasted OpenRouter key), not a third backend:
+// everything below the switch (spend, instructions, voice) treats it as cloud.
+type GenView = 'cloud' | 'ondevice' | 'apikey';
 
 const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 
@@ -528,6 +531,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		userPickedView.current = true;
 		setGenView('ondevice');
 	};
+	const pickApiKey = () => {
+		userPickedView.current = true;
+		setGenView('apikey');
+	};
+	const sideView: 'cloud' | 'ondevice' = genView === 'ondevice' ? 'ondevice' : 'cloud';
 
 
 	return (
@@ -1023,23 +1031,35 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							<GroupLabel icon={<Sparkles className="size-3.5" />}>Model</GroupLabel>
 							{/* The active-tier SWITCH — picking a side sets which tier generates. */}
 							<div className="flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Active generation tier">
-								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice]] as const).map(([key, label, icon, onPick]) => (
+								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice], ['apikey', 'API key', <KeyRound key="k" className="size-3.5" />, pickApiKey]] as const).map(([key, label, icon, onPick]) => (
 									<button type="button" key={key} role="tab" aria-selected={genView === key} onClick={onPick} className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold', genView === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{icon}{label}</button>
 								))}
 							</div>
 							<p className="mb-3 mt-1.5 px-0.5 text-[11px] text-muted-foreground">
 								<span className="font-semibold text-[var(--text-heading)]">{cloudActive ? 'Cloud is active' : onDeviceActive ? 'On-device is active' : 'No tier active yet'}</span>
-								{cloudActive ? ' — edits run on OpenRouter.' : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
+								{cloudActive ? (ai.openRouterKeyInvalid ? ' — but OpenRouter rejected the key, so requests fail until you reconnect.' : ' — edits run on OpenRouter.') : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
 							</p>
 
-							{genView === 'cloud' ? (
+							{genView === 'apikey' ? (
+								<ApiKeyPanel status={ai} />
+							) : genView === 'cloud' ? (
 								ai.openRouterReady ? (
 									<div>
-										<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', cloudActive ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-											<span className={cn('grid size-[30px] place-items-center rounded-lg', cloudActive ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}><Zap className="size-4" /></span>
-											<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
-											<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
-										</div>
+										{ai.openRouterKeyInvalid ? (
+											// OpenRouter answered 401 for this key: it was revoked, deleted or expired.
+											// Every cloud request now fails, so say so here and offer the one fix.
+											<div role="alert" className="flex items-center gap-3 rounded-xl border border-[var(--fail)] px-3 py-2.5">
+												<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--fail)_12%,transparent)] text-[var(--fail)]"><Plug className="size-4" /></span>
+												<span className="min-w-0"><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — key rejected</div><div className="text-[11px] text-muted-foreground">Revoked or expired. Reconnect to keep using Cloud.</div></span>
+												<button type="button" onClick={connect} disabled={connecting} className="ml-auto shrink-0 rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground disabled:opacity-60">{connecting ? 'Opening…' : 'Reconnect'}</button>
+											</div>
+										) : (
+											<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', cloudActive ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+												<span className={cn('grid size-[30px] place-items-center rounded-lg', cloudActive ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}><Zap className="size-4" /></span>
+												<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
+												<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
+											</div>
+										)}
 										<div className="mt-3"><ModelPicker status={ai} /></div>
 										<div className="mt-4"><React.Suspense fallback={<div className="h-[88px]" aria-hidden />}><ImageModelSettings status={ai} /></React.Suspense></div>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>
@@ -1065,7 +1085,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 
 							{/* ── SPEND — a facet of the model, not its own tab. Cloud only — */}
 							{/* on-device is unconditionally free, so a cap/gauge don't apply. */}
-							{genView === 'cloud' ? (
+							{sideView === 'cloud' ? (
 							<AiSection>
 								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
 
@@ -1145,7 +1165,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							{/* ── STANDING INSTRUCTIONS — separate cloud/on-device fields, not one shared+truncated field ── */}
 							<AiSection>
 								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions{genView === 'ondevice' ? ' · on-device' : ''}</GroupLabel>
-								{genView === 'cloud' ? (
+								{sideView === 'cloud' ? (
 									<div>
 										<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every cloud generation. Leave blank for none.</p>
 										<textarea
@@ -1185,7 +1205,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							{/* ── READ-ALOUD VOICE — cloud (OpenRouter TTS) or on-device (Kokoro), never both at once ── */}
 							<AiSection>
 								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
-								<TtsSettings tier={genView} />
+								<TtsSettings tier={sideView} />
 							</AiSection>
 
 							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model

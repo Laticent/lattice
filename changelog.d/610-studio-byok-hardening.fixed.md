@@ -1,0 +1,8 @@
+- Studio: when a theme or component request to the model fails, Fabricate now says why — reconnect (401), out of credits (402), rate-limited (429) or no network — instead of "no usable palette" or "No model connected".
+- Studio: a failed OpenRouter sign-in now says so and offers **Try again**, instead of returning to the Studio as if nothing happened; the dead sign-in state is cleared so it cannot replay.
+- Studio: a revoked or expired OpenRouter key is now noticed. Workspace shows "key rejected" with a **Reconnect** button instead of "active" while every request fails.
+- Charts: the hover card escapes a chart mark's label and value, so markup in a shared deck's chart cannot run in the page that holds your OpenRouter key.
+- Studio: **Describe a finish** now works on a real model. It used to discard every cloud reply as "no usable finish recipe". Finish and Describe a drawing also say why a failed request failed.
+- Docs: the features page lists the describe-it faculties and cloud read-aloud, and says plainly that the AI features send deck text to OpenRouter on your own key.
+- Studio: Workspace → AI has a third tab, **API key**, to paste your own OpenRouter key instead of signing in. The key is checked with OpenRouter before it is saved, and afterwards only its last four characters are shown.
+- Security: your OpenRouter key is now encrypted at rest in the browser (AES-GCM under a key the browser will not let any code export), so the profile's files on disk no longer hold it in clear. A key saved before this change is encrypted on first load.

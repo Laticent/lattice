@@ -72,7 +72,7 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
-import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
+import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
@@ -3767,8 +3767,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
 	React.useEffect(() => {
-		resumePendingAuth().then((ok) => {
-			if (ok) notify('OpenRouter connected — the Architect can now edit your deck.');
+		resumePendingAuth().then((r) => {
+			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			// A failed return used to say nothing, so Connect looked like it did nothing.
+			else if (r?.status === 'failed')
+				notifyAction(r.note, {
+					label: r.retry === 'reload' ? 'Reload' : 'Try again',
+					onClick: () => {
+						if (r.retry === 'reload') location.reload();
+						else connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.'));
+					},
+				});
 		});
 	}, []);
 	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
