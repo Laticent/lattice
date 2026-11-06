@@ -83,9 +83,10 @@ describe('venue-prose', () => {
 
   test('a register is judged by its own row on a portrait canvas too', () => {
     const redline = (tok, n) => `---\nsize: portrait\nvenue: conference\n---\n\n<!-- _class: redline ${tok} -->\n\n## H.\n\n> ${words(n)}\n`;
-    assert.deepEqual(lint(redline('', 11)), [], 'bare holds 11 at conference on a tall canvas');
-    assert.equal(lint(redline('', 12)).length, 1);
-    assert.equal(lint(redline('three-col', 5)).length, 1, 'three-col has 4 at conference on a tall canvas');
+    // Re-measured 2026-11-06 (tools/calibrate-venue-prose.js), once the clause stopped painting over its gloss.
+    assert.deepEqual(lint(redline('', 23)), [], 'bare holds 23 at conference on a tall canvas');
+    assert.equal(lint(redline('', 24)).length, 1);
+    assert.equal(lint(redline('three-col', 20)).length, 1, 'three-col has 19 at conference on a tall canvas');
   });
 
   test('a component without a prose row is not judged', () => {

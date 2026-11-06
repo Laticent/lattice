@@ -75,17 +75,25 @@ test('the rule is self-contained, so it can travel into the page as source', () 
   assert.deepEqual(fn('A one. B two.'), [7]);
 });
 
-test('a redline never breaks beside an edit, so a deletion keeps its replacement', () => {
+test('a redline never breaks between a deletion and its replacement', () => {
   const html = '<p>Fees are due. <del>Late fees apply after ten days.</del> <ins>Late fees apply after thirty days.</ins> Notices follow.</p>';
   assert.equal(editMarks(html).length, textOf(html).length);
   const cuts = passageCuts(html);
   const pieces = splitHtmlAtText(html, cuts);
   assert.ok(pieces.some((p) => /<del>[\s\S]*<\/del>\s*<ins>/.test(p)), 'the del and its ins share a page');
-  assert.equal(cuts.length, 0, 'every break here touches an edit');
+  assert.equal(cuts.length, 2, 'before the deletion and after its replacement, never between them');
   assert.equal(passageCuts('<p>One rule. Two rules.</p>').length, 1, 'with no edit, the break stays');
 });
 
 test('entity names are read case-sensitively, as the browser does', () => {
   assert.equal(textOf('&rdquo;x&ldquo;'), '\u201dx\u201c');
   assert.equal(textOf('&NBSP;'), '&NBSP;');
+});
+
+test('a whole inserted sentence may begin or end a page; a cut inside one edit may not', () => {
+  const html = '<p>A business shall act. <ins>The link shall read "Choices."</ins> Consumers use it.</p>';
+  assert.equal(passageCuts(html).length, 2, 'before and after the inserted sentence');
+  assert.equal(passageCuts('<p><ins>One added. Two added.</ins></p>').length, 0, 'never inside one insertion');
+  assert.equal(passageCuts('<p><del>Old rule.</del> <ins>New rule.</ins></p>').length, 0, 'never between a deletion and its replacement');
+  assert.equal(editMarks('<p>a<del>b</del><ins>c</ins></p>'), '0di');
 });

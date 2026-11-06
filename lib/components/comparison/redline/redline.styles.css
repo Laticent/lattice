@@ -461,3 +461,7 @@ section.redline > .cell-stage {
   section.redline.three-col.three-col > .cell-stage:not(.lat-reflow-held) > blockquote { flex:0 0 auto; overflow:visible; }
   section.redline.three-col.three-col > .cell-stage:not(.lat-reflow-held) > :is(ol, ul) { align-self:stretch; }
 }
+
+/* A split page's clause sizes to its own text. Each page carries part of the clause, and `flex:1`
+ * stretched the card to fill the stage, so a page holding one sentence showed a half-empty card. */
+section.redline.lat-split-native > .cell-stage > blockquote { flex:0 1 auto; }
