@@ -21,7 +21,8 @@ import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playgroun
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { ApiKeyPanel } from './ApiKeyPanel';
-import { architectSpend, connectOpenRouter, disconnectAllProviders, removeProviderKey, setBudget, setStudioTier, useArchitectStatus } from './architect';
+import { disconnectAllProviders, removeProviderKey } from './api-key';
+import { architectSpend, connectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';

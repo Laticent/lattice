@@ -3,8 +3,8 @@ import * as React from 'react';
 import { notify } from '@/lib/notify';
 import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
 import { cn } from '@/lib/utils';
-import { saveProviderKey } from './api-key';
-import { type ArchitectStatus, type CloudProvider, removeProviderKey, switchProvider } from './architect';
+import { removeProviderKey, saveProviderKey, switchProvider } from './api-key';
+import type { ArchitectStatus, CloudProvider } from './architect';
 import { KEY_PROVIDER_INFO } from './key-providers';
 
 const ORDER: CloudProvider[] = ['openrouter', 'openai', 'anthropic', 'gemini'];

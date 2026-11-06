@@ -24,7 +24,7 @@
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
-import { disconnectAllProviders } from './architect';
+import { disconnectAllProviders } from './api-key';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';

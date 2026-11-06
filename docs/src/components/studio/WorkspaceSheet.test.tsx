@@ -49,7 +49,7 @@ const spendSpy = vi.hoisted(() => vi.fn(() => ({ total: 0, session: 0.032, total
 
 vi.mock('./api-key', () => {
 	const refuse = vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' }));
-	return { saveOpenRouterKey: refuse, saveProviderKey: refuse };
+	return { saveOpenRouterKey: refuse, saveProviderKey: refuse, disconnectAllProviders: vi.fn(), removeProviderKey: vi.fn(), switchProvider: vi.fn() };
 });
 
 vi.mock('./architect', () => ({
@@ -57,9 +57,6 @@ vi.mock('./architect', () => ({
 	architectSpend: spendSpy,
 	connectOpenRouter: vi.fn(),
 	disconnectOpenRouter: vi.fn(),
-	disconnectAllProviders: vi.fn(),
-	removeProviderKey: vi.fn(),
-	switchProvider: vi.fn(),
 	setBudget: vi.fn(),
 	listStudioModels: vi.fn(async () => CATALOG),
 	currentStudioModel: vi.fn(async () => 'anthropic/claude-sonnet-4'),

@@ -54,3 +54,32 @@ export async function saveProviderKey(provider: CloudProvider, raw: string): Pro
 export function saveOpenRouterKey(raw: string) {
 	return saveProviderKey('openrouter', raw);
 }
+
+// The key-list helpers live here, not in architect.ts, so the eager Studio chunk does not carry
+// them: only the lazily loaded Workspace sheet and its Privacy tab call them (docs/route-budget.json).
+/** Remove every stored AI key — OpenRouter and the direct providers (Privacy & Data → clear). */
+export async function disconnectAllProviders(): Promise<void> {
+	const m = await architectModel();
+	if (m?.disconnectAllProviders) m.disconnectAllProviders();
+	else m?.disconnectOpenRouter?.();
+}
+
+/** Remove one provider's key; the cloud tier returns to OpenRouter if it was the active one. */
+export async function removeProviderKey(provider: CloudProvider): Promise<void> {
+	const m = await architectModel();
+	if (provider === 'openrouter') m?.disconnectOpenRouter?.();
+	else m?.removeProviderKey?.(provider);
+}
+
+/** The providers holding a key in this browser, for the API key tab. */
+export async function providersWithKeys(): Promise<CloudProvider[]> {
+	const m = await architectModel();
+	return m?.providersWithKeys?.() ?? [];
+}
+
+/** Run the cloud tier on a provider that already holds a key. */
+export async function switchProvider(provider: CloudProvider): Promise<void> {
+	const m = await architectModel();
+	m?.switchProvider?.(provider);
+	await setStudioTier('auto');
+}
