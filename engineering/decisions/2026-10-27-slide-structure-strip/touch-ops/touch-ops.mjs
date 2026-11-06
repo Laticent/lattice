@@ -28,10 +28,10 @@ for (const [name, width, height] of [['phone', 390, 844], ['tablet', 820, 1180]]
 	log(`pills: ${await pills.count()} · deck: ${await order()}`);
 	await pills.nth(1).tap();
 	await p.waitForTimeout(400);
-	const ops = ['Duplicate slide', 'Delete slide', 'Move slide earlier', 'Move slide later'];
+	const ops = ['Duplicate slide', 'Delete slide', 'Move slide before', 'Move slide after'];
 	for (const o of ops) log(`${o}: visible ${await p.getByRole('button', { name: o }).first().isVisible().catch(() => false)}`);
 	await p.screenshot({ path: `${OUT}${name}-1-strip.png` });
-	await p.getByRole('button', { name: 'Move slide later' }).first().tap();
+	await p.getByRole('button', { name: 'Move slide after' }).first().tap();
 	await p.waitForTimeout(600);
 	log(`after Move later on Bravo: ${await order()}`);
 	await p.getByRole('button', { name: 'Duplicate slide' }).first().tap();

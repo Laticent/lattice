@@ -1,0 +1,1 @@
+- **Studio:** the slide menu's Move left and Move right are now **Move Before** and **Move After**, matching New Slide Before and New Slide After, and the menu's items are now Title Case. The command palette, the shortcut list and Undo use the same words in sentence case. The shortcuts are unchanged (⇧⌘← and ⇧⌘→).

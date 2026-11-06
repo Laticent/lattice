@@ -23,6 +23,7 @@
 //
 // Loaded only when the map is on (React.lazy in StudioShell): the Studio's eager bundle is budgeted.
 
+import { EyeOff } from 'lucide-react';
 import * as React from 'react';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
@@ -31,9 +32,10 @@ import { wireOf } from '@/components/map-rail/wireframe';
 import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
-import { flatPart, partText } from '@/lib/fuoco/outline';
+import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/playground/single-slide-render';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { slideClass } from '../../lib/deck-lint';
 import { liveColor } from './live/live-model';
 import { type CapturePicture, PooledThumbFace, PreviewPool } from './preview-pool';
@@ -242,20 +244,47 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		[look, liveCache, textOf],
 	);
 
+	// A hidden slide (`<!-- hide -->`) wears the eye-off mark on its tile, as its pill does (SlideRail.tsx): it stays in
+	// the editor's order, and Present and every export leave it out (2026-11-06-hidden-slides.md). Cached by text.
+	const hiddenByText = React.useRef(new Map<string, boolean>());
+	const hiddenAt = React.useCallback(
+		(i: number) => {
+			// The `---` block's text: hiding belongs to the block, so a heading-split part shares it.
+			const text = items[i] ? unitText(index, items[i].unit) : '';
+			let h = hiddenByText.current.get(text);
+			if (h === undefined) {
+				if (hiddenByText.current.size > 4096) hiddenByText.current.clear();
+				h = slideSourceHidden(text);
+				hiddenByText.current.set(text, h);
+			}
+			return h;
+		},
+		[items, index],
+	);
 	const mark = React.useCallback(
 		(i: number) => {
 			const it = items[i];
 			const here = it && it.section === 0 ? people?.get(it.unit) : undefined;
-			if (!here || here.length === 0) return null;
+			const hidden = hiddenAt(i);
+			if (!hidden && (!here || here.length === 0)) return null;
 			return (
-				<span className="flex -space-x-1">
-					{here.slice(0, 3).map((x) => (
-						<span key={x.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: liveColor(x.color) }} />
-					))}
+				<span className="flex items-center gap-1">
+					{hidden && (
+						<span data-map-hidden="" className="grid size-5 place-items-center rounded-md border border-border bg-[var(--bg)] text-muted-foreground">
+							<EyeOff className="size-3" />
+						</span>
+					)}
+					{here && here.length > 0 && (
+						<span className="flex -space-x-1">
+							{here.slice(0, 3).map((x) => (
+								<span key={x.id} className="size-2.5 rounded-full border border-[var(--bg)]" style={{ background: liveColor(x.color) }} />
+							))}
+						</span>
+					)}
 				</span>
 			);
 		},
-		[items, people],
+		[items, people, hiddenAt],
 	);
 
 	// A markdown parse per slide, so cached by text: a keystroke re-derives only the slide it touched.
@@ -279,9 +308,9 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 		(i: number) => {
 			const title = wire(i).title;
 			const cls = classLabels ? caption(i) : '';
-			return `Slide ${i + 1}${title ? `, ${title.slice(0, 80)}` : ''}${cls ? ` (${cls})` : ''}`;
+			return `Slide ${i + 1}${hiddenAt(i) ? ', hidden' : ''}${title ? `, ${title.slice(0, 80)}` : ''}${cls ? ` (${cls})` : ''}`;
 		},
-		[wire, classLabels, caption],
+		[wire, classLabels, caption, hiddenAt],
 	);
 
 	const onReadyRef = React.useRef(onReady);
@@ -332,7 +361,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 					</button>
 				</div>
 			) : (
-				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={people ? mark : undefined} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={mark} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
 			)}
 		</div>
 	);

@@ -4,36 +4,43 @@ import { keysFor, menuItems } from './model';
 describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 	const ids = (s: Parameters<typeof menuItems>[0]) => menuItems(s, true).map((i) => i.id);
 
-	it('offers the same six actions in the same order on every slide', () => {
-		const order = ['new-after', 'new-before', 'duplicate', 'move-earlier', 'move-later', 'delete'];
+	it('offers the same seven actions in the same order on every slide', () => {
+		const order = ['new-after', 'new-before', 'duplicate', 'move-before', 'move-after', 'hide', 'delete'];
 		for (const at of [0, 3, 6]) expect(ids({ count: 7, at })).toEqual(order);
 		expect(ids({ count: 1, at: 0 })).toEqual(order);
 	});
 
+	it('names the moves by the deck order and Hide by the slide state (§5.1)', () => {
+		const labels = menuItems({ count: 7, at: 3 }, true).map((i) => i.label);
+		expect(labels).toEqual(['New Slide After', 'New Slide Before', 'Duplicate', 'Move Before', 'Move After', 'Hide Slide', 'Delete']);
+		const hidden = menuItems({ count: 7, at: 3, hidden: true }, true).find((i) => i.id === 'hide');
+		expect(hidden).toMatchObject({ label: 'Show Slide', hidden: true, keys: '' });
+	});
+
 	it('keeps a disabled action visible and says why', () => {
 		const first = menuItems({ count: 7, at: 0 }, true);
-		expect(first.find((i) => i.id === 'move-earlier')?.disabled).toBe('Already first');
-		expect(first.find((i) => i.id === 'move-later')?.disabled).toBeUndefined();
+		expect(first.find((i) => i.id === 'move-before')?.disabled).toBe('Already first');
+		expect(first.find((i) => i.id === 'move-after')?.disabled).toBeUndefined();
 		const last = menuItems({ count: 7, at: 6 }, true);
-		expect(last.find((i) => i.id === 'move-later')?.disabled).toBe('Already last');
+		expect(last.find((i) => i.id === 'move-after')?.disabled).toBe('Already last');
 		const one = menuItems({ count: 1, at: 0 }, true);
-		expect(one.find((i) => i.id === 'move-earlier')?.disabled).toBe('Only one slide');
-		expect(one.find((i) => i.id === 'move-later')?.disabled).toBe('Only one slide');
+		expect(one.find((i) => i.id === 'move-before')?.disabled).toBe('Only one slide');
+		expect(one.find((i) => i.id === 'move-after')?.disabled).toBe('Only one slide');
 		expect(one.find((i) => i.id === 'delete')?.disabled).toBe('A deck needs one slide');
 		expect(one.find((i) => i.id === 'duplicate')?.disabled).toBeUndefined();
 	});
 
 	it('turns Delete into a confirm that names the slide while armed', () => {
 		const d = menuItems({ count: 4, at: 1, armed: true, name: '“Pricing”' }, true).find((i) => i.id === 'delete');
-		expect(d?.label).toBe('Confirm delete “Pricing”');
+		expect(d?.label).toBe('Confirm Delete “Pricing”');
 		expect(d?.danger).toBe(true);
 	});
 
 	it('prints each shortcut the platform’s way', () => {
 		expect(keysFor('duplicate', true)).toBe('⌘D');
 		expect(keysFor('duplicate', false)).toBe('Ctrl+D');
-		expect(keysFor('move-later', true)).toBe('⇧⌘→');
-		expect(keysFor('move-later', false)).toBe('Ctrl+Shift+Right');
+		expect(keysFor('move-after', true)).toBe('⇧⌘→');
+		expect(keysFor('move-after', false)).toBe('Ctrl+Shift+Right');
 		expect(keysFor('delete', false)).toBe('Delete');
 		for (const i of menuItems({ count: 3, at: 1 }, false)) expect(i.keys).toBe(keysFor(i.id, false));
 	});
@@ -47,8 +54,8 @@ describe('the strip’s shortcuts (§5)', async () => {
 		expect(stripShortcut(k('Enter', { metaKey: true }), true)).toBe('new-after');
 		expect(stripShortcut(k('Enter', { metaKey: true, shiftKey: true }), true)).toBe('new-before');
 		expect(stripShortcut(k('d', { metaKey: true }), true)).toBe('duplicate');
-		expect(stripShortcut(k('ArrowLeft', { metaKey: true, shiftKey: true }), true)).toBe('move-earlier');
-		expect(stripShortcut(k('ArrowRight', { metaKey: true, shiftKey: true }), true)).toBe('move-later');
+		expect(stripShortcut(k('ArrowLeft', { metaKey: true, shiftKey: true }), true)).toBe('move-before');
+		expect(stripShortcut(k('ArrowRight', { metaKey: true, shiftKey: true }), true)).toBe('move-after');
 		expect(stripShortcut(k('Backspace'), true)).toBe('delete');
 		expect(stripShortcut(k('Delete'), true)).toBe('delete');
 	});

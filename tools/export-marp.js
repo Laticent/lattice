@@ -77,7 +77,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
+const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
@@ -338,6 +338,8 @@ function main(argv) {
   }
 
   const src = readDeckSource(deckPath);
+  // Every slide hidden: the bundle would render nothing, as Lattice's own exports refuse to (lattice.js).
+  if (require('../lib/diagnostics/slice-equivalence-core.mjs').everySlideHidden(appendAutoGlossary(src))) die('every slide in this deck is hidden (`<!-- hide -->`), so there is nothing to export. Show at least one slide.');
   // THE DECK'S ADMISSION under this run's knobs, decided once on the source as authored, as the
   // render CLI decides it. Its `off` set configures the boundary parser BEFORE the split bake below
   // (with math off, a `---` inside `$$` splits there as in the engine) and rides into the bundle.
@@ -389,7 +391,7 @@ function main(argv) {
   //    emitted `.md` renders identically on any Marp tool and stays editable.
   //    Then the pane markers go (`stripPaneMarkers`): Marp cannot carve a pane, and it would
   //    read every marker as a speaker note, so a panes slide exports as its panes, stacked.
-  const baked = stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels));
+  const baked = bakeHidden(stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels)));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;

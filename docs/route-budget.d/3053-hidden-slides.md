@@ -1,0 +1,5 @@
+studio: +1250
+home: +400
+playground: +30
+Hide a slide (#3053). The Studio's eager JS carries the slide menu's Hide Slide / Show Slide, the preview bar's Hidden chip and the strip and map's eye-off mark (StudioIsland +441 B, strip-actions +121 B), the hide read the strip paints from (`isHiddenAt` in deck-ops; the Hide/Show write in hide-ops loads on the click), and the one `hide` reader the slice path needs so the shown slide's page number skips hidden slides (fidelity-findings +325 B on studio and home, up from +277 once the reader parsed rather than pattern-matched and learned to see an all-hidden deck: lib/core/hide-directive.mjs and slideSourceHidden in lib/diagnostics/slice-equivalence-core.mjs). CI measured studio +1028, home +329, playground +12 on 2291d70a; the declared figures leave room for gzip spread across later heads.
+Given back first: the reader reuses the boundary parser and comment grammar already in that chunk rather than adding its own, and only a slide whose text contains "hide" is parsed.
