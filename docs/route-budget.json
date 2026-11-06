@@ -77,8 +77,8 @@
     "getting-started": {
       "html": "getting-started/index.html",
       "eagerJsGz": {
-        "soft": 150057,
-        "hard": 164503
+        "soft": 142529,
+        "hard": 156782
       },
       "htmlRaw": {
         "soft": 85352,
