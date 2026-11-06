@@ -7,9 +7,13 @@
 // `npx playwright install` takes 32 seconds. So this step installs WebKit and Firefox when a
 // selected project needs one and it is missing, and fails the run if the install does not take.
 //
-// Chromium is never installed here: the sandbox pins it to the build @playwright/test expects
-// (playwright.config.ts header), and a second copy would shadow that pin. CI provisions every
-// browser in its own workflow steps, so on CI this step only checks.
+// Chromium is installed here too, when the build @playwright/test expects is missing. This used to
+// say "never: the sandbox pins it", and the sandbox stopped doing so: on 2026-11-06 it shipped
+// Chromium build 1243 while @playwright/test 1.56.1 expects 1194, so EVERY project failed in
+// globalSetup and the suite never ran (followups.d/3043). Installing the expected build shadows
+// nothing: Playwright keys each build by its own revision folder, and the version pin is still
+// the browser pin. CI provisions every browser in its own workflow steps, so on CI this step
+// only checks.
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -80,7 +84,7 @@ function run(args) {
 export default async function ensureBrowsers(config) {
 	const missing = [...enginesFor(config, selectedProjects(process.argv))].filter((e) => !installed(e));
 	if (!missing.length) return;
-	const installable = missing.filter((e) => e !== 'chromium');
+	const installable = missing;
 	if (installable.length && !process.env.CI) {
 		console.log(`[e2e] installing ${installable.join(', ')} for the selected projects (about 30 s, once per machine)…`);
 		// The system libraries first: without them the binary installs and then cannot launch.
@@ -104,9 +108,7 @@ export default async function ensureBrowsers(config) {
 	if (still.length) {
 		throw new Error(
 			`[e2e] ${still.join(', ')} is not installed and the selected projects need it. ` +
-				(still.includes('chromium')
-					? 'Chromium is pinned by the environment (playwright.config.ts header): fix PLAYWRIGHT_BROWSERS_PATH, do not skip the run.'
-					: `Install it: npx playwright install-deps ${still.join(' ')} && npx playwright install ${still.join(' ')}.`) +
+				`Install it from docs/: npx playwright install-deps ${still.join(' ')} && npx playwright install ${still.join(' ')}.` +
 				' A missing browser is never a reason a test did not run.',
 		);
 	}

@@ -169,8 +169,11 @@ test('a tour puts the visitor’s layout back when it ends', async ({ page }) =>
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: /Craft — every panel/ }).click();
-	await page.locator('[aria-label="Toggle Coach"]').click();
-	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveAttribute('aria-pressed', 'true');
+	// By role, not by `[aria-label]`: the phone bottom bar and the activity bar's other breakpoint copy carry the
+	// same label while hidden, and the attribute selector matched all three. The role query sees the one on screen.
+	const coach = page.getByRole('button', { name: 'Toggle Coach', exact: true });
+	await coach.click();
+	await expect(coach).toHaveAttribute('aria-pressed', 'true');
 	await page.locator('[aria-label^="Slide 3"]').first().click();
 	await expect(page.getByText('Slide 3 / 7')).toBeVisible();
 
@@ -179,11 +182,11 @@ test('a tour puts the visitor’s layout back when it ends', async ({ page }) =>
 	await expect(page.locator(STAGE)).toBeVisible();
 	// The tour's own layout: Write, no panel.
 	await expect(page.getByRole('button', { name: /Write — editor \+ preview/ })).toHaveAttribute('aria-pressed', 'true');
-	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveCount(0);
+	await expect(coach).toHaveCount(0);
 
 	await expect(page.locator('[data-welcome="end"]')).toBeVisible({ timeout: 150_000 });
 	await page.getByRole('button', { name: 'Start building' }).click();
 	await expect(page.getByRole('button', { name: /Craft — every panel/ })).toHaveAttribute('aria-pressed', 'true');
-	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveAttribute('aria-pressed', 'true');
+	await expect(coach).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.getByText('Slide 3 / 7')).toBeVisible();
 });

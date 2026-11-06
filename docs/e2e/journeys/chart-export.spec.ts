@@ -57,7 +57,7 @@ test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ 
 	await shareExport(page, 'pdf');
 	await flattenProbe; // resolves only when the capture frame's charts are baked
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
-	await expect(toastText(page)).toContainText('PDF ready.');
+	await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
 });
 
 // The SAME bake, through the browser half of the export. The CLI path

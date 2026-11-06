@@ -1,6 +1,10 @@
 import { countDocuments, documentsMade } from './preview-documents';
 import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
 
+// The offscreen print frame: its off-screen offset AND its width (PrintOptionsPanel.tsx). The draw host's frame
+// (code-packages/draw-host.ts) sits at the same offset at 1200px, so the offset alone matched two frames.
+const PRINT_FRAME = 'iframe[style*="-10000px"][style*="width: 1024px"]';
+
 // The Print drawer must not build a preview document per page. WebKit never frees a destroyed
 // preview document (preview-pool.tsx has the measurements), so on an iPad every document the
 // drawer built was memory the tab kept for the rest of the session.
@@ -66,13 +70,13 @@ test('paging the Print drawer and reprinting build no new preview documents', as
 	await dialog.getByRole('radio', { name: '1-up', exact: true }).click();
 	const print = dialog.getByRole('button', { name: 'Print', exact: true });
 	await print.click();
-	await expect(page.locator('iframe[style*="-10000px"]')).toBeAttached({ timeout: 60_000 });
+	await expect(page.locator(PRINT_FRAME)).toBeAttached({ timeout: 60_000 });
 	await expect(print).toBeEnabled({ timeout: 60_000 });
 	before = await documentsMade(page);
 	await print.click();
 	await expect(print).toBeEnabled({ timeout: 60_000 });
 	expect(await documentsMade(page), 'reprinting the same deck prints the frame it already has').toBe(before);
-	await expect(page.locator('iframe[style*="-10000px"]')).toHaveCount(1);
+	await expect(page.locator(PRINT_FRAME)).toHaveCount(1);
 });
 
 test('reopening the Print drawer builds no preview documents, and each open starts from the defaults', async ({ page }) => {
@@ -85,7 +89,7 @@ test('reopening the Print drawer builds no preview documents, and each open star
 	const dialog = page.getByRole('dialog');
 	const share = page.getByRole('button', { name: 'Share', exact: true });
 	const frames = dialog.locator('[data-slide-frame] iframe');
-	const printFrame = page.locator('iframe[style*="-10000px"]');
+	const printFrame = page.locator(PRINT_FRAME);
 	const print = dialog.getByRole('button', { name: 'Print', exact: true });
 	const openPrint = async () => {
 		await share.click();
@@ -136,8 +140,23 @@ test('reopening the Print drawer builds no preview documents, and each open star
 		w.__printMutations = 0;
 		return n;
 	});
-	// Settled: the pool answers the hide on its own apply pass, which is not a keystroke.
-	await expect.poll(takeMutations, { intervals: [300], timeout: 10_000 }).toBe(0);
+	// Settled: the pool answers the hide on its own pass, which is not a keystroke. It releases each
+	// slot RELEASE_GRACE (600 ms, preview-pool.tsx) after its tile leaves the band, and hides the
+	// released slot's box. Wait for that signal, every slot box hidden, and only then start counting:
+	// a poll for "no mutations" passed on its first read, before the release, and the release then
+	// landed among the keystrokes as 4 style writes (measured with no edit at all: the same 4, 480 ms
+	// after the observer went on).
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const root = document.querySelector('div[hidden] .pod-stage')?.closest('[hidden]');
+				const boxes = [...(root?.querySelectorAll('[data-slide-frame]') ?? [])].map((f) => f.parentElement as HTMLElement);
+				return boxes.length > 0 && boxes.every((b) => b.style.visibility === 'hidden');
+			}),
+			{ timeout: 10_000 },
+		)
+		.toBe(true);
+	await takeMutations();
 	// A slide ADDED, not just text: the kept drawer must not read 13 markdown slides against the
 	// 12 sections it rendered before the close, take the per-cell fallback, and drop its pool.
 	await setEditorContent(page, `${DECK.replace('Body 1.', 'Body one, edited while the sheet was closed.')}\n---\n\n## Slide 13\n\nBody 13.\n`);
@@ -190,7 +209,7 @@ test('a print the author walks away from opens no dialog, and the kept print fra
 
 	const dialog = page.getByRole('dialog');
 	const print = dialog.getByRole('button', { name: 'Print', exact: true });
-	const printFrame = page.locator('iframe[style*="-10000px"]');
+	const printFrame = page.locator(PRINT_FRAME);
 	const prints = () => page.evaluate(() => (window as unknown as { __prints?: number }).__prints ?? 0);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();

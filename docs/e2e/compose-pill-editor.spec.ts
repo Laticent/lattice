@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertVia } from './compose-insert';
-import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
 async function savedDeck(page: Page): Promise<string> {
@@ -220,9 +220,12 @@ test.describe('compose pill editor', () => {
 	test('the keyboard steps over a pill as one thing, Enter opens its editor, and Escape closes it', async ({ page }) => {
 		await openDeckInCompose(page);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
-		await page.keyboard.press('Home');
-		// "Shipped" and a space are eight steps; the ninth lands on the pill itself.
-		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
+		// "Shipped" and a space are eight steps; the ninth lands on the pill itself. The first eight are
+		// the browser's own caret moves, and ProseMirror's state hears of each only through
+		// `selectionchange`: settle each, or the ninth runs from a stale caret and skips the pill.
+		for (let i = 0; i < 9; i++) await pressSettled(page, 'ArrowRight');
 		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
 		await page.keyboard.press('Enter');
 		await expect(editor(page)).toBeVisible();
@@ -239,12 +242,15 @@ test.describe('compose pill editor', () => {
 		// lands on text, not on the pill (the spec failed about one run in five without this wait).
 		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
-		await page.keyboard.press('Home');
-		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
+		for (let i = 0; i < 9; i++) await pressSettled(page, 'ArrowRight');
 		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
 		await page.keyboard.press('ControlOrMeta+c');
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
-		await page.keyboard.press('End');
+		// The paste lands where ProseMirror's state holds the caret: settle the click and the End first.
+		await caretSettled(page);
+		await pressSettled(page, 'End');
 		await page.keyboard.press('ControlOrMeta+v');
 		await expect.poll(() => savedDeck(page)).toContain('Nothing here yet.`{SHIPPED, c2}`');
 		await expect(drawnPills(page)).toHaveCount(5);

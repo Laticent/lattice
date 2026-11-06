@@ -1601,8 +1601,8 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
   // viewer; we collapse it now to whichever side matches what the deck is
   // declared as. Dark variants (e.g. cuoio-dark.css) declare
   // `color-scheme: dark` at :root; everything else is treated as light.
-  // `forceDark` collapses to the dark branch regardless — used by the
-  // dual-render path to bake a second, dark-scheme SVG for section.dark slides.
+  // `forceDark` collapses to the dark branch regardless — the palette a
+  // diagram on a section.dark slide is drawn from (PALETTE_VARS_DARK).
   const isDark = forceDark || /:root\s*\{[^}]*color-scheme\s*:\s*dark\b/.test(stripped);
   // Resolve every declaration against the RAW map with the recursive
   // evaluator. Order-independent, unlike the former "collapse light-dark,
@@ -1662,14 +1662,13 @@ function paletteTokenReader(paletteVars, hand = false) {
 // defaults — matches the real browser cascade where `@import 'lattice'`
 // at the top of every theme loads lattice.css first.
 const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
-// Dual-render dark set: the SAME palette resolved to its DARK branch. Mermaid
-// bakes themeVariables to literal hex at render time (in the light scheme), so
-// a single bake can't flip on a `section.dark` slide — the documented dark-mode
-// gap. We bake a second SVG with dark-resolved vars and toggle the two by
-// color-scheme in CSS (see mermaid.css `.mmd-light/.mmd-dark`). This makes dark
-// diagrams correct natively, including Mermaid's own color-math derivations.
-// Toggle off with LATTICE_MERMAID_SINGLE=1 to fall back to the single (light)
-// bake + the per-diagram CSS overrides.
+// The dark set: the SAME palette resolved to its DARK branch. Mermaid bakes
+// themeVariables to literal hex, so a diagram on a `section.dark` slide is drawn
+// ONCE, from these dark-resolved vars, in its own slide's band (no SVG pair and
+// no CSS toggle: that design is gone, and no output recolors a diagram at view
+// time; engineering/decisions/2026-11-06-plugin-patterns.md §10). This keeps
+// Mermaid's own color-math derivations right on dark slides.
+// LATTICE_MERMAID_SINGLE=1 draws dark slides from the light vars instead.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
 // Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
@@ -1700,8 +1699,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // kernel builds one palette per band the deck ACTUALLY uses, on first use.
 function paletteVarsForBand(band) {
   if (band === 'print') return PALETTE_VARS_PRINT;
-  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light bake — the
-  // documented fallback to the per-diagram CSS overrides. It has to live in the
+  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light palette. It has to live in the
   // READER, not at the call site, or the two ways of asking for a dark palette
   // (this preprocess pass and the image-set look re-bake) could answer differently.
   if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;
