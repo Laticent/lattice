@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-06 — measured on the built tree at eaba4e51
+
+The perf overlay's panel loads only once the overlay is switched on (PerfOverlayPanel.tsx), so every route stops downloading about 6KB gz it never showed
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | eagerJsGz | 150057 | 142529 | -7528 | 156782 |
+
 ### 2026-11-05 — three ceilings raised by hand, for the deck model in the Studio (PR 3038)
 
 Owner OK 2026-11-05 (D1 B on PR 3038: "raise 3 ceilings, move now", chosen over keeping the Studio on markdown-it until P4 of the Segno deck pipeline). PR 3038 moves `lib/core/slide-boundaries.mjs`, which the Studio loads at startup and the lint core loads, from markdown-it's block parser onto the deck model (`@laticent/segno-markdown`, a port of markdown-it's block rules held to it token for token). markdown-it stays in both bundles (the outline's heading sections and the lint still use it), so the model's bytes are added, not swapped. Measured with two full docs builds of PR 3038, with the move held and with it applied: lintCoreGz +8.8 KB, studio eagerJsGz +8.5 KB, home eagerJsGz +8.4 KB; with the move, `--measure` reads lintCoreGz 151,496 B, studio eagerJsGz 569,743 B and home eagerJsGz 293,403 B. Each ceiling rises by that growth rounded up to the next 0.5 KB (9,216, 8,704 and 8,704 B), so each route keeps the headroom it had. The soft targets are unchanged; PR 3038 declares its bytes above soft in its own `docs/route-budget.d/` file. These bytes come back when P4 lets the Studio drop markdown-it.
