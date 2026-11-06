@@ -1,0 +1,1 @@
+- A `functionplot` figure no longer blinks while you type on its slide in the Studio or the Playground: the plugin host now remembers each finished drawing and holds the old one while an edited plot redraws (15–19 empty frames per six keystrokes in the heading went to none).
