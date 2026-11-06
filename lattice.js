@@ -1662,14 +1662,13 @@ function paletteTokenReader(paletteVars, hand = false) {
 // defaults — matches the real browser cascade where `@import 'lattice'`
 // at the top of every theme loads lattice.css first.
 const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
-// Dual-render dark set: the SAME palette resolved to its DARK branch. Mermaid
-// bakes themeVariables to literal hex at render time (in the light scheme), so
-// a single bake can't flip on a `section.dark` slide — the documented dark-mode
-// gap. We bake a second SVG with dark-resolved vars and toggle the two by
-// color-scheme in CSS (see mermaid.css `.mmd-light/.mmd-dark`). This makes dark
-// diagrams correct natively, including Mermaid's own color-math derivations.
-// Toggle off with LATTICE_MERMAID_SINGLE=1 to fall back to the single (light)
-// bake + the per-diagram CSS overrides.
+// The dark set: the SAME palette resolved to its DARK branch. Mermaid bakes
+// themeVariables to literal hex, so a diagram on a `section.dark` slide is drawn
+// ONCE, from these dark-resolved vars, in its own slide's band (no SVG pair and
+// no CSS toggle: that design is gone, and no output recolors a diagram at view
+// time; engineering/decisions/2026-11-06-plugin-patterns.md §10). This keeps
+// Mermaid's own color-math derivations right on dark slides.
+// LATTICE_MERMAID_SINGLE=1 draws dark slides from the light vars instead.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
 // Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
