@@ -72,13 +72,13 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL, readAlign, writeAlign } from './align-catalog';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
@@ -2546,10 +2546,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
-	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
-	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
-	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
-	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
+	// Align (`align:`) — where content sits, up and down and side to side. lib/core/resolve-align.js.
+	// Each axis's Auto is NOT any one word (each component decides), so Auto drops that word, and
+	// both Autos remove the key.
+	const deckAlign = readAlign(getFrontMatter(source, 'align'));
+	const setAlignAxis = (axis: 'v' | 'h') => (value: string) => {
+		const pick = value === AUTO_VALUE ? null : value;
+		const v = axis === 'v' ? pick : (deckAlign.v?.name ?? null);
+		const h = axis === 'h' ? pick : (deckAlign.h?.name ?? null);
+		const next = writeAlign(v, h);
+		settingsWrite(next ? `Align → ${next}` : 'Align → auto', (s) => writeFrontMatterLine(s, 'align', next));
+	};
 	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
 	// pack / heal / trim / report. lib/core/resolve-guards.js `fitPacks`; `pack` (measure and split)
 	// is the DEFAULT and writes no key, and every other level, `heal` included, is written by name
@@ -6193,8 +6200,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" className="w-full" {...autoField(activeClaim(claim).name, 'framed', setClaim, [{ options: catalogOptions(CLAIMS) }])} />
 					</Field>
-					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
-						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
+					<Field label="Align up and down" desc="Where content sits between the title and the floor." find="align vertical top middle bottom spread fill cards rows center" help={<>Content rarely fills the slide. <strong>Auto</strong> lets each layout choose. <strong>Top</strong>, <strong>Middle</strong> and <strong>Bottom</strong> place it; <strong>Spread</strong> shares the spare height between rows; <strong>Fill</strong> grows the rows to fill the frame. Written as <code>align: bottom</code>. A slide overrides it with <code>_class: align-top</code>.</>}>
+						<CatalogSelect ariaLabel="Choose vertical alignment" value={deckAlign.v?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('v')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_VERTICAL, glyphs('alignV')) }], { label: "Layout's own" }, { title: 'Each layout decides (no up-and-down word in align:).' })} />
+					</Field>
+					<Field label="Align side to side" desc="Where content sits between the edges." find="align horizontal left center right full" help={<><strong>Auto</strong> lets each layout choose. <strong>Left</strong>, <strong>Center</strong> and <strong>Right</strong> place the content block; <strong>Full</strong> runs it the full width. <code>align: center</code> on its own centers both ways. A slide overrides it with <code>_class: align-right</code>.</>}>
+						<CatalogSelect ariaLabel="Choose horizontal alignment" value={deckAlign.h?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('h')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_HORIZONTAL, glyphs('alignH')) }], { label: "Layout's own" }, { title: 'Each layout decides (no side-to-side word in align:).' })} />
 					</Field>
 					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose measure pack" help={<><strong>Measure and split</strong> (the default) measures each slide: one that fits stays one page, and one that overflows splits into as many items a page as fit. It never changes the type size — a venue is a fixed setting. <strong>Split by count</strong> splits by a set number of items a page, without measuring. <strong>Split by count and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
 						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'pack', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />

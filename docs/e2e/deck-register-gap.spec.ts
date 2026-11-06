@@ -18,16 +18,23 @@ test.beforeEach(async ({ page }) => {
 	await openInspector(page);
 });
 
-test('Look ▸ Frame and fit: Card rows and Fit write cards: and fit:', async ({ page }) => {
+test('Look ▸ Frame and fit: Align and Fit write align: and fit:', async ({ page }) => {
 	// The rows sit under a heading in Advanced now, not inside a "More look settings" drawer.
 
-	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
+	await page.getByRole('combobox', { name: 'Choose vertical alignment' }).click();
 	await page.getByRole('option', { name: /Spread/ }).click();
-	await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
-	// Auto is "each component decides" — it REMOVES the key rather than writing a value.
-	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
-	await page.getByRole('option', { name: "Auto — Component's own" }).click();
-	await expect.poll(() => persistedSource(page)).not.toContain('cards:');
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: spread\\n');
+	// The second axis joins the first word on the same line.
+	await page.getByRole('combobox', { name: 'Choose horizontal alignment' }).click();
+	await page.getByRole('option', { name: /Right/ }).click();
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: spread right\\n');
+	// Auto is "each layout decides" — it drops that axis's word, and both Autos remove the key.
+	await page.getByRole('combobox', { name: 'Choose vertical alignment' }).click();
+	await page.getByRole('option', { name: "Auto — Layout's own" }).click();
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: right\\n');
+	await page.getByRole('combobox', { name: 'Choose horizontal alignment' }).click();
+	await page.getByRole('option', { name: "Auto — Layout's own" }).click();
+	await expect.poll(() => persistedSource(page)).not.toContain('align:');
 
 	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
 	await page.getByRole('option', { name: /Heal and trim/ }).click();
@@ -125,9 +132,9 @@ for (const [label, width, height] of [
 			await el.click();
 		};
 
-		await tap(page.getByRole('combobox', { name: 'Choose card row placement' }));
+		await tap(page.getByRole('combobox', { name: 'Choose vertical alignment' }));
 		await page.getByRole('option', { name: /Spread/ }).click();
-		await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
+		await expect.poll(() => persistedSource(page)).toContain('\\nalign: spread\\n');
 		await tap(page.getByRole('combobox', { name: 'Choose how slides fit' }));
 		await page.getByRole('option', { name: /Heal and trim/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');

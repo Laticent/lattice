@@ -221,7 +221,7 @@ section.math.form.feature:not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage >
  * (0,3,1) that promotes the stage to a flex column, so a lone `math feature align-left` stayed a grid
  * and moved nothing; bare `math` only worked because stage.css comes later in the bundle and wins the
  * tie. Re-state the promotion here, above both, for the no-legend case. */
-section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
+section.math.form.feature:is(.align-top, .align-middle, .align-bottom, .align-spread, .align-fill, .align-left, .align-center, .align-right, .align-full):not(:has(> .cell-stage > :is(ul, ol))) > .cell-stage {
   display: flex;
   flex-direction: column;
 }

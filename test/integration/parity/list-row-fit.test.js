@@ -73,7 +73,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-stretch -->
+<!-- _class: list align-fill -->
 
 ## Stretch fills.
 
@@ -83,7 +83,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-center -->
+<!-- _class: list align-middle -->
 
 ## Center does not.
 
@@ -156,8 +156,8 @@ describe('list rows are sized from their content (rendered)', () => {
 
   test('stretch fills the stage and center does not', () => {
     const fill = (s) => (s.rows.reduce((a, r) => a + r.h, 0)) / s.stage;
-    assert.ok(fill(wide[2]) > 0.85, `cards-stretch rows fill ${Math.round(fill(wide[2]) * 100)}% of the stage`);
-    assert.ok(fill(wide[3]) < 0.6, `cards-center rows fill ${Math.round(fill(wide[3]) * 100)}% of the stage`);
+    assert.ok(fill(wide[2]) > 0.85, `align-fill rows fill ${Math.round(fill(wide[2]) * 100)}% of the stage`);
+    assert.ok(fill(wide[3]) < 0.6, `align-middle rows fill ${Math.round(fill(wide[3]) * 100)}% of the stage`);
   });
 
   test('a member alone on a split page sits centered, at its own height', () => {

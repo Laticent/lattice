@@ -1137,3 +1137,8 @@ and routes every variant's display size through `--math-display`, `1.4 x --fs-bo
 the `aligned` reflow and its smaller sizes. Math gallery at square, phone: the long logistic equation and
 the compare columns fit; the stats hero still clips (a layout bug, fixed separately).
 
+
+**The stats hero, and two more math layouts, fixed (2026-11-06).** At square the stats reading line
+lost its 60cqi cap (as tall and strip had), compare stacks to one column, and the function plot on
+canvas draws at 1/k size and scales up, so its axis numbers stay whole (`function-plot.hydrate.js`).
+

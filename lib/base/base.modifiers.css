@@ -3481,20 +3481,39 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) {
   justify-content: flex-start;
   align-content: flex-start;
 }
-/* …and WHERE that group sits on the page is the slide's `cards:` setting (owner, 2026-11-04): in
-   the middle by default (`centerUnchosenCards`, lib/core/auto-split.js, stamps `center` where the
-   author chose nothing), under the title for `cards: top`, and filling the page for `cards:
-   stretch`, whose cards then grow. A page holding one card, or a short last page, no longer rides
-   high over an empty page. A layout no `cards:` governs (a checklist, list-steps, an agenda)
-   centers too. Members keep their natural height in every case but `stretch`. */
+/* …and WHERE that group sits on the page is the slide's `align:` setting (owner, 2026-11-04 and
+   2026-11-06): in the middle by default (`centerUnchosenCards`, lib/core/auto-split.js, stamps
+   `middle` where the author chose nothing), under the title for `align: top`, on the floor for
+   `align: bottom`, paced for `align: spread`, and filling the page for `align: fill`, whose
+   members then grow. A page holding one card, or a short last page, no longer rides high over an
+   empty page. A layout that declares no `align` default (a checklist, list-steps, an agenda)
+   reads the same words from its `align-*` class. Members keep their natural height in every
+   case but `fill`. */
 section.form.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage {
-  justify-content: var(--split-place, center);
+  justify-content: var(--split-place, safe center);
 }
-section.lat-split-native[data-split-role="body"][data-cards="top"],
-section.lat-split-native[data-split-role="body"][data-cards-coda="top"]:has(> .cell-coda) {
+section.lat-split-native[data-split-role="body"]:is([data-align="top"], :not([data-align]):is(.align-top, .align-fill)),
+section.lat-split-native[data-split-role="body"][data-align-coda="top"]:has(> .cell-coda) {
   --split-place: flex-start;
 }
-section.form.lat-split-native.lat-split-native[data-split-role="body"][data-cards="stretch"] > .cell-stage > :is(ul, ol) {
+section.lat-split-native[data-split-role="body"]:is([data-align="bottom"], :not([data-align]).align-bottom),
+section.lat-split-native[data-split-role="body"][data-align-coda="bottom"]:has(> .cell-coda) {
+  --split-place: safe flex-end;
+}
+section.lat-split-native[data-split-role="body"]:is([data-align="spread"], :not([data-align]).align-spread),
+section.lat-split-native[data-split-role="body"][data-align-coda="spread"]:has(> .cell-coda) {
+  --split-place: space-evenly;
+}
+/* ONE PLACEMENT PER RUN (owner, 2026-11-06). Centered page by page, a page holding three members
+   began lower than one holding five, and the content jumped as the reader flipped. The run pass
+   (lib/core/run-placement.js, run by the export and the runtime) measures every body page, takes
+   the run's tallest, and writes the top that places it as `--run-pad`; every page starts there.
+   Without a script (a plain .html), each page keeps its own centering above. */
+section.form.lat-split-native.lat-split-native[data-split-role="body"][data-run-offset] > .cell-stage {
+  justify-content: flex-start;
+  padding-block-start: var(--run-pad, 0px);
+}
+section.form.lat-split-native.lat-split-native[data-split-role="body"][data-align="fill"] > .cell-stage > :is(ul, ol) {
   flex: 1 1 auto;
   align-content: stretch;
 }
@@ -3636,7 +3655,7 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
 }
 
 /* ── …AND ON A CAROUSEL CONTENT PAGE, THE AUTHOR'S CARD ALIGNMENT ─────────────────────────
-   A content page places its members as the slide's `cards:` setting says, and centers them when
+   A content page places its members as the slide's `align:` setting says, and centers them when
    the author chose nothing (`centerUnchosenCards`, lib/core/auto-split.js; owner, 2026-11-04):
    a top start left one card, or a short last page, riding high over an empty page. The carousel
    template had forced that top start on every content page (2026-10-30); it is gone, so the

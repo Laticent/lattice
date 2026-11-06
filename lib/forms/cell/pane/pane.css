@@ -224,26 +224,30 @@ lat-pane > .cell-stage {
   flex-direction: column;
   gap: var(--sp-xs);
 }
-/* `cards:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
- * on `section[data-cards]`; a pane is not a section, so its own resolved value (stamped by
+/* `align:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
+ * on `section[data-align]`; a pane is not a section, so its own resolved value (stamped by
  * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
- * twins and read `--cards-align` / `--cards-grow` from it as they would from a slide. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="center"] { --cards-align: center;       --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="top"] { --cards-align: flex-start;   --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="spread"] { --cards-align: space-evenly; --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="center"]:has(> .cell-coda) { --cards-align: center;       --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="top"]:has(> .cell-coda) { --cards-align: flex-start;   --cards-grow: 0; }
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="spread"]:has(> .cell-coda) { --cards-align: space-evenly; --cards-grow: 0; }
+ * twins and read `--align-v` / `--align-grow` from it as they would from a slide. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="middle"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="middle"] { --align-v: center;       --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="fill"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="fill"] { --align-v: stretch;      --align-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="top"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="top"] { --align-v: flex-start;   --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="bottom"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="bottom"] { --align-v: flex-end;     --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="spread"],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="spread"] { --align-v: space-evenly; --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="middle"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="middle"]:has(> .cell-coda) { --align-v: center;       --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="fill"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="fill"]:has(> .cell-coda) { --align-v: stretch;      --align-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="top"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="top"]:has(> .cell-coda) { --align-v: flex-start;   --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="bottom"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="bottom"]:has(> .cell-coda) { --align-v: flex-end;     --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="spread"]:has(> .cell-coda),
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="spread"]:has(> .cell-coda) { --align-v: space-evenly; --align-grow: 0; }
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's

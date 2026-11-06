@@ -15,7 +15,7 @@ section.cards-grid > .cell-stage { display:flex; flex-direction:column; }
  * card is itself the two-cells-then-full-width pattern (actors §11.A): title + badge on the
  * header row, the body wraps to a full-width row 2. */
 section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align);
+  display:flex; flex-wrap:wrap; align-content: var(--align-v);
   gap:var(--sp-md); flex:1;
   list-style:none; padding:0; margin:0;
 }
@@ -46,7 +46,7 @@ section.cards-grid > .cell-stage > ol > li > ul > li, section.cards-grid > .cell
 /* — lattice.js post-processed path — */
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align);
+  display:flex; flex-wrap:wrap; align-content: var(--align-v);
   gap:var(--sp-md); flex:1;
 }
 section.cards-grid .card {
@@ -87,7 +87,7 @@ section.cards-grid .cards-grid-inner--ordered > .card::before {
  * ul/ol > li (nested list format) → mimic .cards-grid-inner > .card             */
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align);
+  display:flex; flex-wrap:wrap; align-content: var(--align-v);
   gap:var(--sp-md); flex:1; list-style:none; padding:0; margin:0;
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
@@ -184,8 +184,8 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  *              "byFamily": { "tall": "spread", "strip": "spread" },
  *              "withCoda": "stretch" }
  *
- * The engine bakes that into cards-catalog.generated.js, resolves it against whatever the
- * author asked for, and stamps `data-cards`; the three container rules above read the
+ * The engine bakes that into align-catalog.generated.js, resolves it against whatever the
+ * author asked for, and stamps `data-align`; the three container rules above read the
  * result in ONE declaration. Nothing about this component's composition lives in CSS any
  * more — a fourth component opts in with a manifest field plus that one declaration, and a
  * unit test fails it if the declaration is missing, since the field alone would do nothing.
@@ -198,7 +198,7 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * WHY A CODA DIFFERS: `--coda-step` is measured from the stage, so shrinking the cards adds
  * the freed height to it — 48px becomes 239px centered, 431px topped, and the panel stops
  * reading as a comment on the cards above it.
- * lib/core/resolve-cards.js; the note's §10. */
+ * lib/core/resolve-align.js; the note's §10. */
 /* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
  * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has
  * the width for two cards, and one column fights the family's own definition.

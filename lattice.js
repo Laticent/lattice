@@ -1220,6 +1220,7 @@ const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget, payload
 const { bakeDeck } = require('./lib/plugins/host-bake');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { EQUALIZE_CARD_TAGS_SRC } = require('./lib/core/card-tag-equalize');
+const { SETTLE_RUN_PLACEMENT_SRC } = require('./lib/core/run-placement');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
 // HARD RULE #22, STYLESHEET channel. Every `<style>` this file writes carries CALLER CSS
@@ -3615,8 +3616,10 @@ async function renderBody(browser, g, closeBrowser) {
   // equalizing here would make the overflow warning describe a layout the file does not have.
   // The fluid view and the player carry it (the runtime, or the baked DOM).
   const TAGS_REACH_DELIVERABLE = !(OUT_FORMAT === 'html' && !(FLUID_VIEW && FLUID_BEATS_READ) && !PLAYER);
+  // A split run's pages share one placement (lib/core/run-placement.js), by the same test: a plain
+  // `.html` has no script to place them, so each page keeps its own centering there.
   const equalizeCardTagsInPage = (label) => (TAGS_REACH_DELIVERABLE
-    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document)`), `equalize card tags${label}`)
+    ? g(() => page.evaluate(`(${EQUALIZE_CARD_TAGS_SRC})(document) + (${SETTLE_RUN_PLACEMENT_SRC})(document)`), `equalize card tags and place split runs${label}`)
     : Promise.resolve(0));
 
   // THE SETTLE BARRIER (lib/plugins/hydrate-script.js). A plugin figure drawn in the browser is

@@ -43,7 +43,7 @@ model, see `design/concepts.md`.
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
-| [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
+| [`align:`](#the-align-front-matter-register-where-content-sits) | Where content sits, up and down and side to side | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
@@ -105,7 +105,7 @@ the family is absent — or written empty — the reader answers with the preset
 `preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
 had written its six keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
 slide clean), and the CLI, the export and the Studio agree by construction. A preset
-deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
+deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `align:`, `stamp:` /
 `tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
 resolves to no preset. The Studio previews the four live on one sample slide, in the deck's theme and color mode, at the top of
 the deck panel, with a count of the keys that differ from the chosen preset and a Reset. See
@@ -255,7 +255,7 @@ page's layout class. The canvas axis and the deck's **surface registers** surviv
 swap as classes: `finish`/`finish-*`/`no-finish`, `mode:`, `stamp:`/`tone:`, every
 `spectrum*` register, `corners:`, `guards:`, `rule:`, `eyebrow:`, `inline-code:`,
 `headline:`, `lift:` and `backdrop:`. Two registers stay behind, because they describe how ONE
-layout composes and the cover is a different layout: `claim:` and `cards:`. They reach
+layout composes and the cover is a different layout: `claim:` and `align:`. They reach
 the page as `data-split-mods` like any other authored modifier. The list lives in
 `lib/core/surface-registers.js`, built from each register's own token list. The split
 re-injects the `.backdrop` wrapper on the pages it builds, so a cover really paints its
@@ -978,108 +978,99 @@ settings carry a **Marks** row (**Look**) that follows the deck unless you pin o
 rules are generated from each chart manifest's `kernel.marks` by
 `tools/build-marks-css.js`. Resolver: `lib/core/resolve-marks.js`.
 
-## The `cards:` front-matter register (where a card row puts its spare height)
+## The `align:` front-matter register (where content sits)
 
-A row of cards (`cards-grid`, `verdict-grid`) is a wrapped flex container handed the full
-height of the stage. **Stretching** its lines to share that height makes a card holding one
-line of text as tall as the row, carrying the difference as empty space inside itself — so
-the cards are sized to their text and the band is centered by default, and `cards:` hands
-the author the rest. Sibling of the registers above (`lib/core/resolve-cards.js`),
-propagated to every section, overridable per slide.
+One key places a slide's content on both axes, deck-wide or per slide, in everyday words modeled
+on flexbox (`lib/core/resolve-align.js`; owner, 2026-11-06,
+`engineering/decisions/2026-11-06-unified-align.md`). It replaced the `align:` register and the
+stage's `align-*` / `fill-center` / `fill-anchor` classes.
 
-| `cards:` value | Token | Effect |
-|---|---|---|
-| `center` | `cards-center` | Cards shrink to their text; the band sits at the stage's optical middle. |
-| `stretch` | `cards-stretch` | Cards fill their row; a sparse card carries the empty space inside it. This is what every deck did before the register. |
-| `top` | `cards-top` | Cards shrink; the band sits under the headline rule and the spare height collects at the bottom. |
-| `spread` | `cards-spread` | Cards shrink; the spare height is shared out between the rows, widening the gaps between them. |
+| Up and down | Effect | Side to side | Effect |
+|---|---|---|---|
+| `top` | Content starts under the headline rule; spare height collects below. | `left` | The content block starts at the left edge. |
+| `middle` | Content sits together in the middle of the stage. | `center` | The content block sits in the middle. |
+| `bottom` | Content sits on the floor of the stage; spare height rises above. | `right` | The content block ends at the right edge. |
+| `spread` | Rows keep their height and share the spare height between them. | `full` | The content block runs the full width. |
+| `fill` | Rows grow to fill the stage; a sparse card carries the space inside it. | | |
 
-**Omit the key and the COMPONENT decides.** Each card component declares its own composition
-in its manifest, and the engine honors it — `cards-grid` centers a grid but paces a tall
-single column, and either component stretches on a slide that ends in a Key Insight coda.
-So omitting `cards:` is *not* the same as writing `cards: center`: omission takes the
-component's answer for that slide's shape, and naming a value takes that value everywhere.
+Write one word or two, in any order: `align: bottom`, `align: bottom right`, `align: left top`.
+Each word belongs to one axis, except **`center` alone, which centers both**; beside an
+up-and-down word it is side to side only (`align: top center`). An unknown word, or a second word
+for an axis already named, is ignored, and lint flags it (`unknown-align`). Side to side moves the
+content BLOCK (`align-items`), never `text-align`.
 
-`stats`, `actors` and `kpi` follow the register too (2026-10-16). Their rows and tiles used to grow to fill
-the stage; they now size to their content and center, and `cards-stretch` brings the old fill back.
-`stats` was already centered, and honors `top`, `spread` and `stretch` on wide slides only: at tall, strip
-and square it stacks the numbers and fills the frame by design. Demo: `examples/cards-stats-actors-kpi.md`.
+**Omit the key, or an axis, and the COMPONENT decides.** A component that places a row or stack
+of members declares its up-and-down default in its manifest, and the engine honors it:
+`cards-grid` centers a grid but paces a tall single column, and stretches on a slide that ends in
+a Key Insight coda. So omitting `align:` is *not* the same as writing `align: middle`: omission
+takes the component's answer for that slide's shape, and naming a word takes that word
+everywhere. A component that declares nothing keeps its own stylesheet's placement until a word
+is written.
 
-Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
-`<!-- _class: cards-center -->` centers one slide in a deck that set something else (include
-the layout too, e.g. `_class: cards-grid cards-stretch`). **A per-slide token names a value;
-it does not restore "whatever this slide would have done."** At tall and strip, and on a slide
-that ends in a Key Insight coda, the rule's own fallback is not `center`, so `_class:
-cards-center` there overrides that shape's default rather than returning to it.
+**Per slide**, the same words are classes: `<!-- _class: cards-grid align-fill -->`,
+`align-center`, or the compound `align-bottom-right`, which the engine splits into its two
+classes. A slide's word beats the deck's **on its own axis only**: in an `align: bottom right`
+deck, `_class: align-top` moves one slide to the top and keeps it on the right. `align-center`
+alone names both axes there too. A per-slide word names a value; it does not restore "whatever
+this slide would have done": at tall and strip, and above a coda, the component's own fallback
+is not `middle`, so `align-middle` overrides that shape's default rather than returning to it.
 
-**A split slide keeps the setting on every page.** When a slide splits at a narrow box, each content
-page places its cards as `cards:` says, and centers them when nothing is set (the component's own
-tall-box default, `spread`, does not apply to a split page, because it widens the gaps between two or
-three cards instead of pacing a full column). Cards keep their natural height on a split page, except
-under `stretch`, where they fill it.
+**A split slide keeps the setting on every page.** When a slide splits at a narrow box, each body
+page places its members as `align:` says, and centers them when nothing is set (the component's
+own tall-box default, `spread`, does not apply to a split page, because it widens the gaps between
+two or three cards instead of pacing a full column). Members keep their natural height on a split
+page, except under `fill`, where they fill it.
 
-**Pick by how full the cards are, and check the gutter.** `center` and `top` both keep the
-gap between rows equal to the gap between columns, so the grid still reads as a grid;
-`spread` deliberately widens the row gap, which suits two rows of one-line cards and looks
-wrong when the rows are already close. `stretch` still earns its keep on a grid whose cards
-are genuinely full — nothing to reclaim, and stretching keeps the band flush to the stage.
-(A slide ending in a **Key Insight coda** already keeps stretching without being asked; see
-below.)
+**Pick by how full the content is, and check the gutter.** `middle` and `top` keep the gap between
+rows equal to the gap between columns, so a grid still reads as a grid; `spread` deliberately
+widens the row gap, which suits two rows of one-line cards and looks wrong when the rows are
+already close. `fill` earns its keep on a grid whose cards are genuinely full.
 
-**How it works — declared in the manifest, resolved by the engine.** A component states its
-composition in `<name>.manifest.json`:
+**How it works.** A component states its up-and-down default in `<name>.manifest.json`:
 
 ```json
-"cards": { "default": "center",
+"align": { "default": "middle",
            "byFamily": { "tall": "spread", "strip": "spread" },
-           "withCoda": "stretch" }
+           "withCoda": "fill" }
 ```
 
 `tools/build-stage-catalog.js` bakes every such declaration into
-`lib/core/cards-catalog.generated.js` (the runtime bundle cannot read manifests), and
-`lib/core/resolve-cards.js` — one kernel, shared by both render paths — resolves it against
-whatever the author asked for, in this order:
+`lib/core/align-catalog.generated.js` (the runtime bundle cannot read manifests), and
+`lib/core/resolve-align.js`, one kernel shared by both render paths, resolves it in this order:
 
-1. a per-slide `_class: cards-*`
-2. the deck's `cards:`
+1. a per-slide `_class: align-*` (and `align-center` alone means `middle`)
+2. the deck's `align:`
 3. the manifest's `withCoda`, then `byClass[variant]`, then `byFamily[family]`, then `default`
 
-`byClass` is for a component whose variants are different shapes: `split-panel` declares
-`"default": "spread"` for its plain evidence list and `"byClass": { "proof": "stretch" }` for
-the proof grid, whose equal rows are its design.
+The engine stamps the answer as `data-align`, `base.tokens.css` turns that into `--align-v`, and
+each row reads it in **one** declaration. **No component encodes a default in CSS.** A component
+with no declaration reads the up-and-down classes through the stage rules
+(`lib/forms/cell/stage/stage.css`), and side to side is the stage's `align-items` for every
+component.
 
-The engine stamps the answer as `data-cards`, `base.tokens.css` turns that into
-`--cards-align`, and each card row reads it in **one** declaration. **No component encodes a
-default in CSS.**
-
-**To opt a new component in**, two things: add `"cards": { "default": … }` to its manifest,
-and make its card container read the token. The field alone does nothing — the attribute lands
-and the variable is set, but a stylesheet that still hard-codes its own value ignores it — so a
-unit test fails any component that declares a composition its CSS never reads. A component that
-declares nothing is not governed at all: nothing is stamped and its stylesheet is untouched.
-The split-page rules override the composition outright at higher specificity, so a run's pages
-still look alike whatever the deck asked for. How the container reads the token depends on its
-shape:
+**To opt a component in**, add `"align": { "default": … }` to its manifest and make its container
+read the token; a unit test fails a component that declares a default its CSS never reads. How
+the container reads it depends on its shape:
 
 | Shape | Reads | Examples |
 |---|---|---|
-| **Row** — a wrapped flex row | `align-content: var(--cards-align)`; the row sets `flex-wrap: wrap`, its zero-basis cards still share one line, and each carries `min-width: 0` | `cards-grid`, `verdict-grid`, `decision`, `pricing`, `statute-stack`, `compare-prose`, `cards-stack horizontal`, the `list-steps` row, `team-profile` |
-| **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `compare-code` (its pair of panels; both stay equal height), `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
-| **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
-| **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
-| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `agenda cards`, `citation-card` (default form) |
-| **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
+| **Row** (a wrapped flex row) | `align-content: var(--align-v)`; the row sets `flex-wrap: wrap`, its zero-basis cards still share one line, and each carries `min-width: 0` | `cards-grid`, `verdict-grid`, `decision`, `pricing`, `statute-stack`, `compare-prose`, `cards-stack horizontal`, the `list-steps` row, `team-profile` |
+| **Grid** | `align-content: var(--align-v)` on the grid; auto rows size to their cards | `compare-code`, `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--align-track)`: `1fr` under `fill`, `auto` otherwise) |
+| **Two-by-two** | as a row, but each cell is exactly half the list under `fill` and its content otherwise (keyed on `--align-grow`); `q-and-a grid` draws its dividing cross only under `fill` | `matrix-2x2`, `q-and-a grid` |
+| **Flex column** | `justify-content: var(--align-v)`; each card grows only under `fill` (`flex: var(--align-grow) 1 var(--align-basis)`) | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` where they stack |
+| **Centered stage block** | the stage's `justify-content` (`safe center` for `middle` and `safe flex-end` for `bottom` where the component uses `safe`); the list grows under `fill` | `inventory cards`, `agenda cards`, `citation-card` (default form) |
+| **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--align-grow` lifts the ceiling | `list` (every register) |
 
-`--cards-grow`, `--cards-basis` and `--cards-track` are set by the same eight `[data-cards]`
-rules in `base.tokens.css` as `--cards-align`, so they can never disagree with it.
+`--align-grow`, `--align-basis` and `--align-track` are set by the same ten `[data-align]` rules
+in `base.tokens.css` as `--align-v`, so they can never disagree with it.
 
-**Defaults.** Every governed component declares `center`, except: `matrix-2x2` and
-`q-and-a` declare `stretch` (four equal quadrants are the layout; `q-and-a`'s single tall/strip
-column centers); `split-compare` declares `stretch` (its recommendation card sits under the
+**Defaults.** Every component that declares a default declares `middle`, except: `matrix-2x2` and
+`q-and-a` declare `fill` (four equal quadrants are the layout; `q-and-a`'s single tall/strip
+column centers); `split-compare` declares `fill` (its recommendation card sits under the
 options, inside the panel); `split-panel` spreads its evidence list and stretches `proof` and
 `capstone`; and `cards-grid`, `list`, `cards-stack` and `statute-stack` spread at the frames
 where they stack into one column, which is what they did before. A component stretches above a
-key-insight coda cell (`withCoda: stretch`) except those that already centered there on `main`
+key-insight coda cell (`withCoda: fill`) except those that already centered there on `main`
 (`team-profile`, `inventory`, `agenda`, `citation-card`, which declare no `withCoda`). The coda
 arm only fires where a `.cell-coda` forms: `split-compare`, `split-panel`, `inventory` and
 `citation-card` keep their blockquote inside the stage, so their slides never have one. A row never shrinks below its text: a slide with more than the stage holds overflows

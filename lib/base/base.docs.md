@@ -188,9 +188,9 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   directives (`_class`, `_footer`, …) reach every page wherever you wrote them, and a component
   named in its `_class` does not: each page is its pane's. The same markdown reads side by side
   at 16:9 and one-per-slide on a phone.
-- **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
-  centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
-  component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and
+- **`align:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
+  middle or bottom, spreads or fills as the deck's `align:` or the slide's `_class: align-*`
+  says, for every component that goes in a pane and declares an `align` default (tables do not; `split-panel` and
   `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
   marker cannot carry). One setting per slide: both panes take it.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart

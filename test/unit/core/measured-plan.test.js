@@ -93,16 +93,16 @@ test('a folded plan puts the key insight on the last body page and emits no clos
 
 describe('a split content page centers its cards unless the author chose', () => {
   const cardsCap = { 'cards-grid': { axis: 'item', hard: 2 } };
-  const grid = (cls, cards) => `<section data-lattice-slide="1" class="cards-grid${cls}" data-cards="${cards}"><h2>T</h2>${list(4)}</section>`;
-  const stamps = (html) => [...html.matchAll(/<section\b[^>]*data-split-role="body"[^>]*>/g)].map((m) => (m[0].match(/data-cards="([^"]*)"/) || [])[1]);
+  const grid = (cls, cards) => `<section data-lattice-slide="1" class="cards-grid${cls}" data-align="${cards}"><h2>T</h2>${list(4)}</section>`;
+  const stamps = (html) => [...html.matchAll(/<section\b[^>]*data-split-role="body"[^>]*>/g)].map((m) => (m[0].match(/data-align="([^"]*)"/) || [])[1]);
   test('no choice: every content page centers, whatever the component default was', () => {
     const r = splitDoc(grid('', 'spread'), cardsCap);
     assert.ok(r.changed);
-    assert.ok(stamps(r.html).every((v) => v === 'center'), stamps(r.html).join(','));
+    assert.ok(stamps(r.html).every((v) => v === 'middle'), stamps(r.html).join(','));
   });
   test('an author\'s choice rides every content page unchanged', () => {
-    for (const choice of ['top', 'stretch', 'spread', 'center']) {
-      const r = splitDoc(grid(` cards-${choice}`, choice), cardsCap);
+    for (const choice of ['top', 'bottom', 'fill', 'spread', 'middle']) {
+      const r = splitDoc(grid(` align-${choice}`, choice), cardsCap);
       assert.ok(stamps(r.html).every((v) => v === choice), `${choice}: ${stamps(r.html).join(',')}`);
     }
   });
@@ -117,9 +117,9 @@ test('a folded key insight lands after the stage and before the page chrome, onc
   assert.equal((out.match(/cell-footer/g) || []).length, 1);
 });
 
-test('a split content page with no cards: choice resolves to center on the runtime path too (§17)', () => {
-  const { resolveCardsAlign } = require('../../../lib/core/resolve-cards');
-  assert.equal(resolveCardsAlign({ classes: ['q-and-a'], family: 'square', splitBody: true }), 'center');
-  assert.equal(resolveCardsAlign({ classes: ['q-and-a', 'cards-stretch'], family: 'square', splitBody: true }), 'stretch');
-  assert.notEqual(resolveCardsAlign({ classes: ['q-and-a'], family: 'square' }), null);
+test('a split content page with no align: choice resolves to middle on the runtime path too (§17)', () => {
+  const { resolveAlign } = require('../../../lib/core/resolve-align');
+  assert.equal(resolveAlign({ classes: ['q-and-a'], family: 'square', splitBody: true }), 'middle');
+  assert.equal(resolveAlign({ classes: ['q-and-a', 'align-fill'], family: 'square', splitBody: true }), 'fill');
+  assert.notEqual(resolveAlign({ classes: ['q-and-a'], family: 'square' }), null);
 });

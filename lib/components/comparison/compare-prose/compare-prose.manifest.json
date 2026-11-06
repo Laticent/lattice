@@ -5,9 +5,9 @@
   "form": "split",
   "substance": "structure",
   "stage": "flow",
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",

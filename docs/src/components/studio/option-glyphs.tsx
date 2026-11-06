@@ -2,7 +2,11 @@ import {
 	AArrowDown,
 	AArrowUp,
 	ALargeSmall,
+	AlignHorizontalJustifyCenter,
+	AlignHorizontalJustifyEnd,
+	AlignHorizontalJustifyStart,
 	AlignVerticalJustifyCenter,
+	AlignVerticalJustifyEnd,
 	AlignVerticalJustifyStart,
 	AlignVerticalSpaceBetween,
 	Briefcase,
@@ -40,6 +44,7 @@ import {
 	SquareMousePointer,
 	SquareRoundCorner,
 	StretchHorizontal,
+	StretchVertical,
 	Tablet,
 	Target,
 	TextAlignCenter,
@@ -140,12 +145,20 @@ const GLYPHS = {
 	edge: EDGE,
 	/** `headline:` and the card tag's text alignment. */
 	align: ALIGN,
-	/** `cards:` — where a row of cards puts spare height. */
-	cardRows: {
-		center: { icon: AlignVerticalJustifyCenter },
-		stretch: { icon: StretchHorizontal },
+	/** `align:`, up and down. */
+	alignV: {
 		top: { icon: AlignVerticalJustifyStart },
+		middle: { icon: AlignVerticalJustifyCenter },
+		bottom: { icon: AlignVerticalJustifyEnd },
 		spread: { icon: AlignVerticalSpaceBetween },
+		fill: { icon: StretchHorizontal },
+	},
+	/** `align:`, side to side. */
+	alignH: {
+		left: { icon: AlignHorizontalJustifyStart },
+		center: { icon: AlignHorizontalJustifyCenter },
+		right: { icon: AlignHorizontalJustifyEnd },
+		full: { icon: StretchVertical },
 	},
 	corners: {
 		square: { icon: Square },

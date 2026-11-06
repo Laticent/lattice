@@ -142,16 +142,18 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blo
  * Stage centers [card grid + pull-quote]; the grid sizes to its rows so the quote
  * stays inside the bounded stage (see ledger note on dropping `flex:1`). */
 section.inventory.cards > .cell-stage { display: flex; flex-direction: column; justify-content: safe center; }
-/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the card grid and its pull-quote, so the
+/* ── `align:` register (#2317) ── the stage is a COLUMN that centers the card grid and its pull-quote, so the
  * register reads there as `justify-content`: the manifest's `center` is what it always did,
  * `top` seats it under the headline rule, and under `stretch` the list and its rows grow
- * (`--cards-grow`). `safe center`, as `list` does, so an overfull slide overflows DOWNWARD,
+ * (`--align-grow`). `safe center`, as `list` does, so an overfull slide overflows DOWNWARD,
  * where the overflow probe sees it; the coda arm wins when a coda is present. */
-section.inventory.cards > .cell-stage { justify-content: var(--cards-align); }
-section.inventory.cards[data-cards="center"] > .cell-stage { justify-content: safe center; }
-section.inventory.cards[data-cards-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--cards-align); }
-section.inventory.cards[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
-section.inventory.cards > .cell-stage > ul { flex-grow: var(--cards-grow); }
+section.inventory.cards > .cell-stage { justify-content: var(--align-v); }
+section.inventory.cards[data-align="middle"] > .cell-stage { justify-content: safe center; }
+section.inventory.cards[data-align="bottom"] > .cell-stage { justify-content: safe flex-end; }
+section.inventory.cards[data-align-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--align-v); }
+section.inventory.cards[data-align-coda="middle"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
+section.inventory.cards[data-align-coda="bottom"]:has(> .cell-coda) > .cell-stage { justify-content: safe flex-end; }
+section.inventory.cards > .cell-stage > ul { flex-grow: var(--align-grow); }
 section.inventory.cards > .cell-stage > ul {
   /* The card gutter is `--sp-md`, the same as every other card grid (decision, pricing,
    * statute-stack, matrix-2x2). It was `--sp-xs` everywhere, a third of that, which read as

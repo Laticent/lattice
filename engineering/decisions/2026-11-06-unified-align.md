@@ -33,7 +33,7 @@ in their own CSS; split pages center through `--split-place`; and the stage carr
    | `top` | `flex-start` | `left` | `start` |
    | `middle` | `center` | `center` | `center` |
    | `bottom` | `flex-end` | `right` | `end` |
-   | `spread` | `space-between` | `full` | `stretch` |
+   | `spread` | `space-evenly` | `full` | `stretch` |
    | `fill` | `stretch` | | |
 
    One word or two, in any order (`align: bottom right`, `align: left top`). Each word belongs to one
@@ -56,5 +56,30 @@ in their own CSS; split pages center through `--split-place`; and the stage carr
 
 `lib/core/resolve-cards.js` and its catalog, the `cards` manifest field (23 components), `--cards-align`
 and its CSS mapping in `base.tokens.css` and `pane.css`, the `[data-cards]` per-value rules, `--split-place`,
-the component CSS that centers a stage on its own, the stage `align-*` and `fill-*` modifiers, the `cards:`
+the component CSS that centers a stage on its own, the stage `align-*` modifiers and their `fill-center` / `fill-anchor` aliases, the `cards:`
 spec rows and conformance fixtures, the Studio card-row control, and the `cards:` docs and demo decks.
+
+## How it was built (2026-11-06)
+
+- **Up and down** goes two ways. A component that declares an `align` default in its manifest
+  (the 23 that declared `cards`) gets the resolved word stamped as `data-align`, which
+  `base.tokens.css` turns into `--align-v`; every other component reads the `align-*` class
+  through the stage rules in `lib/forms/cell/stage/stage.css`. **Side to side** is the stage's
+  `align-items`, from the class, for every component.
+- **`spread` maps to `space-evenly`**, not `space-between` as first written in the table above:
+  it is what `cards: spread` rendered, so a deck that moves from `cards: spread` to
+  `align: spread` keeps its look.
+- **A slide word beats the deck word on its own axis only**, and `align-center` alone names both
+  axes there too (`deckAlignTokensFor`).
+- **`fill-optical` stays** as its own class: it is an optical offset, not an alignment word.
+  `align-fill` grows rows only on a component that declares a default; elsewhere it reads as
+  `align-top`.
+- **Breaking for one per-slide class:** `align-center` used to center side to side only; alone
+  it now centers both ways, as decision 2 says.
+- **One placement per run (decision 6)** is a measuring pass, `lib/core/run-placement.js`, because
+  CSS has no "tallest sibling page". The export page and the runtime run the same kernel (the
+  `card-tag-equalize.js` pattern). It writes the top that places the run's tallest page as
+  `--run-pad` on every body page; base.modifiers.css starts the stage there. Measured on the
+  export check deck at square: the first line of each run moved by 57 to 125px between pages
+  before, and 0px after. A plain `.html` export has no script, so each page keeps its own
+  centering there.

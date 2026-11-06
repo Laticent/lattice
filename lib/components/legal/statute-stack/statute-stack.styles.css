@@ -72,14 +72,14 @@ section.statute-stack > .cell-stage > ol > li {
   line-height:var(--lh-base);
   font-weight:400;
 }
-/* ── `cards:` register (#2317) ── the default three-rail form only; hierarchy, bands,
+/* ── `align:` register (#2317) ── the default three-rail form only; hierarchy, bands,
  * preemption and lane are their own compositions. At wide the rails are a ROW: it wraps so
  * `align-content` applies, and the zero-basis rails still share one line and stay equal
  * height (`align-items` stretches them to the line). At square/tall/strip the rails stack
  * into a COLUMN (below) and the register reads there as `justify-content`; the manifest's
  * `spread` at those families is the `space-evenly` the column always had. */
 section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) {
-  flex-wrap: wrap; align-content: var(--cards-align);
+  flex-wrap: wrap; align-content: var(--align-v);
 }
 section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li {
   max-height: 100%; box-sizing: border-box;
@@ -413,11 +413,11 @@ section.statute-stack.lane td:last-child {
     /* portrait → single column of content-height cards, evenly distributed (flex mirror
        of `grid-auto-rows:auto; align-content:space-evenly`). */
     flex-direction: column; flex-wrap: nowrap;
-    justify-content: var(--cards-align);
+    justify-content: var(--align-v);
   }
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li,
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li {
-    flex: var(--cards-grow) 0 auto;
+    flex: var(--align-grow) 0 auto;
   }
   /* Header-pill authoring already carries the citation + status on the label row, so the
      portrait card needs no pill-lift — just breathing room between that row and the gloss. */
@@ -446,10 +446,10 @@ section.statute-stack > .cell-stage {
  * header wraps and the pill takes its place in the flow. */
 @container lat-cards (width < 36em) {
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
-    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--align-v); --lat-narrow: 1;
   }
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li {
-    flex: var(--cards-grow) 0 auto;
+    flex: var(--align-grow) 0 auto;
   }
 }
 /* A column card's header holds the label and the citation pill on one line, the pill pushed

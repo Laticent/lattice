@@ -32,7 +32,15 @@ const payloads = (src) => slideClassDirectives(src).map((d) => d.payload);
 // that lays out in panes the engine's class is the payload without them — one known, deliberate
 // difference, compared through this rather than tolerated wholesale.
 const { classLayout } = require('../../../lib/core/pane-spec');
-const sameClass = (scanned, engine) => scanned === engine || (classLayout(scanned || '') !== null && classLayout(scanned).rest === engine);
+// The scan returns the class as the author WROTE it, so lint can point at it; the engine-derived
+// reader names a compound align class (`align-bottom-right`) as the two classes it renders as
+// (lib/core/resolve-align.js). The comparison splits it the same way.
+const { expandAlignClasses } = require('../../../lib/core/resolve-align');
+const asRendered = (cls) => expandAlignClasses(String(cls || '').split(/\s+/).filter(Boolean)).join(' ');
+const sameClass = (scanned, engine) => {
+  const s = asRendered(scanned);
+  return s === engine || (classLayout(s) !== null && classLayout(s).rest === engine);
+};
 /**
  * The class an author literally WROTE in a chunk, read without the scanner — the
  * alignment tests below have to compare the scan against something independent of

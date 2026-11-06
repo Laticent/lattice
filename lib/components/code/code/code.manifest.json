@@ -1,9 +1,9 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "code",
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "adapt": {
     "mode": "native",
