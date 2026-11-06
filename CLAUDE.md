@@ -652,6 +652,20 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   direct request, which is why it exists despite `2026-09-02-bounded-wait-stays-an-index-row.md`
   declining a no-gate #31 for a different discipline.)*
 
+- **#32 — A test passes or fails on the code alone.** Never on the clock, the machine's load, the order things finish, a
+  random draw or the network. **Wait for a signal, not a duration** (no `waitForTimeout`, no hand-made sleep). **Assert on
+  work done** (a count, a size, an order), **not on milliseconds**: speed goes to `npm run bench` (#19), never into a
+  pass/fail test. **Seed every random input** and print the seed; **stub every network call**; give each test its own
+  state, port and temp folder; pin the date, timezone, locale and fonts it reads. The nine shapes (F1 to F9), each with
+  its fix, are `engineering/decisions/2026-11-06-flaky-tests.md`; **read it before writing or fixing a test that waits,
+  times, randomizes or reaches out.** A flaky test is a defect owned by the session that finds it (#18): fixed at its
+  cause, never retried, skipped or re-run until green. Born from #3041, ejected twice from the merge queue by a test that
+  divided one timing by another. *(partly gated — `checkFlakyTests` in `tools/check-ownership.js`, via `build:check`,
+  parses every committed test file and holds its fixed sleeps, stopwatch assertions and `Math.random()` calls exactly to
+  `tools/flaky-test-baseline.json`, so the backlog can only shrink; `// flaky-ok: <why>` marks a line that is right as it
+  is. A `docs/e2e` `waitForTimeout` stays with `checkE2ESleeps`. The other shapes are discipline.
+  `followups.d/3045-p1-flaky-test-audit.md` drives the baseline to empty, then sets Playwright's CI `retries` to 0.)*
+
 ---
 
 ## Read the canonical doc before working in its area
@@ -664,6 +678,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Branching, feature decks, share-the-PDF, rebase, merge, two-renderer rule | `engineering/workflow.md` |
 | **Starting on a branch, or told to check out / continue / pick one up** — another session may own it (HARD RULE #31) | `engineering/workflow.md` §Session branch ownership, then `npm run branch:owner -- <branch> --me session_<your id>` |
 | Node, npm scripts, tests, lint, hooks, CI, the cloud sandbox setup | `engineering/development.md` |
+| **Writing or fixing a test that waits, times, randomizes or reaches out** — the nine flaky shapes and their fixes (HARD RULE #32) | `engineering/decisions/2026-11-06-flaky-tests.md` |
 | **Waiting on a slow job** — a build, the integration tier, a push — one waiter per job, always bounded | `engineering/development.md` §Waiting for a slow job. Never hand-roll `until …; do sleep N; done` in a background call: it has no deadline and no identity, and a late fire re-sends the whole conversation at full price. Use `tools/wait-for.sh` |
 | Something behaving strangely (symptom index) | `dist/engineering/gotchas.md` (generated on install, not committed) lists SYMPTOMS — skim it, open the ONE `engineering/gotchas/<topic>.md` it names. Searching by API / property / selector / token instead? **`grep -rn <term> engineering/gotchas/`** — the bodies live there, not in the index. Never read either top-to-bottom |
 | Engine internals, where transform kernels live | `engineering/architecture.md` |
