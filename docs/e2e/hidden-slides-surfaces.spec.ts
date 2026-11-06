@@ -104,8 +104,9 @@ test('the Webpage export carries 3 slides and no hidden slide or its note', asyn
 test('the Captions export narrates the 3 shown slides, each with its own say: line', async ({ page }) => {
 	const zip = await JSZip.loadAsync(readFileSync(await download(page, 'captions', 'zip')));
 	const tracks = Object.keys(zip.files).filter((n) => /\.vtt$/.test(n));
-	// Word-timing tags (`<00:00:00.410>`) sit between the words; read the spoken text without them.
-	const all = (await Promise.all(tracks.map((n) => zip.file(n)?.async('string')))).join('\n').replace(/<[^>]*>/g, '');
+	// WebVTT word-timing tags (`<00:00:00.410>`) sit between the words; read the spoken text without them. Only that
+	// exact timestamp shape is removed: this reads caption text, it builds no HTML.
+	const all = (await Promise.all(tracks.map((n) => zip.file(n)?.async('string')))).join('\n').replace(/<\d{2}:\d{2}:\d{2}\.\d{3}>/g, '');
 	expect(all).toContain('Alpha is spoken');
 	expect(all).toContain('Charlie is spoken');
 	expect(all).not.toContain('Bravo');
