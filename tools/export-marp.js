@@ -136,7 +136,7 @@ function paletteClosure(palette) {
 function readTheme(src) {
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (!m) return null;
-  const t = m[1].match(/^theme:[ \t]*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  const t = [...m[1].matchAll(/^theme[ \t]*:[ \t]*["']?([A-Za-z0-9_-]+)["']?[ \t]*$/gm)].pop(); // the last repeat wins (#3050, D1)
   return t ? t[1].trim() : null;
 }
 

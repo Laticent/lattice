@@ -82,10 +82,12 @@ describe('deck-class register — the export boundary', () => {
     assert.ok(!/class:/.test(out.split('---')[1]), 'no bare `class:` invites re-adding the refused token');
   });
 
-  test('a duplicate register collapses to one line — Lattice reads the first, js-yaml the last', () => {
+  test('a duplicate register collapses to one line carrying the LAST value — Lattice and js-yaml both read the last', () => {
+    // It used to keep the FIRST, matching a reader that took the first match. The owner ruled
+    // last-wins on #3050 (D1), which is also what js-yaml (Marp's parser) and the engine read.
     const out = withSanitizedDeckClass(deck(['marp: true', 'class: no-note', 'class: safe']));
     assert.equal((out.match(/^[ \t]*class:/gm) || []).length, 1);
-    assert.match(out, /class: no-note/, 'the FIRST wins, matching how Lattice reads it');
+    assert.match(out, /class: safe/, 'the LAST wins');
   });
 
   test('CRLF survives as a line terminator rather than becoming part of the value', () => {
@@ -190,18 +192,21 @@ describe('deck-class register — the export boundary', () => {
     assert.equal(deckPrintBand('---\nclass: dark\n---\n\n## A\n'), false);
   });
 
-  test('KNOWN RESIDUAL: a duplicated `class:` resolves to the FIRST here and the LAST in the engine', () => {
-    // `frontMatterValue` returns the first match; `parseFrontMatter` overwrites, so
-    // the engine keeps the last. Pre-existing (`main`'s `deckPrintBand` read the
-    // same way) and NOT introduced here, but it is the remaining reader/stamper gap
-    // on this axis, so it is pinned rather than left to be rediscovered. Closing it
-    // means teaching the shared front-matter reader last-wins semantics, which
-    // changes every register at once — see the residual note in
-    // engineering/decisions/2026-08-05-deck-class-register-boundary.md.
+  test('a duplicated `class:` resolves to the LAST, in the engine, this reader and the export writer (#3050, D1)', () => {
+    // This was the KNOWN RESIDUAL: `frontMatterValue` took the first match while `parseFrontMatter`
+    // overwrote and kept the last, so `class: kpi` / `class: dark` rendered dark while this reader
+    // refused `kpi`. The owner ruled last-wins (the least astonishing reading, and js-yaml's), and
+    // `lint:deck` warns on the repeat (`duplicate-key`). All three now read the same line.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
     const fm = 'class: kpi\nclass: dark';
     assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark', 'the engine takes the LAST');
-    assert.deepEqual(deckClassTokensFromFrontMatter(fm), [], 'this reader took the FIRST (`kpi`) and refused it as a component');
+    assert.deepEqual(deckClassTokensFromFrontMatter(fm), ['dark'], 'so does this reader');
+    // The export writer collapses the repeat into ONE line carrying the last value.
+    assert.equal(withSanitizedDeckClass(`---\n${fm}\n---\n\n## S\n`), '---\nclass: dark\n---\n\n## S\n');
+    // `class :` is the same key, to the engine and to every reader.
+    const spaced = 'class : dark';
+    assert.equal(parseFrontMatter(`---\n${spaced}\n---\n`).directives.class, 'dark');
+    assert.deepEqual(deckClassTokensFromFrontMatter(spaced), ['dark']);
   });
 
   test('a `class:` line inside a `style: |` body is CSS, so both readers see only the real one', () => {

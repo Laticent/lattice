@@ -106,7 +106,7 @@ function done(d: Deck, active: number, moved: number[], copies: [number, number]
  * Exported for Compose, whose own add and delete rebuild the deck without these ops.
  */
 export function carrySay(before: string, after: string, moved: readonly number[], copies: readonly [number, number][] = []): string {
-	if (!/^say:[ \t]*$/m.test(frontMatterBlock(after))) return after;
+	if (!/^say[ \t]*:[ \t]*$/m.test(frontMatterBlock(after))) return after; // `say :` is the same key (#3050, D1)
 	const was = buildDeckIndex(before).units.map((u) => u.parts.length);
 	const now = buildDeckIndex(after).units.map((u) => u.parts.length);
 	if (was.length !== moved.length) return after;

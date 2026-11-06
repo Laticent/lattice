@@ -1,4 +1,4 @@
-studio: +360
-playground: +350
-home: +365
-The RAWTEXT close rule (#2052, `tolerateRawtextClose` in `@laticent/markup`) ships with the boundary parser every live preview splits slides with: without it the preview would split `</style >` decks differently from the export, which is the defect being fixed. About 340 gzipped bytes on each route, the rule itself; the package is already `sideEffects: false`, so there is nothing to shake out. CI measured +344, +332 and +349; declared with a little room for gzip variation.
+studio: +1200
+playground: +1000
+home: +800
+Two changes in this PR grow the startup JavaScript. The RAWTEXT close rule (#2052, `tolerateRawtextClose` in `@laticent/markup`) ships with the boundary parser every live preview splits slides with: without it the preview would split `</style >` decks differently from the export, the defect being fixed (about 340 B per route). The owner's D1 ruling (a repeated front-matter key reads as its last line everywhere) moves the readers that load at startup — `front-matter-key`, the Studio's own front-matter reader and writer, `deck-theme`, the pace and delivery readers — onto one last-line rule, so the Studio shows and edits the line the engine renders instead of a dead repeat. CI measured +1,118 (studio), +954 (playground) and +762 (home) on dd01ea4 against `main` f8730d9, after the review rounds moved the plugin host's `plugins:` and `class:` readers, the glossary and split strippers and the Studio's reset onto the same rule; declared with a little room for gzip variation. Given back first: the duplicate-key lint rule shares the unknown-key walk, and the ESM readers share one `front-matter-line.mjs` helper instead of three copies.

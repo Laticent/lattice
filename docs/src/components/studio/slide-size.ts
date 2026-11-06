@@ -46,7 +46,8 @@ export function sizeFromSource(source: string): string {
 	// paginate, …), and such a deck would silently fall back to 16:9. With `/m`, `$` matches
 	// end-of-LINE. (The original wording blamed `setFrontMatter` pushing the last-edited key
 	// to the end; that writer is retired — #1256 — and the `/m` is no less required without it.)
-	const m = /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]);
+	// TOP-LEVEL and LAST, as the engine reads `size:` (#2050, #3050 D1).
+	const m = [...fm[1].matchAll(/^size[ \t]*:[ \t]*(.+?)[ \t]*$/gm)].pop();
 	return m ? m[1].replace(/^['"]|['"]$/g, '').trim() : '';
 }
 

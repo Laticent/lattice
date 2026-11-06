@@ -955,7 +955,7 @@ export function createToolbox(opts: {
 export function isBlockKey(source: string, key: string): boolean {
 	const lines = innerFrontMatter(source).split(/\r?\n/);
 	const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const i = lines.findIndex((l) => new RegExp(`^${esc}\\s*:`).test(l));
+	const i = lines.findLastIndex((l) => new RegExp(`^${esc}\\s*:`).test(l)); // the line that counts (#3050, D1)
 	if (i < 0) return false;
 	const rest = lines[i].replace(new RegExp(`^${esc}\\s*:`), '').replace(/\s+#.*$/, '').trim();
 	if (/^[|>][+-]?\d*$/.test(rest)) return true;

@@ -150,7 +150,7 @@ export async function sectionsPerPart(deck: DeckIndex, count: CountSlides, memo:
 		for (let k = 0; k < deck.units[u].parts.length; k++) {
 			// Without the glossary trigger: the glossary belongs to the deck, and a part rendered alone
 			// would grow a glossary page of its own and count as two slides.
-			const md = `${front.replace(/^[ \t]*glossary:[^\n]*\r?\n?/m, '')}${partText(deck, u, k)}\n`;
+			const md = `${front.replace(/^[ \t]*glossary[ \t]*:[^\n]*\r?\n?/gm, '')}${partText(deck, u, k)}\n`;
 			let n = memo.get(md);
 			if (n === undefined) {
 				try {

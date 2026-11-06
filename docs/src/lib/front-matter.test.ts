@@ -524,3 +524,55 @@ describe('block scalars — `style: |` lines are body, never directives (followu
 		expect(setFrontMatterAcronyms(DECK, [['CRO', { expansion: 'chief revenue officer' }]])).toContain('style: |\n  lift: on\n');
 	});
 });
+
+describe('a repeated key: the Studio reads and writes the LAST top-level line (#3050, D1)', () => {
+	const deck = '---\ntheme: cuoio\nsize: square\ntheme: indaco\nsize : story\n---\n\n# A\n';
+	it('reads the last line, as the engine renders it', () => {
+		expect(getFrontMatter(deck, 'size')).toBe('story');
+		expect(getFrontMatter(deck, 'theme')).toBe('indaco');
+	});
+	it('a top-level line beats a nested one; a key only nested still reads', () => {
+		expect(getFrontMatter('---\nlenses:\n  size: x\nsize: story\n---\n', 'size')).toBe('story');
+	});
+	it('a write edits the line that counts, not the dead repeat', () => {
+		const out = writeFrontMatterLine(deck, 'size', '16:9');
+		expect(out).toContain('size: square');
+		expect(out).toContain('size: 16:9');
+		expect(out).not.toContain('size : story');
+		expect(getFrontMatter(out, 'size')).toBe('16:9');
+	});
+});
+
+describe('a repeated `finish-override:` block reads the LAST block (#3050, D1)', () => {
+	it('takes the last block, as `duplicate-key` says', () => {
+		const src = '---\nfinish-override:\n  backdrop:\n    strength: 10\nfinish-override:\n  backdrop:\n    strength: 90\n---\n\n# A\n';
+		expect(parseFinishOverride(src)).toEqual({ backdrop: { strength: '90' } });
+	});	it('a last inline line wins over an earlier block, and `finish-override :` is the same key', () => {
+		const block = 'finish-override:\n  backdrop:\n    strength: 10\n';
+		expect(parseFinishOverride(`---\n${block}finish-override: {}\n---\n\n# A\n`)).toEqual({});
+		expect(parseFinishOverride(`---\n${block}finish-override :\n  backdrop:\n    strength: 90\n---\n\n# A\n`)).toEqual({ backdrop: { strength: '90' } });
+		expect(parseFinishOverride(`---\n${block}finish-override:\ntheme: x\n---\n\n# A\n`)).toEqual({});
+		expect(parseFinishOverride(`---\n${block}finish-override: # none\n---\n\n# A\n`)).toEqual({});
+	});
+	it('removing a repeated key removes every top-level copy, so no dead one comes back', () => {
+		const src = '---\ncolor-mode: dark\ntitle: t\ncolor-mode : light\nlenses:\n  color-mode: x\n---\n\n# A\n';
+		const out = writeFrontMatterLine(src, 'color-mode', null);
+		expect(getFrontMatter(out, 'color-mode')).toBeUndefined(); // only the nested line is left, which the deck never reads
+		expect(out).toBe('---\ntitle: t\nlenses:\n  color-mode: x\n---\n\n# A\n');
+		expect(writeFrontMatterLine('---\ntheme: a\ntheme: b\n---\n\n# A\n', 'theme', null)).toBe('# A\n');
+		// An indented copy the reader falls back to once the top-level ones are gone goes too: one reset clears the key.
+		for (const fm of ['theme: a\n  theme: z\ntheme: b', 'foo: 1\n  theme: z\ntheme: b']) {
+			const reset = writeFrontMatterLine(`---\n${fm}\n---\n# B\n`, 'theme', null);
+			expect(getFrontMatter(reset, 'theme')).toBeUndefined();
+		}
+		// The block empties → stop: a `---` slide that follows must never lose a line that looks like the key.
+		expect(writeFrontMatterLine('---\ntheme: a\n---\n\n---\ntheme: c\n---\n\n# B\n', 'theme', null)).toBe('---\ntheme: c\n---\n\n# B\n');
+		expect(writeFrontMatterLine('---\ntheme: a\ntheme: b\n---\n---\ntheme: c\nx: y\n---\n# B\n', 'theme', null)).toBe('---\ntheme: c\nx: y\n---\n# B\n');
+	});
+	it('a `key :` block header: the writer skips its children, as the reader does', () => {
+		const src = '---\nlenses :\n  footer: lens\ntheme: x\n---\n\n# A\n';
+		const out = writeFrontMatterLine(src, 'footer', 'real');
+		expect(out).toContain('  footer: lens');
+		expect(getFrontMatter(out, 'footer')).toBe('real');
+	});
+});

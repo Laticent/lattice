@@ -340,12 +340,13 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 			expect(rename(src)).toBe(src.replace('title: Old', 'title: "New Name"'));
 		});
 
-		it('rewrites only the FIRST `title:`, and leaves a duplicate key alone', () => {
-			// getFrontMatter reads the first; the writer must target that same line rather than
-			// collapsing the block (which silently deleted the author's second key).
+		it('rewrites only the LAST `title:` (the one that counts), and leaves the dead duplicate alone', () => {
+			// A repeated key reads as its last line everywhere (#3050, D1), so getFrontMatter reads the last and the
+			// writer targets that same line, rather than collapsing the block (which silently deleted a key). It used
+			// to rewrite the first, when the reader read the first; `lint:deck` now flags the dead one (`duplicate-key`).
 			const src = '---\ntitle: First\nsize: wide\ntitle: Second\n---\n\n# Cover\n';
 			const out = rename(src);
-			expect(out).toBe('---\ntitle: "New Name"\nsize: wide\ntitle: Second\n---\n\n# Cover\n');
+			expect(out).toBe('---\ntitle: First\nsize: wide\ntitle: "New Name"\n---\n\n# Cover\n');
 		});
 
 		it('does NOT strip a leading `#` on the front-matter path — the scalar is literal', () => {

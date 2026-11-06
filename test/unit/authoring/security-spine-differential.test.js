@@ -205,10 +205,13 @@ describe('security spine S2: the front matter, read the way each consumer reads 
     assert.deepEqual(lintAddresses(src), ['https://fm-a.example/a.png']);
   });
 
-  test('`style:` as the CLI export pastes it: the first top-level one, quoted or a block', () => {
+  test('`style:` as the CLI export pastes it: the LAST top-level one, quoted or a block', () => {
     const { readGlobalStyle } = require('../../../lib/core/front-matter-style.js');
+    // A repeated `style:` reads as its last line, as the engine keeps it (#3050, D1), so the earlier
+    // line's address is neither pasted nor linted.
+    assert.deepEqual(lintAddresses('---\nmarp: true\nstyle: "section{background:url(https://dead.example/a.png)}"\nstyle: "section{color:red}"\n---\n\n# A\n'), []);
     for (const fm of [
-      'style: "section{background:url(https://first.example/a.png)}"\nstyle: "section{color:red}"',
+      'style: "section{color:red}"\nstyle: "section{background:url(https://last.example/a.png)}"',
       'style: |\n  section { background: url(https://block.example/b.png); }',
     ]) {
       const pasted = readGlobalStyle(fm);

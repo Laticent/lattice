@@ -51,10 +51,12 @@ export function stripFrontMatter(source: string): string {
  * scalars that would corrupt the source. A bare header with no indented children is
  * just an empty flat scalar. `finish:` etc. stay flat.
  */
-function parseFm(source: string): { pairs: [string, string][]; blocks: [string, string[]][]; scalars: Map<string, { head: string; body: string[] }> } {
+function parseFm(source: string): { pairs: [string, string][]; blocks: [string, string[]][]; scalars: Map<string, { head: string; body: string[] }>; indents: string[] } {
 	const m = FM_RE.exec(String(source ?? ''));
 	const scalars = new Map<string, { head: string; body: string[] }>();
-	if (!m) return { pairs: [], blocks: [], scalars };
+	// `indents[i]` is pair i's leading whitespace, so a reader can prefer a column-0 line (Lattice #3050, D1).
+	const indents: string[] = [];
+	if (!m) return { pairs: [], blocks: [], scalars, indents };
 	const pairs: [string, string][] = [];
 	const blocks: [string, string[]][] = [];
 	const lines = m[1].split(/\r?\n/);
@@ -72,10 +74,11 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
 			// Trailing blanks belong to the gap after the block, not to the scalar.
 			while (body.length && !body[body.length - 1].trim()) body.pop();
 			pairs.push([scalar[2], scalar[3].trim()]);
+			indents.push(scalar[1]);
 			scalars.set(scalar[2], { head: scalar[3].trim(), body });
 			continue;
 		}
-		const head = lines[i].match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // bare `key:` — no value
+		const head = lines[i].match(/^(\s*)([A-Za-z][\w-]*)[ \t]*:[ \t]*$/); // bare `key:` (or `key :`, the same key, #3050 D1) — no value
 		if (head) {
 			const base = head[1].length;
 			const child: string[] = [];
@@ -88,19 +91,23 @@ function parseFm(source: string): { pairs: [string, string][]; blocks: [string, 
 			}
 			if (child.length) { blocks.push([head[2], child]); continue; }
 			pairs.push([head[2], '']); // a bare header with no children is an empty scalar
+			indents.push(head[1]);
 			continue;
 		}
 		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(lines[i].trim());
-		if (kv) pairs.push([kv[1], unquote(kv[2])]);
+		if (kv) {
+			pairs.push([kv[1], unquote(kv[2])]);
+			indents.push(lines[i].match(/^(\s*)/)?.[1] ?? '');
+		}
 	}
-	return { pairs, blocks, scalars };
+	return { pairs, blocks, scalars, indents };
 }
 
 /** A block-scalar header line: `key: |`, `key: >-`, `key: |2+`, optionally with a trailing
  *  comment. Group 1 is the indent, 2 the key, 3 the indicator (plus any comment or trailing
  *  blanks; callers trim it). The tail is an alternation so a long run of spaces cannot
  *  backtrack quadratically; the engine's copy in lib/core/front-matter-key.js says why. */
-const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*):[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*|[ \t]*))\r?$/;
+const BLOCK_SCALAR_RE = /^(\s*)([A-Za-z][\w-]*)[ \t]*:[ \t]+([|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \t]+#.*|[ \t]*))\r?$/;
 
 /** Re-emit a front-matter block from flat pairs + nested blocks (verbatim child lines),
  *  or the bare body when nothing remains. Nested blocks trail the flat keys. A block scalar
@@ -145,8 +152,18 @@ function quoteIfNeeded(v: string): string {
 
 /** Read a single flat directive's value, or undefined if absent. */
 export function getFrontMatter(source: string, key: string): string | undefined {
-	const hit = parseFm(source).pairs.find(([k]) => k === key);
-	return hit?.[1];
+	// The line that counts, as the engine reads it (Lattice #3050, D1): the LAST column-0 pair for the key, and only
+	// when the key is nowhere at column 0, the first indented one (this reader's old loose read).
+	const { pairs, indents } = parseFm(source);
+	let top = -1;
+	let first = -1;
+	for (let i = 0; i < pairs.length; i++) {
+		if (pairs[i][0] !== key) continue;
+		if (first < 0) first = i;
+		if (!indents[i]) top = i;
+	}
+	const at = top >= 0 ? top : first;
+	return at >= 0 ? pairs[at][1] : undefined;
 }
 
 /**
@@ -206,6 +223,15 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 	const lines = m[1].split('\n'); // '\r' stays attached to the line, like `parseFm`'s own split
 	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
 	let at = open[0].length; // offset of the inner body's first line, within `src`
+	// The span that counts, as `getFrontMatter` reads it (Lattice #3050, D1): the LAST column-0 line for the key, else
+	// the first indented one. A writer edits the line the reader and the engine take, never a dead repeat.
+	type Span = { start: number; end: number; indent: string };
+	let top: Span | null = null;
+	let first: Span | null = null;
+	const pick = (span: Span) => {
+		if (!first) first = span;
+		if (!span.indent) top = span;
+	};
 	for (let i = 0; i < lines.length; i++) {
 		const raw = lines[i];
 		const line = bare(raw);
@@ -213,7 +239,7 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 		// skipped — the same lines `parseFm` skips, so no write can land inside the author's CSS.
 		const scalar = BLOCK_SCALAR_RE.exec(line);
 		if (scalar) {
-			if (scalar[2] === key) return { start: at, end: at + line.length, indent: scalar[1] };
+			if (scalar[2] === key) pick({ start: at, end: at + line.length, indent: scalar[1] });
 			const base = scalar[1].length;
 			at += raw.length + 1;
 			while (i + 1 < lines.length) {
@@ -224,7 +250,7 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 			}
 			continue;
 		}
-		const head = line.match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // a bare `key:` — no value
+		const head = line.match(/^(\s*)([A-Za-z][\w-]*)[ \t]*:[ \t]*$/); // a bare `key:` (or `key :`, as `parseFm` reads it) — no value
 		if (head) {
 			// Look ahead for indented children WITHOUT consuming: a header that owns them is a
 			// nested block (`finish-override:`, `lexicon:`) that `parseFm` never flattens into
@@ -243,7 +269,7 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 			}
 			if (child) { at += raw.length + 1 + skipped; i = j; continue; }
 			// No children — `parseFm` treats this as an empty scalar pair, so it can match.
-			if (head[2] === key) return { start: at, end: at + line.length, indent: head[1] };
+			if (head[2] === key) pick({ start: at, end: at + line.length, indent: head[1] });
 			at += raw.length + 1;
 			continue;
 		}
@@ -251,16 +277,37 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 		// parent counts as a flat pair. Mirror that rather than "fixing" it here — the writer
 		// must target whatever the reader read.
 		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim());
-		if (kv && kv[1] === key) return { start: at, end: at + line.length, indent: line.match(/^(\s*)/)?.[1] ?? '' };
+		if (kv && kv[1] === key) pick({ start: at, end: at + line.length, indent: line.match(/^(\s*)/)?.[1] ?? '' });
 		at += raw.length + 1;
 	}
-	return null;
+	return top ?? first;
 }
 
 /** Serialize a value the way a front-matter line does — exported so a caller that assembles
  *  a line itself quotes the one way this module quotes, instead of growing a second convention. */
 export function frontMatterValue(value: string): string {
 	return quoteIfNeeded(value);
+}
+
+/** Splice one key line out of `src`, its terminator with it; drop the whole block when nothing but blanks would remain. */
+function removeKeySpan(src: string, span: { start: number; end: number }): string {
+	let end = span.end;
+	if (src.startsWith('\r\n', end)) end += 2;
+	else if (src.startsWith('\n', end)) end += 1;
+	// Decide "is the block now empty?" against the ORIGINAL block's inner body, not by
+	// re-parsing the result: `FM_RE` does not match a degenerate `---\n---`, so the naive
+	// re-parse reports "no block" and leaves the empty delimiters stranded in the source.
+	const m = FM_RE.exec(src);
+	const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
+	if (m && open) {
+		const innerStart = open[0].length;
+		const innerEnd = innerStart + m[1].length;
+		const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
+		// Nothing but blanks left → drop the whole block, so clearing the last directive
+		// leaves the deck exactly as clean as it was before the first one was set.
+		if (!remaining.trim()) return src.slice(m[0].length);
+	}
+	return `${src.slice(0, span.start)}${src.slice(end)}`;
 }
 
 /**
@@ -280,32 +327,29 @@ export function frontMatterValue(value: string): string {
  *   1. the key EXISTS → splice its line, leaving every other byte alone;
  *   2. a block exists WITHOUT the key → insert one line before the closing `---`;
  *   3. no block at all → prepend a new two-line block.
- * Removal splices the line out (and drops the block entirely when nothing but blanks would
- * remain). No path parses and re-emits what it did not come to change.
+ * Removal splices the line out, every top-level copy of a repeated key (and drops the block
+ * entirely when nothing but blanks would remain). No path parses and re-emits what it did not come to change.
  */
 export function writeFrontMatterLine(source: string, key: string, value: string | null): string {
 	const src = String(source ?? '');
 	const span = frontMatterKeySpan(src, key);
 	if (value === null) {
 		if (!span) return src; // nothing to remove
-		// Take the line's own terminator with it, so removal leaves no blank line behind.
-		let end = span.end;
-		if (src.startsWith('\r\n', end)) end += 2;
-		else if (src.startsWith('\n', end)) end += 1;
-		// Decide "is the block now empty?" against the ORIGINAL block's inner body, not by
-		// re-parsing the result: `FM_RE` does not match a degenerate `---\n---`, so the naive
-		// re-parse reports "no block" and leaves the empty delimiters stranded in the source.
-		const m = FM_RE.exec(src);
-		const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
-		if (m && open) {
-			const innerStart = open[0].length;
-			const innerEnd = innerStart + m[1].length;
-			const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
-			// Nothing but blanks left → drop the whole block, so clearing the last directive
-			// leaves the deck exactly as clean as it was before the first one was set.
-			if (!remaining.trim()) return src.slice(m[0].length);
+		// A repeated key goes in EVERY copy the reader would read: removing only the line that counts would let an earlier,
+		// dead one count instead, or an indented one the reader falls back to (Lattice #3050, D1). A key nested under a block
+		// is never the deck's, so `frontMatterKeySpan` never returns it.
+		// Stop once the block is gone: what follows is slide content, and a `---` run there must never be read as it.
+		const dropped = (before: string, after: string) => after === before.slice(FM_RE.exec(before)?.[0].length ?? 0);
+		let out = removeKeySpan(src, span);
+		let more = !dropped(src, out);
+		while (more) {
+			const next = frontMatterKeySpan(out, key);
+			if (!next) break;
+			const after = removeKeySpan(out, next);
+			more = !dropped(out, after);
+			out = after;
 		}
-		return `${src.slice(0, span.start)}${src.slice(end)}`;
+		return out;
 	}
 	if (span) return `${src.slice(0, span.start)}${span.indent}${key}: ${quoteIfNeeded(value)}${src.slice(span.end)}`;
 	const m = FM_RE.exec(src);
@@ -331,7 +375,17 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
  * (or a stray scalar under it) yields nothing.
  */
 export function parseFinishOverride(source: string): Record<string, Record<string, string>> {
-	const block = parseFm(source).blocks.find(([k]) => k === 'finish-override');
+	// The LAST block, as every reader reads a repeated key (Lattice #3050, D1; `duplicate-key` says so).
+	// A last line that carries its value inline (`finish-override: {}`) wins over an earlier block, so it reads empty.
+	// So does a last bare header with no indented children (`finish-override:` alone): it reads as null.
+	const lines = (FM_RE.exec(String(source ?? ''))?.[1] ?? '').split(/\r?\n/);
+	const at = lines.findLastIndex((l) => /^finish-override[ \t]*:/.test(l));
+	if (at !== -1) {
+		const inline = lines[at].slice(lines[at].indexOf(':') + 1).replace(/#.*$/, '').trim() !== '';
+		const child = lines.slice(at + 1).find((l) => l.trim());
+		if (inline || !child || !/^\s/.test(child)) return {};
+	}
+	const block = parseFm(source).blocks.filter(([k]) => k === 'finish-override').pop();
 	if (!block) return {};
 	const out: Record<string, Record<string, string>> = {};
 	let cur: Record<string, string> | null = null;

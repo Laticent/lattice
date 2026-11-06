@@ -184,7 +184,7 @@ describe('notes-core: isLatticePragma', () => {
       path.join(__dirname, '..', '..', '..', 'docs', 'src', 'lib', 'front-matter.ts'),
       'utf8',
     );
-    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.find\(\(\[k\]\) => k === '([^']+)'\)/);
+    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.(?:find|filter)\(\(\[k\]\) => k === '([^']+)'\)/); // `filter(…).pop()` since #3050 D1 (the last block wins)
     assert.ok(m, 'parseFinishOverride no longer looks a block key up this way — re-derive the matcher');
     assert.equal(
       core.isLatticePragma(`${m[1]}:`), true,
