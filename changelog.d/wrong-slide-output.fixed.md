@@ -1,0 +1,1 @@
+- A split-panel point whose title carries its own bold run (`- **6** again`) no longer leaves a `<strong>` open on the split page. The split now reads the title as a balanced element, so later slides stop rendering bold, the export finds every slide again, and the title keeps its trailing words ("6 again", not "6").
