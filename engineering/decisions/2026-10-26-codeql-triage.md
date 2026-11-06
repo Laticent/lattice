@@ -95,3 +95,21 @@ GitHub's own CodeQL run on the PR flagged one more, which the local run above pr
 last branch of `quoteIfNeeded` (a value holding `'` together with `"` or a trailing `\`)
 escaped `"` but not `\`, so `it's C:\` still swallowed its closing quote. It now escapes
 both; a regression arm in `deck-config.quote.test.ts` fails without it.
+
+## 6. Re-check, 2026-11-06
+
+The release audit asked again for the 6 escaping and sanitizing findings #1958 names (the 4
+js/incomplete-sanitization regex escapes and the 2 multi-character sanitization ones). All 6 still
+stand as §2 left them on `main` at `dd1fb87`:
+
+| Finding | Now |
+|---|---|
+| lib/layout/gate.js `escapeRe` (×2 uses), lib/layout/ai.js:785, lib/plugins/mermaid/mermaid.highlight.js:157 | Full-metacharacter escape. A new arm in `test/unit/core/codeql-1958-sanitizers.test.js` fails if any of the three loses it. |
+| lib/engine/directives.js (comment directive parse) | False positive, §2. |
+| lib/integrations/markdown-it/plugins.js `firstChar` | Goes through `removeTags` (fixed point); the existing removeTags arm covers it. |
+
+**UNVERIFIED:** a CodeQL run before and after. The CLI could not be fetched this time (the
+session proxy answers 403 for github.com release downloads), and the alerts API still answers 403.
+The PR's own CodeQL check reports only new alerts. Dismissing the §2 and §3 false positives on the
+dashboard still needs someone with `security_events` access.
+
