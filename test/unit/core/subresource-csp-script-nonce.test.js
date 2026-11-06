@@ -17,11 +17,11 @@ test('no nonce: no script-src, so every other caller is unchanged', () => {
 	assert.doesNotMatch(subresourceCspPolicy({ fontOrigins: ['https://lattice.dev'] }), /script-src/);
 });
 
-test('a nonce: nonce + strict-dynamic, the host origin as the fallback, and nothing unsafe', () => {
+test('a nonce: nonce + strict-dynamic + eval (function-plot), the host origin as the fallback, never unsafe-inline', () => {
 	const p = subresourceCspPolicy({ scriptNonce: NONCE, fontOrigins: ['https://lattice.dev'] });
 	const script = p.split('; ').find((d) => d.startsWith('script-src'));
-	assert.equal(script, `script-src 'nonce-${NONCE}' 'strict-dynamic' https://lattice.dev`);
-	assert.doesNotMatch(p, /unsafe-inline|unsafe-eval|unsafe-hashes/);
+	assert.equal(script, `script-src 'nonce-${NONCE}' 'strict-dynamic' 'unsafe-eval' https://lattice.dev`);
+	assert.doesNotMatch(p, /unsafe-inline|unsafe-hashes/);
 	// The subresource directives are still all there.
 	for (const d of ['img-src', 'media-src', 'font-src', 'connect-src', "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) assert.ok(p.includes(d), d);
 });
@@ -35,7 +35,7 @@ test('a malformed nonce is refused rather than written into the policy', () => {
 test('an origin that is not exactly an origin does not reach script-src', () => {
 	const p = subresourceCspPolicy({ scriptNonce: NONCE, fontOrigins: ['https://a.dev/path', "https://b.dev 'unsafe-inline'", 'https://ok.dev'] });
 	const script = p.split('; ').find((d) => d.startsWith('script-src'));
-	assert.equal(script, `script-src 'nonce-${NONCE}' 'strict-dynamic' https://ok.dev`);
+	assert.equal(script, `script-src 'nonce-${NONCE}' 'strict-dynamic' 'unsafe-eval' https://ok.dev`);
 });
 
 // single-slide-render.ts stamps the nonce on the drawn-library preloads by matching their opening

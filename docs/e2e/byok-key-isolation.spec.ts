@@ -62,7 +62,7 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in t
 	// The second wall is in place: the frame's policy refuses any script without the page's nonce.
 	const policy = await frame.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
 	expect(policy, 'the preview frame carries the nonce script-src').toMatch(/script-src 'nonce-[\w-]{16,}' 'strict-dynamic'/);
-	expect(policy).not.toMatch(/unsafe-inline|unsafe-eval/);
+	expect(policy).not.toMatch(/unsafe-inline|unsafe-hashes/);
 
 	const leaked = await page.evaluate(() => (window as unknown as { __byokLeak?: string[] }).__byokLeak ?? []);
 	expect(leaked, 'no payload in the deck should run in the preview frame').toEqual([]);
