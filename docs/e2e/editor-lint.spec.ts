@@ -113,19 +113,11 @@ const REFUSED_DECK = [
 async function runFixAllFromPalette(page: import('@playwright/test').Page): Promise<void> {
 	const row = page.getByRole('option', { name: 'Fix all issues' });
 	// The row is offered once lint has counted a fixable issue: 1.3 s after the 501-card deck is typed in Gecko, 7 s in
-	// WebKit (measured). A palette opened BEFORE that never gains the row, even when the search is typed again; reopening
-	// it does (followups.d/3033-p3-palette-misses-a-row-added-while-open.md). So open, look, and close to try again, as a
-	// person would, until lint has caught up. This waits on the row itself, at every width (the phone has no button).
-	await expect(async () => {
-		await page.keyboard.press('ControlOrMeta+k');
-		await page.getByPlaceholder('Search or run a command…').fill('Fix all');
-		try {
-			await expect(row).toBeVisible({ timeout: 3_000 });
-		} catch (e) {
-			await page.keyboard.press('Escape');
-			throw e;
-		}
-	}).toPass({ timeout: 90_000 });
+	// WebKit (measured). An open palette shows a row that arrives while it is open (studio-palette-late-row.spec.ts,
+	// followups.d/3033), so open it once and wait on the row itself, at every width (the phone has no button).
+	await page.keyboard.press('ControlOrMeta+k');
+	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
+	await expect(row).toBeVisible({ timeout: 90_000 });
 	await row.click();
 }
 

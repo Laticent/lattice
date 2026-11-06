@@ -606,6 +606,32 @@ both arms on every engine. **The exports were right and the spec's oracle was wr
 - **Measured.** Before: `--project=desktop`, 2 failed (images, PowerPoint), 3 passed. After: 25 passed across
   `desktop`, `mobile`, `webkit-phone`, `webkit-tablet` and `gecko`.
 
+## The command palette's late row, fixed (2026-11-06)
+
+`followups.d/3033-p3-palette-misses-a-row-added-while-open.md` (deleted with this change) was deferred as blocked:
+the stale list reproduced only in the built Studio and the cause was not found. **The cause is cmdk 1.1.1's value
+fallback.**
+
+- **The mechanism.** cmdk's `useValue` takes an item's value from the first string among `[value, children, ref]`.
+  `CommandPalette.tsx` passed no `value`, and each row's children are `[<Icon />, label]`, so cmdk read the row's
+  `textContent`. A row that does not match the current search renders `null`, so a row that MOUNTS while a search is
+  typed has no text, scores 0 against the search and stays `null`. A retype rescored it against the same empty value.
+  Only a cleared search, which renders every row, gave it text, which is why reopening worked. Read in the real Studio:
+  with the toolbar's Fix all enabled, the open palette's DOM held one `[cmdk-item]`, the lesson row.
+- **The fix.** Every `CommandItem` in the Actions, Layout, Switch deck and Theme groups names its `value`, set to the
+  text cmdk read before, so scoring and `data-value` are unchanged. The Learn group keeps its rows mounted for the same
+  reason (its own comment) and now points here.
+- **The guard, without a race (HARD RULE #32).** `docs/e2e/studio-palette-late-row.spec.ts` holds the lint core
+  (`esm/lint.js`) at the network, types a deck whose only fixable finding is lint-core's card rule (the Studio's
+  fallback count cannot add the row), opens the palette, filters to "Fix all", asserts the row is absent, releases the
+  lint core and waits for the row with the palette still open. Before the fix: 5 failed, at the final wait, in
+  `desktop`, `mobile`, `gecko`, `webkit-tablet` and `webkit-phone`. After: 5 passed.
+- **The workaround it retires.** `editor-lint.spec.ts` `runFixAllFromPalette` opened, looked, closed and retried to dodge
+  this. It now opens once and waits (10 passed with the new spec across the same five projects).
+- **On the path, fixed here.** `command-palette.spec.ts` "the open search collapses the row into one menu" failed on
+  `main` too: `getByRole('menuitem', { name: 'Present' })` also matched the newer "Present tour" item. It now matches
+  exactly, and the spec passes on `desktop` and `tablet`.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

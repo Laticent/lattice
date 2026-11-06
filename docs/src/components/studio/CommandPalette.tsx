@@ -208,13 +208,19 @@ export function CommandPalette({
 	// sheet would raise the keyboard before the sheet finished animating in.
 	const mkField = (autoFocus?: boolean) => <CommandInput autoFocus={autoFocus} data-focus-ring="container" placeholder="Search or run a command…" />;
 	const field = mkField();
+	// EVERY ROW NAMES ITS `value` (followups.d/3033). Without one, cmdk 1.1.1 (`useValue`) takes the first STRING among
+	// `[value, children, ref]`; our children are `[<Icon />, label]`, so it falls back to the row's `textContent`. A row
+	// that mounts while a search is typed and does not match yet renders `null`, so it has no text, scores 0, stays
+	// `null`, and no retype can break the loop; only a cleared search (reopening) did. "Fix all issues" joins the list
+	// once lint has counted a fixable issue, often after ⌘K opened, and never showed. Each `value` is the text cmdk read
+	// before, so scoring and `data-value` are unchanged. `studio-palette-late-row.spec.ts` pins it.
 	const list = (
 		<>
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>
 				<CommandGroup heading="Actions">
 					{commands.filter((c) => c.group === 'actions').map((c) => (
-						<CommandItem key={c.id} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+						<CommandItem key={c.id} value={c.label} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
 					))}
 				</CommandGroup>
 				{lessons && lessons.length > 0 && onLesson && <LearnGroup lessons={lessons} onLesson={(id) => run(() => onLesson(id))()} />}
@@ -222,26 +228,26 @@ export function CommandPalette({
 					<>
 						<CommandSeparator />
 						<CommandGroup heading="Layout">
-							{onCollapseEditor && <CommandItem onSelect={run(onCollapseEditor)}><PanelLeftClose />Collapse editor pane</CommandItem>}
-							{onCollapsePreview && <CommandItem onSelect={run(onCollapsePreview)}><PanelRightClose />Collapse preview pane</CommandItem>}
-							{onExpandPane && <CommandItem onSelect={run(onExpandPane)}><PanelLeftOpen />Expand collapsed pane</CommandItem>}
-							{onResetSplit && <CommandItem onSelect={run(onResetSplit)}><Columns2 />Reset split</CommandItem>}
+							{onCollapseEditor && <CommandItem value="Collapse editor pane" onSelect={run(onCollapseEditor)}><PanelLeftClose />Collapse editor pane</CommandItem>}
+							{onCollapsePreview && <CommandItem value="Collapse preview pane" onSelect={run(onCollapsePreview)}><PanelRightClose />Collapse preview pane</CommandItem>}
+							{onExpandPane && <CommandItem value="Expand collapsed pane" onSelect={run(onExpandPane)}><PanelLeftOpen />Expand collapsed pane</CommandItem>}
+							{onResetSplit && <CommandItem value="Reset split" onSelect={run(onResetSplit)}><Columns2 />Reset split</CommandItem>}
 						</CommandGroup>
 					</>
 				)}
 				<CommandSeparator />
 				<CommandGroup heading="Switch deck">
 					{decks.map((d) => (
-						<CommandItem key={d.id} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
+						<CommandItem key={d.id} value={d.title} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
 					))}
 					{commands.filter((c) => c.group === 'deck').map((c) => (
-						<CommandItem key={c.id} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+						<CommandItem key={c.id} value={c.label} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
 					))}
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Theme">
 					{palettes.map((p) => (
-						<CommandItem key={p} onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
+						<CommandItem key={p} value={p} onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
 					))}
 				</CommandGroup>
 			</CommandList>
@@ -560,7 +566,7 @@ function LearnGroup({ lessons, onLesson }: { lessons: readonly LessonMeta[]; onL
 	const search = useCommandState((st) => st.search);
 	// HIDDEN, NOT UNMOUNTED. cmdk scores an item when it registers, and a row that mounts after the
 	// query changed was never scored against it, so it never showed (measured: "dark" found only the
-	// action). So the rows stay mounted; with no query they are hidden and `disabled`, which also takes
+	// action). The cause is the missing `value` noted above `list` in CommandPalette (followups.d/3033). So the rows stay mounted; with no query they are hidden and `disabled`, which also takes
 	// them out of arrow-key navigation.
 	const waiting = lessons.length > LEARN_ON_QUERY_ABOVE && !search.trim();
 	const done = doneLessons();
