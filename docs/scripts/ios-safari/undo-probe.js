@@ -443,6 +443,51 @@ async function latticeUndoProbe() {
 		for (const f of labFrames) f.remove();
 		const rung = bellRows.filter((r) => /undo true; focus kept true;.* command historyUndo; undid the word true/.test(r)).length;
 		k.step(`doorbell: ${rung} of ${bellRows.length} frame wipes re-armed WebKit's undo, reached Filo and kept focus`, true, `\n    ${bellRows.join('\n    ')}`);
+
+		// FIELD CHECK (the doorbell's open question, PR #3040). After a ring, the top of WebKit's undo list is the bell's
+		// own step. Move focus to a plain text field the Studio does not own, with no edits of its own, and send WebKit's
+		// undo command: which element gets the `historyUndo`, is it cancelled, and what is undone, the deck's word or
+		// nothing? Without the bell the top step is the editor's own typing, so a deck undo is also what happened before.
+		// Recorded, not asserted; the Mac row is the no-bell baseline.
+		const name = (el) =>
+			!el?.tagName ? String(el) : `${el.tagName.toLowerCase()}${el.hasAttribute('data-undo-doorbell') ? '[bell]' : ''}${el.classList.contains('cm-content') ? '.cm-content' : ''}${el.getAttribute('aria-label') === 'probe field' ? '[probe field]' : ''}`;
+		const fieldRows = [];
+		for (const wipe of [true, false]) {
+			await k.sleep(1500);
+			const word = wipe ? ' FW' : ' FN';
+			await k.type(word);
+			await k.until(() => k.deckText().includes(word), 15000, `field-check word ${word}`);
+			await k.sleep(300);
+			if (wipe) labFrame('<p>wipe</p>');
+			await k.sleep(700);
+			const before = `undo ${document.queryCommandEnabled('undo')} bell ${document.querySelector('[data-undo-doorbell]')?.textContent.length ?? 'none'}`;
+			const field = document.createElement('input');
+			field.type = 'text';
+			field.setAttribute('aria-label', 'probe field');
+			field.style.cssText = 'position:fixed;left:8px;bottom:8px;width:120px;z-index:99999';
+			document.body.appendChild(field);
+			field.focus();
+			await k.sleep(300);
+			const seen = [];
+			const spy = (e) => seen.push(`${e.type}:${e.inputType}@${name(e.target)}`);
+			const after = (e) => seen.push(`prevented ${e.defaultPrevented}`);
+			addEventListener('beforeinput', spy, { capture: true });
+			addEventListener('input', spy, { capture: true });
+			addEventListener('beforeinput', after);
+			const enabled = document.queryCommandEnabled('undo');
+			document.execCommand('undo');
+			await k.sleep(1500);
+			removeEventListener('beforeinput', spy, { capture: true });
+			removeEventListener('input', spy, { capture: true });
+			removeEventListener('beforeinput', after);
+			fieldRows.push(
+				`${wipe ? 'after a wipe (the bell rings on iOS)' : 'no wipe (the top step is the typing)'}: ${before}; focus ${name(document.activeElement)}; undo enabled ${enabled}; ${seen.join(', ') || 'no beforeinput'}; deck word undone ${!k.deckText().includes(word)}; field ${JSON.stringify(field.value)}`,
+			);
+			field.remove();
+			await restoreDeck();
+		}
+		for (const f of labFrames) f.remove();
+		k.step('focus in a plain text field after a ring: what a WebKit undo reaches (recorded, not asserted)', true, `\n    ${fieldRows.join('\n    ')}`);
 		result.events = [];
 
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
