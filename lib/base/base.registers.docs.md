@@ -821,16 +821,43 @@ matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
 
 ## The `venue:` front-matter register (where the deck is seen)
 
-`venue:` names the room, and the engine sets the type size for its back row. Use it
-instead of hand-picking `class: scale-*` for a deck that will be projected or shown on a
-shared screen.
+`venue:` names where the deck is seen, and the engine sets the type size for it. Use it
+instead of hand-picking `class: scale-*`. The four rooms are for a deck projected or shown on
+a shared screen; `phone` and `tablet` are for a deck read in a hand, such as a social post.
 
-| `venue:` value | Resolves to | Who is watching | Type | Labels |
+| `venue:` value | Resolves to | Who is watching | Type (16:9) | Labels |
 |---|---|---|---|---|
-| `laptop` | *(no class)* | You on your own screen. The default when `venue:` is omitted. | 1x | 1x |
+| `laptop` | `venue-laptop` | You on your own screen. The default on a 16:9 deck. | 1x | 1x |
 | `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
 | `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.1x) |
 | `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.3x) |
+| `phone` | `venue-phone` | Read in a hand: a feed, a story. The default on a square, portrait, story or mobile deck. | see below | 1x |
+| `tablet` | `venue-tablet` | A tablet held upright | see below | 1x |
+
+**The shape sets each venue's step.** The rooms are measured for a 16:9 slide on a screen
+across a room. A square or tall slide is mostly seen on a phone, where the same step reads
+differently, so each shape has its own row (`VENUE_SCALE_BY_FAMILY` in
+`lib/core/resolve-venue.js`; owner ruling 2026-11-05):
+
+| Shape (`size:`) | phone | tablet | laptop | huddle | conference | hall |
+|---|---|---|---|---|---|---|
+| 16:9, 4K, standard | 1x | 1x | **1x** | 1.15x | 1.3x | 1.5x |
+| square | **1.5x** | 0.75x | 1x | 1.15x | 1.3x | 1.5x |
+| portrait, story | **1x** | 0.6x | 1x | 1.1x | 1.17x | 1.22x |
+| mobile | **1x** | 0.72x | 1x | 1.1x | 1.17x | 1.22x |
+
+Bold is the default when `venue:` is omitted. Why each row is what it is:
+
+- **A square post at the old default read at about 11pt on a phone**, the size of a caption.
+  `phone` sets it at 1.5x, about 16pt on a 390pt-wide phone, close to the phone's own 17pt
+  reading size.
+- **A tall slide's designed size already reads at 17pt on a phone**, so `phone` is 1x there.
+- **The rooms rise less on a tall slide.** At 1.5x a story at hall held about 28 characters a
+  line, too few to read; 1.22x keeps about 35.
+- **`tablet` steps down**, because a tablet held at reading distance shows a slide larger than a
+  phone does.
+- **Venue is the only thing that changes a text size.** No component steps its type up or down
+  for a narrow box; it changes its layout instead.
 
 "Labels" is the meta role — eyebrows, captions, card tags — which a venue lifts past the
 body because the smallest text fails first at distance. The running header, footer and

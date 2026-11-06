@@ -88,7 +88,12 @@ function allCombos() {
 }
 
 function slideFor(group, combo) {
-  const classes = [GROUP_CLASS[group], ...combo.split('|')].filter(Boolean).join(' ');
+  // The designed rung names no venue in its key, but a slide with no venue class renders at its SHAPE's
+  // default (`phone`, x1.5, on a square slide; lib/core/resolve-venue.js), so it is stamped `venue-laptop`,
+  // the designed size on every shape. The rows stay keyed by rung, as lint reads them (`venueRung`).
+  const parts = combo.split('|');
+  if (!parts[1]) parts[1] = 'venue-laptop';
+  const classes = [GROUP_CLASS[group], ...parts].filter(Boolean).join(' ');
   const head = `${classes ? `<!-- _class: ${classes} -->\n\n` : ''}# ${group}|${combo}\n\n`;
   return group === 'compare'
     ? `${head}\`L\`\n\n\`\`\`js\n${RULER}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${RULER}\n\`\`\`\n`
@@ -173,7 +178,8 @@ async function measureCodeBars(browser, { groups = Object.keys(BAR_LAYOUT), rung
       for (const g of groups) for (const r of rungs) for (const [v, rec] of Object.entries(BAR_VARIANTS)) {
         const block = `${rec ? `\`@code{${rec}}\`\n` : ''}\`\`\`js\nconst a = 1;\nconst b = 2;\n\`\`\`\n`;
         const body = g === 'compare' ? `\`L\`\n\n${block}\n\`R\`\n\n\`\`\`js\nx\n\`\`\`\n` : block;
-        slides.push(`<!-- _class: ${[BAR_LAYOUT[g], r].filter(Boolean).join(' ')} -->\n\n# ${g}|${r}|${v}\n\n${body}`);
+        // The designed rung (and a bare spot scale) stamps `venue-laptop`: a slide with no venue renders at its shape's default (slideFor).
+        slides.push(`<!-- _class: ${[BAR_LAYOUT[g], r, r.startsWith('venue-') ? '' : 'venue-laptop'].filter(Boolean).join(' ')} -->\n\n# ${g}|${r}|${v}\n\n${body}`);
       }
       const src = path.join(dir, `${canvas.key}.md`);
       const html = path.join(dir, `${canvas.key}.html`);

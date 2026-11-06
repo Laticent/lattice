@@ -135,7 +135,7 @@ specify them, and `split:` and `preset:` have none.
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
 | `fit:` | `heal` · `report` · `trim` · `pack` | What the renderer may do to make a slide fit: repair, only report, cut, or repair with a measured split (`pack`: a slide that fits stays whole, and one that overflows packs as many members a page as fit, measured). A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
-| `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
+| `venue:` | `laptop` · `huddle` · `conference` · `hall` · `phone` · `tablet` | Where the deck is seen, which sets its type scale. The default is `laptop` on a 16:9 deck and `phone` on a square, portrait or story one, and the deck's shape sets each venue's step. | `unknown-venue` |
 
 **Settings** carry a value that is not one word from a list.
 

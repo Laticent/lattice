@@ -124,15 +124,27 @@ describe('code-line-clipped — the box decides', () => {
     }
   });
 
+  test('a square deck with no venue is judged at its phone default, the hall row; tall decks at the designed one', () => {
+    const sq = cols('pane', ['venue-hall'], '1080x1080', 'square');
+    assert.ok(sq < cols('pane', [], '1080x1080', 'square'), 'phone (x1.5) holds fewer columns than laptop on a square');
+    assert.equal(clipFinding(codeSlide('code', ['x'.repeat(sq)], 'square')), undefined, 'square: at the phone budget fits');
+    assert.ok(clipFinding(codeSlide('code', ['x'.repeat(sq + 1)], 'square')), 'square: one past the phone budget warns');
+    const tall = cols('pane', [], '1080x1350', 'tall');
+    assert.equal(clipFinding(codeSlide('code', ['x'.repeat(tall)], 'portrait')), undefined, 'portrait: phone is the designed size');
+  });
+
   test('code warns in EVERY box, because it never wraps — and the budget tightens', () => {
     const seen = [];
     for (const [size, family, canvas] of [[undefined, 'wide', HD], ['square', 'square', '1080x1080'], ['portrait', 'tall', '1080x1350'], ['mobile', 'strip', '1080x2340']]) {
+      // The designed size, named: a square, tall or strip deck with no venue renders at `phone`, its
+      // shape's default (lib/core/resolve-venue.js), which the next test pins.
       const budget = cols('pane', [], canvas, family);
+      const at = (lines) => codeSlide('code', lines, size).replace('---\n\n', 'venue: laptop\n---\n\n');
       assert.equal(
-        clipFinding(codeSlide('code', ['x'.repeat(budget)], size)), undefined,
+        clipFinding(at(['x'.repeat(budget)])), undefined,
         `${family}: a line exactly at the budget fits`,
       );
-      const f = clipFinding(codeSlide('code', ['x'.repeat(budget + 1)], size));
+      const f = clipFinding(at(['x'.repeat(budget + 1)]));
       assert.ok(f, `${family}: one past the budget must warn`);
       assert.match(f.message, new RegExp(`this pane fits about ${budget}`), family);
       seen.push(budget);

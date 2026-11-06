@@ -524,10 +524,10 @@ list-tabular (narrow, then tight): the row's block flow, and at tight the meta o
 math `matrix` (narrow, then tight): the legend's 5em hanging indent goes, and at tight a formula
 label takes its own line. video (narrow): poster over copy. topic `fact` (narrow, then tight):
 the eyebrow joins the flow at the position it was pinned to, so a second line pushes the name down
-instead of printing over it, and the claim steps from `--fs-h1` to `--fs-h2`. The split cover's
-lead-in (tight) sets its arrow inline after the last word and steps down to the body size. A
-lone member on a split page keeps the body size at tight instead of stepping up to
-`--fs-emphasis`, which left a padded checklist row eleven characters a line.
+instead of printing over it. The split cover's lead-in (tight) sets its arrow inline after the
+last word. (Superseded by §18: this PR first also stepped the `fact` claim and the lead-in down a
+type size at tight, and kept a lone split member at body size there; §18 removes every type-size
+step outside the venue, and the tall venues' smaller steps make them unneeded.)
 
 **Family rules retired.** As the owner's conditions ask, a component that moved to text room
 no longer keys a column rule on `data-family`: regulatory-update (medium), statute-stack's three
@@ -990,3 +990,75 @@ split when the row count changes with the page). After: 41 runs, 64 extra pages.
 mostly slides the measured plan does not drive: strategies that cut by their own recipe (cycle,
 `cards-grid three`, regulatory-update, the timelines) and members that are not list or table rows
 (math, policy-recommendation). Probe: .scratch/fill.js (to become a gate).
+
+## 18. Venue is the only thing that sizes type, and the shape sets the step (2026-11-05)
+
+**The owner's rule.** Fonts change only through the venue (laptop, huddle, conference, hall), never
+by a narrow box or by what is on the page. An audit of this PR's CSS found four places that broke
+it: the split cover's lead-in and the `topic fact` claim stepped DOWN a size under ~35 characters a
+line (this PR), a lone member on a split page stepped UP to `--fs-emphasis` (main), and math's lead
+equation scales to 1.55em in a tall box (main).
+
+**Why they existed: the venue step was tuned for 16:9.** Measured (body size, characters a line):
+
+| Shape | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| hd | 21px, 111 | 25px, 97 | 28px, 85 | 32px, 74 |
+| square | 30px, 66 | 35px, 58 | 39px, 51 | 45px, 44 |
+| portrait / story / mobile | 47px, 43 | 54px, 37 | 61px, **33** | 70px, **28** |
+
+A tall shape starts from a larger curated size, and the same x1.5 put a story at hall under the
+~35-character tight line. On a phone (390pt wide; the phone's own body text is 17pt) a square
+post at laptop read at about 11pt and a tall one at 17pt.
+
+**The decision (owner, 2026-11-05, option 1 of four put to them): handheld venues, and a step per
+shape.** `phone` and `tablet` join the rooms; `phone` is the default on square, tall and strip
+decks, `laptop` on wide ones; each shape has its own row (`VENUE_SCALE_BY_FAMILY`,
+lib/core/resolve-venue.js):
+
+| Shape | phone | tablet | laptop | huddle | conference | hall |
+|---|---|---|---|---|---|---|
+| wide | 1 | 1 | **1** | 1.15 | 1.3 | 1.5 |
+| square | **1.5** | 0.75 | 1 | 1.15 | 1.3 | 1.5 |
+| tall | **1** | 0.6 | 1 | 1.1 | 1.17 | 1.22 |
+| strip | **1** | 0.72 | 1 | 1.1 | 1.17 | 1.22 |
+
+Square's phone step is x1.5, about 16pt on a phone, and lands on the measured hall rung so every
+capacity budget measured there applies exactly. The stylesheet applies the default off the
+section's `data-family` stamp, so it follows the box a slide renders at; `venue: laptop` stamps
+`venue-laptop` to opt out. Lint reads a venue at the smallest measured rung at or above its step
+(`venueRung`), so a budget never promises room the slide does not have. The lead-in, fact-claim and
+lone-member steps are removed. Math's equation scale stays, as the one named exception: the
+factorization is one expression that cannot wrap, and without the scale it overflows on 4 slides
+per shape even at the default size, which no venue can fix.
+
+**Shown to the owner before it was built** (examples/kaizen-craftsmanship.md, fit: pack, hall):
+story 4 failing pages to 1 (40 pages to 36), portrait 8 to 5 (54 to 42), mobile 2 to 0 (39 to 34),
+laptop identical on every shape. **Measured after, every gallery** (structural split, clipped
+slide-cells): portrait@hall 364 to 196, story@hall 218 to 81, square@hall 174 to 172, laptop
+unchanged. **The cost, put to the owner:** square at the new phone default clips 150 slide-cells
+across the galleries against 9 at laptop. The cause, measured: 120 of the 150 never split, and the
+measured split does not rescue them (149), because each holds one piece that cannot split at x1.5.
+About 70 are the HTML/SVG hybrid charts, which keep their desktop columns at any width and declare
+no split strategy (roadmap, progress, timeline-list, matrix-grid); about 35 are single prose blocks
+(legal, citation-card, redline, split-panel). Pure-SVG charts never fail. The owner's direction:
+hybrids that are lists split like lists, hybrids that are tables split like tables, and a new
+pattern where none exists (matrix-grid by column); built in this PR.
+
+**Long words break with a dash** on square, tall and strip slides (base.elements.css): `hyphens:
+auto` for words of 10+ letters with 4 kept each side, `overflow-wrap: break-word` as the last
+resort, code and math opted out. The exporter's Chrome hyphenates (Chrome 131, measured), so the
+old note that headless Chrome cannot was stale. **The PDF writer could not read a hyphenated break**
+(lib/core/pdf-compose/read-slide.mjs `linePieces`), a defect latent until this rule turned
+hyphenation on: at a hyphenated break the next line's first letter reports the dash's box on the
+line above as well as its own, so the bounding box drew it at the end of the line before
+("straightfor-" printed as "straightforw" / "   ard."), and the dash, not being text, was never
+written. A forced break reports no extra box and was always read right. Each letter now takes its
+own box, and the writer draws the dash where the browser drew one
+(test/integration/export/read-slide-word-break.test.js; HYPHENATED fails on the old reader).
+
+**Two regressions found and fixed on the way.** big-number at story@hall went from 5 clipped
+slides to 1, which uncovered its caption measure, a fixed 43.75% of the slide, 12 characters a line
+at tall sizes: under ~47 characters it now takes the full width (adapt mode `reflow`). A glossary
+with a long term ("Predicted outcome") left its definition 14 characters a line at story@laptop
+after this PR dropped glossary's 23em step: under ~47 the term may now wrap between its words.

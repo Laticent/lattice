@@ -371,8 +371,11 @@ section. The modifier composes with any layout or variant (`dark`,
 way to set the scale: an author knows the room, not the multiplier the back row needs.
 
 ```yaml
-venue: conference   # laptop (default) · huddle · conference · hall
+venue: conference   # laptop · huddle · conference · hall · phone · tablet
 ```
+
+The default is `laptop` on a 16:9 deck and `phone` on a square, portrait, story or mobile
+one; see "Handheld venues, and the shape sets the step" below.
 
 | `venue:` | Who is watching | Back row, in screen-heights | Type step | Label lift | Code lift | Body x-height at the back row |
 |---|---|---|---|---|---|---|
@@ -381,11 +384,41 @@ venue: conference   # laptop (default) · huddle · conference · hall
 | `conference` | 10–30 people, a large TV or projector | 5–7 | 1.3x | 1.15x | 1.15x | ~11′ |
 | `hall` | 50–2,000 people, a stage screen | 7–10 | 1.5x | 1.3x | 1.14x | ~10′ |
 
-`lib/core/resolve-venue.js` maps each venue to a class (`venue-huddle`,
-`venue-conference`, `venue-hall`; `laptop` stamps none), and `base.modifiers.css` gives
+`lib/core/resolve-venue.js` maps each venue to a class (`venue-laptop`, `venue-huddle`,
+`venue-conference`, `venue-hall`, `venue-phone`, `venue-tablet`), and `base.modifiers.css` gives
 each class its `--fs-scale` rung, its `--venue-meta-lift` and its `--venue-compact-lift`. A per-slide `venue-*`
 overrides the deck's, and a slide can still carry `scale-*`, which wins over the venue's
 rung (the venue rules come first in the file) while the label lift stays.
+
+#### Handheld venues, and the shape sets the step (owner ruling 2026-11-05)
+
+The room bands above assume a 16:9 slide on a screen across a room. A square post or a story
+is mostly read in a hand, where the same step reads differently. Measured on a 1080-wide box,
+converted to points on a 390pt-wide phone (whose own reading size is 17pt):
+
+| Shape | laptop step on a phone | characters a line at hall (x1.5) |
+|---|---|---|
+| square | 10.9pt | 44 |
+| portrait, story, mobile | 17.0pt | 28 |
+| 16:9 | 6.5pt (not read in a hand) | 74 |
+
+So a square post at the old default read at caption size, and a tall slide at hall set too
+few characters a line to read. Two changes follow, and they are the only way type size moves:
+
+- **`phone` and `tablet` venues**, and `phone` is the default for square, tall and strip decks.
+  On a square deck `phone` is x1.5 (about 16pt on a phone; it is also the measured hall rung,
+  so every capacity budget measured there applies exactly). On a tall or strip deck it is x1,
+  the designed size, which already reads at 17pt. `tablet` steps down (x0.75 square, x0.6
+  tall, x0.72 strip), because a tablet shows a slide larger than a phone does.
+- **The rooms rise less on a tall slide**: x1.1, x1.17 and x1.22 instead of x1.15, x1.3 and
+  x1.5, so a story at hall keeps about 35 characters a line (the text-room tight threshold).
+
+The table is `VENUE_SCALE_BY_FAMILY` in `lib/core/resolve-venue.js`, applied in
+`base.modifiers.css` off the section's `data-family` stamp, so the default follows the box a
+slide renders at; `venue: laptop` stamps `venue-laptop` to opt out. Lint reads each venue at
+the smallest measured rung at or above its step (`venueRung`), so a budget never promises
+room the slide does not have. The before/after on a real deck and every gallery is §18 of
+`engineering/decisions/2026-10-28-fit-everywhere-model.md`.
 
 **Why the room reduces to one number.** How big text looks is the angle it takes up in
 the eye: `angle (arcminutes) ≈ 3438 × text height ÷ viewing distance`. Slide text is a

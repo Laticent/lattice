@@ -495,10 +495,6 @@ section.topic:not(:has(> ul.tile-track)) {
     inset-inline: auto;
   }
 }
-/* TIGHT ROOM: the `fact` claim is set at `--fs-h1`, and under ~35 characters a line that is seven
-   lines of three words ("Fourteen / months / blended, …"), which pushed the basis line off a
-   story page at hall once the eyebrow took its true height. One display step down holds the
-   claim to about half the lines and keeps it the largest type on the slide. */
-@container lattice (width < 17em) {
-  section.topic.fact > h2 + p { font-size: var(--fs-h2); }
-}
+/* The `fact` claim keeps `--fs-h1` at every box: venue is the only thing that changes a text
+   size (owner ruling 2026-11-05, fit-everywhere-model.md §18). It used to step down to `--fs-h2`
+   under ~35 characters a line, which the tall venues' smaller step (x1.22 at hall) made unneeded. */

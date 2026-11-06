@@ -172,7 +172,7 @@ import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import type { UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
-import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
+import { defaultVenue, familyForAspect, deckVenue as readDeckVenue, smallerVenue, type VenueName, venueOption, venueOptionsFor, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
@@ -4890,6 +4890,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// observer and the stale one is torn down with it.
 	const previewRatio = sizeRatio(deckSize);
 	const previewRatioValue = previewRatio[0] / previewRatio[1];
+	// The deck's shape family: a square, tall or strip deck reads at the `phone` venue by default (venue.ts).
+	const deckFamily = familyForAspect(previewRatioValue);
 	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
 	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
 	// The zoom controller rides the SAME callback ref as the observer, and for the
@@ -5285,14 +5287,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// notice: that is where a clip comes from the room size the author picked, and where a smaller
 	// room is a fix. Every other overflow keeps the ring it always had.
 	const [slideClipped, setSlideClipped] = React.useState(false);
-	const clipVenue = venueOption(deckVenue);
+	// The venue the slide renders at: the deck's own, or its shape's default (phone on a social deck).
+	const clipVenue = venueOption(deckVenue ?? defaultVenue(deckFamily), deckFamily);
 	// Which smaller room to offer. Lint already knows the answer for a slide it has a budget for
 	// (`capacity-scale` names the largest venue that holds it, and says "Split" alone when no venue
 	// would), so the button follows lint and never offers a room the slide still clips in. With no
 	// finding for this slide (a clip lint has no budget for), it offers the next room down.
 	const clipLint = findings.find((f) => f.rule === 'capacity-scale' && f.slide === curIndex + 1);
 	const lintRoom = clipLint?.fix?.match(/set `venue: (laptop|huddle|conference|hall)`/)?.[1] as VenueName | undefined;
-	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom) : smallerVenue(deckVenue);
+	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom, deckFamily) : smallerVenue(deckVenue, deckFamily);
 	const opSplitForVenue = (split: (source: string, index: number) => { source: string; active: number } | null) => {
 		const prev = sourceRef.current;
 		const r = split(prev, curIndex);
@@ -6066,13 +6069,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</Field>
 	);
 	const venueField = (
-		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop scale" help={<>The type size for the room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
+		<Field label="Venue" desc="Where it is seen." find="venue room projector hall conference huddle laptop phone tablet social scale" help={<>The type size for where the deck is seen. A 16:9 deck is sized for a room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A square, portrait or story deck is read in a hand, so it defaults to Phone, and its steps are set for its shape. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
 			<CatalogSelect
 				ariaLabel="Choose deck venue"
 				className="w-full"
 				value={deckVenue ?? AUTO_VALUE}
 				onValueChange={(v) => setDeckVenue(v === AUTO_VALUE ? null : (v as VenueName))}
-				groups={withAutoHead([{ options: VENUES.map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: 'Designed size' })}
+				groups={withAutoHead([{ options: venueOptionsFor(deckFamily).map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: deckFamily === 'wide' ? 'Designed size' : `Phone · ${venueOption('phone', deckFamily)?.scale}x` })}
 			/>
 		</Field>
 	);

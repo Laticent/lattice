@@ -1358,6 +1358,29 @@ section.venue-huddle     { --fs-scale: 1.15; --qr-min: 0.12; }
 section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; --venue-chrome-cut: 0.85; --qr-min: 0.16; }
 section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; --venue-chrome-cut: 0.85; --qr-min: 0.22; }
 
+/* THE SHAPE DECIDES THE STEP (owner ruling 2026-11-05; fit-everywhere-model.md §18). The rooms
+ * above are measured for a 16:9 deck on a projected screen. A square post or a story is mostly
+ * seen in a hand, so `venue: phone` and `venue: tablet` name that, and `phone` is the DEFAULT on a
+ * square, tall or strip deck: the unstamped section takes it here, off its own `data-family`, so
+ * the default follows the box a slide renders at. `venue: laptop` stamps `venue-laptop` and opts
+ * out. One table, VENUE_SCALE_BY_FAMILY in lib/core/resolve-venue.js, pinned to these lines by
+ * test/unit/parsing/resolve-venue.test.js:
+ *  - square: phone x1.5 (about 16pt on a 390pt phone; the measured hall rung), tablet x0.75;
+ *  - tall / strip: phone x1 (the designed size already reads at 17pt on a phone); the rooms rise
+ *    x1.1 / x1.17 / x1.22, because x1.5 on a tall box left under 35 characters a line; tablet x0.6
+ *    (tall) and x0.72 (strip), because a tablet shows a tall slide larger than a phone does;
+ *  - wide: phone and tablet are the designed size (a 16:9 deck is not read in a hand).
+ * The family part sits in :where(), so each rule weighs what `section.scale-l` weighs, and the
+ * `scale-*` rungs declared after them still win, as they do over the rooms. Venue is the ONLY
+ * thing that changes a text size: no rule elsewhere steps a role up or down for a narrow box. */
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --fs-scale: 1.5; }
+section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; }
+section.venue-huddle:where([data-family="tall"], [data-family="strip"])     { --fs-scale: 1.1; }
+section.venue-conference:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.17; }
+section.venue-hall:where([data-family="tall"], [data-family="strip"])       { --fs-scale: 1.22; }
+section.venue-tablet:where([data-family="tall"])  { --fs-scale: 0.6; }
+section.venue-tablet:where([data-family="strip"]) { --fs-scale: 0.72; }
+
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }
 section.scale-2xl { --fs-scale: 1.5;  }
@@ -3118,12 +3141,11 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    own column, so a lead-in that wraps wraps in the box beside it, and at portrait@hall "What
    each jurisdiction requires" set three short lines. Inline, the arrow follows the last word
    and the text keeps the frame's full width. The 0.4em the flex gap gave is folded into the
-   mark's own box, right-anchored, so nothing sits outside a box (HARD RULE #20). The lead-in
-   also steps down to the body size: at `--fs-emphasis` a story box at hall holds eleven
-   characters a line ("A monotonic / pipeline that / narrows"), and the lead-in is a line about
-   what comes next, not a second headline. */
+   mark's own box, right-anchored, so nothing sits outside a box (HARD RULE #20). Its SIZE does not
+   change here: venue is the only thing that sizes type (§18). It used to step down to the body
+   size, which the tall venues' smaller step (x1.22 at hall) made unnecessary. */
 @container lattice (width < 17em) {
-  .split-cover-lead { display: block; font-size: var(--fs-body); }
+  .split-cover-lead { display: block; }
   .split-cover-lead::after {
     display: inline-block; vertical-align: -0.12em; width: 1.4em;
     -webkit-mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
@@ -3532,10 +3554,10 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
        one item among many that are not there.
      · so it floats — a small grey run adrift in a page-tall box.
 
-   The fix is to stop treating it as a list item: drop the marker, reclaim its indent, and
-   set it one step up at `--fs-emphasis` — the same rung the insight page already uses for
-   the same reason (a page holding ONE thing sets that thing up). Palette-blind, and the
-   size comes from the 12-token scale rather than a literal (HARD RULE #4).
+   The fix is to stop treating it as a list item: drop the marker and reclaim its indent.
+   It keeps the body size: it used to step up to `--fs-emphasis`, until the owner ruled that
+   venue is the only thing that changes a text size (2026-11-05, fit-everywhere-model.md §18),
+   so a lone member now reads at the same size as the same member beside its siblings.
 
    SCOPED TO A *BARE* MEMBER, which is the whole subtlety. A HEAVY member — a card carrying
    a title and a body clause (HARD RULE #5's nested `- Title` / `  - body`) — already fills
@@ -3575,19 +3597,8 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   padding-inline-start: 0;
 }
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
-  font-size: var(--fs-emphasis);
   line-height: var(--lh-snug);
   text-wrap: pretty;
-}
-/* TIGHT ROOM (the text-room rule, base.elements.css): the step up costs a third of the line.
-   Under ~35 characters a line of body text, a lone member at `--fs-emphasis` inside a padded row
-   set eleven characters a line (a mustard checklist row at story@hall, "Per-team / weighting UI,
-   / descoped to next / half"), and a page holding one thing is no use if that thing cannot be
-   read. It stays at the body size there; everywhere else it steps up as above. */
-@container lattice (width < 17em) {
-  section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
-    font-size: var(--fs-body);
-  }
 }
 
 /* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────────

@@ -419,7 +419,8 @@ describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, ven
   test('each row reads what the deck resolves to — its own value, else its preset’s', async () => {
     const { readFrontMatter } = await import(MOD);
     const p = readFrontMatter(PLAIN);
-    assert.deepEqual([p.preset, p.headline, p.rule, p.eyebrow, p.corners, p.venue], ['', 'auto', 'auto', 'plain', 'square', 'laptop']);
+    // `venue` reads empty when unset: the default depends on the deck's shape (laptop on 16:9, phone on a social one).
+    assert.deepEqual([p.preset, p.headline, p.rule, p.eyebrow, p.corners, p.venue], ['', 'auto', 'auto', 'plain', 'square', '']);
     const e = readFrontMatter(ED);
     assert.deepEqual([e.preset, e.headline, e.rule, e.eyebrow, e.corners], ['editorial', 'left', 'short', 'bar', 'square']);
   });
@@ -433,7 +434,10 @@ describe('the look registers (preset:, headline:, rule:, eyebrow:, corners:, ven
     assert.match(writeFrontMatter(ED, 'headline', 'auto'), /\nheadline: auto\n/);
     assert.match(writeFrontMatter(PLAIN, 'corners', 'rounded'), /\ncorners: rounded\n/);
     assert.match(writeFrontMatter(PLAIN, 'venue', 'hall'), /\nvenue: hall\n/);
-    assert.doesNotMatch(writeFrontMatter(PLAIN, 'venue', 'laptop'), /venue:/);
+    // Unset is the SHAPE's default (laptop on 16:9, phone on a social shape), so `laptop` is a choice
+    // like any other and is written; only an empty value clears the key (fit-everywhere-model.md §18).
+    assert.match(writeFrontMatter(PLAIN, 'venue', 'laptop'), /\nvenue: laptop\n/);
+    assert.doesNotMatch(writeFrontMatter(PLAIN, 'venue', ''), /venue:/);
     assert.doesNotMatch(writeFrontMatter(ED, 'preset', 'classic'), /preset:/);
   });
 

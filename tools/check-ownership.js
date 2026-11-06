@@ -3115,7 +3115,13 @@ function subjectClasses(selector) {
 }
 
 const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
-const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+// A rung is `section.venue-*` / `section.scale-*`, and (handheld venues, fit-everywhere-model.md §18)
+// a venue rung narrowed to shape families, `section.venue-x:where([data-family="…"], …)`, or a
+// family's DEFAULT venue, `section:where([data-family="…"]):not(.venue-…, …)`, which applies only
+// where the slide names no venue. The family part is in :where() so it adds no weight; nothing
+// else may follow it, so a rung cannot smuggle in a component or a modifier.
+const FAMILY_WHERE = String.raw`:where\(\[data-family="[a-z]+"\](?:,\s*\[data-family="[a-z]+"\])*\)`;
+const RUNG_RULE = new RegExp(String.raw`^section(?:\.(?:venue|scale)-[a-z0-9]+(?:${FAMILY_WHERE})?|${FAMILY_WHERE}:not\(\.venue-[a-z0-9]+(?:,\s*\.venue-[a-z0-9]+)*\))$`);
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
 /** The type-size context the gate reads: component names, each component's own variant
