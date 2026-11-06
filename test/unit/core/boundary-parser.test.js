@@ -30,6 +30,7 @@ const MarkdownIt = require('markdown-it');
 const { installPlugins } = require('../../../lib/plugins/host');
 const { installSlidePipeline } = require('../../../lib/engine/slides');
 const { createBoundaryParser, boundaryParser, normalizeSource } = require('../../../lib/core/boundary-parser');
+const { tolerateRawtextClose } = require('../../../lib/core/rawtext-close.mjs');
 
 /**
  * The engine's parser, assembled the way `buildMd` (lib/engine/index.js) does.
@@ -46,6 +47,7 @@ const { createBoundaryParser, boundaryParser, normalizeSource } = require('../..
 function engineLikeParser() {
   const md = new MarkdownIt('commonmark', { html: true, breaks: true });
   md.enable(['table', 'strikethrough']);
+  tolerateRawtextClose(md);
   installSlidePipeline(md, {}, {});
   installPlugins(md);
   return md;

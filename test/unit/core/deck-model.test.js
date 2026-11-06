@@ -117,6 +117,7 @@ test('the markdown-it 14.3 block changes hold in the port', () => {
 		'<!doctype html>\n\ntext',
 		'- item\n  <!-- a\n\n  b -->\n- next',
 		'- item\n  <div>\n\n  x</div>',
+		'- <style>\n  a{}\n\n  b{}\n  </style>\n- next',
 		'[a]: /x\\ y\n\n[a]',
 		`[${'x'.repeat(1000)}]: /u\n\npara`,
 		`[${'x'.repeat(999)}]: /u\n\npara`,
