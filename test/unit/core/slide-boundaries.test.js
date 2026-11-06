@@ -412,6 +412,7 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 	const { slideBoundaryModel, setBoundaryDeriver } = require('../../../lib/core/slide-boundaries.mjs');
 	const { deriveFromNearest } = require('../../../lib/core/deck-model.mjs');
 	setBoundaryDeriver(deriveFromNearest);
+	try {
 	const { bodyModel } = require('../../../lib/core/deck-model.mjs');
 	const { deckModelStats } = await import('@laticent/segno-markdown');
 	const ATOMS = ['# A', 'text', '', '---', '***', '- item', '> quote', '```', '~~~', '<div>', '</div>', '<!-- _class: a -->', '<!--', '-->',
@@ -439,5 +440,7 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 	}
 	// The failing arm: the walk really did go through the incremental path.
 	assert.ok(deckModelStats.incremental - before.incremental > 500);
-	setBoundaryDeriver(null);
+	} finally {
+		setBoundaryDeriver(null);
+	}
 });

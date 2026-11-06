@@ -195,7 +195,9 @@ describe('DeckIndex — incremental update', () => {
 			const fm = frontMatterBlockOf(t);
 			return fm + (splitSlideChunks(t.slice(fm.length)) as { chunks: string[] }).chunks.map((c) => c.trim()).join('\n\n---\n\n');
 		};
+		// Installed for this test only: `finally` resets it even when an assertion fails, so no later test runs with it.
 		setBoundaryDeriver(deriveFromNearest);
+		try {
 		let ix = buildDeckIndex(src);
 		let text = src;
 		scanMetaSource(text);
@@ -214,7 +216,9 @@ describe('DeckIndex — incremental update', () => {
 		// strings (the Studio's front-matter reader keeps the blank lines after `---` out of the outline's body, the
 		// engine's split keeps them in the lint's), each one slide away from what the same reader asked a keystroke ago.
 		expect(deckModelStats.incremental - before.incremental).toBe(30);
-		setBoundaryDeriver(null);
+		} finally {
+			setBoundaryDeriver(null);
+		}
 	});
 
 	it('a keystroke inside one slide of a large deck rebuilds the units of one region, not the deck', () => {

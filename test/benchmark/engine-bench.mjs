@@ -2216,10 +2216,12 @@ function checkBaseline(summary, render, opts = {}) {
       const parsesNew = parsesKnown && b.parses === undefined;
       const parsesWorse = parsesKnown && !parsesNew && s2.parses > b.parses + 0.005;
       const parsesMoved = parsesKnown && !parsesNew && Math.abs(s2.parses - b.parses) > 0.005;
-      if (parsesNew) drift = true;
+      // A baseline number this run could not measure (the readers failed to load) is drift, never a silent pass.
+      const parsesLost = !parsesKnown && typeof b.parses === 'number';
+      if (parsesNew || parsesLost) drift = true;
       const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0) || parsesWorse;
       const verdict = worse ? (parsesWorse ? 'REGRESSION (more parses from nothing)' : 'REGRESSION (more typesets)')
-        : (tpsMoved || burstMoved || parsesMoved) ? 'less work — re-bless to ratchet' : parsesNew ? 'NEW parses column (re-bless)' : 'ok';
+        : (tpsMoved || burstMoved || parsesMoved) ? 'less work — re-bless to ratchet' : parsesNew ? 'NEW parses column (re-bless)' : parsesLost ? 'parses NOT MEASURED (readers failed to load)' : 'ok';
       if (worse) regressedDatasets.push(s2.dataset);
       if (verdict.startsWith('less work')) won = true;
       console.log(
