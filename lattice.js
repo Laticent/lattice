@@ -1978,7 +1978,7 @@ const bakeServices = {
   paletteReader: paletteTokenReader,
   fileConfine: DECK_CONFINE,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, ...PLUGIN_HOST });
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, authorSource: mdRaw, ...PLUGIN_HOST });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
 // cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
 // publishes one ran, and then the page carries none of their figures either.
@@ -2897,13 +2897,15 @@ const HOST_DRAWN = require('./lib/export/locked-figures.js').hostDrawnKinds(page
 // HOW LONG A HOST-DRAWN FIGURE MAY TAKE: as long as the render watchdog allows, as before D2, when the CLI drew these in
 // Node bounded only by the watchdog. A plugin's own budget is a preview's, per figure, and the figures here queue on one
 // locked page (the HARD RULE #25 red team: a slow plot exported as source). The settle barrier waits HOST_DRAW_SETTLE_MS
-// and warns for what it closes; each figure's own timer is set past it, so the barrier, not a silent timer, closes it.
+// and warns for what it closes. Each figure's own timer starts at hydrate, which can be seconds before the barrier
+// starts (load, fonts, deferred media), so it is set past the whole WATCHDOG and can never close a figure first, in
+// silence (the checker on the trio's fixes). A figure that never draws costs one barrier, up to the watchdog less 10 s.
 // Read from the environment here, because RENDER_WATCHDOG_MS (below) is not yet defined when this runs.
 const HOST_DRAW_SETTLE_MS = Math.max(settleBudget(pagePlugins), (Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000) - 10000);
 const capturePageHydrateScript = HOST_DRAWN.length
   ? [
       ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
-      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN, hostDrawnBudgetMs: HOST_DRAW_SETTLE_MS + 5000 })}\n</script>`,
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN, hostDrawnBudgetMs: (Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000) + 5000 })}\n</script>`,
     ].join('\n')
   : '';
 /** The capture page's copy of a document written to `outHtml`: the same, with the host-drawn plugins' libraries out. */

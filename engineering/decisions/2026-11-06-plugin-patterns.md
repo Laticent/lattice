@@ -245,6 +245,14 @@ figure memory's key carries the pixel ratio. The red team's decks now export byt
 300-term plot; four 400k-sample plots, 18,220,820 bytes on both), and a heavy plot ahead of a light one shows its own
 error while the light one draws, as on `main`. The inversion lens's findings are in the fence paragraphs below.
 
+**A checker on the trio's fixes** found the new warning named the wrong line under `--print` and `--size` (the CLI
+rewrites the front matter before the bake; `bakeDeck` now takes `authorSource`), gave a blank-line fix where it does not
+work (a `<pre>`, `<script>`, `<style>` or `<textarea>` block runs to its closing tag) and fired on an opener inside a
+comment or another fence; all three fixed, with tests. A figure's own timer now sits past the whole watchdog, so the
+barrier's counted warning always comes first. The known cost: a figure whose locked page never answers holds the
+barrier for the watchdog less 10 s (80 s by default), per barrier pass, where a preview budget would have closed it in
+4 s; that is the price of drawing the slow figures `main` drew, and `LATTICE_RENDER_WATCHDOG_MS` sets it.
+
 **Evidence: byte-identical exports.** Three function-plot decks (`examples/plugin-sandbox-tour.md`,
 `math-form-frame.md`, `plugin-system-phase-b.md`) exported to PDF, PNG and `--player` HTML before and after: 32 files,
 all identical. (A first comparison showed 4 bytes moved in one deck: a Mermaid gantt's `today` line, which moves with

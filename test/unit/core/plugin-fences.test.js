@@ -57,7 +57,8 @@ describe('the fences the engine parses', () => {
 });
 
 describe('a fence the engine folds into an HTML block: the export says so (D2 slice 3 changed its bytes)', () => {
-  const folded = (src) => foldedFenceLines(src, MERMAID);
+  const folded = (src) => foldedFenceLines(src, MERMAID).map((f) => f.line);
+  const helps = (src) => foldedFenceLines(src, MERMAID).map((f) => f.blankLineHelps);
   test('the opener\'s source line, front matter counted; a fence after a blank line is a fence, not folded', () => {
     assert.deepEqual(folded('<div>\n~~~mermaid\nx\n~~~\n</div>\n'), [2]);
     assert.deepEqual(folded('---\ntitle: t\n---\n\n<div>\n```mermaid\nx\n```\n</div>\n'), [6]);
@@ -67,6 +68,26 @@ describe('a fence the engine folds into an HTML block: the export says so (D2 sl
     assert.deepEqual(folded('<!--\n```mermaid\nx\n```\n-->\n'), []);
     assert.deepEqual(folded('<div>\n```json\n{}\n```\n</div>\n'), []);
     assert.deepEqual(folded('```mermaid\nx\n```\n'), []);
+  });
+  test('a <pre>, <script>, <style> or <textarea> block runs to its closing tag: a blank line does not help, so the advice differs', () => {
+    assert.deepEqual(helps('<div>\n```mermaid\nx\n```\n</div>\n'), [true]);
+    assert.deepEqual(folded('<pre>\n\n```mermaid\nx\n```\n</pre>\n'), [3]);
+    assert.deepEqual(helps('<pre>\n\n```mermaid\nx\n```\n</pre>\n'), [false]);
+  });
+  test('inside a block, an opener within an HTML comment or within another fence is not reported (the checker\'s probes)', () => {
+    assert.deepEqual(folded('<div>\n<!--\n```mermaid\nx\n```\n-->\n</div>\n'), []);
+    assert.deepEqual(folded('<div>\n```text\n```mermaid\n```\n</div>\n'), []);
+    assert.deepEqual(folded('<div>\n<!-- a note --> \n```mermaid\nx\n```\n</div>\n'), [3], 'a comment closed on its own line hides nothing');
+  });
+  test('the warning names the AUTHOR\'s lines when the CLI rewrote the source (--print, --size add front matter)', () => {
+    const warnings = [];
+    const bakers = [{ name: 'mermaid', load: () => ({ bake: (src) => src }) }];
+    const grammar = [{ name: 'mermaid', requires: [], optional: [], fences: { mermaid: { aliases: [] } }, detect: null }];
+    const author = '<div>\n```mermaid\nx\n```\n</div>\n';
+    bakeDeck(`---\nprint: true\n---\n\n${author}`, {}, { bakers, grammar, defaults: ['mermaid'], authorSource: author, warn: (m) => warnings.push(m) });
+    assert.match(warnings[0], /the fence on line 2 sits/);
+    bakeDeck('<pre>\n```mermaid\nx\n```\n</pre>\n', {}, { bakers, grammar, defaults: ['mermaid'], warn: (m) => warnings.push(m) });
+    assert.match(warnings[1], /Move it out of the HTML block/);
   });
   test('bakeDeck warns once for the plugin, naming the lines, and the bake still runs', () => {
     const warnings = [];
