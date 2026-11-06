@@ -616,7 +616,8 @@ every mic control is hidden rather than shown dead.
 card and the lobby now say it: a guest's browser connects directly to the host and everyone in
 the session at the knock, before admission, and the public servers that help browsers find each
 other (Google's and Cloudflare's STUN servers, and the Nostr relays) see the address too. The
-wording waits on the owner's approval; the docs site has no privacy page to link yet.
+owner approved the wording on 2026-11-06. The docs site has no privacy page to link yet
+(followups.d/2547-p2-live-privacy-note.md).
 
 **Deviations from the design above.**
 - The guest's copy is an ordinary deck with the host's title; the "Shared by" tag in the deck
