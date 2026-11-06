@@ -24,7 +24,7 @@ test('a right-click opens the slide’s menu, makes it current, and its action t
 	await railButtons(page).nth(2).click({ button: 'right' });
 	await expect(menu(page)).toBeVisible();
 	await expect(counter(page)).toHaveText('Slide 3 / 4');
-	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide after/, /New slide before/, /Duplicate/, /Move before/, /Move after/, /Delete/]);
+	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide after/, /New slide before/, /Duplicate/, /Move before/, /Move after/, /Hide slide/, /Delete/]);
 	await item(page, 'duplicate').click();
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Charlie Charlie Delta');
 	await expect(stripNote(page)).toContainText('Slide duplicated');
@@ -114,6 +114,9 @@ test('the arrows move inside the open menu, not along the strip; New slide after
 	await expect(item(page, 'new-before')).toBeFocused();
 	await expect(counter(page)).toHaveText('Slide 2 / 4');
 	await page.keyboard.press('ArrowUp');
+	// A key press is fire-and-forget: wait for the focus to land back on New slide after before Enter, or Enter can reach
+	// New slide before. Measured in this sandbox before this wait: 2 of 4 runs failed on main, 3 of 4 on this branch.
+	await expect(item(page, 'new-after')).toBeFocused();
 	await page.keyboard.press('Enter');
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 	await expect.poll(() => source(page)).toMatch(/^# Bravo[\s\S]*^## New slide[\s\S]*^# Charlie/m);

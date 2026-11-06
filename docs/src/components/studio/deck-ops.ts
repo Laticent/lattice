@@ -1,5 +1,6 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
 
 // Structural slide editing on the deck SOURCE — add / delete / duplicate / move / replace.
@@ -368,4 +369,48 @@ export function deleteTargetName(title: string, slides: number): string {
 /** How many authored slides (blocks) the deck holds, as the ops count them. */
 export function slideCount(source: string): number {
 	return read(source).slots.length;
+}
+
+// ── Hide / show (engineering/decisions/2026-11-06-hidden-slides.md) ───────────────────────────────────────────────────
+//
+// Hiding writes the authored form, `<!-- hide -->`, as the slide's first line; showing removes every line that is only a
+// `hide` directive. A hide written some other way (inside a longer comment line) that survives the removal is overridden
+// with `<!-- _hide: false -->`, which wins because the last `hide` on a slide wins. Code samples are left alone: a
+// `<!-- hide -->` shown in a fence is not a directive, and `slideSourceHidden` blanks code before it reads.
+
+const HIDE_LINE = /^[ \t]*<!--\s*_?hide(?:\s*:[^\n]*?)?\s*-->[ \t]*(?:\r?\n|$)/gm;
+
+/** The slide's markdown with its hide state set to `hidden`. */
+export function withHidden(content: string, hidden: boolean): string {
+	if (slideSourceHidden(content) === hidden) return content;
+	if (hidden) return `<!-- hide -->\n${content}`;
+	const removed = fencedSafe(content, (t) => t.replace(HIDE_LINE, ''));
+	return slideSourceHidden(removed) ? `${removed.replace(/\s+$/, '')}\n\n<!-- _hide: false -->` : removed;
+}
+
+/** Apply `fn` to the text OUTSIDE fenced code only, so a `<!-- hide -->` shown in a sample survives. */
+function fencedSafe(text: string, fn: (t: string) => string): string {
+	return text.split(/(^[ \t]*(?:```|~~~)[\s\S]*?^[ \t]*(?:```|~~~)[ \t]*$)/m).map((part, k) => (k % 2 ? part : fn(part))).join('');
+}
+
+/** Is rendered slide `s` hidden? Pass the deck index the caller already holds (`ix`) to skip a re-parse. */
+export function isHiddenAt(source: string, s: SlideAt, ix: { units: readonly { from: number; end: number; parts: readonly number[] }[] } = buildDeckIndex(source)): boolean {
+	const u = ix.units[s.unit];
+	if (!u) return false;
+	const from = u.from + (s.part > 0 && s.part < u.parts.length ? u.parts[s.part] : 0);
+	const to = s.part + 1 < u.parts.length ? u.from + u.parts[s.part + 1] : u.end;
+	return slideSourceHidden(source.slice(from, to));
+}
+
+/** Hide (`hidden` true) or show rendered slide `s`. Active stays on it. */
+export function setHiddenAt(source: string, s: SlideAt, hidden: boolean): DeckOpResult {
+	if (isHiddenAt(source, s) === hidden) return { source, active: s.unit, moved: identity(slideCount(source)) };
+	const c = cut(source, [s, after(s)]);
+	const d = read(c.source);
+	const i = c.unit(s);
+	const slot = d.slots[i];
+	if (!slot) return { source, active: s.unit, moved: identity(slideCount(source)) };
+	slot.content = withHidden(slot.content, hidden);
+	slot.touched = true;
+	return done(d, i, identity(d.slots.length));
 }

@@ -4,10 +4,17 @@ import { keysFor, menuItems } from './model';
 describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 	const ids = (s: Parameters<typeof menuItems>[0]) => menuItems(s, true).map((i) => i.id);
 
-	it('offers the same six actions in the same order on every slide', () => {
-		const order = ['new-after', 'new-before', 'duplicate', 'move-before', 'move-after', 'delete'];
+	it('offers the same seven actions in the same order on every slide', () => {
+		const order = ['new-after', 'new-before', 'duplicate', 'move-before', 'move-after', 'hide', 'delete'];
 		for (const at of [0, 3, 6]) expect(ids({ count: 7, at })).toEqual(order);
 		expect(ids({ count: 1, at: 0 })).toEqual(order);
+	});
+
+	it('names the moves by the deck order and Hide by the slide state (§5.1)', () => {
+		const labels = menuItems({ count: 7, at: 3 }, true).map((i) => i.label);
+		expect(labels).toEqual(['New slide after', 'New slide before', 'Duplicate', 'Move before', 'Move after', 'Hide slide', 'Delete']);
+		const hidden = menuItems({ count: 7, at: 3, hidden: true }, true).find((i) => i.id === 'hide');
+		expect(hidden).toMatchObject({ label: 'Show slide', hidden: true, keys: '' });
 	});
 
 	it('keeps a disabled action visible and says why', () => {

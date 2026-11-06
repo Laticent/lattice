@@ -2249,6 +2249,8 @@ const logoWallPack       = require('./lib/core/logo-wall-pack');
 // this replaced did not: a `<section` quoted inside a comment or a <style> moved
 // its depth counter, the walk found zero slides, and the export shipped a
 // one-page PDF with exit code 0.
+const { isHiddenSection } = require('./lib/core/hidden-slides.js');
+
 function topLevelSectionStrings(latticeHtml) {
   return splitSections(latticeHtml)
     .filter((p) => p.type === 'section')
@@ -2377,7 +2379,10 @@ function engineSlides(deckSource = rawMd) {
     }
   }
   const imageScrim = require('./lib/transformers/image-scrim');
-  return topLevelSectionStrings(html).map((sec, i) => {
+  // HIDDEN SLIDES leave every export here, at the one list every format reads (engineering/decisions/
+  // 2026-11-06-hidden-slides.md). Notes, alt text and the slide index are all read off THIS list, so they stay
+  // with their own slides; the engine has already numbered the shown slides 1..N without the hidden ones.
+  return topLevelSectionStrings(html).filter((sec) => !isHiddenSection(sec)).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
     // engine's basic-mode render doesn't: wrap half-canvas prose in
     // `.image-text`, and inject the contrast scrim for full/contain image

@@ -1,0 +1,39 @@
+import { describe, expect, it } from 'vitest';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { isHiddenAt, setHiddenAt, withHidden } from './deck-ops';
+
+const deck = '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\nBody.\n\n---\n\n# Three\n';
+
+describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
+	it('Hide writes `<!-- hide -->` on the slide and touches nothing else', () => {
+		const r = setHiddenAt(deck, { unit: 1, part: 0 }, true);
+		expect(r.source).toBe('---\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- hide -->\n# Two\n\nBody.\n\n---\n\n# Three\n');
+		expect(isHiddenAt(r.source, { unit: 1, part: 0 })).toBe(true);
+		expect(isHiddenAt(r.source, { unit: 0, part: 0 })).toBe(false);
+		expect(r.active).toBe(1);
+	});
+
+	it('Show removes it, byte for byte back to the original', () => {
+		const hidden = setHiddenAt(deck, { unit: 1, part: 0 }, true).source;
+		expect(setHiddenAt(hidden, { unit: 1, part: 0 }, false).source).toBe(deck);
+	});
+
+	it('Show removes every hide line, either spelling', () => {
+		const out = withHidden('<!-- _hide: true -->\n<!-- _class: content -->\n<!-- hide -->\n# Two', false);
+		expect(out).toBe('<!-- _class: content -->\n# Two');
+		expect(slideSourceHidden(out)).toBe(false);
+	});
+
+	it('a hide shown in a code sample is not a directive and survives Show', () => {
+		const sample = '# Teaching\n\n```md\n<!-- hide -->\n```';
+		expect(slideSourceHidden(sample)).toBe(false);
+		expect(withHidden(sample, false)).toBe(sample);
+		const hidden = withHidden(sample, true);
+		expect(slideSourceHidden(hidden)).toBe(true);
+		expect(withHidden(hidden, false)).toBe(sample);
+	});
+
+	it('a no-op when the slide is already in that state', () => {
+		expect(setHiddenAt(deck, { unit: 0, part: 0 }, false).source).toBe(deck);
+	});
+});

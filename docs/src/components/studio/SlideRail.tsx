@@ -13,6 +13,7 @@
 // render on the gallery deck (engineering/decisions/2026-10-15-fuoco-focus-sync.md §4).
 // Labels are cached here by text, so a keystroke re-derives only the slide it touched.
 
+import { EyeOff } from 'lucide-react';
 import * as React from 'react';
 import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
@@ -20,6 +21,7 @@ import type { FocusHub } from '@/lib/fuoco/hub';
 import { flatPart, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { slideClass, slideTitle } from '../../lib/deck-lint';
 import { type LiveColor, liveColor } from './live/live-model';
 
@@ -28,7 +30,8 @@ import { type LiveColor, liveColor } from './live/live-model';
 const LABEL_CAP = 4096;
 const classLabels = new Map<string, string>();
 const titleLabels = new Map<string, string>();
-function cached(map: Map<string, string>, text: string, derive: (t: string) => string): string {
+const hiddenFlags = new Map<string, boolean>();
+function cached<T>(map: Map<string, T>, text: string, derive: (t: string) => T): T {
 	let v = map.get(text);
 	if (v === undefined) {
 		if (map.size >= LABEL_CAP) map.clear();
@@ -63,7 +66,7 @@ export interface SlideRailProps {
 export const SlideRail = React.memo(function SlideRail({ hub, index, view, readLabels, liveBySlide, onPick, actions, onAddFirst }: SlideRailProps) {
 	const flat = useFocus(hub, (f) => f.flat);
 	const pills = React.useMemo(() => {
-		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string }> = [];
+		const out: Array<{ unit: number; section: number; flat: number; n: number; label: string; aria: string; hidden: boolean }> = [];
 		let n = 0;
 		for (const c of view) {
 			const ch = index.units[c];
@@ -74,8 +77,13 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 				const title = cached(titleLabels, text, slideTitle);
 				const cls = cached(classLabels, text, slideClass);
 				const label = readLabels ? title || `Slide ${n}` : cls;
-				const aria = readLabels ? `Slide ${n}${title ? ` — ${title}` : ''}` : `Slide ${n} — ${cls}`;
-				out.push({ unit: c, section: k, flat: flatPart(index, c, k), n, label, aria });
+				// A hidden slide (`<!-- hide -->`) keeps its place in the strip, the editor's order, and says it is hidden: the
+				// eye-off mark stands where its number would be, since Present and every export leave it out and number the
+				// slides after it without it (2026-11-06-hidden-slides.md).
+				const hidden = cached(hiddenFlags, text, slideSourceHidden);
+				const name = `Slide ${n}${hidden ? ', hidden' : ''}`;
+				const aria = readLabels ? `${name}${title ? ` — ${title}` : ''}` : `${name} — ${cls}`;
+				out.push({ unit: c, section: k, flat: flatPart(index, c, k), n, label, aria, hidden });
 			}
 		}
 		return out;
@@ -204,8 +212,8 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 						tabIndex={p.flat === tabStop ? 0 : -1}
 						className="flex shrink-0 select-none items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-left [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--accent)]"
 					>
-						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.n}</span>
-						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{p.label}</span>
+						<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{p.hidden ? <EyeOff aria-hidden className="size-3" data-strip-hidden="" /> : p.n}</span>
+						<span className={cn('text-[11px]', readLabels ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground', p.hidden && 'line-through decoration-1 opacity-70')}>{p.label}</span>
 						{/* Live presence: who else is on this slide (§5.3). Decorative — the Live panel lists it in words. */}
 						{people && people.length > 0 && (
 							<span aria-hidden className="flex -space-x-1">

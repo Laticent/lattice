@@ -8,6 +8,7 @@
 // renderer options + current palette, so Share hands off real artifacts rather
 // than a toast.
 
+import { splitSections } from '@laticent/markup';
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
@@ -17,6 +18,7 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
+import hiddenSlides from '../../../../lib/core/hidden-slides.js';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import iconFallbackCore from '../../../../lib/fonts/icon-fallback.js';
@@ -43,6 +45,10 @@ type PG = LatticePlaygroundEngine;
 /** The `render` object the image exporters (exportPdf/exportPptx) consume. */
 export type DeckRender = {
 	html: string;
+	/** 0-based positions of the slides the author hid (`<!-- hide -->`), already removed from `html`. A caller holding a
+	 *  list keyed by slide position drops the same entries (`shownOnly`), so every export leaves a hidden slide out
+	 *  and keeps each comment and note with its own slide (engineering/decisions/2026-11-06-hidden-slides.md). */
+	hidden?: number[];
 	css: string;
 	mode: 'light' | 'dark';
 	geom: { w: number; h: number };
@@ -154,8 +160,12 @@ export async function buildDeckRender(
 	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
+	// Every surface built from this render is a reader's view (an export, the print panel, the Article, narration), so a
+	// hidden slide leaves here, once, off the engine's own mark.
+	const shown = hiddenSlides.withoutHiddenSlides(out.html, splitSections);
 	return {
-		html: out.html,
+		html: shown.html,
+		hidden: shown.hidden,
 		// Saved local-component CSS (extraCss) rides last so the deck's `.<name>`
 		// slides export with their styles — same composition as the live preview.
 		css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
@@ -1176,6 +1186,8 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss));
+	// Review comments are keyed by slide position: drop a hidden slide's with the slide.
+	annotations = hiddenSlides.shownOnly(annotations, render.hidden);
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,

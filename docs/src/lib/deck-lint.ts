@@ -5,6 +5,7 @@
 import { type LensRegistry, lensPairs } from '@/lib/lente';
 import { slideClassDirectives } from '../../../lib/core/class-directive-scan.mjs';
 import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
+import { slideSourceHidden } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 
 // WHERE A SLIDE BEGINS — asked once, of the one module that knows.
 //
@@ -191,7 +192,9 @@ export type PresentLens = string;
 export function presentationPairs(slides: string[], lens: PresentLens, registry?: LensRegistry): Array<{ slide: string; index: number }> {
 	const all = (Array.isArray(slides) ? slides : [])
 		.map((slide, index) => ({ slide, index })) // index = ORIGINAL author position (survives the lens filter)
-		.filter((p) => typeof p.slide === 'string');
+		// A slide the author HID (`<!-- hide -->`) is never presented, under any lens (engineering/decisions/
+		// 2026-11-06-hidden-slides.md). Filtered first, so a lens never brings one back.
+		.filter((p) => typeof p.slide === 'string' && !slideSourceHidden(p.slide));
 	if (lens === 'full' || all.length === 0) return all;
 	// Registry (tag-driven) lens → the library projects it deterministically from approved tags.
 	// HONEST projection: an empty lens returns an EMPTY set, NOT the whole deck — a fail-OPEN fallback
@@ -201,7 +204,7 @@ export function presentationPairs(slides: string[], lens: PresentLens, registry?
 	// reader path (PresentOverlay) gates through lensEligibility and renders an explicit "unavailable"
 	// state; the author preview shows the real (possibly empty) membership.
 	if (registry?.lenses.some((l) => l.id === lens && l.id !== 'full')) {
-		return lensPairs(slides, registry, lens);
+		return lensPairs(slides, registry, lens).filter((p) => !slideSourceHidden(p.slide));
 	}
 	return all; // unknown lens with no registry entry → safe fallback to the whole deck
 }

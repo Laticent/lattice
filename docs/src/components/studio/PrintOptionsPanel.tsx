@@ -391,7 +391,13 @@ export function PrintOptionsPanel({
 	// for almost every deck; where the engine renders a different number of pages than the
 	// markdown has slides, the cells keep one self-contained document each (below) so the
 	// preview never shows a different page from the one that prints.
-	const pooled = mdSlides.length === sections.length;
+	// A hidden slide (`<!-- hide -->`) never prints: `buildDeckRender` drops it from `sections` and names its position in
+	// `render.hidden`, so printed page k shows the k-th SHOWN markdown slide (engineering/decisions/2026-11-06-hidden-slides.md).
+	const shownIdx = React.useMemo(() => {
+		const drop = new Set(render?.hidden ?? []);
+		return mdSlides.map((_, i) => i).filter((i) => !drop.has(i));
+	}, [mdSlides, render]);
+	const pooled = shownIdx.length === sections.length;
 	// ONE Mermaid flag for the whole deck, not per slide. The flag is part of a pooled frame's shape
 	// (preview-pool.tsx `shapeKey`), and a cell keeps its frame across flips, so a per-slide flag
 	// made every flip between a diagram slide and a plain one a full document rewrite (the checker
@@ -647,7 +653,7 @@ export function PrintOptionsPanel({
 											className="pod-cell"
 											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
 										>
-											<PooledThumbFace options={options} sample={cellSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+											<PooledThumbFace options={options} sample={cellSrc} slideIndex={shownIdx[slideIdx]} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[shownIdx[slideIdx]]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
 										</div>
 									);
 								})}

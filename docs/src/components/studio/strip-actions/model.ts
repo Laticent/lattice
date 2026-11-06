@@ -4,7 +4,7 @@
 // Positions are RENDERED slides in the full deck: the strip's affordances exist only on the full view, where a
 // strip's place is the deck's place.
 
-export type StripActionId = 'new-after' | 'new-before' | 'duplicate' | 'move-before' | 'move-after' | 'delete';
+export type StripActionId = 'new-after' | 'new-before' | 'duplicate' | 'move-before' | 'move-after' | 'hide' | 'delete';
 
 export interface StripMenuItem {
 	id: StripActionId;
@@ -14,6 +14,8 @@ export interface StripMenuItem {
 	/** Why the action cannot run now; the item stays in the menu, disabled, with this beside it. */
 	disabled?: string;
 	danger?: boolean;
+	/** The slide is hidden, so the `hide` item reads "Show slide" and draws the open eye. */
+	hidden?: boolean;
 }
 
 export interface StripMenuState {
@@ -25,6 +27,8 @@ export interface StripMenuState {
 	armed?: boolean;
 	/** The slide's name for the confirm ("“Market size”", "this slide"). */
 	name?: string;
+	/** The menu's slide is hidden (`<!-- hide -->`): Present and every export leave it out. */
+	hidden?: boolean;
 }
 
 /** The keys each action answers to while the strip holds keyboard focus (§5's table), as the menu prints them. */
@@ -41,13 +45,17 @@ export function keysFor(id: StripActionId, mac: boolean): string {
 			return mac ? '⇧⌘←' : 'Ctrl+Shift+Left';
 		case 'move-after':
 			return mac ? '⇧⌘→' : 'Ctrl+Shift+Right';
+		case 'hide':
+			// No shortcut: the menu and the command palette are the doors, as in Keynote and PowerPoint.
+			return '';
 		case 'delete':
 			return mac ? '⌫' : 'Delete';
 	}
 }
 
-/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move before, Move after, Delete, in that order. A disabled
- *  item says why rather than vanishing, so the menu has the same shape on every slide. */
+/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move before, Move after, Hide slide (Show slide
+ *  on a hidden slide), Delete, in that order. A disabled item says why rather than vanishing, so the menu has the same
+ *  shape on every slide. The words are the nomenclature table's (2026-10-27-slide-structure-strip.md §5.1). */
 export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	const one = s.count <= 1;
 	const first = s.at <= 0;
@@ -58,6 +66,7 @@ export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 		{ id: 'duplicate', label: 'Duplicate', keys: keysFor('duplicate', mac) },
 		{ id: 'move-before', label: 'Move before', keys: keysFor('move-before', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
 		{ id: 'move-after', label: 'Move after', keys: keysFor('move-after', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
+		{ id: 'hide', label: s.hidden ? 'Show slide' : 'Hide slide', keys: keysFor('hide', mac), hidden: !!s.hidden },
 		{ id: 'delete', label: s.armed ? `Confirm delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
 	];
 }
