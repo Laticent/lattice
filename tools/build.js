@@ -34,6 +34,7 @@
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
  *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
+ *  13b. third-party licenses  tools/build-third-party-licenses.js (dist/THIRD-PARTY-LICENSES.txt)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
  *  15. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
  *
@@ -298,6 +299,9 @@ const STEPS = [
   // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice-min.css,
   // dist/themes/, dist/lattice-runtime-min.js and dist/fonts/, so every one of
   // those must already be fresh. Before dist README, which indexes dist/.
+  // The verbatim MIT + OFL texts every Marp shipper copies (#1354). Reads assets/licenses/
+  // only; it sits here because the kit below copies it.
+  { label: 'third-party licenses (dist/THIRD-PARTY-LICENSES.txt)', script: 'build-third-party-licenses.js', uncommitted: true },
   { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js', uncommitted: true },
   // Reads the docs-portal / forms / concepts output, so it must follow them.
   { label: 'agent kit (dist/agent-kit)', script: 'build-agent-kit.mjs', uncommitted: true },

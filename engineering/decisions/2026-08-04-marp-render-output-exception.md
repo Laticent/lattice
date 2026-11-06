@@ -169,6 +169,11 @@ is why this note's status is `blocked` rather than `proposed`.
 
 ## Logged, not fixed here (HARD RULE #18, off-path)
 
+> **Fixed 2026-11-06 (#1354).** Every bundle now carries `THIRD-PARTY-LICENSES.txt`, the
+> verbatim MIT and OFL 1.1 texts, from `lib/export/third-party-licenses.js` via
+> `STATIC_ASSETS`, so the CLI and the Studio export ship the same file the Marp kit does,
+> and the bundle README names it. The record below is kept as found.
+
 **The Export-to-Marp bundle ships third-party components with none of their
 license texts.** This is separate from everything above, more clear-cut, and was
 found while checking the scope of the question.

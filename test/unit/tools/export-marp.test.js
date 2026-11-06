@@ -171,6 +171,25 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
+  // #1354: MIT asks for its notice "in all copies" and OFL 1.1 for its text to accompany the
+  // fonts. The bundle redistributes Mermaid, the KaTeX faces and the OFL text faces, so the TEXTS
+  // travel, and the README names the file.
+  test('ships the MIT and OFL license texts for its third-party files, and the README names them', () => {
+    const file = path.join(dest, 'THIRD-PARTY-LICENSES.txt');
+    assert.ok(fs.existsSync(file), 'bundle is missing THIRD-PARTY-LICENSES.txt');
+    const text = fs.readFileSync(file, 'utf8');
+    const lic = (f) => fs.readFileSync(path.join(REPO, 'assets', 'licenses', f), 'utf8').trimEnd();
+    for (const f of ['MIT-mermaid.txt', 'MIT-katex.txt', 'OFL-1.1.txt']) {
+      assert.ok(text.includes(lic(f)), `THIRD-PARTY-LICENSES.txt lacks the verbatim ${f}`);
+    }
+    assert.ok(fs.readdirSync(path.join(dest, 'fonts')).some((f) => /^KaTeX_/.test(f)), 'the bundle ships KaTeX faces, so the MIT text is owed');
+    assert.match(fs.readFileSync(path.join(dest, 'README.md'), 'utf8'), /THIRD-PARTY-LICENSES\.txt/);
+    // OFL condition 2: each family's copyright notice travels too, not only the license text.
+    for (const fam of ['Outfit', 'Playfair Display', 'JetBrains Mono', 'Caveat', 'Shantell Sans']) {
+      assert.match(text, new RegExp(`Copyright \\d{4} The ${fam} Project Authors`), `no copyright line for ${fam}`);
+    }
+  });
+
   test('bundled CSS is marp-scopable: no rule LEADS with :is(section…)', () => {
     // marp-core scopes off the leftmost compound, so a leading
     // `:is(section.x, figure.x)` head becomes a slide-inside-a-slide and matches

@@ -47,6 +47,8 @@ describe('marp-bundle spec', () => {
     assert.equal(byTo['lattice-dagre-min.js'], 'dist/lattice-dagre-min.js');
     // Mermaid is the mermaid plugin's own copy, shipped under the bundle's name for it.
     assert.equal(byTo['mermaid-v11-min.js'], 'lib/plugins/mermaid/vendor/mermaid.min.js');
+    // The third-party license texts travel with every bundle, from both producers (#1354).
+    assert.equal(byTo['THIRD-PARTY-LICENSES.txt'], 'dist/THIRD-PARTY-LICENSES.txt');
     // The bundle is Marp-native: no emulator is shipped.
     assert.ok(!STATIC_ASSETS.some((a) => /emulator/.test(a.from) || /emulator/.test(a.to)));
     assert.equal(byTo['dist/lattice.css'], undefined);
