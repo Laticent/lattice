@@ -76,13 +76,32 @@ describe('the grammar reads the engine\'s text, the finding quotes the author\'s
       assert.deepEqual(scanned(s), [['_class=kpi']], JSON.stringify(s));
     }
   });
+  test('a multi-line value keeps the engine\'s inner whitespace: S1 records the content, tabs expanded as getLines does', () => {
+    // The prefix heuristic this replaced read `a\n\tb` here; markdown-it's content is `a\n  b`.
+    for (const s of ['- <!-- _class: a\n\tb -->\n', '1. <!--\n\t _header: x\n   -->\n', '> <!-- _header: a\n>\t\tb -->\n', '- a\n\n  <!--\n  _header: cont\n\t  deeper\n  -->\n']) {
+      assert.deepEqual(scanned(s), engine(s), JSON.stringify(s));
+    }
+    assert.deepEqual(scanned('- <!-- _class: a\n\tb -->\n'), [['_class=a\n  b']]);
+  });
+  test('S1 records offsets, not a string: a string sliced from the parse source would keep that source alive', () => {
+    // The first cut stored getLines' result: a cons string of slices of the whole body. Chained incremental models
+    // (the boundary memo derives each miss from a held model) then kept a body per keystroke: 111 MB after 3,000
+    // keystrokes on a 130 KB deck of quoted comments, against 7.6 MB with offsets.
+    const model = bodyModel('> <!--\n> _class: kpi\n> -->\n');
+    const [r] = model.directives;
+    const side = model.segs[r.slide].side.get(r.token - model.segTok[r.slide]);
+    assert.equal(side.content, undefined);
+    assert.ok(side.meta instanceof Int32Array);
+    assert.equal(model.blockContent(r), '<!--\n_class: kpi\n-->\n');
+  });
 });
 
 test('fuzz: per slide, the directives scanMetaSource reads are the engine\'s', () => {
   const ATOMS = ['<!-- _class: a -->', '<!-- class: b -->', '> <!-- _class: c -->', '- <!-- _class: d -->', '<div>', '</div>', '```', '~~~',
     '    <!-- _class: e -->', '<!-- open', '-->', '---', '', '', 'text', '> quote', '- item', '<!--\n_class: f\n-->', '  <!-- _class: g -->',
     '1. <!-- _class: h -->', '\t<!-- _class: i -->', 'a <!-- _class: j -->', '<!-- _class: k --> tail', '***', '$$', '> <!--\n> _class: m\n> -->',
-    '<pre>', '</pre>', '- x\n  <!-- _class: n -->', '- <!--\n  _class: o\n  -->', '> - <!--\n>   _class: p\n>   -->', '>> <!--\n>> _class: q\n> > -->', '- a\n\n  <!--\n  _header: cont\n    deeper\n  -->'];
+    '<pre>', '</pre>', '- x\n  <!-- _class: n -->', '- <!--\n  _class: o\n  -->', '> - <!--\n>   _class: p\n>   -->', '>> <!--\n>> _class: q\n> > -->', '- a\n\n  <!--\n  _header: cont\n    deeper\n  -->',
+    '- <!-- _header: a\n\tb -->', '> <!-- _header: a\n>\tb\n> -->', '1. <!--\n\t _footer: t\n   -->', '\t- <!--\n\t  _header: u\n\t\tv -->'];
   let seed = 7;
   const rnd = (n) => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;

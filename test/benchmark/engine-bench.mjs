@@ -420,7 +420,56 @@ async function renderTier() {
 // `normal`'s), and `normal (jargon)` is kept as the CONTRAST row: a deck with no
 // math should show `typesets: 0` and is what makes the math row legible.
 const EDIT_BURST = 12;
+
+// THE STUDIO'S BOUNDARY READERS, per keystroke (engineering/decisions/2026-10-22-segno-deck-pipeline.md §The Studio's
+// readers derive, not parse). Two of them run on every keystroke beside the outline: the lint's comment scan
+// (`scanMetaSource`, which reads `chunkBoundaryLines` of the editor's body) and the preview's `editorSample`, which
+// StudioShell rebuilds from trimmed chunks. `parses` counts deck models built FROM NOTHING (`deckModelStats.full`)
+// per keystroke, a work count like `typesets`: 2 when each missed the boundary memo and parsed, 0 since a miss derives
+// from the nearest held model (`deriveFromNearest`, installed here; the browser does not install it yet,
+// followups.d/3042-p2-segno-lint-core-still-parses.md). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
+async function studioBoundaryReaders() {
+  try {
+    const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-markdown')]);
+    // The memo's deriver (absent in a tree that predates it).
+    const dm = await import('../../lib/core/deck-model.mjs');
+    if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);
+    if (!segno.deckModelStats || !sb.splitSlideChunks || !sb.resetBoundaryMemo) return null;
+    return { sb, scanMetaSource: ms.scanMetaSource, stats: segno.deckModelStats };
+  } catch {
+    return null;
+  }
+}
+function boundaryKeystrokes(readers, src) {
+  if (!readers) return { parses: null, ms: null };
+  const { sb, scanMetaSource, stats } = readers;
+  const sampleOf = (t) => {
+    const fm = sb.frontMatterBlockOf(t);
+    return fm + sb.splitSlideChunks(t.slice(fm.length)).chunks.map((c) => c.trim()).join('\n\n---\n\n');
+  };
+  sb.resetBoundaryMemo();
+  let text = src;
+  scanMetaSource(text);
+  sb.slideBoundaries(sampleOf(text));
+  const before = stats.full;
+  const times = [];
+  const N = 10;
+  for (let i = 0; i < N; i++) {
+    // A character typed at the end of a line in the deck's middle slide, as an author types.
+    const at = text.indexOf('\n', Math.floor(text.length / 2));
+    text = at < 0 ? `${text}x` : `${text.slice(0, at)}x${text.slice(at)}`;
+    const sample = sampleOf(text);
+    const t = process.hrtime.bigint();
+    scanMetaSource(text);
+    sb.slideBoundaries(sample);
+    times.push(Number(process.hrtime.bigint() - t) / 1e6);
+  }
+  times.sort((a, b) => a - b);
+  return { parses: round2((stats.full - before) / N), ms: times[Math.floor(N / 2)] };
+}
+
 async function editTier() {
+  const readers = await studioBoundaryReaders();
   const summary = [];
   for (const d of datasets.filter((x) => !EXCLUDED_FROM_EDIT_TIER.has(x.name))) {
     // Prime exactly as an author's session is primed: the deck has been rendered
@@ -466,6 +515,8 @@ async function editTier() {
     const burstMs = Number(process.hrtime.bigint() - tb) / 1e6;
     const burstTypesets = HAS_MATH_MEMO ? mathMemoStats().typesets - burstBefore : null;
 
+    const studio = boundaryKeystrokes(readers, d.src);
+
     summary.push({
       dataset: `edit \u00b7 ${d.name}`,
       slides: d.slides,
@@ -474,16 +525,20 @@ async function editTier() {
       scanMs,
       burstMs,
       burstTypesets,
+      parses: studio.parses,
+      parseMs: studio.ms,
     });
   }
 
   console.log('\n=== EDIT \u00b7 warm re-render per keystroke ===');
-  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}`);
+  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}${'parses/key'.padStart(12)}${'bounds ms/key'.padStart(15)}`);
   for (const r of summary) {
     const tps = r.typesets === null ? 'n/a' : r.typesets.toFixed(1);
     const burst = r.burstTypesets === null ? 'n/a' : String(r.burstTypesets);
+    const parses = r.parses === null ? 'n/a' : r.parses.toFixed(1);
+    const pms = r.parseMs === null ? 'n/a' : r.parseMs.toFixed(2);
     console.log(
-      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}`,
+      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}${parses.padStart(12)}${pms.padStart(15)}`,
     );
   }
   return { summary };
@@ -1734,6 +1789,7 @@ function blessBaseline(summary, render, opts = {}) {
     ms: round2(s.ms),
     scanMs: round2(s.scanMs),
     burstMs: round2(s.burstMs),
+    ...(s.parses === null ? {} : { parses: s.parses, parseMs: round2(s.parseMs) }),
   }));
   // THE FLOWCHART TIER BLESSES ITS WORK COUNTS; `ms` is commentary, as in the edit tier.
   const flowchartOut = tierRows(flowchartSummary?.length ? flowchartSummary : null, 'flowchartDatasets', (s) => ({
@@ -2154,11 +2210,20 @@ function checkBaseline(summary, render, opts = {}) {
       }
       const tpsMoved = Math.abs((b.typesets ?? 0) - s2.typesets) > 0.005;
       const burstMoved = (b.burstTypesets ?? 0) !== s2.burstTypesets;
-      const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0);
-      const verdict = worse ? 'REGRESSION (more typesets)'
-        : (tpsMoved || burstMoved) ? 'fewer typesets — re-bless to ratchet' : 'ok';
+      // `parses`: deck models the Studio's boundary readers build from nothing per keystroke. Compared only when both
+      // sides have it (a base tree without the readers prints `n/a`); a row blessed before it existed re-blesses.
+      const parsesKnown = s2.parses !== null && s2.parses !== undefined;
+      const parsesNew = parsesKnown && b.parses === undefined;
+      const parsesWorse = parsesKnown && !parsesNew && s2.parses > b.parses + 0.005;
+      const parsesMoved = parsesKnown && !parsesNew && Math.abs(s2.parses - b.parses) > 0.005;
+      // A baseline number this run could not measure (the readers failed to load) is drift, never a silent pass.
+      const parsesLost = !parsesKnown && typeof b.parses === 'number';
+      if (parsesNew || parsesLost) drift = true;
+      const worse = s2.typesets > (b.typesets ?? 0) + 0.005 || s2.burstTypesets > (b.burstTypesets ?? 0) || parsesWorse;
+      const verdict = worse ? (parsesWorse ? 'REGRESSION (more parses from nothing)' : 'REGRESSION (more typesets)')
+        : (tpsMoved || burstMoved || parsesMoved) ? 'less work — re-bless to ratchet' : parsesNew ? 'NEW parses column (re-bless)' : parsesLost ? 'parses NOT MEASURED (readers failed to load)' : 'ok';
       if (worse) regressedDatasets.push(s2.dataset);
-      if (verdict.startsWith('fewer')) won = true;
+      if (verdict.startsWith('less work')) won = true;
       console.log(
         `${s2.dataset.padEnd(28)}${(b.typesets ?? 0).toFixed(1).padStart(10)}${s2.typesets.toFixed(1).padStart(10)}${String(b.burstTypesets ?? 0).padStart(12)}${String(s2.burstTypesets).padStart(11)}  ${verdict}`,
       );

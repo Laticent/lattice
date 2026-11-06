@@ -3,7 +3,10 @@ import path from 'node:path';
 import { deckModelStats } from '@laticent/segno-markdown';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { deriveFromNearest } from '../../../../lib/core/deck-model.mjs';
+import { scanMetaSource } from '../../../../lib/core/meta-scan.mjs';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
+import { frontMatterBlockOf, setBoundaryDeriver, slideBoundaries, splitSlideChunks } from '../../../../lib/core/slide-boundaries.mjs';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide } from '../../components/studio/deck-ops';
 import { splitSlides } from '../deck-lint';
 import { createFocusHub } from '../fuoco/hub';
@@ -178,6 +181,44 @@ describe('DeckIndex — incremental update', () => {
 		expect(deckModelStats.full - before.full).toBe(0);
 		expect(deckModelStats.incremental - before.incremental).toBe(10);
 		expect(shape(ix)).toEqual(shape(buildDeckIndex(text)));
+	});
+
+	it('a Studio keystroke: the outline, the lint and the preview parse nothing from nothing', () => {
+		// The three boundary readers of one keystroke, in the Studio's order: the outline's index, the lint's comment
+		// scan (`chunkBoundaryLines` of the editor's body, through `scanMetaSource`) and the preview's `editorSample`,
+		// which StudioShell rebuilds from trimmed chunks. Before, the lint and the preview each missed the boundary
+		// memo and parsed the deck from nothing: 2 full parses per keystroke. This run installs the memo's deriver
+		// (`setBoundaryDeriver(deriveFromNearest)`) in its one module instance; the browser does not install it yet
+		// (followups.d/3042-p2-segno-lint-core-still-parses.md).
+		const src = fs.readFileSync(path.join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8');
+		const sampleOf = (t: string) => {
+			const fm = frontMatterBlockOf(t);
+			return fm + (splitSlideChunks(t.slice(fm.length)) as { chunks: string[] }).chunks.map((c) => c.trim()).join('\n\n---\n\n');
+		};
+		// Installed for this test only: `finally` resets it even when an assertion fails, so no later test runs with it.
+		setBoundaryDeriver(deriveFromNearest);
+		try {
+		let ix = buildDeckIndex(src);
+		let text = src;
+		scanMetaSource(text);
+		slideBoundaries(sampleOf(text));
+		const before = { ...deckModelStats };
+		for (let i = 0; i < 10; i++) {
+			const at = text.indexOf('\n', Math.floor(text.length / 2));
+			const next = `${text.slice(0, at)}x${text.slice(at)}`;
+			ix = updateDeckIndex(ix, next, { span: { from: at, toA: at, toB: at + 1 } });
+			scanMetaSource(next);
+			slideBoundaries(sampleOf(next));
+			text = next;
+		}
+		expect(deckModelStats.full - before.full).toBe(0);
+		// One incremental update per reader: the outline's model, the lint's body and the preview's sample are three
+		// strings (the Studio's front-matter reader keeps the blank lines after `---` out of the outline's body, the
+		// engine's split keeps them in the lint's), each one slide away from what the same reader asked a keystroke ago.
+		expect(deckModelStats.incremental - before.incremental).toBe(30);
+		} finally {
+			setBoundaryDeriver(null);
+		}
 	});
 
 	it('a keystroke inside one slide of a large deck rebuilds the units of one region, not the deck', () => {

@@ -404,3 +404,43 @@ test('degenerate input does not throw', () => {
 		assert.deepEqual(separatorRanges(bad).ranges, []);
 	}
 });
+
+// A MISS DERIVES FROM THE NEAREST HELD MODEL (Segno, the Studio's readers share one parse): every answer it gives is a
+// fresh parse's. A random walk of edits over corpus-shaped atoms, each asked through the memo and compared with a model
+// read from nothing: the boundaries, the leading-empty flag, every range list, and S1's comment content.
+test('a memo miss derived from a held model is a full parse of the same text', async () => {
+	const { slideBoundaryModel, setBoundaryDeriver } = require('../../../lib/core/slide-boundaries.mjs');
+	const { deriveFromNearest } = require('../../../lib/core/deck-model.mjs');
+	setBoundaryDeriver(deriveFromNearest);
+	try {
+	const { bodyModel } = require('../../../lib/core/deck-model.mjs');
+	const { deckModelStats } = await import('@laticent/segno-markdown');
+	const ATOMS = ['# A', 'text', '', '---', '***', '- item', '> quote', '```', '~~~', '<div>', '</div>', '<!-- _class: a -->', '<!--', '-->',
+		'- <!--\n  _class: b\n\t c -->', '$$', 'x = 1', '$$', '    code', '| a | b |\n| - | - |', '[r]: /u', 'para\n---', '> <!--\n> _footer: q\n> -->'];
+	const view = (m) => ({
+		b: Array.from(m.boundaries), le: m.leadingEmpty, lines: m.lines,
+		r: ['directives', 'html', 'fences', 'plugins', 'leaves'].map((k) => m[k].map((x) => [x.type, x.fromLine, x.toLine, x.level, x.slide])),
+		c: m.directives.map((x) => m.blockContent(x)),
+	});
+	let seed = 11;
+	const rnd = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+	resetBoundaryMemo();
+	const before = { ...deckModelStats };
+	for (let walk = 0; walk < 40; walk++) {
+		const lines = [];
+		for (let k = 20 + rnd(30); k > 0; k--) lines.push(ATOMS[rnd(ATOMS.length)]);
+		for (let step = 0; step < 25; step++) {
+			const at = rnd(lines.length + 1);
+			if (rnd(3) === 0 && lines.length > 1) lines.splice(Math.min(at, lines.length - 1), 1);
+			else if (rnd(2) === 0) lines.splice(at, 0, ATOMS[rnd(ATOMS.length)]);
+			else lines[Math.min(at, lines.length - 1)] += ATOMS[rnd(ATOMS.length)].slice(0, 2);
+			const text = `${lines.join('\n')}\n`;
+			assert.deepEqual(view(slideBoundaryModel(text)), view(bodyModel(text)), JSON.stringify(text));
+		}
+	}
+	// The failing arm: the walk really did go through the incremental path.
+	assert.ok(deckModelStats.incremental - before.incremental > 500);
+	} finally {
+		setBoundaryDeriver(null);
+	}
+});

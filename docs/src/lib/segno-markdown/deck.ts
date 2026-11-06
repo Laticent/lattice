@@ -407,6 +407,25 @@ export class DeckModel {
 		return body.slice(pos + g.tape[at + T_AUX], this.lineEnd(range.fromLine)).trim();
 	}
 
+	/**
+	 * The token content S1 recorded for a block, or null where it recorded none. A multi-line comment block inside a
+	 * list or quote has one: markdown-it's content, with the container's prefix taken off its later lines, which is
+	 * the text the engine reads a directive from. Elsewhere a comment block's content is its lines as they stand.
+	 */
+	blockContent(range: BlockRange): string | null {
+		const g = this.segs[range.slide];
+		const at = g?.side?.get(range.token - this.segTok[range.slide])?.meta;
+		if (!(at instanceof Int32Array)) return null;
+		// Rebuilt from this model's own body: the record is offsets, so no parse's source is kept alive by it.
+		let out = '';
+		for (let line = range.fromLine, k = 0; line < range.toLine; line++, k += 2) {
+			const start = this.lineStart(line);
+			const end = this.lineEnd(line);
+			out += `${' '.repeat(at[k + 1])}${this.body.slice(Math.min(start + at[k], end), end)}\n`;
+		}
+		return out;
+	}
+
 	/** Whether a tight list hides this paragraph token (markdown-it's `token.hidden`). */
 	hidden(token: number): boolean {
 		const i = segmentOf(this.segTok, this.segs.length, token);

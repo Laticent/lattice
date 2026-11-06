@@ -680,3 +680,125 @@ fold).
 Held by the outline's property (every incremental index equals a full build of the same text, 400 runs per unit run
 and 3 x 3,000 in development), its failing arm, and two counterexamples pinned from a rejected shortcut that compared
 the kept separators by line number instead of character range.
+
+## P3 islands: comment content, the directive editors, the track scan (2026-11-05)
+
+Three of the islands §P3 landed left behind now read the model. Two remain, both owed to the owner, and the lint
+scans past the track rule are still their own.
+
+**Comment content comes from S1.** The block pass records a multi-line comment block's content when it pushes the
+block inside a container (`state.level > 0`): markdown-it's `getLines(startLine, nextLine, blkIndent, true)`, which
+`State.getLines` in docs/src/lib/segno-markdown/block.ts reproduces, over the parse's own line marks (the quote's
+adjusted `bMarks`, `bsCount` for tabs). `DeckModel.blockContent(range)` reads it, and `directiveIslands` uses it as an
+island's `content`. `unprefixed`, which re-derived the prefix from the first line, is deleted. That fixes the value
+whitespace §P3 landed listed as approximate: `- <!-- _class: a` / `\tb -->` now reads `a\n  b`, as the engine does.
+Top-level and single-line blocks record nothing; their content is their lines. Pinned in
+test/unit/core/directive-island.test.js (four tab and container shapes against markdown-it, and four new fuzz atoms
+over the 20,000-deck differential); the test fails on the heuristic.
+
+**The directive editors read comment blocks.** `commentBlocks(chunk)` (lib/core/meta-record.mjs) lists the comments
+inside the model's closed comment blocks, with offsets mapped back to `chunk` through S0 (a BOM, `\r\n`). `readMetaField`
+(lib/core/meta-edit.mjs), and through it the Studio's class editor (`getClassTokens` / `setClassTokens`), and the
+asset rename read it. So on `<div>` / `<!-- _class: kpi -->` / `</div>` the class editor, the lint and the render now
+all say no class, where the editor said `kpi`. `comments()` keeps its text scan on purpose: it is the notes channel's
+reader (the speaker note, `describe:`, `say:`), and the engine's notes reader (lib/authoring/notes-core.js
+`liveCommentOpeners`) takes a comment from an `html_inline` token as well as from a block, so a note mid-line is a note.
+`hasMarker` already read the model.
+
+**The track rule reads the scan.** `liveTrackDirective` (lib/authoring/lint-core.js) was a line model of CommonMark
+that aimed to be a SUBSET of the engine after ten review rounds falsified each better model: it declined every line it
+could not model. It now reads `slideMetaComments`, so it agrees with the engine instead. On the rule's own generated
+fuzz (23,955 shapes the engine applies degenerately), it declined 21,523 and now declines 221, every one a shape where
+the engine opens a second slide that is not a `topic`, where the rule rightly passes. False warnings stay at 0. The
+three "KNOWN RESIDUAL" tests that pinned the silence now pin the warning, and about 230 lines of scanner, regex and
+docblock are gone (lint-core.js: 28 lines in, 255 out).
+
+| Held to | Result |
+|---|---|
+| `npm run identity:check -- --strict` | 447 decks, 0 differ; lint 31 = 31; 39 stylesheets, 0 differ |
+| test/unit/core/meta-record-corpus.test.js (every key on every tracked `.md`) | green |
+| the engine differential (20,000 random decks, now with tab and container content atoms) | 0 disagreements |
+| the track rule's fuzz against `render()` | 0 false warnings; silence 21,523 to 221 |
+
+**What the checker found, and the fixes.** An independent checker held the S1 content to markdown-it over about
+160,000 comment blocks with 0 differences, and found three things.
+
+- **A leak.** The first cut stored `getLines`' string, which V8 keeps as a chain of slices of the whole parse source.
+  An incremental model keeps a segment across many keystrokes, and the boundary memo now chains models (§The Studio's
+  readers), so each slide with a quoted multi-line comment pinned a past keystroke's body: 111.5 MB after 3,000
+  keystrokes on a 130 KB deck, through the preview's reader. S1 now records offsets (per line, where its content starts
+  and any tab padding) and `blockContent` rebuilds the string from the model's own body: 7.6 MB on the same run.
+  Pinned in test/unit/core/directive-island.test.js.
+- **A false doc claim.** `commentBlocks` listed each comment inside a block, so `<!-- _class: kpi --> tail` showed `kpi`
+  in the class editor while the engine, which reads the block's whole content, applies nothing. A block now counts
+  only when it is one whole comment. One shape is still not exact and is written down at `commentBlocks`: a multi-line
+  comment inside a blockquote, whose body still carries the `> ` prefixes, so the editor's key probe misses it.
+- **Two geometries.** On a source with a leading BOM or a lone `\r`, the lint's chunk split and the scan numbered
+  slides apart (a BOM also hid the front matter from the split), so rule 12 read another slide. `lintTextWith` now
+  drops a leading BOM and folds a lone `\r` to `\n` first, which no tracked file has, so the corpus is unchanged.
+
+**Still owed, and why.**
+
+- **The front matter, through the register grammar**, and **the Mermaid fence matcher.** Each changes the bytes an
+  export bakes (a BOM-led deck's front matter; a fence inside an HTML block), so each waits for the owner's sign-off on
+  dark and light renders. Neither was started.
+- **lint-core's other comment scans.** About sixteen sites still find `<!--` by regex or `indexOf`. Some read the
+  RENDERED body (`withoutHtmlComments`, the unterminated-comment rule), where a browser's comment rules, inline
+  comments included, are the right model, so they are not islands. The rest each need their own look, one at a time,
+  held to lint output on the corpus.
+
+## The Studio's readers derive, not parse (2026-11-05)
+
+The boundary memo (lib/core/slide-boundaries.mjs) keyed six strings and, on a miss, parsed the new one from nothing. A
+keystroke made two readers miss: the lint's body (`chunkBoundaryLines`, through `scanMetaSource`) and the preview's
+`editorSample`, which StudioShell rebuilds from trimmed chunks. With a deriver installed, a miss now derives the model from the nearest
+entry it holds (`derivedModel`): `diffSpan` against each entry, and `updateDeckModel` from the one with the smallest span, which
+re-reads one slide and splices. When even the nearest span covers more than half the text, there is nothing to keep
+and it parses from nothing.
+
+| Per keystroke in the gallery's middle slide | Before | After |
+|---|---|---|
+| deck-model parses from nothing (`deckModelStats.full`), lint + preview | 2 | **0** |
+| incremental updates (`deckModelStats.incremental`) | 0 | 2 |
+| the outline's index, the lint scan and the preview sample, together, in vitest | 2 full + 1 incremental | 0 full + 3 incremental |
+| wall time, `scanMetaSource` + the preview's `slideBoundaries`, median of 7 x 40, plain Node | 1.69 ms | **1.17 ms** |
+
+`npm run bench` carries the count as the edit tier's `parses` column (test/benchmark/engine-bench.mjs
+`boundaryKeystrokes`), blessed in baseline.json and gated by `bench:check` like `typesets`: a rise is a regression.
+
+| edit tier, parses from nothing per keystroke | Before | After |
+|---|---|---|
+| normal (jargon) | 2 | 0 |
+| charts | 2 | 0 |
+| hub-spoke (gallery + tiered x3) | 2 | 0 |
+| math | 2 | **2** |
+
+**The math deck still parses from nothing**, by the model's own rule: `updateDeckModel` rebuilds whenever a
+forward-scanning block rule (math's `$$`) was tried above the tail it would reuse, because that rule reads past a
+break and its "no closer ahead" memo carries from one slide into the next (§P2 landed). Splicing past it needs the
+rule's reach recorded per slide; that is followups.d/3042-p2-segno-math-decks-still-parse.md. The bench's `ms`
+columns moved by up to 37% on columns this change does not touch, on a shared machine, so the timings above are
+commentary and the counts are the gate.
+
+**Not installed in the browser yet, for its bytes.** The deriver is `updateDeckModel` plus `diffSpan`. Imported by
+slide-boundaries, it put the Studio's lint core 1.1 KB gzipped over its ceiling on the first push (`lintCoreGz`, 149.4 KB
+against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `setBoundaryDeriver`, with
+`deriveFromNearest` in lib/core/deck-model.mjs, which a bundle that never calls it tree-shakes away). In the browser,
+both readers run inside the engine's esm bundles: the preview renders through `renderMarkdown(PG, …)`, and the lint is
+esm/lint.js beside it. Installing the deriver there costs 1.1 KB of either the engine's first-paint bytes
+(`engineJsGz`, 8 KB under its ceiling) or the lint core's ceiling, and which bundle pays is the owner's call
+(followups.d/3042-p2-segno-lint-core-still-parses.md). Until then **a browser keystroke still parses twice**. The figures
+above, the bench and the tests install the deriver in one Node instance; they measure the mechanism, not the Studio.
+
+**Why three updates and not one.** The outline's body and the lint's body are different strings: the Studio's
+front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
+engine's split keeps them in the body, so the two models' line numbers differ by those lines. A first cut handed the
+outline's model to the memo; it helped only a deck with no front matter, so it went. Sharing one model needs one
+front-matter split, which is followups.d/3042-p3 (`frontMatterBlock` and its nine writers). The preview's sample is a
+third string by design.
+
+Held by a differential in test/unit/core/slide-boundaries.test.js: a random walk of 1,000 edits over corpus-shaped
+atoms (fences, math, quotes, multi-line comments in containers, link definitions, setext lines), each model the memo
+derives compared with a parse from nothing on every view (boundaries, leading-empty, the five range lists, S1's comment
+content). It fails when the derived model is the stale one. The keystroke count is pinned in
+docs/src/lib/deck-outline/deck-outline.test.ts.

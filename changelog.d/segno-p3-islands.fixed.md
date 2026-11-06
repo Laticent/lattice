@@ -1,0 +1,4 @@
+- The Studio's class editor and the asset rename read a slide's `_class` from the comments the engine reads, so a comment inside an HTML block (`<div>` / `<!-- _class: kpi -->` / `</div>`) no longer shows as the slide's class when the render applies none.
+- A multi-line directive inside a list item or blockquote keeps the engine's inner whitespace (tabs expanded), so the lint, completion and the render read the same value.
+- The `track-directive` lint warns wherever the engine applies a degenerate `_track`, including inside a list item or blockquote and after a closed `<pre>` or `<div>`, where it used to stay silent.
+- The lint reads a deck that opens with a BOM, or uses lone `\r` line ends, the way the render does: its front matter is front matter, and each rule reads its own slide's directives.

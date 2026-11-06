@@ -63,6 +63,42 @@ describe('readMetaField and writeMeta', () => {
   });
 });
 
+describe('commentBlocks: the directive editors read what the engine reads', () => {
+  test('a comment inside a `<div>` block is not one: the class editor, the lint and the render agree on no class', () => {
+    const src = '<div>\n<!-- _class: kpi -->\n</div>\n';
+    assert.deepEqual(m.commentBlocks(src), []);
+    assert.equal(m.readMetaField(src, 'class').present, false);
+    assert.equal(m.scanMetaSource(src).slides[0].resolved.has('class'), false);
+    // The failing arm: the notes reader still lists it (a note in an HTML block is live to the engine's notes reader).
+    assert.equal(m.comments(src).length, 1);
+  });
+  test('a fenced, an indented and a mid-line comment are not blocks; a quoted and a listed one are', () => {
+    const src = '```\n<!-- _class: a -->\n```\n\n    <!-- _class: b -->\n\ntext <!-- _class: c -->\n\n> <!-- _class: d -->\n\n- <!-- _class: e -->\n';
+    assert.deepEqual(m.commentBlocks(src).map((c) => c.body.trim()), ['_class: d', '_class: e']);
+  });
+  test('offsets index the chunk as given: a BOM, CRLF line ends and front matter', () => {
+    const src = '\uFEFF---\r\ntheme: x\r\n---\r\n\r\n<!-- _class: a -->\r\n<!--\r\none -->\r\n';
+    const found = m.commentBlocks(src);
+    assert.deepEqual(found.map((c) => src.slice(c.start, c.end)), ['<!-- _class: a -->', '<!--\r\none -->']);
+    assert.deepEqual(found.map((c) => src.slice(c.bodyStart, c.bodyStart + c.body.length)), found.map((c) => c.body));
+    assert.equal(m.readMetaField(src, 'class').value, 'a');
+  });
+  test('a block that is more than one comment is none: the engine reads its whole content', () => {
+    for (const src of ['<!-- _class: kpi --> tail\n', '<!-- _class: kpi --> <!-- note\nmore -->\n', '<!-- _class: kpi --> <!-- _footer: x -->\n']) {
+      assert.equal(m.readMetaField(src, 'class').present, false, JSON.stringify(src));
+    }
+  });
+  test('a comment its list item ends before `-->` is not one', () => {
+    assert.deepEqual(m.commentBlocks('- <!-- _class: kpi\n\n  -->\n'), []);
+  });
+  test('250 KB of unclosed openers stays fast', () => {
+    const t = '<!-- '.repeat(50000);
+    const t0 = performance.now();
+    m.commentBlocks(t);
+    assert.ok(performance.now() - t0 < 250);
+  });
+});
+
 describe('the comment finder is linear on hostile text', () => {
   test('250 KB of unclosed openers is milliseconds, not seconds', () => {
     const t = '<!-- '.repeat(50000);
