@@ -147,10 +147,7 @@ describe('commentBlocks remembers each text', () => {
     const slide = '<!-- _class: lead -->\n\n## Shared\n';
     const a = m.commentBlocks(slide);
     a.pop();
-    assert.throws(() => {
-      'use strict';
-      m.commentBlocks(slide)[0].body = 'changed';
-    }, TypeError);
+    assert.ok(m.commentBlocks(slide).every((r) => Object.isFrozen(r)), 'every cached record is frozen');
     assert.equal(m.commentBlocks(slide).length, 1);
     assert.equal(m.commentBlocks(slide)[0].body, ' _class: lead ');
   });

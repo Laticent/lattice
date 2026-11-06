@@ -805,7 +805,7 @@ docs/src/lib/deck-outline/deck-outline.test.ts.
 
 | Copy | Its readers | The deriver |
 |---|---|---|
-| the editor app's (Vite): docs/src/lib/deck-outline/deck-outline.ts, docs/src/lib/deck-lint.ts, the Studio's class editor | the outline, the slide split, the preview's sample, the class editor | **installed** by deck-outline.ts at import. Only the editors load that module (the Studio at startup, the Playground through playground-engine.ts), so the homepage hero, which renders through single-slide-render.ts, pays nothing |
+| the editor app's (Vite): docs/src/lib/deck-outline/deck-outline.ts, docs/src/lib/deck-lint.ts | the outline, the slide split, the preview's sample (the class editor's `commentBlocks` builds its models through `deckModel`, not this reader, so its fix is the memo below) | **installed** by deck-outline.ts at import. Only the editors load that module (the Studio at startup, the Playground through playground-engine.ts), so the homepage hero, which renders through single-slide-render.ts, pays nothing |
 | the lint core's (esm/lint.js) | the lint's comment scan | not installed. The lint keeps its own copy of the boundary parser by design (tools/build-playground.js, `assertLintParserIsolated`: the lint narrows its rules to the deck's plugins), so it needs its own copy of the deriver and the 1.1 KB above; left as it is by default (followups.d/3042-p2-segno-lint-core-still-parses.md) |
 
 **What a real Studio keystroke cost.** Counted in a browser: the dev server, Chromium, the Studio's starter deck
