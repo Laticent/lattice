@@ -205,16 +205,14 @@ describe('block-scalar header — linear on a long run of spaces', () => {
   // failing on a character `.` cannot cross, so the header test was quadratic: 1.9 s per read
   // at 40K spaces, ~50 s per render. 4x the input is ~4x the time when linear, ~16x when not.
   const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\nlift: on\n`;
-  test('a header ending in U+2028 after 4x the spaces takes well under 16x the time', () => {
-    const once = (src) => { const t = process.hrtime.bigint(); frontMatterValue(src, 'lift'); return Number(process.hrtime.bigint() - t) / 1e6; };
-    // A distinct suffix per call, so the last-answer cache cannot serve a repeat.
-    const best = (n) => Math.min(...Array.from({ length: 5 }, (_, i) => once(fm(n) + `k${i}: v\n`)));
-    best(1000);
-    const small = best(10000);
-    const large = best(40000);
-    // A sub-millisecond read is timer noise, not the algorithm: the quadratic scan took ~1,900 ms at
-    // 40K, so the 5 ms floor still catches it ~380x over (it ejected #2953 at 0.05 vs 0.52 ms).
-    assert.ok(large < 5 || large < small * 10, `header scan must not square: ${small.toFixed(2)}ms at 10K, ${large.toFixed(2)}ms at 40K`);
+  test('a header ending in U+2028 after a long run of spaces reads in linear time', () => {
+    // A hang guard sized by F4 (HARD RULE #32), in place of a ratio of two timings that ejected #2953. Backtracking
+    // inside one regex has no count to read, so the input is one the old pattern cannot finish: run alone on 200K
+    // spaces it was still going when killed at 60 s. Today the read takes 1.5 ms.
+    const t0 = process.hrtime.bigint();
+    assert.equal(frontMatterValue(`${fm(200000)}k: v\n`, 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(ms < 5000, `the header scan took ${ms.toFixed(0)} ms on 200K spaces`); // flaky-ok: hang guard — 1.5 ms today; the old regex over 60 s at this size
     assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
   });
 

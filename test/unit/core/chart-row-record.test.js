@@ -845,16 +845,20 @@ describe('the paths agree on the data row', () => {
     const { performance } = require('node:perf_hooks');
     const timed = (fn) => { const t = performance.now(); const out = fn(); return { out, ms: performance.now() - t }; };
 
+    // Hang guards sized by F4 (HARD RULE #32): the defects below were regex backtracking, which no count can see, so
+    // each input is five times the size the defect was measured at, where the old shape needs over a minute, and each
+    // bound sits far above today's cost. #2746 squashed the defective drafts, so the old cost is the recorded one,
+    // grown with the square; no arm reproduced it.
     test('lint stays fast on a record-chart slide with a very long run of spaces and a `{>` heading', () => {
-      const src = deck('bar', `- North \`40\`\n${' '.repeat(60000)}\n`).replace('## A', '## A {>');
+      const src = deck('bar', `- North \`40\`\n${' '.repeat(300000)}\n`).replace('## A', '## A {>');
       const { ms } = timed(() => lintText(src));
-      assert.ok(ms < 800, `lint took ${Math.round(ms)} ms (it was 3.4 s)`);
+      assert.ok(ms < 5000, `lint took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 118 ms today; the old shape took 3.4 s at 60k, about 85 s here
     });
 
     test('the stamped-cell rewrite stays linear when raw HTML holds many `<td` with no `>`', () => {
-      const raw = `<div>${'<td'.repeat(40000)}</div>`;
+      const raw = `<div>${'<td'.repeat(200000)}</div>`;
       const { ms } = timed(() => render(deck('heatmap', `${raw}\n\n| | A |\n|---|---|\n| E | \`{1.5}\` |`)));
-      assert.ok(ms < 1500, `render took ${Math.round(ms)} ms (it was 4 s)`);
+      assert.ok(ms < 5000, `render took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 31 ms today; the old shape took 4 s at 40k, about 100 s here
     });
 
     test('hub-spoke: a bullet-character or list-kind switch starts a NEW list, so a pill there is still reported', () => {
@@ -868,9 +872,9 @@ describe('the paths agree on the data row', () => {
     });
 
     test('the table-delimiter test is fast on a line of spaces AFTER a pipe row (the trim matters)', () => {
-      const src = deck('bar', `| a | b |\n${' '.repeat(60000)}x\n`).replace('## A', '## A {>');
+      const src = deck('bar', `| a | b |\n${' '.repeat(300000)}x\n`).replace('## A', '## A {>');
       const { ms } = timed(() => lintText(src));
-      assert.ok(ms < 1000, `lint took ${Math.round(ms)} ms (it was 3.1 s)`);
+      assert.ok(ms < 5000, `lint took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 103 ms today; the old shape took 3.1 s at 60k, about 77 s here
     });
 
     test('a BOM does not hide the front matter from the pipe lint either', () => {
