@@ -1,0 +1,86 @@
+{
+  "$generated": "tools/skill-index.js — edit the skills' front matter, not this file",
+  "skills": [
+    {
+      "name": "chart-component",
+      "file": "design/skills/chart-component.md",
+      "title": "Create a chart component",
+      "description": "Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract.",
+      "kind": "make",
+      "studio": false,
+      "tokens": 5851
+    },
+    {
+      "name": "cli",
+      "file": "design/skills/cli.md",
+      "title": "Render, share and check a deck with the `lattice` CLI",
+      "description": "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts.",
+      "kind": "operate",
+      "studio": false,
+      "tokens": 3154
+    },
+    {
+      "name": "component-showcase",
+      "file": "design/skills/component-showcase.md",
+      "title": "Create a component showcase deck",
+      "description": "Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render.",
+      "kind": "make",
+      "studio": false,
+      "tokens": 2138
+    },
+    {
+      "name": "component",
+      "file": "design/skills/component.md",
+      "title": "Create a component",
+      "description": "Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs.",
+      "kind": "make",
+      "studio": false,
+      "tokens": 3749
+    },
+    {
+      "name": "deck",
+      "file": "design/skills/deck.md",
+      "title": "Create a deck",
+      "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
+      "kind": "make",
+      "studio": true,
+      "tokens": 3244
+    },
+    {
+      "name": "finish",
+      "file": "design/skills/finish.md",
+      "title": "Create a finish",
+      "description": "Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content.",
+      "kind": "make",
+      "studio": true,
+      "tokens": 3845
+    },
+    {
+      "name": "lens",
+      "file": "design/skills/lens.md",
+      "title": "Create a lens",
+      "description": "Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it.",
+      "kind": "make",
+      "studio": true,
+      "tokens": 4725
+    },
+    {
+      "name": "speaker-notes",
+      "file": "design/skills/speaker-notes.md",
+      "title": "Create speaker notes, reviews, and `say:` lines",
+      "description": "Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric.",
+      "kind": "make",
+      "studio": true,
+      "tokens": 5394
+    },
+    {
+      "name": "theme",
+      "file": "design/skills/theme.md",
+      "title": "Create a theme",
+      "description": "Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes.",
+      "kind": "make",
+      "studio": true,
+      "tokens": 5832
+    }
+  ]
+}

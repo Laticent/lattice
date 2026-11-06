@@ -1,3 +1,10 @@
+---
+name: chart-component
+description: "Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract."
+kind: make
+studio: false
+---
+
 # Skill — Create a chart component
 
 > Add a data visualization to the chart family: a manifest, a pure SVG kernel that

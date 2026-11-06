@@ -17,6 +17,7 @@
 // import from here lists their chunks — and every chunk THEY need, i.e. the whole Studio —
 // in the eager importer's preload map, ~2KB gz on a route over its soft budget (route
 // budget, studio eagerJsGz). `architect.ts` already holds all three and passes them in.
+import skillIndex from '../../../../design/skills/index.json';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
 
@@ -185,12 +186,12 @@ export function componentCore(md: string, opts: { skeleton?: boolean } = {}): st
 
 // ── The system prompt ───────────────────────────────────────────────────────
 
+// read_guide topics. The skills come from design/skills/index.json, generated from each
+// skill's front matter by tools/skill-index.js, so the Studio offers exactly the skills
+// marked `studio: true` and cannot drift from the README or the agent kit. The three design
+// docs below are not skills and stay listed here.
 export const GUIDE_TOPICS: Record<string, string> = {
-	deck: 'how to author a whole deck: narrative arc, front matter, the 10/10 bar, ship checklist',
-	finish: 'finishes — the backdrop layer, how to choose and apply one',
-	theme: 'themes — palettes and the token contract',
-	lens: 'lenses — re-reading a deck for another audience',
-	'speaker-notes': 'speaker notes, reviews and captions',
+	...Object.fromEntries(skillIndex.skills.filter((s) => s.studio).map((s) => [s.name, s.description])),
 	editorial: 'the words ON a slide: headings as claims, cutting, tone',
 	principles: 'core visual design principles: hierarchy, restraint',
 	universals: 'cross-cutting authoring on every slide: eyebrow, subtitle, key insight, base modifiers (dark, numbered, mirror, silent, tint-*, mark-*, tone-*)',

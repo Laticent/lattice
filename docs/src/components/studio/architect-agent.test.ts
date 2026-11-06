@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import skillIndex from '../../../../design/skills/index.json';
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
@@ -538,6 +539,19 @@ describe('the reading shelf', () => {
 		expect(await agentLibrary.guide('editorial')).toBeTruthy();
 		expect(await agentLibrary.registersDoc()).toContain('`finish:`');
 		expect(await agentLibrary.componentDoc('no-such-thing')).toBeNull();
+	});
+
+	it('offers exactly the skills the index marks studio: true, each readable without its front matter', async () => {
+		const offered = skillIndex.skills.filter((s) => s.studio).map((s) => s.name);
+		const skillTopics = Object.keys(GUIDE_TOPICS).filter((t) => !['editorial', 'principles', 'universals'].includes(t));
+		expect(skillTopics.sort()).toEqual([...offered].sort());
+		expect(Object.keys(GUIDE_TOPICS)).not.toContain('cli');
+		for (const name of offered) {
+			const doc = await agentLibrary.guide(name);
+			expect(doc, name).toBeTruthy();
+			expect(doc?.startsWith('---'), `${name} still carries its front matter`).toBe(false);
+			expect(doc).toMatch(/^# /);
+		}
 	});
 });
 

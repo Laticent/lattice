@@ -1,3 +1,10 @@
+---
+name: component-showcase
+description: "Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render."
+kind: make
+studio: false
+---
+
 # Skill — Create a component showcase deck
 
 > A showcase deck teaches one component: what it looks like, when to use it, and

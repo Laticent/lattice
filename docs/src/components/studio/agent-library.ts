@@ -36,17 +36,19 @@ const SKILLS = byBasename(skillDocs, '.md');
 const DESIGN = byBasename(designDocs, '.md');
 const BASE = byBasename(baseDocs, '.docs.md');
 
-// read_guide topic → which doc. `principles` and `editorial` live in design/, the rest are
-// the per-artifact skills.
+// read_guide topic → which doc. Every skill is reachable by its name (GUIDE_TOPICS, built from
+// design/skills/index.json, decides which ones the chat is offered); `principles` and
+// `editorial` live in design/.
 const GUIDE_SOURCE: Record<string, Loader | undefined> = {
-	deck: SKILLS.get('deck'),
-	finish: SKILLS.get('finish'),
-	theme: SKILLS.get('theme'),
-	lens: SKILLS.get('lens'),
-	'speaker-notes': SKILLS.get('speaker-notes'),
+	...Object.fromEntries([...SKILLS].filter(([name]) => name !== 'README').map(([name, fn]) => [name, withoutFrontMatter(fn)])),
 	editorial: DESIGN.get('editorial'),
 	principles: DESIGN.get('design-principles'),
 };
+
+/** A skill's front matter is for indexes, not for the model reading the skill. */
+function withoutFrontMatter(fn: Loader): Loader {
+	return () => fn().then((t) => String(t ?? '').replace(/^---\n[\s\S]*?\n---\n+/, ''));
+}
 
 const memo = new Map<Loader, Promise<string | null>>();
 function load(fn: Loader | undefined): Promise<string | null> {

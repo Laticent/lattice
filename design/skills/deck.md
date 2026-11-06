@@ -1,3 +1,10 @@
+---
+name: deck
+description: "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist."
+kind: make
+studio: true
+---
+
 # Skill — Create a deck
 
 > Build a complete, boardroom-grade presentation from a blank `.md` file, in
