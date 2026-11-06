@@ -170,6 +170,12 @@ test('REPLY: the host accepts a drawing and nothing else', async () => {
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 7 }).error, /not text/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: null }).error, /null/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }).error, /past the/);
+  // The CLI export raises the limit (its drawing goes into a file; the pre-D2 export drew any size): the same reply passes.
+  const { CLI_MAX_DRAW_CHARS, drawBootstrap } = await kernel();
+  assert.equal(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }, { maxChars: CLI_MAX_DRAW_CHARS }).out.length, MAX_DRAW_CHARS + 1);
+  const meta = { global: 'g', adapter: 'function (env, job) { return \'\'; }' };
+  assert.match(drawBootstrap({ kind: 'k', meta }), new RegExp(`MAX=${MAX_DRAW_CHARS},`), 'a preview frame keeps the preview limit');
+  assert.match(drawBootstrap({ kind: 'k', meta, maxChars: CLI_MAX_DRAW_CHARS }), new RegExp(`MAX=${CLI_MAX_DRAW_CHARS},`));
   assert.equal(checkDrawReply({ t: 'result', id: 1, error: 'e'.repeat(1000) }).error.length, 600);
 });
 

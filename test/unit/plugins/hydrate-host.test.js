@@ -212,6 +212,27 @@ describe('the CLI page gets only what a deck uses', () => {
     assert.ok(placeholder(win).hasAttribute('data-lattice-final'));
     assert.equal(placeholder(win).querySelector('svg'), null);
   });
+  test('a host-drawn plugin waits the export\'s budget, not its own preview budget; other plugins keep theirs (the red team, D2)', () => {
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    const src = hydrateScript(fp, { hostDrawn: ['function-plot'], hostDrawnBudgetMs: 85000 });
+    assert.match(src, /name: "function-plot", budgetMs: 85000,/);
+    assert.match(hydrateScript(fp, { hostDrawn: [] , hostDrawnBudgetMs: 85000 }), new RegExp(`budgetMs: ${fp[0].budgetMs},`));
+  });
+  test('a drawing that answers after the figure was released writes nothing over its source', async () => {
+    const win = page(PLOT);
+    fakeLibrary(win);
+    let answer;
+    win.__latticeExportDrawHost = { kinds: ['function-plot'], draw: () => new Promise((r) => { answer = r; }) };
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    win.eval(hydrateScript(fp, { hostDrawn: ['function-plot'] }).replace('var host = ', 'var host = window.__host = '));
+    win.__host.run();
+    // The settle barrier closes it (what the CLI's barrier does at its budget), then the locked page answers.
+    releaseFigure(placeholder(win), (b) => Buffer.from(b, 'base64').toString('utf8'), true);
+    answer('<svg data-from="late"></svg>');
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    assert.equal(placeholder(win).querySelector('svg'), null);
+    assert.equal(state(placeholder(win)), 'unavailable');
+  });
   test('no draw host on the page: the figure is released showing its source, never drawn by a library it does not have', () => {
     const win = page(PLOT);
     const calls = fakeLibrary(win);

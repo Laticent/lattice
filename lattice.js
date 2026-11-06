@@ -2894,10 +2894,16 @@ const pluginHydrateScript = hasHydratedPlugins
 // The plugins the CLI's draw host draws (lib/export/locked-figures.js): those whose manifest declares a draw frame with an
 // inlined library. From the registry, never by name (engineering/decisions/2026-11-06-plugin-patterns.md §4).
 const HOST_DRAWN = require('./lib/export/locked-figures.js').hostDrawnKinds(pagePlugins);
+// HOW LONG A HOST-DRAWN FIGURE MAY TAKE: as long as the render watchdog allows, as before D2, when the CLI drew these in
+// Node bounded only by the watchdog. A plugin's own budget is a preview's, per figure, and the figures here queue on one
+// locked page (the HARD RULE #25 red team: a slow plot exported as source). The settle barrier waits HOST_DRAW_SETTLE_MS
+// and warns for what it closes; each figure's own timer is set past it, so the barrier, not a silent timer, closes it.
+// Read from the environment here, because RENDER_WATCHDOG_MS (below) is not yet defined when this runs.
+const HOST_DRAW_SETTLE_MS = Math.max(settleBudget(pagePlugins), (Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000) - 10000);
 const capturePageHydrateScript = HOST_DRAWN.length
   ? [
       ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
-      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN })}\n</script>`,
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN, hostDrawnBudgetMs: HOST_DRAW_SETTLE_MS + 5000 })}\n</script>`,
     ].join('\n')
   : '';
 /** The capture page's copy of a document written to `outHtml`: the same, with the host-drawn plugins' libraries out. */
@@ -3610,9 +3616,10 @@ async function renderBody(browser, g, closeBrowser) {
   const awaitPluginFigures = async (label) => {
     if (!hasHydratedPlugins) return;
     // A host-drawn figure is drawing already, through the page's draw host (installed above); the barrier waits for it.
-    const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
+    const budget = HOST_DRAWN.length ? HOST_DRAW_SETTLE_MS : settleBudget(pagePlugins);
+    const closed = await g(() => page.evaluate(settleBarrierScript(budget)), `settle plugin figures${label}`);
     if (closed && !QUIET) {
-      console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);
+      console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${budget}ms — exported showing their source.`);
     }
   };
 

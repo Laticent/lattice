@@ -44,3 +44,25 @@ test('a figure is drawn once per job and pixel ratio, however often the page ask
   await host.call(job, 2);
   assert.equal(draws, 2);
 });
+
+test('the pixel ratio the page asks for is clamped, so page script cannot ask for a giant viewport (the red team, D2)', async () => {
+  const ratios = [];
+  const page = { draw: async (_job, r) => { ratios.push(r); return { out: '<svg/>' }; }, close: async () => {} };
+  const host = openExportDrawHost({}, ['function-plot'], { open: async () => page });
+  await host.call(job, 1000);
+  await host.call({ ...job, index: 1 }, 0);
+  await host.call({ ...job, index: 2 }, 2);
+  assert.deepEqual(ratios, [8, 1, 2]);
+});
+
+test('the finished draws it keeps are bounded: the oldest is drawn again once 512 newer ones were asked for', async () => {
+  let draws = 0;
+  const page = { draw: async () => { draws++; return { out: '<svg/>' }; }, close: async () => {} };
+  const host = openExportDrawHost({}, ['function-plot'], { open: async () => page });
+  for (let i = 0; i <= 512; i++) await host.call({ ...job, index: i });
+  assert.equal(draws, 513);
+  await host.call({ ...job, index: 512 });
+  assert.equal(draws, 513, 'a recent one is kept');
+  await host.call({ ...job, index: 0 });
+  assert.equal(draws, 514, 'the oldest was dropped');
+});

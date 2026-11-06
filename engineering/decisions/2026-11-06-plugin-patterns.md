@@ -233,6 +233,18 @@ without its scope changing (function-plot bakes `cfg.width || rect.width` into t
 placeholder's size, so a different box is a miss and the figure is drawn again
 (test/unit/plugins/figure-memory.test.js).
 
+**The adversarial trio (HARD RULE #25) on the shipped diff.** The red team found a third regression in slice 2: the
+figures of a kind queue on ONE locked page, and each carried the plugin's 4 s PREVIEW budget from the moment the page
+hydrated, so a slow plot, or a fast one queued behind it, exported as source where the pre-D2 export (drawing in Node,
+bounded by the 90 s render watchdog) drew it, sometimes with no warning. Fixed: a host-drawn figure's budget is the
+watchdog's again (`hostDrawnBudgetMs`, lib/plugins/hydrate-script.js; `HOST_DRAW_SETTLE_MS`, lattice.js), the settle
+barrier closes one that never draws and says so, and a drawing that answers after the barrier writes nothing. Also
+fixed: the preview frame's 8M-character limit applied to the export (a 300k-sample plot baked an error; the CLI's limit
+is now `CLI_MAX_DRAW_CHARS`), the pixel ratio the capture page passes is clamped and the draw memo bounded, and the
+figure memory's key carries the pixel ratio. The red team's decks now export byte-identical to `main` (80 plots; a
+300-term plot; four 400k-sample plots, 18,220,820 bytes on both), and a heavy plot ahead of a light one shows its own
+error while the light one draws, as on `main`. The inversion lens's findings are in the fence paragraphs below.
+
 **Evidence: byte-identical exports.** Three function-plot decks (`examples/plugin-sandbox-tour.md`,
 `math-form-frame.md`, `plugin-system-phase-b.md`) exported to PDF, PNG and `--player` HTML before and after: 32 files,
 all identical. (A first comparison showed 4 bytes moved in one deck: a Mermaid gantt's `today` line, which moves with
