@@ -37,10 +37,23 @@ strip thumbnails go stale. Script: the session's `hide-cost.cjs`, against `test/
 ## 3. The model
 
 **One mark, written by the engine.** `lib/engine/slides.js` reads `hide` off each slide's directives with `hideOn`
-(`lib/core/meta-keys.mjs`, the one value rule: presence hides, `false`/`no`/`off`/`0` shows) and writes
+(`lib/core/meta-keys.mjs`, the one value rule: a bare `hide` or `true`/`yes`/`on`/`1` hides, anything else shows, so a
+note such as `<!-- hide: if short on time -->` never hides a slide by accident) and writes
 `data-lattice-hidden="true"` on the section. A hidden slide **stays in the rendered document**, because the editor
 shows it; it takes no page number and is not in the total. `hide` is a slide-scope key in the `meta` manifest, so an
 un-underscored `<!-- hide -->` sets that slide only, never the slides after it (the rule `header`/`footer` follow).
+A front-matter `hide:` is ignored: hiding a whole deck would make every export empty.
+
+**A hidden slide is a `---` block, whatever the engine cuts it into.** Under `split: headings` one block renders as
+several slides, and a pane slide as several pages. Present, the Studio's slide list, review comments and the print panel
+all count blocks, so a `hide` anywhere in a block hides every page the block becomes: the heading split
+(`lib/integrations/markdown-it/plugins.js`) and the pane split (`lib/core/panes.js`) open each new page of a hidden
+block with its own `<!-- _hide -->`. The Studio's Hide Slide on a heading-split part therefore hides the whole block,
+and writes `<!-- hide -->` at the block's top without cutting it. Not the owner's call; taken as the reversible default
+that makes every surface agree, and listed on the PR's decision card.
+
+**Only a comment that opens its line is a directive.** `# B <!-- hide -->` is inline HTML, which the engine leaves
+alone; the source reader agrees. **An all-hidden deck is an error**: the CLI exits 1 rather than write an empty file.
 
 **Every consumer asks one question, two ways.**
 
@@ -59,15 +72,17 @@ The source reader parses with the engine's own comment grammar and value rule, a
 | Engine | Marks it, skips it in the page count and total | `lib/engine/slides.js` |
 | Progress rail, watermark glyph | A hidden divider opens no section | `lib/forms/tile/{progress,watermark}/*.transform.js` |
 | Studio slice path | Supplies offset/total and section counting shown slides only; refuses (whole-deck render) when the raw and code-blanked readings disagree, as it does for dividers | `supplyablePosition`, `dividerDerivation` |
-| CLI exports (PDF, PPTX, ODP, PNG, image sets, HTML player) | Dropped from the one slide list every format reads, so notes and alt text (read off that list) stay aligned | `lattice.js` `engineSlides` |
-| Studio exports, print panel, Article, narration | `buildDeckRender` drops hidden sections and reports their positions in `render.hidden`; PDF review comments and the print panel's preview cells drop the same positions | `share-export.ts`, `PrintOptionsPanel.tsx` |
+| CLI exports (PDF, PPTX, ODP, PNG, image sets, HTML player, captions) | Dropped from the one slide list every format reads, so notes and alt text (read off that list) stay aligned. The hidden sections ride beside the list (`hiddenSections`) so `--strip-notes` also removes their notes from the shipped source, and `sectionIndex` maps each exported page back to its authored number for front-matter `say:` and chart narration | `lattice.js` `engineSlides` |
+| Studio PDF, PowerPoint, LibreOffice, images, print, Article | `buildDeckRender` drops hidden sections. PDF review comments and the print panel's preview cells are keyed by `---` block, so they drop the blocks the source hides (`hiddenAuthoredSlides`), keeping a sparse list's gaps | `share-export.ts`, `PrintOptionsPanel.tsx` |
+| Studio Webpage and Captions | Filter the render themselves (they do not use `buildDeckRender`); hidden slides' note bodies join the strip-notes scrub; captions re-key front-matter `say:` to the shown slides | `share-export.ts` `shareHtmlPlayer`, `shareCaptions` |
+| Narration bake | Resolves the shown slides only, `say:` by authored number, as Present does | `narration-bake.ts` `resolveDeck` |
 | Present | Never presented under any lens; opening on a hidden slide lands on the next shown one | `deck-lint.ts` `presentationPairs`, `PresentOverlay.tsx` |
 | Studio strip, slide map | Keeps its place; an eye-off mark stands where its number was; the accessible name says "hidden" | `SlideRail.tsx`, `StudioMap.tsx` |
 | Studio preview bar | A **Hidden** chip that is also Show slide | `StudioShell.tsx` |
 | Slide menu, command palette | **Hide slide** / **Show slide** (one Undo step) | `strip-actions/model.ts`, `deck-ops.ts` `setHiddenAt` |
 
-**What the Studio writes.** Hide slide puts `<!-- hide -->` as the slide's first line and touches no other byte. Show
-slide removes every line that is only a `hide` directive; if a hide survives (written inside a longer line), it appends
+**What the Studio writes.** Hide Slide puts `<!-- hide -->` as the block's first line and touches no other byte. Show
+Slide removes every line that is only a `hide` directive; if a hide survives (written inside a longer line), it appends
 `<!-- _hide: false -->`, which wins because the last `hide` wins. Pinned by `deck-ops.hide.test.ts`.
 
 ## 5. Verification
@@ -77,6 +92,13 @@ slide removes every line that is only a `hide` directive; if a hide survives (wr
 - CLI probe (3 slides, slide 2 hidden): PDF 2 pages numbered 1 and 2; PPTX 2 slides carrying the notes of slides 1
   and 3; PNG 2 files.
 - `docs/e2e/strip-hide.spec.ts`: the menu, the strip mark, the chip and Undo, in a real browser.
+
+**The checker's pass** (maker-checker, before the PR) found twelve defects in the first cut, every one fixed and pinned
+by a test: `--strip-notes` leaking a hidden slide's note; a hidden pane slide hiding one page of two; CLI captions keyed
+one slide off; the Studio Webpage and Captions exports skipping the filter; front-matter `hide:` emptying the deck;
+an inline `<!-- hide -->` read differently by the engine and the Studio; heading parts hidden per part by the engine and
+per block by Present; review comments moving pages; the print panel pooling the wrong cells; the narration bake losing
+alignment; the strip reading a stale index; and a note starting with "hide" hiding its slide.
 
 ## 6. Not done here
 

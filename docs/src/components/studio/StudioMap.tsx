@@ -32,7 +32,7 @@ import { wireOf } from '@/components/map-rail/wireframe';
 import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
-import { flatPart, partText } from '@/lib/fuoco/outline';
+import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { deckDerivedFactsFor, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -249,7 +249,8 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	const hiddenByText = React.useRef(new Map<string, boolean>());
 	const hiddenAt = React.useCallback(
 		(i: number) => {
-			const text = textOf(i);
+			// The `---` block's text: hiding belongs to the block, so a heading-split part shares it.
+			const text = items[i] ? unitText(index, items[i].unit) : '';
 			let h = hiddenByText.current.get(text);
 			if (h === undefined) {
 				if (hiddenByText.current.size > 4096) hiddenByText.current.clear();
@@ -258,7 +259,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			}
 			return h;
 		},
-		[textOf],
+		[items, index],
 	);
 	const mark = React.useCallback(
 		(i: number) => {

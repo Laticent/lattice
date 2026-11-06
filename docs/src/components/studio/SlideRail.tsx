@@ -18,7 +18,7 @@ import * as React from 'react';
 import { SlideMenuButton, type StripActions, type StripSlide, useStripMenuGestures } from '@/components/studio/strip-actions';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
-import { flatPart, partText } from '@/lib/fuoco/outline';
+import { flatPart, partText, unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { cn } from '@/lib/utils';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
@@ -80,7 +80,8 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 				// A hidden slide (`<!-- hide -->`) keeps its place in the strip, the editor's order, and says it is hidden: the
 				// eye-off mark stands where its number would be, since Present and every export leave it out and number the
 				// slides after it without it (2026-11-06-hidden-slides.md).
-				const hidden = cached(hiddenFlags, text, slideSourceHidden);
+				// Hiding belongs to the `---` block, so every part of a heading-split block shares it (the engine renders it so).
+				const hidden = cached(hiddenFlags, unitText(index, c), slideSourceHidden);
 				const name = `Slide ${n}${hidden ? ', hidden' : ''}`;
 				const aria = readLabels ? `${name}${title ? ` — ${title}` : ''}` : `${name} — ${cls}`;
 				out.push({ unit: c, section: k, flat: flatPart(index, c, k), n, label, aria, hidden });

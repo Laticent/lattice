@@ -1,4 +1,5 @@
-import { buildDeckIndex } from '@/lib/deck-outline';
+import { buildDeckIndex, type DeckIndex } from '@/lib/deck-outline';
+import { unitText } from '@/lib/fuoco/outline';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
@@ -393,24 +394,21 @@ function fencedSafe(text: string, fn: (t: string) => string): string {
 	return text.split(/(^[ \t]*(?:```|~~~)[\s\S]*?^[ \t]*(?:```|~~~)[ \t]*$)/m).map((part, k) => (k % 2 ? part : fn(part))).join('');
 }
 
-/** Is rendered slide `s` hidden? Pass the deck index the caller already holds (`ix`) to skip a re-parse. */
-export function isHiddenAt(source: string, s: SlideAt, ix: { units: readonly { from: number; end: number; parts: readonly number[] }[] } = buildDeckIndex(source)): boolean {
-	const u = ix.units[s.unit];
-	if (!u) return false;
-	const from = u.from + (s.part > 0 && s.part < u.parts.length ? u.parts[s.part] : 0);
-	const to = s.part + 1 < u.parts.length ? u.from + u.parts[s.part + 1] : u.end;
-	return slideSourceHidden(source.slice(from, to));
+/** Is rendered slide `s` hidden? Hiding belongs to the `---` block (a heading-split part shares its block's state, as the
+ *  engine renders it), so this reads block `s.unit`. Pass the deck index the caller holds (`ix`): its OWN text is read,
+ *  never `source` sliced at its offsets, which may be a render behind (the checker's finding). */
+export function isHiddenAt(source: string, s: SlideAt, ix: DeckIndex = buildDeckIndex(source)): boolean {
+	return slideSourceHidden(unitText(ix, s.unit));
 }
 
-/** Hide (`hidden` true) or show rendered slide `s`. Active stays on it. */
+/** Hide (`hidden` true) or show rendered slide `s`'s `---` block. Hide writes `<!-- hide -->` as the block's first line
+ *  and touches no other byte, so Show restores the block exactly; no block is cut, even under `split: headings`.
+ *  Active stays on the block. */
 export function setHiddenAt(source: string, s: SlideAt, hidden: boolean): DeckOpResult {
-	if (isHiddenAt(source, s) === hidden) return { source, active: s.unit, moved: identity(slideCount(source)) };
-	const c = cut(source, [s, after(s)]);
-	const d = read(c.source);
-	const i = c.unit(s);
-	const slot = d.slots[i];
-	if (!slot) return { source, active: s.unit, moved: identity(slideCount(source)) };
+	const d = read(source);
+	const slot = d.slots[s.unit];
+	if (!slot || slideSourceHidden(slot.content) === hidden) return { source, active: s.unit, moved: identity(d.slots.length) };
 	slot.content = withHidden(slot.content, hidden);
 	slot.touched = true;
-	return done(d, i, identity(d.slots.length));
+	return done(d, s.unit, identity(d.slots.length));
 }

@@ -38,6 +38,7 @@ import { notify } from '@/lib/notify';
 import { authoring } from '@/playground/authoring-door.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from '../../lib/front-matter';
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
@@ -393,10 +394,10 @@ export function PrintOptionsPanel({
 	// preview never shows a different page from the one that prints.
 	// A hidden slide (`<!-- hide -->`) never prints: `buildDeckRender` drops it from `sections` and names its position in
 	// `render.hidden`, so printed page k shows the k-th SHOWN markdown slide (engineering/decisions/2026-11-06-hidden-slides.md).
-	const shownIdx = React.useMemo(() => {
-		const drop = new Set(render?.hidden ?? []);
-		return mdSlides.map((_, i) => i).filter((i) => !drop.has(i));
-	}, [mdSlides, render]);
+	// Both are AUTHORED slides (`---` blocks), so the hidden ones come from the source, not from `render.hidden`, whose
+	// positions are rendered sections and differ in a heading-split deck (the checker's finding). A deck whose shown
+	// slides still do not match the printed pages is not pooled: each cell keeps its own document (below).
+	const shownIdx = React.useMemo(() => mdSlides.map((_, i) => i).filter((i) => !slideSourceHidden(mdSlides[i])), [mdSlides]);
 	const pooled = shownIdx.length === sections.length;
 	// ONE Mermaid flag for the whole deck, not per slide. The flag is part of a pooled frame's shape
 	// (preview-pool.tsx `shapeKey`), and a cell keeps its frame across flips, so a per-slide flag

@@ -44,12 +44,10 @@ This slide is hidden. If you can read it in the exported PDF, hiding is broken.
 
 ## Write one line to hide a slide
 
-```markdown
-<!-- hide -->
-## Backup: the full cost model
-```
-
-`<!-- _hide -->` and `<!-- _hide: true -->` do the same. `<!-- _hide: false -->` shows the slide again.
+- Put `<!-- hide -->` on the first line of the slide
+- `<!-- _hide -->` and `<!-- _hide: true -->` do the same
+- `<!-- _hide: false -->` shows the slide again
+- In the Studio, the slide menu's Hide Slide writes the line for you
 
 ---
 
@@ -66,7 +64,7 @@ This slide is hidden. If you can read it in the exported PDF, hiding is broken.
 
 - The slide before this one was a hidden divider, so it opens no section
 - This slide reads page 5 of 6 in the PDF, and page 7 in the editor
-- In the Studio, the slide menu has Hide slide and Show slide
+- Hiding one heading of a split slide hides its whole block
 
 ---
 

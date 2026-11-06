@@ -29,9 +29,9 @@ const DIVIDER = (n) => `<!-- _class: divider -->\n\n# Part ${n}`;
 const hide = (slide, form = '<!-- hide -->') => `${form}\n${slide}`;
 
 describe('hideOn: the value rule', () => {
-  test('presence hides; only an explicit off shows', () => {
-    for (const v of ['', 'true', 'yes', 'on', '1', ' "true" ']) assert.equal(hideOn(v), true, JSON.stringify(v));
-    for (const v of ['false', 'no', 'off', '0', 'FALSE', "'false'", 'false # shown again']) assert.equal(hideOn(v), false, JSON.stringify(v));
+  test('bare or an explicit on hides; anything else shows', () => {
+    for (const v of ['', 'true', 'yes', 'on', '1', ' "true" ', 'TRUE', 'true # backup']) assert.equal(hideOn(v), true, JSON.stringify(v));
+    for (const v of ['false', 'no', 'off', '0', 'FALSE', "'false'", 'false # shown again', 'if short on time']) assert.equal(hideOn(v), false, JSON.stringify(v));
   });
 });
 
@@ -67,6 +67,40 @@ describe('engine: a hidden slide is marked and takes no number', () => {
     assert.equal(glyph(s[3]), '01', 'the slide after a hidden divider stays in the section before it');
     assert.equal(glyph(s[5]), '02');
     assert.equal((rail(s[5]).match(/<span/g) || []).length, (rail(s[1]).match(/<span/g) || []).length);
+  });
+});
+
+describe('the checker\'s findings, pinned', () => {
+  const marks = (md) => sectionsOf(createEngine().render(md, 'lattice').html).map((x) => (attr(x, 'data-lattice-hidden') ? 'H' : attr(x, 'data-lattice-pagination') ?? '-'));
+
+  test('split: headings — a hide anywhere in a `---` block hides every part of it', () => {
+    const md = '---\ntheme: indaco\nsplit: headings\npaginate: true\n---\n\n## A\n\n---\n\n<!-- hide -->\n## C1\n\nc\n\n## C2\n\n---\n\n## D1\n\n<!-- hide -->\n## D2\n\n---\n\n## E\n';
+    assert.deepEqual(marks(md), ['1', 'H', 'H', 'H', 'H', '2']);
+  });
+
+  test('a hidden pane-split slide hides every pane page', () => {
+    const md = '---\ntheme: indaco\npaginate: true\nsize: square\n---\n\n# A\n\n---\n\n<!-- hide -->\n## Panes.\n\n<!-- _class: columns ratio-55-45 -->\n<!-- _pane: bar -->\n\np95.\n\n- Before `840`\n- After `190`\n\n<!-- _pane: list -->\n\n- one\n- two\n\n---\n\n# C\n';
+    const m = marks(md);
+    assert.deepEqual([m[0], m[m.length - 1]], ['1', '2']);
+    assert.ok(m.slice(1, -1).length >= 1 && m.slice(1, -1).every((x) => x === 'H'), m.join(' '));
+    const page = core.supplyablePosition(md, 2, 3, [1, 2, 1]);
+    assert.deepEqual([page.offset, page.total], [1, 2]);
+  });
+
+  test('a hide inside a line of text is not a directive, in the engine or the source reader', () => {
+    const md = deckOf([BODY(1), '## B with inline <!-- hide --> comment', BODY(3)]);
+    assert.deepEqual(marks(md), ['1', '2', '3']);
+    assert.equal(core.slideSourceHidden('## B with inline <!-- hide --> comment'), false);
+  });
+
+  test('front-matter `hide:` hides nothing: hide is a slide key', () => {
+    const md = '---\ntheme: indaco\npaginate: true\nhide: true\n---\n\n## A\n\n---\n\n## B\n';
+    assert.deepEqual(marks(md), ['1', '2']);
+  });
+
+  test('a note that starts with the word does not hide the slide', () => {
+    assert.deepEqual(marks(deckOf([BODY(1), hide(BODY(2), '<!-- hide: if short on time -->')])), ['1', '2']);
+    assert.equal(core.slideSourceHidden('<!-- hide: if short on time -->\n## B'), false);
   });
 });
 

@@ -36,4 +36,13 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 	it('a no-op when the slide is already in that state', () => {
 		expect(setHiddenAt(deck, { unit: 0, part: 0 }, false).source).toBe(deck);
 	});
+
+	it('under split: headings, Hide on a part hides its whole `---` block, without cutting it', () => {
+		const split = '---\nsplit: headings\n---\n\n## A\n\n---\n\n## B1\n\nb\n\n## B2\n\nb2\n';
+		const r = setHiddenAt(split, { unit: 1, part: 1 }, true);
+		expect(r.source).toBe('---\nsplit: headings\n---\n\n## A\n\n---\n\n<!-- hide -->\n## B1\n\nb\n\n## B2\n\nb2\n');
+		expect(isHiddenAt(r.source, { unit: 1, part: 0 })).toBe(true);
+		expect(isHiddenAt(r.source, { unit: 1, part: 1 })).toBe(true);
+		expect(setHiddenAt(r.source, { unit: 1, part: 1 }, false).source).toBe(split);
+	});
 });
