@@ -7,15 +7,16 @@
 //     render-metrics.ts which single-slide-render.ts records into.
 //
 // All measured by the visitor's OWN browser (real-device numbers). On/off is the
-// shared cross-surface pref (perf-overlay-prefs.ts): the Studio switch, the
-// Drawing Board switch, and the `?perf` URL param all flip it, and this island
+// shared cross-surface pref (perf-overlay-prefs.ts): the Studio's Workspace switch and
+// the `?perf` URL param flip it, and this island
 // mounts/unmounts live in response. It renders NOTHING (and starts no loops)
 // until enabled, so a normal page view pays nothing. Availability is GA-gated in
 // perf-overlay-prefs.ts. Included once per page via ResourceHints/Header/features.
 //
 // The draggable shell + the enable/singleton gate are the shared diagnostic-overlay
-// chassis (diagnostic-overlay.tsx: DiagnosticPanel + useDiagnosticGate); this file is only
-// the metric collection (web-vitals / runtime / render) + the readout body.
+// chassis (diagnostic-overlay.tsx: DiagnosticPanel + useDiagnosticGate). This file is only the
+// gate; the metric collection and the readout live in PerfOverlayPanel.tsx, which loads on
+// the first switch-on, so a page view with the overlay off downloads none of it.
 
 import * as React from 'react';
 import { type OverlayClaim, useDiagnosticGate } from '@/components/diagnostics/diagnostic-overlay';
@@ -26,7 +27,8 @@ const claim: OverlayClaim = { held: false };
 
 // The panel (metrics + readout) loads only once the overlay is on: off, which is nearly every page view, it costs
 // nothing to download. Its loops start on mount and stop on unmount, as before.
-const Overlay = React.lazy(() => import('./PerfOverlayPanel'));
+// A chunk that cannot load (offline, a redeploy) leaves the overlay closed rather than throwing out of the island.
+const Overlay = React.lazy<React.ComponentType>(() => import('./PerfOverlayPanel').catch(() => ({ default: () => null })));
 
 export default function PerfOverlay() {
 	const active = useDiagnosticGate({
