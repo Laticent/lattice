@@ -85,7 +85,7 @@ The source reader parses with the engine's own comment grammar and value rule, a
 | Studio PDF, PowerPoint, LibreOffice, images, print, Article | `buildDeckRender` drops hidden sections. PDF review comments and the print panel's preview cells are keyed by `---` block, so they drop the blocks the source hides (`hiddenAuthoredSlides`), keeping a sparse list's gaps | `share-export.ts`, `PrintOptionsPanel.tsx` |
 | Studio Webpage and Captions | Filter the render themselves (they do not use `buildDeckRender`); hidden slides' note bodies join the strip-notes scrub; captions re-key front-matter `say:` to the shown slides | `share-export.ts` `shareHtmlPlayer`, `shareCaptions` |
 | Narration bake | Resolves the shown slides only, `say:` by authored number, as Present does | `narration-bake.ts` `resolveDeck` |
-| Export to Marp (both hosts) | Marp has no hide of its own (only `paginate: skip`/`hold`), so the bundle carries one: `bakeHidden` rewrites every hide as `<!-- _hide: true -->` (a bare `hide` is a speaker note to Marp, and a plain `hide: true` would carry onto later slides), the split bake stamps it on every part of a hidden block, and the bundle's engine drops such a slide before `marpit_inline_svg` (after it, an empty `<svg>` printed as a blank PDF page) and before `marpit_directives_apply`, which then numbers the shown slides 1..N. The pattern is the custom-directive plugin Marpit's maintainer publishes. Measured with marp-cli 4.5.1 on `examples/hidden-slides.md`: 6 pages of 8 slides, numbered 3, 4, 5 of 6 like Lattice's own PDF, light and dark. The VS Code preview may still show a hidden slide | `lib/core/bake-splits.js`, `lib/export/marp-bundle-html.js` |
+| Export to Marp (both hosts) | Marp has no hide of its own (only `paginate: skip`/`hold`), so the bundle carries one. `bakeHidden` rewrites every hide Lattice reads as `<!-- _hide: true|false -->`, and the split bake stamps each part of a block with its state. The bundle's engine is deliberately NOT a Marp custom directive (the pattern Marpit's maintainer publishes): Marpit reads directives in blockquotes, list items, inline text and multi-key comments, where a plain `hide:` would carry onto every later slide (a checker measured whole decks vanishing). It reads exactly what Lattice reads, a top-level comment that is only `_hide: <value>`, last one winning, marks it handled so it is no presenter note, and drops the slide before `marpit_inline_svg` (after it, an empty `<svg>` printed as a blank PDF page) and before `marpit_directives_apply`, which then numbers the shown slides 1..N. Any other `hide` comment stays a note in both. Measured with marp-cli 4.5.1 on `examples/hidden-slides.md`: 6 pages of 8 slides, numbered 3, 4, 5 of 6 like Lattice's own PDF, light and dark. The VS Code preview may still show a hidden slide | `lib/core/bake-splits.js`, `lib/export/marp-bundle-html.js` |
 | File names | The CLI's `<title>` and PDF/PPTX metadata title come from the first SHOWN slide's heading; the Marp bake writes a `title:` when a hidden first slide would otherwise name marp-cli's file | `lattice.js` `deckTitle`, `bake-splits.js` `withShownTitle` |
 | Present | Never presented under any lens; opening on a hidden slide lands on the next shown one | `deck-lint.ts` `presentationPairs`, `PresentOverlay.tsx` |
 | Studio strip, slide map | Keeps its place; an eye-off mark stands where its number was; the accessible name says "hidden" | `SlideRail.tsx`, `StudioMap.tsx` |
@@ -114,13 +114,16 @@ those fixes and the Marp bridge, found seven more, also fixed and pinned: the ca
 split and hidden slides cancel out; the Marp bake dropping `_hide: false`; a hidden first slide naming the exported
 file; `> <!-- hide -->` read differently by the engine and the source reader; a block's parts disagreeing when one part
 says hide and another says show; a `hide:` note swallowed; and the Studio's narration projection counting hidden
-slides.
+slides. A third, on those fixes, found four more, fixed and pinned: Marp's own directive parser hiding slides Lattice
+shows (the bundle no longer registers a Marp directive); the Studio's Show deleting a `hide:` note and Hide losing to an
+older `_hide: false` (both now remove only real hide lines first); the notes leak audit reading a `hide:` note as a
+directive; and the Marp title for a deck with no front matter.
 
 ## 6. Not done here
 
 - **Numbering in the strip.** The strip numbers slides by their place in the editor (every slide), which is also what
   the pager's "3 / 6" counts. A shown slide's strip number can therefore differ from its exported page number when a
   hidden slide comes before it. The eye-off mark on the hidden pill is what explains the gap.
-- **A `hide:` note in Marp.** Marp reads `<!-- hide: if short on time -->` as the bundle's `hide` directive (an
-  unrecognized value, so the slide stays shown), and the note does not reach Marp's presenter notes. Lattice keeps it.
+- **A spot hide nested in a blockquote or list** (`> <!-- _hide: true -->`). Neither host hides the slide, and the speaker
+  notes classify the comment as a directive, so it is neither a hide nor a note. A misplaced directive, left as is.
 - **A keyboard shortcut.** None, as in Keynote and PowerPoint; the menu and the palette are the doors.

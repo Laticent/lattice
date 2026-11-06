@@ -45,4 +45,20 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 		expect(isHiddenAt(r.source, { unit: 1, part: 1 })).toBe(true);
 		expect(setHiddenAt(r.source, { unit: 1, part: 1 }, false).source).toBe(split);
 	});
+
+	it('a `hide:` note survives Hide then Show, and a hide in indented code is left alone', () => {
+		const note = '<!-- hide: if short on time -->\n## A';
+		const hidden = withHidden(note, true);
+		expect(slideSourceHidden(hidden)).toBe(true);
+		expect(withHidden(hidden, false)).toBe(note);
+		const code = '## A\n\n    <!-- hide -->';
+		expect(withHidden(withHidden(code, true), false)).toBe(code);
+	});
+
+	it('Hide wins over an older `_hide: false` on the slide', () => {
+		const shown = '## A\n\nbody\n\n<!-- _hide: false -->';
+		const hidden = withHidden(shown, true);
+		expect(slideSourceHidden(hidden)).toBe(true);
+		expect(hidden).toBe('<!-- hide -->\n## A\n\nbody');
+	});
 });

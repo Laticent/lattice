@@ -1,5 +1,6 @@
 import { buildDeckIndex, type DeckIndex } from '@/lib/deck-outline';
 import { unitText } from '@/lib/fuoco/outline';
+import { hideOfComment } from '../../../../lib/core/hide-directive.mjs';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
@@ -374,19 +375,26 @@ export function slideCount(source: string): number {
 
 // ── Hide / show (engineering/decisions/2026-11-06-hidden-slides.md) ───────────────────────────────────────────────────
 //
-// Hiding writes the authored form, `<!-- hide -->`, as the slide's first line; showing removes every line that is only a
-// `hide` directive. A hide written some other way (inside a longer comment line) that survives the removal is overridden
-// with `<!-- _hide: false -->`, which wins because the last `hide` on a slide wins. Code samples are left alone: a
-// `<!-- hide -->` shown in a fence is not a directive, and `slideSourceHidden` blanks code before it reads.
+// Both directions first remove every line that IS a hide directive, read by the one reader (lib/core/hide-directive.mjs):
+// a comment alone on its line, up to three spaces in (four is indented code), outside a fence, with an on/off value. So
+// a note such as `<!-- hide: if short on time -->` and a sample in code survive both. Hiding then writes the authored
+// form, `<!-- hide -->`, as the slide's first line; since every other hide line is gone, no older `_hide: false` can
+// outvote it. A hide written some other way that survives the removal is outvoted at the end: `<!-- hide -->` to hide,
+// `<!-- _hide: false -->` to show, the last hide on a slide winning.
 
-const HIDE_LINE = /^[ \t]*<!--\s*_?hide(?:\s*:[^\n]*?)?\s*-->[ \t]*(?:\r?\n|$)/gm;
+const HIDE_LINE = /^ {0,3}<!--[^\n]*?-->[ \t]*(?:\r?\n|$)/gm;
+const withoutHideLines = (text: string) => fencedSafe(text, (t) => t.replace(HIDE_LINE, (line) => (hideOfComment(line.trim()) ? '' : line)));
 
 /** The slide's markdown with its hide state set to `hidden`. */
 export function withHidden(content: string, hidden: boolean): string {
 	if (slideSourceHidden(content) === hidden) return content;
-	if (hidden) return `<!-- hide -->\n${content}`;
-	const removed = fencedSafe(content, (t) => t.replace(HIDE_LINE, ''));
-	return slideSourceHidden(removed) ? `${removed.replace(/\s+$/, '')}\n\n<!-- _hide: false -->` : removed;
+	// A removed last line leaves its blank lines behind: trim them, as the deck's slots hold trimmed content.
+	const removed = withoutHideLines(content).replace(/\s+$/, '');
+	if (hidden) {
+		const written = `<!-- hide -->\n${removed}`;
+		return slideSourceHidden(written) ? written : `${removed}\n\n<!-- hide -->`;
+	}
+	return slideSourceHidden(removed) ? `${removed}\n\n<!-- _hide: false -->` : removed;
 }
 
 /** Apply `fn` to the text OUTSIDE fenced code only, so a `<!-- hide -->` shown in a sample survives. */
