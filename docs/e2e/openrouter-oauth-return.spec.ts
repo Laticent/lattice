@@ -8,7 +8,7 @@ import { expect, gotoStudio, test } from './studio-fixture';
 //
 // MOCKED, NOT SPENT (HARD RULE #24): the route handler answers every openrouter.ai request.
 
-test('@smoke a 400 from the key exchange shows a retry and clears the verifier', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a 400 from the key exchange shows a retry and clears the verifier', async ({ page }) => {
 	await page.addInitScript(() => {
 		try {
 			if (!sessionStorage.getItem('e2e-seeded')) {

