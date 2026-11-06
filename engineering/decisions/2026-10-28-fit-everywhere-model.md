@@ -1046,8 +1046,10 @@ hybrids that are lists split like lists, hybrids that are tables split like tabl
 pattern where none exists (matrix-grid by column); built in this PR.
 
 **Long words break with a dash** on square, tall and strip slides (base.elements.css): `hyphens:
-auto` for words of 10+ letters with 4 kept each side, `overflow-wrap: break-word` as the last
-resort, code and math opted out. The exporter's Chrome hyphenates (Chrome 131, measured), so the
+auto` for words of 10+ letters with 4 kept each side, code and math opted out. A word the
+dictionary cannot split stays whole: an `overflow-wrap: break-word` last resort shipped first and broke
+a square roadmap's "Connector" into "Conne / ctor" with no dash, where main had read it whole (the fit
+ratchet, roadmap square@laptop clip 0 -> 1), so it was taken out. The exporter's Chrome hyphenates (Chrome 131, measured), so the
 old note that headless Chrome cannot was stale. **The PDF writer could not read a hyphenated break**
 (lib/core/pdf-compose/read-slide.mjs `linePieces`), a defect latent until this rule turned
 hyphenation on: at a hyphenated break the next line's first letter reports the dash's box on the

@@ -141,8 +141,11 @@ section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-c
  * the only thing that sizes type (fit-everywhere-model.md §18), so the word breaks instead: the
  * browser's dictionary for the page's `lang` (the deck's `lang:`, `en` by default) splits it at a
  * syllable with a dash, and only a word of 10 or more letters, keeping 4 on each side, so an
- * ordinary word never splits. `overflow-wrap: break-word` stays as the last resort for a word the
- * dictionary cannot split (a code-like token), which then breaks without a dash rather than clip.
+ * ordinary word never splits. A word the dictionary cannot split is NEVER broken bare: an
+ * `overflow-wrap: break-word` last resort here broke "Connector" into "Conne / ctor" in a square
+ * roadmap's 87px cell (and "UNCERTAI / N"), where on main the word ran into the cell's icon padding
+ * and read whole; the fit ratchet caught it (roadmap square@laptop, clip 0 -> 1). A break without a
+ * dash is the defect this rule exists to remove, so the word stays whole and the fit check judges it.
  * Scoped to the `data-family` stamp, which a 16:9 slide does not carry, so a wide deck renders as
  * it did. The exporter's Chrome hyphenates (Chrome 131 measured, 2026-11-05), as do Safari and
  * Firefox; Safari reads the prefixed forms. Code keeps its characters whole: `pre`, `code` and
@@ -153,12 +156,10 @@ section:where([data-family]) {
   hyphenate-limit-chars: 10 4 4;
   -webkit-hyphenate-limit-before: 4;
   -webkit-hyphenate-limit-after: 4;
-  overflow-wrap: break-word;
 }
 section:where([data-family]) :where(pre, code, kbd, samp, .katex, mjx-container) {
   -webkit-hyphens: manual;
   hyphens: manual;
-  overflow-wrap: normal;
 }
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
    block above explains. Older engines keep the exact width: a custom property holding round() is invalid there at computed
