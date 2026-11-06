@@ -78,8 +78,21 @@ describe('virtualClock', () => {
     assert.equal(await settle(), 4);
     assert.deepEqual(seen, ['a', 'frame', 'b', 'c']);
     assert.equal(now(), 110);
-    assert.equal(win.performance.now(), 110, 'the window reads the virtual time too');
-    assert.equal(win.Date.now(), Date.UTC(2026, 0, 1) + 110, 'and so does its Date, from a fixed epoch');
+  });
+
+  test('a window that runs scripts reads the virtual time; a plain one leaves Node\'s clock alone', async () => {
+    const scripted = new JSDOM('', { runScripts: 'dangerously' }).window;
+    const { settle } = virtualClock(scripted);
+    scripted.setTimeout(() => {}, 110);
+    await settle();
+    assert.equal(scripted.performance.now(), 110, 'the window reads the virtual time');
+    assert.equal(scripted.eval('Date.now()'), Date.UTC(2026, 0, 1) + 110, 'and so does its Date, from a fixed epoch');
+    // A plain jsdom window shares Node's Date: pinning it would freeze Date.now() for the rest of the file.
+    const plain = new JSDOM('').window;
+    assert.equal(plain.Date, Date, 'precondition: this window shares Node\'s Date');
+    const nodeNow = Date.now;
+    virtualClock(plain);
+    assert.equal(Date.now, nodeNow, 'Node\'s Date.now is untouched');
   });
 
   test('work that never stops is an error, not a hang', async () => {

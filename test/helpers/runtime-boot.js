@@ -45,11 +45,12 @@ function virtualClock(win) {
   win.requestAnimationFrame = (fn) => add(() => fn(now), 16, [], false);
   win.cancelAnimationFrame = (id) => { queue.delete(id); };
   // The runtime also READS the clock (its fit scheduler's max-wait checks `performance.now()`), so a loaded runner would
-  // send it down a different branch. Both clocks read the virtual time; the window's `Date` and `performance` are its
-  // own, never Node's.
+  // send it down a different branch. Both clocks read the virtual time, but ONLY where the window owns them: a jsdom
+  // window made without `runScripts` shares Node's own `Date`, and pinning that froze `Date.now()` for every later test
+  // in the file (F7). Such a window runs no page script, so nothing in it reads the clock anyway.
   const epoch = Date.UTC(2026, 0, 1);
-  if (win.performance) win.performance.now = () => now;
-  win.Date.now = () => epoch + now;
+  if (win.performance && win.performance !== globalThis.performance) win.performance.now = () => now;
+  if (win.Date && win.Date !== Date) win.Date.now = () => epoch + now;
 
   /** Run the runtime until it has nothing queued. Resolves with the number of callbacks fired. */
   async function settle({ maxSteps = 500 } = {}) {
