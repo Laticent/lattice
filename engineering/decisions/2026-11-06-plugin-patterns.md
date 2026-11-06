@@ -158,7 +158,7 @@ Playground before and after.
 
 ## 6. Order of work
 
-One PR per slice, each measured and independently revertible:
+**One PR for all four slices, one commit per slice** (owner, 2026-11-06), each slice measured on its own:
 
 1. **Host flicker protections** (§5), with function-plot as the second user. Preview only; no export bytes move.
 2. **A manifest-driven deferred-figure driver** (§4 step 1), function-plot only. Byte-identical exports, proved by the
@@ -186,6 +186,7 @@ One PR per slice, each measured and independently revertible:
 2. **Yes:** `bake` is retired once Mermaid leaves it.
 3. **Yes:** the flicker protections move into the shared host, as slice 1.
 4. **Noted:** `returns` stays out of scope here.
+5. **All four slices land in one PR**, one commit per slice; slice 3's export bytes still need the owner's sign-off on dark and light renders before merge.
 
 ## 8. Not verified
 
