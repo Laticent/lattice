@@ -1195,15 +1195,16 @@ export function forceSectionVisibleForCapture(section) {
 // pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
 // rasterizers so the fixups can never drift apart.
 // ─── Web images at the capture (trio follow-up 11) ──────────────────────────────────────
-// The capture frame carries the web-image policy and its markup is rewritten, but the frame is
-// not what fetches for an export: html-to-image runs in the PARENT page, which has no such
-// policy, and re-downloads every image and every `url()` it reads off the computed style so it
-// can inline them. A spelling the markup rewrite cannot see (a CSS escape, `image-set()`, a `(`
-// inside the address, a `background=` attribute, a web url() in theme or package CSS, a Mermaid
-// image drawn after the rewrite) would therefore still be fetched at export, from the author's
-// machine. The computed style is where every spelling has been resolved, so the last word is
-// taken there: right before the clone, every web reference outside the deck's allow-list is
-// swapped for the placeholder, and every one is put back afterwards.
+// The capture frame carries the web-image policy, and the policy is what stops a request: measured in Chromium, WebKit
+// and Firefox (security spine note, "The export's web sweep, measured"), reading a computed `url()` is what starts its
+// load, so a sweep that reads the value before replacing it cannot stop it in Chromium or WebKit. The camera
+// (lib/core/slide-camera.mjs) requests nothing itself: it draws the slide as an SVG image, which loads no subresource,
+// and inlines only what `studioDataUri` reads (same-origin, `blob:`, `data:`). What this sweep owns is the DRAWING:
+// right before the shot, every web reference outside the deck's allow-list in the properties below is swapped for the
+// hatch (a background or mask) or `none`, the picture the policy gives, and put back afterwards. It reads no other
+// property on purpose: the export requests none of them (`-webkit-box-reflect`, `mask-border-source`, SVG paint, …,
+// each measured in that note), and the guard on the policy is docs/e2e/export-missing-image.spec.ts.
+// (This block used to say html-to-image ran in the PARENT page and re-downloaded every `url()`; that camera is gone.)
 
 /** The allowed web origins of each capture frame's document (set by createCaptureFrame). */
 const CAPTURE_WEB_ORIGINS = new WeakMap();

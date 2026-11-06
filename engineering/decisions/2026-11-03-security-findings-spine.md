@@ -479,8 +479,65 @@ probed as before.
   without: …, https://tracker.example/pixel-9c1e.png" in Chromium (`desktop`), WebKit (`webkit-tablet`) and Firefox
   (`gecko`); Firefox named only that address. With the fix, all three pass and no request reaches the address. The
   unit tests in `deck-export.test.ts` hold the allow-list itself, the allowed origin and the site's own.
-- **Still open** (`followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`): the properties and elements neither
-  the sweep nor the probe reads, each waiting on a browser oracle.
+- **Closed on 2026-11-06** (the next section): the properties and elements neither the sweep nor the probe reads were
+  each measured in three browsers, and none needs the sweep.
+
+## The export's web sweep, measured (2026-11-06)
+
+The follow-up the probe fix left (`followups.d/3022-p2-export-probe-fetches-web-backgrounds.md`, deleted with this
+change) named the properties the capture's web sweep (`sweepWebRefsForCapture`, `WEB_URL_PROPS` in
+`docs/src/components/studio/export/deck-export.js`) does not read: `-webkit-box-reflect`, `mask-border-source`,
+`-webkit-mask-box-image-source`, SVG `fill`, `stroke`, `marker` and `clip-path` naming a web `url()`, and SVG `<feImage>`
+and `<use>` `href`. It asked, for each one, whether the export requests it. **The answer is no for every one, and the
+sweep is not what stops any of them.** So the sweep reads no new property, and the guard this change adds is on the
+capture frame's policy, which is the barrier.
+
+**The oracle.** A page served on one origin builds an `<iframe srcdoc>` with **no policy**, as the capture frame would be
+without `previewCspMeta`, and lays out one slide per case. Each address points at a second origin that logs every
+request and answers `Cache-Control: no-store`. A CSS case names its property in a rule that matches only under
+`.lattice-exporting`, the class `withCaptureFixups` adds, so nothing asks for it until an export starts. An attribute case
+(`fill="url(…)"`, `<feImage href>`) is in the markup. Phase 1 counts what the frame itself requests once the rule
+applies. Phase 2 runs the real export step on the slide (`withCaptureFixups`, then `captureSlideCanvas` with the
+Studio's `toDataUri` rule: same-origin, `blob:` and `data:` only) and counts what it adds. Playwright 1.56: Chromium
+(build 1243), WebKit (2215) and Firefox (1495).
+
+| Property, as a theme or deck can write it | Frame requests it (Chromium / WebKit / Firefox) | Export step adds |
+|---|---|---|
+| `background-image` (listed; the control) | yes / yes / yes | 0 / 0 / 0 |
+| `-webkit-box-reflect: below 0 url(…)` | yes / yes / no (unsupported) | 0 / 0 / 0 |
+| `mask-border-source` | no / yes / no | 0 / 0 / 0 |
+| `-webkit-mask-box-image` (its `-source`) | yes / yes / no | 0 / 0 / 0 |
+| SVG `fill`, as an attribute and as CSS | yes / no / no | 0 / 0 / 0 |
+| SVG `stroke` | yes / no / no | 0 / 0 / 0 |
+| SVG `marker-start` | yes / no / no | 0 / 0 / 0 |
+| `clip-path`, on SVG and on HTML | yes / no / no | 0 / 0 / 0 |
+| SVG `mask` | yes / yes / yes | 0 / 0 / 0 |
+| `filter: url(…)` (listed) | no / no / no | 0 / 0 / 0 |
+| SVG `<feImage href>` | yes / yes / yes | 0 / 0 / 0 |
+| SVG `<use href>` (cross-origin) | no / no / no | 0 / 0 / 0 |
+| `<img src>` (listed; the control) | yes / yes / yes | 1 / 1 / 0 |
+
+- **The camera requests nothing.** It draws the slide as an SVG image, which the browser never lets load a subresource, and
+  it reads every `url()` it inlines through `toDataUri`, which refuses another origin. Every "adds" cell above is 0
+  except the last row, where the sweep itself is the cause: it swaps the `<img src>` for the placeholder and puts the
+  address back afterwards, and Chromium and WebKit load it again. That request repeats an address the frame had already
+  requested, and under the frame's policy it is refused like the first.
+- **The sweep cannot stop a request in Chromium or WebKit.** Reading a computed `url()` is what starts its load. Added to
+  `.lattice-exporting` and hidden (`display: none`) in the same task, a background makes no request; read with
+  `getComputedStyle` first, it makes one in all three engines. The sweep has to read the value before it can replace it,
+  so in those two engines the load has already started, for its own listed `background-image` as for
+  `-webkit-box-reflect`. In Firefox the sweep's write lands first and the load never starts, for the properties it
+  lists. Reading more properties would buy Firefox nothing: Firefox requests none of the unlisted CSS properties.
+- **What stops them is the frame's policy.** `createCaptureFrame` builds every capture frame through `buildSrcdoc`, whose
+  `csp` defaults to on, and no caller turns it off (the Print panel's two frames included). So the sweep's job is the
+  drawing: the hatch where a disallowed web background was, and `none` for the other listed properties, the same
+  picture the policy gives. Adding the unlisted properties would change export bytes for those decks and add ten
+  computed reads per element, for no request saved.
+- **The guard, on the real surface.** `docs/e2e/export-missing-image.spec.ts` "the export requests no web picture through
+  a property the sweep does not read" serves the real theme sheet with one rule per CSS property above, each naming its
+  own address, plus a slide with an SVG `<feImage>` and `<use>` naming web addresses, and drives the Studio's real PDF
+  export in Chromium (`desktop`), WebKit (`webkit-tablet`) and Firefox (`gecko`). It asserts that no request reaches
+  any address. With `buildSrcdoc`'s `csp` default set to off, it fails.
 
 ## The last census readers, decided (2026-11-05)
 
