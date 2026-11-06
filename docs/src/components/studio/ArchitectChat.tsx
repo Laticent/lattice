@@ -898,7 +898,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		saveChat(deckId, next);
 		// The new deck's chat starts with one line pointing back, not a copy of this thread: the old
 		// turns are about the old deck, and a copy would carry its pending edits and double the storage.
-		saveChat(id, [{ role: 'assistant', content: `I created this deck from our chat on the deck you were in before (${m.action.slides || m.action.outline.length} slides). Ask me about it here; that conversation stays with that deck.` }]);
+		saveChat(id, [{ role: 'assistant', content: `I created this ${m.action.slides || m.action.outline.length}-slide deck from our chat on the deck you were in before. Ask me about it here; that conversation stays with that deck.` }]);
 		setMessages(next);
 	};
 

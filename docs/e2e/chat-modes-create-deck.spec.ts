@@ -103,7 +103,7 @@ test('Review: create_deck waits for the author, then opens the new deck and the 
 	await expect.poll(async () => (await deckSources()).some((v) => v.startsWith('---') && v.includes('Revenue grew forty percent'))).toBe(true);
 	expect((await deckSources()).length).toBe(before + 1);
 	// The new deck's chat starts with one line pointing back, not a copy of the old thread.
-	await expect(page.getByText('I created this deck from our chat on the deck you were in before (3 slides).')).toBeVisible();
+	await expect(page.getByText('I created this 3-slide deck from our chat on the deck you were in before.')).toBeVisible();
 	await expect(page.getByText('make me a new three-slide deck for the board')).toHaveCount(0);
 	// And the next turn is about the new deck.
 	await send(page, 'does slide 2 work?');
