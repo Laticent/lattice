@@ -21,6 +21,11 @@ fixed     — on branch claude/plugin-patterns-d2-ghtybq, each a stale test or a
             (JPEG) test needs the photo writer (#2985); the hidden Print drawer test counted the pool's release; two
             strict-mode duplicates; the raster marker's pill moved into its berth; one `logo:` copy since #3023; the
             add-slide confirmation moved into the New slide button.
+after     — the full desktop run on the branch, with main at 867e0fff merged in: 1,256 passed, 23 failed, 20 skipped
+            (1.2 h). Three of the 23 are new on main since 8a755f69 (#3048, #3054 changed the Studio), not this branch:
+            they fail run alone, and still fail with main's own studio-fixture.ts: blank-slide-editors.spec.ts:56,
+            strip-keyboard.spec.ts:51, strip-menu.spec.ts:106. Not investigated. Three more passed run alone
+            (compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94), so they join the load list below.
 left      — each needs a decision, not a test edit:
             - playground-kpi-pill.spec.ts:53 ×3: the test writes pills as bare backticks, which the pills plugin no
               longer reads (`{…}` now); with `{…}` the ground is opaque, but its "ink equals border" rule contradicts
@@ -38,7 +43,7 @@ left      — each needs a decision, not a test edit:
               workspace-backup-size:85 (0 of 10 reference docs restored).
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
               lenses-landing:33, library-header-search:19, stage-window:335, studio-map-posters:87,
-              supplied-page-position:18.
+              supplied-page-position:18, compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94.
             - tablet and mobile projects: not re-run this session.
 done when — `npx playwright test --project=desktop --project=tablet --project=mobile` on a fresh cloud session of `main`
             ends with 0 failed, or each remaining test skips with a stated reason the sandbox cannot meet.
