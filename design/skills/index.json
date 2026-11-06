@@ -2,6 +2,15 @@
   "$generated": "tools/skill-index.js — edit the skills' front matter, not this file",
   "skills": [
     {
+      "name": "accessibility-review",
+      "file": "design/skills/accessibility-review.md",
+      "title": "Review a deck for accessibility",
+      "description": "Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3430
+    },
+    {
       "name": "chart-component",
       "file": "design/skills/chart-component.md",
       "title": "Create a chart component",
@@ -9,6 +18,15 @@
       "kind": "make",
       "studio": false,
       "tokens": 5851
+    },
+    {
+      "name": "chart-from-data",
+      "file": "design/skills/chart-from-data.md",
+      "title": "Put data on a slide as the right chart",
+      "description": "Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3264
     },
     {
       "name": "cli",
@@ -47,6 +65,24 @@
       "tokens": 3244
     },
     {
+      "name": "diagram",
+      "file": "design/skills/diagram.md",
+      "title": "Put a diagram on a slide",
+      "description": "Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3027
+    },
+    {
+      "name": "edit-deck",
+      "file": "design/skills/edit-deck.md",
+      "title": "Edit a deck that already exists",
+      "description": "Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3296
+    },
+    {
       "name": "finish",
       "file": "design/skills/finish.md",
       "title": "Create a finish",
@@ -54,6 +90,24 @@
       "kind": "make",
       "studio": true,
       "tokens": 3845
+    },
+    {
+      "name": "fix-findings",
+      "file": "design/skills/fix-findings.md",
+      "title": "Fix lint, Coach and overflow findings",
+      "description": "Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3480
+    },
+    {
+      "name": "import",
+      "file": "design/skills/import.md",
+      "title": "Bring outside content into Lattice",
+      "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
+      "kind": "operate",
+      "studio": false,
+      "tokens": 3113
     },
     {
       "name": "lens",
@@ -65,6 +119,24 @@
       "tokens": 4725
     },
     {
+      "name": "math",
+      "file": "design/skills/math.md",
+      "title": "Put math on a slide",
+      "description": "Use when a slide carries math: inline $x$ or a display equation, the math layout and its variants, legends for symbols, and when prose beats an equation.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 2754
+    },
+    {
+      "name": "restyle-deck",
+      "file": "design/skills/restyle-deck.md",
+      "title": "Restyle a deck",
+      "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3192
+    },
+    {
       "name": "speaker-notes",
       "file": "design/skills/speaker-notes.md",
       "title": "Create speaker notes, reviews, and `say:` lines",
@@ -72,6 +144,15 @@
       "kind": "make",
       "studio": true,
       "tokens": 5394
+    },
+    {
+      "name": "studio",
+      "file": "design/skills/studio.md",
+      "title": "Use Lattice Studio",
+      "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
+      "kind": "operate",
+      "studio": true,
+      "tokens": 3347
     },
     {
       "name": "theme",
