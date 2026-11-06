@@ -187,12 +187,37 @@ Pinned by `test/unit/core/subresource-csp-script-nonce.test.js` (the directive, 
 keywords, a malformed nonce or origin refused, no change without a nonce) and by
 `byok-key-isolation.spec.ts`, which now also asserts the frame's policy carries the nonce.
 
-**What this does not cover.** The proof drives the Studio preview only. The other surfaces
-that render a deck on the key's origin were TRACED to a sanitizer call by the adversarial
-pass below, not proved in a browser: the Stage popup (`stage-window.js`, `buildStageDoc`),
-Print (`buildSrcdoc`), the export capture frame (`deck-export.js`), the webpage-export prune
-frame (`player-prune-browser.ts`, which runs the assembled player on this origin), the Read
-Article view (`projectSectionsToArticle`) and the Library scene art (`sanitizeSceneAssets`).
+**The other six surfaces (#3048-p5, 2026-11-06).** The adversarial pass below TRACED six more
+surfaces that render a deck on the key's origin to a sanitizer call. Each is now PROVED in a browser
+by `docs/e2e/byok-key-isolation-surfaces.spec.ts`, which renders the same hostile deck
+(`docs/e2e/hostile-deck.ts`, shared with the Studio-preview spec) on the surface with a canary key
+seeded, checks the deck really rendered there, waits for the signal the handlers ride on, and asserts
+nothing ran and no beacon left. The Library gets a hostile motion package instead of a deck.
+
+The red arm: one build with every one of these sanitizer calls returning its input. Each test went
+red, and the vectors that read the key were:
+
+| Surface | Sanitizer call removed | Vectors that ran |
+|---|---|---|
+| Read Article | `article-projection.ts` (`sanitize` in `projectSectionsToArticle`) | `<script>`, `<svg><script>`, `details ontoggle`, `iframe srcdoc` |
+| Stage popup | `stage-window.js` `buildStageDoc` | `img onerror`, the onerror after a `<style>`, the mXSS nest |
+| PDF export (capture frame) | `deck-preview.js` `buildSrcdoc` | `<script>`, `<svg><script>`, `details ontoggle`, `img onerror`, after-style, `iframe srcdoc`, `svg onload` |
+| Print deck (print sheets, "Download PDF") | `deck-preview.js` `buildSrcdoc` | 12 leak entries |
+| Webpage export (prune frame) | `buildSrcdoc`, and `assemblePlayer`'s `sanitize` cap (`share-export.ts`) | `<script>`, `<svg><script>`, `details ontoggle`, `iframe srcdoc`, `svg onload` |
+| Library scene art | `sanitizeSceneAssets` (`scene-library.ts`) | SVG `<image onerror>`, `foreignObject` `img onerror` and `details ontoggle` |
+
+So on each of these six the sanitizer is still the ONLY wall: none carries the `script-src` the
+Studio preview now has. Giving each its own nonce is the next defense-in-depth step, and the
+specs above are what would prove it (`followups.d/3048-p10-nonce-script-src-on-other-surfaces.md`).
+
+Two things the specs taught. Print's options step shows a Studio preview frame (single-slide-render,
+already covered), not the print document; the print sheets are built only on Print or "Download
+PDF", so the spec drives the download. The Stage resolves `src="x"` against a document with no
+base, so its images neither load nor fail; the spec waits for the popup's `load` event instead.
+
+Green, with the sanitizers in place, on desktop Chromium, Gecko and WebKit (iPad landscape). The
+red arm was measured on desktop Chromium only. Not run at phone width: the phone Studio has no
+posture dial or Stage, as the existing Read Article and Stage specs also reflect.
 
 ## 5. The adversarial pass (2026-11-06)
 
