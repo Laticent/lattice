@@ -797,6 +797,21 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) svg:has(g[class*="system"]) path:not([class]):not(g.rough-node path) {
   stroke: var(--diagram-line) !important;
 }
+/* A C4 relationship label. Mermaid's drawRels puts it at the line's midpoint PLUS half the label's
+ * width and height (its text helper takes a top-left corner, but the text is centered on that
+ * point), so every label drifts toward the target box: into it on a vertical line, onto the
+ * arrowhead on a horizontal one. `translate(-50%, -50%)` against the text's own box puts it back
+ * on the midpoint, and -0.85em more lifts it just above the line. The <text> carries x/y and no
+ * transform attribute, so this is the only transform. A halo in the slide's own background masks
+ * whatever line still crosses the word, light or dark, since Mermaid gives it no background. */
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text {
+  transform-box: fill-box;
+  transform: translate(-50%, calc(-50% - 0.85em));
+  paint-order: stroke;
+  stroke: var(--bg) !important;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
 :is(section, figure) text.legendW, :is(section, figure) text.legendT, :is(section, figure) .legend text, :is(section, figure) .legend tspan {
   fill: var(--cat-on-fill) !important;
 }

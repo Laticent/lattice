@@ -650,6 +650,13 @@ list cannot rot again.
 | `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
 | **`C4Context`** (since 11.17) | `block` · `packet` · `architecture` · `gitGraph` |
 
+**C4 relationship labels (2026-11-06).** Mermaid's `drawRels` places a label at the line's
+midpoint plus half the label's own width and height, so labels drift into the target box or onto
+the arrowhead. `mermaid.styles.css` cancels that offset (`transform-box: fill-box` with
+`translate(-50%, …)`), lifts the label just above its line, and gives it a halo in `--bg`. A label
+whose line runs *behind* a box (a relationship that skips a row) still lands on that box; that is
+the diagram's layout, fixed in the source.
+
 Two entries in the right column look like they honor it and do not: `gitGraph` and
 `architecture-beta` emit *different bytes* under `handDrawn`, but the difference is a
 random commit hash and an Iconify element id respectively — no rough geometry. Anyone

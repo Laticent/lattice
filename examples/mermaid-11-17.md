@@ -21,11 +21,9 @@ The vendored Mermaid moved up a minor, which brings its label sanitizer from DOM
 
 ```mermaid
 C4Context
-  Person(buyer, "Buyer", "Places orders")
-  System(shop, "Storefront", "Takes the order")
-  System_Ext(bank, "Card network", "Clears the payment")
-  Rel(buyer, shop, "Orders from")
-  Rel(shop, bank, "Charges through")
+  Person(buyer, "Buyer")
+  System(shop, "Storefront")
+  Rel(buyer, shop, "Orders")
 ```
 
 ---
@@ -36,11 +34,9 @@ C4Context
 
 ```mermaid
 C4Context
-  Person(analyst, "Analyst", "Reads the report")
-  Person_Ext(auditor, "Auditor", "Checks the numbers")
-  System(reports, "Reporting", "Builds the monthly pack")
-  Rel(analyst, reports, "Reads")
-  Rel(auditor, reports, "Samples")
+  Person(analyst, "Analyst")
+  Person_Ext(auditor, "Auditor")
+  Rel(auditor, analyst, "Checks")
 ```
 
 ---
@@ -51,9 +47,9 @@ C4Context
 
 ```mermaid
 C4Context
-  Person(lead, "Team lead", "Plans the sprint")
-  System(board, "Planning board", "Holds the backlog")
-  Rel(lead, board, "Ranks work on")
+  Person(lead, "Team lead")
+  System(board, "Planning board")
+  Rel(lead, board, "Ranks")
 ```
 
 ---
@@ -74,15 +70,13 @@ block-beta
 
 <!-- _class: diagram dark -->
 
-## The same C4 colors hold on a dark slide.
+## C4 keeps the palette on a dark slide too.
 
 ```mermaid
 C4Context
-  Person(buyer, "Buyer", "Places orders")
-  System(shop, "Storefront", "Takes the order")
-  System_Ext(bank, "Card network", "Clears the payment")
-  Rel(buyer, shop, "Orders from")
-  Rel(shop, bank, "Charges through")
+  System(shop, "Storefront")
+  System_Ext(bank, "Card network")
+  Rel(shop, bank, "Charges")
 ```
 
 ---
