@@ -60,7 +60,12 @@ left      — each needs a decision, not a test edit:
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
               lenses-landing:33, library-header-search:19, stage-window:335, studio-map-posters:87,
               supplied-page-position:18, compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94.
-            - tablet and mobile projects: not re-run this session.
+            - tablet and mobile, the full projects on the branch: 292 passed, 6 failed, 27 skipped (17.2 m). Each of the
+              6 is main's, measured on a clean checkout of main 867e0fff: visual.spec.ts:37 (tablet and mobile),
+              ios-zoom.spec.ts:65 and plugin-inline-ui.spec.ts:170 (mobile) fail there every run;
+              compose-soft-break.spec.ts:22 and :50 (mobile) are FLAKY there, 3 of 6 runs failing with the editor's
+              source lacking the typed lines (on the branch: 3 of 6 with its studio-fixture.ts, 1 of 6 with main's).
+              A flaky test is fixed at its cause (HARD RULE #32); not investigated here.
 done when — `npx playwright test --project=desktop --project=tablet --project=mobile` on a fresh cloud session of `main`
             ends with 0 failed, or each remaining test skips with a stated reason the sandbox cannot meet.
 evidence  — the full-suite summary line before and after, on `main`.
