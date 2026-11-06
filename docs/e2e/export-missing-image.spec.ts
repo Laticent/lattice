@@ -97,12 +97,12 @@ for (const tags of ['', ' @webkit-tablet @gecko']) test(`the export never names 
 });
 
 // The properties the capture's web sweep does not read (`WEB_URL_PROPS`, deck-export.js), each naming its own web address
-// from the THEME, the one channel that reaches the capture frame as written, plus an SVG `<feImage>` and `<use>` written in
-// the deck. Measured in a frame with NO policy (followups.d/3022, the spine note's "The export's web sweep, measured"):
-// Chromium and WebKit request `-webkit-box-reflect` and `-webkit-mask-box-image`, WebKit `mask-border-source`, Chromium
-// a CSS `clip-path` and the SVG paint references, all three an SVG `mask` and `<feImage>`, and the sweep cannot stop any
-// of them, because reading the computed style is what starts the load. The capture frame's policy is what stops them,
-// so this holds the policy, in the real export, on every property. A frame built without it fails here.
+// from the THEME, the one channel that reaches the capture frame as written, plus an SVG `<feImage>` written in the deck
+// (the renderer keeps it; it deletes a `<use href>` naming another site, so there is none here). In a frame with no policy
+// (the spine note's "The export's web sweep, measured"), Chromium requests eight of these, WebKit five and Firefox two, at
+// the frame's load and again whenever its style is read, so no sweep can stop them. The capture frame's policy does, so
+// this holds the policy in the real export, for each property in the engines that request it. A frame built without the
+// policy fails here. And a web picture the deck has not allowed is no missing picture: the toast must not say one is.
 const T = 'https://tracker.example';
 const WEB_PROPS_THEME = [
 	`section.web-props h1 { -webkit-box-reflect: below 0 url(${T}/box-reflect.png); }`,
@@ -116,7 +116,7 @@ const WEB_PROPS_SLIDE = [
 	'<!-- _class: content web-props -->',
 	'# Every property that can fetch a picture',
 	'The first paragraph carries a mask border.',
-	`<svg width="200" height="80" viewBox="0 0 200 80"><filter id="wp-fe"><feImage href="${T}/feimage.png"/></filter><rect width="90" height="60" filter="url(#wp-fe)"/><path d="M110 10L190 70" stroke="currentColor"/><use href="${T}/use.svg#a"/></svg>`,
+	`<svg width="200" height="80" viewBox="0 0 200 80"><filter id="wp-fe"><feImage href="${T}/feimage.png"/></filter><rect width="90" height="60" filter="url(#wp-fe)"/><path d="M110 10L190 70" stroke="currentColor"/></svg>`,
 	'The last paragraph carries a WebKit mask box image.',
 ].join('\n\n');
 
@@ -143,6 +143,8 @@ for (const tags of ['', ' @webkit-tablet @gecko']) test(`the export requests no 
 	const file = await download;
 	const doc = await PDFDocument.load(new Uint8Array(readFileSync((await file.path()) as string)), { updateMetadata: false });
 	expect(doc.getPageCount()).toBe(1);
-	await expect(page.locator('[data-sonner-toast]')).toContainText(/PDF ready/i);
+	const toast = page.locator('[data-sonner-toast]');
+	await expect(toast).toContainText(/PDF ready/i);
+	await expect(toast).not.toContainText(/could not load every image/i);
 	expect(asked).toEqual([]);
 });

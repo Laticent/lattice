@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
-import { allowCaptureWebOrigins, assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
+import { allowCaptureWebOrigins, assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, refusedWebAddress, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is
@@ -785,6 +785,20 @@ describe('recordUnreachableAssets', () => {
 			allowCaptureWebOrigins(document, []);
 			section.remove();
 		}
+	});
+
+	it('refusedWebAddress: a web address off the frame\'s allow-list is refused on purpose, anything else is not', () => {
+		// The camera's onImageError reads this rule (shootSection), so a theme's web background the deck has not allowed
+		// no longer counts as a missing picture. Fail closed: a document with no list refuses every web origin.
+		const doc = document.implementation.createHTMLDocument('');
+		expect(refusedWebAddress(doc, 'https://tracker.example/a.png')).toBe(true);
+		allowCaptureWebOrigins(doc, remoteRef.withOwnOrigin(['https://pictures.example'], 'https://site.example'));
+		expect(refusedWebAddress(doc, 'https://tracker.example/a.png')).toBe(true);
+		expect(refusedWebAddress(doc, 'https://pictures.example/a.png')).toBe(false);
+		expect(refusedWebAddress(doc, 'https://site.example/missing.png')).toBe(false);
+		expect(refusedWebAddress(doc, '/missing.png')).toBe(false);
+		expect(refusedWebAddress(doc, 'data:image/png;base64,AA==')).toBe(false);
+		expect(refusedWebAddress(doc, 'blob:https://site.example/1')).toBe(false);
 	});
 
 	it('says nothing about a background that loads', async () => {
