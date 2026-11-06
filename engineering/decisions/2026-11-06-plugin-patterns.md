@@ -262,7 +262,7 @@ tab-indented closer was being read as a closer (the engine counts the tab as fou
 reader decides "closed" from the token itself, not the last line's text.
 
 **The gallery gates over-report on purpose.** They scan the engine's fences AND every fence-SHAPED block
-(`fenceShapedMermaidBodies`, lib/core/remote-ref.js): one inside an HTML block, an unclosed one. Nothing draws those
+(`fenceShapedMermaidBodies`, lib/core/fence-shaped-bodies.js, a leaf of its own so no eager bundle carries it): one inside an HTML block, an unclosed one. Nothing draws those
 since slice 3, so their URLs are never fetched, but a security gate does not admit a gallery on a reader's word that a
 block is inert; a false alarm is the safe direction (test/unit/core/gallery-remote-refs.test.js keeps its HTML-block
 cases).

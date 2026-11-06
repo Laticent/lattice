@@ -14,11 +14,13 @@
 
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { renderMarkdown } from '@/lib/render-engine';
+import fenceShaped from '../../../../../lib/core/fence-shaped-bodies.js';
 import { fencesOfPlugin } from '../../../../../lib/core/plugin-fences.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
-const { remoteRefsInHtml, mermaidRemoteRefs, fenceShapedMermaidBodies, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
+const { remoteRefsInHtml, mermaidRemoteRefs, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
+const { fenceShapedMermaidBodies } = fenceShaped;
 // Every Mermaid fence, as the ENGINE parses the gallery (lib/core/plugin-fences.mjs): the fences the export draws. The
 // reader is the engine's own parse, so it never comes back unreadable.
 /** The theme the check renders with. The markup, not the look, is what is read. */
@@ -53,7 +55,7 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	// Every fence the CLI export would hand to Mermaid, read off the SOURCE: one inside an HTML
 	// block is plain text in the page yet is drawn once the deck is exported.
 	// The engine's fences, and every fence-SHAPED block besides (an HTML block's, an unclosed one): a security gate
-	// over-reports (lib/core/remote-ref.js `fenceShapedMermaidBodies`).
+	// over-reports (lib/core/fence-shaped-bodies.js).
 	const fenced = [...fencesOfPlugin('mermaid', md).map((f: { body: string }) => f.body), ...(fenceShapedMermaidBodies(md) as string[])].flatMap((b: string) => mermaidRemoteRefs(b) as string[]);
 	// Read it twice: alone, and AS INSERTED. Insert splices the gallery after a slide and a
 	// `---`, so its front matter stops being front matter and renders.
