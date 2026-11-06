@@ -435,14 +435,21 @@ async function studioBoundaryReaders() {
     const dm = await import('../../lib/core/deck-model.mjs');
     if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);
     if (!segno.deckModelStats || !sb.splitSlideChunks || !sb.resetBoundaryMemo) return null;
-    return { sb, scanMetaSource: ms.scanMetaSource, stats: segno.deckModelStats };
+    // The class editor's per-slide read (`readClassDirective` → `readMetaField` → `commentBlocks`), which the Studio
+    // runs for every slide on every keystroke (absent in a tree that predates it).
+    const mr = await import('../../lib/core/meta-record.mjs');
+    return { sb, scanMetaSource: ms.scanMetaSource, commentBlocks: mr.commentBlocks ?? null, stats: segno.deckModelStats };
   } catch {
     return null;
   }
 }
 function boundaryKeystrokes(readers, src) {
   if (!readers) return { parses: null, ms: null };
-  const { sb, scanMetaSource, stats } = readers;
+  const { sb, scanMetaSource, commentBlocks, stats } = readers;
+  const classReads = (t) => {
+    if (!commentBlocks) return;
+    for (const c of sb.splitSlideChunks(t.slice(sb.frontMatterBlockOf(t).length)).chunks) commentBlocks(c);
+  };
   const sampleOf = (t) => {
     const fm = sb.frontMatterBlockOf(t);
     return fm + sb.splitSlideChunks(t.slice(fm.length)).chunks.map((c) => c.trim()).join('\n\n---\n\n');
@@ -451,6 +458,7 @@ function boundaryKeystrokes(readers, src) {
   let text = src;
   scanMetaSource(text);
   sb.slideBoundaries(sampleOf(text));
+  classReads(text);
   const before = stats.full;
   const times = [];
   const N = 10;
@@ -462,6 +470,7 @@ function boundaryKeystrokes(readers, src) {
     const t = process.hrtime.bigint();
     scanMetaSource(text);
     sb.slideBoundaries(sample);
+    classReads(text);
     times.push(Number(process.hrtime.bigint() - t) / 1e6);
   }
   times.sort((a, b) => a - b);

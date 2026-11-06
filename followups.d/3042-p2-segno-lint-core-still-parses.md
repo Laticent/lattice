@@ -4,21 +4,21 @@ priority: P2
 recorded: 2026-11-05
 area: website
 severity: low
-swimlane: engineering/decisions/2026-10-22-segno-deck-pipeline.md §The Studio's readers derive, not parse
-deferred: blocked — installing the deriver in the browser costs 1.1 KB gzipped of either the engine's first-paint bytes or the lint core's `lintCoreGz` ceiling, which bundle pays is the owner's call, and a lazily loaded segno entry for `updateDeckModel` is the third option
+swimlane: engineering/decisions/2026-10-22-segno-deck-pipeline.md §The editors install the deriver
+deferred: blocked — the lint core keeps its own copy of the boundary reader by design, so it needs its own copy of the deriver: about 1.1 KB gzipped against `lintCoreGz`, which has 0.2 KB of room. Raising that ceiling is the owner's number; the default (owner, 2026-11-06, if silent) is to leave the lint as it is
 source: https://github.com/Laticent/lattice/pull/3043
 ---
 
-# The Studio still parses the deck from nothing on every keystroke
+# The lint core still parses the deck from nothing on every keystroke
 
-why now   — PR 3043 ships an exact deriver for the boundary memo (lib/core/slide-boundaries.mjs `setBoundaryDeriver`,
-            lib/core/deck-model.mjs `deriveFromNearest`): a miss updates the nearest held model instead of parsing. It is
-            installed in Node (the bench, the tests) and not in the browser, where the preview and the lint both run in
-            the engine's esm bundles and a keystroke still costs 2 full parses.
-where     — docs/public/playground/esm (tools/build-playground.js: the engine and lint entries); docs/route-budget.json
-            `engineJsGz` / `lintCoreGz`; docs/src/lib/segno-markdown (one module today, so `updateDeckModel` cannot be
-            lazily split out of it).
-done when — the browser bundle that holds the boundary memo installs the deriver within its ceiling, and a Studio
-            keystroke builds no deck model from nothing, counted in a browser run.
-evidence  — the route budget before and after; `deckModelStats.full` per keystroke in a browser Studio run.
+why now   — since PR 3046 the editors install the boundary memo's deriver (docs/src/lib/deck-outline/deck-outline.ts),
+            which covers the outline, the slide split, the preview's sample and the class editor: a real Studio
+            keystroke went from 59.5 full parses to 1.1. The lint core (esm/lint.js) is the one reader left. It holds its
+            own copy of lib/core/slide-boundaries.mjs and of the boundary parser (tools/build-playground.js,
+            `assertLintParserIsolated`), so the editors' install cannot reach it, and its comment scan still parses the
+            deck from nothing once per keystroke (about 1 ms on a typical deck).
+where     — tools/build-authoring-core.js (the lint entry), docs/route-budget.json `lintCoreGz`.
+done when — the lint entry installs `deriveFromNearest` on its own copy, within a ceiling the owner sets, and a Studio
+            keystroke counts 0 full parses of the whole deck from the lint.
+evidence  — the route budget before and after; the lint's `deckModelStats.full` per keystroke in a browser run.
 verify    — tier 2, maker-checker; a real Studio run (HARD RULE #23).

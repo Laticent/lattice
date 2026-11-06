@@ -1,0 +1,2 @@
+- The Studio no longer re-reads every slide on each keystroke. The class editor parsed each slide from scratch about eight times per keystroke (59 full parses per keystroke on the 7-slide starter deck, a regression from the directive-editor change); it now remembers each slide, and a keystroke costs about one parse.
+- The Studio and the Playground update the deck model they already hold on a keystroke instead of parsing the deck again for the outline, the slide split and the preview.

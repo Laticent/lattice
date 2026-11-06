@@ -783,12 +783,8 @@ commentary and the counts are the gate.
 **Not installed in the browser yet, for its bytes.** The deriver is `updateDeckModel` plus `diffSpan`. Imported by
 slide-boundaries, it put the Studio's lint core 1.1 KB gzipped over its ceiling on the first push (`lintCoreGz`, 149.4 KB
 against 148.6 KB). So it is injected instead (lib/core/slide-boundaries.mjs `setBoundaryDeriver`, with
-`deriveFromNearest` in lib/core/deck-model.mjs, which a bundle that never calls it tree-shakes away). In the browser,
-both readers run inside the engine's esm bundles: the preview renders through `renderMarkdown(PG, …)`, and the lint is
-esm/lint.js beside it. Installing the deriver there costs 1.1 KB of either the engine's first-paint bytes
-(`engineJsGz`, 8 KB under its ceiling) or the lint core's ceiling, and which bundle pays is the owner's call
-(followups.d/3042-p2-segno-lint-core-still-parses.md). Until then **a browser keystroke still parses twice**. The figures
-above, the bench and the tests install the deriver in one Node instance; they measure the mechanism, not the Studio.
+`deriveFromNearest` in lib/core/deck-model.mjs, which a bundle that never calls it tree-shakes away). *(Corrected
+2026-11-06: this paragraph said both readers run inside the engine's esm bundles. They do not; see the next section.)*
 
 **Why three updates and not one.** The outline's body and the lint's body are different strings: the Studio's
 front-matter reader (docs/src/lib/front-matter.ts `FM_RE`) swallows the blank lines after the closing `---`, and the
@@ -802,3 +798,41 @@ atoms (fences, math, quotes, multi-line comments in containers, link definitions
 derives compared with a parse from nothing on every view (boundaries, leading-empty, the five range lists, S1's comment
 content). It fails when the derived model is the stale one. The keystroke count is pinned in
 docs/src/lib/deck-outline/deck-outline.test.ts.
+
+## The editors install the deriver, and the class editor stops parsing every slide (2026-11-06)
+
+**Where the readers really run.** The browser has two copies of lib/core/slide-boundaries.mjs, not one:
+
+| Copy | Its readers | The deriver |
+|---|---|---|
+| the editor app's (Vite): docs/src/lib/deck-outline/deck-outline.ts, docs/src/lib/deck-lint.ts, the Studio's class editor | the outline, the slide split, the preview's sample, the class editor | **installed** by deck-outline.ts at import. Only the editors load that module (the Studio at startup, the Playground through playground-engine.ts), so the homepage hero, which renders through single-slide-render.ts, pays nothing |
+| the lint core's (esm/lint.js) | the lint's comment scan | not installed. The lint keeps its own copy of the boundary parser by design (tools/build-playground.js, `assertLintParserIsolated`: the lint narrows its rules to the deck's plugins), so it needs its own copy of the deriver and the 1.1 KB above; left as it is by default (followups.d/3042-p2-segno-lint-core-still-parses.md) |
+
+**What a real Studio keystroke cost.** Counted in a browser: the dev server, Chromium, the Studio's starter deck
+(7 slides), 10 characters typed mid-deck, reading the app's own `deckModelStats` through the module's URL:
+
+| | full parses per keystroke |
+|---|---|
+| main after #3043, deriver off | 61.4 |
+| deriver installed | 59.5 |
+| deriver installed, `commentBlocks` remembered | **1.1** |
+
+594 of the 595 parses came from `commentBlocks` (lib/core/meta-record.mjs), which #3043 added for the directive editors:
+the class editor's `readClassDirective` calls it through `readMetaField` for every slide, about eight times per slide per
+keystroke, and each call parsed its slide from nothing. The text scan it replaced parsed nothing, so **#3043 made it, and
+this fixes it** (HARD RULE #18). `commentBlocks` now keeps each text's records (frozen) and drops them all when
+`deckParser()` returns a new parser, which is when the rules change; a keystroke changes one slide, so one slide is
+parsed. The 1.1 left is that slide.
+
+**The bench now covers it.** The edit tier's `boundaryKeystrokes` also runs the class editor's read, once per slide
+per keystroke (the Studio runs it about eight times). `parses/key`, same machine:
+
+| dataset | before | after |
+|---|---|---|
+| normal (jargon) | 58.0 | 1.0 |
+| charts | 29.0 | 1.0 |
+| math | 18.0 | 3.0 |
+| hub-spoke (gallery + tiered x3) | 17.0 | 1.0 |
+
+`baseline.json` is re-blessed with the wider scenario. The math row's extra 2 is the `$$` limit
+(followups.d/3042-p2-segno-math-decks-still-parse.md).
