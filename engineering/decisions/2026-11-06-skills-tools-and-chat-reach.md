@@ -196,6 +196,19 @@ the confirm shows what will happen in the author's words rather than the model's
     a visible word; `outlineTitle` ignores headings inside comments and code fences; the card shows
     the true slide count and the checker's error count.
 
+### 4.2 One live turn on a real model (2026-11-06, owner-approved spend)
+
+Anthropic Claude Haiku 5.5 through OpenRouter, driven in the built Studio by a throwaway script in
+`.scratch/` (HARD RULE #24: opt-in, never per-PR). Asked for a new three-slide deck, the first run
+used `edit_slides` to insert into the open deck and said it had drafted a new one: the
+`create_deck` rule lived only in the mode line at the end of the prompt. The static prompt now
+says, in every mode, that a new deck is never an edit to the open one and that the model must
+not claim a new deck unless `create_deck` accepted it. The rerun called `create_deck`; the
+confirm showed the title and three headings; "Create and open" opened a three-slide deck with the
+pointer line; the next turn called `render_slide`, the model received the JPEG and described
+slide 1 as the preview draws it. Five model calls, about 15,000–22,000 prompt tokens each, cost
+$0.0056 in total.
+
 ## 5. One chat for the workspace: what shipped is smaller than planned
 
 The conversation moves from per-deck to per-workspace. Each turn names the open deck as its

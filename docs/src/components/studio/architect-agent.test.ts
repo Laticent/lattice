@@ -56,6 +56,10 @@ describe('the system prompt', () => {
 		expect(sys).toContain('indaco, cuoio');
 		expect(sys).toContain('atrium');
 		expect(sys).toContain('read_guide');
+		// A real model (Haiku 5.5, 2026-11-06) answered "make me a new deck" with edit_slides on the open
+		// deck while the rule lived only in the mode line; the static prompt now carries it in every mode.
+		expect(sys).toContain('A request for a NEW or separate deck');
+		expect(sys).toContain('Never claim you drafted a new deck unless create_deck accepted it.');
 		expect(sys).toContain('CANON');
 		// The contract the old primer carried rides along verbatim.
 		expect(sys).toContain('NESTED bullets');
