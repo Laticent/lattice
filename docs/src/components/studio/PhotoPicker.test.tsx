@@ -31,7 +31,14 @@ beforeEach(() => {
 	shelf = [choice('harbor'), choice('team-photo'), choice('forest')];
 	listeners.clear();
 });
-afterEach(cleanup);
+// Radix's FocusScope restores focus on unmount in a `setTimeout(0)` task. Let that one task run
+// before the next test (and before the file ends): otherwise, when this file's last dialog
+// unmounts, vitest can tear the jsdom realm down first, and the task's CustomEvent reaches a
+// dead realm's dispatchEvent as an unhandled TypeError. Seen once on CI (PR #3058), never alone.
+afterEach(async () => {
+	cleanup();
+	await new Promise<void>((r) => setTimeout(r, 0)); // flaky-ok: waits for the one zero-delay task Radix queued on unmount, not for a duration
+});
 
 describe('filterPhotos', () => {
 	it('keeps the photos whose name holds every word', () => {
