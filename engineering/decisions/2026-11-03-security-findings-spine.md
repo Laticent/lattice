@@ -585,6 +585,27 @@ browser loads carries neither spine reader** (only the lint bundle does). The CS
   readers is the 5.1 KB (and 1.9 KB) above, on a metric already over its soft target. Either is a budget decision for
   the owner, not a security fix.
 
+## The raster exports' reader pill, measured (2026-11-06)
+
+`followups.d/3036-p3-raster-export-reader-pill-missing.md` (deleted with this change) reported that the Studio's images
+and PowerPoint exports of a clipped slide lost the reader pill: `docs/e2e/studio-raster-export-marker.spec.ts` failed
+both arms on every engine. **The exports were right and the spec's oracle was wrong**, the second outcome the follow-up's
+"done when" offered.
+
+- **The pill is in both pictures.** Pulled out of the real export zips (Chromium, `desktop`), the clipped slide's
+  2560×1440 picture has the "Content clipped" capsule at its bottom center in both the images and the PowerPoint export.
+- **The spec read a row under it.** `section > .marker-rail` (`lib/base/base.modifiers.css`) stands one spectrum-bar
+  width above the slide's bottom edge, so `check:edge-shift` holds it still under every `spectrum-edge:`. On the
+  2560×1440 picture the center column is non-white on rows 1400–1431, and the oracle read row 1437 (`height - 3`), the
+  white strip under the bar. On the PDF arm's 50 dpi page the bar is about a pixel, so the same `height - 3` landed in
+  the pill, which is why PDF and Print passed.
+- **The fix is a resolution-free sample.** The bar and the capsule are both sized in frame units, so the oracle now
+  reads 98.2% of the height: row 1414 of 1440 and row 265 of 270 (the images thumbnail, pill 261–268). Each arm also
+  reads the same pixel on the slide that fits and asserts it is not the pill, so the check fails if the sample point
+  drifts off the capsule or the capsule paints everywhere.
+- **Measured.** Before: `--project=desktop`, 2 failed (images, PowerPoint), 3 passed. After: 25 passed across
+  `desktop`, `mobile`, `webkit-phone`, `webkit-tablet` and `gecko`.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.
