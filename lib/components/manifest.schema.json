@@ -1568,6 +1568,7 @@
             "cover-code",
             "redline-blocks",
             "kanban-lanes",
+            "progress-rows",
             "roadmap-horizons",
             "journey-stages",
             "cover-cards",

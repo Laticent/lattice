@@ -1062,3 +1062,13 @@ slides to 1, which uncovered its caption measure, a fixed 43.75% of the slide, 1
 at tall sizes: under ~47 characters it now takes the full width (adapt mode `reflow`). A glossary
 with a long term ("Predicted outcome") left its definition 14 characters a line at story@laptop
 after this PR dropped glossary's 23em step: under ~47 the term may now wrap between its words.
+
+**Hybrid charts split by what they are (2026-11-06, owner: "a chart that is a list splits like a
+list, a chart that is a table splits like a table, and where no pattern exists we make one").**
+progress first: `progress-rows` (lib/core/carousel.js) slices its `.progress-row` bars through the
+native-slice kernel, which now takes `perPage` (a ceiling or a measured plan) so a page holds
+several members, spread so none is a runt. split-facts moves progress atomic -> read-across: its
+recorded reason was one bar a page losing the shared-baseline comparison, and packed pages keep it.
+The measured split reads a `role="list"` of `role="listitem"` divs as members, so `fit: pack` plans
+it. Progress gallery at square, phone venue: 5 bars 3 + 2, the eight-bar stress slide 4 + 4
+(measured plan 5 + 3), every page passing the fit verdict; it rang on 6 slides before.
