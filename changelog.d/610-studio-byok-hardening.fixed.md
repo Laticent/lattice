@@ -3,3 +3,4 @@
 - Studio: a revoked or expired OpenRouter key is now noticed. Workspace shows "key rejected" with a **Reconnect** button instead of "active" while every request fails.
 - Charts: the hover card escapes a chart mark's label and value, so markup in a shared deck's chart cannot run in the page that holds your OpenRouter key.
 - Studio: **Describe a finish** now works on a real model. It used to discard every cloud reply as "no usable finish recipe". Finish and Describe a drawing also say why a failed request failed.
+- Docs: the features page lists the describe-it faculties and cloud read-aloud, and says plainly that the AI features send deck text to OpenRouter on your own key.

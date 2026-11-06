@@ -1,6 +1,6 @@
 ---
-status: in-progress
-summary: The Studio's bring-your-own-key (BYOK) OpenRouter key had three silent failure points — a failed OAuth return said nothing, a revoked key was never noticed, and nothing proved a shared deck's preview could not read the key. This note records how each is now handled, section by section as it lands (#610).
+status: shipped
+summary: The Studio's bring-your-own-key (BYOK) OpenRouter key had three silent failure points — a failed OAuth return said nothing, a revoked key was never noticed, and nothing proved a shared deck's preview could not read the key. Each is now handled and tested, one module names the key, a real-browser spec proves the slide sanitizer keeps a hostile deck from reading it, and a live run on a real key found and fixed a finish faculty that never worked (#610).
 ---
 
 # Studio BYOK — the key's lifecycle, end to end
