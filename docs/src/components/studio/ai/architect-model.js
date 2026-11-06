@@ -18,6 +18,7 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
+import { markOpenRouterKeyRejected, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
 import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 
@@ -48,10 +49,9 @@ const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // 
 const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
 // A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
 const CATALOG_FETCH_TIMEOUT_MS = 15000;
-const OR_KEY_LS = 'lattice-db-or-key'; // the user's OpenRouter API key (persists)
+// The author's OpenRouter key is read and written ONLY through lib/openrouter-key.js.
 const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
-const OR_KEY_INVALID_LS = 'lattice-db-or-key-invalid'; // '1' once OpenRouter answered 401 for the stored key; cleared when a key is written
 const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-cached /models catalog
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
 // A retired/renamed model id fails with this signature — the trigger to self-heal
@@ -249,35 +249,34 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
   let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
   let catalogGen = 0; // bumped when the cache is invalidated: a fetch that started before must not write its stale answer back
-  // Every write of the key goes through here, so a fresh key (or none) always clears the
-  // "rejected" mark the previous key earned.
-  const setKey = (key) => { writeLS(OR_KEY_LS, key); writeLS(OR_KEY_INVALID_LS, null); };
+  // Every write of the key goes through lib/openrouter-key.js, so a fresh key (or none)
+  // always clears the "rejected" mark the previous key earned.
+  const setKey = (key) => writeOpenRouterKey(key);
   // OpenRouter answered 401 for the stored key: it was revoked, deleted or expired. Mark it
   // once (the transition is what live surfaces hear about), and keep the key itself so the
   // author sees "rejected · Reconnect" rather than a silent fall to "not connected".
   const noteStatus = (status) => {
-    if (status !== 401 || !readLS(OR_KEY_LS) || readLS(OR_KEY_INVALID_LS)) return;
-    writeLS(OR_KEY_INVALID_LS, '1');
+    if (status !== 401 || !markOpenRouterKeyRejected()) return;
     if (typeof window !== 'undefined') { try { window.dispatchEvent(new Event('db-model-changed')); } catch {} }
   };
   return {
     name: 'openrouter',
-    ready() { return !!readLS(OR_KEY_LS); },
+    ready() { return !!readOpenRouterKey(); },
     hasPendingAuth() { return !!readLS(OR_VERIFIER_LS); },
-    keyInvalid() { return !!readLS(OR_KEY_LS) && !!readLS(OR_KEY_INVALID_LS); },
+    keyInvalid() { return openRouterKeyRejected(); },
     getModel() { return readLS(OR_MODEL_LS) || defaultModel; },
     // Where the user sets a HARD, server-enforced per-key spend limit. We can't set
     // it from the browser PKCE flow (the redirect can't carry a limit, and the
     // code-creation endpoint is session-bound), so we deep-link them to it.
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
     setModel(id) { writeLS(OR_MODEL_LS, id || null); },
-    keySnapshot() { return readLS(OR_KEY_LS); }, // for the Disconnect Undo (restore without re-OAuth)
+    keySnapshot() { return readOpenRouterKey(); }, // for the Disconnect Undo (restore without re-OAuth)
     restore(key) { setKey(key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
     // limit is set). Best-effort, client-side, the user's own key — null on failure
     // so the UI just hides the strip. Pay-as-you-go keys report a null limit.
     async accountInfo() {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
@@ -298,7 +297,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // Best-effort: the docs note a management key, but a normal user key reads it in
     // practice; null on any failure so the UI just falls back to the per-key figures.
     async creditsInfo() {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_CREDITS_URL, { headers: { Authorization: 'Bearer ' + key } });
@@ -317,7 +316,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // for a moment after the request ends; retry a few times with backoff. Best-effort:
     // null on any failure, so the estimate simply stands (never a fabricated correction).
     async generationCost(id) {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key || !id) return null;
       for (let attempt = 0; attempt < 4; attempt++) {
         try {
@@ -441,7 +440,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       return list;
     },
     async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, reasoningEffort }) {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
       // (USD) rides back in the response — the source of the per-Lattice spend tally.
@@ -878,7 +877,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
   // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
   // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
-  if (readLS(OR_KEY_LS)) openrouter.listModels().catch(() => {});
+  if (readOpenRouterKey()) openrouter.listModels().catch(() => {});
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)

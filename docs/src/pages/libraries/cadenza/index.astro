@@ -181,6 +181,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 
 		<script>
 			import { buildTrack, makeReader, pauseAfter, toVtt } from '@/lib/cadenza';
+			import { readOpenRouterKey, writeOpenRouterKey } from '@/lib/openrouter-key.js';
 			import { createStage } from '@/lib/suono';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
@@ -215,7 +216,6 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			// production Playground bans — so a visitor with no key still hears the read-along
 			// (device-dependent; labeled "browser voice", never mistaken for the quality voice).
 			// Built eagerly; if it can't load we stay on the silent path.
-			const OR_KEY_LS = 'lattice-db-or-key';
 			const VOICE_LABEL = { 'openrouter-tts': 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
 			// Pace → a TTS `speed` multiplier so the control actually changes the SPOKEN
 			// tempo (not just the silent estimate). Kept inside the Azure-safe 0.5–2.0 band;
@@ -246,7 +246,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			import('@/playground/voice-model.js')
 				.then((m) => {
 					voice = m.createVoiceModel({
-						getOpenRouterKey: () => { try { return localStorage.getItem(OR_KEY_LS); } catch { return null; } },
+						getOpenRouterKey: readOpenRouterKey,
 						allowBrowserVoice: true,
 					});
 					refreshVoice();
@@ -484,7 +484,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			// writes, so pasting one here makes the cloud (Kokoro) voice available immediately —
 			// the voice model reads the key live, so refreshVoice() flips the chip + enables the picker.
 			const orKeyEl = $('#orKey'), keyStatusEl = $('#keyStatus'), keyPanelEl = $('#keyPanel');
-			function keyPresent() { try { return !!localStorage.getItem(OR_KEY_LS); } catch { return false; } }
+			function keyPresent() { return !!readOpenRouterKey(); }
 			function refreshKeyUI() {
 				const has = keyPresent();
 				keyStatusEl.textContent = has ? '\u2713 key connected — cloud voice available' : 'no key — using the browser voice';
@@ -492,12 +492,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			}
 			$('#orKeyUse').addEventListener('click', () => {
 				const v = orKeyEl.value.trim(); if (!v) return; leaveStoryboard();
-				try { localStorage.setItem(OR_KEY_LS, v); } catch {}
+				writeOpenRouterKey(v);
 				orKeyEl.value = ''; keyPanelEl.open = false;
 				refreshKeyUI(); refreshVoice();
 			});
 			$('#orKeyClear').addEventListener('click', () => {
-				try { localStorage.removeItem(OR_KEY_LS); } catch {}
+				writeOpenRouterKey(null);
 				refreshKeyUI(); refreshVoice();
 			});
 			keyPanelEl.open = !keyPresent();

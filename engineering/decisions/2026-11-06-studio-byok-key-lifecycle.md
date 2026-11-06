@@ -65,3 +65,27 @@ a revoked key is caught there before any paid request is attempted.
 Pinned by `ai/architect-model.key-invalid.test.ts` (the mark, its one-time announcement,
 that 402/429/500 do not set it, and that a disconnect clears it) and
 `WorkspaceSheet.test.tsx` › "a rejected key".
+
+## 3. One module reads the key
+
+**Before.** Four app modules named `lattice-db-or-key` and read it themselves: the model
+adapter (`ai/architect-model.js`), the Studio read-aloud (`read-aloud.ts`), and the inline
+scripts of the `/libraries/suono` and `/libraries/cadenza` pages. Answering "what can read
+the author's key?" meant a repo-wide grep and trust that nobody had spelled it differently.
+
+**Now.** `docs/src/lib/openrouter-key.js` is the only file under `docs/src` that names the
+key. It exports `readOpenRouterKey`, `writeOpenRouterKey` (which also clears the rejected
+mark from §2), `openRouterKeyRejected`, `markOpenRouterKeyRejected` and
+`isOpenRouterKeyEvent` (for another tab's `storage` event). The four callers import it.
+
+`docs/src/lib/openrouter-key.test.ts` runs `git grep --untracked` over `docs/src` and fails
+if any non-test file other than this module names the key. Tests may seed it by name; the
+test harnesses under `tools/` and `docs/e2e/` that inject a key into a headless browser are
+outside `docs/src` and are not app code.
+
+Measured: on `main`, `git grep -l lattice-db-or-key -- docs/src` lists 4 non-test files;
+on this branch it lists 1.
+
+Not a reader: `workspace-backup.ts` packs storage into a zip, and
+`workspace-backup.test.ts` › "never packs the OpenRouter key, even if present" already pins
+that the key stays out of a backup.
