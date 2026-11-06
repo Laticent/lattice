@@ -154,7 +154,7 @@ describe('the editor reveals what other panes ask for', () => {
 		expect(view.state.doc.toString()).toBe(DECK);
 		rerender(<Editor value={next} onChange={() => {}} focusHub={hub} knownComponents={known} />);
 		drain();
-		// Re-read the view: a rerender with a fresh `knownComponents` default may rebuild it.
+		// Re-read the view anyway: a new `knownComponents` no longer rebuilds it (editor-known-rebuild.test.tsx), but a new deck would.
 		const now = viewOf(container.querySelector('.cm-content'));
 		expect(now.state.doc.toString()).toBe(next);
 		expect(now.state.selection.main.head).toBe(next.indexOf('# Four'));

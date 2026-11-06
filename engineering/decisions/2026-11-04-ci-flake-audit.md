@@ -40,7 +40,7 @@ Failure lines from every red nightly (run id → suite → line):
 | **A. No session.** safaridriver never reaches Safari in the simulator, so no probe code runs | 40307494617 studio · 40485085426 studio · 40674748940 jpeg · 41301950082 focus-sync | `The session timed out while connecting to a Safari instance` / `The host application never became ready` |
 | **B. The probe read a parked preview** | 41829424180 photo (iPhone) | `the probe deck did not stay (the editor holds it; the preview shows "Everything you need to ship, already designed.")` |
 | **C. A fixed deadline overrun on a slow iPhone simulator** | 41044755916 photo · 41447813149 photo · 41301950082 studio | `timed out after 30000 ms waiting for the Coach photo finding on slide 2` · `90000 ms waiting for the Studio editor` · `15000 ms waiting for a visible Deck source editor` |
-| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Recurred on the iPhone at `6ebacaa` (dispatch 41964538891; the iPad and the Mac passed). WebKit's undo stays disabled after a typed word that Filo did record. A control on unchanged `main` (dispatch 41972682339) failed the same step on the iPad (undo enabled, no `historyUndo`), so it is not this PR's. Open: `followups.d/3034-p8-ios-native-undo-not-enabled.md` |
+| (D. Undo `no beforeinput`, iPad) | 41193239222 · 41301950082, both at `089fd23` | Recurred on the iPhone at `6ebacaa` (dispatch 41964538891; the iPad and the Mac passed). WebKit's undo stays disabled after a typed word that Filo did record. A control on unchanged `main` (dispatch 41972682339) failed the same step on the iPad (undo enabled, no `historyUndo`), so it is not this PR's. **Continuation PR #3040 split it in two.** (1) Undo enabled but no `historyUndo`: the deck editor was rebuilt under the typed word when the component list arrived (`Editor.tsx` rebuilt on `known`). Fixed; the iPad rebuild went from 3 of 5 runs to 0 of 10. (2) Undo disabled: iOS WebKit empties its own undo stack on any frame navigation in the page, and the live preview builds its frame and rewrites its `srcdoc`. Fixed by the undo doorbell; see §3. Closed, with `followups.d/3034-p8` |
 
 **Cause A is outside our code.** Apple's safaridriver pairs with Safari inside the simulator over Web Inspector. It
 exposes no "ready" signal: the only way to learn it is ready is to ask for a session, and safaridriver waits about
@@ -77,6 +77,42 @@ Each one waited on a clock, or read state once, where the thing it needed could 
 | `e2e/strip-keyboard.spec.ts` shortcuts | "Bravo" never duplicated (2 of 6 nightlies) | `Mod+D` pressed before the strip's focus moved | wait for the focused slide first | **unproven locally**: the unfixed spec also passed 40/40 under 8 workers here; with the fix, 69 of 70 passed and the failing line of the one miss was not captured |
 | `e2e/draw-frame-preview.spec.ts` Mermaid fallback (found on this PR) | `locator.evaluate: Execution context was destroyed` at 3.4 s (studio-smoke 41949443186, on a commit that changed only this note) | the poll read the preview frame while the preview replaced its document, and `expect.poll` does not retry a callback that throws | no poll: an init script traps the frame's `window.mermaid` assignment in every document the preview swaps in, and calls the test back when the stand-in lands | desktop, 8/8 at 4 workers |
 | `confine-cli` / `mermaid-worker-confine` (Windows) | `null !== 0` at 120 s, empty stderr (41877087984; re-run passed in 5.4 s) | the spawn's 120 s kill fired before anything spoke | the CLI's own render watchdog now fires first (60 s), and the assertion names the signal and output | Linux 4/4; **the hang itself is not explained** (UNVERIFIED cause) |
+
+**Fixed later, by the continuation PR: `e2e/library-reopen-generate.spec.ts` Save after a generate.** studio-smoke
+41951781635 clicked an enabled Save about 90 ms after a component generate landed, and `Saved .pricing-trio` never
+showed. The trace answers it, and the cause is not the Save button. The previous notice, `Saved .quarter-callout`,
+reached the end of its 2.6 s dwell just as `Generated .pricing-trio` was raised. That raise reused the live pill's id,
+but Sonner publishes a toast one macrotask late, so the old pill's close fired first. The trace shows the generate's text
+inside a pill marked `data-removed: true`. That close came from a superseded raise, so `notify.ts` ignored it, and the
+slot stayed live on the dying id. The save's own notice then landed on the same id and was deleted with it. The fix is
+in `notify.ts` (trap 3): a close is judged by the pill's id, and a message that landed on a dying pill is raised again on
+a fresh one. `notify.dom.test.tsx` reproduces both losses against real Sonner with fake timers and fails without the fix, and `e2e/status-pill.spec.ts` stages the same order on the built Studio (the page's own timers queue the raise ahead of the close). It fails 9 of 9 without the fix and passes 9 of 9 with it, on Chromium, WebKit and Gecko.
+The spec also gains a case that clicks Save inside the same task that commits the generated draft. Evidence is in the
+continuation PR.
+
+**Fixed later, by the continuation PR: `ios-safari-undo` "WebKit undo command raised historyUndo" (row D).** Two
+faults. (1) The deck editor rebuilt its CodeMirror view when the component list arrived, a moment after the Studio
+painted, so WebKit's undo step pointed at the removed DOM: `Editor.tsx` now updates the lint in place, and the iPad
+rebuild went from 3 of 5 runs to 0 of 10. (2) WebKit's undo turned off 0.4 to 0.9 s after a typed word, in 7 of 312
+recorded iOS cycles. A frame tracker in `undo-probe.js` tied it to the live preview: every wipe it caught came with the preview
+remounting its frame (a second `iframe.live`, then 5 to 9 `srcdoc` writes in one millisecond; typing itself takes the
+in-place patch path, and whether that remount is needed is `followups.d/3040-p4`), and a "frame lab" on the real
+simulators showed that adding a frame, a new `srcdoc` frame or a `srcdoc` rewrite empties iOS WebKit's undo stack, while
+`document.write` and an in-place body change do not, and macOS Safari never does. Filo owns the history, but iOS only
+sends a gesture's `historyUndo` while WebKit's own stack has a step. The fix is `undo-doorbell.ts`, installed on iOS and
+iPadOS: one invisible edit in a hidden `data-filo-owned` field re-arms the stack after a frame load, on focus, when
+Filo's history gains its first step and on a 400 ms re-check, then focus and the caret go back. It never rings while
+WebKit holds a redo step (the first version did, and redo stopped reaching Filo on every device: dispatch
+42094642587), during an IME composition, or on desktop WebKit, which undoes the bell's own step without a beforeinput. A checker
+review found that the ring's focus round-trip fires a real `blur`, which ran CodeMirror's format-on-blur and Compose's
+parked resync under the author's caret; both now skip a blur whose `relatedTarget` is the bell (`blurToDoorbell`), and
+the bell also waits while a finger is down, a selection is up or a completion list is open, and backs off after 3
+rings that did not take.
+Evidence, all at `7a1a709`: 7 dispatches, every checked step passed on the iPad (7 of 7) and the iPhone (7 of 7), and on
+the Mac in 6 (the seventh job reached its 30-minute limit before the Mac, cause A). 112 of 112 recorded iOS cycles
+undid, 7 of them right after a frame event, and the doorbell re-armed 42 of 42 forced wipes with focus and the caret
+kept. Counting from `7ccda7a`, which had the redo fix but not the re-check, the iPad has 10 checked passes in a row and
+the iPhone 9, with one run cut off before the iPhone and none failed; the PR body has the final count.
 
 Not changed: `editor-lint.spec.ts` "Fix all names a fix it refused" (3 failed, 4 flaky in 6 nightlies). Its click
 already waits for the palette row, which appears once lint counts the 501-card deck. That passed 3/3 here in about
@@ -149,7 +185,7 @@ is in this PR. The ❓ decision card on the PR carries the options.
 | Narrated player, back-gesture, library spec | local Chromium / WebKit | counts in §3 |
 | strip-keyboard fix closes its race | none reproduced it | **UNVERIFIED** |
 | No-test-ran hand-off (D1 A, D2) | `simulate=no-session` dispatch, run 41945352760 | both iOS jobs exit 3 with only the `no-session` mark; `alert` sorted them as infrastructure, filed nothing, and uploaded `alert-held` |
-| The supervisor's re-run | none before merge: GitHub starts a `workflow_run` workflow only from the default branch | **UNVERIFIED** until the first `simulate=no-session` dispatch on `main`. It also shows whether a re-run job can download the first attempt's `docs-site` artifact |
+| The supervisor's re-run | `simulate=no-session` dispatch on `main` at `a33fc11`: platform-suites run 42009578616, supervisor run 42010277807 | **Verified 2026-11-05.** Attempt 1: both iOS jobs exited with only the `no-session` mark, and `alert` (job 127187120248) sorted them as infrastructure and ran "Hand the run to the supervisor". The supervisor's `supervise` job (127187235086) found `alert-held`, re-sorted the jobs (`verdict: infra`, both `no-session`), and ran "Re-run the failed jobs once"; "File the held failure" was skipped. Attempt 2 was started by `github-actions[bot]`; its two iOS jobs failed the same way, and its `alert` (job 127188693001, `ATTEMPT: 2`) skipped the hand-off and took the filing path, which a simulated run writes to the step summary instead of the shared issue. The supervisor runs that attempt 2 then triggered (42010738281 and later) were skipped by the job's `run_attempt == 1` guard, so it re-runs once and never loops. **Since verified:** a re-run job downloads the first attempt's `docs-site` artifact. A `simulate` dispatch skips `docs-site`, so this run could not show it; continuation PR #3040's re-run of a failed `ios-safari-studio` job (run 42126967964, attempt 2, job 127612604563) logged "Download the prebuilt docs site" as a success, from the artifact attempt 1's `docs-site` job uploaded, and passed. That was a manual "re-run failed jobs", the same API the supervisor calls |
 | Shared docs build (D1 B) | run 41945367454: `docs-site` on Linux, then `ios-safari-photo` | the iOS job logged `using the prebuilt docs site`, and iPad and iPhone passed. **The saving is smaller than the 65–94 s estimate:** the Mac job still runs the docs `npm ci` to serve the site (40 s on this run), so only the build itself is saved, about 25–55 s a job. The `docs-site` job (about 2.5 min) runs before the iOS jobs start, so a nightly's wall clock gets longer even as each iOS job's budget gets a little room |
 | `studio-smoke` without apt, browser cached | run 41959720275 at `2221da6` | the browser install took 6 s (31 s on a normal day before, 3 min 10 s on the slow-mirror run) on a cold cache; the job finished in 12 min 14 s |
 | Runner images pinned | the same commit's platform-suites run | `export-confine`, `wait-for-macos` and `os-sandbox-measure` on `macos-26`; `build-windows`, `export-confine-windows` and `os-sandbox-measure` on `windows-2025`: all green |

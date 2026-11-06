@@ -127,3 +127,48 @@ test('@smoke a generate after reopening a component does not overwrite the reope
 	).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Edit .pricing-trio' })).toBeVisible();
 });
+
+// SAVE IN THE SAME TICK THE GENERATE LANDS (ci-flake-audit §3). studio-smoke once clicked Save 90 ms after a
+// component generate landed and never saw "Saved". The trace showed why: the generate's notice was raised just as
+// the previous "Saved" pill's dwell ended, landed on that dying pill, and left the notice slot pointing at it, so the
+// next "Saved" vanished with it (notify.ts trap 3, pinned deterministically in src/lib/notify.dom.test.tsx). This spec
+// covers the other half of "Save right after a generate": a MutationObserver in the page clicks Save inside the same
+// task that commits the generated draft (its callback runs as a microtask after React's DOM writes), the earliest a
+// click can reach the button, and the save must land and say so.
+test('@smoke Save clicked in the same tick a component generate lands still saves', async ({ page }) => {
+	test.slow();
+	await mockModel(page);
+	await gotoStudio(page);
+
+	await page.getByRole('button', { name: CHROME.workspaceLauncher }).click();
+	await page.getByRole('menuitem', { name: /Fabricate/ }).click();
+	await page.getByRole('button', { name: 'Component', exact: true }).click();
+
+	// Arm the click before the generate: the first DOM change that shows the generated name clicks Save, once.
+	await page.evaluate((name) => {
+		const w = window as unknown as { __sameTickClick?: string };
+		const mo = new MutationObserver(() => {
+			const input = document.querySelector<HTMLInputElement>('input[aria-label="Component name"]');
+			if (input?.value !== name) return;
+			mo.disconnect();
+			const save = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save' || b.textContent?.trim() === 'Saving…');
+			w.__sameTickClick = save ? (save.disabled ? 'disabled' : 'clicked') : 'no button';
+			save?.click();
+		});
+		mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+	}, GENERATED.name);
+
+	const prompt = page.getByRole('textbox', { name: /describe a component/i });
+	await prompt.fill('three pricing tiers side by side');
+	await prompt.press('Enter');
+
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __sameTickClick?: string }).__sameTickClick), { timeout: 30_000 }).toBeTruthy();
+	const clicked = await page.evaluate(() => (window as unknown as { __sameTickClick?: string }).__sameTickClick);
+	// A disabled button in that tick is a fair answer only if the page then says why; an enabled one must save.
+	if (clicked === 'clicked') await expect(page.getByText(/Saved .*pricing-trio/)).toBeVisible();
+	else expect(clicked, 'the Save button should exist and be enabled once the generated draft is on screen').toBe('clicked');
+
+	await page.getByRole('button', { name: /Back to Compose/ }).click();
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await expect(page.getByRole('button', { name: 'Edit .pricing-trio' })).toBeVisible();
+});

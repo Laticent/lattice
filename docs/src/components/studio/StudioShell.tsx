@@ -110,6 +110,7 @@ import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
 import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
+import { isIOSLike } from './ios-like';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
@@ -168,6 +169,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
+import type { UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -1515,7 +1517,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Keep a STABLE reference when nothing actually changed. The store resolves
 		// async to a fresh array each call (often an empty one when IndexedDB is
 		// absent); blindly setting it would flip `localComponents` identity, churn
-		// `knownWithLocal`, and needlessly re-init the editor (wiping its doc state).
+		// `knownWithLocal`, and make the editor reconfigure its linter and lint the whole deck again for nothing.
 		const same = (a: StudioComponent[], b: StudioComponent[]) => a.length === b.length && a.every((c, i) => c.id === b[i].id && c.css === b[i].css && c.skeleton === b[i].skeleton && c.name === b[i].name && c.pkg?.files?.['transform.js'] === b[i].pkg?.files?.['transform.js'] && c.pkg?.manifest?.facts === b[i].pkg?.manifest?.facts);
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
@@ -4720,6 +4722,62 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		read();
 		return h.subscribe((st) => `${st.canUndo}|${st.canRedo}`, read);
 	}, [filo, filoDoc]);
+	// THE UNDO DOORBELL (undo-doorbell.ts). Filo owns the history, but Safari's Edit → Undo, the iOS shake
+	// and swipe and the iPad keyboard bar's undo key only reach Filo while WebKit's OWN undo stack has a
+	// step, and WebKit empties it on every frame navigation in the page (the live preview builds its frame
+	// and rewrites its `srcdoc`), and a reloaded page starts empty. The doorbell re-arms that stack with one
+	// invisible edit in a hidden field the Studio owns, after a frame load, on focus and when Filo's history
+	// gains its first step, and only while Filo has a step to undo, WebKit has neither an undo nor a redo
+	// step, and focus is in an editable surface Filo owns (ci-flake-audit §3 (engineering/decisions/2026-11-04)). Never after a history
+	// gesture: that edit would empty WebKit's redo and the redo gesture would stop reaching Filo.
+	// iOS and iPadOS only. Desktop Safari never empties its stack on a frame load, and there WebKit undoes
+	// the bell's own step without a beforeinput, so a ⌘Z would go to the bell and not to Filo.
+	const filoCanRef = React.useRef(filoCan);
+	filoCanRef.current = filoCan;
+	const doorbellRef = React.useRef<UndoDoorbell | null>(null);
+	React.useEffect(() => {
+		if (!isIOSLike()) return;
+		// Loaded on demand, off the Studio's start-up bytes: it matters only once someone has typed.
+		let bell: UndoDoorbell | null = null;
+		let gone = false;
+		import('./undo-doorbell')
+			.then(({ createUndoDoorbell }) => {
+				if (gone) return;
+				bell = createUndoDoorbell({ canUndo: () => filoCanRef.current.undo });
+				doorbellRef.current = bell;
+				bell.arm();
+			})
+			.catch(() => {});
+		const soon = () => setTimeout(() => bell?.arm(), 0);
+		const onLoad = (e: Event) => {
+			if (e.target instanceof HTMLIFrameElement) soon();
+		};
+		const onFocusIn = (e: FocusEvent) => {
+			if (!(e.target instanceof Element) || !e.target.closest('[data-undo-doorbell]')) soon();
+		};
+		// On `document`, not `window`: a load event's path stops at the document (the HTML spec leaves the
+		// Window out of it), so a capturing listener on `window` never hears a frame load.
+		document.addEventListener('load', onLoad, true);
+		window.addEventListener('focusin', onFocusIn, true);
+		// And a re-check every 400 ms: iOS can empty the stack after the frame's load event has fired (a burst of
+		// `srcdoc` writes; dispatch 42102243993, iPad cycle #8: wiped 453 ms after the word, the bell had rung at the
+		// load). `arm` reads two command states and returns at once unless the stack really is empty.
+		const tick = setInterval(() => {
+			if (document.visibilityState === 'visible') bell?.arm();
+		}, 400);
+		return () => {
+			clearInterval(tick);
+			document.removeEventListener('load', onLoad, true);
+			window.removeEventListener('focusin', onFocusIn, true);
+			gone = true;
+			bell?.dispose();
+			doorbellRef.current = null;
+		};
+	}, []);
+	// A history that just gained its first step (a fresh edit, or a stored history landing after a reload).
+	React.useEffect(() => {
+		if (filoCan.undo) doorbellRef.current?.arm();
+	}, [filoCan.undo]);
 	// THE ROOT KEYMAP (§3.5). Bubble phase, so an editor that handles the chord itself (a code field
 	// with its own history, the live binding) has already claimed it.
 	React.useEffect(() => {

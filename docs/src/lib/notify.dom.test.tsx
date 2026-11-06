@@ -1,8 +1,8 @@
 import { cleanup, render } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toaster } from '@/components/ui/sonner';
-import { __resetNotify, notify, notifyAction } from '@/lib/notify';
+import { __resetNotify, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction } from '@/lib/notify';
 
 // The sibling `notify.test.ts` stubs `toast` and asserts the options object —
 // which is the right seam for the merge-by-id contract, and blind to the bug this
@@ -106,6 +106,160 @@ describe('the message kernel, against real Sonner', () => {
 		});
 		await tick(400); // past the previous toast's pending removal
 		expect(pills().join('|')).toContain('Second message.');
+	});
+
+	// THE OTHER EDGE OF THE WINDOW (ci-flake-audit §3). Sonner publishes a toast a
+	// macrotask late (`setTimeout` + `flushSync` in the Toaster's subscriber), so a message
+	// raised a moment BEFORE the live pill's dwell ends reuses its id, and then the pill's
+	// own close timer fires before the merge lands. The pill dies with the new text merged
+	// into it, and the old raise's close callback, now superseded, used to leave the slot
+	// marked live: the NEXT message reused the dying id too and vanished the same way.
+	// studio-smoke caught it: "Generated .pricing-trio" landed 2.6 s after "Saved
+	// .quarter-callout", and the "Saved .pricing-trio" that followed never showed.
+	// Fake timers, because the order is the whole test: the raise must run in the same
+	// tick as the close, ahead of it, which real time cannot schedule on purpose.
+	it('a message raised just before the live pill closes, and the one after it, both survive', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			render(<Toaster />);
+			// Queued BEFORE the pill's own close timer exists, at the same due time, so it
+			// runs first in that tick: the raise is ahead of the close, its publish behind it.
+			act(() => {
+				notify('Saved “.quarter-callout”.');
+				setTimeout(() => notify('Generated “.pricing-trio”.'), 2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(pills().join('|')).toContain('quarter-callout');
+			await act(async () => {
+				vi.advanceTimersByTime(2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|'), 'the message raised as the old pill closed').toContain('Generated');
+			act(() => {
+				notify('Saved “.pricing-trio”.');
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|'), 'the message after it').toContain('Saved “.pricing-trio”.');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	// The same race, then the next message INSIDE the dying pill's 200 ms exit: the
+	// studio-smoke timing, where Save finished about 100 ms after the generate's notice.
+	it('the message after that race survives even inside the dying pill\'s exit window', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			render(<Toaster />);
+			act(() => {
+				notify('Saved “.quarter-callout”.');
+				setTimeout(() => notify('Generated “.pricing-trio”.'), 2600);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(2600 + 50);
+			});
+			act(() => {
+				notify('Saved “.pricing-trio”.');
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(400);
+			});
+			expect(pills().join('|')).toContain('Saved “.pricing-trio”.');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	// The checker's three findings on trap 3, each against real Sonner.
+	describe('after trap 3', () => {
+		// An action pill A, then B raised in the tick A's 6 s dwell ends, ahead of A's close.
+		const race = async (second: () => void) => {
+			render(<Toaster />);
+			act(() => {
+				notifyAction('First?', { label: 'First', onClick: () => {} });
+				setTimeout(second, 6000);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(6000);
+			});
+		};
+		beforeEach(() => {
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame'] });
+		});
+		afterEach(() => vi.useRealTimers());
+
+		it('a caller holding the dying id still retires the re-raised pill', async () => {
+			let handle: string | number = '';
+			// A status raise can land on a dying pill too; use an action so the handle path is the real one.
+			render(<Toaster />);
+			act(() => {
+				notifyAction('Undo A.', { label: 'Undo', onClick: () => {} });
+				setTimeout(() => {
+					handle = notifyAction('Undo B.', { label: 'Undo', onClick: () => {} });
+				}, 6000);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(1);
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(6000 + 400);
+			});
+			expect(pills().join('|')).toContain('Undo B.');
+			act(() => dismissNotice(handle));
+			// The dismiss lands an animation frame late, and its 200 ms removal is scheduled by the
+			// render that follows, so it takes two flushes.
+			for (let i = 0; i < 3; i++) {
+				await act(async () => {
+					vi.advanceTimersByTime(300);
+				});
+			}
+			expect(pills().join('|')).not.toContain('Undo B.');
+		});
+
+		it("runs a re-raised pill's action once, though two pills carry it for the exit window", async () => {
+			let runs = 0;
+			await race(() => notifyAction('Go?', { label: 'Go', onClick: () => runs++ }));
+			const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-action]'));
+			act(() => {
+				for (const b of buttons) b.click();
+			});
+			expect(runs).toBe(1);
+		});
+
+	});
+
+	// Real time, not fake: the loss needs Sonner's dismiss to arrive by animation frame, after
+	// the raise's publish has merged into the pill it then deletes.
+	it('a dismiss and a raise of the same kind in one tick keep the raise', async () => {
+		render(<Toaster />);
+		let h: string | number = '';
+		let r = 0;
+		act(() => {
+			h = notifyAction('Ann wants to join.', { label: 'Admit', onClick: () => {} });
+			r = actionRaise();
+		});
+		await tick(50);
+		act(() => {
+			dismissActionNotice(h, r);
+			notifyAction('Bob wants to join.', { label: 'Admit', onClick: () => {} });
+		});
+		await tick(300);
+		await tick(300);
+		// Live pills only: a pill being deleted keeps its text until its 200 ms removal.
+		const live = Array.from(document.querySelectorAll('[data-sonner-toast]:not([data-removed="true"])')).map((p) => p.textContent ?? '');
+		expect(live.join('|')).toContain('Bob wants to join.');
 	});
 
 	// The kinds are separate SLOTS, and this is the claim the Toaster's

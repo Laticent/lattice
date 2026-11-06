@@ -19,6 +19,7 @@ import { type AssetChoice, type CompletionComponent, type CompletionVocab, front
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
+import { blurToDoorbell } from './studio-filo';
 import type { MeasuredPhoto } from './thin-card-fix';
 import { tourChromeMargin } from './tour-chrome';
 
@@ -164,6 +165,9 @@ const noLeadingBom = EditorState.transactionFilter.of((tr) => {
 	// rather than leaving a stripped BOM behind as its own undo step.
 	return [tr, { changes: { from: 0, to: 1 }, sequential: true }];
 });
+
+/** What a superseded lint pass returns: it never settles, so CodeMirror never dispatches it (see `buildLint`). */
+const NEVER_LINT: Promise<Diagnostic[]> = new Promise(() => {});
 
 function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Array<{ autofixable?: boolean }>) => void) {
 	return linter((view): Diagnostic[] => {
@@ -470,9 +474,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
 	// in place when their vocabulary changes (e.g. you save a finish mid-session) —
-	// without tearing down the editor. The editor itself only rebuilds on a `known`
-	// change; finish/vocab changes flow through the reconfigure effects below, so a
-	// freshly-saved finish stops being flagged / starts completing immediately.
+	// without tearing down the editor. The editor itself rebuilds only on a new deck or
+	// a new live session; vocab and `known` changes flow through the reconfigure effects
+	// below, so a freshly-saved finish stops being flagged / starts completing immediately.
 	const acComp = React.useRef(new Compartment());
 	// Read at completion time, so a new callback never rebuilds the editor.
 	const assetsRef = React.useRef(completionAssets);
@@ -526,8 +530,19 @@ export const Editor = React.forwardRef<EditorHandle, {
 			};
 		}),
 	];
-	const buildLint = () =>
-		useRealLint && vocabSets
+	// ONE LIVE LINT CONFIGURATION. Each `buildLint()` takes a generation; a pass from an older one that
+	// resumes after an await (the first slide, the lint core, the ink-fix chunk) never answers. That used to
+	// be the view rebuild's job: a pass from the destroyed view failed `reportLint`'s identity check. Since
+	// `known` reconfigures the linter in place rather than rebuilding the view, the same view survives, so a
+	// pass started with validation ON could land after validation was turned OFF and put back an underline and
+	// a lit "Fix all" that does nothing (checker review, PR #3040). It must not resolve to `[]` either:
+	// CodeMirror would dispatch that and wipe the newer pass's diagnostics. A promise that never settles is
+	// dropped by `@codemirror/lint`, which holds no lock on a pending pass.
+	const lintGenRef = React.useRef(0);
+	const buildLint = () => {
+		const gen = ++lintGenRef.current;
+		const stale = () => gen !== lintGenRef.current;
+		return useRealLint && vocabSets
 			? linter(async (view): Promise<Diagnostic[]> => {
 					// Validation is gated by the Studio's toggle: with it off the editor is
 					// handed an empty known-set, so we stand down too.
@@ -539,6 +554,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					// it ran before the slide on a phone (Studio performance audit, PR #2868). Later passes find it cached.
 					if (!lintCoreMod) await firstSlideShown;
 					const core = lintCoreMod || (await loadLintCore());
+					if (stale()) return NEVER_LINT;
 					if (!core) {
 						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
 						return [];
@@ -599,6 +615,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					if (thin.length || photoWanted) {
 						// A chunk that will not load (offline after a deploy) must not take the editor's diagnostics with it.
 						const fix = await import('./thin-card-fix').catch(() => null);
+						if (stale()) return NEVER_LINT;
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
 							const text = view.state.doc.toString();
@@ -614,6 +631,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
 				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null, needsRefresh: wantsRelint })
 			: makeLinter(known, reportLint);
+	};
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
 	// a swipe, the shell after a slide operation, Live) moves the focus, and when a new view is
@@ -815,7 +833,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// which sends them to Filo (studio-filo.ts); `data-filo-owned` on the host tells the root this
 	// editor's undo is Filo's. Every change leaves through `onChange` with its edits, and an undo
 	// comes back through the `value` sync like any shell write.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`docKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
+	// NOT ON `known`. The component list arrives a moment after the Studio paints, and rebuilding
+	// here then replaced the editor's DOM under whatever the author had just typed: WebKit's own undo
+	// step pointed at the removed element, so Safari's Edit → Undo, the iPad keyboard bar and shake
+	// sent no `historyUndo` at all (ios-safari-undo, ci-flake-audit §3 (engineering/decisions/2026-11-04): the probe saw the editor
+	// element change between a typed word and the undo command). The linter, the only consumer of
+	// `known`, is reconfigured in place by the `[vocabSets, known]` effect below.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `docKey`/`collabKey`; `value` seeds the doc and is synced separately, `collab` is read at build time through its key, and `known` reaches the linter through its reconfigure effect.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
@@ -882,7 +906,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 						// editor is its "save": formatting while the author types would move the text under
 						// the caret, and code mid-edit does not parse anyway (lib/authoring/code-format/).
 						EditorView.domEventHandlers({
-							blur: (_e, view) => {
+							blur: (e, view) => {
+								// The undo doorbell's ring is not the author leaving: focus comes straight back.
+								if (blurToDoorbell(e)) return false;
 								if (!view.state.facet(EditorState.readOnly) && wantsFormat(view.state.doc.toString())) void formatInto(view, false);
 								return false;
 							},
@@ -1007,7 +1033,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			lastHasSelRef.current = false;
 			onSelectionChangeRef.current?.(false);
 		};
-	}, [known, docKey, collabKey]);
+	}, [docKey, collabKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.

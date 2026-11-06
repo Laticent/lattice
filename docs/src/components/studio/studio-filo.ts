@@ -127,6 +127,16 @@ export function historyInput(inputType: string): UndoVerb | null {
 const TEXT_INPUTS = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'number']);
 
 /**
+ * Whether a blur is the undo doorbell taking focus for one invisible edit (undo-doorbell.ts), not the author
+ * leaving. Focus comes straight back, so an editor's leave-work (format on blur, Compose's parked resync)
+ * must not run on it: a blur's `relatedTarget` is the element gaining focus.
+ */
+export function blurToDoorbell(e: Event): boolean {
+	const to = (e as FocusEvent).relatedTarget;
+	return to instanceof Element && to.closest('[data-undo-doorbell]') !== null;
+}
+
+/**
  * Who owns ⌘Z for a focused element (§3.5):
  *  · `filo`   — the deck editor, the preview, the rail, a settings control, the page body;
  *  · `native` — a text field or another editor with its own undo (a code field, the chat composer):

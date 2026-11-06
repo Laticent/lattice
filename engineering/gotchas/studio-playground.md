@@ -926,6 +926,17 @@ never turn "passed in headless" into "works on iOS."
   while it is LIVE, and rotates once it has closed. If you introduce another shared
   id anywhere, you inherit this and must do the same. Liveness must come from
   Sonner's `onAutoClose`/`onDismiss`, not a clock: a hover pauses the dwell.
+- **The other edge (trap 3):** Sonner shows a toast one macrotask after `toast()`
+  is called (`setTimeout` + `flushSync` in the Toaster's subscriber). A message
+  raised a moment BEFORE the dwell ends reuses the live id, and the old pill's close
+  can fire before the merge lands: the new text merges into a pill already marked
+  `data-removed`. The close is therefore judged by id, not by which raise registered
+  it, and the swallowed message is raised again on a fresh id. Before that, the slot
+  also stayed "live" on the dead id, so the next message vanished as well. That is
+  how studio-smoke lost "Saved .pricing-trio" after a component generate
+  (`engineering/decisions/2026-11-04-ci-flake-audit.md` §3). `notify.dom.test.tsx`
+  pins both halves with fake timers, and `e2e/status-pill.spec.ts` stages the same order
+  in Chromium, WebKit and Gecko by queuing the raise ahead of the dwell timer.
 - **Related:** raising twice in ONE tick is a different thing and still destroys the
   first message — that is what sharing a pill MEANS. Compose one message instead;
   the Library's import funnel did exactly this and told the reader a corrupt file
@@ -1774,3 +1785,25 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — `docs/src/components/studio/Editor.tsx` keeps the text its value-sync pushed in (`syncedValueRef`) and does
   not report a sync transaction whose text is that same value. A sync that changed the text (a stripped leading BOM)
   still goes out. `editor-value-echo.test.tsx` fails on the old code; the `@webkit-phone` arm passes.
+
+## On an iPad or iPhone, Edit → Undo, shake or the keyboard bar does nothing, though the Studio's Undo button works
+
+- **Symptom** — a word typed in the deck editor just before the live preview redraws cannot be taken back with a system
+  undo gesture on iOS. The Studio's own Undo arrow is enabled, and `document.queryCommandEnabled('undo')` reads `false`.
+- **Cause** — Filo owns the history, but iOS sends a gesture's `historyUndo` beforeinput only while WebKit's OWN undo
+  stack has a step, and iOS WebKit empties that stack on any frame navigation in the page: adding a frame, a new
+  `srcdoc` frame, or a `srcdoc` rewrite (`document.write` and an in-place body change do not). The live preview does
+  that when it mounts or remounts its frame and on its rarer full writes (`single-slide-render.ts`; typing takes the
+  in-place patch path, and every wipe caught came with a mid-session remount, `followups.d/3040-p4`). The frame lab in `docs/scripts/ios-safari/undo-probe.js` measured it on
+  real iOS Simulators; macOS Safari never empties its stack this way.
+- **Fix** — the undo doorbell (`docs/src/components/studio/undo-doorbell.ts`, installed by `StudioShell` on iOS and
+  iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
+  the caret back. Two traps it already avoids: never ring while WebKit holds a REDO step (the edit empties redo, and
+  the redo gesture stops reaching Filo), and never ring on desktop WebKit, which undoes the bell's own step without a
+  beforeinput, so a ⌘Z would go to the bell instead of Filo. A ring moves focus to the bell and straight back, which
+  fires a real `blur` on the editor: an editor's leave-work (CodeMirror's format-on-blur, Compose's parked resync and
+  selection bar) must skip it with `blurToDoorbell(e)` (`studio-filo.ts`), and any NEW blur handler on a Filo-owned
+  editable needs the same check. The bell also waits while a finger is down, a selection (not a caret) is up, a
+  completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
+  bell's step then sits on WebKit's redo list, and re-ringing would empty it; several edits with the caret moved between them still make one step on iOS,
+  measured in `followups.d/3040-p5`), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
