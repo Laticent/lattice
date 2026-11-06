@@ -982,20 +982,21 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/header:/);
 	});
 
-	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
+	it('the Section-rail switch writes and clears `progress-rail: off`', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
-		// Rail is ON by default (no class token) — so the switch reads checked.
+		// Rail is ON by default (no `progress-rail:` line) — so the switch reads checked.
 		expect(sw).toBeChecked();
-		// Turning it OFF stamps `class: no-progress` deck-wide.
+		// Turning it OFF writes the `off` word on the rail's one line (lib/core/resolve-progress-rail.js).
 		await user.click(sw);
 		expect(sw).not.toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/class:\s*no-progress/);
-		// Turning it back ON clears the token (and the now-empty class key).
-		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/progress-rail:\s*off/);
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/no-progress/);
+		// Turning it back ON drops the word, and with it the now-empty key.
+		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/progress-rail/);
 	});
 
 	it('the Size control writes a `size` directive to the source', async () => {
@@ -1069,14 +1070,13 @@ describe('Studio — Inspector controls respond', () => {
 		expectFrontMatterIntact('Header');
 	});
 
-	it('the Section-rail switch (a class-token write) preserves the rest of the block', async () => {
-		// `mergeClassTokens` / `removeClassTokens` route through the same writer now — the card
-		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
+	it('the Section-rail switch (a register write) preserves the rest of the block', async () => {
+		// It writes `progress-rail:` through the same lossless line writer as every register.
 		const user = await setup();
 		await pasteRichDeck(user);
 		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
-		expect(screen.getByLabelText('Deck source').textContent).toContain('class: no-progress');
+		expect(screen.getByLabelText('Deck source').textContent).toContain('progress-rail: off');
 		expectFrontMatterIntact('Section rail');
 	});
 
@@ -1290,12 +1290,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 
 	it('the Default slide class field never shows or eats the Section rail token', async () => {
 		const user = await setup();
-		// Turn the rail OFF first — that stamps `no-progress` into the same `class:` key
-		// this field writes. A naive text field would show the token, and any edit would
-		// silently flip a control in another tab.
+		// A deck that still says `class: no-progress` — how the rail toggle used to write it. A naive
+		// text field would show the token, and an edit would silently flip a control in another tab.
+		await user.click(screen.getByLabelText('Deck source'));
+		await user.paste('---\nclass: no-progress\n---\n\n# Deck\n');
 		await openDeckTab(user, 'Chrome');
-		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
-		await waitFor(() => expect(source()).toMatch(/class: no-progress/));
+		// The old spelling still reads as OFF.
+		expect(await screen.findByRole('switch', { name: 'Section rail' })).not.toBeChecked();
 
 		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Default slide class' });
@@ -1303,10 +1304,16 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(field);
 		await user.type(field, 'no-note');
 		await user.tab();
-		// Both survive: the author's modifier AND the rail token the toggle owns. The
-		// value is YAML-quoted because it contains a space — every reader unquotes it
-		// (deckClassTokensFromFrontMatter parses both spellings to the same two tokens).
+		// Both survive: the author's modifier AND the rail token. The value is YAML-quoted because it
+		// contains a space — every reader unquotes it.
 		await waitFor(() => expect(source()).toMatch(/class: "?no-note no-progress"?/));
+
+		// Flipping the rail back on clears the old spelling, and writes nothing: on is the default.
+		await clickSection(user, 'Chrome');
+		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
+		await waitFor(() => expect(source()).not.toMatch(/no-progress/));
+		expect(source()).toMatch(/class: no-note/);
+		expect(source()).not.toMatch(/progress-rail/);
 	});
 
 	it('Pace writes the `pace:` register and clears at the default', async () => {

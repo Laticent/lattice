@@ -15,7 +15,7 @@ import { expect, gotoStudio, openInspectorTab, test } from './studio-fixture';
 // This drives the deployed build a person actually uses.
 //
 // THE POINT OF THE SECOND HALF IS THE NEIGHBOR. `Section rail` is a DIFFERENT
-// register — it owns `class: no-progress`, it survives deliberately, and it sits
+// register — it owns `progress-rail:` (it used to own `class: no-progress`), it survives deliberately, and it sits
 // where the deleted toggle used to. It is the easy thing to remove by mistake while
 // removing the other, so its presence is asserted beside the absence.
 

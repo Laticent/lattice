@@ -940,6 +940,40 @@
    }
   },
   {
+   "name": "progress-rail: center",
+   "source": "---\nprogress-rail: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: edge bar",
+   "source": "---\nprogress-rail: edge bar\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: off",
+   "source": "---\nprogress-rail: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: (unknown)",
+   "source": "---\nprogress-rail: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-progress-rail",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
    "name": "corners: square",
    "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {

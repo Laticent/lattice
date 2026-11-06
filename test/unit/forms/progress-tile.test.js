@@ -15,6 +15,11 @@ const progress = require('../../../lib/forms/tile/progress/progress.transform');
 
 const sec = (cls, inner = '') => `<section class="${cls}" data-lattice-slide="x">${inner}</section>`;
 const deckHtml = (sections) => sections.join('');
+// A closing SECOND section. The rail draws nothing below MIN_SECTIONS (a scale of one says
+// nothing), so a fixture about docking or suppression appends this to clear the floor without
+// changing which section its own slides sit in.
+const ENDER = sec('divider no-progress', '<h2>End</h2>');
+const formRails = (d) => [...d.querySelectorAll('section.form .tile-progress')];
 const doc = (html) => new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
 const tilesIn = (html) => [...doc(html).querySelectorAll('.tile-progress')].map((n) => n.outerHTML).sort();
 const domTilesIn = (d) => [...d.querySelectorAll('.tile-progress')].map((n) => n.outerHTML).sort();
@@ -72,11 +77,12 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       sec('content form'),
     ]);
     const out = progress.applyToHtml(html);
-    assert.equal((out.match(/class="tile-progress"/g) || []).length, 2);
+    // Two form slides and the two dividers that open their sections.
+    assert.equal((out.match(/class="tile-progress"/g) || []).length, 4);
   });
 
   test('injects the rail without a vestigial class (footer zones are independent Cells)', () => {
-    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form')]);
+    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form'), ENDER]);
     const out = progress.applyToHtml(html);
     assert.match(out, /class="content form"/);   // class untouched — no has-progress
     assert.doesNotMatch(out, /has-progress/);
@@ -93,6 +99,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     const html = deckHtml([
       sec('divider', '<p><code>Section 01</code></p><h2>A long editorial heading</h2>'),
       sec('content form'),
+      ENDER,
     ]);
     const out = progress.applyToHtml(html);
     const rail = out.match(/<div class="tile-progress"[\s\S]*?<\/div>/)[0];
@@ -109,9 +116,38 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     assert.equal(progress.applyToHtml(html), html);
   });
 
-  test('divider slides and non-form slides get no rail', () => {
-    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content')]);
+  test('ONE section → no rail anywhere: a scale of one says nothing', () => {
+    // The owner's report (2026-11-06): a one-section deck drew a single lit pill beside every page
+    // number, which nobody could read as anything. The floor is the topic track's own
+    // (MIN_TRACK_LABELS), and both arms hold it.
+    const html = deckHtml([sec('divider', '<h2>Only</h2>'), sec('content form'), sec('content form')]);
+    assert.equal(progress.applyToHtml(html), html);
+    const d = doc(html);
+    progress.applyToDom(d);
+    assert.equal(d.querySelector('.tile-progress'), null, 'the live-DOM path agrees');
+    assert.equal(progress.MIN_SECTIONS, 2);
+  });
+
+  test('a divider carries the rail, lit on the section it OPENS', () => {
+    // The divider is where the reader learns what the dots mean: the section's name in display
+    // type beside its own lit dot.
+    const html = deckHtml([
+      sec('divider', '<h2>One</h2>'), sec('content form'),
+      sec('divider', '<h2>Two</h2>'), sec('content form'),
+      sec('divider', '<h2>Three</h2>'),
+    ]);
+    const d = doc(progress.applyToHtml(html));
+    const lit = [...d.querySelectorAll('section.divider')].map((s) =>
+      [...s.querySelectorAll('.tile-progress .dot')].findIndex((x) => x.classList.contains('on')));
+    assert.deepEqual(lit, [0, 1, 2]);
+  });
+
+  test('non-form, non-divider slides get no rail — a `topic` already draws its own track', () => {
+    const html = deckHtml([sec('divider no-progress', '<h2>S</h2>'), sec('content'), sec('topic'), ENDER]);
     assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));
+    const d = doc(html);
+    progress.applyToDom(d);
+    assert.equal(d.querySelector('.tile-progress'), null, 'the live-DOM path agrees');
   });
 
   test('`no-progress` and `silent` suppress the rail', () => {
@@ -119,8 +155,11 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       sec('divider', '<h2>S</h2>'),
       sec('content form no-progress'),
       sec('content form silent'),
+      ENDER,
     ]);
-    assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));
+    assert.ok(!/class="content form[^"]*"[^>]*><div class="tile-progress"/.test(progress.applyToHtml(html)));
+    assert.equal((progress.applyToHtml(html).match(/class="tile-progress"/g) || []).length, 1,
+      'only the opening divider carries one');
   });
 
   // The owner's rule (2026-11-03): a deck-wide `class: no-progress` reaches every slide, and a slide
@@ -131,6 +170,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       sec('content form no-progress'),
       sec('content form no-progress with-progress'),
       sec('content form silent with-progress'),
+      ENDER,
     ]);
     assert.equal((progress.applyToHtml(html).match(/class="tile-progress"/g) || []).length, 2);
     const d = doc(html);
@@ -140,7 +180,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
   });
 
   test('idempotent', () => {
-    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form')]);
+    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form'), ENDER]);
     const once = progress.applyToHtml(html);
     assert.equal(progress.applyToHtml(once), once);
   });
@@ -149,6 +189,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     const html = deckHtml([
       sec('divider', '<h2>S</h2>'),
       sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
+      ENDER,
     ]);
     const out = progress.applyToHtml(html);
     // rail is inside the footer cell, between footer text and the page number
@@ -161,6 +202,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     const html = deckHtml([
       sec('divider', '<h2>S</h2>'),
       sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer></div>'),
+      ENDER,
     ]);
     const out = progress.applyToHtml(html);
     assert.match(out, /<div class="cell-footer"><footer>F<\/footer><div class="tile-progress"[\s\S]*?<\/div><\/div>/);
@@ -171,8 +213,9 @@ describe('progress Tile — applyToDom (live-DOM path)', () => {
   test('one rail per eligible form slide; dots + .on correct, and no label', () => {
     const d = doc(deck);
     progress.applyToDom(d);
-    const rails = [...d.querySelectorAll('.tile-progress')];
+    const rails = formRails(d);
     assert.equal(rails.length, 2, 'skips the no-progress slide');
+    assert.equal(d.querySelectorAll('section.divider > .tile-progress').length, 2, 'each divider carries one');
     assert.equal(rails[0].querySelector('.seg'), null, 'the rail carries dots only — see applyToHtml');
     assert.deepEqual([...rails[0].querySelectorAll('.dot')].map((x) => x.className), ['dot on', 'dot']);
     assert.deepEqual([...rails[1].querySelectorAll('.dot')].map((x) => x.className), ['dot', 'dot on']);
@@ -185,7 +228,7 @@ describe('progress Tile — applyToDom (live-DOM path)', () => {
     const d2 = doc(deck);
     progress.applyToDom(d2);
     progress.applyToDom(d2);
-    assert.equal(d2.querySelectorAll('.tile-progress').length, 2);
+    assert.equal(d2.querySelectorAll('.tile-progress').length, 4);
   });
 
   // A deck-wide `no-progress` can land AFTER the first pass (a re-rendered deck's settings are
@@ -212,6 +255,7 @@ describe('progress Tile — applyToDom (live-DOM path)', () => {
     const d = doc(deckHtml([
       sec('divider', '<h2>S</h2>'),
       sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
+      ENDER,
     ]));
     progress.applyToDom(d);
     const fc = d.querySelector('.cell-footer');

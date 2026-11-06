@@ -1409,6 +1409,48 @@ card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
 
+## The section rail — `progress-rail:`
+
+The section rail is the small row of marks that says which section of the deck a slide is in:
+one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
+to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
+
+```yaml
+progress-rail: edge bar
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| placement | `right` · `center` · `edge` | `right` sits beside the page number, closed off from it by a hairline. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. |
+| show | `on` · `off` | `off` is the rail's own switch, `no-progress`, so `progress-rail: off` and the older `class: no-progress` are the same thing. |
+
+Per slide, a word on one axis replaces the deck's word on that axis only:
+`<!-- _class: progress-rail-edge -->` moves one slide's rail, `no-progress` hides it, and
+`with-progress` brings it back on a deck that turned it off.
+
+**What the rail means is not a setting.** Three rules hold whatever the line says
+(`lib/forms/tile/progress/progress.transform.js`):
+
+- **It draws only when the deck has two or more sections.** A scale of one says nothing: a
+  one-section deck used to show a single lit pill beside every page number. The topic track has
+  the same floor.
+- **Each `divider` carries it, lit on the section it opens.** The divider names the section in
+  display type, so it is where a reader learns what the marks mean. Content slides then repeat it.
+- **A `topic` slide does not.** It already draws its own track, one level down (the topics inside
+  this section), and two unlabeled scales on one slide is the confusion the rail is meant to remove.
+
+**The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
+the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
+`--accent` is not used because it merges into `--border` on onyx, concrete, a11y-base and
+a11y-achromatopsia (`topic.styles.css` § the lit item).
+
+**`center` costs footer width.** The rail never yields in the footer band, and the author's
+footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
+the center line, a long footer line ends in an ellipsis before the rail's reserved berth
+(`--footer-center-half`). `right` and `edge` do not pay this.
+
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 
 `delivery:` sets how the **Guide** behaves while narration plays: in the Studio's Present, in a
