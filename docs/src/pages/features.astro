@@ -123,7 +123,9 @@ const CATALOG = [
 		id: 'ai-authoring',
 		rows: [
 			['Machine catalog + spec', 'A machine-readable component catalog and a published authoring spec let an agent compose valid, on-brand decks.'],
-			['Bring your own model', 'Drive 500+ models through OpenRouter on your own account. Default: Claude Sonnet.'],
+			['Describe it', 'Describe a theme, component, finish or drawing in words. The model proposes; Lattice\'s own checks (AA contrast, scoped CSS) decide what lands.'],
+			['Bring your own model', 'Drive 500+ models through OpenRouter on your own account. The key stays in this browser; a failed request says why (out of credits, rate-limited, key revoked). Default: Claude Sonnet.'],
+			['Cloud read-aloud', 'Narrate a deck in a hosted voice on the same key, or on-device with no key at all.'],
 			['Cost controls', 'Deterministic-first checks, prompt caching, a session budget cap, and live spend + balance on screen.'],
 		],
 	},
@@ -131,7 +133,7 @@ const CATALOG = [
 		cat: 'Ownership',
 		rows: [
 			['Open source (AGPL-3.0)', 'Free to use and fork. Ship or serve a modified engine and those changes stay open. No seat fees.'],
-			['Offline & private', 'A build step on your machine. No account, no telemetry, nothing sent anywhere.'],
+			['Offline & private', 'A build step on your machine. No account, no telemetry, nothing sent anywhere. The one exception is opt-in: the AI features send your deck text to OpenRouter on your own key.'],
 			['No lock-in', 'The source is Markdown you own. Export a Marp bundle any time you want to leave.'],
 		],
 	},
