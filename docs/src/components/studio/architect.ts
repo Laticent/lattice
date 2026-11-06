@@ -258,6 +258,7 @@ export type ArchitectModel = {
 	beginOpenRouterAuth: (cb: string) => Promise<string | null>;
 	resumeOpenRouterAuth: (code: string) => Promise<boolean>;
 	hasPendingOpenRouterAuth: () => boolean;
+	clearPendingOpenRouterAuth?: () => void;
 	disconnectOpenRouter: () => void;
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
@@ -2040,7 +2041,6 @@ export async function connectOpenRouter(): Promise<void> {
 	if (url) location.href = url;
 }
 
-/** On return from OAuth (`?code=`), exchange the code and clean the URL. */
 /**
  * The OAuth return URL with `code` removed and everything else intact.
  *
@@ -2056,15 +2056,33 @@ export function scrubOAuthCode(pathname: string, search: string, hash: string): 
 	return pathname + (qs ? `?${qs}` : '') + hash;
 }
 
-export async function resumePendingAuth(): Promise<boolean> {
+/** What the OAuth return did: nothing to resume, a key stored, or a failure the author
+ *  must hear about (`note` says what came back). */
+export type AuthResume = { status: 'none' } | { status: 'connected' } | { status: 'failed'; note: string };
+
+export async function resumePendingAuth(): Promise<AuthResume> {
 	const m = await architectModel();
-	if (!m) return false;
-	const code = new URLSearchParams(location.search).get('code');
-	if (!code || !m.hasPendingOpenRouterAuth()) return false;
+	if (!m) return { status: 'none' };
+	const params = new URLSearchParams(location.search);
+	const code = params.get('code');
+	if (!m.hasPendingOpenRouterAuth()) return { status: 'none' };
+	// The author started a sign-in and came back with no code: OpenRouter sends `?error=`
+	// when they cancel or it refuses. That used to look exactly like "nothing to resume",
+	// so Connect appeared to do nothing at all.
+	if (!code) {
+		const error = params.get('error');
+		if (!error) return { status: 'none' };
+		m.clearPendingOpenRouterAuth?.();
+		return { status: 'failed', note: `OpenRouter did not connect (${error.slice(0, 80)}).` };
+	}
 	try {
 		await m.resumeOpenRouterAuth(code);
-	} catch {
-		return false;
+	} catch (e) {
+		// The code is single-use and the adapter already dropped the verifier, so scrub the
+		// code too: a reload must not replay a dead exchange.
+		history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
+		const status = /\((\d{3})\)/.exec(errorText(e))?.[1];
+		return { status: 'failed', note: `OpenRouter did not connect${status ? ` (error ${status})` : ''} — the sign-in came back without a key.` };
 	}
 	// Scrub ONLY the OAuth code, and carry `history.state` through.
 	//
@@ -2083,7 +2101,7 @@ export async function resumePendingAuth(): Promise<boolean> {
 	// all that ever comes back. Rebuilding from URLSearchParams costs nothing and stops the
 	// next parameter anyone adds from being collateral, but it fixes no observed bug today.
 	history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
-	return true;
+	return { status: 'connected' };
 }
 
 export async function disconnectOpenRouter(): Promise<void> {

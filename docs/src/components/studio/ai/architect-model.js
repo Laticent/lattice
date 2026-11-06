@@ -339,6 +339,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null, contextLength: m.id === id ? m.contextLength ?? null : null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
+    clearPendingAuth() { writeLS(OR_VERIFIER_LS, null); }, // drop a dead PKCE verifier; the key, if any, stays
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
     // caller navigates there; OpenRouter returns to callbackUrl with ?code=.
     async beginAuth(callbackUrl) {
@@ -988,10 +989,19 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     hasPendingOpenRouterAuth() { return openrouter.hasPendingAuth(); },
     async beginOpenRouterAuth(callbackUrl) { return openrouter.beginAuth(callbackUrl); },
     async resumeOpenRouterAuth(code) {
-      await openrouter.completeAuth(code);
+      try {
+        await openrouter.completeAuth(code);
+      } catch (e) {
+        // A code and its verifier are good for ONE exchange. Leaving the verifier behind
+        // after a failed one made every later load look like a pending sign-in, and the
+        // stale pair can never succeed — so drop it and let the author start over.
+        openrouter.clearPendingAuth();
+        throw e;
+      }
       emitChange();
       return true;
     },
+    clearPendingOpenRouterAuth() { openrouter.clearPendingAuth(); },
     listOpenRouterModels() { return openrouter.listModels(); },
     openRouterModel() { return openrouter.getModel(); },
     setOpenRouterModel(id) { openrouter.setModel(id); emitChange(); },

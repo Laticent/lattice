@@ -1,1 +1,2 @@
 - Studio: when a theme or component request to the model fails, Fabricate now says why — reconnect (401), out of credits (402), rate-limited (429) or no network — instead of "no usable palette" or "No model connected".
+- Studio: a failed OpenRouter sign-in now says so and offers **Try again**, instead of returning to the Studio as if nothing happened; the dead sign-in state is cleared so it cannot replay.

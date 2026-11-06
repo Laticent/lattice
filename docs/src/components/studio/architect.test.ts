@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -868,3 +868,47 @@ describe('theme + component AI — a failed model call names its cause', () => {
 	});
 });
 
+// P2 of the Studio BYOK hardening: a failed OAuth return used to return `false`, which the
+// Studio treated exactly like "nothing to resume" — Connect appeared to do nothing, and the
+// dead PKCE verifier stayed behind to make every later load look like a pending sign-in.
+describe('resumePendingAuth — a failed OAuth return says so', () => {
+	const VERIFIER = 'lattice-db-or-verifier';
+	const KEY = 'lattice-db-or-key';
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		localStorage.removeItem(VERIFIER);
+		localStorage.removeItem(KEY);
+		history.replaceState(null, '', '/');
+	});
+	it('a 400 from the key exchange reports failed, clears the verifier and scrubs the code', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=dead-code&deck=d1');
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"Invalid code"}}', { status: 400 })));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		if (out.status === 'failed') expect(out.note).toMatch(/did not connect \(error 400\)/);
+		expect(localStorage.getItem(VERIFIER)).toBeNull();
+		expect(localStorage.getItem(KEY)).toBeNull();
+		expect(location.search).toBe('?deck=d1');
+	});
+	it('a cancelled sign-in (`?error=`) reports failed and clears the verifier', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?error=access_denied');
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		expect(localStorage.getItem(VERIFIER)).toBeNull();
+	});
+	it('a good exchange stores the key and reports connected', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=good');
+		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/keys') ? new Response('{"key":"sk-or-test"}', { status: 200 }) : new Response('{"data":[]}', { status: 200 }))));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('connected');
+		expect(localStorage.getItem(KEY)).toBe('sk-or-test');
+		localStorage.removeItem(KEY);
+	});
+	it('no pending sign-in is a no-op', async () => {
+		history.replaceState(null, '', '/studio/?code=stray');
+		expect((await resumePendingAuth()).status).toBe('none');
+	});
+});
