@@ -635,9 +635,11 @@ repeating rules 2 and 3, so the two cannot drift.
 
 ### Which families the hand SHAPE reaches — measured, not assumed
 
-**SIX, not four.** This section said four (flowchart, state, class, ER) and named mindmap
+**SEVEN, not four.** This section said four (flowchart, state, class, ER) and named mindmap
 among the families that "ignore `look` entirely". Both were wrong: `mindmap` and
-`requirementDiagram` go through rough.js too. Measured on Mermaid 11.14 by rendering every
+`requirementDiagram` go through rough.js too, and Mermaid 11.17 moved `C4Context` across
+(re-measured 2026-11-06, when the vendored Mermaid went from 11.14.0 to 11.17.2; the class
+diagram's `aria-roledescription` also changed from `class` to `classDiagram`). Measured by rendering every
 family twice, `look: 'handDrawn'` against the default, and counting rough nodes in the
 output — `test/integration/mermaid/diagram-look-support.test.js` pins the result so the
 list cannot rot again.
@@ -646,7 +648,7 @@ list cannot rot again.
 |---|---|
 | `flowchart` · `stateDiagram-v2` · `classDiagram` | `sequenceDiagram` · `gantt` · `pie` · `journey` |
 | `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
-| | `C4Context` · `block` · `packet` · `architecture` · `gitGraph` |
+| **`C4Context`** (since 11.17) | `block` · `packet` · `architecture` · `gitGraph` |
 
 Two entries in the right column look like they honor it and do not: `gitGraph` and
 `architecture-beta` emit *different bytes* under `handDrawn`, but the difference is a

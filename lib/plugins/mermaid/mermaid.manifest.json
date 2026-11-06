@@ -119,8 +119,8 @@
       "from": "npm:mermaid/dist/mermaid.min.js",
       "vendored": {
         "file": "vendor/mermaid.min.js",
-        "version": "11.14.0",
-        "sha256": "217b66ef4279c33c141b4afe22effad10a91c02558dc70917be2c0981e78ed87"
+        "version": "11.17.2",
+        "sha256": "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
       },
       "global": "mermaid",
       "when": "used"
@@ -141,25 +141,25 @@
     "esm": {
       "from": "npm:mermaid/dist/mermaid.esm.min.mjs",
       "file": "vendor/esm/mermaid.esm.min.mjs",
-      "version": "11.14.0",
-      "sha256": "bdd76b636740ad413cdd711538f0b8c589f6fca3790bffa69dbc0d2c9832e515"
+      "version": "11.17.2",
+      "sha256": "462d6f73fc9833044bca6dc08e62e0ee83f5a2b09583f588f95d5fd91b1960ed"
     },
     "esm-chunks": {
       "from": "npm:mermaid/dist/chunks/mermaid.esm.min/*.mjs",
       "file": "vendor/esm/chunks/mermaid.esm.min/",
-      "version": "11.14.0",
-      "sha256": "692e7d0c0cb17eee8d322314879dab8de7c468eb283c9e17a4d4d00cb6e7b115"
+      "version": "11.17.2",
+      "sha256": "3b2301209a511054932d6a5c8dd413252736aa5161694af7aaade360537c4402"
     },
     "license": {
       "from": "npm:mermaid/LICENSE",
       "file": "vendor/mermaid.LICENSE",
-      "version": "11.14.0",
+      "version": "11.17.2",
       "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
     },
     "zenuml-license": {
       "from": "npm:@mermaid-js/mermaid-zenuml/LICENSE",
       "file": "vendor/mermaid-zenuml.LICENSE",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
     },
     "render-page-license": {
@@ -171,8 +171,8 @@
     "zenuml": {
       "from": "npm:@mermaid-js/mermaid-zenuml/dist/mermaid-zenuml.min.js",
       "file": "vendor/mermaid-zenuml.min.js",
-      "version": "0.2.2",
-      "sha256": "39143c3cb4e7a1dc53938de0c85e5fd2aee1533ec4e07d7d95a6ef639956ff1f"
+      "version": "0.2.3",
+      "sha256": "28eeec88021d9e9728df4d005ff723a3d71da29a21dbcfa2a628232c35ef2ab6"
     },
     "render-page": {
       "from": "npm:@mermaid-js/mermaid-cli/dist/",

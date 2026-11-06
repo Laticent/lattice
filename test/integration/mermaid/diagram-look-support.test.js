@@ -61,7 +61,8 @@ const FAMILIES = {
 };
 
 /** Measured 2026-08-18 against Mermaid 11.14. Update WITH a re-measurement, never by hand. */
-const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement'];
+// Mermaid 11.17 added C4 (re-measured 2026-11-06, engineering/mermaid.md §5.3e).
+const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement', 'c4'];
 
 /**
  * What Mermaid calls each fixture back, so the table cannot be answered by the WRONG
@@ -71,7 +72,7 @@ const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requiremen
  * is the one reading that cannot be faked by editing the fixture.
  */
 const ROLE_DESCRIPTION = {
-  flowchart: 'flowchart-v2', state: 'stateDiagram', class: 'class', er: 'er',
+  flowchart: 'flowchart-v2', state: 'stateDiagram', class: 'classDiagram', er: 'er',
   mindmap: 'mindmap', requirement: 'requirement', sequence: 'sequence', gantt: 'gantt',
   pie: 'pie', journey: 'journey', timeline: 'timeline', quadrant: 'quadrantChart',
   gitGraph: 'gitGraph', sankey: 'sankey', xychart: 'xychart', c4: 'c4', block: 'block',

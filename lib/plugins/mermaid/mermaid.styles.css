@@ -788,10 +788,13 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) svg:has(g[class*="system"]) tspan {
   fill: var(--cat-on-fill) !important;
 }
+/* Not inside a rough node: since Mermaid 11.17 a sketch C4 box is `g.rough-node`, whose
+ * unclassed paths are rough.js's hachure and outline, colored by the c4 config keys
+ * (init-directive.js `c4Colors`). This rule painted them --diagram-line and buried the labels. */
 :is(section, figure) svg:has(g[class*="person"]) line,
-:is(section, figure) svg:has(g[class*="person"]) path:not([class]),
+:is(section, figure) svg:has(g[class*="person"]) path:not([class]):not(g.rough-node path),
 :is(section, figure) svg:has(g[class*="system"]) line,
-:is(section, figure) svg:has(g[class*="system"]) path:not([class]) {
+:is(section, figure) svg:has(g[class*="system"]) path:not([class]):not(g.rough-node path) {
   stroke: var(--diagram-line) !important;
 }
 :is(section, figure) text.legendW, :is(section, figure) text.legendT, :is(section, figure) .legend text, :is(section, figure) .legend tspan {
