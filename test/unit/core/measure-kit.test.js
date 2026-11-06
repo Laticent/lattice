@@ -3,12 +3,14 @@
  * (lib/core/measure-kit.js; decision note 2026-10-16-mosaico-layout-library.md §4.5, §8 item 4).
  */
 const test = require('node:test');
+const { mock } = test;
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kit = require('../../../lib/core/measure-kit');
 
 const doc = () => new JSDOM('<!doctype html><body><ul id="l"><li></li></ul><ul id="m"><li></li></ul></body>').window.document;
-const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
+// One event-loop turn: every settled promise's handlers have run when it resolves. A signal, not a duration (#32).
+const tick = () => new Promise((r) => setImmediate(r));
 const never = () => new Promise(() => {});
 
 test.beforeEach(() => kit.forget());
@@ -50,12 +52,19 @@ test('stability rule: a second run on a list being measured is refused, and a la
   assert.deepEqual(calls, [[1]], 'one finish, from the first run');
 });
 
-test('cap: finishes with what is known when a shape never arrives', async () => {
+test('cap: finishes with what is known when a shape never arrives', async (t) => {
+  // The cap is a timer, so the test moves a mocked clock past it rather than sleeping three caps' worth.
+  mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => mock.timers.reset());
   const d = doc();
   const list = d.getElementById('l');
   const calls = [];
   kit.run({ list, attr: 'data-x', sources: [() => 1, never], finish: (v) => calls.push(v), cap: 20 });
-  await tick(60);
+  await tick();
+  mock.timers.tick(19);
+  assert.deepEqual(calls, [], 'not before the cap');
+  mock.timers.tick(1);
+  await tick();
   assert.deepEqual(calls, [[1, null]]);
 });
 

@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { toSpokenText } = require('@laticent/cadenza');
 const { isValuePill, parseValue, unitKey } = require('../../../lib/core/chart-values.js');
 const { spokenValue } = require('../../../lib/core/chart-values-speech.js');
+const { scanWork } = require('../../helpers/work-count');
 
 test('every money form a global client writes is a value', () => {
   for (const [s, v] of [['EUR 4.2M', 4.2e6], ['US$4.2M', 4.2e6], ['4.2M €', 4.2e6], ['4,2 Mio. €', 4.2e6], ['USD 250mn', 2.5e8], ['4 200 €', 4200]]) {
@@ -61,11 +62,11 @@ test('a typo inside a money form is malformed, not a different number', () => {
 });
 
 test('a hostile 50,000-character pill reads in linear time', () => {
-  const t0 = performance.now();
+  // Counted, not timed (HARD RULE #32): the characters every string search and regex exec covered. The first draft
+  // took 2 to 13 s on these, the shape of a search rerun from every space to the end (about 50,000 characters read
+  // per input character). Today each reads 19 to 35 characters per input character; 60 leaves room.
   for (const s of ['1 '.repeat(25_000) + 'x', '9'.repeat(50_000) + ' EURx', '€' + '1 '.repeat(25_000) + 'Crx']) {
-    isValuePill(s);
-    parseValue(s);
+    const { scanned } = scanWork(() => { isValuePill(s); parseValue(s); });
+    assert.ok(scanned <= 60 * s.length, `${s.slice(0, 12)}…: read ${scanned} characters for ${s.length}`);
   }
-  // The first draft took 2 to 13 s on these; the ceiling only has to catch the quadratic shape.
-  assert.ok(performance.now() - t0 < 500, `${Math.round(performance.now() - t0)} ms`);
 });

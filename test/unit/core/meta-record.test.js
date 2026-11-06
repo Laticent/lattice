@@ -6,6 +6,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const m = { ...require('../../../lib/core/meta-record.mjs'), ...require('../../../lib/core/meta-edit.mjs') };
+const { scanWork } = require('../../helpers/work-count');
 
 const SRC = '---\ntheme: indaco\n---\n\n<!-- class: dark -->\n<!-- _footer: One -->\n\n# A\n\n---\n\n<!-- _class: cards -->\n\n# B\n\n---\n\n# C\n';
 
@@ -91,21 +92,33 @@ describe('commentBlocks: the directive editors read what the engine reads', () =
   test('a comment in a list item that spans a blank line is one block (markdown-it 14.3)', () => {
     assert.deepEqual(m.commentBlocks('- <!-- _class: kpi\n\n  -->\n').map((b) => b.body), [' _class: kpi\n\n  ']);
   });
-  test('250 KB of unclosed openers stays fast', () => {
+  test('250 KB of unclosed openers is read in linear work', () => {
+    // Counted, not timed (HARD RULE #32): the read covers about 5 times the text. A scan that searched for `-->` from
+    // every opener to the end would cover about 2,500 times it at a tenth of this size.
     const t = '<!-- '.repeat(50000);
-    const t0 = performance.now();
-    m.commentBlocks(t);
-    assert.ok(performance.now() - t0 < 250);
+    const { result, scanned } = scanWork(() => m.commentBlocks(t));
+    assert.deepEqual(result, []);
+    assert.ok(scanned <= 15 * t.length, `${scanned} chars scanned for ${t.length}`);
   });
 });
 
 describe('the comment finder is linear on hostile text', () => {
-  test('250 KB of unclosed openers is milliseconds, not seconds', () => {
-    const t = '<!-- '.repeat(50000);
+  test('1 MB of unclosed openers is linear work and never hangs', () => {
+    const t = '<!-- '.repeat(200000);
+    // A search from every opener to the end, written as a loop, shows in the count: about 4 times the text today,
+    // 25,000 times it at a quarter of this size.
+    const { scanned } = scanWork(() => {
+      assert.deepEqual(m.comments(t), []);
+      assert.equal(m.hasMarker(t, 'stress-slide'), false);
+    });
+    assert.ok(scanned <= 10 * t.length, `${scanned} chars scanned for ${t.length}`);
+    // The lazy regex this replaced (`/<!--([\s\S]*?)-->/g`, 5.4 s at 250 KB) did the same search inside one match,
+    // where no count sees it, so it gets a hang guard (F4 in engineering/decisions/2026-11-06-flaky-tests.md).
     const t0 = performance.now();
     m.comments(t);
     m.hasMarker(t, 'stress-slide');
-    assert.ok(performance.now() - t0 < 250, 'the lazy regex this replaced took 5.4s');
+    const ms = performance.now() - t0;
+    assert.ok(ms < 5000, `${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 4.5 ms, the old shape ~94 s at this size
   });
   test('hasMarker ignores a fenced marker', () => {
     assert.equal(m.hasMarker('<!-- stress-slide -->', 'stress-slide'), true);
@@ -124,10 +137,11 @@ describe('hostile-input cost, round 1 findings', () => {
     assert.ok(work.steps <= 2 * 8000 + 2, `comments x fences took ${work.steps} steps, the quadratic path`);
   });
   test('many unterminated openers on separate lines are one failed scan, not one each', () => {
+    // Counted, not timed (HARD RULE #32): about 8 times the text today. A walk that searched for `-->` from every
+    // opener's line, the scan this replaced, covers about 1,000 times it at a tenth of this size.
     const t = '<!-- open\n'.repeat(20000);
-    const t0 = performance.now();
-    m.scanMetaSource(t);
-    assert.ok(performance.now() - t0 < 1500, 'the comment scan rescanned to EOF per opener');
+    const { scanned } = scanWork(() => m.scanMetaSource(t));
+    assert.ok(scanned <= 25 * t.length, `the comment scan rescanned to EOF per opener: ${scanned} chars for ${t.length}`);
   });
 });
 

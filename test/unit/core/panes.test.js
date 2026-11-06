@@ -558,6 +558,7 @@ test('a split page carries the whole slide\'s spot directives, wherever they wer
 // component when a pane IS one. Without it, `section.<pkg> li` styled a <pkg> slide and silently
 // skipped a <pkg> pane.
 const paneCss = require('../../../lib/core/pane-css.js');
+const { scanWork } = require('../../helpers/work-count');
 
 test('paneComponents reads each real pane\'s component (its first class), not a quoted one', () => {
   const html = '<lat-pane class="my-card form"></lat-pane><lat-pane class="list form"></lat-pane><!-- <lat-pane class="ghost form"> -->';
@@ -611,9 +612,11 @@ test('widenStyleBlocks reads only real style elements: a comment or a raw-text e
 
 test('widenStyleBlocks is linear: 20k unclosed <style openers do not rescan the document', () => {
   const doc = `<lat-pane class="bar form"></lat-pane>${'a <style>'.repeat(20000)}`;
-  const t = process.hrtime.bigint();
-  assert.equal(paneCss.widenStyleBlocks(doc, ['bar'], []), doc);
-  assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 200);
+  // Counted, not timed (HARD RULE #32). The walk searches each character about twice. A walk that goes on after an
+  // unclosed `<style>` searches to the end once per opener: 20,000 times per character here.
+  const { result, scanned } = scanWork(() => paneCss.widenStyleBlocks(doc, ['bar'], []));
+  assert.equal(result, doc);
+  assert.ok(scanned <= 4 * doc.length, `${scanned} characters searched on ${doc.length}`);
 });
 
 test('a modifier written as a pane\'s component is not a component (its slide rules stay off the pane)', () => {

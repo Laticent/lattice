@@ -21,6 +21,7 @@ const { isSurfaceRegisterToken } = require(path.join(ROOT, 'lib/core/surface-reg
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const { lintText } = require(path.join(ROOT, 'lib/authoring/lint.js'));
 const { frontMatterBlock } = require(path.join(ROOT, 'lib/core/deck-front-matter.js'));
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const deck = (fm, body) => ['---', 'theme: indaco', ...fm, '---', '', body].join('\n');
 const TWO = '## One\n\nA `~{1 2 3}` spark.\n\n---\n\n<!-- _class: spark-framed -->\n\n## Two\n\nAnother `~{1 2 3}`.';
@@ -77,10 +78,7 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
   );
   dom.window.fetch = () => Promise.reject(new Error('baked: no fetch expected'));
-  const el = dom.window.document.createElement('script');
-  el.textContent = bundle;
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 1000));
+  await bootRuntime(dom, { bundle });
   const [a, b] = [...dom.window.document.querySelectorAll('section')].map((x) => x.className.split(/\s+/));
   assert.ok(a.includes('spark-bare') && a.includes('spark-rounded'), a.join(' '));
   assert.ok(b.includes('spark-framed') && !b.includes('spark-bare') && b.includes('spark-rounded'), b.join(' '));

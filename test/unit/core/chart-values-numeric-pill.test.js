@@ -12,18 +12,14 @@ test('NUMERIC_PILL accepts a wholly numeric pill and refuses prose', () => {
   }
 });
 
-test('a failing match on 50,000 tabs takes milliseconds, not seconds', () => {
-  // The older pattern put two `\s*` runs either side of optional pieces, so the engine tried
-  // every split of the tab run: this input took about 3 s. Linear time runs it in well under 1 ms;
-  // the 200 ms ceiling only has to catch the quadratic shape, not time a machine.
-  const input = `1${'\t'.repeat(50_000)}x!`;
-  for (const [name, check] of [
-    ['NUMERIC_PILL', (s) => NUMERIC_PILL.test(s)],
-    ['isValuePill', (s) => isValuePill(s)],
-  ]) {
-    const start = process.hrtime.bigint();
-    assert.equal(check(input), false, name);
-    const ms = Number(process.hrtime.bigint() - start) / 1e6;
-    assert.ok(ms < 200, `${name} took ${ms.toFixed(1)} ms on the tab-run input`);
-  }
+test('a failing match on a long tab run does not hang', () => {
+  // A hang guard, not a speed test (HARD RULE #32, F4). The older pattern put a `\s*` run either side of an optional
+  // unit, so the engine tried every split of the tab run: quadratic, about 150 s on this input. Linear time is about
+  // 2 ms. The 5 s bound only has to catch the hang; speed lives in `npm run bench`.
+  const input = `1${'\t'.repeat(250_000)}x!`;
+  const start = process.hrtime.bigint();
+  assert.equal(NUMERIC_PILL.test(input), false, 'NUMERIC_PILL');
+  assert.equal(isValuePill(input), false, 'isValuePill');
+  const ms = Number(process.hrtime.bigint() - start) / 1e6;
+  assert.ok(ms < 5000, `took ${ms.toFixed(0)} ms on 250,000 tabs`); // flaky-ok: hang guard — linear 2 ms, the old shape ~150 s at this size
 });

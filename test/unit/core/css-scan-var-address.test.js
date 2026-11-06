@@ -10,6 +10,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { findCssExfil, findAddressStrings } = require('../../../lib/core/css-scan.js');
 const { gateCss } = require('../../../lib/layout/gate.js');
+const { charReads } = require('../../helpers/work-count');
 
 const E = 'https://evil.example';
 const rules = (css) => findCssExfil(css).map((f) => f.rule);
@@ -81,11 +82,15 @@ test('an image-set type() is a MIME type, not a target, and an unquoted url( …
 });
 
 test('the walk is linear on nested parentheses and strings (it was 29 s on 160 KB)', () => {
-  const n = 80000;
-  const t = Date.now();
-  findCssExfil(`${'('.repeat(n)}${'"a"'.repeat(n)}`);
-  findCssExfil(`a{b:${'image-set('.repeat(n / 10)}${'"a"'.repeat(n)}}`);
-  assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
+  // Counted, not timed (HARD RULE #32). Linear reads each character about 2 to 3 times. A reader that scans its block
+  // stack for an open image-set() at each string, instead of keeping a count, read 4,000 times per character here.
+  const n = 16000;
+  for (const css of [`${'('.repeat(n)}${'"a"'.repeat(n)}`, `a{b:${'image-set('.repeat(n / 10)}${'"a"'.repeat(n)}}`]) {
+    const { reads, scanned } = charReads(() => findCssExfil(css));
+    assert.ok(reads <= 6 * css.length, `${reads} character reads on ${css.length} characters`);
+    assert.ok(scanned <= 12 * css.length, `${scanned} characters searched on ${css.length}`);
+  }
+  assert.equal(findCssExfil(`a{b:${'image-set('.repeat(n / 10)}${'"//e/y"'.repeat(n)}}`).length, n);
 });
 
 test('the stylesheet and markup channels agree on what an address is', async () => {
@@ -119,8 +124,13 @@ test('url() targets are read by the linear walk: an escaped ) is decoded, an unt
   assert.deepEqual(rules(`a{b:url(${E}/unterminated`), ['css-url-remote']);
   assert.match(findCssExfil(`a{b:url("${E}/q")}`)[0].message, /url\("https:\/\/evil\.example\/q"\)/, 'a quoted target keeps its quotes in the message');
   assert.deepEqual(rules('a{b:url(data:image/png;base64,AA) url(#f) url( "data:x" )}'), []);
-  const t = Date.now();
-  findCssExfil('url('.repeat(50000));
-  findCssExfil('url("'.repeat(50000));
-  assert.ok(Date.now() - t < 2000, `${Date.now() - t} ms`);
+  // Counted, not timed (HARD RULE #32). Linear reads each character 2 to 3 times. A reader that resumes after an
+  // unclosed `url(`'s name, not at the end of its run, re-reads every later `url(`: 10,000 times per character here.
+  for (const css of ['url('.repeat(10000), 'url("'.repeat(10000)]) {
+    const { reads, scanned } = charReads(() => findCssExfil(css));
+    assert.ok(reads <= 6 * css.length, `${reads} character reads on ${css.length} characters`);
+    assert.ok(scanned <= 12 * css.length, `${scanned} characters searched on ${css.length}`);
+  }
+  assert.deepEqual(rules('url('.repeat(10000)), ['css-url-remote']);
 });
+
