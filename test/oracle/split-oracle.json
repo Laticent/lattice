@@ -59,7 +59,7 @@
     "timeline-list": {
       "deck": "lib/plugins/chart-family/kinds/timeline-list/timeline-list.gallery.md",
       "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; and with fit: pack)",
-      "note": "Under the 23em text room the spine is vertical. Each overflowing slide opens on a cover carrying the lead-in \"Where the line starts\", then milestones in date order on body pages, each page with its own rail through its own dots: the four-milestone slides split as a cover and one page under fit: pack, the six-milestone stress slide 3 + 3. At square laptop and portrait tablet the row stays horizontal and the stress slide splits 3 + 3. No page holds a lone milestone, and every chart page passes the fit verdict; the gallery's closing See-also list still overflows at phone, which is not this component."
+      "note": "On every shape but 16:9 the spine is vertical. Each overflowing slide opens on a cover carrying the lead-in \"Where the line starts\", then milestones in date order on body pages, each page with its own rail through its own dots: the four-milestone slides split as a cover and one page under fit: pack, the six-milestone stress slide 3 + 3. At square laptop and portrait tablet the row stays horizontal and the stress slide splits 3 + 3. No page holds a lone milestone, and every chart page passes the fit verdict; the gallery's closing See-also list still overflows at phone, which is not this component."
     }
   },
   "components": {

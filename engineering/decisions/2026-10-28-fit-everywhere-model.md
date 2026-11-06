@@ -1076,10 +1076,16 @@ it. Progress gallery at square, phone venue: 5 bars 3 + 2, the eight-bar stress 
 (measured plan 5 + 3), every page passing the fit verdict; it rang on 6 slides before.
 
 timeline-list second, a list of milestones. Two moves. Its vertical spine, keyed on `data-family`
-tall and strip since 2026-06-19, now keys on the shared narrow text room (`width < 23em`): square
-at phone or hall takes it, where four milestones across left each about five characters a line;
-portrait and story at laptop or phone keep it; a portrait deck at `venue: tablet` (about 34em)
-reads the row, as a square deck at laptop does. Then `timeline-items` splits it the way
+tall and strip since 2026-06-19, now keys on every shape but 16:9 (owner, 2026-11-06: "we want
+timelines to run horizontally at hd and 4k. for portrait, square, mobile, story they should be
+responsive and go vertically"). The shape decides and the venue never does, so square at laptop,
+where four milestones across left each about ten characters a line, goes vertical too. The list
+timeline (`inventory timeline`) moves onto the same rule: its family rule gains square and strip,
+and its narrow-box net drops from a one-off 36em, which caught a 16:9 slide at hall (35.9em), to
+the shared 34em, which no full-width 16:9 slide reaches at any venue and which still turns a
+timeline in a narrow pane. Measured on one deck at hd, 4K, square, portrait, story and mobile
+across all six venues: the two timelines agree in every cell. A 16:9 slide that overflows at hall
+is an authoring matter (owner, same day): 16:9 never splits, and lint warns. Then `timeline-items` splits it the way
 `progress-rows` splits bars, and split-facts moves it atomic -> read-across: the dot spectrum its
 atomic reason named is gone (one accent), and each page draws its own rail through its own dots.
 

@@ -372,15 +372,15 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
  * new implicit column beside the last. Here it flows by row, the dot moves to the left of
  * its title, and the connector drops from each dot to the next. The dot, its gutter and the
  * connector all derive from `--inv-dot`, as the horizontal run's do. */
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
   padding: var(--sp-xs) 0 0;
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
   padding: 0 0 0 calc(var(--inv-dot) + var(--sp-sm));
   min-height: var(--inv-dot);
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li::after {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li::after {
   top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
   left: calc(var(--inv-dot) / 2 - 1px); right: auto;
   width: 2px; height: auto;
@@ -507,13 +507,14 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
 
 /* ── Width reflow (lib/base/base.card-reflow.css). `cards` tiles two to a row and `timeline`
  * one column per entry, at any width, so a narrow box squeezed both. Below 24em of the content
- * area the cards go one to a row; below 36em the timeline runs down the page, the form a tall
+ * area the cards go one to a row; below 34em, the shared text room a full-width 16:9 slide never
+ * reaches at any venue (35.9em at hall), a timeline in a narrow pane runs down the page, the form a tall
  * deck gets. (`editorial` grids the content area itself, which a query on that area cannot
  * change; it keeps its family rule.) */
 @container lat-cards (width < 24em) {
   section.inventory.inventory.cards > .cell-stage > ul:not(.inv-rows):not(.lat-reflow-held) { grid-template-columns: 1fr; --lat-narrow: 1; }
 }
-@container lat-cards (width < 36em) {
+@container lat-cards (width < 34em) {
   section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) {
     grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
     padding: var(--sp-xs) 0 0; --lat-narrow: 1;
