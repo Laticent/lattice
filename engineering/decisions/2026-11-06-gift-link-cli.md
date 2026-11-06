@@ -35,9 +35,9 @@ https://<lattice site>/gift#v1.<key bytes, base64url>.<check>
 
 - **The key travels in the fragment.** Browsers never send the part after `#` to the server,
   so Lattice's site never receives the key in a request or a log. The page reads it in the
-  browser, stores it where a signed-in author's key goes (`lattice-db-or-key`,
-  `docs/src/components/studio/ai/architect-model.js`), clears the fragment from the address bar,
-  and opens the Studio.
+  browser, stores it where a signed-in author's key goes, through the one writer for that slot
+  (`writeOpenRouterKey` in `docs/src/lib/openrouter-key.js`, which owns `lattice-db-or-key`),
+  clears the fragment from the address bar, and opens the Studio.
 - **It is about 60 characters.** The key's fixed prefix is dropped and its hex digits are packed
   as bytes, then written in base64url (§2). A QR code of 60 characters is small and sparse, so
   it scans easily at business-card size.
@@ -112,8 +112,9 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 
 - **Whoever holds the link can spend it.** A photo of the card is enough.
 - **OpenRouter caps every key**, $1 by default, whatever happens to the card. A batch of 200
-  cards can never cost more than $200. Measured on 2026-11-06 (PR #3049 §4.2): about $0.001 per
-  chat turn on Claude Haiku 5.5, so most cards will spend cents.
+  cards can never cost more than $200. Measured on 2026-11-06 (PR #3049 §4.2): five model calls
+  on Claude Haiku 5.5 cost $0.0056, about $0.001 per call, and a chat turn takes one or a few
+  calls, so most cards will spend cents.
 - **The giver can delete any key at any time**, from OpenRouter or with `gift-cards revoke`.
 - **Lattice is never in the path.** It never receives the key in a request, so it cannot leak or
   misuse it. HARD RULE #24 is untouched: no key lives in the site, and the site spends nothing.
@@ -137,7 +138,8 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 
 ## 6. The Studio side
 
-- A `/gift` route that reads the fragment with the shared module, stores the key, clears the
+- A `/gift` route that reads the fragment with the shared module, stores the key with
+  `writeOpenRouterKey` (never a raw storage write), clears the
   fragment, and opens the Studio with the chat ready and a short welcome, with no signup.
 - On a phone, the page says Lattice is at its best on a laptop and offers **Send to my laptop**
   through the phone's own share sheet (AirDrop, Messages, email to yourself). The person's own
