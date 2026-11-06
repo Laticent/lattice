@@ -7,9 +7,14 @@
  *   ONE ROW         a `role="list"` whose items all share one row (timeline-list's horizontal spine)
  *                   gives the plan no members, so the recipe's `perPage` cuts it
  *   STACKED         the same list stacked down the page is read as members, as before
+ *   CENTERED OVERFLOW  on the measuring page every member sits on one body page, so the list
+ *                   overflows; a layout that centers it pushes its top above the content box, and
+ *                   the room never starts above that box (an 18-item square agenda, greedy, planned
+ *                   13 into a page that held 12)
  *
  * FALSIFIABLE: with `roomOf` measuring from the content box's top on a body page (the code before this
- * fix), BODY PAGE ROOM fails by the heading's 200px; without the one-row rule, ONE ROW reads 4 members.
+ * fix), BODY PAGE ROOM fails by the heading's 200px; without the one-row rule, ONE ROW reads 4 members;
+ * without the clamp to the content box, CENTERED OVERFLOW reads 1600px of room in a 1000px page.
  * Needs Chromium (CHROME_PATH).
  */
 
@@ -65,3 +70,16 @@ test('STACKED: the same list stacked down the page is read as members', async ()
   assert.deepEqual(out[0].members.heights, [100, 100, 100, 100]);
   assert.equal(out[0].members.gap, 20);
 });
+
+test('CENTERED OVERFLOW: the room never starts above the content box', async () => {
+  await page.setContent(`<!doctype html><html><body style="margin:0">
+    <section data-lattice-slide="2.2" data-split-role="body" style="width:1000px;height:1000px;padding:0;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
+      <div role="list" style="display:flex;flex-direction:column;flex:none">${Array.from({ length: 16 }, (_, i) => item(i + 1)).join('')}</div>
+    </section></body></html>`);
+  const out = await page.evaluate((src) => {
+    const measureFit = new Function(`return (${src})`)();
+    return measureFit(() => ({ fits: () => ({ ok: false }) }), {}, (doc) => [...doc.querySelectorAll('section[data-lattice-slide]')], [], true);
+  }, MEASURE_FIT_SRC);
+  assert.equal(out[0].capacity, 1000, 'the page is 1000px tall, whatever the overflowing list\'s top reads');
+});
+
