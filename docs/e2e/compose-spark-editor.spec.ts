@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
-import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
 async function savedDeck(page: Page): Promise<string> {
@@ -128,9 +128,12 @@ test.describe('compose spark editor', () => {
 		await openDeckInCompose(page, DECK.replace('Nothing here yet.', 'Revenue grew `foo` fast.'));
 		const para = page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first();
 		await para.click();
-		await page.keyboard.press('Home');
+		// The insert door reads ProseMirror's caret, which hears of each browser caret move only through
+		// `selectionchange`: settle each move, or the door acts on a stale caret (`caretSettled`).
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
 		// "Revenue gr|ew": the caret is mid-word.
-		for (let i = 0; i < 'Revenue gr'.length; i++) await page.keyboard.press('ArrowRight');
+		for (let i = 0; i < 'Revenue gr'.length; i++) await pressSettled(page, 'ArrowRight');
 		await insertVia(page, 'Spark');
 		await expect.poll(() => savedDeck(page)).toContain('Revenue grew `~{12 14 13 17 21}` `foo` fast.');
 		await editor(page).getByRole('button', { name: 'Done' }).click();
@@ -138,9 +141,10 @@ test.describe('compose spark editor', () => {
 		// A selection from "grew" into the middle of `foo` would split the author's code: it declines and writes nothing.
 		const before = await savedDeck(page);
 		await para.click();
-		await page.keyboard.press('Home');
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
 		await page.keyboard.down('Shift');
-		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await page.keyboard.press('ArrowRight');
+		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await pressSettled(page, 'ArrowRight');
 		await page.keyboard.up('Shift');
 		// The menu says why, and nothing is written.
 		await openInsertMenu(page);

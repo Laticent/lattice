@@ -571,8 +571,59 @@ export async function gotoStudio(page: Page): Promise<void> {
 			}
 		};
 	});
+	// Record the selection each `selectionchange` delivered, so `caretSettled` can tell whether one is
+	// still on its way. Passive: it only reads the selection.
+	await page.addInitScript(() => {
+		const w = window as unknown as { __latticeDeliveredCaret?: string };
+		const key = (): string => {
+			const s = document.getSelection();
+			if (!s) return '';
+			const id = (n: Node | null): string => (n ? `${n.nodeName}:${n.textContent?.length ?? 0}` : '-');
+			return `${id(s.anchorNode)}@${s.anchorOffset}/${id(s.focusNode)}@${s.focusOffset}`;
+		};
+		w.__latticeDeliveredCaret = key();
+		document.addEventListener('selectionchange', () => {
+			w.__latticeDeliveredCaret = key();
+		});
+	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
+}
+
+/**
+ * Wait until the page has DELIVERED the `selectionchange` for the caret's current place.
+ *
+ * ProseMirror (Compose) learns where a click or a native caret key put the caret ONLY from
+ * `selectionchange`, which Chromium fires as a queued task. Chromium runs input ahead of queued
+ * tasks, so a key pressed straight after a click or a native arrow can reach ProseMirror's keymap
+ * while its state still holds the OLD caret: measured in the cloud sandbox, a click landed in a fence
+ * at 460 ms, its `selectionchange` at 469 ms, and a Tab sent in between ran against the heading the
+ * caret had left, so Tab moved focus out of the editor. A human cannot type inside that gap; a test can.
+ *
+ * The signal: the selection the last delivered event saw equals the selection now. A caret move
+ * that has not been delivered yet makes them differ until it is. Needs `gotoStudio`'s recorder.
+ * The comparison is by node name, text length and offset, so two different nodes that agree on
+ * all three would read as settled: good enough for one paragraph's caret walk, not a general
+ * identity check.
+ */
+export async function caretSettled(page: Page): Promise<void> {
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const s = document.getSelection();
+				if (!s) return true;
+				const id = (n: Node | null): string => (n ? `${n.nodeName}:${n.textContent?.length ?? 0}` : '-');
+				const now = `${id(s.anchorNode)}@${s.anchorOffset}/${id(s.focusNode)}@${s.focusOffset}`;
+				return (window as unknown as { __latticeDeliveredCaret?: string }).__latticeDeliveredCaret === now;
+			}),
+		)
+		.toBe(true);
+}
+
+/** Press a key and wait until the caret move it caused (if any) has reached the page's listeners. */
+export async function pressSettled(page: Page, key: string): Promise<void> {
+	await page.keyboard.press(key);
+	await caretSettled(page);
 }
 
 /**
