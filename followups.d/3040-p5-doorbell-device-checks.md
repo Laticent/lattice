@@ -12,16 +12,18 @@ deferred: blocked — needs a real iPad or iPhone (or a simulator with the softw
 
 PR #3040's undo doorbell (`docs/src/components/studio/undo-doorbell.ts`) passed every `ios-safari-undo` run on the iPad and
 iPhone simulators, but those runs drive WebKit's undo command and `insertText`, with no on-screen keyboard, no dictation and
-no VoiceOver. (A second gesture undo after a wipe is no longer on this list: each ring now arms ten separate undo
-steps, and the probe shows three undos and three redos in a row reaching Filo.) Its adversarial review (red team and inversion) left these unverified:
+no VoiceOver. Its adversarial review (red team and inversion) left these unverified:
 
 - **The on-screen keyboard during a ring.** The bell now carries the editor's `autocorrect`, `autocapitalize`, `spellcheck`
   and `writingsuggestions` settings and a 16px size, so the keyboard should not switch modes or the page zoom. Unseen.
-  `ios-safari-undo` now taps the editor for real and records the visible height through a ring (the "keyboard ·" row);
-  if the simulator raises no on-screen keyboard there (it reads `keyboard height 0 px`), a device has to show it.
+  Simulator: I/O → Keyboard → uncheck "Connect Hardware Keyboard", type, let the preview remount, watch the predictions
+  bar and Compose's typing chrome (`use-visual-viewport.ts`).
 - **Dictation.** It sends no composition events, so the bell's composition guard does not cover it; a ring mid-dictation may
   end the session.
 - **VoiceOver.** Focus visits an `aria-hidden` field for one edit; VoiceOver may re-announce the editor on each ring.
+- **A second gesture undo after a wipe.** After the wipe the bell arms ONE step; a gesture undo moves it onto WebKit's redo
+  list, and the bell will not re-ring while redo holds a step (ringing would empty redo). So a second shake does nothing
+  until the next typed word or ring. Strictly better than before the bell, which armed none.
 - **iOS's caret callout** (Paste, Select) closes on a ring.
 
 done when — each is seen on a device or a hand-driven simulator, and either fixed or recorded as accepted with the reason.
