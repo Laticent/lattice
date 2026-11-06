@@ -2,7 +2,7 @@
  * S1, the block pass, for CommonMark as Lattice configures markdown-it (`commonmark` preset, `html: true`,
  * `table` enabled, plugin block rules installed before `fence`). It writes a flat tape of block records
  * instead of markdown-it's `Token` objects, and it computes no `content` strings, which is where its speed
- * comes from: the rules themselves are markdown-it 14.1.1's, line for line, so the structure matches it by
+ * comes from: the rules themselves are markdown-it 14.3.3's, line for line, so the structure matches it by
  * construction and the corpus differential (test/unit/core/deck-model.test.js) holds the claim to every deck.
  *
  * Ported from markdown-it (https://github.com/markdown-it/markdown-it), MIT licence, Copyright (c) 2014
@@ -259,7 +259,7 @@ const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
 	[/^<(script|pre|style|textarea)(?=(\s|>|$))/i, /<\/(script|pre|style|textarea)>/i, true],
 	[NEVER, NEVER, true],
 	[/^<\?/, /\?>/, true],
-	[/^<![A-Z]/, />/, true],
+	[/^<![A-Za-z]/, />/, true],
 	[/^<!\[CDATA\[/, /\]\]>/, true],
 	[new RegExp(`^</?(${BLOCK_NAMES.join('|')})(?=(\\s|/?>|$))`, 'i'), /^$/, true],
 	[new RegExp(`${HTML_OPEN_CLOSE_TAG}\\s*$`), /^$/, false],
@@ -316,7 +316,11 @@ function parseLinkDestination(str: string, start: number, max: number): LinkResu
 		if (code === 0x20) break;
 		if (code < 0x20 || code === 0x7f) break;
 		if (code === 0x5c && pos + 1 < max) {
-			if (str.charCodeAt(pos + 1) === 0x20) break;
+			// markdown-it 14.3: a `\` before a space no longer ends the destination; the space then does.
+			if (str.charCodeAt(pos + 1) === 0x20) {
+				pos++;
+				continue;
+			}
 			pos += 2;
 			continue;
 		}
@@ -1184,132 +1188,149 @@ function list(state: State, startLine: number, endLine: number, silent: boolean)
 	return true;
 }
 
+// CommonMark limits a reference label to 999 Unicode code points (markdown-it 14.3).
+const MAX_LABEL_LENGTH = 999;
+
+function countCodePoints(str: string): number {
+	let length = str.length;
+	for (let i = 0; i < str.length - 1; i++) {
+		const high = str.charCodeAt(i);
+		if (high < 0xd800 || high > 0xdbff) continue;
+		const low = str.charCodeAt(i + 1);
+		if (low >= 0xdc00 && low <= 0xdfff) {
+			length--;
+			i++;
+		}
+	}
+	return length;
+}
+
+/** The exclusive end of a line, after its newline when it has one. */
+function lineEnd(state: State, line: number): number {
+	return Math.min(state.eMarks[line] + 1, state.src.length);
+}
+
+/** Where a reference continues on `nl`, or -1 when it cannot. */
+function getNextLinePos(state: State, nl: number): number {
+	const endLine = state.lineMax;
+	if (nl >= endLine || state.isEmpty(nl)) return -1;
+	let isContinuation = false;
+	if (state.sCount[nl] - state.blkIndent > 3) isContinuation = true;
+	if (state.sCount[nl] < 0) isContinuation = true;
+	if (!isContinuation) {
+		const terminatorRules = state.p.chain.reference;
+		const oldParentType = state.parentType;
+		state.parentType = 'reference';
+		const terminate = terminates(terminatorRules, state, nl, endLine);
+		state.parentType = oldParentType;
+		if (terminate) return -1;
+	}
+	return state.bMarks[nl] + state.tShift[nl];
+}
+
+// markdown-it 14.3's reference rule, which scans the source in place instead of appending each continuation line
+// to a string (GHSA-gfr2-rv44-r23c: a multi-line definition took quadratic time). It keeps only what the structure
+// needs: whether a definition stands here and which line it ends on.
 function reference(state: State, startLine: number, _endLine: number, silent: boolean): boolean {
+	const src = state.src;
 	let pos = state.bMarks[startLine] + state.tShift[startLine];
-	let max = state.eMarks[startLine];
 	let nextLine = startLine + 1;
 	if (state.sCount[startLine] - state.blkIndent >= 4) return false;
-	if (state.src.charCodeAt(pos) !== 0x5b) return false;
-
-	function getNextLine(nl: number): string | null {
-		const endLine = state.lineMax;
-		if (nl >= endLine || state.isEmpty(nl)) return null;
-		let isContinuation = false;
-		if (state.sCount[nl] - state.blkIndent > 3) isContinuation = true;
-		if (state.sCount[nl] < 0) isContinuation = true;
-		if (!isContinuation) {
-			const terminatorRules = state.p.chain.reference;
-			const oldParentType = state.parentType;
-			state.parentType = 'reference';
-			const terminate = terminates(terminatorRules, state, nl, endLine);
-			state.parentType = oldParentType;
-			if (terminate) return null;
-		}
-		const p = state.bMarks[nl] + state.tShift[nl];
-		const m = state.eMarks[nl];
-		return state.src.slice(p, m + 1);
-	}
-
-	let str = state.src.slice(pos, max + 1);
-	max = str.length;
+	if (src.charCodeAt(pos) !== 0x5b) return false;
+	let max = lineEnd(state, startLine);
+	let rawLabel = '';
 	let labelEnd = -1;
-	for (pos = 1; pos < max; pos++) {
-		const ch = str.charCodeAt(pos);
-		if (ch === 0x5b) {
-			return false;
-		} else if (ch === 0x5d) {
+	let segmentStart = ++pos;
+	while (pos < max) {
+		if (rawLabel.length + pos - segmentStart > MAX_LABEL_LENGTH * 2) return false;
+		let ch = src.charCodeAt(pos);
+		if (ch === 0x5b) return false;
+		if (ch === 0x5d) {
 			labelEnd = pos;
 			break;
-		} else if (ch === 0x0a) {
-			const lineContent = getNextLine(nextLine);
-			if (lineContent !== null) {
-				str += lineContent;
-				max = str.length;
-				nextLine++;
-			}
-		} else if (ch === 0x5c) {
-			pos++;
-			if (pos < max && str.charCodeAt(pos) === 0x0a) {
-				const lineContent = getNextLine(nextLine);
-				if (lineContent !== null) {
-					str += lineContent;
-					max = str.length;
-					nextLine++;
-				}
-			}
 		}
+		if (ch === 0x5c) ch = src.charCodeAt(++pos);
+		if (ch === 0x0a && pos < max) {
+			const nextPos = getNextLinePos(state, nextLine);
+			if (nextPos < 0) return false;
+			rawLabel += src.slice(segmentStart, max);
+			pos = segmentStart = nextPos;
+			max = lineEnd(state, nextLine++);
+			continue;
+		}
+		pos++;
 	}
-	if (labelEnd < 0 || str.charCodeAt(labelEnd + 1) !== 0x3a) return false;
-	for (pos = labelEnd + 2; pos < max; pos++) {
-		const ch = str.charCodeAt(pos);
+	if (labelEnd < 0 || src.charCodeAt(labelEnd + 1) !== 0x3a) return false;
+	rawLabel += src.slice(segmentStart, labelEnd);
+	if (rawLabel.length > MAX_LABEL_LENGTH && countCodePoints(rawLabel) > MAX_LABEL_LENGTH) return false;
+	pos = labelEnd + 2;
+	while (pos < max) {
+		const ch = src.charCodeAt(pos);
 		if (ch === 0x0a) {
-			const lineContent = getNextLine(nextLine);
-			if (lineContent !== null) {
-				str += lineContent;
-				max = str.length;
-				nextLine++;
-			}
+			const nextPos = getNextLinePos(state, nextLine);
+			if (nextPos < 0) break;
+			pos = nextPos;
+			max = lineEnd(state, nextLine++);
 		} else if (isSpace(ch)) {
-			/* skip */
+			pos++;
 		} else break;
 	}
-	const destRes = parseLinkDestination(str, pos, max);
+	const destRes = parseLinkDestination(src, pos, max);
 	if (!destRes.ok) return false;
 	const linkOk = state.p.linkOk;
 	if (!(destRes.raw.indexOf('&') >= 0 && linkOk ? linkOk(destRes.raw) : defaultLinkOk(destRes.raw))) return false;
 	pos = destRes.pos;
 	const destEndPos = pos;
+	const destEndMax = max;
 	const destEndLineNo = nextLine;
-	const start = pos;
-	for (; pos < max; pos++) {
-		const ch = str.charCodeAt(pos);
+	while (pos < max) {
+		const ch = src.charCodeAt(pos);
 		if (ch === 0x0a) {
-			const lineContent = getNextLine(nextLine);
-			if (lineContent !== null) {
-				str += lineContent;
-				max = str.length;
-				nextLine++;
-			}
+			const nextPos = getNextLinePos(state, nextLine);
+			if (nextPos < 0) break;
+			pos = nextPos;
+			max = lineEnd(state, nextLine++);
 		} else if (isSpace(ch)) {
-			/* skip */
+			pos++;
 		} else break;
 	}
-	let titleRes = parseLinkTitle(str, pos, max);
+	const titleStart = pos;
+	let titleRes = parseLinkTitle(src, pos, max);
 	while (titleRes.can_continue) {
-		const lineContent = getNextLine(nextLine);
-		if (lineContent === null) break;
-		str += lineContent;
-		pos = max;
-		max = str.length;
-		nextLine++;
-		titleRes = parseLinkTitle(str, pos, max, titleRes);
+		const nextPos = getNextLinePos(state, nextLine);
+		if (nextPos < 0) break;
+		pos = nextPos;
+		max = lineEnd(state, nextLine++);
+		titleRes = parseLinkTitle(src, pos, max, titleRes);
 	}
 	let title: boolean;
-	if (pos < max && start !== pos && titleRes.ok) {
+	if (titleStart !== destEndPos && titleRes.ok) {
 		title = titleRes.nonEmpty;
 		pos = titleRes.pos;
 	} else {
 		title = false;
 		pos = destEndPos;
+		max = destEndMax;
 		nextLine = destEndLineNo;
 	}
 	while (pos < max) {
-		if (!isSpace(str.charCodeAt(pos))) break;
+		if (!isSpace(src.charCodeAt(pos))) break;
 		pos++;
 	}
-	if (pos < max && str.charCodeAt(pos) !== 0x0a) {
+	if (pos < max && src.charCodeAt(pos) !== 0x0a) {
 		if (title) {
 			pos = destEndPos;
+			max = destEndMax;
 			nextLine = destEndLineNo;
 			while (pos < max) {
-				if (!isSpace(str.charCodeAt(pos))) break;
+				if (!isSpace(src.charCodeAt(pos))) break;
 				pos++;
 			}
 		}
 	}
-	if (pos < max && str.charCodeAt(pos) !== 0x0a) return false;
+	if (pos < max && src.charCodeAt(pos) !== 0x0a) return false;
 	// markdown-it's normalizeReference(label) is empty exactly when the label is all whitespace.
-	if (!/\S/.test(str.slice(1, labelEnd))) return false;
+	if (!/\S/.test(rawLabel)) return false;
 	if (silent) return true;
 	state.line = nextLine;
 	return true;
@@ -1332,7 +1353,9 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 		let close = state.nextClose(pos);
 		if (close < 0 || close >= max) {
 			for (; nextLine < endLine; nextLine++) {
-				if (state.sCount[nextLine] < state.blkIndent) break;
+				// markdown-it 14.3: a comment ends only at its `-->`, so an outdented BLANK line (one inside a list
+				// item, say) no longer ends it; an outdented line with text still does.
+				if (state.sCount[nextLine] < state.blkIndent && !state.isEmpty(nextLine)) break;
 				const p = state.bMarks[nextLine] + state.tShift[nextLine];
 				if (close >= 0 && close < p) close = state.nextClose(p);
 				if (close < 0) continue;
@@ -1358,9 +1381,12 @@ function htmlBlock(state: State, startLine: number, endLine: number, silent: boo
 	if (i === HTML_SEQUENCES.length) return false;
 	if (silent) return HTML_SEQUENCES[i][2];
 	let nextLine = startLine + 1;
+	// Sequences 6 and 7 end on a blank line (their closer is `/^$/`); every other one ends only on its closing text,
+	// so an outdented blank line does not end it (markdown-it 14.3).
+	const endsOnBlankLine = HTML_SEQUENCES[i][1].test('');
 	if (!HTML_SEQUENCES[i][1].test(lineText)) {
 		for (; nextLine < endLine; nextLine++) {
-			if (state.sCount[nextLine] < state.blkIndent) break;
+			if (state.sCount[nextLine] < state.blkIndent && (endsOnBlankLine || !state.isEmpty(nextLine))) break;
 			pos = state.bMarks[nextLine] + state.tShift[nextLine];
 			max = state.eMarks[nextLine];
 			lineText = state.src.slice(pos, max);
@@ -1426,9 +1452,11 @@ function lheading(state: State, startLine: number, endLine: number): boolean {
 		const terminate = terminates(terminatorRules, state, nextLine, endLine);
 		if (terminate) break;
 	}
-	// markdown-it does NOT restore parentType on this path, and the paragraph rule that runs next saves the
-	// stale 'paragraph' and restores it. Kept as markdown-it has it: parity is the contract, not tidiness.
-	if (!level) return false;
+	// markdown-it 14.3 restores parentType on this path too (14.1 left a stale 'paragraph' for the next rule).
+	if (!level) {
+		state.parentType = oldParentType;
+		return false;
+	}
 	state.line = nextLine + 1;
 	state.pushAux(K_HEADING_OPEN, 1, startLine, state.line, level + 8);
 	state.pushK(K_INLINE, 0, startLine, state.line - 1);

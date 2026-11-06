@@ -66,3 +66,26 @@ test('stripDebugAttrs still strips every data-debug form with its leading whites
   assert.equal(stripDebugAttrs('<a data-debug="" data-debug="y">'), '<a>');
   assert.equal(stripDebugAttrs(' data-debug'), '');
 });
+
+// The four js/incomplete-sanitization findings (#1958), in three files (gate.js's two go through
+// its one `escapeRe`): regex escapes that escaped only `-`. A source check, so an equivalent
+// rewrite of an escape has to update this arm.
+// #2910 widened each to every metacharacter. The names they escape are NAME_RE-checked or a
+// constant list, so no input reaches the gap today; this arm keeps a revert from landing
+// silently, since a later caller may not check its names (re-verified 2026-11-06).
+test('the layout gate, the AI layout scope check and the Mermaid highlighter escape every regex metacharacter', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ROOT = path.resolve(__dirname, '../../..');
+  const FULL = '.replace(/[.*+?^${}()|[\\]\\\\-]/g, \'\\\\$&\')';
+  for (const [f, n] of [['lib/layout/gate.js', 1], ['lib/layout/ai.js', 1], ['lib/plugins/mermaid/mermaid.highlight.js', 1]]) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(src.split(FULL).length - 1 >= n, `${f} lost its full-metacharacter escape`);
+    assert.doesNotMatch(src, /\.replace\(\/-\/g, '\\\\-'\)/, `${f} escapes only "-" again`);
+  }
+  // And the full escape does what it says: a name made of metacharacters matches only itself.
+  const escapeRe = (x) => String(x).replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+  const hostile = 'a.b*c+(d)|[e]\\f-g^$';
+  assert.ok(new RegExp(`^${escapeRe(hostile)}$`).test(hostile));
+  assert.ok(!new RegExp(`^${escapeRe('a.b')}$`).test('axb'));
+});

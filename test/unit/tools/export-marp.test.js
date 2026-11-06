@@ -171,6 +171,49 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
+  // #1354: MIT asks for its notice "in all copies" and OFL 1.1 for its text to accompany the
+  // fonts. The bundle redistributes Mermaid, the KaTeX faces and the OFL text faces, so the TEXTS
+  // travel, and the README names the file.
+  test('ships the MIT and OFL license texts for its third-party files, and the README names them', () => {
+    const file = path.join(dest, 'THIRD-PARTY-LICENSES.txt');
+    assert.ok(fs.existsSync(file), 'bundle is missing THIRD-PARTY-LICENSES.txt');
+    const text = fs.readFileSync(file, 'utf8');
+    const lic = (f) => fs.readFileSync(path.join(REPO, 'assets', 'licenses', f), 'utf8').trimEnd();
+    for (const f of ['MIT-mermaid.txt', 'MIT-katex.txt', 'OFL-1.1.txt']) {
+      assert.ok(text.includes(lic(f)), `THIRD-PARTY-LICENSES.txt lacks the verbatim ${f}`);
+    }
+    assert.ok(fs.readdirSync(path.join(dest, 'fonts')).some((f) => /^KaTeX_/.test(f)), 'the bundle ships KaTeX faces, so the MIT text is owed');
+    assert.match(fs.readFileSync(path.join(dest, 'README.md'), 'utf8'), /THIRD-PARTY-LICENSES\.txt/);
+    // OFL condition 2: each family's copyright notice travels too, not only the license text.
+    for (const fam of ['Outfit', 'Playfair Display', 'JetBrains Mono', 'Caveat', 'Shantell Sans']) {
+      assert.match(text, new RegExp(`Copyright \\d{4} The ${fam} Project Authors`), `no copyright line for ${fam}`);
+    }
+  });
+
+  // The license file is a hand-written list (lib/export/third-party-licenses.js), so derive what the
+  // bundle ACTUALLY ships and require a heading for each third-party piece. A new font family or a
+  // new vendored file then fails here instead of shipping without its license text.
+  test('every font family and third-party file the bundle ships has a heading in THIRD-PARTY-LICENSES.txt', () => {
+    const { LICENSE_SOURCES } = require(path.join(REPO, 'lib', 'export', 'third-party-licenses.js'));
+    const { STATIC_ASSETS } = require(path.join(REPO, 'lib', 'export', 'marp-bundle.js'));
+    const headings = LICENSE_SOURCES.flatMap((l) => l.heading).join('\n');
+    // Font file prefix -> the family name its heading must name. `lattice-*` is our own icon face.
+    const FAMILY = { KaTeX: 'KaTeX', outfit: 'Outfit', playfair: 'Playfair Display', jetbrains: 'JetBrains Mono', caveat: 'Caveat', shantell: 'Shantell Sans' };
+    const OWN_FONTS = ['lattice'];
+    for (const f of fs.readdirSync(path.join(dest, 'fonts'))) {
+      const prefix = f.split(/[-_]/)[0];
+      if (OWN_FONTS.includes(prefix)) continue;
+      assert.ok(FAMILY[prefix], `fonts/${f}: a font family with no license mapping; add its text to assets/licenses/ and a heading`);
+      assert.ok(headings.includes(FAMILY[prefix]), `no license heading names ${FAMILY[prefix]}`);
+    }
+    // Lattice's own files, and the license file itself; everything else in STATIC_ASSETS is third party.
+    const OWN = ['lattice.css', 'lattice-runtime-min.js', 'lattice-plugin-avatars.js', 'THIRD-PARTY-LICENSES.txt'];
+    for (const { to } of STATIC_ASSETS) {
+      if (OWN.includes(to)) continue;
+      assert.ok(headings.includes(to), `${to} ships in the bundle but no license heading names it`);
+    }
+  });
+
   test('bundled CSS is marp-scopable: no rule LEADS with :is(section…)', () => {
     // marp-core scopes off the leftmost compound, so a leading
     // `:is(section.x, figure.x)` head becomes a slide-inside-a-slide and matches

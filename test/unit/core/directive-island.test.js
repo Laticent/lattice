@@ -46,10 +46,13 @@ describe('which comments are blocks is the model\'s answer', () => {
     assert.deepEqual(slide.comments.map((c) => [c.kind, c.line, c.folded]), [['directive', 2, true]]);
     assert.equal(slide.resolved.size, 0);
   });
-  test('a comment its list item ends before `-->` is listed to its `-->`, folded, and resolves nothing', () => {
+  test('a comment in a list item runs to its `-->` across a blank line, and resolves as the engine does', () => {
+    // markdown-it 14.3: an outdented BLANK line no longer ends a comment block inside a list item (14.1 cut the
+    // comment at the item's end, so it folded and resolved nothing). The engine now applies `_class: kpi` here,
+    // and the record must agree with it.
     const [slide] = scanMetaSource('- <!-- _class: kpi\n\n  -->\n').slides;
-    assert.deepEqual(slide.comments.map((c) => [c.line, c.endLine, c.folded]), [[1, 3, true]]);
-    assert.equal(slide.resolved.size, 0);
+    assert.deepEqual(slide.comments.map((c) => [c.line, c.endLine, c.folded]), [[1, 3, undefined]]);
+    assert.equal(slide.resolved.size, 1);
   });
   test('an unclosed comment in a list item ends with the item, and a directive below it counts', () => {
     assert.deepEqual(scanned('- <!-- open\n\n<!-- _class: kpi -->\n'), [['_class=kpi']]);

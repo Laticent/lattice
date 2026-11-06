@@ -87,6 +87,9 @@ export function LiveLobby({ view, actions }: { view: LobbyView; actions: LobbyAc
 				</div>
 				<p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
 					Your edits and calls go directly between browsers. Lattice has no server that sees them.
+					<span className="mt-1.5 block" data-live-privacy-note>
+						Your browser connects directly to the host and everyone in the session, so they see your IP address, even while you wait to be let in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your edits.
+					</span>
 				</p>
 			</div>
 		</div>

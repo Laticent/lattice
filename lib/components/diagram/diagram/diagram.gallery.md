@@ -4,7 +4,7 @@ theme: indaco
 size: hd
 paginate: true
 header: "Lattice · diagram"
-footer: "Mermaid 11.14 · rendered through the diagram component"
+footer: "Mermaid 11.17 · rendered through the diagram component"
 ---
 
 <!-- _class: title -->
@@ -13,7 +13,7 @@ footer: "Mermaid 11.14 · rendered through the diagram component"
 
 # Every Mermaid diagram, one slide each.
 
-`Mermaid 11.14 · Lattice Theme`
+`Mermaid 11.17 · Lattice Theme`
 
 *A reference gallery of the 26 diagram types Mermaid supports, rendered with the Lattice palette so you can see what each one looks like in production.*
 
@@ -710,7 +710,7 @@ treeView-beta
 <!-- _footer: '' -->
 <!-- _header: '' -->
 
-`Mermaid 11.14 · Lattice Theme`
+`Mermaid 11.17 · Lattice Theme`
 
 ## Twenty-six diagrams, one theme.
 

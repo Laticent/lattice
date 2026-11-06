@@ -106,6 +106,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
   'build-tavola-lib.js',
   'build-read-along-core.js',
+  // Its write set is dist/THIRD-PARTY-LICENSES.txt, under the ignored dist/.
+  'build-third-party-licenses.js',
   'build-marp-kit.js',
   'build-agent-kit.mjs',
   'build-dist-readme.js',

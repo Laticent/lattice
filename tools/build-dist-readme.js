@@ -134,6 +134,10 @@ const DESCRIPTIONS = {
     purpose: 'Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in.',
     consume: '`@laticent/lattice/runtime/min`',
   },
+  'THIRD-PARTY-LICENSES.txt': {
+    purpose: 'The verbatim MIT and SIL OFL 1.1 texts for the third-party files Lattice redistributes: Mermaid, the KaTeX and text font faces, dagre-d3-es, Lodash and Tabler Icons. Generated from `assets/licenses/` by `tools/build-third-party-licenses.js`; the Export-to-Marp bundle and the Marp kit both carry it.',
+    consume: 'Ship it beside any of those files you redistribute.',
+  },
   'lattice-dagre-min.js': {
     purpose: 'The dagre graph-layout engine (`dagre-d3-es`, MIT), tree-shaken to `layout` + `Graph`, as a standalone IIFE that installs `globalThis.__latticeDagre`. Load it with a `<script src>` BEFORE `lattice-runtime-min.js` on any page whose deck has a state chart — the runtime\'s layout pass reads that global synchronously on its first draw. Absent, a state chart that BRANCHES falls back to the reading-order grid a chain uses, drawing each branch as a skip (a different layout, not a blank one; the runtime says so on the console). Split out of the runtime bundle so a reader with no state chart does not fetch 25.9 KiB gzipped of layout engine.',
     consume: '`<script src="lattice-dagre-min.js">`, beside the runtime',

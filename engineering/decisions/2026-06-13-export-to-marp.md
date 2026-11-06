@@ -116,6 +116,9 @@ my-deck.zip
 └── README.md             # quick start, both tiers explained
 ```
 
+*(As built, the bundle also carries `THIRD-PARTY-LICENSES.txt`: the MIT and OFL 1.1 texts its
+third-party files require, added 2026-11-06 for #1354.)*
+
 **README quick start (two tiers):**
 - **Full fidelity:** `npm install && npx marp my-deck.md --config-file marp.config.cjs -o my-deck.pdf`
 - **Quick preview:** open `my-deck.md` in VS Code with the Marp extension after

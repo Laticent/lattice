@@ -635,9 +635,11 @@ repeating rules 2 and 3, so the two cannot drift.
 
 ### Which families the hand SHAPE reaches — measured, not assumed
 
-**SIX, not four.** This section said four (flowchart, state, class, ER) and named mindmap
+**SEVEN, not four.** This section said four (flowchart, state, class, ER) and named mindmap
 among the families that "ignore `look` entirely". Both were wrong: `mindmap` and
-`requirementDiagram` go through rough.js too. Measured on Mermaid 11.14 by rendering every
+`requirementDiagram` go through rough.js too, and Mermaid 11.17 moved `C4Context` across
+(re-measured 2026-11-06, when the vendored Mermaid went from 11.14.0 to 11.17.2; the class
+diagram's `aria-roledescription` also changed from `class` to `classDiagram`). Measured by rendering every
 family twice, `look: 'handDrawn'` against the default, and counting rough nodes in the
 output — `test/integration/mermaid/diagram-look-support.test.js` pins the result so the
 list cannot rot again.
@@ -646,7 +648,19 @@ list cannot rot again.
 |---|---|
 | `flowchart` · `stateDiagram-v2` · `classDiagram` | `sequenceDiagram` · `gantt` · `pie` · `journey` |
 | `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
-| | `C4Context` · `block` · `packet` · `architecture` · `gitGraph` |
+| **`C4Context`** (since 11.17) | `block` · `packet` · `architecture` · `gitGraph` |
+
+**C4 relationship labels (2026-11-06).** Mermaid's `drawRels` places a label at the line's
+midpoint plus half the label's own width and height, so labels drift into the target box or onto
+the arrowhead. `mermaid.styles.css` cancels that offset (`transform-box: fill-box` with
+`translate(-50%, …)`), lifts the label just above the line, and gives it a halo in `--bg`.
+`drawRels` draws an optional `[technology]` line its font size plus 5px below the label, so with
+one present the stylesheet lifts that line by the gap into the label's slot and the label one line
+higher (a `:has(+ text)` rule). `test/integration/mermaid/diagram-look-support.test.js` fails the
+day Mermaid fixes the offset itself (drop the translate then), changes the technology line's gap,
+or moves the C4 palette keys. A label
+whose line runs *behind* a box (a relationship that skips a row) still lands on that box; that is
+the diagram's layout, fixed in the source.
 
 Two entries in the right column look like they honor it and do not: `gitGraph` and
 `architecture-beta` emit *different bytes* under `handDrawn`, but the difference is a

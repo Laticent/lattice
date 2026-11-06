@@ -507,8 +507,11 @@ changed the note.
   `data-split-role` on a top-level `<section>`. The browser carries that state across tokens, so no
   per-token parser is sound, and the blunt rename is. All eight shapes are unit arms, and the
   checker's Chromium and DOMPurify repros come back clean. The engine installs it beside
-  `guardHtmlInline`, and the parity golden is unchanged. The same cross-token quote can still forge
-  the engine's own `data-lattice-slide`; that predates Fluid and is logged as a follow-up.
+  `guardHtmlInline`, and the parity golden is unchanged. The same cross-token quote could also
+  forge the engine's own `data-lattice-slide`, which predates Fluid. Since 2026-11-06 the rename
+  covers that one name too (`data-x-lattice-slide`), with the cross-token repro as a unit arm;
+  every other `data-lattice-` name stays, because authors paste `data-lattice-motion` into raw
+  HTML (`examples/motion-asset.md`).
 - **One paginator, scoped honestly.** `checkPaginationOwners` in `tools/check-ownership.js` counts
   every write of a split page's role or run: templates, concatenations, literals, `setAttribute`,
   markdown-it `attrSet` and `dataset` writes, across `lib/`, `docs/src/` (including `.astro`) and
