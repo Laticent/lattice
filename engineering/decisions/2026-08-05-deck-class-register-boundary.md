@@ -319,3 +319,20 @@ untouched renders differently.
   stamps, with the same collision the ban exists for. Extending the refusal there
   means injecting a vocabulary the pure kernel cannot read, which is a design
   question rather than a patch.
+
+## Amendment (2026-11-06) — the engine reads `class:` at column 0, so every reader does
+
+The table above read `class:` loosely because the engine did: `parseFrontMatter` trimmed each
+line and stamped a `class:` at any indentation. #2050 anchored the engine's reader at column 0
+(a nested `footer:` under `lenses:` printed the lens registry in every footer). The rule this
+note settled, **read the key the way the thing that acts on it reads it**, now gives column 0
+for both keys, and for every engine directive.
+
+The readers that mirrored the engine's loose read moved with it, through
+`topLevelFrontMatterValue`: the seven `class:` reads (`deckClassTokensFromFrontMatter`,
+`deckClassRefusalsFromFrontMatter`, `deckPrintBand`, `diagram-band`, both `diagram-look`
+reads, `lint-core`), `theme:` (`resolve-palette`, and `deckThemeName` in
+`docs/src/lib/deck-theme.ts`), `paginate:` (`lint-core`) and the three `logo:` reads (runtime
+and the markdown-it plugins). `test/unit/core/deck-class-register.test.js` still asserts the
+engine beside the band, now in the column-0 direction. No committed deck nests any of these
+keys, so no render in the tree changes.

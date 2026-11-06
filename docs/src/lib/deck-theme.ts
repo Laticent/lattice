@@ -39,9 +39,11 @@ function stripQuotes(v: string): string {
 }
 
 /** The deck's own `theme:` directive value, trimmed, or null when it declares none.
- *  Reads only the leading front-matter block (a deck-level global, like the engine). */
+ *  Reads only the leading front-matter block (a deck-level global, like the engine),
+ *  and only a TOP-LEVEL key: the engine's `parseFrontMatter` anchors at column 0 (#2050),
+ *  so a `theme:` nested under another block is not the deck's palette. */
 export function deckThemeName(source: string): string | null {
-	const m = /^\s*theme:\s*(.*)$/m.exec(frontMatterBody(source));
+	const m = /^theme:[ \t]*(.*)$/m.exec(frontMatterBody(source));
 	if (!m) return null;
 	const v = stripQuotes(m[1]).trim();
 	return v || null;

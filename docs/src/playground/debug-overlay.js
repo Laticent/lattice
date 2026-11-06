@@ -68,7 +68,7 @@ export const LAYOUT_COLORS = Object.freeze({
 export function deckDebugOn(source) {
 	const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''));
 	if (!m) return false;
-	const line = /^\s*debug\s*:\s*(.*)$/m.exec(m[1]);
+	const line = /^debug[ \t]*:[ \t]*(.*)$/m.exec(m[1]);
 	if (!line) return false;
 	const v = line[1].trim().replace(/^['"]|['"]$/g, '').toLowerCase();
 	return !OFF_VALUES.has(v);

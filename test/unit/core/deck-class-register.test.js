@@ -167,26 +167,25 @@ describe('deck-class register — the export boundary', () => {
     assert.equal(withSanitizedDeckClass(src), src);
   });
 
-  test('an INDENTED `class:` IS the register to every reader, because it is to the engine', () => {
-    // The opposite of the `color-mode:` rule above, and not a preference:
-    // `parseFrontMatter` (lib/engine/directives.js) calls `line.trim()` before
-    // matching, so it STAMPS an indented `class:` onto every section. A reader that
-    // is stricter than the stamper does not "ignore a non-register" — it answers for
-    // a canvas the engine is not painting. This shipped once, in exactly the
-    // direction the change exists to prevent: ` class: print` rendered a
-    // `section.print` canvas while `deckPrintBand` said light, so the diagram baked
-    // LIGHT ink onto a print page.
-    //
-    // The engine is asserted alongside each case, so if `parseFrontMatter` ever
-    // tightens, this fails and names the divergence instead of silently drifting.
+  test('an INDENTED `class:` is NOT the register to any reader, because it is not to the engine', () => {
+    // This test used to assert the opposite, and said why: `parseFrontMatter`
+    // (lib/engine/directives.js) called `line.trim()` and STAMPED an indented `class:`, so a
+    // reader stricter than the stamper answered for a canvas the engine was not painting
+    // (` class: print` baked LIGHT ink onto a print page). It also said it would fail when the
+    // engine tightened. The engine now reads directives at column 0 (#2050), so every reader
+    // follows it — and the engine is still asserted alongside each case, so a future change on
+    // either side names the divergence instead of drifting.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
-    for (const fm of [' class: print', 'class: print', 'foo:\n  class: print']) {
+    for (const fm of [' class: print', 'foo:\n  class: print']) {
       const src = `---\nmarp: true\n${fm}\n---\n\n## A\n`;
-      assert.equal(parseFrontMatter(src).directives.class, 'print', `engine reads ${JSON.stringify(fm)}`);
-      assert.equal(deckPrintBand(src), true, `the band must agree for ${JSON.stringify(fm)}`);
+      assert.equal(parseFrontMatter(src).directives.class, undefined, `engine reads ${JSON.stringify(fm)}`);
+      assert.equal(deckPrintBand(src), false, `the band must agree for ${JSON.stringify(fm)}`);
     }
-    // …and `color-mode:` still supersedes it, wherever the alias sits.
-    assert.equal(deckPrintBand('---\ncolor-mode: light\n class: print\n---\n\n## A\n'), false);
+    const top = '---\nmarp: true\nclass: print\n---\n\n## A\n';
+    assert.equal(parseFrontMatter(top).directives.class, 'print');
+    assert.equal(deckPrintBand(top), true);
+    // …and `color-mode:` still supersedes it.
+    assert.equal(deckPrintBand('---\ncolor-mode: light\nclass: print\n---\n\n## A\n'), false);
     // A deck naming no color axis at all is not a print deck.
     assert.equal(deckPrintBand('---\nclass: dark\n---\n\n## A\n'), false);
   });

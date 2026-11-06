@@ -70,7 +70,7 @@ function parseArgs(argv) {
 function frontmatterTheme(src) {
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return null;
-  const t = m[1].match(/^\s*theme:\s*(\S+)/m);
+  const t = m[1].match(/^theme:[ \t]*(\S+)/m);
   return t ? t[1] : null;
 }
 
