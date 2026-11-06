@@ -268,11 +268,12 @@ test('the engine drops the slides whose last top-level `_hide` is on, and nothin
     // The rule runs in the config's own realm (vm), so copy its array into this one before comparing.
     return { kept: [...state.tokens].filter((t) => t.type === 'marpit_slide_open').map((t) => t.slide), tokens };
   };
-  const src = ['<!-- _hide: true -->', '<!-- _hide: false -->', '<!-- _hide: maybe -->', '<!-- _hide: true --> trailing', '> <!-- _hide: true -->'];
+  const src = ['<!-- _hide: true -->', '<!-- _hide: false -->', '<!-- _hide: maybe -->', '<!-- _hide: true --> trailing', '> <!-- _hide: true -->', '<!-- _hide: true --><!-- note -->'];
   // Slide 1 on; slide 2 on then off; slide 3 on then a non-value (no directive); slide 4 not alone on its line;
   // slide 5 nested in a blockquote; slide 0 says nothing.
-  const { kept, tokens } = run([[], [[' _hide: true ', 0]], [[' _hide: true ', 0], [' _hide: false ', 1]], [[' _hide: true ', 0], [' _hide: maybe ', 2]], [[' _hide: true ', 3]], [[' _hide: true ', 4, true]]], src);
-  assert.deepEqual(kept, [0, 2, 4, 5]);
+  // Slide 6: two comments on one line, one HTML block to Lattice.
+  const { kept, tokens } = run([[], [[' _hide: true ', 0]], [[' _hide: true ', 0], [' _hide: false ', 1]], [[' _hide: true ', 0], [' _hide: maybe ', 2]], [[' _hide: true ', 3]], [[' _hide: true ', 4, true]], [[' _hide: true ', 5]]], src);
+  assert.deepEqual(kept, [0, 2, 4, 5, 6]);
   // A directive the rule read is no presenter note; a non-value and a comment that is not alone stay notes.
   const notes = tokens.filter((t) => t.type === 'marpit_comment');
   assert.ok(notes.filter((t) => / maybe /.test(t.content)).every((t) => !t.meta?.marpitCommentParsed));

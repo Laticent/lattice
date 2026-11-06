@@ -394,10 +394,14 @@ function withoutHideLines(text: string): string {
 		if (!/^\s*<!--[\s\S]*?-->\s*$/.test(t.content) || !hideOfComment(t.content.trim())) continue;
 		cut.push(t.map);
 	}
+	const blank = (i: number) => i < 0 || i >= lines.length || lines[i].trim() === '';
 	for (const [a, b] of cut.reverse()) {
-		// Take one blank line along: the one after, or else the one before.
-		const end = b < lines.length && lines[b].trim() === '' ? b + 1 : b;
-		const start = end === b && a > 0 && lines[a - 1].trim() === '' ? a - 1 : a;
+		// Take one blank line along, but only one the slide does not need: a blank that is the only thing between two
+		// blocks (the comment sat flush against text on its other side) stays, or the two would merge (a checker found
+		// "Para one.\n\n<!-- hide -->\nPara two." becoming one paragraph). So: the blank after, when the line before the
+		// comment is blank or the slide's edge; else the blank before, when the line after is.
+		const end = b < lines.length && blank(b) && blank(a - 1) ? b + 1 : b;
+		const start = end === b && a > 0 && blank(a - 1) && blank(b) ? a - 1 : a;
 		lines.splice(start, end - start);
 	}
 	return lines.join('\n');

@@ -64,4 +64,6 @@ test('every hidden: everySlideHidden says so; a deck with one shown slide does n
   assert.equal(everySlideHidden('---\ntheme: indaco\n---\n\n<!-- hide -->\n# A\n\n---\n\n<!-- _hide -->\n# B\n'), true);
   assert.equal(everySlideHidden('<!-- hide -->\n# A\n\n---\n\n# B\n'), false);
   assert.equal(everySlideHidden(''), false);
+  // An empty slide is a shown slide, as the engine renders one.
+  assert.equal(everySlideHidden('<!-- hide -->\n# A\n\n---\n\n---\n\n<!-- hide -->\n# B\n'), false);
 });

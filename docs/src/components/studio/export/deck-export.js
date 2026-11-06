@@ -266,11 +266,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	// Every slide hidden: the bundle would render nothing, as every other export refuses to.
-	if (everySlideHidden(source)) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
 	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
 	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;
+	// Every slide hidden (after `glossary: auto` appends its shown slides): the bundle would render nothing, as every
+	// other export refuses to.
+	if (everySlideHidden(appendAutoGlossary(source))) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 

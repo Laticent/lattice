@@ -76,4 +76,10 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 		expect(hidden).toBe('<!-- hide -->\n## A\n\nbody');
 		expect(withHidden(hidden, false)).toBe('## A\n\nbody');
 	});
+
+	it('never takes a blank line that keeps two blocks apart', () => {
+		expect(withHidden('Para one.\n\n<!-- hide -->\nPara two.', false)).toBe('Para one.\n\nPara two.');
+		expect(withHidden('Para one.\n<!-- hide -->\n\nPara two.', false)).toBe('Para one.\n\nPara two.');
+		expect(withHidden('- a\n- b\n\n<!-- _hide: false -->\nNext para.', true)).toBe('<!-- hide -->\n- a\n- b\n\nNext para.');
+	});
 });
