@@ -117,40 +117,45 @@ section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-w
  * and its style (`progress-rail: bar`). It is frame content, not a chrome Cell: a divider is a
  * sovereign Frame and hosts none (design/forms.md §6).
  *
- * In flow, above the eyebrow and the name, so the plain divider reads "2 / 4 · ━ ● ● ●", then the
- * section, and a `divider light` centers it with the rest of its block. Spaced with padding, never
- * margin (HARD RULE #20). */
+ * OUT of flow, in the top band, so it costs the divider none of its content room: in flow it added
+ * a row above the name (111px on a portrait divider at `venue: conference`), and a divider whose
+ * content already filled the slide — `divider qr` on a tall canvas — clipped the moment its deck
+ * turned the rail on (check:venue-conformance found it). It sits where a `divider numbered` already
+ * reserves its strip, so every divider carries it in the same place. The plain divider aligns it with
+ * its name's left edge; a `divider light` follows its own `--headline-justify` (centered by default).
+ * Spaced with padding, never margin (HARD RULE #20). */
 section.divider > .divider-marker {
   --_mk: 1.5;
+  position: absolute;
+  inset-block-start: calc(var(--_sec-1cqi, 1cqi) * 2.5); /* half of `divider numbered`'s `--_mark-top` */
+  inset-inline-start: calc(var(--_sec-1cqi, 1cqi) * 9.375 + var(--_wide-gutter, 0px)); /* the name's own left (the padding above) */
+  translate: 0 -50%;
   display: flex;
   align-items: center;
   /* Slide-width units, not `--sp-*`: those scale with `--canvas-scale` (1.95 in portrait) while the
    * marks do not, and ten sections on a `story` divider then ran the row to the slide's edge. */
   gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
-  padding-block-end: var(--sp-md);
   font-family: var(--font-label);
   font-size: var(--fs-meta);
+  /* One line, so the box is the type: the band above the name is 6.875 slide-width units deep and
+   * `--fs-meta` grows with the canvas (×1.95 in portrait) and the venue, so the body's 1.6 leading
+   * pushed a portrait marker past the slide's top edge at conference. */
+  line-height: 1;
   font-weight: 600;
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
   color: var(--_rail-on);
+}
+section.divider.light > .divider-marker {
+  inset-inline: var(--_wide-gutter, 0px);
+  justify-content: var(--headline-justify, center);
 }
 section.divider > .divider-marker > .divider-marker-marks {
   display: flex;
   align-items: center;
   gap: calc(var(--_sec-1cqi, 1cqi) * 0.6 * var(--_mk));
 }
-/* A `divider numbered` reserves symmetric top and bottom bands to center its block between them,
- * and its numeral already sits in the top band. The marker sits ABOVE the numeral, in the strip
- * `--_mark-top` keeps clear, left-aligned with it like the numeral's own eyebrow — so the centered
- * block and the bottom band stay exactly as they were (check:jank's `divider numbered` sweep
- * measures both), the top-right corner stays free for a deck logo, and a ten-section marker has the
- * whole content width rather than the corner beside the numeral, where it ran to the slide's edge on
- * a portrait deck. */
-section.divider.numbered > .divider-marker {
-  position: absolute;
-  inset-block-start: calc(var(--_mark-top) / 2);
-  inset-inline-start: calc(var(--_sec-1cqi, 1cqi) * 9.375 + var(--_wide-gutter, 0px)); /* the numeral's own left (base.modifiers.css) */
-  translate: 0 -50%;
-  padding-block-end: 0;
-}
+/* A `divider numbered` reserves symmetric top and bottom bands and its numeral sits in the top one;
+ * the marker's top band above is exactly the strip `--_mark-top` keeps clear above that numeral, so
+ * the centered block and the bottom band stay as they were (check:jank's `divider numbered` sweep
+ * measures both) and the top-right corner stays free for a deck logo. */
