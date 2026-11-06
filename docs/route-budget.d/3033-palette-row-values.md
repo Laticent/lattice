@@ -1,0 +1,2 @@
+studio: +64
+The Studio command palette's rows name their cmdk `value` (CommandPalette.tsx, in the eager StudioIsland chunk), so a row that starts to apply while the palette is open, such as "Fix all issues" once lint has counted a fixable issue, appears without a reopen (engineering/decisions/2026-11-03-security-findings-spine.md §The command palette's late row). CI measured +28 B gz against main 56253e00; +64 leaves room for gzip spread. Nothing to give back: the bytes are the props themselves, each the label string the row already renders.
