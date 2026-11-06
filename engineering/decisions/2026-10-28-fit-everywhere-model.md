@@ -1153,3 +1153,26 @@ moved text makes too full; the runtime runs the same kernel. On the export check
 slide 9 cover ran 57px into its footer and now fits; its first page carries the subtitle. The running
 footer keeps cutting off with an ellipsis, also by the owner's ruling. A plain `.html` export has no
 script, so its covers stay as they were.
+
+## 20. Code wraps on handheld; layouts that never split will split at their seam (owner, 2026-11-06)
+
+The phone run of every gallery (square, portrait, story) after the middle ladder found 227 slides
+whose content the export clipped (footer-only cuts aside). Three groups had one cause each:
+
+- **The `closing` `index` slide** ("See also", in 40 galleries) set five two-line rows at lede size.
+  Its rows now read at body size on a square, tall or strip slide. 227 → 194.
+- **Code** was cut at the panel's right edge. The `code` layout never wrapped unless asked, and
+  lint's column table measures the designed size and the rooms, not a phone. The owner chose "Wrap on
+  handheld": a square, tall or strip slide with no room venue wraps every block. The continuation hangs
+  two columns in, via `text-indent: 2ch hanging each-line` on a plain block (no line spans needed,
+  Chromium 153) and the `wrap` rule on a block that has line spans. A first cut gave every block line
+  spans; that changed the markup the Present Guide and the plugin conformance fixtures read, so it went.
+  Lint's `code-line-clipped` is silent there. Wrapped code is taller, so a code slide can now overflow
+  at the bottom, which the next item handles.
+- **`redline`** released its clause's height floor, so on a phone square the amendment painted 160px
+  over the "Why this matters" gloss. The floor is released now only when the clause is the stage's last
+  child.
+
+The rest are layouts that never split (citation-card, redline, quote, legal stress slides) and some
+grids. The owner chose "Split at the seam": a slide that does not fit moves its gloss to the next
+page, and a quote longer than a page continues at a sentence break.

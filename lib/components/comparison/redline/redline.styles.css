@@ -84,7 +84,12 @@ section.redline > .cell-stage > blockquote {
  * stage clip can no longer catch it. That is #1277's failure mode exactly (see
  * kpi.styles.css). `.split` and `.three-col` set their own `min-height:0` below and are
  * unaffected either way. */
-section.redline:not(.stacked):not(.annotated) > .cell-stage > blockquote { min-height:0; }
+/* And only while the clause is the stage's LAST child. A plain redline may carry a gloss list
+ * after it ("Why this matters."); released, the clause shrank below its text on a phone square
+ * and painted 160px of the amendment over that gloss, the same #1277 failure `.annotated` is
+ * excluded for. Floored, the clause keeps its height and an overfull slide spills at the stage
+ * edge, where the probe reports it. */
+section.redline:not(.stacked):not(.annotated) > .cell-stage > blockquote:last-child { min-height:0; }
 section.redline > .cell-stage > blockquote > p { margin:0; }
 section.redline > .cell-stage > blockquote > p + p { padding-top:var(--sp-sm); }
 /* Insertions and deletions — ins/del HTML, also ~~md~~ which renders as s.

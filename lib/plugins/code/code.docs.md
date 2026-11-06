@@ -59,7 +59,10 @@ the end of the block (`code-line-range`), inside a blockquote as outside one. It
 a plain slide as on a `code` or `compare-code` slide (`code-line-clipped`). The widths are measured
 in the browser for every canvas and every class that moves the panel: `claim-*` and `compact`, a
 `venue:` or `scale-*`, and `align-*` or `stats`, which let the panel grow until the slide's own edge
-cuts the line. A `wrap` block never clips, so it is never measured, and a tab counts as wide as the
+cuts the line. A `wrap` block never clips, so it is never measured. Neither does any block on a phone
+or tablet: a square, tall or strip slide with no room `venue:` (laptop, huddle, conference, hall)
+wraps every block, its continuation hanging two columns in, so a long line costs rows there instead
+of characters. A tab counts as wide as the
 block's `indent=` draws it. A line's width includes what the block draws beside it: the `numbers`
 column and the `diff` marker column. Under a `venue:` or `scale-*`, the line-capacity rule
 (`capacity-scale`) counts the rows a block really takes: its lines, the rows a `wrap` line wraps to,

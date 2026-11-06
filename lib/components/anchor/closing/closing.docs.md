@@ -93,7 +93,7 @@ The payload bullet renders as a QR code sized for the back row.
 
 ### `index` — index
 
-Ends on a reference list — see also, next steps.
+Ends on a reference list — see also, next steps. On a square, tall or strip slide the rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square.
 
 ```markdown
 <!-- _class: closing silent index -->

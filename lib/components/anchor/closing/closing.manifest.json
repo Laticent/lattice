@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "closing",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "heading",
       "subtitle",

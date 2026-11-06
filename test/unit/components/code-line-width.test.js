@@ -124,13 +124,20 @@ describe('code-line-clipped — the box decides', () => {
     }
   });
 
-  test('a square deck with no venue is judged at its phone default, the hall row; tall decks at the designed one', () => {
-    const sq = cols('pane', ['venue-hall'], '1080x1080', 'square');
-    assert.ok(sq < cols('pane', [], '1080x1080', 'square'), 'phone (x1.5) holds fewer columns than laptop on a square');
-    assert.equal(clipFinding(codeSlide('code', ['x'.repeat(sq)], 'square')), undefined, 'square: at the phone budget fits');
-    assert.ok(clipFinding(codeSlide('code', ['x'.repeat(sq + 1)], 'square')), 'square: one past the phone budget warns');
-    const tall = cols('pane', [], '1080x1350', 'tall');
-    assert.equal(clipFinding(codeSlide('code', ['x'.repeat(tall)], 'portrait')), undefined, 'portrait: phone is the designed size');
+  test('a narrow deck with no room venue is a phone or tablet, which WRAPS every block: nothing clips', () => {
+    // code.styles.css (owner, 2026-11-06): a square, tall or strip slide set for no room venue wraps
+    // its code with a hanging indent, so a long line costs rows, never characters.
+    const long = ['x'.repeat(300)];
+    for (const size of ['square', 'portrait', 'mobile']) {
+      assert.equal(clipFinding(codeSlide('code', long, size)), undefined, `${size}: phone wraps`);
+      for (const v of ['phone', 'tablet']) {
+        const src = codeSlide('code', long, size).replace('---\n\n', `venue: ${v}\n---\n\n`);
+        assert.equal(clipFinding(src), undefined, `${size} at ${v}: wraps`);
+      }
+      const room = codeSlide('code', long, size).replace('---\n\n', 'venue: hall\n---\n\n');
+      assert.ok(clipFinding(room), `${size} set for a room keeps whole lines, and clips`);
+    }
+    assert.ok(clipFinding(codeSlide('code', long)), 'wide never wraps');
   });
 
   test('code warns in EVERY box, because it never wraps — and the budget tightens', () => {
