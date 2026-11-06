@@ -342,7 +342,7 @@ test('@smoke a folded slide stays folded — and follows its slide — across a 
 	// with index 3, the folded one. The fold must FOLLOW its slide to index 4, which is
 	// the whole point: this is matching on slide identity, not on a remembered index.
 	await page.getByRole('button', { name: 'Slide 5 — split-compare' }).click();
-	await stripAction(page, 'move-earlier');
+	await stripAction(page, 'move-before');
 
 	await expect.poll(() => collapsedIndices(page)).toEqual([4]);
 	// AND THE PREVIEW DID NOT SNAP. The restore dispatches a transaction on a fresh
@@ -580,7 +580,7 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			// The draw happens before the enabled check, for the determinism reason above.
 			// The strip's actions live in its slide menu (components/studio/strip-actions); a disabled item stays in the menu, so the walk
 			// reads its state there and closes the menu instead of picking it.
-			const name = pick(['duplicate', 'move-earlier', 'move-later', 'Previous slide', 'Next slide']);
+			const name = pick(['duplicate', 'move-before', 'move-after', 'Previous slide', 'Next slide']);
 			if (name === 'Previous slide' || name === 'Next slide') {
 				const btn = page.getByRole('button', { name, exact: true }).first();
 				if (await btn.isEnabled()) await btn.click();

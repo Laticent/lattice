@@ -4,7 +4,7 @@
 // Positions are RENDERED slides in the full deck: the strip's affordances exist only on the full view, where a
 // strip's place is the deck's place.
 
-export type StripActionId = 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete';
+export type StripActionId = 'new-after' | 'new-before' | 'duplicate' | 'move-before' | 'move-after' | 'delete';
 
 export interface StripMenuItem {
 	id: StripActionId;
@@ -37,16 +37,16 @@ export function keysFor(id: StripActionId, mac: boolean): string {
 			return mac ? '⇧⌘↩' : 'Ctrl+Shift+Enter';
 		case 'duplicate':
 			return mac ? '⌘D' : 'Ctrl+D';
-		case 'move-earlier':
+		case 'move-before':
 			return mac ? '⇧⌘←' : 'Ctrl+Shift+Left';
-		case 'move-later':
+		case 'move-after':
 			return mac ? '⇧⌘→' : 'Ctrl+Shift+Right';
 		case 'delete':
 			return mac ? '⌫' : 'Delete';
 	}
 }
 
-/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move left, Move right, Delete, in that order. A disabled
+/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move before, Move after, Delete, in that order. A disabled
  *  item says why rather than vanishing, so the menu has the same shape on every slide. */
 export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	const one = s.count <= 1;
@@ -56,8 +56,8 @@ export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 		{ id: 'new-after', label: 'New slide after', keys: keysFor('new-after', mac) },
 		{ id: 'new-before', label: 'New slide before', keys: keysFor('new-before', mac) },
 		{ id: 'duplicate', label: 'Duplicate', keys: keysFor('duplicate', mac) },
-		{ id: 'move-earlier', label: 'Move left', keys: keysFor('move-earlier', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
-		{ id: 'move-later', label: 'Move right', keys: keysFor('move-later', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
+		{ id: 'move-before', label: 'Move before', keys: keysFor('move-before', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
+		{ id: 'move-after', label: 'Move after', keys: keysFor('move-after', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
 		{ id: 'delete', label: s.armed ? `Confirm delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
 	];
 }
@@ -71,8 +71,8 @@ export function stripShortcut(e: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKe
 	const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
 	if (!mod) return !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'Backspace' || e.key === 'Delete') ? 'delete' : null;
 	if (e.key === 'Enter') return e.shiftKey ? 'new-before' : 'new-after';
-	if (e.shiftKey && e.key === 'ArrowLeft') return 'move-earlier';
-	if (e.shiftKey && e.key === 'ArrowRight') return 'move-later';
+	if (e.shiftKey && e.key === 'ArrowLeft') return 'move-before';
+	if (e.shiftKey && e.key === 'ArrowRight') return 'move-after';
 	if (!e.shiftKey && e.key.toLowerCase() === 'd') return 'duplicate';
 	return null;
 }
@@ -86,7 +86,7 @@ export function stripShortcutRows(mac: boolean): { keys: string[]; does: string 
 		{ keys: [keysFor('new-after', mac)], does: 'New slide after' },
 		{ keys: [keysFor('new-before', mac)], does: 'New slide before' },
 		{ keys: [keysFor('duplicate', mac)], does: 'Duplicate' },
-		{ keys: [keysFor('move-earlier', mac), keysFor('move-later', mac)], does: 'Move left or right' },
+		{ keys: [keysFor('move-before', mac), keysFor('move-after', mac)], does: 'Move before or after' },
 		{ keys: mac ? ['⌫', 'Delete'] : ['Delete', 'Backspace'], does: 'Delete' },
 		{ keys: [mac ? '⌘Z' : 'Ctrl+Z'], does: 'Undo' },
 		{ keys: ['Shift+F10'], does: 'Open the slide menu' },

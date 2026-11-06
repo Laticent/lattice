@@ -5209,7 +5209,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// fires no pointerdown (a tour's `el.click()`, a screen reader's activation) gets no catch-up.
 	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(sourceRef.current, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
 	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(sourceRef.current, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
-	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide before' : 'Move slide after', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5303,8 +5303,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setStripMenu(null);
 		if (id === 'new-after' || id === 'new-before') opAddSlide(id === 'new-after' ? 'after' : 'before', at);
 		else if (id === 'duplicate') opDuplicate(at);
-		else if (id === 'move-earlier') opMove(-1, at);
-		else if (id === 'move-later') opMove(1, at);
+		else if (id === 'move-before') opMove(-1, at);
+		else if (id === 'move-after') opMove(1, at);
 		else if (id === 'delete' && renderedSlides > 1) { setDeleteArmed(false); opDelete(at); }
 		return false;
 	};
@@ -5312,10 +5312,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const runStripShortcut = (id: StripShortcut, at: SlideAt): boolean => {
 		if (id === 'new-after' || id === 'new-before') { opAddSlide(id === 'new-after' ? 'after' : 'before', at); return false; }
 		if (id === 'duplicate') { opDuplicate(at); return true; }
-		if (id === 'move-earlier' || id === 'move-later') {
+		if (id === 'move-before' || id === 'move-after') {
 			const f = flatOf(at);
-			if (id === 'move-earlier' ? f <= 0 : f >= renderedSlides - 1) { say(id === 'move-earlier' ? 'Already the first slide.' : 'Already the last slide.'); return true; }
-			opMove(id === 'move-earlier' ? -1 : 1, at);
+			if (id === 'move-before' ? f <= 0 : f >= renderedSlides - 1) { say(id === 'move-before' ? 'Already the first slide.' : 'Already the last slide.'); return true; }
+			opMove(id === 'move-before' ? -1 : 1, at);
 			return true;
 		}
 		if (id !== 'delete') return false;
@@ -7449,8 +7449,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			? ([
 					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, run: () => opAddSlide('before') },
 					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, run: () => opDuplicate() },
-					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide left', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
-					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide right', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					...(!atFirstSlide ? [{ id: 'slide-move-before', group: 'actions', label: 'Move slide before', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
+					...(!atLastSlide ? [{ id: 'slide-move-after', group: 'actions', label: 'Move slide after', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
 					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
 				] satisfies StudioCommand[])
 			: []),
@@ -8439,7 +8439,7 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 }
 // The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
-const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
+const STRIP_ICONS = { duplicate: Copy, 'move-before': ArrowLeftToLine, 'move-after': ArrowRightToLine, delete: Trash2 } as const;
 const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);

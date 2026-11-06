@@ -156,7 +156,7 @@ export const SlideRail = React.memo(function SlideRail({ hub, index, view, readL
 
 	// THE KEYBOARD (2026-10-27-slide-structure-strip.md §9): a roving-tabindex list. The current pill is the strip's one
 	// tab stop; the arrows, Home and End move the deck's focus and keyboard focus follows it, so the strip keeps focus
-	// while it walks. A modified arrow is not a step: ⇧⌘← is Move left (components/studio/strip-actions).
+	// while it walks. A modified arrow is not a step: ⇧⌘← is Move before (components/studio/strip-actions).
 	const keyNav = React.useRef(false);
 	const onKeyDown = (e: React.KeyboardEvent) => {
 		// Only a key on a slide button steps. React bubbles events through portals, so the open slide menu's own arrow

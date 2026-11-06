@@ -1,0 +1,1 @@
+- **Studio:** the slide menu's Move left and Move right are now **Move before** and **Move after**, matching New slide before and New slide after. The command palette, the shortcut list and Undo use the same words. The shortcuts are unchanged (⇧⌘← and ⇧⌘→).
