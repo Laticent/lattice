@@ -120,7 +120,7 @@ come from the skills. The same five skills are offered as before; `component`,
 `chart-component`, `component-showcase` and `cli` are `studio: false`, because the Studio chat
 cannot create a component or run a terminal.
 
-## 4. Proposed: an action registry with three tiers
+## 4. An action registry with three tiers (built for the chat; the palette is not on it yet)
 
 Grow `studio-commands.ts` from a list of UI verbs into **actions**: an id, a label, a JSON
 schema for arguments, a **tier**, and a `run(args)` that does the work without opening a UI.
@@ -166,7 +166,37 @@ one place injected text can do harm, so every act call is confirmed by the autho
 the confirm shows what will happen in the author's words rather than the model's summary, and
 `create_deck`'s Markdown passes the same import path and sanitizers a pasted file does.
 
-## 5. Proposed: one chat for the workspace
+### 4.1 As built in PR #3049, and what the adversarial trio changed
+
+- **The registry is the chat's, not yet the palette's.** `docs/src/components/studio/chat-actions.ts`
+  tiers every chat tool (`TOOL_TIERS`); `toolsForMode` decides what a request carries and
+  `toolAllowed` is the host gate in `createToolbox.run`. A tool with no tier is refused in every
+  mode, and the gate reads own keys only (`constructor` is not a tool). Moving `studio-commands.ts`
+  onto the same list, so the palette and the chat share verbs, is still open.
+- **`create_deck` queues; the author creates.** The tool stores a `ChatAction` (title, Markdown,
+  outline, slide count, checker error count); `ActionConfirm` draws the confirm; only the author's
+  press calls `openImportedDeck`, the Studio's import funnel and line-ending boundary.
+- **The trio's findings, all fixed in the same change.** The red team found Stop did not stop
+  Auto, injected text could delete every slide in Auto, Auto could overwrite a slide the author
+  edited mid-turn, and the confirm could be spoofed with a heading hidden in a comment or a
+  right-to-left title. The inversion pass found Talk and Auto ignored on the one-shot path and Auto
+  one press from the default and persisted. The checker found partial applies reported as applied
+  and a weak e2e. The fixes:
+  - **Auto applies only what `autoHold` clears**: an agent turn (`via: 'agent'`) that finished and
+    left a clean draft (`clean`), not stopped, on a deck unchanged since send, outside a live
+    session, deleting nothing and changing at most half the slides (minimum two). Anything else
+    stays a Review card with the reason. The checkpoint is written with `saveCheckpointDurably`
+    BEFORE the edit applies (`StudioShell.applyChatEditAuto`), and an applied turn keeps a
+    read-only "What Auto changed" card.
+  - **Auto lasts one visit**: the button cycles Review → Talk → Auto, and a reload returns to
+    Review. Talk and Review are remembered (`lattice-studio-chatmode`).
+  - **The one-shot path honors Talk** (no edit card, a Talk line in its prompt) and its replies
+    carry `via: 'oneshot'`, which Auto never applies.
+  - **The confirm shows what a reader would see**: `visibleTitle` strips format characters and needs
+    a visible word; `outlineTitle` ignores headings inside comments and code fences; the card shows
+    the true slide count and the checker's error count.
+
+## 5. One chat for the workspace: what shipped is smaller than planned
 
 The conversation moves from per-deck to per-workspace. Each turn names the open deck as its
 context; `create_deck` and `open_deck` change that context and the next turn follows it. What
@@ -179,6 +209,14 @@ has to change:
   was switched away from mid-turn. Applying a draft to a deck that is no longer open is refused.
 - **Prompt**: `PURPOSE` says "your purpose is this deck"; it becomes "the author's decks, with
   the open one in front of you".
+
+**What shipped instead (PR #3049).** History stays per deck. After "Create and open", the new
+deck's chat starts with one line pointing back to the deck the conversation happened on, and the
+action's Markdown is dropped from the stored card. A first cut copied the whole thread to the new
+deck; the trio showed that carried the old deck's pending edits (Apply then spliced them into the
+new deck), doubled storage, and would leave duplicates for the workspace migration above to undo.
+The full workspace conversation (one list, messages stamped by deck, spend per conversation, apply
+with a target deck id) is still the plan, and is recorded in `followups.d/`.
 
 ## 6. Proposed: awareness through Fuoco, in two steps
 
@@ -204,13 +242,13 @@ for.
 | # | Slice | Owes |
 |---|---|---|
 | 1 | Skill index | **Shipped** in this PR |
-| 2 | The missing skills: `edit-deck`, `restyle-deck`, `fix-findings`, `chart-from-data`, `diagram`, `math`, `import`, `accessibility-review`, `studio` | Each is `kind: operate` where it acts on an existing deck; written to the same nine-part shape; `studio: true` where the chat can do the job |
+| 2 | The missing skills: `edit-deck`, `restyle-deck`, `fix-findings`, `chart-from-data`, `diagram`, `math`, `import`, `accessibility-review`, `studio` — **shipped in this PR** | Each is `kind: operate` where it acts on an existing deck; written to the same nine-part shape; `studio: true` where the chat can do the job |
 | 3 | Fuoco focus in grounding (§6 step 1) | **Shipped** in this PR |
-| 4 | Action registry + modes + `create_deck` (§4, §5) | The adversarial trio on the act tier (HARD RULE #25: it widens what untrusted content can make the Studio do); a measured cost per tool round from a real turn; screenshots of the mode button at 1440 / 820 / 390 |
+| 4 | Action registry + modes + `create_deck` (§4, §5) — **shipped in this PR** except the palette sharing the registry and the workspace history | The adversarial trio on the act tier (HARD RULE #25: it widens what untrusted content can make the Studio do); a measured cost per tool round from a real turn; screenshots of the mode button at 1440 / 820 / 390 |
 | 5 | `set_theme`, `set_finish`, `render_slide`, `chart_from_data` | Per tool: schema, tier, a test that Talk cannot call it |
 | 6 | Event-backed awareness (§6 step 2) | Waits for `3037-p1`/`p4`/`p5` |
 
-Slices 2–6 are recorded in `followups.d/` so a fresh session can pick them up.
+What is still open is recorded in `followups.d/` so a fresh session can pick it up.
 
 ## 8. What this does not do
 

@@ -1,8 +1,8 @@
 import DOMPurify from 'dompurify';
-import { ArrowUp, Check, Lock, RotateCcw, Share2, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
+import { ArrowUp, Check, Eye, FilePlus2, Lock, MessageCircle, RotateCcw, Share2, Sparkles, Square, TriangleAlert, Unlock, X, Zap } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { slideCount as deckSlideCount, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +18,7 @@ import { ChatFigure, ChatFigureContext, type ChatFigureRender } from './ChatFigu
 import { ChatLiveStatus } from './ChatLiveStatus';
 import { MessagePhotos, PhotoStrip } from './ChatPhotos';
 import { ChatTraceDialog } from './ChatTraceDialog';
+import { autoHold } from './chat-actions';
 import { thoughtTail } from './chat-activity';
 import { applyCompaction, modelText, splitForCompaction, transcript } from './chat-compact';
 import { isFigureLang } from './chat-figures';
@@ -33,7 +34,7 @@ import { CHAT_COMPOSER_BAR, CHAT_COMPOSER_STACK, CHAT_COMPOSER_TEXT, ChatEmptyCa
 import { PreviewPool } from './preview-pool';
 import { REF_DOC_ACCEPT } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
-import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
+import { type ChatMessage, type ChatPhoto, type ChatProposal, type ChatVideo, loadChat, loadChatDraft, loadChatMode, type StoredChatMode, saveChat, saveChatDraft, saveChatMode } from './studio-store';
 
 // The Architect chat (Converse) — a real conversational thread. Replies STREAM in
 // token-by-token (rAF-coalesced), render as on-brand Markdown (prose sanitized with
@@ -295,7 +296,7 @@ export function __clearPendingNotices() {
 	publishNotices();
 }
 
-export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, onBusyChange, onShareTurn }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
+export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
@@ -316,6 +317,18 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// change any number/date/name/claim (threaded to chatComplete as constrainFacts). Off by
 	// default; a deliberate opt-in for a "polish, don't touch the numbers" pass.
 	const [factsLocked, setFactsLocked] = React.useState(false);
+	// How much the chat may do: Talk (read only), Review (edits wait for Apply; the default),
+	// Auto (edits apply at once, undo from History). One choice for the workspace (studio-store).
+	// Enforced by the agent's tool list and its host gate (chat-actions.ts), never by the prompt.
+	const [mode, setModeState] = React.useState<StoredChatMode>(loadChatMode);
+	const setMode = (m: StoredChatMode) => {
+		setModeState(m);
+		// Auto lasts for this visit only: the riskiest setting is never what a reload, or another deck
+		// opened tomorrow, silently starts in. Talk and Review are remembered.
+		saveChatMode(m === 'auto' ? 'review' : m);
+	};
+	const sourceRef = React.useRef(source);
+	sourceRef.current = source;
 	// The in-flight assistant buffer (null when idle), CARRYING THE DECK IT BELONGS TO.
 	// Painted rAF-coalesced during stream. The deck travels with the text because the panel
 	// renders one deck at a time while a turn keeps streaming across a deck switch: without
@@ -475,6 +488,9 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	// the one signal that crosses from here to a header this component doesn't own.
 
 	const run = async (history: ChatMessage[], sendDeckId: string) => {
+		// The mode this turn was SENT in: switching mid-turn changes the next turn, not this one.
+		const sendMode = mode;
+		const sendSource = source;
 		const commit = (next: ChatMessage[]) => {
 			saveChat(sendDeckId, next);
 			if (mountedRef.current && deckIdRef.current === sendDeckId) setMessages(next);
@@ -534,7 +550,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					if (mountedRef.current) thoughtStore.current.set({ deck: sendDeckId, text: thoughtBuf.current.replace(/\s+/g, ' ').trim().slice(-200) });
 				}, 250);
 			};
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, mode: sendMode, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
@@ -559,7 +575,21 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			} else if (out.status === 'blocked') {
 				raiseTurnNotice(sendDeckId, turnSeq, 'blocked', out.reply);
 			} else {
-				commit([...history, { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}), ...(out.trace ? { trace: out.trace } : {}) }]);
+				const reply: ChatMessage = { role: 'assistant', content: out.reply, proposed: out.proposed?.edits as ChatProposal[] | undefined, ...(out.action ? { action: out.action } : {}), ...(out.activity?.length ? { activity: out.activity } : {}), ...(out.usage ? { usage: out.usage } : {}), ...(out.trace ? { trace: out.trace } : {}) };
+				// AUTO: a clean agent edit applies now, after its History checkpoint is saved. Anything
+				// autoHold names (a stopped or unfinished turn, the one-shot path, a deck that moved, a live
+				// session, a deletion, most of the deck rewritten) waits for Apply as in Review, and says why.
+				if (sendMode === 'auto' && reply.proposed?.length && mountedRef.current && deckIdRef.current === sendDeckId) {
+					const hold = !onAutoApply ? 'Auto is not available here' : autoHold({ via: out.via, clean: out.clean, aborted: controller.signal.aborted, deckChanged: sourceRef.current !== sendSource, live: !!liveSession, edits: reply.proposed, slideCount: deckSlideCount(sendSource) });
+					const outcome = hold ? null : applyProposedEditsChecked(sourceRef.current, reply.proposed);
+					if (hold) reply.autoHeld = hold;
+					else if (outcome?.applied && !outcome.refusals.length && (await onAutoApply?.(outcome.source))) {
+						reply.applied = true;
+						reply.autoApplied = true;
+						notify('Edit applied (Auto) — restore from History to undo.');
+					} else reply.autoHeld = outcome?.refusals[0] ? `part of it could not be applied: ${outcome.refusals[0]}` : 'the undo point could not be saved, or the deck moved';
+				}
+				commit([...history, reply]);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -840,6 +870,37 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		} else notify('Edit applied — restore from History to undo.');
 	};
 	const discardProposal = (idx: number) => !compacting && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
+	// THE CONFIRM FOR AN ACT. Only this press creates the deck; the model queued it and cannot press
+	// it. The conversation follows the author to the new deck: it is saved under the new deck's id
+	// before the shell switches, so the next turn continues the same thread there.
+	const answerAction = (idx: number, yes: boolean) => {
+		if (busy || compacting) return;
+		const m = messages[idx];
+		if (!m?.action || m.action.state) return;
+		// Once answered the card keeps only what it shows: the Markdown is dropped, so a thread does
+		// not carry a whole deck in storage after it exists (or was declined).
+		const answered = (state: 'done' | 'declined') => messages.map((x, i) => (i === idx && x.action ? { ...x, action: { ...x.action, markdown: '', state } } : x));
+		if (!yes) {
+			setMessages(answered('declined'));
+			return;
+		}
+		let id: string | null = null;
+		try {
+			id = onCreateDeck?.(m.action.title, m.action.markdown) ?? null;
+		} catch {
+			id = null;
+		}
+		if (!id) {
+			raiseNotice(deckId, 'error', 'The new deck could not be created.');
+			return;
+		}
+		const next = answered('done');
+		saveChat(deckId, next);
+		// The new deck's chat starts with one line pointing back, not a copy of this thread: the old
+		// turns are about the old deck, and a copy would carry its pending edits and double the storage.
+		saveChat(id, [{ role: 'assistant', content: `I created this deck from our chat on the deck you were in before (${m.action.slides || m.action.outline.length} slides). Ask me about it here; that conversation stays with that deck.` }]);
+		setMessages(next);
+	};
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
@@ -885,7 +946,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				    holds a handful of live frames however many figures it has (the bake-off decision). */}
 				<ChatFigureContext.Provider value={figureRender}>
 				<PreviewPool className="space-y-3" baseSlots={4}>
-				{empty && <ChatEmptyCard aiReady={aiReady} />}
+				{empty && <ChatEmptyCard aiReady={aiReady} mode={mode} />}
 				{messages.map((m, i) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: append-only chat log — index is stable identity.
 					<React.Fragment key={i}>
@@ -906,7 +967,15 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 								<AssistantBody text={m.content} streaming={false} />
 							</div>
 							<ChatActivityRow activity={m.activity} hasTrace={!!m.trace} onOpen={() => setTraceIdx(i)} />
+							{isDrawableAction(m.action) ? <ActionConfirm action={m.action} disabled={busy || compacting || !onCreateDeck} onAnswer={(yes) => answerAction(i, yes)} /> : null}
+							{m.autoHeld && m.proposed?.length && !m.applied ? <div className="text-[11px] text-muted-foreground">Auto left this for you to apply: {m.autoHeld}.</div> : null}
 							{m.proposed?.length && !m.applied ? <ProposalReview edits={m.proposed} liveSource={source} onApply={() => applyProposal(i)} onDiscard={() => discardProposal(i)} /> : null}
+							{m.autoApplied && m.proposed?.length ? (
+								<details className="text-[11px]">
+									<summary className="cursor-pointer text-muted-foreground">What Auto changed</summary>
+									<ProposalReview edits={m.proposed} liveSource={source} applied />
+								</details>
+							) : null}
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]">
 									<Check className="size-3" />
@@ -1010,6 +1079,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						onManage={onManageDocs}
 						hasAttachments={refDoc.docs.length > 0 || pendingPhotos.length > 0 || pendingVideos.length > 0}
 					/>
+					<ChatModeButton mode={mode} onChange={setMode} />
 					<button
 						type="button"
 						onClick={() => setFactsLocked((v) => !v)}
@@ -1112,10 +1182,10 @@ function isStale(source: string, e: ChatProposal): boolean {
 	return sliceSlide(source, e.slide).trim() !== e.before.trim();
 }
 
-function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: ChatProposal[]; liveSource: string; onApply: () => void; onDiscard: () => void }) {
+function ProposalReview({ edits, liveSource, onApply, onDiscard, applied = false }: { edits: ChatProposal[]; liveSource: string; onApply?: () => void; onDiscard?: () => void; /** Already applied (Auto): a read-only record, no stale warnings, no buttons. */ applied?: boolean }) {
 	// Front-matter writes carry slide 0 — they are deck settings, not a slide to count.
 	const slides = new Set(edits.filter((e) => e.action !== 'frontmatter').map((e) => e.slide));
-	const stale = edits.filter((e) => isStale(liveSource, e));
+	const stale = applied ? [] : edits.filter((e) => isStale(liveSource, e));
 	const staleSlides = stale.filter((e) => e.action !== 'frontmatter').map((e) => e.slide);
 	const staleKeys = stale.filter((e) => e.action === 'frontmatter').map((e) => e.raw.key);
 	return (
@@ -1125,7 +1195,7 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 					{edits.length} edit{edits.length > 1 ? 's' : ''}
 					{slides.size ? ` · ${slides.size} slide${slides.size > 1 ? 's' : ''}` : ''}
 				</span>
-				<span className="text-[10px] text-muted-foreground">nothing changes until you Apply</span>
+				<span className="text-[10px] text-muted-foreground">{applied ? 'applied in Auto — undo from History' : 'nothing changes until you Apply'}</span>
 			</div>
 			<div className="max-h-[220px] overflow-y-auto">
 				{edits.map((e, i) => {
@@ -1159,7 +1229,7 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 					</span>
 				</div>
 			)}
-			<div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
+			{!applied && <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
 				<button type="button" onClick={onApply} className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground">
 					<Check className="size-3" />
 					Apply
@@ -1168,8 +1238,73 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 					<X className="size-3" />
 					Discard
 				</button>
-			</div>
+			</div>}
 		</div>
 	);
 }
 
+
+// ── The chat mode button and the act confirm ─────────────────────────────────
+
+const MODE_META: Record<StoredChatMode, { label: string; hint: string; Icon: typeof Eye }> = {
+	talk: { label: 'Talk', hint: 'Talk: the chat reads and answers, and changes nothing.', Icon: MessageCircle },
+	review: { label: 'Review', hint: 'Review: edits wait for you to apply them; a new deck asks first.', Icon: Eye },
+	auto: { label: 'Auto', hint: 'Auto (this visit only): clean edits apply at once, undo from History; deleting slides, big rewrites and a new deck still ask first.', Icon: Zap },
+};
+// From the default the next press is Talk, the safe neighbor; Auto takes two deliberate presses.
+const MODE_ORDER: StoredChatMode[] = ['review', 'talk', 'auto'];
+
+/** One button on the composer bar. Each press moves to the next mode; the label always says
+ *  which mode is on. The model can neither see nor press it: it only reads the mode line. */
+export function ChatModeButton({ mode, onChange }: { mode: StoredChatMode; onChange: (m: StoredChatMode) => void }) {
+	const meta = MODE_META[mode];
+	const next = MODE_ORDER[(MODE_ORDER.indexOf(mode) + 1) % MODE_ORDER.length];
+	return (
+		<button
+			type="button"
+			onClick={() => onChange(next)}
+			title={`${meta.hint} Press for ${MODE_META[next].label}.`}
+			aria-label={`Chat mode: ${meta.label}. Press for ${MODE_META[next].label}.`}
+			data-chat-mode={mode}
+			className={cn('flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold', mode === 'review' ? 'text-muted-foreground hover:text-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}
+		>
+			<meta.Icon className="size-3.5" />
+			<span className="max-[420px]:sr-only">{meta.label}</span>
+		</button>
+	);
+}
+
+/** The confirm a queued act waits on. Drawn by the Studio from the action's own fields (title,
+ *  slide headings), never from the model's prose, so injected text cannot dress it up. */
+function ActionConfirm({ action, disabled, onAnswer }: { action: NonNullable<ChatMessage['action']>; disabled: boolean; onAnswer: (yes: boolean) => void }) {
+	if (action.state === 'done') return <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--pass)]"><Check className="size-3" />Created “{action.title}”</span>;
+	if (action.state === 'declined') return <span className="text-[11px] font-semibold text-muted-foreground">New deck not created</span>;
+	const shown = action.outline.slice(0, 8);
+	const total = action.slides || action.outline.length;
+	return (
+		<fieldset aria-label={`Create a new deck: ${action.title}`} className="min-w-0 rounded-lg border border-border bg-card p-3 text-[13px]">
+			<div className="flex items-center gap-1.5 font-semibold">
+				<FilePlus2 className="size-3.5 shrink-0" />
+				<span className="min-w-0 truncate">Create a new deck: “{action.title}”</span>
+			</div>
+			<ol className="mt-1.5 list-decimal pl-5 text-muted-foreground">
+				{shown.map((t, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: headings repeat; the order is the identity.
+					<li key={i} className="truncate">{t}</li>
+				))}
+			</ol>
+			{total > shown.length ? <div className="pl-5 text-muted-foreground">and {total - shown.length} more slides</div> : null}
+			{action.errors > 0 ? <div className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--warn,#9a6a00)]"><TriangleAlert className="size-3 shrink-0" />The checker found {action.errors} problem{action.errors === 1 ? '' : 's'} in it; fix them after it opens.</div> : null}
+			<div className="mt-2 flex gap-2">
+				<button type="button" disabled={disabled} onClick={() => onAnswer(true)} className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground disabled:opacity-40">Create and open</button>
+				<button type="button" disabled={disabled} onClick={() => onAnswer(false)} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-40">Not now</button>
+			</div>
+		</fieldset>
+	);
+}
+
+/** A stored action the confirm can draw. Chat history comes back from storage and from backups, so a
+ *  hand-edited or truncated one is skipped rather than crashing the panel. */
+function isDrawableAction(a: ChatMessage['action']): a is NonNullable<ChatMessage['action']> {
+	return !!a && a.kind === 'create_deck' && typeof a.title === 'string' && typeof a.markdown === 'string' && Array.isArray(a.outline) && a.outline.every((t) => typeof t === 'string');
+}

@@ -93,7 +93,8 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
   stages `replace` (the whole slide, `<!-- _class -->` line to last line),
   `insert` (after slide N; 0 means before the first) and `delete`. In the
   default Review mode the author sees one diff card for the turn and applies it
-  or not; in Auto mode the edits apply at once and History restores.
+  or not; in Auto mode a clean edit applies at once and History restores it,
+  but an edit that deletes slides or rewrites most of the deck still waits.
 
 ---
 

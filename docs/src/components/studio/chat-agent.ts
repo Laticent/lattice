@@ -20,6 +20,7 @@ import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
+import { type ChatAction, CREATE_DECK_TOOL, DEFAULT_CHAT_MODE, modeBrief, toolsForMode } from './chat-actions';
 import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { boundTrace } from './chat-trace';
@@ -161,7 +162,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// The clips riding this message, by Library name: the prompt says so, because the Library lists them as videos and
 	// `view_asset` cannot show a video, and a model told both reasonably answers that it cannot watch it.
 	const attachedVideos = new Set((opts?.videos ?? []).map((v) => v.name).filter((n): n is string => !!n));
-	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, opts?.constrainFacts ? FACT_GUARD : '', assetManifest(library, undefined, sees, attachedVideos));
+	const mode = opts?.mode ?? DEFAULT_CHAT_MODE;
+	// The tools this request carries: the mode's tiers only (chat-actions.ts). The toolbox gates
+	// every call on the same mode, so a tool the request left out still cannot run.
+	const offered = toolsForMode(mode, [...AGENT_TOOLS, CREATE_DECK_TOOL, ...(library.length ? ASSET_TOOLS : [])]);
+	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, `${opts?.constrainFacts ? FACT_GUARD : ''}\n\n${modeBrief(mode)}`, assetManifest(library, undefined, sees, attachedVideos));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
 		{ type: 'text', text: dynamicTail },
@@ -195,6 +200,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		assets: library.length ? agentAssets : undefined,
 		canSee: async () => sees,
 		attachedVideos,
+		mode,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);
@@ -271,7 +277,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			cacheTtl: '1h',
 			cacheTail: true,
 			maxTokens: CHAT_MAX_TOKENS,
-			tools: library.length ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS,
+			tools: offered,
 			toolChoice: tools ? 'auto' : 'none',
 			onToolCalls: (c) => {
 				calls = c;
@@ -307,6 +313,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	};
 	let reply = '';
 	const notes: string[] = [];
+	// Whether the turn ran to its own end: not stopped, not blocked, not cut off, not capped. Auto
+	// applies only a turn that did (chat-actions.ts `autoHold`).
+	let finished = false;
 	try {
 		const turn = await runAgentLoop({
 			complete,
@@ -322,6 +331,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		reply = turn.reply;
 		if (turn.truncated) notes.push(TRUNCATION_NOTE);
 		if (turn.hitRoundCap) notes.push('I hit this turn’s limit on tool calls before finishing — ask me to continue.');
+		finished = !turn.truncated && !turn.hitRoundCap;
 		// A turn that ended on a clean edit never showed the model the warnings, so the author
 		// gets them here rather than not at all.
 		const warn = turn.endedOnEdit ? (toolbox.verdict?.warnings ?? []) : [];
@@ -380,8 +390,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
 	}
-	const result = finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
-	if (result.status !== 'ok' || !used.rounds) return result;
+	const result = finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes, toolbox.action);
+	if (result.status !== 'ok') return result;
+	// `clean`: the turn finished AND its last edit left the draft with no checker errors.
+	const tagged: ChatResult = { ...result, via: 'agent', clean: finished && (!toolbox.verdict || toolbox.settled()) };
+	if (!used.rounds) return tagged;
 	const modelId = model.openRouterModel?.() ?? '';
 	// The catalog is already loaded by now on a normal turn; a miss (an alias id, a slow fetch) leaves the window unknown.
 	const window = (await catalog().catch(() => []) as { id: string; contextLength?: number | null }[]).find((m) => m.id === modelId)?.contextLength ?? null;
@@ -390,11 +403,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		primer: estTokens(staticPrefix),
 		deck: estTokens(dynamicTail) + estTokens(deckForTurn(source)),
 		history: history.slice(0, -1).reduce((n, m) => n + estTokens(String(m.content ?? '')), 0) + estTokens(String(lastUser?.content ?? '')),
-		tools: estTokens(JSON.stringify(library.length ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS)),
+		tools: estTokens(JSON.stringify(offered)),
 		docs: docTokens,
 		photos: attachedTokens + (firstPictureTokens ?? 0),
 	};
-	return { ...result, usage: { ...used, window, model: modelId }, ...(traceRounds.length ? { trace: boundTrace({ rounds: traceRounds, sent }) } : {}) };
+	return { ...tagged, usage: { ...used, window, model: modelId }, ...(traceRounds.length ? { trace: boundTrace({ rounds: traceRounds, sent }) } : {}) };
 }
 
 /** The checker's warnings on a draft the turn ended on: no errors, but worth a look. Said to
@@ -448,7 +461,7 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding);
 	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
 	// With a Library the three asset tools join them (they are sent only then), and the list rides in the tail.
-	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify(libraryCount > 0 ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS))) * AGENT_TOKEN_SCALE;
+	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify([...AGENT_TOOLS, CREATE_DECK_TOOL, ...(libraryCount > 0 ? ASSET_TOOLS : [])]))) * AGENT_TOKEN_SCALE;
 	// The turn carries the deck whole, or past INLINE_DECK_CHARS an outline (deckForTurn).
 	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens + libraryPromptTokens(libraryCount)) * AGENT_TOKEN_SCALE;
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
@@ -495,7 +508,12 @@ const TOOL_ACTIVITY: Record<string, string> = {
 
 /** Fold an agent turn into the ChatResult the panel already renders: the prose, and the
  *  staged draft as one review card of per-slide edits against the ORIGINAL deck. */
-export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[], activity: string[], notes: string[] = []): ChatResult {
+export function finalizeAgent(source: string, reply: string, raw: AgentRawEdit[], activity: string[], notes: string[] = [], action: ChatAction | null = null): ChatResult {
+	const r = finalizeEdits(source, reply, raw, activity, notes);
+	return action && r.status === 'ok' ? { ...r, reply: r.reply === 'No reply came back — try again.' ? `A new deck, ${JSON.stringify(action.title)}, is ready for you to confirm.` : r.reply, action } : r;
+}
+
+function finalizeEdits(source: string, reply: string, raw: AgentRawEdit[], activity: string[], notes: string[]): ChatResult {
 	const withNotes = (body: string) => [body, ...notes].filter(Boolean).join('\n\n');
 	if (!raw.length) return { status: 'ok', reply: withNotes(reply) || 'No reply came back — try again.', proposed: null, activity };
 	const run = applyEditsChecked(source, raw);

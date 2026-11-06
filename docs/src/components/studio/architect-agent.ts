@@ -20,6 +20,7 @@
 import skillIndex from '../../../../design/skills/index.json';
 import { GLOBAL_ONLY_KEYS, LOCAL_KEYS } from '../../../../lib/core/meta-keys.mjs';
 import { type AgentAssets, type AssetInfo, cleanCaption, listAssetsView, MAX_VIEWS_PER_TURN } from './agent-assets';
+import { type ChatAction, type ChatMode, CREATE_DECK_MAX_CHARS, DEFAULT_CHAT_MODE, outlineTitle, TOOL_TIERS, toolAllowed, visibleTitle } from './chat-actions';
 
 type Edits = typeof import('@/components/studio/ai/architect-edits.js');
 type Knowledge = typeof import('@/lib/architect-knowledge.js');
@@ -213,7 +214,7 @@ const PURPOSE = [
 	'HOW YOU WORK',
 	'- You have tools. Use them instead of guessing, and only when they add something: a question about the deck’s content needs no tool, because the deck is in front of you.',
 	'- Before you author or restyle a layout, call read_component for it unless you already read it this turn — the skeleton is the contract. Before you set a front-matter key, call read_front_matter for it. For deck-level craft (finishes, themes, arc, speaker notes), call read_guide.',
-	'- edit_slides and set_front_matter change a DRAFT. The author sees one diff card for the whole turn and decides whether to apply it; nothing changes until they do. Say what you changed in a sentence or two — do not restate the slides.',
+	'- edit_slides and set_front_matter change a DRAFT. The author sees one diff card for the whole turn and decides whether to apply it (the MODE line below says when an edit applies on its own). Say what you changed in a sentence or two — do not restate the slides.',
 	'- edit_slides and set_front_matter return the checker\u2019s verdict on the draft with their result, so do not call check_deck after an edit. Fix every error on slides you touched before you finish. A warning on a slide you touched is a judgment call — fix it, or say in plain words why it stands. Leave slides the author did not ask about alone.',
 	'- edit_slides and set_front_matter take a `summary`: one or two sentences to the author on what you changed and why, in plain words (HOW YOU TALK). If the checker finds no errors, the turn ends there and that summary is your whole answer, so write it as one. If it finds errors or refuses an edit, you get another round to fix them.',
 	'- Slide numbers in your edits refer to the draft as it stands after your previous edits this turn. Re-read with read_slides when unsure.',
@@ -441,7 +442,12 @@ export function createToolbox(opts: {
 	canSee?: () => Promise<boolean>;
 	/** Names of the clips sent to the model inside the author's message this turn. */
 	attachedVideos?: ReadonlySet<string>;
+	/** The chat mode (chat-actions.ts). Every call is gated on it here, whatever the request carried. */
+	mode?: ChatMode;
 }) {
+	const mode: ChatMode = opts.mode ?? DEFAULT_CHAT_MODE;
+	// The act the turn queued for the author to confirm (one per turn; a later call replaces it).
+	let queuedAction: ChatAction | null = null;
 	const original = String(opts.source ?? '');
 	let draft = original;
 	const fmTouched = new Map<string, string | undefined>(); // key → ORIGINAL value
@@ -754,7 +760,45 @@ export function createToolbox(opts: {
 		return `${result}\n\nCheck of the draft after this change:\n${await checkDeck(true)}`;
 	}
 
+	/** Queue a new deck for the author to confirm. Nothing is created here: the Studio draws the
+	 *  confirm, and only the author's press creates the deck. The Markdown is checked the way an
+	 *  edit is, so the model can fix it before the author sees it. */
+	async function createDeck(titleRaw: unknown, mdRaw: unknown): Promise<string> {
+		// The confirm shows this title and outline, so both are cleaned to what a reader would see:
+		// no zero-width or right-to-left characters, no heading hidden in a comment or a code fence.
+		const title = visibleTitle(titleRaw);
+		// Kept as sent: the deck is created through the Studio's import funnel (`openImportedDeck`), the one
+		// sanctioned line-ending boundary, which normalizes it. A second fold here would be a second boundary.
+		const markdown = String(mdRaw ?? '');
+		if (!title) return 'create_deck needs a title with visible words.';
+		if (!markdown.trim()) return 'create_deck needs the whole deck as Markdown.';
+		if (markdown.length > CREATE_DECK_MAX_CHARS) return `That deck is ${markdown.length} characters; the limit is ${CREATE_DECK_MAX_CHARS}. Make it shorter.`;
+		const slides = deckSlides(markdown);
+		if (!slides.length) return 'That Markdown has no slides. Separate slides with a line holding only ---.';
+		let errors = 0;
+		let check = '';
+		if (opts.check) {
+			try {
+				const res = await opts.check(markdown);
+				const errs = (res.findings ?? []).filter((f) => f.severity === 'error');
+				errors = errs.length;
+				check = errs.length ? `\n\nThe checker found ${errs.length} error${errs.length === 1 ? '' : 's'} in it; the author sees that count on the confirm. Fix them and call create_deck again:\n${errs.slice(0, 8).map((f) => `- ${JSON.stringify(String(f.message ?? ''))}${f.slide ? ` (slide ${f.slide})` : ''}`).join('\n')}` : '\n\nThe checker found no errors in it.';
+			} catch {
+				check = '\n\nThe checker failed to run on it — say so rather than calling it clean.';
+			}
+		}
+		queuedAction = { kind: 'create_deck', title, markdown, outline: slides.map((sl) => outlineTitle(sl) || '(untitled slide)').slice(0, 60), slides: slides.length, errors };
+		note(`drafted a new deck, ${JSON.stringify(title)}`);
+		return `Queued a new deck, ${JSON.stringify(title)} (${slides.length} slide${slides.length === 1 ? '' : 's'}), for the author to confirm. It does not exist yet and the open deck is unchanged: tell the author it is ready to confirm below, never that it was created.${check}`;
+	}
+
 	async function run(name: string, argsJson: string): Promise<string> {
+		// THE HOST GATE. The request already left out what this mode forbids; this refuses it again
+		// here, so a model that calls a tool it was never offered still changes nothing.
+		if (!toolAllowed(mode, name)) {
+			if (EDIT_TOOLS.has(name)) verdict = { refused: true, checked: false, errors: 0, warnings: [] };
+			return Object.hasOwn(TOOL_TIERS, name) ? `${name} is not available in this chat mode. Tell the author what you would change; they can switch the chat to Review or Auto to have you make it.` : `There is no tool called ${name}.`;
+		}
 		let args: Record<string, unknown> = {};
 		try {
 			args = argsJson ? JSON.parse(argsJson) : {};
@@ -790,6 +834,8 @@ export function createToolbox(opts: {
 				return withCheck(writeKey(args.key, args.value));
 			case 'check_deck':
 				return checkDeck();
+			case 'create_deck':
+				return createDeck(args.title, args.markdown);
 			default:
 				return `There is no tool called ${name}.`;
 		}
@@ -806,6 +852,10 @@ export function createToolbox(opts: {
 			return proposalFromDraft(original, draft, fmTouched);
 		},
 		isRead: (name: string) => READ_TOOLS.has(name),
+		/** The act this turn queued for the author to confirm, if any. */
+		get action(): ChatAction | null {
+			return queuedAction;
+		},
 		/** The pictures `view_asset` queued since the last call. The loop sends them as one user
 		 *  message after the round's tool results, because a tool result carries text only. */
 		takeImages(): { name: string; url: string }[] {

@@ -164,7 +164,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -2963,12 +2963,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// content (title from the first heading) and load it.
 	const importInputRef = React.useRef<HTMLInputElement>(null);
 	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
-	// restored onto the NEW deck id so they travel with the file. Returns nothing;
-	// notifies on success.
-	function openImportedDeck(rawText: string, title: string, comments?: unknown, alreadyAsked = false) {
+	// restored onto the NEW deck id so they travel with the file. Returns the new deck's id,
+	// or null when nothing was created; notifies on success. `verb` names it in the toast (the
+	// chat's create_deck reuses this funnel, so it shares the same line-ending boundary).
+	function openImportedDeck(rawText: string, title: string, comments?: unknown, alreadyAsked = false, verb = 'Imported'): string | null {
 		// A live session is bound to this deck: leaving it ends (host) or leaves (guest) — ask first.
 		// `alreadyAsked`: the import funnel asked before it saved the file's photos, so it must not ask twice.
-		if (!alreadyAsked && !live.mayLeaveDeck()) return;
+		if (!alreadyAsked && !live.mayLeaveDeck()) return null;
 		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
 		// not in a caller. Deck source reaches this function from every format `deck-import.ts`
 		// reads — a plain `.md`, a `.lattice` zip's `deck.md`, a webpage envelope, the `.lattice`
@@ -2984,7 +2985,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// NOT normalize: it is model grounding context, never spliced into deck source and never
 		// exported.
 		const text = normalizeSourceText(rawText);
-		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
+		if (!text.trim()) { notify('That file was empty — nothing to import.'); return null; }
 		flushActiveDeck();
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
@@ -2997,7 +2998,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setSource(text, LOAD);
 		goToChunk(0, { after: text });
 		setView('compose');
-		notify(`Imported “${d.title}”.`);
+		notify(`${verb} “${d.title}”.`);
+		return d.id;
 	}
 	// THE ONE FUNNEL every imported file reaches (deck-import.ts says which files): the deck
 	// source, the comments a `.lattice` carries, and the saved packages it brought along.
@@ -5528,6 +5530,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
+	// Auto's apply: the History checkpoint is written and CONFIRMED before the deck changes, because
+	// nobody reviewed this edit and that checkpoint is its only undo. If the save fails, or the author
+	// edited the deck while it was being written, nothing applies and the chat leaves its card.
+	const applyChatEditAuto = async (next: string): Promise<boolean> => {
+		const cur = sourceRef.current;
+		const id = deck.id;
+		const ok = await saveCheckpointDurably(id, cur, 'Before AI chat edit (Auto)', Date.now()).catch(() => false);
+		if (!ok || sourceRef.current !== cur || deckIdRef.current !== id) return false;
+		setCheckpoints(loadCheckpoints(id));
+		setSource(next, { label: 'AI chat edit (Auto)', origin: 'ai' });
+		noteAiEdit(cur, next);
+		return true;
+	};
 	const applyChatEdit = (next: string) => {
 		const cur = sourceRef.current;
 		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
@@ -5950,7 +5965,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
 		</PanelLoader>
 	);
 

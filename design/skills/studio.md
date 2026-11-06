@@ -142,7 +142,10 @@ opens the presenter's second window; Esc leaves.
 4. **Ask the chat**: open Chat and say what you want. The chat has three
    modes on its composer bar: **Talk** (reads and answers, changes nothing),
    **Review** (the default: edits arrive as one diff card per turn and wait
-   for Apply) and **Auto** (edits apply at once; undo from History).
+   for Apply) and **Auto** (for this visit only: a clean edit applies at once,
+   undo from History; an edit that deletes slides or rewrites most of the deck
+   still waits for Apply). From Review, one press of the mode button reaches
+   Talk and two reach Auto.
 5. **Change the look**: the Deck panel, or ask the chat. See `restyle-deck.md`.
 6. **Present**: ⌘K → "Present".
 7. **Hand it on**: "Share…", pick a format; turn on "Re-openable in Lattice" if
@@ -192,7 +195,11 @@ sample slide in its reply without touching the deck.
 change Studio or workspace settings, move the posture dial, or create a deck
 without the author's confirm. In Talk mode it
 changes nothing; in Review mode its edits wait for the author's Apply; only in
-Auto do they apply at once, with a History checkpoint to restore from.
+Auto do they apply at once, after a History checkpoint is saved. Auto applies
+nothing during a live session, after a stopped turn, or when the deck changed
+while the chat worked. When it creates a deck and you press "Create and open",
+the new deck's chat starts with one line pointing back; the earlier
+conversation stays with the deck it was about.
 
 A starter deck to paste into "New deck" (lint-clean):
 

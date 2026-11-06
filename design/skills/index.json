@@ -80,7 +80,7 @@
       "description": "Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3296
+      "tokens": 3317
     },
     {
       "name": "finish",
@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3347
+      "tokens": 3465
     },
     {
       "name": "theme",
