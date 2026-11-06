@@ -18,10 +18,11 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { noteOpenRouterStatus, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, readActiveProvider, readOpenRouterKey, readProviderKey, writeActiveProvider, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { directBackend } from './direct-providers.js';
 
 // Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.
-export { loadOpenRouterKey } from '../../../lib/openrouter-key.js';
+export { loadOpenRouterKey, loadProviderKey } from '../../../lib/openrouter-key.js';
 
 import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
@@ -398,6 +399,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // The model catalog with pricing normalized to per-MILLION tokens (the API
     // gives per-token USD strings). Public endpoint; the key is not required.
     // Forget the catalog (memo and stored copy): the next listModels() refetches, and a fetch already out cannot write its answer back.
+    catalogSnapshot() { return catalogCache; }, // the priced list, for the direct providers' estimates (null before it loads)
     invalidateCatalog() {
       catalogCache = null;
       catalogGen++;
@@ -887,6 +889,16 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   const prompt = promptApiBackend();
   const webllm = webllmBackend();
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
+  // The direct providers (OpenAI, Gemini, Anthropic) on the author's own key, made on first
+  // use. Each prices its usage from OpenRouter's public catalog (direct-providers.js).
+  const directs = {};
+  const directFor = (p) => (directs[p] ||= directBackend(p, { catalog: () => openrouter.listModels(), catalogNow: () => openrouter.catalogSnapshot?.() ?? null, defaultMaxTokens }));
+  // THE CLOUD TIER: OpenRouter unless the author chose a direct provider AND it holds a key.
+  // Everything above this adapter asks `cloud()`, never a provider by name.
+  const cloud = () => {
+    const p = readActiveProvider();
+    return p !== 'openrouter' && readProviderKey(p) ? directFor(p) : openrouter;
+  };
   // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
   // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
   if (readOpenRouterKey()) openrouter.listModels().catch(() => {});
@@ -918,7 +930,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     if (explicitTierWins && explicit) return explicit;
     // The connected OpenRouter cloud (Converse) is otherwise the best backend and is
     // the default active tier whenever connected.
-    if (openrouter.ready()) return openrouter;
+    if (cloud().ready()) return cloud();
     // No cloud: an explicit pick applies, then the auto ladder — WebLLM (advanced,
     // explicitly summoned) → built-in Prompt API (free, instant) → Transformers.js
     // universal (loaded WASM) → floor.
@@ -1005,8 +1017,9 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
         webgpu: detectWebGPU(),
         webllmReady: webllm.ready(),
         universalReady: universal.ready(),
-        openRouterReady: openrouter.ready(),
-        openRouterKeyInvalid: !!openrouter.keyInvalid?.(),
+        openRouterReady: cloud().ready(),
+        openRouterKeyInvalid: !!cloud().keyInvalid?.(),
+        provider: cloud().provider ?? 'openrouter',
         embeddings: modelOn() && hasWindow,
         modelOn: modelOn(),
       };
@@ -1034,15 +1047,15 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     },
     clearPendingOpenRouterAuth() { openrouter.clearPendingAuth(); },
     checkOpenRouterKey(key) { return openrouter.checkKey(key); },
-    listOpenRouterModels() { return openrouter.listModels(); },
-    openRouterModel() { return openrouter.getModel(); },
-    setOpenRouterModel(id) { openrouter.setModel(id); emitChange(); },
-    openRouterModelName() { return openrouter.modelName(); },
-    openRouterAccount() { return openrouter.accountInfo(); },
-    openRouterCredits() { return openrouter.creditsInfo(); }, // the account wallet (balance)
-    openRouterKeySettingsUrl() { return openrouter.keySettingsUrl(); }, // where to set a hard per-key cap
-    openRouterModelPrice(id) { return openrouter.modelPrice(id); }, // active model's per-M price (for estimates)
-    openRouterGenerationCost(id) { return openrouter.generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
+    listOpenRouterModels() { return cloud().listModels(); },
+    openRouterModel() { return cloud().getModel(); },
+    setOpenRouterModel(id) { cloud().setModel(id); emitChange(); },
+    openRouterModelName() { return cloud().modelName(); },
+    openRouterAccount() { return cloud().accountInfo(); },
+    openRouterCredits() { return cloud().creditsInfo(); }, // the account wallet (balance)
+    openRouterKeySettingsUrl() { return cloud().keySettingsUrl(); }, // where to set a hard per-key cap
+    openRouterModelPrice(id) { return cloud().modelPrice(id); }, // active model's per-M price (for estimates)
+    openRouterGenerationCost(id) { return cloud().generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
     // Snapshot/restore the stored key so the settings UI can offer an Undo on
     // Disconnect (mirroring the deck-deletion guardrail) without re-running OAuth.
     openRouterKeySnapshot() { return openrouter.keySnapshot(); },
@@ -1051,6 +1064,34 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     openRouterKey() { return openrouter.keySnapshot(); },
     restoreOpenRouter(key) { openrouter.restore(key); emitChange(); },
     disconnectOpenRouter() { openrouter.disconnect(); emitChange(); },
+    // ── Direct provider keys (§7 step 2) ──
+    /** The provider the cloud tier runs on now ('openrouter' unless a direct key is active). */
+    activeProvider() { return cloud().provider ?? 'openrouter'; },
+    /** Check a pasted direct-provider key against its free `/models` listing: the HTTP status, 0 when unreachable. */
+    checkProviderKey(provider, key) { return provider === 'openrouter' ? openrouter.checkKey(key) : directFor(provider).checkKey(key); },
+    /** Store a direct-provider key and make that provider the cloud tier. */
+    saveProviderKey(provider, key) {
+      if (provider === 'openrouter') { openrouter.restore(key); writeActiveProvider('openrouter'); }
+      else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); writeActiveProvider(provider); directFor(provider).listModels().catch(() => {}); }
+      emitChange();
+    },
+    /** Remove a direct provider's key. If it was the active one, the cloud tier returns to OpenRouter. */
+    removeProviderKey(provider) {
+      if (provider === 'openrouter') { openrouter.disconnect(); }
+      else { directFor(provider).disconnect(); if (readActiveProvider() === provider) writeActiveProvider('openrouter'); }
+      emitChange();
+    },
+    /** Remove every stored key (Privacy & Data → clear). */
+    disconnectAllProviders() {
+      openrouter.disconnect();
+      for (const p of KEY_PROVIDERS) if (p !== 'openrouter') directFor(p).disconnect();
+      writeActiveProvider('openrouter');
+      emitChange();
+    },
+    /** Which providers hold a key in this browser (the API key tab's list). */
+    providersWithKeys() { return KEY_PROVIDERS.filter((p) => (p === 'openrouter' ? !!readOpenRouterKey() : !!readProviderKey(p))); },
+    /** Make a provider that already holds a key the cloud tier. */
+    switchProvider(provider) { writeActiveProvider(provider); emitChange(); },
     // WebLLM opt-in — the deliberate "summon the Architect" (~1GB, WebGPU) download.
     async summon(onProgress, signal) {
       await webllm.load(onProgress, signal);

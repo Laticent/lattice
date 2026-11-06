@@ -12,6 +12,7 @@ import {
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
+import { KEY_PROVIDER_INFO } from './key-providers';
 
 // A React port of the Drawing Board's model accordion (drawing-board-settings.js), reusing the
 // SAME curated lists + helpers from the shared catalog (or-catalog.js) so the surfaces can't
@@ -41,6 +42,16 @@ export function useModelCatalog(
 	// moved the check (and fired the pick) in the other.
 	const groupName = React.useId();
 	const [selectedId, setSelectedId] = React.useState<string | null>(wanted);
+
+	// A different provider has a different list: drop the loaded one so the effect below fetches
+	// the new provider's (lifecycle note §7 step 2).
+	const provider = status.provider ?? 'openrouter';
+	const shownFor = React.useRef(provider);
+	React.useEffect(() => {
+		if (shownFor.current === provider) return;
+		shownFor.current = provider;
+		setModels(null);
+	}, [provider]);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
 	// floor/on-device tiers — keeps tests and offline use network-free).
@@ -144,10 +155,12 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 	const { current, selectedId } = catalog;
 	const summaryName = current ? shortName(current) : (selectedId ?? 'Choose a model');
 	const summaryMeta = current ? metaLabel(current) : '';
+	const provider = status.provider ?? 'openrouter';
+	const label = KEY_PROVIDER_INFO[provider].label;
 
 	return (
 		<div>
-			<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenRouter model</div>
+			<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label} model</div>
 			<div className={cn('rounded-xl border', open ? 'border-[var(--accent)]' : 'border-border')}>
 				<button
 					type="button"
@@ -176,7 +189,9 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 			    alias, which OpenRouter resolves to whatever the current Sonnet is. Naming a
 			    version here ("Sonnet 4") goes stale the moment that alias moves — and this line
 			    is the only place an author is ever told what they're spending on. */}
-			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Defaults to the latest Claude Sonnet. Switch any time — the architect uses the selected model for every edit and chat.</p>
+			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+				{provider === 'openrouter' ? 'Defaults to the latest Claude Sonnet.' : `The models your ${label} key can use. Until you pick one, the newest mid-priced model is used.`} Switch any time — the architect uses the selected model for every edit and chat.
+			</p>
 		</div>
 	);
 }

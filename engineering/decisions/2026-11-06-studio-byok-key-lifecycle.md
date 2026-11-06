@@ -253,15 +253,82 @@ tier, not a third backend, so everything below the switch (spend, standing instr
 voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
 `WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.
 
-**Next (step 2), and what it has to answer.** OpenAI and Gemini accept OpenAI-shaped chat
-requests and allow browser calls, so they can share the OpenRouter transport with a different
-base URL, model list and price table. Anthropic's Messages API has its own request, streaming and
-cache-control shapes and needs the `anthropic-dangerous-direct-browser-access` header, so it gets
-its own transport. Per provider: no `/credits` or `/auth/key` (so the spend decision above), a
-model list of its own, and voice only where the provider has one (OpenAI). Each provider key is
-another secret in this origin's storage, some broader than OpenRouter's, which raises the value
-of the preview-frame `script-src` follow-up (§4). `lib/openrouter-key.js` generalizes to one
-module per-provider keys go through, keeping §3's one-reader property.
+**Shipped (step 2): direct OpenAI, Anthropic and Gemini keys.** The API key tab has a provider
+picker (OpenRouter, OpenAI, Anthropic, Gemini; OpenRouter first and the default) and a list of
+the keys this browser holds, each with Use, Replace and Remove. One provider runs the cloud tier
+at a time; saving a key makes its provider the one in use, and removing the active direct key
+returns the tier to OpenRouter.
+
+- **Keys.** `lib/openrouter-key.js` holds one sealed slot per provider (`lattice-db-or-key`,
+  `lattice-db-openai-key`, `lattice-db-gemini-key`, `lattice-db-anthropic-key`), each with its
+  own rejected mark, all sealed under the one AES-GCM key from §9. It also stores which provider
+  is in use (`lattice-db-provider`). It is still the only file under `docs/src` that names any of
+  them, so §3's one-reader property holds for all four. The OpenRouter API every caller used is
+  unchanged.
+- **Check before store.** `saveProviderKey` (`api-key.ts`) refuses a key of the wrong shape
+  without a request, and says which provider a misplaced key belongs to ("That looks like an
+  Anthropic key"). It then asks the provider's free model listing (`GET /models`) and stores the
+  key only on a 200.
+- **Transports** (`ai/direct-providers.js`). OpenAI and Gemini take the OpenRouter request at
+  their own base URL (Gemini through its OpenAI-compatible endpoint). Two differences matter:
+  OpenAI's newer models refuse `max_tokens` and take `max_completion_tokens`, and OpenRouter's
+  `cache_control` marks are removed because both providers cache on their own. Anthropic gets
+  its own transport: system messages lift into `system`, `tool_calls` become `tool_use` blocks,
+  tool results merge into one user turn, the stream's events map back onto the same callbacks
+  (`max_tokens` → `length`), and every request carries
+  `anthropic-dangerous-direct-browser-access: true`, without which Anthropic refuses a browser.
+  It marks the first system block for caching unless the author turned caching off, as
+  `or-cache.js` does for Anthropic models on OpenRouter.
+- **One cloud tier.** `architect-model.js` asks `cloud()` for the backend: OpenRouter, unless the
+  chosen direct provider holds a key. The direct backend has the OpenRouter backend's shape and
+  reports the Studio's tier name `openrouter`, so every faculty, the budget gate and the spend
+  ledger work unchanged. `availability().provider` says which provider it is.
+- **Spend is an estimate (decision 3).** Token counts × the model's price. The price comes from
+  OpenRouter's PUBLIC model catalog (no key; the picker already fetches it), which lists these
+  providers' models at their own rates. We chose that over a committed price table because the
+  ids moved too fast for one: on 2026-11-06 the catalog listed `gpt-6.1-terra`,
+  `claude-sonnet-5.5` and `gemini-3.8-flash`, none of which a table written months earlier would
+  have priced. Direct ids map onto catalog ids (`claude-sonnet-5-5-20260928` →
+  `anthropic/claude-sonnet-5.5`). A model the catalog does not list gets no estimate, never a
+  guessed one, and every usage the transport reports carries `estimated: true`. The Spend tab
+  shows "Balance not available for this provider", a link to the provider's billing page, and
+  "This session · estimate"; the per-key cap row (an OpenRouter feature) is hidden.
+- **An unpriced model fails closed.** OpenRouter reports each call's real cost and can cap a key on
+  its server; a direct key often has neither, so the estimate is the only limit. A model the
+  catalog cannot price (or every model, when openrouter.ai is unreachable) would otherwise be
+  recorded as $0 and never trip the cap. So under a hard-stop cap, `cloudBudgetBlock` refuses a call
+  on a direct key with no price, and the Spend tab says the model's calls are not counted. Warn mode
+  and OpenRouter are unchanged. Found by the inversion pass; pinned in `architect.test.ts`.
+- **Models.** The picker lists the provider's own `/models`, minus embedding, image and audio
+  models, priced from the catalog. Until the author picks one, the default (`pickDefaultModel`) is
+  the newest model the catalog prices at $10 or less per million output tokens, outside the side
+  tiers (pro, mini, lite, preview, opus and the like, matched as whole words: a bare `mini` once
+  matched inside "gemini"). Failing that, the CHEAPEST priced model, so a fallback never moves the
+  author up in price; with no prices at all, the newest of the provider's everyday family (Sonnet,
+  Flash, GPT). It is derived rather than pinned, for the same reason as the price.
+- **A rejected key.** A 401 marks that provider's key (§2's rules, per slot). The Workspace says
+  "<Provider> — key rejected" and offers **Replace key** (there is no OAuth to reconnect with),
+  and `describeModelError` names the provider: "Anthropic rejected the key — replace it in
+  Workspace → AI → API key", "Your OpenAI account is out of credits".
+- **Privacy & Data.** "AI keys" (formerly "OpenRouter credentials") and Delete everything remove
+  every provider's key (`disconnectAllProviders`).
+
+**Not in step 2.** The cloud voice stays on OpenRouter: OpenAI is the only direct provider with
+speech, and it needs its own transport in `voice-model.js`
+(`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
+file-parser plugin for a reference PDF, the authoritative cost of an aborted turn, and the
+self-heal of a retired model id.
+
+**Pinned by** `ai/direct-providers.test.ts` (the request shapes, both streams, the price lookup,
+the default model, a 401, routing, sealing, remove-all) and `docs/e2e/byok-direct-providers.spec.ts`
+(per provider: a wrong-shape key, a refused key, a saved and sealed key, the Spend lines, then
+Theme, Finish and Motion succeed and Component's 402 names the provider, with every request on the
+provider's endpoint and key and none on OpenRouter's; plus switching with Use and Remove).
+
+**Live run: UNVERIFIED.** This session had no OpenAI, Anthropic or Gemini key, so no request
+reached a real provider. Three things only a live run can confirm: that each provider still
+accepts browser (CORS) requests on these endpoints, that the price mapping finds the real ids,
+and that the four faculties' replies parse. The brief asks for one under $1 total.
 
 ## 8. Plugins cannot read the key
 

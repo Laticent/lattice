@@ -47,15 +47,19 @@ const loadUniversalSpy = vi.hoisted(() => vi.fn(async () => true));
 const statusSpy = vi.hoisted(() => vi.fn(() => connectedStatus));
 const spendSpy = vi.hoisted(() => vi.fn(() => ({ total: 0, session: 0.032, totalTokens: 0, sessionTokens: 9800, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } })));
 
-vi.mock('./api-key', () => ({
-	saveOpenRouterKey: vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' })),
-}));
+vi.mock('./api-key', () => {
+	const refuse = vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' }));
+	return { saveOpenRouterKey: refuse, saveProviderKey: refuse };
+});
 
 vi.mock('./architect', () => ({
 	useArchitectStatus: statusSpy,
 	architectSpend: spendSpy,
 	connectOpenRouter: vi.fn(),
 	disconnectOpenRouter: vi.fn(),
+	disconnectAllProviders: vi.fn(),
+	removeProviderKey: vi.fn(),
+	switchProvider: vi.fn(),
 	setBudget: vi.fn(),
 	listStudioModels: vi.fn(async () => CATALOG),
 	currentStudioModel: vi.fn(async () => 'anthropic/claude-sonnet-4'),
@@ -188,8 +192,8 @@ describe('WorkspaceSheet — the API key tab', () => {
 			await user.click(sheet.getByRole('tab', { name: 'API key' }));
 			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
 			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
-			expect(sheet.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
-			expect(sheet.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Replace the OpenRouter key' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Remove the OpenRouter key' })).toBeInTheDocument();
 		} finally {
 			localStorage.removeItem('lattice-db-or-key');
 		}
