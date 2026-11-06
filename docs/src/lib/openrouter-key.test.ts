@@ -1,7 +1,8 @@
+import 'fake-indexeddb/auto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { isOpenRouterKeyEvent, noteOpenRouterStatus, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from './openrouter-key.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { __resetOpenRouterKeyForTests, isOpenRouterKeyEvent, loadOpenRouterKey, noteOpenRouterStatus, openRouterKeyRejected, openRouterKeySettled, readOpenRouterKey, writeOpenRouterKey } from './openrouter-key.js';
 
 // THE ONE READER. "What can read the author's key?" must have a one-module answer, because
 // the shared-deck isolation proof (2026-11-06-studio-byok-key-lifecycle.md) stands on it.
@@ -27,8 +28,18 @@ describe('openrouter-key — the only module that names the stored key', () => {
 	});
 });
 
+async function freshPage() {
+	await openRouterKeySettled();
+	localStorage.clear();
+	__resetOpenRouterKeyForTests();
+	await new Promise<void>((r) => {
+		const del = indexedDB.deleteDatabase('lattice-secrets');
+		del.onsuccess = del.onerror = del.onblocked = () => r();
+	});
+}
+
 describe('openrouter-key — read, write, reject', () => {
-	afterEach(() => localStorage.clear());
+	afterEach(freshPage);
 	it('reads what it wrote, and null clears it', () => {
 		expect(readOpenRouterKey()).toBeNull();
 		writeOpenRouterKey('sk-or-a');
@@ -67,7 +78,7 @@ describe('openrouter-key — read, write, reject', () => {
 // If one ever starts returning values, the seeded key must not ride out with them. The workspace
 // backup has its own pin (workspace-backup.test.ts, "never packs the OpenRouter key").
 describe('openrouter-key — no storage sweep returns the key value', () => {
-	afterEach(() => localStorage.clear());
+	afterEach(freshPage);
 	it('the storage meter, summary and deck stats never carry the seeded value', async () => {
 		const SECRET = 'sk-or-v1-sweep-canary-0123456789';
 		writeOpenRouterKey(SECRET);
@@ -76,5 +87,145 @@ describe('openrouter-key — no storage sweep returns the key value', () => {
 		const { deckContentStats } = await import('../components/studio/studio-store');
 		const outputs = [scanLocalStorage(), await storageSummary(), deckContentStats()];
 		for (const out of outputs) expect(JSON.stringify(out)).not.toContain(SECRET);
+	});
+});
+
+// At rest the key is SEALED (owner decision 2026-11-06, decision note §9): localStorage holds an
+// AES-GCM envelope, and the sealing key is a non-extractable WebCrypto key in IndexedDB. These run
+// on Node's WebCrypto and fake-indexeddb; the browser half is docs/e2e/workspace-api-key.spec.ts.
+describe('openrouter-key — encrypted at rest', () => {
+	const KEY = 'lattice-db-or-key';
+	const SECRET = 'sk-or-v1-at-rest-canary-77aa';
+	afterEach(freshPage);
+	it('what reaches localStorage is an envelope that does not contain the key', async () => {
+		writeOpenRouterKey(SECRET);
+		expect(readOpenRouterKey()).toBe(SECRET); // memory answers at once
+		await openRouterKeySettled();
+		const stored = String(localStorage.getItem(KEY));
+		expect(stored.startsWith('v1:')).toBe(true);
+		expect(stored).not.toContain(SECRET);
+		expect(stored).not.toContain(SECRET.slice(-8));
+	});
+	it('a fresh page load opens the envelope again', async () => {
+		writeOpenRouterKey(SECRET);
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests(); // memory gone, as on reload; IndexedDB and storage stay
+		expect(readOpenRouterKey()).toBeNull(); // sealed and not opened yet
+		expect(await loadOpenRouterKey()).toBe(SECRET);
+		expect(readOpenRouterKey()).toBe(SECRET);
+	});
+	it('a plaintext key from before encryption is used, then re-sealed in place', async () => {
+		localStorage.setItem(KEY, SECRET);
+		expect(readOpenRouterKey()).toBe(SECRET);
+		await loadOpenRouterKey();
+		await new Promise((r) => setTimeout(r, 0));
+		await vi.waitFor(() => expect(String(localStorage.getItem(KEY)).startsWith('v1:')).toBe(true));
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe(SECRET);
+	});
+	it('an envelope whose sealing key was cleared reads as no key, and is removed', async () => {
+		writeOpenRouterKey(SECRET);
+		await openRouterKeySettled();
+		await new Promise<void>((r) => {
+			const del = indexedDB.deleteDatabase('lattice-secrets');
+			del.onsuccess = del.onerror = del.onblocked = () => r();
+		});
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBeNull();
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+	it('the sealing key cannot be exported', async () => {
+		writeOpenRouterKey(SECRET);
+		await openRouterKeySettled();
+		const wrap = await new Promise<CryptoKey>((resolve, reject) => {
+			const open = indexedDB.open('lattice-secrets', 1);
+			open.onsuccess = () => {
+				const req = open.result.transaction('keys').objectStore('keys').get('openrouter-at-rest');
+				// Close the connection, or the next test's database delete waits on it forever.
+				req.onsuccess = () => {
+					open.result.close();
+					resolve(req.result);
+				};
+				req.onerror = () => reject(req.error);
+			};
+		});
+		expect(wrap.extractable).toBe(false);
+		await expect(crypto.subtle.exportKey('raw', wrap)).rejects.toThrow();
+	});
+	it('without IndexedDB, a saved key stays in memory only and is never written in clear', async () => {
+		const idb = globalThis.indexedDB;
+		vi.stubGlobal('indexedDB', undefined);
+		try {
+			writeOpenRouterKey(SECRET);
+			await openRouterKeySettled();
+			expect(readOpenRouterKey()).toBe(SECRET);
+			expect(localStorage.getItem(KEY)).toBeNull();
+		} finally {
+			vi.stubGlobal('indexedDB', idb);
+			vi.unstubAllGlobals();
+		}
+	});
+});
+
+// From the checker's reproductions of the first version of this module (all three lost or
+// staled the author's key). Each runs on the same stack as the module's other tests.
+describe('openrouter-key — encrypted at rest, under races and faults', () => {
+	const KEY = 'lattice-db-or-key';
+	afterEach(async () => {
+		vi.restoreAllMocks();
+		await freshPage();
+	});
+	it('a load and a read racing to migrate a plaintext key share ONE sealing key, so a reload opens it', async () => {
+		localStorage.setItem(KEY, 'sk-or-v1-legacy-race-1234');
+		const loading = loadOpenRouterKey();
+		readOpenRouterKey(); // before the load lands: used to start a second migration and a second key
+		await loading;
+		await vi.waitFor(() => expect(String(localStorage.getItem(KEY)).startsWith('v1:')).toBe(true));
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe('sk-or-v1-legacy-race-1234');
+	});
+	it('two writes from a browser with no sealing key yet leave an envelope a reload can open', async () => {
+		writeOpenRouterKey('sk-or-v1-first-aaaa');
+		writeOpenRouterKey('sk-or-v1-second-bbbb');
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe('sk-or-v1-second-bbbb');
+	});
+	it('a write that lands while an older envelope is still decrypting wins', async () => {
+		writeOpenRouterKey('sk-or-v1-OLD-aaaa');
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests();
+		const decrypt = crypto.subtle.decrypt.bind(crypto.subtle);
+		vi.spyOn(crypto.subtle, 'decrypt').mockImplementation(async (...a) => {
+			await new Promise((r) => setTimeout(r, 50));
+			return decrypt(...(a as Parameters<typeof decrypt>));
+		});
+		const loading = loadOpenRouterKey();
+		writeOpenRouterKey('sk-or-v1-NEW-bbbb');
+		await openRouterKeySettled();
+		await loading;
+		expect(readOpenRouterKey()).toBe('sk-or-v1-NEW-bbbb');
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe('sk-or-v1-NEW-bbbb');
+	});
+	it('an IndexedDB failure while opening keeps the stored envelope, and a later load recovers the key', async () => {
+		writeOpenRouterKey('sk-or-v1-GOOD-cccc');
+		await openRouterKeySettled();
+		const envelope = localStorage.getItem(KEY);
+		__resetOpenRouterKeyForTests();
+		const open = indexedDB.open.bind(indexedDB);
+		let calls = 0;
+		vi.spyOn(indexedDB, 'open').mockImplementation((...a) => {
+			if (calls++ > 0) return open(...a);
+			const req = {} as IDBOpenDBRequest & { error: Error };
+			setTimeout(() => {
+				Object.assign(req, { error: new Error('UnknownError') });
+				req.onerror?.(new Event('error'));
+			}, 0);
+			return req;
+		});
+		expect(await loadOpenRouterKey()).toBeNull(); // this load could not open it…
+		expect(localStorage.getItem(KEY)).toBe(envelope); // …and did not delete it
+		expect(await loadOpenRouterKey()).toBe('sk-or-v1-GOOD-cccc'); // the next one does
 	});
 });

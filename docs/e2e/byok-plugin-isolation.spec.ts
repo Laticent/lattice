@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { storedOpenRouterKey } from './openrouter-key-helper';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // A THIRD-PARTY PLUGIN CANNOT READ THE AUTHOR'S OPENROUTER KEY.
@@ -88,8 +89,11 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await gotoStudio(page);
 
 		// CONTROL: the probe, run in the Studio page, reads the canary.
+		// The key is sealed at rest (§9), so the page's localStorage holds an envelope; the probe
+		// must still SEE storage there, and the page can recover the key the way a script could.
 		const control = (await page.evaluate(`(${PROBE})()`)) as Record<string, string>;
-		expect(control.local, 'the probe must be able to see the key where the key lives').toBe(CANARY);
+		expect(control.local, 'the probe must be able to see storage where the key lives').not.toMatch(/^(none|refused)$/);
+		expect(await storedOpenRouterKey(page), 'same-origin script can recover the key').toBe(CANARY);
 
 		await openLibrary(page);
 		await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'keyprobe.zip', mimeType: 'application/zip', buffer: await keyprobeZip() });

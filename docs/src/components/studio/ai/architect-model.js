@@ -19,6 +19,10 @@
 // touch the engine render paths.
 
 import { noteOpenRouterStatus, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+
+// Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.
+export { loadOpenRouterKey } from '../../../lib/openrouter-key.js';
+
 import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 

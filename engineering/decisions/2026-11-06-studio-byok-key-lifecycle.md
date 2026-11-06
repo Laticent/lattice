@@ -313,3 +313,43 @@ passes it. The sandbox is the defense; the gate only keeps first-party code from
 **Not covered:** WebKit iPhone (the package import flow is driven on the iPad project, as the
 existing code-package spec does); the desktop app, which is not built; and a browser exploit that
 escapes a sandboxed frame (`2026-10-16-npm-plugin-threat-model.md` §5.3).
+
+## 9. The key is encrypted at rest
+
+**Asked (owner, 2026-11-06),** answering the CodeQL alert "clear text storage of sensitive
+information" on `openrouter-key.js`: encrypt the key before merge, rather than dismiss the alert.
+
+**Now.** `localStorage` holds an envelope, `v1:<iv>:<ciphertext>`, sealed with AES-GCM-256 under
+a **non-extractable** WebCrypto key kept in IndexedDB (`lattice-secrets` → `keys` →
+`openrouter-at-rest`). The browser can use that key; no code can read its bytes
+(`crypto.subtle.exportKey` refuses). `loadOpenRouterKey` opens the envelope once into memory, so
+every reader stays synchronous; the model adapter (`architect.ts` → `architectModel`) and the two
+library pages await it before their first read. A plaintext key stored before this change is used
+and re-sealed in place. An envelope whose sealing key is gone (the site's IndexedDB was cleared)
+reads as no key and is removed, so the author connects again. Where WebCrypto or IndexedDB is
+missing, a key the author saves stays in memory only, never written in clear.
+
+**Three races an independent checker reproduced in the first version, all fixed and pinned:**
+two seals starting together each made a sealing key and the second overwrote the first, so the
+stored envelope could never open again (the lookup is now memoized, and a new key is written with
+`add` so a second tab adopts the first tab's key); a transient IndexedDB failure while opening was
+treated like a lost key and deleted the stored envelope (now only a database that opened and holds
+no sealing key, or AES-GCM refusing the data, counts as gone; anything else keeps the envelope for
+a later load); and a load still decrypting could put an older key back over a newer write (a write
+generation counter now decides). The IndexedDB helper also settles on a transaction abort, which
+used to leave it pending forever.
+
+**What it protects, and what it does not.**
+
+- **Protects:** the browser profile's files on disk. A backup of the profile, a synced profile
+  folder, or another program reading those files gets an envelope and a key it cannot export.
+- **Does not protect against script running on this origin.** Such a script can do what
+  `openrouter-key.js` does: fetch the sealing key from IndexedDB and ask the browser to decrypt.
+  `docs/e2e/openrouter-key-helper.ts` does exactly that, and the isolation specs use it as their
+  control. The defenses there are still the sanitizer (§4) and the plugin sandbox (§8).
+
+**Pinned by** `openrouter-key.test.ts` › "encrypted at rest" (the envelope never contains the
+key; a reload opens it; a plaintext key is migrated; a lost sealing key reads as none; the
+sealing key cannot be exported; no IndexedDB means memory only), and
+`docs/e2e/workspace-api-key.spec.ts` (a saved key is stored sealed, opens to the key, and a page
+reload shows it again), on desktop Chromium, mobile Chromium and WebKit iPhone.

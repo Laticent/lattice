@@ -1,3 +1,4 @@
+import { storedOpenRouterKey, storedOpenRouterRaw } from './openrouter-key-helper';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 // WORKSPACE → AI → API KEY: paste an OpenRouter key instead of the one-click sign-in.
@@ -51,12 +52,27 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 	await page.getByRole('button', { name: 'Check & save' }).click();
 	await expect(page.getByText('OpenRouter key …7f3c')).toBeVisible();
 	await expect(page.getByText(/e2e-good-key/)).toHaveCount(0);
-	expect(await page.evaluate(() => localStorage.getItem('lattice-db-or-key'))).toBe(GOOD);
+	// Sealed at rest: storage holds an envelope that does not contain the key, and it opens to it.
+	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
+	expect(await storedOpenRouterRaw(page)).not.toContain(GOOD);
+	expect(await storedOpenRouterKey(page)).toBe(GOOD);
+
+	// A reload opens the sealed key again: the Workspace still shows it.
+	await page.reload();
+	const header = page.locator('button[aria-label="Workspace settings"]:visible');
+	if (await header.count()) await header.first().click();
+	else {
+		await page.getByRole('button', { name: /^(Menu|More controls)$/ }).click();
+		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
+	}
+	await page.getByRole('tab', { name: 'AI' }).click();
+	await page.getByRole('tab', { name: 'API key' }).click();
+	await expect(page.getByText(`OpenRouter key …${GOOD.slice(-4)}`)).toBeVisible();
 
 	// Remove clears it from this browser.
 	await page.getByRole('button', { name: 'Remove' }).click();
 	await expect(page.getByLabel('OpenRouter API key')).toBeVisible();
-	expect(await page.evaluate(() => localStorage.getItem('lattice-db-or-key'))).toBeNull();
+	await expect.poll(() => storedOpenRouterRaw(page)).toBeNull();
 });
 
 // From the checker pass on this flow: a key saved while an ON-DEVICE tier was the author's pick
@@ -106,7 +122,8 @@ test('@crosswidth @webkit-phone a key saved from an on-device tier makes Cloud a
 
 	await expect(page.getByText(`OpenRouter key …${CLEAN.slice(-4)}`)).toBeVisible();
 	expect(seen, 'the check carried the cleaned key').toContain(`Bearer ${CLEAN}`);
-	expect(await page.evaluate(() => localStorage.getItem('lattice-db-or-key'))).toBe(CLEAN);
+	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
+	expect(await storedOpenRouterKey(page)).toBe(CLEAN);
 	// And Cloud is what is active now, not the on-device pick.
 	await expect(page.getByText('Cloud is active', { exact: true })).toBeVisible();
 });

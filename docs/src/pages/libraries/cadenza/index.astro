@@ -181,7 +181,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 
 		<script>
 			import { buildTrack, makeReader, pauseAfter, toVtt } from '@/lib/cadenza';
-			import { readOpenRouterKey, writeOpenRouterKey } from '@/lib/openrouter-key.js';
+			import { loadOpenRouterKey, readOpenRouterKey, writeOpenRouterKey } from '@/lib/openrouter-key.js';
 			import { createStage } from '@/lib/suono';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
@@ -502,6 +502,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			});
 			keyPanelEl.open = !keyPresent();
 			refreshKeyUI();
+			// The key is sealed at rest: refresh once it is open.
+			loadOpenRouterKey().then(() => { keyPanelEl.open = !keyPresent(); refreshKeyUI(); refreshVoice(); });
 			populateVoices();
 
 			// ── The storyboard — numbered beats driving the real read-along engine ──────────────────

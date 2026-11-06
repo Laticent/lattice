@@ -1,3 +1,4 @@
+import { storedOpenRouterKey } from './openrouter-key-helper';
 import { expect, gotoStudio, LIVE_PREVIEW, livePreview, test, typeDeck } from './studio-fixture';
 
 // A SHARED DECK CANNOT READ THE AUTHOR'S OPENROUTER KEY.
@@ -68,7 +69,8 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in t
 	await expect(livePreview(page).getByText('Isolation probe')).toBeVisible({ timeout: 30_000 });
 	await expect(livePreview(page).getByText('Probe body text.')).toBeVisible();
 	// The key is still there for the author's own surfaces.
-	expect(await page.evaluate(() => localStorage.getItem('lattice-db-or-key'))).toBe(SEEDED_KEY);
+	// The page itself can still recover it (sealed at rest, §9): that is what a payload would be after.
+	expect(await storedOpenRouterKey(page)).toBe(SEEDED_KEY);
 
 	// Wait for the signal the handlers ride on: every image in the frame has settled (loaded or
 	// failed), so an `onerror` that survived would already have run, then one frame for the

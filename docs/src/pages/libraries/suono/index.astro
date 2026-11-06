@@ -199,7 +199,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 
 		<script>
 			import { createStage, encodeWav, sequence } from '@/lib/suono';
-			import { isOpenRouterKeyEvent, readOpenRouterKey } from '@/lib/openrouter-key.js';
+			import { isOpenRouterKeyEvent, loadOpenRouterKey, readOpenRouterKey } from '@/lib/openrouter-key.js';
 
 			const $ = (s) => document.querySelector(s);
 			const root = document.documentElement;
@@ -511,8 +511,10 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				}
 			}
 			// React to a key connected in another tab (the shared BYOK key).
-			addEventListener('storage', (e) => { if (isOpenRouterKeyEvent(e)) refreshCloud(); });
+			addEventListener('storage', (e) => { if (isOpenRouterKeyEvent(e)) loadOpenRouterKey().then(refreshCloud); });
 			refreshCloud();
+			// The key is sealed at rest: refresh once it is open.
+			loadOpenRouterKey().then(refreshCloud);
 
 			// ── Boot ──────────────────────────────────────────────────────────────────────
 			renderScore(true);

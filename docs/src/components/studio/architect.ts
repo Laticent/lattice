@@ -319,7 +319,12 @@ export function architectModel(): Promise<ArchitectModel | null> {
 			// theme, component, finding-fix — and pushed the hard-stop budget gate to price
 			// 16K of output for all of them, so "shorten this sentence" started estimating
 			// ~$0.25 and got refused under a cap that used to allow it (inversion, checker).
-			.then((m) => m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel)
+			// The stored key is sealed at rest; open it before the model answers "is a key
+			// connected?", or a reload would read "not connected" until it arrived.
+			.then(async (m) => {
+				await m.loadOpenRouterKey();
+				return m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
+			})
 			.catch(() => null);
 	}
 	return modelPromise;

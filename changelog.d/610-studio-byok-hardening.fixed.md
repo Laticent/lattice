@@ -5,3 +5,4 @@
 - Studio: **Describe a finish** now works on a real model. It used to discard every cloud reply as "no usable finish recipe". Finish and Describe a drawing also say why a failed request failed.
 - Docs: the features page lists the describe-it faculties and cloud read-aloud, and says plainly that the AI features send deck text to OpenRouter on your own key.
 - Studio: Workspace → AI has a third tab, **API key**, to paste your own OpenRouter key instead of signing in. The key is checked with OpenRouter before it is saved, and afterwards only its last four characters are shown.
+- Security: your OpenRouter key is now encrypted at rest in the browser (AES-GCM under a key the browser will not let any code export), so the profile's files on disk no longer hold it in clear. A key saved before this change is encrypted on first load.

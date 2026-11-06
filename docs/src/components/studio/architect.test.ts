@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readOpenRouterKey } from '@/lib/openrouter-key.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { saveOpenRouterKey } from './api-key';
 import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
@@ -916,7 +917,9 @@ describe('resumePendingAuth — a failed OAuth return says so', () => {
 		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/keys') ? new Response('{"key":"sk-or-test"}', { status: 200 }) : new Response('{"data":[]}', { status: 200 }))));
 		const out = await resumePendingAuth();
 		expect(out.status).toBe('connected');
-		expect(localStorage.getItem(KEY)).toBe('sk-or-test');
+		// Stored sealed (or, with no IndexedDB here, in memory only): read it through its module.
+		expect(readOpenRouterKey()).toBe('sk-or-test');
+		expect(localStorage.getItem(KEY)).not.toBe('sk-or-test');
 		localStorage.removeItem(KEY);
 	});
 	it('a network failure keeps the verifier and the code, so a reload can finish the sign-in', async () => {
@@ -1017,7 +1020,8 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		// A line break and a zero-width space, as a copy from a chat or a PDF can carry.
 		const out = await saveOpenRouterKey('  sk-or-v1-go\nod\u200B  ');
 		expect(out.ok).toBe(true);
-		expect(localStorage.getItem(KEY)).toBe('sk-or-v1-good');
+		expect(readOpenRouterKey()).toBe('sk-or-v1-good');
+		expect(localStorage.getItem(KEY)).not.toBe('sk-or-v1-good'); // never in clear
 		expect(localStorage.getItem(REJECTED)).toBeNull();
 		const check = fetchSpy.mock.calls.find(([url]) => String(url).includes('/auth/key'));
 		expect(check, 'the key was checked with /auth/key').toBeTruthy();
