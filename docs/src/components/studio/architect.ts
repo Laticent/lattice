@@ -95,8 +95,8 @@ function loadedAuthoring(): AuthoringDoor {
 	return authoring;
 }
 // The canon's size in tokens, for the readout before the lint core lands (measured 2026-11-06 with
-// estTokens: DECK_CANON 1042, DECK_CANON_SHORT 283; architect.test.ts holds these to the real text).
-export const CANON_TOKENS_EST = { cloud: 1042, short: 283 };
+// estTokens: DECK_CANON 1021, DECK_CANON_SHORT 283; architect.test.ts holds these to the real text).
+export const CANON_TOKENS_EST = { cloud: 1021, short: 283 };
 
 export function deckSystem(generation: string): string {
 	const { deckCanon } = loadedAuthoring();
