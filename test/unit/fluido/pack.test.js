@@ -88,11 +88,21 @@ test('badness is zero inside the fill band and rises outside it', () => {
   assert.ok(badness(1) > 0 && badness(1) <= 30);
 });
 
-test('knuth-plass packs 250 members in well under a live edit budget', () => {
+// 250 members, a slide's worth many times over: the plan places every member once and every page
+// holds what it is given. This used to time 20 packs against a 5 ms budget, which a loaded CI runner
+// can fail on the same code (HARD RULE #32, engineering/decisions/2026-11-06-flaky-tests.md); it now
+// asserts the work done, and the speed claim belongs in a benchmark, not in a pass/fail test.
+test('knuth-plass packs 250 members: each placed once, every page within its room', () => {
   const input = { heights: heights(250, 3), gap: 6, capacity: 900 };
-  const t = performance.now();
-  for (let i = 0; i < 20; i++) pack(input, 'knuth-plass');
-  assert.ok((performance.now() - t) / 20 < 5, 'over 5 ms a pack');
+  const plan = pack(input, 'knuth-plass');
+  assert.equal(plan.reduce((a, b) => a + b, 0), 250, 'every member placed exactly once');
+  let i = 0;
+  for (const n of plan) {
+    assert.ok(n >= 1, 'no empty page');
+    const load = input.heights.slice(i, i + n).reduce((a, b) => a + b, 0) + input.gap * (n - 1);
+    assert.ok(load <= input.capacity || n === 1, `page of ${n} members is ${load}px in ${input.capacity}px`);
+    i += n;
+  }
 });
 
 test('knuth-plass puts a lone member last, never first or in the middle', () => {
