@@ -257,6 +257,23 @@ describe('cloudBudgetBlock — a picture on a model with its own image price', (
 	});
 });
 
+describe('cloudBudgetBlock — a direct provider key with no price fails closed', () => {
+	// A direct key has no server-side cap and no per-call cost in its reply: an unpriced model would be
+	// recorded as $0 and never trip the cap (inversion pass on the direct keys, 2026-11-06).
+	const unpriced = (provider: string) => ({ activeProvider: () => provider, openRouterModelPrice: () => null, listOpenRouterModels: async () => [] }) as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	it('refuses under a hard-stop cap on a direct key, and leaves OpenRouter and Warn mode as they were', async () => {
+		setBudget(5, 'stop');
+		try {
+			expect(await cloudBudgetBlock(unpriced('anthropic'), 'hello')).toMatch(/no price we can look up/);
+			expect(await cloudBudgetBlock(unpriced('openrouter'), 'hello')).toBeNull();
+			setBudget(5, 'alert');
+			expect(await cloudBudgetBlock(unpriced('anthropic'), 'hello')).toBeNull();
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+});
+
 describe('cloudBudgetBlock — a price that has not loaded yet', () => {
 	// The price comes from the model catalog, which loads on demand. With none the cap has nothing to hold a call to.
 	const lateModel = (listed: () => Promise<unknown>) => {
@@ -994,7 +1011,8 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		vi.stubGlobal('fetch', fetchSpy);
 		const out = await saveOpenRouterKey('sk-proj-openai-key');
 		expect(out.ok).toBe(false);
-		if (!out.ok) expect(out.note).toMatch(/start with/);
+		// An OpenAI-shaped key is named as one, so the author knows which tab it belongs on.
+		if (!out.ok) expect(out.note).toMatch(/looks like an OpenAI key/);
 		expect(fetchSpy).not.toHaveBeenCalled();
 		expect(localStorage.getItem(KEY)).toBeNull();
 	});

@@ -12,6 +12,7 @@ import {
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
+import { KEY_PROVIDER_INFO } from './key-providers';
 
 // A React port of the Drawing Board's model accordion (drawing-board-settings.js), reusing the
 // SAME curated lists + helpers from the shared catalog (or-catalog.js) so the surfaces can't
@@ -34,7 +35,9 @@ export function useModelCatalog(
 	} = {},
 ) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
-	const [view, setView] = React.useState<string>('featured');
+	// The Featured / Value / Free lenses match OpenRouter ids (`anthropic/claude-sonnet…`), so a
+	// direct provider's bare ids would show an empty list: it opens on All, with no lens row.
+	const [view, setView] = React.useState<string>((status.provider ?? 'openrouter') === 'openrouter' ? 'featured' : 'all');
 	const [query, setQuery] = React.useState('');
 	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
 	// Each picker's radios are their own group: two lists sharing a name make the browser treat them as one, so an arrow key in one
@@ -42,19 +45,32 @@ export function useModelCatalog(
 	const groupName = React.useId();
 	const [selectedId, setSelectedId] = React.useState<string | null>(wanted);
 
+	// A different provider has a different list: drop the loaded one so the effect below fetches
+	// the new provider's (lifecycle note §7 step 2).
+	const provider = status.provider ?? 'openrouter';
+	const shownFor = React.useRef(provider);
+	React.useEffect(() => {
+		if (shownFor.current === provider) return;
+		shownFor.current = provider;
+		setModels(null);
+		setView(provider === 'openrouter' ? 'featured' : 'all');
+	}, [provider]);
+
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
 	// floor/on-device tiers — keeps tests and offline use network-free).
 	React.useEffect(() => {
 		let live = true;
 		if (status.openRouterReady && !models && opts.enabled !== false) {
+			const forProvider = provider;
 			listStudioModels().then((l) => {
-				if (live) setModels(l);
+				// A list that answers after the provider changed belongs to the old provider.
+				if (live && shownFor.current === forProvider) setModels(l);
 			});
 		}
 		return () => {
 			live = false;
 		};
-	}, [status.openRouterReady, models, opts.enabled]);
+	}, [status.openRouterReady, models, opts.enabled, provider]);
 
 	// Reflect an external model change (e.g. another surface) in the summary.
 	React.useEffect(() => {
@@ -70,12 +86,14 @@ export function useModelCatalog(
 		opts.onPicked?.(m);
 		notify(`${opts.label ?? 'Model'} set to ${shortName(m)}.`);
 	};
-	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName };
+	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName, provider };
 }
 
 /** Search, the Featured/Value/Free/All lens, and the vendor-grouped priced list. */
 export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: ReturnType<typeof useModelCatalog>; searchRef?: React.Ref<HTMLInputElement>; maxHeight?: number }) {
-	const { models, view, setView, query, setQuery, selectedId, groups, pick, groupName } = catalog;
+	const { models, view, setView, query, setQuery, selectedId, groups, pick, groupName, provider } = catalog;
+	const direct = provider !== 'openrouter';
+	const providerLabel = KEY_PROVIDER_INFO[provider].label;
 	return (
 		<>
 			<input
@@ -83,10 +101,11 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 				type="search"
 				value={query}
 				onChange={(e) => setQuery(e.target.value)}
-				placeholder="Search 500+ models…"
-				aria-label="Search OpenRouter models"
+				placeholder={direct ? `Search your ${providerLabel} models…` : 'Search 500+ models…'}
+				aria-label={`Search ${providerLabel} models`}
 				className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)]"
 			/>
+			{direct ? null : (
 			<div className="mt-2 flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Model lens">
 				{OR_VIEWS.map(([key, label]) => (
 					<button
@@ -101,6 +120,7 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 					</button>
 				))}
 			</div>
+			)}
 
 			<div className="mt-2 overflow-y-auto" style={{ maxHeight }}>
 				{models === null ? (
@@ -144,10 +164,12 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 	const { current, selectedId } = catalog;
 	const summaryName = current ? shortName(current) : (selectedId ?? 'Choose a model');
 	const summaryMeta = current ? metaLabel(current) : '';
+	const provider = status.provider ?? 'openrouter';
+	const label = KEY_PROVIDER_INFO[provider].label;
 
 	return (
 		<div>
-			<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">OpenRouter model</div>
+			<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label} model</div>
 			<div className={cn('rounded-xl border', open ? 'border-[var(--accent)]' : 'border-border')}>
 				<button
 					type="button"
@@ -176,7 +198,9 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 			    alias, which OpenRouter resolves to whatever the current Sonnet is. Naming a
 			    version here ("Sonnet 4") goes stale the moment that alias moves — and this line
 			    is the only place an author is ever told what they're spending on. */}
-			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Defaults to the latest Claude Sonnet. Switch any time — the architect uses the selected model for every edit and chat.</p>
+			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+				{provider === 'openrouter' ? 'Defaults to the latest Claude Sonnet.' : `The models your ${label} key can use. Until you pick one, the newest mid-priced model is used.`} Switch any time — the architect uses the selected model for every edit and chat.
+			</p>
 		</div>
 	);
 }

@@ -1232,11 +1232,13 @@ gates and a rendered-DOM scan are complements, not alternatives.
 
 The pinned Chromium (build 1194 ↔ `@playwright/test` 1.56.1) belongs at
 `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. Some sandbox images ship a different build
-there instead (seen 2026-10-27: only 1243), and the run then stops with "chromium is not
-installed … fix PLAYWRIGHT_BROWSERS_PATH". Install the pinned build with the docs
-package's own CLI, never a bare `npx playwright`, which can fetch another version:
-`cd docs && node node_modules/playwright/cli.js install chromium chromium-headless-shell`
-(about 30 s). `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to Playwright.
+there instead (seen 2026-10-27 and again 2026-11-06: only 1243). The suite's `globalSetup`
+(`docs/scripts/e2e-ensure-browsers.mjs`) now installs the pinned build beside it when it is
+missing (about 20 s), with the docs package's own CLI; it used to refuse and stop the run with
+"fix PLAYWRIGHT_BROWSERS_PATH", so every project failed before its first test. By hand, for a
+tool outside the suite, use the same CLI, never a bare `npx playwright`, which can fetch another
+version: `cd docs && node node_modules/playwright/cli.js install chromium`. `CHROME_PATH` is the
+*Puppeteer* cache and is irrelevant to Playwright.
 
 **The `@visual` snapshot bless DOES run here** (corrected 2026-09-01). This
 section used to say it "genuinely can't run here (runner-specific AA)" and
@@ -1337,7 +1339,7 @@ proxy" — that is false and this is what it should have said; the correction is
 PR as comment 5387941880.
 
 **WebKit and Firefox install themselves.** Only Chromium is baked in
-(`/opt/pw-browsers/chromium-1194`). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
+(`/opt/pw-browsers`, and not always the pinned build: see above). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
 need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing after the
 site build and before the first test (UI mode selects every project, so it installs both) (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
 never touches the Chromium pin). To install by hand, for a tool outside the suite:

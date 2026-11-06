@@ -33,7 +33,7 @@ test('the Marp bundle drops a panes deck\'s markers and keeps its notes and cont
 	await page.getByRole('button', { name: /^Download bundle/ }).click();
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.zip$/);
-	await expect(toastText(page)).toContainText('Marp bundle ready.');
+	await expect(toastText(page)).toContainText(/Marp bundle ready( \([^)]+\))?\./);
 
 	const { default: JSZip } = await import('jszip');
 	const fs = await import('node:fs');

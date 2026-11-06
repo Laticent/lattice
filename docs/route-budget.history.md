@@ -6,29 +6,26 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-06 — engine ceiling raised by 2.5 KB on four routes, by hand, for the passage split (PR 2988)
+### 2026-11-06 — engine ceiling raised to 766.0 KB on four routes, by hand, for PR 2988
 
-Owner OK 2026-11-06 in the PR 2988 session: "Raise to 763.3KB", chosen over leaving the passage split out of the browser engine (the export and the Studio preview would then split quotes differently, against HARD RULE #1) and over lazy-loading it (about half a day, and an asynchronous split path in the preview).
+Owner OK 2026-11-06 in the PR 2988 session: "766.0KB, engine only", chosen over a #3068-style reset to measured + ~10% and over giving about 6 KB back by lazy-loading the measured split and passage code. An earlier OK for 763.3 KB was set from a run against an older `main` and was too low; this replaces it. The Studio eager and lint-core raises first asked for here are left to #3068, which resets those budgets with room.
 
-PR 2988 splits a `quote`, a `citation-card` and a one-clause `redline` that do not fit a phone or tablet: the gloss list moves to the next page and a long quote continues at a sentence break. The code lives in the engine because every surface splits the same way: `lib/core/passage-sentences.js` (the shared sentence rule), the `passage` strategy in `lib/core/carousel.js`, and the passage arm of `measureFit` in `lib/core/fit-measure.js`. Minified and gzipped one file at a time, those add about 2.2 KB (passage-sentences 1,591 B; carousel +895 B; fit-measure +865 B). CI on b16ddd6 measured engineJsGz at 761.8 KB against the 760.8 KB ceiling on studio, playground, home and components. The ceiling on those four routes rises to 763.3 KB (781,620 B), about 1.5 KB over what CI read, so normal drift from `main` does not trip it at once. getting-started's engine (307.1 KB against 314.7 KB) has room and is unchanged. Soft targets are unchanged.
-
-| Route | Metric | Soft before | Soft after | Change | Ceiling after |
-|---|---|---|---|---|---|
-| studio | engineJsGz | 707731 | 707731 | +0 | 781620 |
-| playground | engineJsGz | 707731 | 707731 | +0 | 781620 |
-| home | engineJsGz | 707731 | 707731 | +0 | 781620 |
-| components | engineJsGz | 707731 | 707731 | +0 | 781620 |
-
-### 2026-11-06 — Studio eager ceiling raised by 2.5 KB and lint-core by 0.5 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
-
-Owner OK 2026-11-06, in two rounds asked in the PR 2988 session: "Raise to 565.0KB" (chosen over lazy-loading the Align and venue pickers or dropping the Studio's Align pickers), then, after PR 2988 was rebased onto a `main` that had grown, "Make it 565.5KB" for the eager ceiling and "Raise by 0.5KB" for the lint core (chosen over cutting the handheld-venue lint or moving it into a lazy lint plugin).
-
-PR 2988 gives the Studio a phone and tablet venue picker with a per-shape table (`src/components/studio/venue.ts`), runs the measured split in the preview (the lazy `src/lib/measured-split.ts`, called from `single-slide-render.ts`), adds two Align pickers (`src/components/studio/align-catalog.ts`), and adds the handheld venue rungs to lint (`lib/core/resolve-venue.js`, +392 B in the lint core). It gave back about 1.5 KB before asking: the align words split from the resolver, the align lint through the shared axis check, the pickers' unused swatches and blurbs dropped, bundled icons reused, the preview's measured-split orchestration moved into the lazy module, and the retired-name lint hints trimmed. CI on 9b29219 measured studio eagerJsGz at 563.5 KB (+1,219 B over main, declared in `route-budget.d/2988-measured-split.md`) against 563.0 KB; rebased onto `main` at d3330e5 it measured 563.7 KB eager and 148.7 KB lint core. A local docs build of the rebased branch measured 577,747 B eager and 152,264 B lint core. The eager ceiling rises to 565.5 KB and the lint-core ceiling to 149.1 KB, each about 0.5 KB over what CI should read, so normal drift from `main` does not trip them at once. Soft targets are unchanged.
+Measured locally on 2026-11-06 with `docs/scripts/check-route-budget.mjs` `measure`: `main` at 8ba6b6b reads engineJsGz 774,889 B (756.7 KB); PR 2988 at caf6867 merged onto it reads 782,966 B (764.6 KB), as CI's preview did. PR 2988 adds 8,077 B to the engine every content page loads: the handheld venue resolver, the `align:` register, the measured split in the browser, cover lift and run placement, and the passage split (`lib/core/passage-sentences.js`, the `passage` strategy, the passage arm of `measureFit`). The ceiling on studio, playground, home and components rises from 760.8 KB (779,016 B) to 766.0 KB (784,384 B), 1,418 B over the measurement. getting-started's engine has room and is unchanged. Soft targets are unchanged.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | eagerJsGz | 504833 | 504833 | +0 | 579072 |
-| studio | lintCoreGz | 112808 | 112808 | +0 | 152705 |
+| studio | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| home | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| components | engineJsGz | 707731 | 707731 | +0 | 784384 |
+
+### 2026-11-06 — measured on the built tree at eaba4e51
+
+The perf overlay's panel loads only once the overlay is switched on (PerfOverlayPanel.tsx), so every route stops downloading about 6KB gz it never showed
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | eagerJsGz | 150057 | 142529 | -7528 | 156782 |
 
 ### 2026-11-05 — three ceilings raised by hand, for the deck model in the Studio (PR 3038)
 

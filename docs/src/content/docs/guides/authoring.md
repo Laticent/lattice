@@ -408,6 +408,32 @@ it off), while page numbers and the section rail are switches. The *This slide*
 drawer's Chrome section carries the per-slide overrides (Clean slide · Hide
 header · Hide footer · Hide page number · Hide rail).
 
+## Hide a slide
+
+A hidden slide stays in your deck and in the editor, but Present and every
+export leave it out: the PDF, PowerPoint, LibreOffice, images and the webpage.
+Use it for a backup slide, an appendix you may need for questions, or a draft
+you are not ready to show. Put `hide` at the top of the slide:
+
+```markdown
+<!-- hide -->
+## Backup: the full cost model
+```
+
+`<!-- _hide -->` and `<!-- _hide: true -->` mean the same thing, and
+`<!-- _hide: false -->` shows the slide again. Hiding is per slide: it never
+carries onto the slides after it.
+
+**Page numbers count only the slides your audience sees.** Hide slide 3 of 6
+and the PDF reads 1 to 5, with no gap. A hidden divider opens no section, so the
+section rail counts only the dividers that show.
+
+In the **Studio**, open a slide's menu (the ⋯ on its pill, a right-click, or a
+tap on the current slide) and choose **Hide Slide**. The slide keeps its place
+in the strip with an eye-off mark where its number was, and the preview bar
+shows a **Hidden** chip. Choose **Show Slide** from the same menu, or tap the
+chip, to bring it back. The command palette has both.
+
 ## Where to go next
 
 - [Deck settings](/guides/deck-settings/) — the front-matter block: theme, chrome,

@@ -31,6 +31,7 @@ import type { SingleSlideOptions } from '@/playground/single-slide-render';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { keyAction, PRESENT_KEYMAP } from '../../../../lib/core/present-transport.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { type PresentLens, presentationPairs } from '../../lib/deck-lint';
 import { exitFullscreen, fullscreenSupported, isFullscreen, toggleFullscreen, watchFullscreen } from '../../lib/fullscreen';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
@@ -158,6 +159,14 @@ export type PresentLive = {
 	inertKeys?: boolean;
 };
 
+/** Where Present opens for the editor's current slide `startIndex`: its place among the PRESENTED slides. A hidden
+ *  slide (`<!-- hide -->`) is not presented, so opening on one lands on the next shown slide, or the last. */
+export function presentedStart(slides: string[], startIndex: number): number {
+	const shown = slides.filter((s) => !slideSourceHidden(s)).length;
+	const before = slides.slice(0, Math.max(0, startIndex)).filter((s) => !slideSourceHidden(s)).length;
+	return Math.max(0, Math.min(before, shown - 1));
+}
+
 export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter: deckFrontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins, live }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[]; live?: PresentLive }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
@@ -201,7 +210,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// rendered with `open` already true in some hosts (and in tests), so a transition-only hook would
 	// never fire and the deck default would be silently ignored on first open.
 	const [lens, setLens] = React.useState<PresentLens>(() => landingLens);
-	const [idx, setIdxRaw] = React.useState(() => (landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0));
+	const [idx, setIdxRaw] = React.useState(() => (landingLens === 'full' ? presentedStart(slides, startIndex) : 0));
 	// The page of a split panes slide that is shown (see `paneCounts` below). EVERY move of the
 	// slide index — a jump, the rail, the overview, a lens pick, a reopen, autoplay — starts the
 	// slide on its first page, so the setter resets it; only the page step (`goNext`/`goPrev`)
@@ -243,7 +252,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			setLens(landingLens);
 			// Not `setIdx`: opening is not this person moving, so it must not detach them from a presentation.
 			setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
-			setIdxRaw(landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0);
+			setIdxRaw(landingLens === 'full' ? presentedStart(slides, startIndex) : 0);
 		}
 	}
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
@@ -300,7 +309,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// deliberate: a non-full id that ISN'T a registry entry — a stale `lens-default: exec`, a typo, a
 		// future pinned-link default — must also fail closed, not fall through to the whole deck.
 		if (lens === 'full') return { status: 'ok', pairs: presentationPairs(slides, 'full', registry) };
-		if (registry) return lensEligibility(slides, registry, lens); // unknown/unapproved/drifted/hidden/empty → unavailable
+		if (registry) {
+			// unknown/unapproved/drifted/hidden/empty → unavailable. A slide the author hid never presents under any lens.
+			const r = lensEligibility(slides, registry, lens);
+			return r.status === 'ok' ? { ...r, pairs: r.pairs.filter((p) => !slideSourceHidden(p.slide)) } : r;
+		}
 		return { status: 'unavailable', reason: 'unknown' };
 	}, [slides, lens, registry]);
 	// The presented slides — empty when the lens is unavailable, so the render shows the explicit

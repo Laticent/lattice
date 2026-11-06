@@ -240,8 +240,13 @@ export type ModelAvailability = {
 	openRouterReady: boolean;
 	/** OpenRouter answered 401 for the stored key (revoked, deleted or expired). */
 	openRouterKeyInvalid?: boolean;
+	/** Which provider the cloud tier runs on: 'openrouter', or a direct 'openai' | 'gemini' | 'anthropic' key. */
+	provider?: CloudProvider;
 	modelOn: boolean;
 };
+
+/** The providers the cloud tier can run on (lifecycle note §7). OpenRouter is the default. */
+export type CloudProvider = 'openrouter' | 'openai' | 'gemini' | 'anthropic';
 
 /** Download progress for an on-device tier (0–1 fraction + a status line). */
 export type TierProgress = { progress: number; text?: string; status?: string };
@@ -263,6 +268,14 @@ export type ArchitectModel = {
 	checkOpenRouterKey?: (key: string) => Promise<number>;
 	restoreOpenRouter?: (key: string) => void;
 	disconnectOpenRouter: () => void;
+	// Direct provider keys (§7 step 2). Optional: a test double without them is OpenRouter-only.
+	activeProvider?: () => CloudProvider;
+	checkProviderKey?: (provider: CloudProvider, key: string) => Promise<number>;
+	saveProviderKey?: (provider: CloudProvider, key: string) => void;
+	removeProviderKey?: (provider: CloudProvider) => void;
+	disconnectAllProviders?: () => void;
+	providersWithKeys?: () => CloudProvider[];
+	switchProvider?: (provider: CloudProvider) => void;
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
 	openRouterKeySettingsUrl: () => string;
@@ -323,6 +336,9 @@ export function architectModel(): Promise<ArchitectModel | null> {
 			// connected?", or a reload would read "not connected" until it arrived.
 			.then(async (m) => {
 				await m.loadOpenRouterKey?.();
+				// The direct-provider keys are sealed the same way (§7 step 2, §9). Read through `in`:
+				// a test that mocks this module without the export must still get a model.
+				if ('loadProviderKey' in m) await Promise.all(['openai', 'gemini', 'anthropic'].map((p) => m.loadProviderKey(p)));
 				return m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
 			})
 			.catch(() => null);
@@ -1858,6 +1874,12 @@ export async function cloudBudgetBlock(model: ArchitectModel, promptText: string
 			clearTimeout(timer);
 			price = model.openRouterModelPrice?.(priceModelId) ?? null;
 		}
+		// FAIL CLOSED on a direct provider key (lifecycle note §7). OpenRouter reports each call's real
+		// cost and can cap the key on its server; a direct key has neither, so our estimate is the
+		// only limit, and a model we cannot price would be recorded as $0 and never trip the cap.
+		if (!price && (model.activeProvider?.() ?? 'openrouter') !== 'openrouter') {
+			return 'This model has no price we can look up, so your hard-stop cap cannot hold it. Pick a priced model in Workspace → AI, or set the cap to Warn.';
+		}
 		const est = estimateUsd(promptText, price, maxOut, extraTokens, extraUsd);
 		if (est != null && s.session + est > s.cap) {
 			return `Estimated ~$${est.toFixed(2)} — that would exceed your $${s.cap.toFixed(2)} cap. Raise it in Workspace → Spend, pick a cheaper model, or switch to On-device (free).`;
@@ -1905,12 +1927,14 @@ export type ArchitectStatus = {
 	openRouterReady: boolean;
 	/** The stored key was rejected (401): the Workspace offers Reconnect. */
 	openRouterKeyInvalid: boolean;
+	/** The provider the cloud tier runs on (OpenRouter unless a direct key is active). */
+	provider?: CloudProvider;
 };
 
 const FLOOR_STATUS: ArchitectStatus = {
 	ready: false, generation: 'floor', modelName: null, modelId: null, remaining: null, usage: null, limit: null,
 	usageMonthly: null, limitReset: null, wallet: null, price: null, keySettingsUrl: null,
-	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, openRouterKeyInvalid: false,
+	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, openRouterKeyInvalid: false, provider: 'openrouter',
 };
 
 // The universal Transformers.js backend reports its active name as 'transformers'
@@ -1967,6 +1991,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				universalReady: a.universalReady,
 				openRouterReady: a.openRouterReady,
 				openRouterKeyInvalid: !!a.openRouterKeyInvalid,
+				provider: a.provider ?? 'openrouter',
 			});
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.
@@ -2158,3 +2183,4 @@ export async function disconnectOpenRouter(): Promise<void> {
 	const m = await architectModel();
 	m?.disconnectOpenRouter?.();
 }
+

@@ -1,5 +1,7 @@
-import { buildDeckIndex } from '@/lib/deck-outline';
+import { buildDeckIndex, type DeckIndex } from '@/lib/deck-outline';
+import { unitText } from '@/lib/fuoco/outline';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
 
 // Structural slide editing on the deck SOURCE — add / delete / duplicate / move / replace.
@@ -200,13 +202,14 @@ export function deleteSlide(source: string, index: number): DeckOpResult {
 	return done(d, clampIndex(i, n - 1), identity(n).map((k) => (k < i ? k : k === i ? -1 : k - 1)));
 }
 
-/** Replace slide `index`'s body in place (e.g. after editing its speaker note). */
-export function replaceSlide(source: string, index: number, body: string): DeckOpResult {
+/** Replace slide `index`'s body in place (e.g. after editing its speaker note). `keepIndent` keeps the body's leading
+ *  whitespace, which Show slide needs: a block that opens with indented code must stay code. */
+export function replaceSlide(source: string, index: number, body: string, keepIndent = false): DeckOpResult {
 	const d = read(source);
 	const n = d.slots.length;
 	if (!n) return { source, active: 0, moved: [] };
 	const i = clampIndex(index, n);
-	d.slots[i].content = body.trim();
+	d.slots[i].content = keepIndent ? body.replace(/^\s*\n/, '').trimEnd() : body.trim();
 	d.slots[i].touched = true;
 	return done(d, i, identity(n));
 }
@@ -368,4 +371,16 @@ export function deleteTargetName(title: string, slides: number): string {
 /** How many authored slides (blocks) the deck holds, as the ops count them. */
 export function slideCount(source: string): number {
 	return read(source).slots.length;
+}
+
+// ── Hidden slides (engineering/decisions/2026-11-06-hidden-slides.md) ─────────────────────────────────────────────────
+// The READ stays here, because the strip, the map and the preview bar paint from it. The WRITE (Hide Slide / Show
+// Slide) lives in ./hide-ops, loaded on the click: it parses the slide, and the Studio route's startup JavaScript sits
+// at its ceiling (docs/route-budget.json).
+
+/** Is rendered slide `s` hidden? Hiding belongs to the `---` block (a heading-split part shares its block's state, as the
+ *  engine renders it), so this reads block `s.unit`. Pass the deck index the caller holds (`ix`): its OWN text is read,
+ *  never `source` sliced at its offsets, which may be a render behind (the checker's finding). */
+export function isHiddenAt(source: string, s: SlideAt, ix: DeckIndex = buildDeckIndex(source)): boolean {
+	return slideSourceHidden(unitText(ix, s.unit));
 }

@@ -153,7 +153,7 @@ async function printSlideTwo(page: Page, context: BrowserContext, testInfo: Test
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
 	await dialog.getByRole('button', { name: 'Print', exact: true }).click();
-	const frame = page.locator('iframe[style*="-10000px"]').last();
+	const frame = page.locator('iframe[style*="-10000px"][style*="width: 1024px"]'); // the print frame, not the draw host's (1200px)
 	await expect(frame).toBeAttached({ timeout: 60_000 });
 	const srcdoc = (await frame.getAttribute('srcdoc')) as string;
 	expect(srcdoc, 'the offscreen print document').toBeTruthy();

@@ -7,9 +7,9 @@
 // Five categories, five different storage mechanisms:
 //   · Decks           localStorage, lattice-studio-* (studio-store.ts owns it)
 //   · Library assets  IndexedDB, lattice-workbench   (asset-store.js owns it)
-//   · OpenRouter       localStorage, lattice-db-or-*  (architect-model.js owns it;
-//                      reuses the existing disconnectOpenRouter — same action as
-//                      the AI tab's "Disconnect" button)
+//   · AI keys          localStorage, lattice-db-or-* and lattice-db-<provider>-key
+//                      (lib/openrouter-key.js owns them; disconnectAllProviders removes the
+//                      OpenRouter key and every direct provider key)
 //   · Downloaded models  Cache Storage — WebLLM / Transformers.js cache their model
 //                        weights there themselves; Lattice owns no key for it, so
 //                        this targets every Cache Storage entry that ISN'T ours
@@ -24,7 +24,7 @@
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
-import { disconnectOpenRouter } from './architect';
+import { disconnectAllProviders } from './api-key';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
@@ -234,7 +234,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllSessions();
 	const tasks: [string, () => Promise<void>][] = [
 		['library', clearLibraryAssets],
-		['openrouter', disconnectOpenRouter],
+		['openrouter', disconnectAllProviders],
 		['models', clearDownloadedModels],
 		['cache', clearSiteCache],
 		['narration', clearNarrationAudio],

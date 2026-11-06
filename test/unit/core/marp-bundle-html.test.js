@@ -237,3 +237,46 @@ test('the report flags a <title> left open across a slide break, and nothing els
   assert.match(formatRefusedHtml(refusedHtml('# A\n\ntext <title>x\n\n---\n\n# B\n')), /leaves a <title> open/);
   assert.equal(formatRefusedHtml(refusedHtml('# A\n')), '');
 });
+
+// HIDDEN SLIDES in the bundle (engineering/decisions/2026-11-06-hidden-slides.md, the Export-to-Marp row). The engine's
+// `lattice_hide_slides` rule reads exactly what Lattice reads: a top-level comment, alone on its line, that is only
+// `_hide: <on|off>`, the last one on a slide winning. Any other value is no directive and stays a note.
+test('the engine drops the slides whose last top-level `_hide` is on, and nothing else', () => {
+  const { engine } = load();
+  const rules = {};
+  const md = {
+    core: { ruler: { push() {}, before(_at, name, fn) { rules[name] = fn; } } },
+    renderer: { rules: { html_block: () => '' } },
+  };
+  engine({ marp: { use(plugin) { plugin(md); return this; } } });
+  const hide = rules.lattice_hide_slides;
+  assert.equal(typeof hide, 'function');
+  // One slide per entry: its comments, each [content, line]. `src` lines decide "alone on its line".
+  const run = (slides, src) => {
+    const tokens = [];
+    slides.forEach((comments, i) => {
+      tokens.push({ type: 'marpit_slide_open', nesting: 1, slide: i });
+      for (const [content, line, nested] of comments) {
+        if (nested) tokens.push({ type: 'blockquote_open', nesting: 1 });
+        tokens.push({ type: 'marpit_comment', block: true, nesting: 0, content, map: [line, line + 1] });
+        if (nested) tokens.push({ type: 'blockquote_close', nesting: -1 });
+      }
+      tokens.push({ type: 'marpit_slide_close', nesting: -1, slide: i });
+    });
+    const state = { tokens, src: src.join('\n'), inlineMode: false };
+    hide(state);
+    // The rule runs in the config's own realm (vm), so copy its array into this one before comparing.
+    return { kept: [...state.tokens].filter((t) => t.type === 'marpit_slide_open').map((t) => t.slide), tokens };
+  };
+  const src = ['<!-- _hide: true -->', '<!-- _hide: false -->', '<!-- _hide: maybe -->', '<!-- _hide: true --> trailing', '> <!-- _hide: true -->', '<!-- _hide: true --><!-- note -->'];
+  // Slide 1 on; slide 2 on then off; slide 3 on then a non-value (no directive); slide 4 not alone on its line;
+  // slide 5 nested in a blockquote; slide 0 says nothing.
+  // Slide 6: two comments on one line, one HTML block to Lattice.
+  const { kept, tokens } = run([[], [[' _hide: true ', 0]], [[' _hide: true ', 0], [' _hide: false ', 1]], [[' _hide: true ', 0], [' _hide: maybe ', 2]], [[' _hide: true ', 3]], [[' _hide: true ', 4, true]], [[' _hide: true ', 5]]], src);
+  assert.deepEqual(kept, [0, 2, 4, 5, 6]);
+  // A directive the rule read is no presenter note; a non-value and a comment that is not alone stay notes.
+  const notes = tokens.filter((t) => t.type === 'marpit_comment');
+  assert.ok(notes.filter((t) => / maybe /.test(t.content)).every((t) => !t.meta?.marpitCommentParsed));
+  assert.ok(notes.filter((t) => t.map[0] === 3 || t.map[0] === 4).every((t) => !t.meta?.marpitCommentParsed));
+  assert.ok(notes.filter((t) => / false /.test(t.content)).every((t) => t.meta?.marpitCommentParsed === 'lattice'));
+});

@@ -1601,8 +1601,8 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
   // viewer; we collapse it now to whichever side matches what the deck is
   // declared as. Dark variants (e.g. cuoio-dark.css) declare
   // `color-scheme: dark` at :root; everything else is treated as light.
-  // `forceDark` collapses to the dark branch regardless — used by the
-  // dual-render path to bake a second, dark-scheme SVG for section.dark slides.
+  // `forceDark` collapses to the dark branch regardless — the palette a
+  // diagram on a section.dark slide is drawn from (PALETTE_VARS_DARK).
   const isDark = forceDark || /:root\s*\{[^}]*color-scheme\s*:\s*dark\b/.test(stripped);
   // Resolve every declaration against the RAW map with the recursive
   // evaluator. Order-independent, unlike the former "collapse light-dark,
@@ -1662,14 +1662,13 @@ function paletteTokenReader(paletteVars, hand = false) {
 // defaults — matches the real browser cascade where `@import 'lattice'`
 // at the top of every theme loads lattice.css first.
 const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
-// Dual-render dark set: the SAME palette resolved to its DARK branch. Mermaid
-// bakes themeVariables to literal hex at render time (in the light scheme), so
-// a single bake can't flip on a `section.dark` slide — the documented dark-mode
-// gap. We bake a second SVG with dark-resolved vars and toggle the two by
-// color-scheme in CSS (see mermaid.css `.mmd-light/.mmd-dark`). This makes dark
-// diagrams correct natively, including Mermaid's own color-math derivations.
-// Toggle off with LATTICE_MERMAID_SINGLE=1 to fall back to the single (light)
-// bake + the per-diagram CSS overrides.
+// The dark set: the SAME palette resolved to its DARK branch. Mermaid bakes
+// themeVariables to literal hex, so a diagram on a `section.dark` slide is drawn
+// ONCE, from these dark-resolved vars, in its own slide's band (no SVG pair and
+// no CSS toggle: that design is gone, and no output recolors a diagram at view
+// time; engineering/decisions/2026-11-06-plugin-patterns.md §10). This keeps
+// Mermaid's own color-math derivations right on dark slides.
+// LATTICE_MERMAID_SINGLE=1 draws dark slides from the light vars instead.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
 // Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
@@ -1700,8 +1699,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // kernel builds one palette per band the deck ACTUALLY uses, on first use.
 function paletteVarsForBand(band) {
   if (band === 'print') return PALETTE_VARS_PRINT;
-  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light bake — the
-  // documented fallback to the per-diagram CSS overrides. It has to live in the
+  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light palette. It has to live in the
   // READER, not at the call site, or the two ways of asking for a dark palette
   // (this preprocess pass and the image-set look re-bake) could answer differently.
   if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;
@@ -2249,6 +2247,8 @@ const logoWallPack       = require('./lib/core/logo-wall-pack');
 // this replaced did not: a `<section` quoted inside a comment or a <style> moved
 // its depth counter, the walk found zero slides, and the export shipped a
 // one-page PDF with exit code 0.
+const { isHiddenSection } = require('./lib/core/hidden-slides.js');
+
 function topLevelSectionStrings(latticeHtml) {
   return splitSections(latticeHtml)
     .filter((p) => p.type === 'section')
@@ -2377,7 +2377,12 @@ function engineSlides(deckSource = rawMd) {
     }
   }
   const imageScrim = require('./lib/transformers/image-scrim');
-  return topLevelSectionStrings(html).map((sec, i) => {
+  // HIDDEN SLIDES leave every export here, at the one list every format reads (engineering/decisions/
+  // 2026-11-06-hidden-slides.md). Notes, alt text and the slide index are all read off THIS list, so they stay
+  // with their own slides; the engine has already numbered the shown slides 1..N without the hidden ones.
+  const all = topLevelSectionStrings(html);
+  const shown = all.filter((sec) => !isHiddenSection(sec));
+  const out = shown.map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
     // engine's basic-mode render doesn't: wrap half-canvas prose in
     // `.image-text`, and inject the contrast scrim for full/contain image
@@ -2406,6 +2411,13 @@ function engineSlides(deckSource = rawMd) {
     }
     return s;
   });
+  // The hidden sections, kept beside the list rather than in it: `--strip-notes` must find THEIR notes too, or a
+  // hidden slide's note rides into the shipped source (the checker's finding). Never exported.
+  out.hiddenSections = all.filter((sec) => isHiddenSection(sec));
+  // The authored position of each shown section among ALL sections, for anything keyed by slide number
+  // (front-matter `say:`), which counts hidden slides.
+  out.sectionIndex = all.map((sec, i) => (isHiddenSection(sec) ? -1 : i)).filter((i) => i >= 0);
+  return out;
 }
 
 // PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
@@ -2441,7 +2453,7 @@ const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
 // blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+const noteStripSet = STRIP_NOTES ? new Set([...slidesAsAuthored, ...(slidesAsAuthored.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 // PASS 2 — A PRIVACY STRIP SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
 // of the authored source. Blanking the note copies after the fact left the comment's own
 // whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
@@ -2593,6 +2605,11 @@ function attachmentCut() {
   }));
 }
 const slides = STRIP_NOTES || STRIP_SAY ? strippedSlidesOrAuthored() : slidesAsAuthored;
+// EVERY SLIDE HIDDEN: there is nothing to export, and the writers below would ship an empty file with exit 0.
+if (!slides.length && slidesAsAuthored.hiddenSections?.length) {
+  console.error(`error: every slide in this deck is hidden (\`<!-- hide -->\`), so there is nothing to export. Show at least one slide.`);
+  process.exit(1);
+}
 const slideNotes = notesCore.extractSlideNotes(slides);
 // Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
@@ -3015,7 +3032,14 @@ const { parseFrontMatter: parseFm } = require('./lib/engine/directives');
 const { directives: deckFm, body: deckBody } = parseFm(rawMd);
 const cleanTitle = (t) => String(t == null ? '' : t).replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
 const deckLang = (String(deckFm.lang || '').match(/^[A-Za-z][\w-]*/) || ['en'])[0];
-const firstHeading = (deckBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+// The first heading of the first SHOWN slide: a hidden slide is in no export, so it names none (the second checker's
+// finding — a hidden title slide named the player's <title> and the PDF's metadata).
+const shownBody = (() => {
+  const { splitSlideChunks } = require('./lib/core/slide-boundaries.mjs');
+  const { slideSourceHidden } = require('./lib/diagnostics/slice-equivalence-core.mjs');
+  return splitSlideChunks(deckBody).chunks.filter((c) => !slideSourceHidden(c)).join('\n\n');
+})();
+const firstHeading = (shownBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
 const deckTitle =
   cleanTitle(deckFm.title) ||
   cleanTitle(firstHeading) ||
@@ -6581,7 +6605,12 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
       // bake never touches (and withoutFences-blank any fence anyway), so they're byte-identical
       // on this input; only narrateDiagram needs the fence. See
       // 2026-07-13-mermaid-diagram-narration.md §8 (Axis B1, trio-verified).
-      const blocks = splitSourceToSections(appendAutoGlossary(md));
+      // A HIDDEN slide is in the source but not in the export: keep only the shown slides' blocks, in order, so block i
+      // is exported section i (`engineSlides`' `sectionIndex`). Without this every deck with a hidden slide lost its
+      // chart narration (the counts differed) — the checker's finding.
+      const allBlocks = splitSourceToSections(appendAutoGlossary(md));
+      const shownAt = slides.sectionIndex;
+      const blocks = shownAt && slides.hiddenSections?.length && allBlocks.length === shownAt.length + slides.hiddenSections.length ? shownAt.map((k) => allBlocks[k]) : allBlocks;
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for
@@ -6634,16 +6663,21 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   };
   let fmForMerge = fmSayMap;
   if (fmSayMap?.size) {
-    const origin = pageOrigin();
+    // `say:` is keyed by AUTHORED slide number, which counts hidden slides; the pages count only shown ones. Map each
+    // page's shown-slide number back through `sectionIndex` (identity when nothing is hidden).
+    const shownAt = slides.sectionIndex;
+    const origin = pageOrigin().map((n) => (shownAt && shownAt[n - 1] !== undefined ? shownAt[n - 1] + 1 : n));
     // Only rebuild when the split actually moved something; an unsplit deck keeps the
     // authored map byte-for-byte, so a deck that never paginates is unaffected.
-    if (origin.length && origin[origin.length - 1] !== origin.length) {
+    // ANY page whose authored slide is not its own position needs the remap. Testing only the LAST page missed a deck
+    // where a split adds exactly the pages hidden slides remove (the second checker's finding).
+    if (origin.some((a, i) => a !== i + 1)) {
       const remapped = new Map();
       origin.forEach((authored, i) => {
         if (fmSayMap.has(authored)) remapped.set(i + 1, fmSayMap.get(authored));
       });
       fmForMerge = remapped;
-      if (!QUIET) console.log(`Captions: front-matter say: map remapped across the split — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
+      if (!QUIET) console.log(`Captions: front-matter say: map remapped across split or hidden slides — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
     }
   }
   // `--strip-say` blanks the author's say OVERRIDES (inline + front-matter), so those

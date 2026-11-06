@@ -348,9 +348,11 @@ test('the Studio desktop print document shows the source when Mermaid never load
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
 	await dialog.getByRole('button', { name: 'Print', exact: true }).click();
 
-	// The offscreen print frame, identified by the off-screen offset the panel gives it —
-	// the print PREVIEW cells are ordinary on-screen frames and must not be read instead.
-	const handle = page.locator('iframe[style*="-10000px"]');
+	// The offscreen print frame, identified by the off-screen offset AND width the panel gives
+	// it (PrintOptionsPanel.tsx) — the print PREVIEW cells are ordinary on-screen frames and must
+	// not be read instead, and the draw host's frame (code-packages/draw-host.ts) sits at the same
+	// offset at 1200px, so the offset alone matched two frames (a strict-mode violation).
+	const handle = page.locator('iframe[style*="-10000px"][style*="width: 1024px"]');
 	await expect(handle).toBeAttached({ timeout: 60_000 });
 	// READ AFTER THE FIT AGENT REVEALS. `buildSrcdoc` holds the whole deck
 	// `visibility:hidden` until then, so a measurement taken earlier reports `hidden` for a

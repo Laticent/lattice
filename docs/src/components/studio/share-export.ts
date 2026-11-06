@@ -8,6 +8,7 @@
 // renderer options + current palette, so Share hands off real artifacts rather
 // than a toast.
 
+import { splitSections } from '@laticent/markup';
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
 import { offFences, offFencesSentence } from '@/lib/off-fences';
@@ -17,7 +18,10 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
+import * as hiddenSlides from '../../../../lib/core/hidden-slides.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
+import { splitSlideChunks } from '../../../../lib/core/slide-boundaries.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import iconFallbackCore from '../../../../lib/fonts/icon-fallback.js';
 import { math as MATH_DETECT } from '../../../../lib/plugins/detect.generated.mjs';
@@ -43,6 +47,10 @@ type PG = LatticePlaygroundEngine;
 /** The `render` object the image exporters (exportPdf/exportPptx) consume. */
 export type DeckRender = {
 	html: string;
+	/** 0-based positions of the slides the author hid (`<!-- hide -->`), already removed from `html`. A caller holding a
+	 *  list keyed by slide position drops the same entries (`shownOnly`), so every export leaves a hidden slide out
+	 *  and keeps each comment and note with its own slide (engineering/decisions/2026-11-06-hidden-slides.md). */
+	hidden?: number[];
 	css: string;
 	mode: 'light' | 'dark';
 	geom: { w: number; h: number };
@@ -141,6 +149,11 @@ async function assetOpts(source: string): Promise<{ assetUrls?: Record<string, s
  * image exporters need. This is the single piece of glue Share adds on top of
  * the shared exporters.
  */
+/** The 0-based authored slides (`---` blocks) the source hides with `<!-- hide -->`. */
+export function hiddenAuthoredSlides(source: string): number[] {
+	return splitSlideChunks(stripFrontMatter(source)).chunks.flatMap((md, i) => (slideSourceHidden(md) ? [i] : []));
+}
+
 export async function buildDeckRender(
 	options: SingleSlideOptions,
 	source: string,
@@ -154,8 +167,12 @@ export async function buildDeckRender(
 	const theme = await ensureTheme(options, palette, mode, extra, source);
 	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
+	// Every surface built from this render is a reader's view (an export, the print panel, the Article, narration), so a
+	// hidden slide leaves here, once, off the engine's own mark.
+	const shown = hiddenSlides.withoutHiddenSlides(out.html, splitSections);
 	return {
-		html: out.html,
+		html: shown.html,
+		hidden: shown.hidden,
 		// Saved local-component CSS (extraCss) rides last so the deck's `.<name>`
 		// slides export with their styles — same composition as the live preview.
 		css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
@@ -526,7 +543,14 @@ export async function shareHtmlPlayer(
 	const media = await withMedia(out.html);
 	const placed = remoteRef.blockWebImages(media.html, []);
 	// `let`: the strip-notes cut below swaps in the scrubbed render, and the bake must bake THAT.
-	let playerHtml = placed.html;
+	// HIDDEN SLIDES leave the player (engineering/decisions/2026-11-06-hidden-slides.md), as they leave the CLI's
+	// `--player`. Their note bodies are read FIRST, so the strip-notes scrub below removes those notes from the shipped
+	// source too; reading them off the shown sections left a hidden slide's note in the envelope (the checker's finding).
+	const hiddenNoteBodies = sectionsOf(placed.html)
+		.filter((sec) => hiddenSlides.isHiddenSection(sec))
+		.flatMap((sec) => notesCore.slideNoteRecord([sec]).flatMap((r) => r.noteBodies || []));
+	const shownHtml = (html: string) => hiddenSlides.withoutHiddenSlides(html, splitSections).html;
+	let playerHtml = shownHtml(placed.html);
 	// Reported with the other degradations at the end: a picture the file cannot show is a
 	// silent gap otherwise, because the player's placeholder looks deliberate.
 	// Our own origin is left out of the placeholder list: a picture of ours reaching that pass is one
@@ -565,14 +589,14 @@ export async function shareHtmlPlayer(
 		const cut = await stripNotesCut(
 			source,
 			notesCore,
-			new Set(noteRecord.flatMap((r) => r.noteBodies || [])),
+			new Set([...noteRecord.flatMap((r) => r.noteBodies || []), ...hiddenNoteBodies]),
 			recordSections,
 			sectionsOf,
 			// Placeholders on the candidate too, so it compares like-for-like with `recordSections`.
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => shipRender(r, src)).then(async (r) => ({ ...r, html: shownHtml(remoteRef.blockWebImages((await withMedia(r.html)).html, []).html) })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -1176,6 +1200,9 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss));
+	// Review comments are keyed by AUTHORED slide (`---` block, ShareSheet's `splitSlides` count): drop a hidden slide's
+	// with the slide, by the blocks the source hides, not by rendered-section position (the two differ in a split deck).
+	annotations = hiddenSlides.shownOnly(annotations, hiddenAuthoredSlides(source));
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
@@ -1372,13 +1399,18 @@ export async function shareCaptions(
 	// The auto-glossary's section is dropped (`withoutAutoGlossary`, the kernel Present, the bake and
 	// the CLI share): nobody narrates it, and leaving it in made the list one long, so the chart
 	// substitution below stood down and the glossary's definitions were captioned here alone.
+	// HIDDEN slides are not captioned (engineering/decisions/2026-11-06-hidden-slides.md): drop their sections, and keep
+	// the shown authored slides beside them, so section i, `shownSlides[i]` and `say:` entry `authored[i] + 1` agree.
+	const allSlides = splitSlides(stripFrontMatter(source));
+	const authored = allSlides.map((_, i) => i).filter((i) => !slideSourceHidden(allSlides[i]));
+	const shownSlides = authored.map((i) => allSlides[i]);
 	const sections = withoutAutoGlossary(
 		splitSectionsCore(out.html)
 			.filter((p) => p.type === 'section')
 			.map((p) => `${p.openTag}${p.inner}</section>`),
-		splitSlides(stripFrontMatter(source)).length,
+		allSlides.length,
 		source,
-	);
+	).filter((sec) => !hiddenSlides.isHiddenSection(sec));
 
 	// The FULL narration chain, matching the CLI export's writeCaptionsSidecar
 	// (HARD RULE #1): a slide's inline `<!-- say: -->` → its front-matter `say:`
@@ -1393,7 +1425,9 @@ export async function shareCaptions(
 	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a
 	// dead no-op at best. A deck whose slides SPLIT exports a `.vtt` that differs from the
 	// CLI's by design (the CLI paginates; splitting is intrinsic since 2026-07-29).
-	const fmSayMap = resolveNarrationMod.frontMatterSayMap(source);
+	// Keyed by AUTHORED slide number, re-keyed to the shown slides' positions.
+	const authoredSay = resolveNarrationMod.frontMatterSayMap(source);
+	const fmSayMap = new Map(authored.flatMap((a, i) => (authoredSay.has(a + 1) ? [[i + 1, authoredSay.get(a + 1) as string] as const] : [])));
 	const acronyms = resolveNarrationMod.acronymSpokenMap(source);
 	const lexicon = resolveNarrationMod.lexiconMap(source); // author lexicon beats the built-in commons
 	const lang = resolveNarrationMod.frontMatterLang(source); // non-English → bypass English say-as (#919)
@@ -1422,7 +1456,7 @@ export async function shareCaptions(
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
 	const { deckPluginsOff: offFor } = await import('@/lib/plugin-admission');
-	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected, undefined, narrationResolve.narrationDeck(source, offFor(source)));
+	projected = narrationResolve.applyChartNarration(shownSlides, projected, undefined, narrationResolve.narrationDeck(source, offFor(source)));
 	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines, fmSayMap });
 	// Emphasis only where the resolved text is still the text the spans were measured against —
 	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on
