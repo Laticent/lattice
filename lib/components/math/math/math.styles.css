@@ -722,6 +722,7 @@ section.math.form.compare > .cell-stage > p:not(:has(:is(.katex-display, mjx-con
  * kept all three columns in a 1080px portrait box and rendered as overlapping text.
  * The doubled `.math.math` is the same idiom the sovereign family block used against
  * variant rules; with the attribute selector it reaches (0,6,1) and wins cleanly. */
+section.math.math.form.compare[data-family="square"] > .cell-stage,
 section.math.math.form.compare[data-family="tall"] > .cell-stage,
 section.math.math.form.compare[data-family="strip"] > .cell-stage {
   column-count: 1;
@@ -733,6 +734,7 @@ section.math.math.form.compare[data-family="strip"] > .cell-stage {
    * never gets pushed off the block-start edge where no probe can see it. */
   align-content: safe center;
 }
+section.math.math.form.compare[data-family="square"] > .cell-stage > h3,
 section.math.math.form.compare[data-family="tall"] > .cell-stage > h3,
 section.math.math.form.compare[data-family="strip"] > .cell-stage > h3 {
   break-before: auto;
@@ -1184,7 +1186,7 @@ section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-con
   font-size: var(--fs-body);
   line-height: var(--lh-base);
 }
-/* FAMILY REFLOW — tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
+/* FAMILY REFLOW — square/tall/strip. `max-width: 60cqi` is a MEASURE cap: on a 1920-wide
  * slide it stops the interpretation line running the full canvas. In a tall box it
  * does the opposite of its job. The stage is 972px there, the cap holds the paragraph
  * to 583px, and the result is a ~25-character line — well under the comfortable
@@ -1193,8 +1195,10 @@ section.math.form.stats > .cell-stage > p:not(:has(> :is(.katex-display, mjx-con
  *
  * Released, the same paragraph runs the stage width at ~41 characters: inside the
  * measure band, several lines shorter, and the number above it keeps its full 2.6em.
- * The cap is not tightened here, it is removed, because a narrow box supplies its own. */
-section.math.math.form.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
+ * The cap is not tightened here, it is removed, because a narrow box supplies its own.
+ * Square joined on 2026-11-06: at the phone venue the capped paragraph ran six lines
+ * at ~22 characters and pushed the estimate off the top of a 1:1 slide. */
+section.math.math.form.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
   max-width: none;
 }
 
