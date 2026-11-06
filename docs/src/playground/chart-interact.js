@@ -40,6 +40,9 @@ const COARSE = (() => {
 
 function el(cls) { const d = document.createElement('div'); if (cls) d.className = cls; return d; }
 
+// Text into markup: the five characters that can end a text run or an attribute value.
+const escText = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 /**
  * @param {object} o
  * @param {HTMLElement} o.stage  the .db-pp-stage (positioning context for our chrome)
@@ -508,11 +511,16 @@ export function createChartInteract({ stage, getFrame, lift = true, onReveal, on
       return;
     }
     pop.classList.toggle('db-pp-chartpop--lean', lean);
+    // `label`, `value` and `dot` are TEXT (a mark's data-* attribute, a text node, a computed
+    // color), and DOMPurify keeps data-* attributes verbatim, so an author's
+    // `data-label="<img onerror=…>"` reaches here unchanged. `pop` lives in the PARENT
+    // document, beside the author's stored OpenRouter key, so escape them. `body`/`meta` are
+    // the sanitized template's own markup and stay markup.
     pop.innerHTML =
       `<div class="db-pp-chartpop-h">` +
-      (dot ? `<span class="db-pp-chartpop-dot" style="background:${dot}"></span>` : '') +
-      `<span class="db-pp-chartpop-l">${label}</span>` +
-      (value ? `<span class="db-pp-chartpop-v">${value}</span>` : '') + `</div>` +
+      (dot ? `<span class="db-pp-chartpop-dot" style="background:${escText(dot)}"></span>` : '') +
+      `<span class="db-pp-chartpop-l">${escText(label)}</span>` +
+      (value ? `<span class="db-pp-chartpop-v">${escText(value)}</span>` : '') + `</div>` +
       (body ? `<div class="db-pp-chartpop-b">${body}</div>` : '') + (meta ? `<div class="db-pp-chartpop-m">${meta}</div>` : '');
     pop.classList.add('show');
     reflow();   // re-pin the Present hit-surface

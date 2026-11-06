@@ -22,14 +22,20 @@ pending sign-in, and that verifier could never succeed again.
 **Now.** `resumePendingAuth` returns `{ status: 'none' | 'connected' }` or
 `{ status: 'failed', note }`:
 
-- A non-2xx from `POST /api/v1/auth/keys`: the adapter's `resumeOpenRouterAuth`
-  (`ai/architect-model.js`) clears the verifier and rethrows; `resumePendingAuth` scrubs
-  `?code=` from the URL so a reload cannot replay the dead exchange, and returns
-  `failed` with the HTTP status in the note.
+- A non-2xx from `POST /api/v1/auth/keys` (OpenRouter answered and refused): the adapter's
+  `resumeOpenRouterAuth` (`ai/architect-model.js`) clears the verifier and rethrows;
+  `resumePendingAuth` scrubs `?code=` from the URL so a reload cannot replay the dead
+  exchange, and returns `failed` with the HTTP status and `retry: 'connect'`.
+- A network failure (OpenRouter never answered): the code was never spent, so the verifier
+  and the code both stay, and the result is `failed` with `retry: 'reload'`. A reload
+  finishes the sign-in.
+- `resumePendingAuth` is single-flight. React StrictMode runs the mount effect twice in
+  development, and two exchanges of one single-use code would make one of them report a
+  false failure after a sign-in that worked.
 - A return with `?error=` and no code (the author cancelled, or OpenRouter refused):
   the verifier is cleared and the result is `failed`.
-- `StudioShell` shows `failed` as an action notice with **Try again**, which starts a
-  fresh sign-in.
+- `StudioShell` shows `failed` as an action notice: **Try again** starts a fresh sign-in,
+  **Reload** retries the unspent code.
 
 An existing key is never touched by a failed exchange: only the verifier is cleared.
 
@@ -42,10 +48,11 @@ and `docs/e2e/openrouter-oauth-return.spec.ts` (mocked endpoint, HARD RULE #24).
 openrouter.ai, or whose key expired, kept seeing "OpenRouter — active" in Workspace; every
 cloud request failed, and nothing offered the fix.
 
-**Now.** The OpenRouter backend in `ai/architect-model.js` taps the status of every call it
-makes with the stored key — `/auth/key`, `/credits` and `/chat/completions`. A **401**, and
-only a 401, sets `lattice-db-or-key-invalid`, and the transition fires `db-model-changed`
-once so live surfaces re-read. `availability().openRouterKeyInvalid` carries it to
+**Now.** Every call made with the stored key feeds its status to `noteOpenRouterStatus(status,
+key)` in `docs/src/lib/openrouter-key.js`: the adapter's `/auth/key` and `/chat/completions`
+calls, and the voice model's `/audio/speech` (`docs/src/playground/voice-model.js`). A **401**
+sets `lattice-db-or-key-invalid`; a later **2xx** with the same key clears it, so a one-off 401
+does not stick; each change fires `db-model-changed` once so live surfaces re-read. `availability().openRouterKeyInvalid` carries it to
 `useArchitectStatus`, and the Workspace AI tab replaces the connected row with
 "OpenRouter — key rejected · Reconnect".
 
@@ -58,12 +65,19 @@ Three choices worth recording:
   for moderation as well as auth. None of those mean the key is dead.
 - **Every write of the key clears the mark** (`setKey` in the backend), so a reconnect, a
   disconnect, or the Disconnect Undo's `restore` always starts clean.
+- **An answer about an old key is ignored.** The status is recorded only when the key the
+  request carried is still the stored key. Without that, a `/auth/key` 401 still in flight
+  when the author reconnected would land after the reconnect and mark the NEW key rejected
+  (found by review, pinned by a unit test).
+- **`/credits` is not tapped.** OpenRouter documents it as needing a management key, so a
+  refusal there does not prove the key is dead.
 
 The Studio's `useArchitectStatus` already fetches `/auth/key` when the Workspace opens, so
 a revoked key is caught there before any paid request is attempted.
 
 Pinned by `ai/architect-model.key-invalid.test.ts` (the mark, its one-time announcement,
-that 402/429/500 do not set it, and that a disconnect clears it) and
+the stale-key race, `/credits`, that 402/429/500 do not set it, and that a disconnect clears
+it), `lib/openrouter-key.test.ts` and
 `WorkspaceSheet.test.tsx` › "a rejected key".
 
 ## 3. One module reads the key
@@ -89,3 +103,79 @@ on this branch it lists 1.
 Not a reader: `workspace-backup.ts` packs storage into a zip, and
 `workspace-backup.test.ts` › "never packs the OpenRouter key, even if present" already pins
 that the key stays out of a backup.
+
+## 4. A shared deck cannot read the key
+
+**The exposure.** The Studio's slide preview is a same-origin, unsandboxed `srcdoc` iframe
+(`docs/src/playground/single-slide-render.ts`, `srcdoc()`), and its CSP
+(`lib/core/subresource-csp.mjs`) has **no `script-src`**: it closes `img-src`,
+`connect-src`, `object-src`, `base-uri` and `form-action` against data beacons, and leaves
+script loading unrestricted. Same origin means a script in the frame shares the Studio's
+`localStorage`, which is where the key lives. Closing `connect-src` does not save it: the
+script can call `parent.fetch` (the parent's realm, without the frame's CSP) or set
+`top.location` to a URL carrying the key.
+
+So the guard is exactly one thing: `sanitizeSlideHtml` (`docs/src/lib/sanitize-slide-html.js`,
+DOMPurify), which `srcdoc()` applies to every slide through `sanitizeOnce` before the markup
+enters the frame. HARD RULE #22 already gates that the builder calls it
+(`checkPreviewHtmlSinks`).
+
+§3 does **not** add to this defense. It makes our own code auditable, but an injected script
+does not need our module: it types `localStorage.getItem(…)` itself. The key's safety in the
+preview rests on one sanitizer call. The stronger, defense-in-depth move is a `script-src` in
+the frame's CSP that refuses inline event handlers, which are the vectors that fired
+unguarded below; it is recorded as a follow-up, because the runtime and Mermaid scripts the
+frame does need must be allowed by hash or nonce first.
+
+**The proof.** `docs/e2e/byok-key-isolation.spec.ts` seeds a canary key, types a deck
+carrying nine script vectors (`<script>`, `img onerror` with a beacon, `svg onload`,
+`<svg><script>`, `details ontoggle`, `iframe srcdoc`, an `onerror` after a `<style>`,
+`object data="javascript:"`, and, last because it swallows what follows, an mXSS
+`math/mglyph/style` nest), confirms the slide rendered,
+and asserts that none of them read the key or reached the beacon host.
+
+**The proof can fail.** With `sanitizeOnce` changed to `return html;` and the site rebuilt,
+the same spec goes red, and four vectors read the canary:
+
+```
++ "details-ontoggle:sk-or-e2e-isolation-canary",
++ "iframe-srcdoc:sk-or-e2e-isolation-canary",
++ "after-style:sk-or-e2e-isolation-canary",
++ "img-onerror:sk-or-e2e-isolation-canary",
+```
+
+(Measured 2026-11-06, desktop Chromium. A bare `<script>` and `<svg onload>` did not fire
+even unguarded, because markup inserted through the preview's patch paths does not run
+`<script>` elements; the guard is what stops the event-handler vectors, which do.)
+
+**What this does not cover.** The proof drives the Studio preview only. The other surfaces
+that render a deck on the key's origin were TRACED to a sanitizer call by the adversarial
+pass below, not proved in a browser: the Stage popup (`stage-window.js`, `buildStageDoc`),
+Print (`buildSrcdoc`), the export capture frame (`deck-export.js`), the webpage-export prune
+frame (`player-prune-browser.ts`, which runs the assembled player on this origin), the Read
+Article view (`projectSectionsToArticle`) and the Library scene art (`sanitizeSceneAssets`).
+
+## 5. The adversarial pass (2026-11-06)
+
+A red team, a Munger inversion and an independent checker reviewed §1–§4.
+
+- **Red team: no exploitable path found.** 21 mXSS payloads through the repo's exact DOMPurify
+  config, each re-inserted three ways; Mermaid 11 `%%{init}%%` attempts to loosen
+  `securityLevel`; function-plot's expression compiler; the style channel; and the suono and
+  cadenza pages. One **latent** sink, fixed here: `chart-interact.js`'s vanilla popover wrote a
+  mark's `data-label`/`data-value` into the PARENT document with `innerHTML`, and DOMPurify
+  keeps `data-*` attributes verbatim. No caller reached that branch (the Studio always passes
+  `onDetail`), but the first host that dropped it would have handed a deck script the key's
+  realm. The three text values are now escaped, pinned by `chart-interact.test.ts` (red with
+  the escape removed).
+- **Checker: two confirmed bugs, fixed here.** The stale-key 401 race (§2) and a guard test
+  that passed when git failed to run (§3). Also fixed: StrictMode's double code exchange and
+  the network-blip case (§1), the one-off 401 that stuck (§2), on-device failures worded as
+  OpenRouter errors (`surfaceErrors` now lifts cloud failures only), and two spec payloads the
+  mXSS nest had swallowed (§4).
+- **Inversion: the §3-protects-§4 claim was wrong**, corrected above.
+
+Deferred, each with a follow-up file: a frame `script-src` that refuses inline handlers
+(defense in depth for §4); browser proof on the Stage and Read Article surfaces; and a check
+that the key's value never reaches the storage enumerators or more than one shipped bundle
+chunk.
