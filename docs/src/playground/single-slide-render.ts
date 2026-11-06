@@ -2241,6 +2241,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Declared out here so both the (later) poll and the onload assignment can see it.
 				let onFrameLoad: (() => void) | null = null;
 				if (!fr) {
+					// UNDO TRIPWIRE: on iOS, mounting this frame (and every `srcdoc` write below) empties WebKit's own
+					// undo list, so Safari's undo gestures stop reaching Filo until the Studio's undo doorbell re-arms
+					// it (docs/src/components/studio/undo-doorbell.ts). A new frame anywhere in the Studio does the same.
 					fr = document.createElement('iframe');
 					fr.className = 'live';
 					fr.setAttribute('title', 'Live-rendered Lattice slide');

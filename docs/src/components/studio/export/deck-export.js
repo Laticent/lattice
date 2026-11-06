@@ -523,8 +523,8 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			...(framePadding != null ? { padding: framePadding } : {}),
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
-			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
-			// which copies the COMPUTED style onto its clone. If Mermaid 404s or is CSP-blocked
+			// this one: nobody sees it, and rasterizeSection photographs it with the shared camera,
+			// which draws the hidden fence as hidden. If Mermaid 404s or is CSP-blocked
 			// inside this frame, nothing tags the fence, the rule hides it, and the export bakes
 			// an empty slot where the author's unrendered source used to be — an EXPORT-BYTES
 			// regression on an authoring-error surface, the same class the CLI export hit.
@@ -1195,18 +1195,29 @@ export function forceSectionVisibleForCapture(section) {
 // pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
 // rasterizers so the fixups can never drift apart.
 // ─── Web images at the capture (trio follow-up 11) ──────────────────────────────────────
-// The capture frame carries the web-image policy and its markup is rewritten, but the frame is
-// not what fetches for an export: html-to-image runs in the PARENT page, which has no such
-// policy, and re-downloads every image and every `url()` it reads off the computed style so it
-// can inline them. A spelling the markup rewrite cannot see (a CSS escape, `image-set()`, a `(`
-// inside the address, a `background=` attribute, a web url() in theme or package CSS, a Mermaid
-// image drawn after the rewrite) would therefore still be fetched at export, from the author's
-// machine. The computed style is where every spelling has been resolved, so the last word is
-// taken there: right before the clone, every web reference outside the deck's allow-list is
-// swapped for the placeholder, and every one is put back afterwards.
+// The capture frame carries the web-image policy, and the policy is what stops a request. Measured in Chromium, WebKit
+// and Firefox (security spine note, "The export's web sweep, measured"): the frame asks for a theme's web picture when it
+// first lays the slide out, before any export code runs, and resolving its style again asks again, so a sweep that must
+// read a value before it replaces it cannot stop a load in any of the three. The camera (lib/core/slide-camera.mjs)
+// requests no web address itself: it draws the slide as an SVG image, which loads no subresource, and inlines only what
+// `studioDataUri` reads (same-origin, `blob:`, `data:`). What this sweep owns is the DRAWING: right before the shot it
+// sets every web reference outside the deck's allow-list, in the properties below, to the hatch (`background-image`),
+// `auto` (`cursor`) or `none` (the rest), and puts each back afterwards. It reads no other property on purpose:
+// a sweep stops no request, and the guard on the policy for `-webkit-box-reflect`, `mask-border-source`, SVG paint and
+// the rest is docs/e2e/export-missing-image.spec.ts.
+// (This block used to say html-to-image ran in the PARENT page and re-downloaded every `url()`; that camera is gone.)
 
 /** The allowed web origins of each capture frame's document (set by createCaptureFrame). */
 const CAPTURE_WEB_ORIGINS = new WeakMap();
+
+/**
+ * Whether `url` is a web address the capture frame refuses on purpose: its origin is not on the frame's allow-list (no
+ * list, no web origin). Such a picture is drawn as the placeholder, not lost, so the export never counts it as missing.
+ */
+export function refusedWebAddress(doc, url) {
+	const origin = remoteRef.webOrigin(url);
+	return !!origin && !(CAPTURE_WEB_ORIGINS.get(doc) || []).includes(origin);
+}
 
 /** Record the web origins a capture frame's document may load (the deck's allow-list plus the site's own origin). */
 export function allowCaptureWebOrigins(doc, origins) {
@@ -1460,8 +1471,11 @@ function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
 		face,
 		fontCss: fontEmbedCSS,
 		toDataUri: studioDataUri,
-		onImageError: () => {
-			if (log) log.count += 1;
+		// The camera reads every `url()` in the page's CSS, and `studioDataUri` refuses a web address. One the deck has not
+		// allowed is refused on purpose (the frame's policy refuses it too, and the sweep draws the hatch for a background),
+		// so it is no missing picture: a theme with a web background used to make every export say a picture was lost.
+		onImageError: (url) => {
+			if (log && !refusedWebAddress(section.ownerDocument, url)) log.count += 1;
 		},
 		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
 		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
@@ -1584,11 +1598,7 @@ export async function recordUnreachableAssets(sections, log) {
 		// A web background the deck has not allowed is never probed: the probe would ask the author's machine for it, and
 		// the capture swaps it for the drawn hatch on purpose (sweepWebRefsForCapture), so it is not a missing picture.
 		// The same allow-list as the sweep, and the same fail-closed default when a frame has none.
-		const allowed = new Set(CAPTURE_WEB_ORIGINS.get(section.ownerDocument) || []);
-		for (const url of backgroundImageUrls(section)) {
-			const origin = remoteRef.webOrigin(url);
-			if (!origin || allowed.has(origin)) urls.add(url);
-		}
+		for (const url of backgroundImageUrls(section)) if (!refusedWebAddress(section.ownerDocument, url)) urls.add(url);
 	}
 	if (!urls.size) return;
 	const results = await Promise.all([...urls].map((url) => probeImage(win, url, BACKGROUND_PROBE_MS)));

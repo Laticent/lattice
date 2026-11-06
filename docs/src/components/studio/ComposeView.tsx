@@ -42,7 +42,7 @@ import { imageNodeView } from './image-node-view';
 import type { LinkEdit } from './LinkPanel';
 import { type MarkerEdit, MarkerPicker } from './MarkerPicker';
 import { mathInlineNodeView, rawBlockNodeView } from './raw-node-view';
-import { undoChord, undoOwner } from './studio-filo';
+import { blurToDoorbell, undoChord, undoOwner } from './studio-filo';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -2933,7 +2933,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						return insertLineBreak(v.state, v.dispatch);
 					},
 					// D2: on blur, apply any external source that arrived while focused.
-					blur() {
+					blur(_v, e) {
+						// The undo doorbell's ring is not the author leaving: focus comes straight back, so the
+						// selection bar stays and the parked resync waits for a real blur (D2).
+						if (blurToDoorbell(e)) return false;
 						setSelBar(null); // the selection bar never outlives focus
 						flushParkedResync();
 						return false;

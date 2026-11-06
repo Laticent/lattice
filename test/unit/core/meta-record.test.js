@@ -116,15 +116,41 @@ describe('the comment finder is linear on hostile text', () => {
 
 describe('hostile-input cost, round 1 findings', () => {
   test('many comments against many fences stay linear (the fence scan advances one pointer)', () => {
+    // Counted, not timed (HARD RULE #32): one step per opener and one per fence the pointer passes. Linear is about
+    // 2 x 8,000; scanning every fence per comment, the path this guards, is about 8,000 x 8,000 / 2.
     const t = '```\n```\n<!-- x -->\n'.repeat(8000);
-    const t0 = performance.now();
-    m.comments(t);
-    assert.ok(performance.now() - t0 < 250, 'comments x fences took the quadratic path');
+    const work = { steps: 0 };
+    m.comments(t, work);
+    assert.ok(work.steps <= 2 * 8000 + 2, `comments x fences took ${work.steps} steps, the quadratic path`);
   });
   test('many unterminated openers on separate lines are one failed scan, not one each', () => {
     const t = '<!-- open\n'.repeat(20000);
     const t0 = performance.now();
     m.scanMetaSource(t);
     assert.ok(performance.now() - t0 < 1500, 'the comment scan rescanned to EOF per opener');
+  });
+});
+
+// The Studio asks for every slide's blocks several times per keystroke; one slide changes. Before the memo, each ask
+// parsed its slide from nothing (594 of 595 full parses per 10 keystrokes in the real Studio, 2026-11-06).
+describe('commentBlocks remembers each text', () => {
+  test('asking again for the same text parses nothing; new text parses once', async () => {
+    const { deckModelStats } = await import('@laticent/segno-markdown');
+    const slide = '<!-- _class: kpi -->\n\n## Remembered\n';
+    const first = m.commentBlocks(slide);
+    const before = deckModelStats.full;
+    for (let i = 0; i < 20; i++) assert.deepEqual(m.commentBlocks(slide), first);
+    assert.equal(deckModelStats.full - before, 0, 'a repeated ask must not parse');
+    m.commentBlocks(`${slide}x`);
+    assert.equal(deckModelStats.full - before, 1, 'a changed slide parses once');
+  });
+
+  test('a caller cannot change what the next caller gets', () => {
+    const slide = '<!-- _class: lead -->\n\n## Shared\n';
+    const a = m.commentBlocks(slide);
+    a.pop();
+    assert.ok(m.commentBlocks(slide).every((r) => Object.isFrozen(r)), 'every cached record is frozen');
+    assert.equal(m.commentBlocks(slide).length, 1);
+    assert.equal(m.commentBlocks(slide)[0].body, ' _class: lead ');
   });
 });
