@@ -412,6 +412,24 @@ few characters a line to read. Two changes follow, and they are the only way typ
   tall, x0.72 strip), because a tablet shows a slide larger than a phone does.
 - **The rooms rise less on a tall slide**: x1.1, x1.17 and x1.22 instead of x1.15, x1.3 and
   x1.5, so a story at hall keeps about 35 characters a line (the text-room tight threshold).
+- **The small rungs are curated on a phone and a tablet** (owner, 2026-11-06: "our font size
+  ladder for phone and tablet are not readable"). One step moves every rung together, and the
+  shapes hold meta at different fractions of body (square 0.73, tall 0.64), so at the step that
+  set body near 17pt a footer or a label read at about 11pt, Apple's floor. The handheld venues
+  keep their step and set the meta, compact and chrome lifts the rooms already use, solved per
+  shape for these sizes on the device (a 393pt phone, an 820 x 1180pt tablet):
+
+  | Rung | Target | Phone, every shape | Tablet: square, story, mobile |
+  |---|---|---|---|
+  | meta (labels, chips, eyebrows) | 13pt | 13.1 | 13.1–13.3 |
+  | body-compact (code, support lines, keys) | 15pt | 15.0 | 14.9–15.2 |
+  | body | 17pt | 16.5–17.1 | 17.1–17.3 |
+  | chrome (footer, page number) | about 12.5pt | 12.6–12.7 | 12.5–13.0 |
+
+  A portrait slide on a tablet, limited by the tablet's width rather than its height, reads
+  larger (body 21.4pt). Larger targets (19 / 17 / 15pt) were built and measured first: across
+  the galleries at the phone venue they clipped 90 to 236 more slides per shape even when split
+  by measurement, so these were chosen. The lifts are in `base.modifiers.css` beside the steps.
 
 The table is `VENUE_SCALE_BY_FAMILY` in `lib/core/resolve-venue.js`, applied in
 `base.modifiers.css` off the section's `data-family` stamp, so the default follows the box a

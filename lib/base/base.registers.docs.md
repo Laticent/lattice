@@ -856,6 +856,10 @@ Bold is the default when `venue:` is omitted. Why each row is what it is:
   line, too few to read; 1.22x keeps about 35.
 - **`tablet` steps down**, because a tablet held at reading distance shows a slide larger than a
   phone does.
+- **On a phone and a tablet the small text is lifted on its own**, so a footer, a label or a chip
+  reads at about 13pt and a support line at about 15pt beside 17pt body text, on every shape. The
+  step alone left them at about 11pt. The derivation is `engineering/typography.md` §7
+  "Handheld venues".
 - **Venue is the only thing that changes a text size.** No component steps its type up or down
   for a narrow box; it changes its layout instead.
 

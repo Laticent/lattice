@@ -1365,21 +1365,35 @@ section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-co
  * the default follows the box a slide renders at. `venue: laptop` stamps `venue-laptop` and opts
  * out. One table, VENUE_SCALE_BY_FAMILY in lib/core/resolve-venue.js, pinned to these lines by
  * test/unit/parsing/resolve-venue.test.js:
- *  - square: phone x1.5 (about 16pt on a 390pt phone; the measured hall rung), tablet x0.75;
- *  - tall / strip: phone x1 (the designed size already reads at 17pt on a phone); the rooms rise
- *    x1.1 / x1.17 / x1.22, because x1.5 on a tall box left under 35 characters a line; tablet x0.6
- *    (tall) and x0.72 (strip), because a tablet shows a tall slide larger than a phone does;
+ *  - the HANDHELD LADDER (owner, 2026-11-06: "our font size ladder for phone and tablet are not
+ *    readable. we need to curate these font sizes better"). On the device, in points (a 393pt
+ *    phone, an 820 x 1180pt tablet), body text reads at about 17pt, the body-compact role at 15pt
+ *    and meta at 13pt, on every shape. Before this, meta read at about 11pt on a tall or strip
+ *    slide, Apple's floor. One step cannot place every rung, because the shapes hold meta at
+ *    different fractions of body (square 0.73, tall 0.64), so each handheld venue keeps its step and
+ *    sets the meta, compact and chrome lifts the rooms already use. Measured per shape at x1
+ *    (.scratch/charts/typepoints.js) and solved for the targets:
+ *      square  phone x1.5 (body 16.5pt, the measured hall rung kept so every budget stays exact)
+ *              meta lift 1.08, compact 1.06, chrome 1.05; tablet x0.75, lifts 1.04 / 1.03 / 1.03
+ *      tall    phone x1, tablet x0.6     meta lift 1.2, compact 1.03, chrome 1.15
+ *      strip   phone x1, tablet x0.72    meta lift 1.2, compact 1.03, chrome 1.15
+ *    The larger targets (19 / 17 / 15pt) were built and measured first: across the galleries at the
+ *    phone venue they clipped 90 to 236 more slides per shape even under `fit: pack`, slides that
+ *    cannot split, so the owner chose these;
+ *  - tall / strip rooms rise x1.1 / x1.17 / x1.22, because x1.5 on a tall box left under 35
+ *    characters a line;
  *  - wide: phone and tablet are the designed size (a 16:9 deck is not read in a hand).
  * The family part sits in :where(), so each rule weighs what `section.scale-l` weighs, and the
  * `scale-*` rungs declared after them still win, as they do over the rooms. Venue is the ONLY
  * thing that changes a text size: no rule elsewhere steps a role up or down for a narrow box. */
-section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --fs-scale: 1.5; }
-section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; }
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --fs-scale: 1.5; --venue-meta-lift: 1.08; --venue-compact-lift: 1.06; --venue-chrome-cut: 1.05; }
+section:where([data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; --venue-meta-lift: 1.04; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.03; }
 section.venue-huddle:where([data-family="tall"], [data-family="strip"])     { --fs-scale: 1.1; }
 section.venue-conference:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.17; }
 section.venue-hall:where([data-family="tall"], [data-family="strip"])       { --fs-scale: 1.22; }
-section.venue-tablet:where([data-family="tall"])  { --fs-scale: 0.6; }
-section.venue-tablet:where([data-family="strip"]) { --fs-scale: 0.72; }
+section.venue-tablet:where([data-family="tall"])  { --fs-scale: 0.6; --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+section.venue-tablet:where([data-family="strip"]) { --fs-scale: 0.72; --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
 
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }

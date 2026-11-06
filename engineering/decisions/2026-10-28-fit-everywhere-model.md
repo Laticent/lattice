@@ -1101,3 +1101,17 @@ And a native slice given a measured plan of ONE page now builds a cover and that
 envelope does, so the host's measuring pass can build the body page it measures.
 Timeline gallery at square, phone: 0 of 15 chart pages failing (6 of 10 before); at square laptop
 and portrait tablet the stress slide is 3 + 3 horizontally; hd unchanged.
+
+**The handheld ladder (2026-11-06, owner: "our font size ladder for phone and tablet are not
+readable. we need to curate these font sizes better").** Measured on the device in points (a
+393pt phone, an 820 x 1180pt tablet), body read at about 17pt on every shape, but meta read at
+about 11pt on a tall or strip slide. Each handheld venue keeps its step and now sets the meta,
+compact and chrome lifts the rooms use: meta 13pt, body-compact 15pt, body 17pt (square 16.5pt,
+its step kept at the measured hall rung). The owner first chose larger targets (19 / 17 / 15pt);
+built and measured across every gallery at the phone venue they clipped 90 to 236 more slides per
+shape even under `fit: pack`, so the middle targets were measured next: +25 square, +53 portrait,
++49 story under `fit: pack` (128 slides in all, out of about 3,500), pages +6 to +23 per shape.
+Those 128 sit in components with no narrow form (legal, the grids, the comparisons), and the
+owner ruled they are fixed in this PR before the merge ask, component by component. The same
+round set two more rulings: measuring becomes the default way slides split, for every deck, and
+the nightly fit check gains the phone venue with today's clip count as its baseline.
