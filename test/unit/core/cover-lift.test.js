@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { liftCoverText } = require('../../../lib/core/cover-lift');
 
-function deck({ heights, floor }) {
+function deck({ heights, floor, room = 500 }) {
   const dom = new JSDOM(`<body>
     <section data-split-role="cover" data-lattice-slide="9">
       <div class="split-feat-h">Title</div><div class="split-feat-sub">Sub</div>
@@ -34,6 +34,8 @@ function deck({ heights, floor }) {
     }
     return { top: 0, bottom: 0 };
   };
+  // Each body page's stage has `room` px of height and, in this stub, content of height 0.
+  for (const stage of document.querySelectorAll('.cell-stage')) Object.defineProperty(stage, 'clientHeight', { value: room });
   return document;
 }
 
@@ -59,4 +61,10 @@ test('the lede follows the subtitle when the cover still runs into its footer', 
   assert.equal(liftCoverText(doc), 2);
   const held = [...doc.querySelector('.split-lifted').children].map((e) => e.className);
   assert.deepEqual(held, ['split-feat-sub', 'split-feat-lede'], 'in reading order');
+});
+
+test('a first page with no room keeps the text on the cover', () => {
+  const doc = deck({ heights: { 'split-feat-h': 300, 'split-feat-sub': 60, 'split-feat-lede': 40, 'split-cover-lead': 40 }, floor: 400, room: 30 });
+  assert.equal(liftCoverText(doc), 0);
+  assert.ok(doc.querySelector('[data-split-role="cover"] .split-feat-sub'));
 });
