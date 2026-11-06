@@ -36,7 +36,7 @@ async function exportWebpage(
 	// second — neither of which that helper's shape can express.
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
-	if (opts.stripNotes) await page.getByRole('switch', { name: 'Strip speaker notes' }).click();
+	await setStripNotes(page, !!opts.stripNotes);
 	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
 	const file = path.join(testInfo.outputDir, opts.as);
@@ -56,6 +56,14 @@ async function exportWebpage(
 //   2. the docs PRODUCTION build minifies player-core, renaming the transport kernel
 //      functions, so the `.toString()`-inlined script threw `createTransport is not
 //      defined`, stripped `.lp-js`, and fell back to the no-JS floor on every browser.
+// "Strip speaker notes" is ON by default since #1833 (a webpage export is a file you send), so a
+// test sets the state it means instead of clicking, which would flip whichever default ships.
+async function setStripNotes(page: import('@playwright/test').Page, on: boolean): Promise<void> {
+	const sw = page.getByRole('switch', { name: 'Strip speaker notes' });
+	if ((await sw.getAttribute('aria-checked')) !== String(on)) await sw.click();
+	await expect(sw).toHaveAttribute('aria-checked', String(on));
+}
+
 test('the Studio webpage export produces a player that boots (styled + script runs)', async ({ page, context }, testInfo) => {
 	test.setTimeout(120_000);
 	await gotoStudio(page);
@@ -189,7 +197,7 @@ test('the Studio webpage export honors Strip speaker notes, including on a slide
 
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await page.getByRole('dialog').getByRole('button', { name: /^Webpage \(\.html\)/ }).click();
-	await page.getByRole('switch', { name: 'Strip speaker notes' }).click();
+	await setStripNotes(page, true);
 	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
 	await page.getByRole('button', { name: /Download webpage|Exporting/ }).click();
 	const file = path.join(testInfo.outputDir, 'stripped-export.html');
