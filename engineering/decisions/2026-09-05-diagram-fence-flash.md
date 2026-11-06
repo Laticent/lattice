@@ -998,3 +998,45 @@ decision, not one to take on the way past.
 **Still unverified on this host:** the preview's behavior on EDIT (`engineering/mermaid.md`
 claims it replaces the `<section>` wholesale — untested), the retired HARD RULE #12
 selectors, and `markdown.marp.enableHtml: false`. All three are now cheap; the route is open.
+
+## 9. The host owns the protections (2026-11-06)
+
+`engineering/decisions/2026-11-06-plugin-patterns.md` §5 (owner decision 3) moves the protections this note built for
+Mermaid into the plugin host, so every deferred figure gets them. The first part landed with D2 slice 1:
+
+- **The scope key is the host's.** `diagramScopeKey` and `normalizeScopeStyle` moved unchanged from
+  `lib/plugins/mermaid/shared/diagram-scope.js` to `lib/plugins/figure-scope.mjs` (`figureScopeKey`). It knows the
+  runtime's own stamps, which is host knowledge. Mermaid's pass receives it as `ctx.scopeKey`, the way it receives
+  `ctx.diagramLook`; a plugin never imports host code (2026-11-01-plugin-contract-hollywood.md).
+- **The host has a figure memory** (`lib/plugins/host-browser.mjs` `settleSwap`), on only when the runtime passes
+  `scopeKey`; the serialized CLI page passes none. The runtime calls it in the swap's microtask, before Mermaid's pass
+  reads and clears the `data-lattice-swap` stamp (the runtime now reads the stamp once and hands its value on):
+  1. a pending figure whose (plugin, scope, config, place among that plugin's figures) the memory holds gets that
+     drawing back as **cloned nodes**, `rendered`. The place is in the key because function-plot seeds its ids from it;
+  2. on an `in-place` swap, a figure still pending takes the outgoing figure's drawing, **moved** node for node, and
+     stays `pending` with `data-lattice-held`. The guards are §5's: pairing per record node, equal figure counts, same
+     plugin, same scope. An in-page draw clears the held drawing first in the same task; a frame draw (`drawInto`)
+     replaces it when its answer lands.
+  Neither path writes a markup string, so no new HARD RULE #22 sink. `data-lattice-held` is on `HOST_MARKERS`
+  (lib/plugins/author-markup.js), so an author cannot forge it (test/unit/plugins/author-markup.test.js caught it).
+
+**Measured** on the real Studio (dev server, Chromium, a slide holding a `functionplot` figure; frames in which the
+figure's placeholder had no SVG, counted inside the preview frame with `requestAnimationFrame`, per 6 keystrokes). Both
+columns built by a full `npm run build` and synced, so each served its own runtime:
+
+| typing | main | slice 1 |
+|---|---|---|
+| in the slide's heading (the memory) | 16, 19, 15 | **0, 0, 0** |
+| in the plot's own config (the hold) | 24, 25 | **0, 0, 0** |
+
+The hold first left 7, 4 and 7 blank frames on config edits. The cause was this note's own §5 lesson: it took a donor
+only when `rendered` or already held, and while an author types the previous keystroke's figure is usually still
+`hydrating` behind a frame draw. It now takes any donor that shows a drawing; an `error` or `unavailable` donor shows
+text and donates nothing.
+
+**Mermaid keeps its own cache and hold** (owner, 2026-11-06). Its cache stores each diagram's replayable binder with the
+drawing (the tooltip and gantt-link listeners, #2734, and the gantt workaround for Mermaid's shared gantt db), which cloned
+nodes cannot carry. Moving it would need a host "re-attach" hook with one user, and the contract admits a shared member
+only with two (2026-11-01-plugin-contract-hollywood.md §4). So the host owns the scope key and the protections for
+every figure it draws (the hydrators), and Mermaid's pass keeps `replayCachedFences` and `adoptOutgoingDiagrams`, keyed
+on the host's scope through `ctx.scopeKey`. Tests: test/unit/plugins/figure-memory.test.js, each guard failing without it.

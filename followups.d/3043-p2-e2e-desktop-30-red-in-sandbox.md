@@ -20,6 +20,15 @@ why now   — a full `npx playwright test --project=desktop` run in a cloud sess
             The `tablet` and `mobile` projects add 5 more (288 passed): visual.spec.ts on both, studio-raster-
             export-marker's images and PowerPoint arms on mobile, and ios-zoom.spec.ts:65 "the editor and its controls
             hold the 16px floor" on mobile. All 5 fail on `main` (fb7c3f1c) as well.
+            mermaid-cache-bindings.spec.ts:143 ("a flowchart tooltip survives the cache hand-back after a keystroke",
+            Studio and Playground) also fails on `gecko` and `webkit-tablet`, not only desktop: all 6 fail on `main`
+            (56253e00) too, measured for PR #3052. Also red on `main` (56253e00), measured for PR #3052:
+            anima-motion-frames.spec.ts:247 (desktop; the mid frame reads 1228, past the test's 1000),
+            compose-fenced-code.spec.ts:173, :194 and :331 (desktop; Tab and Enter inside a fence, the chip picker),
+            mermaid-unavailable-export.spec.ts:336 (desktop; its `iframe[style*="-10000px"]` locator now matches
+            Mermaid's draw frame as well as the print document, a strict-mode violation), and
+            draw-frame-preview.spec.ts:297 on `gecko` ("never loads Mermaid into the page"), which is FLAKY: 3 of 6
+            runs fail on `main`, 1 of 6 on the PR's branch.
 where     — docs/e2e/journeys/author-export.spec.ts, print-preview-documents.spec.ts, studio-warm-offline.spec.ts,
             playground-kpi-pill.spec.ts, studio-instant-shell.spec.ts and 14 more specs (the full list is the
             30 titles in PR #3043's evidence); first suspect is what the sandbox lacks for export (the PDF

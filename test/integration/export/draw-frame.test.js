@@ -18,7 +18,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { launchSandboxBrowser } = require('../../../lib/core/code-sandbox.js');
-const { drawLocked } = require('../../../lib/export/locked-figures.js');
+const { openDrawPage } = require('../../../lib/export/locked-figures.js');
 
 const ROOT = path.join(__dirname, '../../..');
 const CHROME = process.env.CHROME_PATH || undefined;
@@ -126,9 +126,12 @@ test('DRAW: Mermaid and function-plot come back as SVG; the plot is the CLI lock
     assert.equal(plot.ready, true);
     assert.match(plot.replies[0].out, /^<svg class="function-plot"[^>]*width="600" height="300" viewBox="0 0 600 300"/);
     assert.match(plot.replies[1].error, /^functionplot error: /);
-    // THE SAME DRAWING as the CLI's capture page (it runs the same `hydrate` in a locked page).
-    const [cli] = await drawLocked(puppeteer, [{ config: b64(cfg), w: 600, h: 300 }], { executablePath: CHROME });
-    assert.equal(plot.replies[0].out, cli.html);
+    // THE SAME DRAWING as the CLI's capture page: its locked page runs this draw-frame document too
+    // (lib/export/locked-figures.js `openDrawPage`), so the two must agree byte for byte.
+    const locked = await openDrawPage(browser, 'function-plot');
+    const cli = await locked.draw({ kind: 'function-plot', configB64: b64(cfg), configText: cfg, width: 600, height: 300, index: 0 });
+    await locked.close();
+    assert.equal(plot.replies[0].out, cli.out);
   } finally {
     await browser.close();
   }
@@ -167,6 +170,12 @@ test('REPLY: the host accepts a drawing and nothing else', async () => {
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 7 }).error, /not text/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: null }).error, /null/);
   assert.match(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }).error, /past the/);
+  // The CLI export raises the limit (its drawing goes into a file; the pre-D2 export drew any size): the same reply passes.
+  const { CLI_MAX_DRAW_CHARS, drawBootstrap } = await kernel();
+  assert.equal(checkDrawReply({ t: 'result', id: 1, out: 'x'.repeat(MAX_DRAW_CHARS + 1) }, { maxChars: CLI_MAX_DRAW_CHARS }).out.length, MAX_DRAW_CHARS + 1);
+  const meta = { global: 'g', adapter: 'function (env, job) { return \'\'; }' };
+  assert.match(drawBootstrap({ kind: 'k', meta }), new RegExp(`MAX=${MAX_DRAW_CHARS},`), 'a preview frame keeps the preview limit');
+  assert.match(drawBootstrap({ kind: 'k', meta, maxChars: CLI_MAX_DRAW_CHARS }), new RegExp(`MAX=${CLI_MAX_DRAW_CHARS},`));
   assert.equal(checkDrawReply({ t: 'result', id: 1, error: 'e'.repeat(1000) }).error.length, 600);
 });
 

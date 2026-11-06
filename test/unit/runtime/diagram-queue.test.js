@@ -32,7 +32,7 @@ const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/merm
 // The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
 const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');
 const renderDiagrams = (deck, ports) => rawRenderDiagrams(deck, { buildTheme: BUILD_THEME, ...ports });
-const { diagramScopeKey } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
+const { figureScopeKey: diagramScopeKey } = require('../../../lib/plugins/figure-scope.mjs');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'plugins', 'mermaid', 'mermaid.hydrate.js'), 'utf8');

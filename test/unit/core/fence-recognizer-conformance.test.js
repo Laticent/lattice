@@ -3,8 +3,10 @@
  *
  * This repo has several things that decide "is this a Mermaid fence", and they do not agree:
  *
- *   · `matchMermaidFences` (lib/plugins/mermaid/shared/mermaid-fences.js) — the CLI's substitution and the
- *     narrator. Caps indent at three, because it REPLACES source with a picture.
+ *   · `fencesOfPlugin('mermaid', …)` (lib/core/plugin-fences.mjs) — the CLI's substitution (the bake's `ctx.fences()`)
+ *     and the narrator, since 2026-11-06 the ENGINE's own parse rather than a line walker of Mermaid's
+ *     (engineering/decisions/2026-11-06-plugin-patterns.md §9). It hands over closed fences only, because it REPLACES
+ *     source with a picture.
  *   · `createFenceReader` (lib/core/slide-speech.js) — narration's fence state. Trims, so any
  *     indent. Over-blanking under-narrates, which is the safe direction there.
  *   · `scanFences` (lib/core/fence-languages.js) — which highlight.js grammars to fetch.
@@ -25,7 +27,7 @@
  *   1. **The engine's own behavior is pinned.** If a markdown-it upgrade changes what counts
  *      as a fence, this file fails and names the row — rather than the CLI silently drifting
  *      away from the preview for a year.
- *   2. **THE WALKER NEVER OVER-MATCHES.** Every disagreement must be a MISS: the engine draws
+ *   2. **THE EXPORT NEVER OVER-MATCHES.** Every disagreement must be a MISS: the engine draws
  *      a diagram and the CLI prints the source. That direction is a visible, recoverable
  *      annoyance. The other direction replaces something the author wrote as literal text with
  *      a picture, and there is no budget for it — the assertion is zero, not "few".
@@ -38,7 +40,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { render } = require('../../../lib/engine/index.js');
-const { matchMermaidFences } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
+const { fencesOfPlugin } = require('../../../lib/core/plugin-fences.mjs');
+// What the export substitutes: the Mermaid fences the engine parses, closed ones only.
+const exportFences = (src) => fencesOfPlugin('mermaid', src);
 const { createFenceReader, slideToSpeech } = require('../../../lib/core/slide-speech');
 const { scanFences } = require('../../../lib/core/fence-languages');
 
@@ -72,7 +76,7 @@ function scannerSees(body) {
 
 const indent = (text, pad) => text.replace(/^(?=.)/gm, pad);
 
-// `walker` is what `matchMermaidFences` MUST report. Where it differs from `engine`, `why`
+// `walker` is what the export (`exportFences`) MUST report. Where it differs from `engine`, `why`
 // says which way the disagreement runs and states that the direction is safe.
 const CORPUS = [
 	{ name: 'column 0, backticks', body: `\`\`\`mermaid\n${DEF}\`\`\`\n`, engine: true, walker: true },
@@ -95,7 +99,7 @@ const CORPUS = [
 	{ name: 'commented out in an HTML comment', body: `<!--\ndraft:\n~~~mermaid\n${DEF}~~~\n-->\n`, engine: false, walker: false },
 	{ name: 'a directive comment above a real fence', body: `<!-- _footer: "x" -->\n\n\`\`\`mermaid\n${DEF}\`\`\`\n`, engine: true, walker: true },
 	{ name: 'unclosed at end of document', body: `\`\`\`mermaid\n${DEF}`, engine: true, walker: false, why: 'MISS — markdown-it runs an unclosed fence to the end of the document. Substituting there would swallow every slide after it, which is a worse failure than showing the source.' },
-	{ name: 'blockquoted', body: `> \`\`\`mermaid\n> ${DEF.replace(/\n(?=.)/g, '\n> ')}> \`\`\`\n`, engine: true, walker: false, why: 'MISS — the walker does not strip block-quote markers, so it does not see the fence. The author sees their source; substituting a `>`-prefixed definition would hand mmdc a broken one.' },
+	{ name: 'blockquoted', body: `> \`\`\`mermaid\n> ${DEF.replace(/\n(?=.)/g, '\n> ')}> \`\`\`\n`, engine: true, walker: true },
 	{ name: 'tab-indented — an indented code block', body: `\t\`\`\`mermaid\n\t${DEF}\t\`\`\`\n`, engine: false, walker: false },
 	{ name: 'tab-indented closer', body: `\`\`\`mermaid\n${DEF}\t\`\`\`\n`, engine: true, walker: false, why: 'MISS — a tab is four columns, so the engine does not close here either; it runs the fence on. The walker declines rather than close early and cut the definition in half.' },
 	{ name: "mermaid's own front matter in the body", body: `\`\`\`mermaid\n---\nconfig:\n  theme: base\n---\n${DEF}\`\`\`\n`, engine: true, walker: true },
@@ -117,7 +121,7 @@ describe('fence recognizers — conformance against the engine', () => {
 
 	test('the WALKER matches the corpus, and every disagreement carries its reason', () => {
 		for (const row of CORPUS) {
-			assert.equal(matchMermaidFences(row.body).length > 0, row.walker, `"${row.name}": walker`);
+			assert.equal(exportFences(row.body).length > 0, row.walker, `"${row.name}": export`);
 			if (row.engine !== row.walker) {
 				assert.ok(row.why, `"${row.name}" disagrees with the engine and says nothing about why`);
 			}
@@ -185,7 +189,7 @@ describe('fence recognizers — conformance against the engine', () => {
 		for (const { name, src } of decks) {
 			// Splice back-to-front so earlier offsets stay valid — what the Mermaid bake (`mermaid.bake.js`) does.
 			let out = src;
-			for (const m of matchMermaidFences(src).slice().reverse()) {
+			for (const m of exportFences(src).slice().reverse()) {
 				out = out.slice(0, m.start) + '<div class="mermaid-svg"></div>' + out.slice(m.end);
 			}
 			assert.equal(sections(out), sections(src), `${name}: substituting changed the SLIDE COUNT`);
@@ -204,10 +208,10 @@ describe('fence recognizers — conformance against the engine', () => {
 		// Narration's reader trims, so it fences an indented block the walker will not substitute.
 		// Safe there: over-blanking under-narrates, it never speaks source it should not.
 		assert.equal(readerFences(indented), true);
-		assert.equal(matchMermaidFences(indented).length, 1); // …and at 2 spaces the walker agrees
+		assert.equal(exportFences(indented).length, 1); // …and at 2 spaces the export agrees
 		const deep = `- a\n\n      \`\`\`mermaid\n${indent(DEF, '      ')}      \`\`\`\n`;
 		assert.equal(readerFences(deep), true, 'the reader should still fence a deeply indented block');
-		assert.equal(matchMermaidFences(deep).length, 0, 'the walker caps indent at three — a MISS, by design');
+		assert.equal(exportFences(deep).length, 0, 'four columns past the item is an indented code block to the engine, so not a fence');
 		// The grammar scanner allows arbitrary indent too: a false positive costs one 2KB fetch.
 		assert.equal(scannerSees(deep), true);
 	});
@@ -245,8 +249,8 @@ describe('fence recognizers — conformance against the engine', () => {
 		const trapSpoken = slideToSpeech(trap);
 		assert.ok(!/flowchart|A --> B/.test(trapSpoken), `the fence body stays silent: ${trapSpoken}`);
 		assert.match(trapSpoken, /After/);
-		// The substitution still declines the blockquoted fence — the corpus row, restated here
-		// so the asymmetry is asserted rather than merely described.
-		assert.equal(matchMermaidFences(deck).length, 0);
+		// The export DRAWS the blockquoted fence, as the engine does (the bake reads the engine's parse since
+		// 2026-11-06): the corpus row, restated here so it is asserted rather than described.
+		assert.equal(exportFences(deck).length, 1);
 	});
 });

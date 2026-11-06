@@ -28,12 +28,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {
-  SCOPE_KEY_NONE,
-  diagramScopeKey,
-  diagramCacheKey,
-  groupDiagramsBySlide,
-} = require('../../../lib/plugins/mermaid/shared/diagram-scope');
+const { diagramCacheKey, groupDiagramsBySlide } = require('../../../lib/plugins/mermaid/shared/diagram-scope');
+// The scope key is the host's since the flicker protections moved there (engineering/decisions/2026-11-06-plugin-patterns.md §5).
+const { SCOPE_KEY_NONE, figureScopeKey: diagramScopeKey } = require('../../../lib/plugins/figure-scope.mjs');
 const { renderDiagrams: rawRenderDiagrams } = require('../../../lib/plugins/mermaid/shared/render-diagrams');
 // The theme map the caller hands renderDiagrams (the bake and the pass take it from their ctx, ctx.vocabulary.diagram).
 const { buildDiagramTheme: BUILD_THEME } = require('../../../lib/plugins/mermaid/shared/mermaid-theme-map.js');

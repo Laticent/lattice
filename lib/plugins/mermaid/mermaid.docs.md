@@ -25,9 +25,15 @@ flowchart LR
 ```
 ````
 
-`~~~mermaid` works too, as does a fence inside a list item. A fence inside a blockquote draws in a
-browser but exports as its source on the CLI (a known gap, `lib/core/mermaid-fences.js`). A fence
-inside an HTML comment — a speaker note, a commented-out draft — is not a diagram and is never drawn.
+`~~~mermaid` works too, as does a fence inside a list item or a blockquote. Every export draws
+exactly the Mermaid fences the engine parses, the rule the preview follows too: the export takes its fences from the engine's
+own parse (`ctx.fences()`, lib/core/plugin-fences.mjs). So a fence inside an HTML comment (a speaker note, a
+commented-out draft), inside an HTML block such as a `<div>`, or inside a `$$` math block is not a diagram and is never
+drawn (examples/mermaid-engine-fences.md). The CLI warns, naming the line, about a Mermaid fence folded into an HTML
+block; after a `<div>`-style tag a blank line makes it a fence, and inside a `<pre>`, `<script>`, `<style>` or `<textarea>`
+block, which runs to its closing tag, it has to move out. Two shapes the preview draws are still not exported as diagrams:
+an info string that only starts with `mermaid` (` ```mermaid-x `), and a raw `<pre><code class="language-mermaid">`
+written as HTML. Both close when the bake retires (followups.d/3052-p2-retire-mermaid-bake.md).
 
 ## Where it draws
 
