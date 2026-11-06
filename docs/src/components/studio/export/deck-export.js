@@ -265,7 +265,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -332,7 +332,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			withSlideOnlySpotted(liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined)),
+			withSlideOnlySpotted(liftImageBgImages(bakeHidden(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components))))), undefined)),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },

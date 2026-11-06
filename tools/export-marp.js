@@ -77,7 +77,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
+const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
@@ -389,7 +389,7 @@ function main(argv) {
   //    emitted `.md` renders identically on any Marp tool and stays editable.
   //    Then the pane markers go (`stripPaneMarkers`): Marp cannot carve a pane, and it would
   //    read every marker as a speaker note, so a panes slide exports as its panes, stacked.
-  const baked = stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels));
+  const baked = bakeHidden(stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels)));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
