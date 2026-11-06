@@ -92,9 +92,13 @@ The source reader parses with the engine's own comment grammar and value rule, a
 | Studio preview bar | A **Hidden** chip that is also Show slide | `StudioShell.tsx` |
 | Slide menu, command palette | **Hide slide** / **Show slide** (one Undo step) | `strip-actions/model.ts`, `deck-ops.ts` `setHiddenAt` |
 
-**What the Studio writes.** Hide Slide puts `<!-- hide -->` as the block's first line and touches no other byte. Show
-Slide removes every line that is only a `hide` directive; if a hide survives (written inside a longer line), it appends
-`<!-- _hide: false -->`, which wins because the last `hide` wins. Pinned by `deck-ops.hide.test.ts`.
+**What the Studio writes.** Hide Slide and Show Slide first remove every hide DIRECTIVE line of the block: a top-level
+comment block, found by the shared boundary parser, that the one reader reads as on or off (a `hide:` note, a sample in
+code, and a comment in a list item, blockquote or HTML block are the author's and stay), each taking one adjacent blank
+line with it. Hide then writes `<!-- hide -->` as the block's first line; Show is done. Hide then Show therefore gives
+the block back byte for byte unless it held hide lines of its own, which are gone. A hide the removal cannot see is
+outvoted at the end, `<!-- hide -->` or `<!-- _hide: false -->`, the last hide winning. Pinned by
+`deck-ops.hide.test.ts`.
 
 ## 5. Verification
 
@@ -117,7 +121,14 @@ says hide and another says show; a `hide:` note swallowed; and the Studio's narr
 slides. A third, on those fixes, found four more, fixed and pinned: Marp's own directive parser hiding slides Lattice
 shows (the bundle no longer registers a Marp directive); the Studio's Show deleting a `hide:` note and Hide losing to an
 older `_hide: false` (both now remove only real hide lines first); the notes leak audit reading a `hide:` note as a
-directive; and the Marp title for a deck with no front matter.
+directive; and the Marp title for a deck with no front matter. A fourth, on that commit, found nine more, all fixed and
+pinned: the bundle's title written through a replacement string, so a `$` corrupted its front matter and let the hidden
+slide name the file; the Marp rule reading `_hide: maybe` as off and swallowing its note (it now mirrors the on/off/none
+rule, and the slide-only respotting leaves `hide` notes as written); a `_hide` comment with trailing text hiding in
+Marp only (a comment counts only alone on its line); Hide and Show deleting a list-item comment and leaving blank lines
+(both now parse); this paragraph out of date; and Export to Marp writing an empty bundle for an all-hidden deck (both
+hosts now refuse, as the CLI does). The Marp rule is pinned in `test/unit/core/marp-bundle-html.test.js`, the title in
+`test/unit/parsing/bake-hidden.test.js`.
 
 ## 6. Not done here
 

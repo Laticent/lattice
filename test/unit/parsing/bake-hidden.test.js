@@ -49,3 +49,19 @@ test('split: headings — every baked part takes its block\'s state, and the res
   const marks = (md) => [...render(md).html.matchAll(/<section[^>]*>/g)].map((m) => /data-lattice-hidden/.test(m[0]));
   assert.deepEqual(marks(out), marks(deck));
 });
+
+test('the title a hidden first slide would have supplied comes from the first shown h1-h3, `$` and all', () => {
+  const { bakeHidden: bake } = require('../../../lib/core/bake-splits');
+  const withFm = bake('---\npaginate: true\n---\n\n<!-- hide -->\n# Secret\n\n---\n\n#### Small\n\n# Revenue $1B $& $$ ARR\n');
+  assert.match(withFm, /^---\npaginate: true\ntitle: "Revenue \$1B \$& \$\$ ARR"\n---\n/);
+  assert.equal((withFm.match(/^---$/gm) || []).length, 3, 'the front matter closes once, and the slide rule stays');
+  assert.match(bake('<!-- hide -->\n# Secret\n\n---\n\n## Shown\n'), /^---\ntitle: "Shown"\n---\n\n/);
+  assert.doesNotMatch(bake('---\ntitle: Mine\n---\n\n<!-- hide -->\n# Secret\n\n---\n\n# Shown\n'), /Shown"/);
+});
+
+test('every hidden: everySlideHidden says so; a deck with one shown slide does not', async () => {
+  const { everySlideHidden } = await import('../../../lib/diagnostics/slice-equivalence-core.mjs');
+  assert.equal(everySlideHidden('---\ntheme: indaco\n---\n\n<!-- hide -->\n# A\n\n---\n\n<!-- _hide -->\n# B\n'), true);
+  assert.equal(everySlideHidden('<!-- hide -->\n# A\n\n---\n\n# B\n'), false);
+  assert.equal(everySlideHidden(''), false);
+});

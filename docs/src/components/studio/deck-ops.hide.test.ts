@@ -61,4 +61,19 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 		expect(slideSourceHidden(hidden)).toBe(true);
 		expect(hidden).toBe('<!-- hide -->\n## A\n\nbody');
 	});
+
+	it('a hide comment that is not top level (a list item, an HTML block) is the author\'s, kept by Hide and Show', () => {
+		const list = '- item\n  <!-- hide -->\n\nbody';
+		expect(withHidden(list, true)).toBe(`<!-- hide -->\n${list}`);
+		expect(withHidden(withHidden(list, true), false)).toBe(list);
+		const block = '## A\n\n<div>\n<!-- hide -->\n</div>';
+		expect(withHidden(withHidden(block, true), false)).toBe(block);
+	});
+
+	it('removing a hide line in the middle of a slide leaves no extra blank line', () => {
+		const mid = '## A\n\n<!-- _hide: false -->\n\nbody';
+		const hidden = withHidden(mid, true);
+		expect(hidden).toBe('<!-- hide -->\n## A\n\nbody');
+		expect(withHidden(hidden, false)).toBe('## A\n\nbody');
+	});
 });

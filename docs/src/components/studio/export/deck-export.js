@@ -51,6 +51,7 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
+import { everySlideHidden } from '../../../../../lib/diagnostics/slice-equivalence-core.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
@@ -265,6 +266,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
+	// Every slide hidden: the bundle would render nothing, as every other export refuses to.
+	if (everySlideHidden(source)) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
 	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
 	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;

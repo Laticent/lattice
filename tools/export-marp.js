@@ -338,6 +338,8 @@ function main(argv) {
   }
 
   const src = readDeckSource(deckPath);
+  // Every slide hidden: the bundle would render nothing, as Lattice's own exports refuse to (lattice.js).
+  if (require('../lib/diagnostics/slice-equivalence-core.mjs').everySlideHidden(src)) die('every slide in this deck is hidden (`<!-- hide -->`), so there is nothing to export. Show at least one slide.');
   // THE DECK'S ADMISSION under this run's knobs, decided once on the source as authored, as the
   // render CLI decides it. Its `off` set configures the boundary parser BEFORE the split bake below
   // (with math off, a `---` inside `$$` splits there as in the engine) and rides into the bundle.
