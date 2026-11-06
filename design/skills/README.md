@@ -59,7 +59,7 @@ skill. The others are authorable end-to-end from the file.
 | [`import`](./import.md) | Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape. | 3.1k |
 | [`math`](./math.md) | Use when a slide carries math: inline $x$ or a display equation, the math layout and its variants, legends for symbols, and when prose beats an equation. | 2.8k |
 | [`restyle-deck`](./restyle-deck.md) | Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout. | 3.2k |
-| [`studio`](./studio.md) | Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do. | 3.5k |
+| [`studio`](./studio.md) | Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do. | 3.6k |
 
 <!-- skill-index:end -->
 

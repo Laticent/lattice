@@ -186,6 +186,9 @@ every deck, the Library, and reference docs. It leaves out the OpenRouter key.
 | `read_front_matter` | Reads how one front-matter key works |
 | `read_guide` | Reads a skill or guide (this file is one) |
 | `create_deck` | Drafts a whole new deck; the author sees its title and outline and confirms before it exists (`docs/src/components/studio/chat-actions.ts`) |
+| `set_theme` / `set_finish` | Stage a theme or finish change, from the Studio's own list only |
+| `chart_from_data` | Stages a new bar, line, pie or stacked-bar slide from numbers; refuses a value that is not one number |
+| `render_slide` | Looks at one slide of the draft, drawn the way export draws it; offered only to a model that takes pictures, at most 3 per turn |
 
 When the Library holds photos or videos, it also gets `list_assets`,
 `view_asset` and `caption_asset`. It can draw a diagram, math, a plot or one

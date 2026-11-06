@@ -32,6 +32,10 @@ export const TOOL_TIERS: Readonly<Record<string, ToolTier>> = {
 	caption_asset: 'draft',
 	edit_slides: 'draft',
 	set_front_matter: 'draft',
+	set_theme: 'draft',
+	set_finish: 'draft',
+	chart_from_data: 'draft',
+	render_slide: 'read',
 	create_deck: 'act',
 };
 
@@ -138,3 +142,37 @@ export function autoHold(o: { via?: 'agent' | 'oneshot'; clean?: boolean; aborte
 	if (changed > Math.max(2, Math.ceil(o.slideCount / 2))) return 'it rewrites most of the deck';
 	return null;
 }
+
+// ── Look and chart tools (draft), and the slide render (read) ───────────────
+
+/** set_theme / set_finish, with the names the Studio ships as an enum, so the model cannot invent one. */
+export function makeLookTools(themes: readonly string[], finishes: readonly string[]) {
+	return [
+		{
+			type: 'function',
+			function: {
+				name: 'set_theme',
+				description: 'Change the deck\'s theme (its palette) on the draft. Same as setting the `theme:` front-matter key.',
+				parameters: { type: 'object', properties: { name: { type: 'string', enum: [...themes] }, summary: { type: 'string' } }, required: ['name'] },
+			},
+		},
+		{
+			type: 'function',
+			function: {
+				name: 'set_finish',
+				description: 'Change the deck\'s finish (the backdrop behind every slide) on the draft; "none" removes it. Same as setting `finish:`. read_guide finish first if unsure.',
+				parameters: { type: 'object', properties: { name: { type: 'string', enum: ['none', ...finishes] }, summary: { type: 'string' } }, required: ['name'] },
+			},
+		},
+	] as const;
+}
+
+export const RENDER_SLIDE_MAX_PER_TURN = 3;
+export const RENDER_TOOL = {
+	type: 'function',
+	function: {
+		name: 'render_slide',
+		description: `Look at one slide of the draft, rendered the way export draws it. The picture arrives in the next message. Use it to judge a layout you are unsure of, not on every slide; at most ${RENDER_SLIDE_MAX_PER_TURN} per turn.`,
+		parameters: { type: 'object', properties: { slide: { type: 'integer', description: 'The slide number, 1-based.' } }, required: ['slide'] },
+	},
+} as const;

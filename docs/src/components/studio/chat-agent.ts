@@ -20,7 +20,8 @@ import { createAgentAssets } from './agent-assets-browser';
 import { agentLibrary } from './agent-library';
 import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, ORPrice, ProposedEdit } from './architect';
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
-import { type ChatAction, CREATE_DECK_TOOL, DEFAULT_CHAT_MODE, modeBrief, toolsForMode } from './chat-actions';
+import { type ChatAction, CREATE_DECK_TOOL, DEFAULT_CHAT_MODE, makeLookTools, modeBrief, RENDER_TOOL, toolsForMode } from './chat-actions';
+import { CHART_TOOL } from './chat-chart';
 import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { boundTrace } from './chat-trace';
@@ -165,7 +166,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	const mode = opts?.mode ?? DEFAULT_CHAT_MODE;
 	// The tools this request carries: the mode's tiers only (chat-actions.ts). The toolbox gates
 	// every call on the same mode, so a tool the request left out still cannot run.
-	const offered = toolsForMode(mode, [...AGENT_TOOLS, CREATE_DECK_TOOL, ...(library.length ? ASSET_TOOLS : [])]);
+	// render_slide only for a model that takes pictures and a host that can render; asked once per turn.
+	const renderer = slideRenderer(grounding);
+	// Never waits on a stalled catalog: if it has not answered within 50 ms this turn goes without render_slide.
+	const seesPictures = renderer ? sees || (await Promise.race([catalog().then((c) => modelSeesImages(model, c)).catch(() => false), new Promise<boolean>((r) => setTimeout(() => r(false), 50))])) : false;
+	const finishNames = FINISHES.filter((f) => f.name !== 'none').map((f) => f.name);
+	const offered = toolsForMode(mode, [...AGENT_TOOLS, ...makeLookTools([...BUILTIN_PALETTES], finishNames), CHART_TOOL, ...(seesPictures ? [RENDER_TOOL] : []), CREATE_DECK_TOOL, ...(library.length ? ASSET_TOOLS : [])]);
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding, `${opts?.constrainFacts ? FACT_GUARD : ''}\n\n${modeBrief(mode)}`, assetManifest(library, undefined, sees, attachedVideos));
 	const systemContent = [
 		{ type: 'text', text: staticPrefix },
@@ -198,9 +204,12 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		check: withFit(grounding),
 		slideWordBudget: agentBudget(grounding).slideWordBudget,
 		assets: library.length ? agentAssets : undefined,
-		canSee: async () => sees,
+		canSee: async () => sees || seesPictures,
 		attachedVideos,
 		mode,
+		themes: [...BUILTIN_PALETTES],
+		finishes: finishNames,
+		renderSlide: seesPictures ? renderer : undefined,
 	});
 	const systemTokens = estTokens(staticPrefix) + estTokens(dynamicTail);
 	const docTokens = refDocsTokens(docs);
@@ -422,6 +431,14 @@ export function checkerNote(warnings: string[]): string {
  *  is imported HERE, from the lazy agent, and never from the shell: an `import()` in
  *  StudioShell lists every chunk the export renderer needs in the shell's preload map, which
  *  cost +361 B of startup JavaScript once main's plugin split (#2525) added chunks to it. */
+/** One slide of a draft as a picture, rendered the way export does (draft-fit.ts). Lazy like the fit
+ *  check: the render path loads only when the model asks to look. Undefined without render inputs. */
+function slideRenderer(grounding?: ChatGrounding): ((draft: string, slide: number) => Promise<{ url: string | null; sections: number } | null>) | undefined {
+	const fr = grounding?.fitRender;
+	if (!fr) return undefined;
+	return (draft, slide) => import('./draft-fit').then((m) => m.renderDraftSlide(fr.options, draft, fr.palette, fr.mode, slide, fr.extra, fr.extraCss)).catch(() => null);
+}
+
 function withFit(grounding?: ChatGrounding): ((source: string, fitScope?: FitScope) => Promise<DeckCheck>) | undefined {
 	const check = grounding?.check;
 	const fr = grounding?.fitRender;
@@ -461,7 +478,7 @@ export function agentTurnUsd(price: ORPrice | null, grounding: ChatGrounding | u
 	const { staticPrefix, dynamicTail } = agentSystemParts(source, grounding);
 	// The tool schemas lead every request, so they sit in the cached prefix with the system core.
 	// With a Library the three asset tools join them (they are sent only then), and the list rides in the tail.
-	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify([...AGENT_TOOLS, CREATE_DECK_TOOL, ...(libraryCount > 0 ? ASSET_TOOLS : [])]))) * AGENT_TOKEN_SCALE;
+	const stat = (estTokens(staticPrefix) + estTokens(JSON.stringify([...AGENT_TOOLS, ...makeLookTools([...BUILTIN_PALETTES], FINISHES.map((f) => f.name)), CHART_TOOL, RENDER_TOOL, CREATE_DECK_TOOL, ...(libraryCount > 0 ? ASSET_TOOLS : [])]))) * AGENT_TOKEN_SCALE;
 	// The turn carries the deck whole, or past INLINE_DECK_CHARS an outline (deckForTurn).
 	const rest = (estTokens(dynamicTail) + estTokens(deckForTurn(source)) + extraTokens + libraryPromptTokens(libraryCount)) * AGENT_TOKEN_SCALE;
 	// Round one: the static prefix at the cache-read rate once a turn has written it, and
@@ -504,6 +521,11 @@ const TOOL_ACTIVITY: Record<string, string> = {
 	list_assets: 'Searching the Library…',
 	view_asset: 'Looking at photos…',
 	caption_asset: 'Saving photo captions…',
+	set_theme: 'Changing the theme…',
+	set_finish: 'Changing the finish…',
+	chart_from_data: 'Building a chart…',
+	render_slide: 'Looking at the slide…',
+	create_deck: 'Drafting a new deck…',
 };
 
 /** Fold an agent turn into the ChatResult the panel already renders: the prose, and the
