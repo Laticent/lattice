@@ -1,12 +1,12 @@
 ---
-origin: 3049
+origin: 3052
 priority: P2
 recorded: 2026-11-06
 area: diagram
 severity: low
 swimlane: engineering/decisions/2026-11-06-plugin-patterns.md §9
 deferred: large — retiring `bake` means drawing Mermaid AFTER the engine renders, in the capture page through the draw frame; the capture page does not run the runtime's Mermaid pass, which is what themes each diagram for its slide's band, so the theming would move into the CLI's draw host — a redesign of the export's diagram path, not a slice. Owner decision 2 (retire `bake` once Mermaid leaves it) stands; Mermaid has not left it yet.
-source: https://github.com/Laticent/lattice/pull/3049
+source: https://github.com/Laticent/lattice/pull/3052
 ---
 
 # Mermaid's export still inserts its pictures before the engine runs

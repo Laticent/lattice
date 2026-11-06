@@ -270,4 +270,4 @@ cases).
 **`bake` is not retired.** Mermaid still inserts its pictures into the source before the engine renders. Retiring it
 means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that
 themes each diagram for its slide's band: that is a redesign of the export's diagram path, recorded with its reason
-(followups.d/3049-p2-retire-mermaid-bake.md). Owner decision 2 stands; Mermaid has not left `bake` yet.
+(followups.d/3052-p2-retire-mermaid-bake.md). Owner decision 2 stands; Mermaid has not left `bake` yet.
