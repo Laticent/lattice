@@ -2,7 +2,7 @@
 origin: 3057
 priority: P2
 recorded: 2026-11-06
-area: studio
+area: website
 severity: medium
 swimlane: engineering/decisions/2026-11-06-plugin-patterns.md §9
 deferred: off-path — a Studio layout defect found by the sandbox e2e triage on PR #3057, red on main (8a755f69) as well; the fix is a layout change owed screenshots at three widths, and PR #3057 touches no Studio chrome
