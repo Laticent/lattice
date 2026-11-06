@@ -134,6 +134,32 @@ section {
  * no chart carries a text-room or card rule, so it keeps the slide as its box.
  * engineering/decisions/2026-10-28-fit-everywhere-model.md §17. */
 section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }
+
+/* A LONG WORD BREAKS WITH A DASH, ON A SQUARE, TALL OR STRIP SLIDE. A title set large on a narrow
+ * box can hold a word wider than the box: "straightforward" at a portrait split cover's title size
+ * ran past the right edge and was clipped (owner, 2026-11-05, the Yearn deck at portrait). Venue is
+ * the only thing that sizes type (fit-everywhere-model.md §18), so the word breaks instead: the
+ * browser's dictionary for the page's `lang` (the deck's `lang:`, `en` by default) splits it at a
+ * syllable with a dash, and only a word of 10 or more letters, keeping 4 on each side, so an
+ * ordinary word never splits. `overflow-wrap: break-word` stays as the last resort for a word the
+ * dictionary cannot split (a code-like token), which then breaks without a dash rather than clip.
+ * Scoped to the `data-family` stamp, which a 16:9 slide does not carry, so a wide deck renders as
+ * it did. The exporter's Chrome hyphenates (Chrome 131 measured, 2026-11-05), as do Safari and
+ * Firefox; Safari reads the prefixed forms. Code keeps its characters whole: `pre`, `code` and
+ * KaTeX opt out. */
+section:where([data-family]) {
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 10 4 4;
+  -webkit-hyphenate-limit-before: 4;
+  -webkit-hyphenate-limit-after: 4;
+  overflow-wrap: break-word;
+}
+section:where([data-family]) :where(pre, code, kbd, samp, .katex, mjx-container) {
+  -webkit-hyphens: manual;
+  hyphens: manual;
+  overflow-wrap: normal;
+}
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
    block above explains. Older engines keep the exact width: a custom property holding round() is invalid there at computed
    time, and that would zero the padding and the bar on every slide. */
