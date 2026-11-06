@@ -41,14 +41,23 @@ async function writeDeck(page: import('@playwright/test').Page, md: string): Pro
 
 const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 && b < 80;
 
-/** The bottom-center pixel: the reader pill ("Content clipped") is painted there, so a clipped slide is not white. A positive control: without it a deck that fits would pass the checks below for any reason. */
+/**
+ * The darkest pixel in the bottom 4% of the slide's center column: the reader pill ("Content clipped") sits
+ * there, so a clipped slide is not white. A positive control: without it a deck that fits would pass the checks
+ * below for any reason. A band, not one row: the pill's rail stands one bar width above the slide's bottom edge
+ * (`section > .marker-rail` in lib/base/base.modifiers.css, held still by check:edge-shift), so the last rows are
+ * white by design — measured on a 2560x1440 export, the pill spans rows 1393 to 1431 and rows 1432 to 1439 are white.
+ */
 async function bottomCenter(page: import('@playwright/test').Page, png: Buffer): Promise<[number, number, number]> {
 	return page.evaluate(async (b64) => {
 		const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
 		const ctx = (new OffscreenCanvas(bmp.width, bmp.height).getContext('2d')) as OffscreenCanvasRenderingContext2D;
 		ctx.drawImage(bmp, 0, 0);
-		const d = ctx.getImageData(Math.floor(bmp.width / 2), bmp.height - 3, 1, 1).data;
-		return [d[0], d[1], d[2]] as [number, number, number];
+		const band = Math.max(1, Math.ceil(bmp.height * 0.04));
+		const d = ctx.getImageData(Math.floor(bmp.width / 2), bmp.height - band, 1, band).data;
+		let best: [number, number, number] = [255, 255, 255];
+		for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < best[0] + best[1] + best[2]) best = [d[i], d[i + 1], d[i + 2]];
+		return best;
 	}, png.toString('base64'));
 }
 const isPill = ([r, g, b]: [number, number, number]) => !(r > 240 && g > 240 && b > 240);
