@@ -124,7 +124,9 @@ section.divider > .divider-marker {
   --_mk: 1.5;
   display: flex;
   align-items: center;
-  gap: var(--sp-md);
+  /* Slide-width units, not `--sp-*`: those scale with `--canvas-scale` (1.95 in portrait) while the
+   * marks do not, and ten sections on a `story` divider then ran the row to the slide's edge. */
+  gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
   padding-block-end: var(--sp-md);
   font-family: var(--font-label);
   font-size: var(--fs-meta);
@@ -136,16 +138,19 @@ section.divider > .divider-marker {
 section.divider > .divider-marker > .divider-marker-marks {
   display: flex;
   align-items: center;
-  gap: calc(var(--sp-sm) * var(--_mk));
+  gap: calc(var(--_sec-1cqi, 1cqi) * 0.6 * var(--_mk));
 }
 /* A `divider numbered` reserves symmetric top and bottom bands to center its block between them,
- * and its numeral already sits in the top band. The marker joins the numeral THERE, right-aligned
- * on the numeral's center line, so the centered block and the bottom band stay exactly as they were
- * (check:jank's `divider numbered` sweep measures both). */
+ * and its numeral already sits in the top band. The marker sits ABOVE the numeral, in the strip
+ * `--_mark-top` keeps clear, left-aligned with it like the numeral's own eyebrow — so the centered
+ * block and the bottom band stay exactly as they were (check:jank's `divider numbered` sweep
+ * measures both), the top-right corner stays free for a deck logo, and a ten-section marker has the
+ * whole content width rather than the corner beside the numeral, where it ran to the slide's edge on
+ * a portrait deck. */
 section.divider.numbered > .divider-marker {
   position: absolute;
-  inset-block-start: calc(var(--_mark-top) + var(--fs-hero) / 2);
-  inset-inline-end: var(--frame-inset-r);
+  inset-block-start: calc(var(--_mark-top) / 2);
+  inset-inline-start: calc(var(--_sec-1cqi, 1cqi) * 9.375 + var(--_wide-gutter, 0px)); /* the numeral's own left (base.modifiers.css) */
   translate: 0 -50%;
   padding-block-end: 0;
 }

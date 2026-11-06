@@ -42,7 +42,7 @@ that is plainly a different kind of surface (a full bleed, which drops the page 
 | Title, and slides before the first divider | Nothing | Nothing to locate yet; lighting nothing would look broken. |
 | Agenda whose item count equals the deck's section count | Each item ends with the rail as it will look in that section | The legend, met before the first divider. A mismatched count draws nothing: the items are something else. |
 | Divider (plain, light, numbered) | Its own marker: `2 / 4` and the marks, larger, this section lit | Where the marks are taught, beside the section name in display type. Frame content, not chrome. |
-| Topic | Its own track; an empty eyebrow becomes `Section 2 · <divider heading>` | One scale per slide; the eyebrow ties the topic's track to the deck's sections. |
+| Topic | Its own track; an empty eyebrow becomes `02 · <divider heading>` (figures, no language; only where the rail would draw) | One scale per slide; the eyebrow ties the topic's track to the deck's sections. |
 | Content slide inside a section | The footer rail | The rail's one job. |
 | Full-bleed sovereign layouts, closing | Nothing | They drop the page number too. |
 

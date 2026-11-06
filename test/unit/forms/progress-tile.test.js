@@ -328,3 +328,45 @@ describe('progress Tile — cross-path parity', () => {
     assert.deepEqual(perSlide(d), perSlide(doc(progress.applyToHtml(long))));
   });
 });
+
+describe('progress Tile — checker findings, pinned', () => {
+  const AG = (items, cls = 'agenda form') => sec(`${ON} ${cls}`, `<h2>Agenda</h2><ol>${items.map((t) => `<li>${t}</li>`).join('')}</ol>`);
+  const div = (n) => sec(`${ON} divider`, `<h2>S${n}</h2>`);
+
+  test('a virtual filmstrip window never loses what the engine drew to a recount', () => {
+    // The Playground mounts a window of the deck; its section count is not the deck's.
+    const full = progress.applyToHtml(deckHtml([sec('divider', '<h2>A</h2>'), ...filler(5), sec('divider', '<h2>B</h2>'), ...filler(5), sec('divider', '<h2>C</h2>'), ...filler(5)]));
+    const windowHtml = full.split('</section>').slice(0, 8).join('</section>') + '</section>';
+    const d = doc(`<div class="lattice" data-lv>${windowHtml}</div>`);
+    const before = d.querySelectorAll('.tile-progress, .divider-marker').length;
+    progress.applyToDom(d);
+    assert.equal(d.querySelectorAll('.tile-progress, .divider-marker').length, before);
+    assert.ok(before > 0);
+  });
+
+  test('an agenda inside a section is a legend AND carries the rail', () => {
+    const html = deckHtml([div(1), sec(`${ON} content form`), div(2), AG(['A', 'B', 'C']), div(3)]);
+    const out = doc(progress.applyToHtml(html));
+    const agenda = out.querySelector('section.agenda');
+    assert.equal(agenda.querySelectorAll('.agenda-rail').length, 3);
+    assert.ok(agenda.querySelector('.tile-progress'), 'string arm');
+    const d = doc(html);
+    progress.applyToDom(d);
+    assert.ok(d.querySelector('section.agenda .tile-progress'), 'DOM arm');
+  });
+
+  test('past eight sections the agenda legend draws as a bar too', () => {
+    const html = deckHtml([AG(Array.from({ length: 9 }, (_, i) => `I${i}`)), ...Array.from({ length: 9 }, (_, i) => div(i))]);
+    assert.match(progress.applyToHtml(html), /class="agenda-rail bar-auto"/);
+  });
+
+  test('both arms place the legend alike: whitespace after a page reference, a list in a comment', () => {
+    const one = sec(`${ON} agenda form`, '<h2>A</h2><!-- <ol><li>old</li></ol> --><ol><li>A <code>p.1</code>\n</li><li>B</li></ol>');
+    const html = deckHtml([one, div(1), div(2)]);
+    const legendSpots = (root) => [...root.querySelectorAll('section.agenda li')].map((li) => [...li.childNodes].findIndex((n) => n.nodeType === 1 && n.classList.contains('agenda-rail')));
+    const d = doc(html);
+    progress.applyToDom(d);
+    assert.deepEqual(legendSpots(doc(progress.applyToHtml(html))), legendSpots(d));
+    assert.equal(doc(progress.applyToHtml(html)).querySelectorAll('.agenda-rail').length, 2);
+  });
+});

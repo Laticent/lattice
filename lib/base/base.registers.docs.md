@@ -1442,10 +1442,10 @@ rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: 
   slides before the first divider carry no rail.
 - **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
   marks, larger, this section lit, above the section name. That is where a reader learns what the
-  footer marks mean. A `divider numbered` carries it in its top band beside the numeral.
+  footer marks mean. A `divider numbered` carries it above its numeral, left-aligned with it.
 - **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
   rail as it will look in that section. A different count draws nothing.
-- **A topic slide with no eyebrow of its own names its section**: `Section 2 · <the divider's heading>`.
+- **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
 
 **The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
 the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
