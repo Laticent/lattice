@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-06 — Studio eager ceiling raised by 2 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
+
+Owner OK 2026-11-06 (asked on PR 2988, "Raise to 565.0KB", chosen over lazy-loading the Align and venue pickers or dropping the Studio's Align pickers). PR 2988 gives the Studio a phone and tablet venue picker with a per-shape table (`src/components/studio/venue.ts`), runs the measured split in the preview (the lazy `src/lib/measured-split.ts`, called from `single-slide-render.ts`), and adds two Align pickers (`src/components/studio/align-catalog.ts`). It gave back about 1.4 KB before asking: the align words split from the resolver, the align lint through the shared axis check, the pickers' unused swatches and blurbs dropped, bundled icons reused, and the preview's measured-split orchestration moved into the lazy module. CI on 9b29219 then measured studio eagerJsGz at 563.5 KB (+1,219 B over main, declared in `route-budget.d/2988-measured-split.md`) against a 563.0 KB ceiling; main measures 561.8 KB locally. The ceiling rises to 565.0 KB, so the route keeps about 1.5 KB of headroom over this PR. The soft target is unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 578560 |
+
 ### 2026-11-05 — three ceilings raised by hand, for the deck model in the Studio (PR 3038)
 
 Owner OK 2026-11-05 (D1 B on PR 3038: "raise 3 ceilings, move now", chosen over keeping the Studio on markdown-it until P4 of the Segno deck pipeline). PR 3038 moves `lib/core/slide-boundaries.mjs`, which the Studio loads at startup and the lint core loads, from markdown-it's block parser onto the deck model (`@laticent/segno-markdown`, a port of markdown-it's block rules held to it token for token). markdown-it stays in both bundles (the outline's heading sections and the lint still use it), so the model's bytes are added, not swapped. Measured with two full docs builds of PR 3038, with the move held and with it applied: lintCoreGz +8.8 KB, studio eagerJsGz +8.5 KB, home eagerJsGz +8.4 KB; with the move, `--measure` reads lintCoreGz 151,496 B, studio eagerJsGz 569,743 B and home eagerJsGz 293,403 B. Each ceiling rises by that growth rounded up to the next 0.5 KB (9,216, 8,704 and 8,704 B), so each route keeps the headroom it had. The soft targets are unchanged; PR 3038 declares its bytes above soft in its own `docs/route-budget.d/` file. These bytes come back when P4 lets the Studio drop markdown-it.
