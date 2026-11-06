@@ -32,6 +32,8 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             `test/helpers/runtime-boot.js` (a virtual clock for the runtime-boot sleeps, which recur in 32 test files)
             and `test/helpers/work-count.js` (`scanWork`, `charReads`); the decision note's §How the rule is held lists
             what they cannot see. Next by weight: `docs/e2e` (66 in 34), then `test/integration/export` (57 in 25).
+            Seen red in #3059's `studio-smoke` on both CI attempts and green 5 of 5 locally:
+            `docs/e2e/collage-lightbox.spec.ts:211` (the zoom cursor still `zoom-in` 5 s after a wheel step).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
