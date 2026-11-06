@@ -72,16 +72,17 @@ test('Present skips the hidden slide: 3 slides, Bravo never shown', async ({ pag
 	// The editor's caret sits on the last slide, so Present opens there; Home goes to the first presented slide.
 	await page.keyboard.press('Home');
 	const heading = present.frameLocator('iframe').first().locator('.lattice h2').first();
-	const seen: string[] = [];
-	for (let i = 0; i < 4; i++) {
-		// The counter's digits are separate elements: read the dialog's text, whitespace folded.
-		await expect.poll(async () => ((await present.textContent()) ?? '').replace(/\s+/g, ' ')).toContain(`${Math.min(i, 2) + 1} / 3`);
-		await expect(heading).toBeVisible();
-		seen.push((await heading.textContent())?.trim() ?? '');
+	const counter = async () => ((await present.textContent()) ?? '').replace(/\s+/g, ' ');
+	// The counter moves before the slide's frame repaints, so WAIT for each heading rather than read it: were Bravo
+	// ever presented, the wait for Charlie would fail on it.
+	for (const [i, name] of ['Alpha', 'Charlie', 'Delta'].entries()) {
+		await expect.poll(counter).toContain(`${i + 1} / 3`);
+		await expect(heading).toHaveText(name);
 		await page.keyboard.press('ArrowRight');
 	}
-	// The fourth press is past the end: still Delta, never a fourth slide, never Bravo.
-	expect(seen).toEqual(['Alpha', 'Charlie', 'Delta', 'Delta']);
+	// Past the end: still the third of three, never a fourth slide, never Bravo.
+	await expect.poll(counter).toContain('3 / 3');
+	await expect(heading).toHaveText('Delta');
 	await page.screenshot({ path: test.info().outputPath('present.png') });
 });
 
