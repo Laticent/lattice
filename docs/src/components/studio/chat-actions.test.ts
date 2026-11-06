@@ -253,16 +253,27 @@ describe('fixes from the P4 checker', () => {
 	});
 
 	it('failed renders count toward the cap, and renders run one at a time', async () => {
+		// Each render waits on a gate the test opens itself: a signal, not a duration.
 		let live = 0;
 		let peak = 0;
-		const box = tb(async () => {
+		const gates: (() => void)[] = [];
+		const box = tb(() => {
 			live++;
 			peak = Math.max(peak, live);
-			await new Promise((r) => setTimeout(r, 5));
-			live--;
-			return null;
+			return new Promise((resolve) => {
+				gates.push(() => {
+					live--;
+					resolve(null);
+				});
+			});
 		});
-		await Promise.all(Array.from({ length: RENDER_SLIDE_MAX_PER_TURN }, () => box.run('render_slide', JSON.stringify({ slide: 1 }))));
+		const calls = Array.from({ length: RENDER_SLIDE_MAX_PER_TURN }, () => box.run('render_slide', JSON.stringify({ slide: 1 })));
+		for (let i = 0; i < RENDER_SLIDE_MAX_PER_TURN; i++) {
+			await expect.poll(() => gates.length).toBe(i + 1);
+			expect(live).toBe(1);
+			gates[i]();
+		}
+		await Promise.all(calls);
 		expect(peak).toBe(1);
 		expect(await box.run('render_slide', JSON.stringify({ slide: 1 }))).toContain('the limit');
 	});
