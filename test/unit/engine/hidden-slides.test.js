@@ -104,6 +104,27 @@ describe('the checker\'s findings, pinned', () => {
   });
 });
 
+describe('the second checker\'s findings, pinned', () => {
+  const marks = (md) => sectionsOf(createEngine().render(md, 'lattice').html).map((x) => (attr(x, 'data-lattice-hidden') ? 'H' : attr(x, 'data-lattice-pagination') ?? '-'));
+
+  test('`> <!-- hide -->` is not a directive, in the engine or the source reader', () => {
+    const quoted = '> <!-- hide -->\n> quoted\n\n## B';
+    assert.deepEqual(marks(deckOf([BODY(1), quoted, BODY(3)])), ['1', '2', '3']);
+    assert.equal(core.slideSourceHidden(quoted), false);
+  });
+
+  test('split: headings — a block is shown or hidden WHOLE, whichever part its comments sit in', () => {
+    const md = '---\ntheme: indaco\nsplit: headings\npaginate: true\n---\n\n<!-- hide -->\n## B1\n\nb\n\n<!-- _hide: false -->\n## B2\n\n---\n\n## C\n';
+    assert.deepEqual(marks(md), ['1', '2', '3']);
+  });
+
+  test('`<!-- hide: if short on time -->` stays a speaker note and hides nothing', () => {
+    const { html } = createEngine().render(deckOf([BODY(1), '<!-- hide: if short on time -->\n## B']), 'lattice');
+    assert.match(html, /hide: if short on time/);
+    assert.deepEqual(marks(deckOf([BODY(1), '<!-- hide: if short on time -->\n## B'])), ['1', '2']);
+  });
+});
+
 describe('slice path: the supplied position == the whole-deck render', () => {
   const cases = [
     ['hidden in the middle', [BODY(1), hide(BODY(2)), BODY(3), BODY(4)]],
@@ -114,15 +135,15 @@ describe('slice path: the supplied position == the whole-deck render', () => {
     ['hidden divider', [DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)]],
   ];
 
-  test('a `hide` shown inside code is not a directive, and the slice path refuses rather than guessing', () => {
-    // The raw and code-blanked readings of the chunk disagree, so the derivation bails, as it does for a divider
-    // shown in code: the preview renders the whole deck, which counts for itself. Fail safe, never fail wrong.
+  test('a `hide` shown inside code is not a directive, and the slice path still positions every slide', () => {
+    // The source reader PARSES (lib/core/hide-directive.mjs via the boundary parser), so a fenced sample is code to it
+    // exactly as it is to the engine: no refusal, and the supplied position is the whole-deck one.
     const slides = [BODY(1), '## Teaching\n\n```md\n<!-- hide -->\n```', BODY(3)];
     const deck = deckOf(slides);
     const full = sectionsOf(createEngine().render(deck, 'lattice').html);
     assert.deepEqual(full.map((x) => attr(x, 'data-lattice-pagination')), ['1', '2', '3']);
     assert.equal(attr(full[1], 'data-lattice-hidden'), undefined);
-    assert.equal(core.supplyablePosition(deck, 1, slides.length), undefined);
+    assert.deepEqual(core.supplyablePosition(deck, 1, slides.length), { offset: 1, total: 3, deckSection: undefined });
   });
 
   for (const [label, slides] of cases) {

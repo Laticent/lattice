@@ -34,6 +34,7 @@ beforeEach(() => {
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = {
 		marp: {
 			bakeSplits: (s: string) => s,
+			bakeHidden: (s: string) => s,
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
 			sampleAssetNames,

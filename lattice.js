@@ -3024,7 +3024,14 @@ const { parseFrontMatter: parseFm } = require('./lib/engine/directives');
 const { directives: deckFm, body: deckBody } = parseFm(rawMd);
 const cleanTitle = (t) => String(t == null ? '' : t).replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
 const deckLang = (String(deckFm.lang || '').match(/^[A-Za-z][\w-]*/) || ['en'])[0];
-const firstHeading = (deckBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+// The first heading of the first SHOWN slide: a hidden slide is in no export, so it names none (the second checker's
+// finding — a hidden title slide named the player's <title> and the PDF's metadata).
+const shownBody = (() => {
+  const { splitSlideChunks } = require('./lib/core/slide-boundaries.mjs');
+  const { slideSourceHidden } = require('./lib/diagnostics/slice-equivalence-core.mjs');
+  return splitSlideChunks(deckBody).chunks.filter((c) => !slideSourceHidden(c)).join('\n\n');
+})();
+const firstHeading = (shownBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
 const deckTitle =
   cleanTitle(deckFm.title) ||
   cleanTitle(firstHeading) ||
@@ -6680,7 +6687,9 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
     const origin = pageOrigin().map((n) => (shownAt && shownAt[n - 1] !== undefined ? shownAt[n - 1] + 1 : n));
     // Only rebuild when the split actually moved something; an unsplit deck keeps the
     // authored map byte-for-byte, so a deck that never paginates is unaffected.
-    if (origin.length && origin[origin.length - 1] !== origin.length) {
+    // ANY page whose authored slide is not its own position needs the remap. Testing only the LAST page missed a deck
+    // where a split adds exactly the pages hidden slides remove (the second checker's finding).
+    if (origin.some((a, i) => a !== i + 1)) {
       const remapped = new Map();
       origin.forEach((authored, i) => {
         if (fmSayMap.has(authored)) remapped.set(i + 1, fmSayMap.get(authored));

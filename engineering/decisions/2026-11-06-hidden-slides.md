@@ -52,8 +52,17 @@ block with its own `<!-- _hide -->`. The Studio's Hide Slide on a heading-split 
 and writes `<!-- hide -->` at the block's top without cutting it. Not the owner's call; taken as the reversible default
 that makes every surface agree, and listed on the PR's decision card.
 
-**Only a comment that opens its line is a directive.** `# B <!-- hide -->` is inline HTML, which the engine leaves
-alone; the source reader agrees. **An all-hidden deck is an error**: the CLI exits 1 rather than write an empty file.
+**One reader for the directive** (`lib/core/hide-directive.mjs`), used by the engine, both splits, the source reader
+and the Marp bake. VALUE: a bare `hide`, or `true`/`yes`/`on`/`1`, is on; `false`/`no`/`off`/`0` is off; anything
+else is no directive at all, so `<!-- hide: if short on time -->` stays a speaker note. PLACE: only a top-level comment
+block counts; `> <!-- hide -->`, a comment in a list item or inside a line of text is not a directive. The source
+reader PARSES each slide with the shared boundary parser rather than matching lines, so it sees exactly the blocks the
+engine sees (a line-regex reader disagreed with the engine on the blockquote case). Within a slide the last hide wins.
+
+**A block is shown or hidden whole.** Each page the heading split or the pane split cuts from a block that mentions
+`hide` ends with the block's resolved state (`<!-- _hide: true|false -->`), so a part's own comment can never outvote
+its block: a `hide` in the first part and a `_hide: false` in the second show the whole block, as the source reader
+says. **An all-hidden deck is an error**: the CLI exits 1 rather than write an empty file.
 
 **Every consumer asks one question, two ways.**
 
@@ -77,6 +86,7 @@ The source reader parses with the engine's own comment grammar and value rule, a
 | Studio Webpage and Captions | Filter the render themselves (they do not use `buildDeckRender`); hidden slides' note bodies join the strip-notes scrub; captions re-key front-matter `say:` to the shown slides | `share-export.ts` `shareHtmlPlayer`, `shareCaptions` |
 | Narration bake | Resolves the shown slides only, `say:` by authored number, as Present does | `narration-bake.ts` `resolveDeck` |
 | Export to Marp (both hosts) | Marp has no hide of its own (only `paginate: skip`/`hold`), so the bundle carries one: `bakeHidden` rewrites every hide as `<!-- _hide: true -->` (a bare `hide` is a speaker note to Marp, and a plain `hide: true` would carry onto later slides), the split bake stamps it on every part of a hidden block, and the bundle's engine drops such a slide before `marpit_inline_svg` (after it, an empty `<svg>` printed as a blank PDF page) and before `marpit_directives_apply`, which then numbers the shown slides 1..N. The pattern is the custom-directive plugin Marpit's maintainer publishes. Measured with marp-cli 4.5.1 on `examples/hidden-slides.md`: 6 pages of 8 slides, numbered 3, 4, 5 of 6 like Lattice's own PDF, light and dark. The VS Code preview may still show a hidden slide | `lib/core/bake-splits.js`, `lib/export/marp-bundle-html.js` |
+| File names | The CLI's `<title>` and PDF/PPTX metadata title come from the first SHOWN slide's heading; the Marp bake writes a `title:` when a hidden first slide would otherwise name marp-cli's file | `lattice.js` `deckTitle`, `bake-splits.js` `withShownTitle` |
 | Present | Never presented under any lens; opening on a hidden slide lands on the next shown one | `deck-lint.ts` `presentationPairs`, `PresentOverlay.tsx` |
 | Studio strip, slide map | Keeps its place; an eye-off mark stands where its number was; the accessible name says "hidden" | `SlideRail.tsx`, `StudioMap.tsx` |
 | Studio preview bar | A **Hidden** chip that is also Show slide | `StudioShell.tsx` |
@@ -99,11 +109,18 @@ by a test: `--strip-notes` leaking a hidden slide's note; a hidden pane slide hi
 one slide off; the Studio Webpage and Captions exports skipping the filter; front-matter `hide:` emptying the deck;
 an inline `<!-- hide -->` read differently by the engine and the Studio; heading parts hidden per part by the engine and
 per block by Present; review comments moving pages; the print panel pooling the wrong cells; the narration bake losing
-alignment; the strip reading a stale index; and a note starting with "hide" hiding its slide.
+alignment; the strip reading a stale index; and a note starting with "hide" hiding its slide. A second checker, on
+those fixes and the Marp bridge, found seven more, also fixed and pinned: the captions remap missing a deck where a
+split and hidden slides cancel out; the Marp bake dropping `_hide: false`; a hidden first slide naming the exported
+file; `> <!-- hide -->` read differently by the engine and the source reader; a block's parts disagreeing when one part
+says hide and another says show; a `hide:` note swallowed; and the Studio's narration projection counting hidden
+slides.
 
 ## 6. Not done here
 
 - **Numbering in the strip.** The strip numbers slides by their place in the editor (every slide), which is also what
   the pager's "3 / 6" counts. A shown slide's strip number can therefore differ from its exported page number when a
   hidden slide comes before it. The eye-off mark on the hidden pill is what explains the gap.
+- **A `hide:` note in Marp.** Marp reads `<!-- hide: if short on time -->` as the bundle's `hide` directive (an
+  unrecognized value, so the slide stays shown), and the note does not reach Marp's presenter notes. Lattice keeps it.
 - **A keyboard shortcut.** None, as in Keynote and PowerPoint; the menu and the palette are the doors.
