@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { isOpenRouterKeyEvent, markOpenRouterKeyRejected, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from './openrouter-key.js';
+import { isOpenRouterKeyEvent, noteOpenRouterStatus, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from './openrouter-key.js';
 
 // THE ONE READER. "What can read the author's key?" must have a one-module answer, because
 // the shared-deck isolation proof (2026-11-06-studio-byok-key-lifecycle.md) stands on it.
@@ -13,7 +13,10 @@ describe('openrouter-key — the only module that names the stored key', () => {
 		try {
 			out = execFileSync('git', ['grep', '--untracked', '-l', '-F', 'lattice-db-or-key', '--', '.'], { cwd: src, encoding: 'utf8' });
 		} catch (e) {
-			out = String((e as { stdout?: string }).stdout ?? ''); // git grep exits 1 on no match
+			// git grep exits 1 for "no match", which is the passing case. Anything else (git
+			// missing, not a repository) must fail loudly, or this test passes without running.
+			if ((e as { status?: number }).status !== 1) throw e;
+			out = String((e as { stdout?: string }).stdout ?? '');
 		}
 		const offenders = out
 			.split('\n')
@@ -33,13 +36,22 @@ describe('openrouter-key — read, write, reject', () => {
 		writeOpenRouterKey(null);
 		expect(readOpenRouterKey()).toBeNull();
 	});
-	it('marks a rejection once, and a new key clears it', () => {
-		expect(markOpenRouterKeyRejected()).toBe(false); // no key, nothing to reject
+	it('a 401 marks the stored key once; a 2xx or a new key clears it', () => {
+		expect(noteOpenRouterStatus(401, 'sk-or-a')).toBe(false); // no stored key, nothing to mark
 		writeOpenRouterKey('sk-or-a');
-		expect(markOpenRouterKeyRejected()).toBe(true);
-		expect(markOpenRouterKeyRejected()).toBe(false); // already marked: no second announcement
+		expect(noteOpenRouterStatus(401, 'sk-or-a')).toBe(true);
+		expect(noteOpenRouterStatus(401, 'sk-or-a')).toBe(false); // already marked: announced once
 		expect(openRouterKeyRejected()).toBe(true);
+		expect(noteOpenRouterStatus(402, 'sk-or-a')).toBe(false); // not a key-health answer
+		expect(noteOpenRouterStatus(200, 'sk-or-a')).toBe(true); // a one-off 401 does not stick
+		expect(openRouterKeyRejected()).toBe(false);
+		noteOpenRouterStatus(401, 'sk-or-a');
 		writeOpenRouterKey('sk-or-b');
+		expect(openRouterKeyRejected()).toBe(false);
+	});
+	it('a late 401 about an OLD key never marks the new one', () => {
+		writeOpenRouterKey('sk-or-new');
+		expect(noteOpenRouterStatus(401, 'sk-or-old')).toBe(false);
 		expect(openRouterKeyRejected()).toBe(false);
 	});
 	it('recognizes a storage event for the key, or a cleared store', () => {

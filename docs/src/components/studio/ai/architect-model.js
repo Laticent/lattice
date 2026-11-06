@@ -18,7 +18,7 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { markOpenRouterKeyRejected, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { noteOpenRouterStatus, openRouterKeyRejected, readOpenRouterKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
 import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 
@@ -252,13 +252,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   // Every write of the key goes through lib/openrouter-key.js, so a fresh key (or none)
   // always clears the "rejected" mark the previous key earned.
   const setKey = (key) => writeOpenRouterKey(key);
-  // OpenRouter answered 401 for the stored key: it was revoked, deleted or expired. Mark it
-  // once (the transition is what live surfaces hear about), and keep the key itself so the
-  // author sees "rejected · Reconnect" rather than a silent fall to "not connected".
-  const noteStatus = (status) => {
-    if (status !== 401 || !markOpenRouterKeyRejected()) return;
-    if (typeof window !== 'undefined') { try { window.dispatchEvent(new Event('db-model-changed')); } catch {} }
-  };
+  // OpenRouter's answer about the key a request carried: a 401 marks it rejected (revoked,
+  // deleted or expired), a 2xx clears an earlier mark, and an answer about a key that is no
+  // longer stored is ignored (lib/openrouter-key.js). The key itself stays, so the author sees
+  // "rejected · Reconnect" rather than a silent fall to "not connected".
+  const noteStatus = (status, key) => noteOpenRouterStatus(status, key);
   return {
     name: 'openrouter',
     ready() { return !!readOpenRouterKey(); },
@@ -280,7 +278,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
-        noteStatus(res.status);
+        noteStatus(res.status, key);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
         return {
@@ -300,8 +298,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const key = readOpenRouterKey();
       if (!key) return null;
       try {
+        // Not tapped for the rejected mark: OpenRouter documents /credits as needing a
+        // management key, so a refusal here does not prove the key is dead.
         const res = await fetch(OPENROUTER_CREDITS_URL, { headers: { Authorization: 'Bearer ' + key } });
-        noteStatus(res.status);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
         if (d.total_credits == null && d.total_usage == null) return null;
@@ -511,11 +510,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           res = await send(defaultModel);
         }
         if (!res.ok) {
-          noteStatus(res.status);
+          noteStatus(res.status, key);
           const detail = res.bodyUsed ? errText : await res.text().catch(() => '');
           throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
         }
       }
+      noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
       // `finish_reason` is the transport's own account of WHY the reply stopped. Nothing
       // read it before, so a reply cut off at max_tokens ('length') was indistinguishable
       // from a finished one — and the edit parser downstream then salvaged a partial slide
@@ -941,7 +941,9 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       // A caller that can NAME the failure opts in with `surfaceErrors`. The theme and
       // component faculties do: flooring a 402 into an empty reply left them saying "no
       // usable palette" or "no model connected" when the account was out of credits.
-      if (opts?.surfaceErrors) throw e;
+      // Cloud only: describeModelError reads OpenRouter's statuses, and an on-device
+      // failure worded as "never reached OpenRouter" would mislead. Those still floor.
+      if (opts?.surfaceErrors && backend.name === 'openrouter') throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }
@@ -1008,10 +1010,11 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       try {
         await openrouter.completeAuth(code);
       } catch (e) {
-        // A code and its verifier are good for ONE exchange. Leaving the verifier behind
-        // after a failed one made every later load look like a pending sign-in, and the
-        // stale pair can never succeed — so drop it and let the author start over.
-        openrouter.clearPendingAuth();
+        // A code and its verifier are good for ONE exchange. Once OpenRouter has ANSWERED
+        // and refused, the pair can never succeed, so drop the verifier and let the author
+        // start over. A network failure is different: the code was never spent, so the
+        // verifier stays and a reload can still finish the sign-in.
+        if (/auth failed|returned no key/.test(String(e?.message))) openrouter.clearPendingAuth();
         throw e;
       }
       emitChange();

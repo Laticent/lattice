@@ -821,14 +821,15 @@ describe('applyProposedEditsChecked — blocks and slides are different units', 
 // no usable palette" or, through the catch, "No model connected". They now opt in to
 // `surfaceErrors` and name the cause with the chat's own `describeModelError`.
 describe('theme + component AI — a failed model call names its cause', () => {
-	const throwing = (message: string) => ({
-		name: 'mock',
+	// Named 'openrouter': surfaceErrors only lifts CLOUD failures (an on-device one still floors).
+	const throwing = (message: string, name = 'openrouter') => ({
+		name,
 		async complete() { throw new Error(message); },
 		async embed() { return null; },
 	});
-	async function withThrow(message: string, run: () => Promise<void>) {
+	async function withThrow(message: string, run: () => Promise<void>, name?: string) {
 		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
-		m.__setBackend(throwing(message));
+		m.__setBackend(throwing(message, name));
 		try { await run(); } finally { m.__setBackend(null); }
 	}
 	const CASES: [string, string, RegExp][] = [
@@ -856,6 +857,16 @@ describe('theme + component AI — a failed model call names its cause', () => {
 			});
 		});
 	}
+	it('an on-device failure still floors — it is not worded as an OpenRouter error', async () => {
+		await withThrow(
+			'TypeError: Failed to fetch',
+			async () => {
+				const out = await generateTheme({}, 'deep navy');
+				expect(out.status).not.toBe('failed');
+			},
+			'webllm',
+		);
+	});
 	it('the four failures produce four different sentences', async () => {
 		const notes = new Set<string>();
 		for (const [, message] of CASES) {
@@ -906,6 +917,26 @@ describe('resumePendingAuth — a failed OAuth return says so', () => {
 		expect(out.status).toBe('connected');
 		expect(localStorage.getItem(KEY)).toBe('sk-or-test');
 		localStorage.removeItem(KEY);
+	});
+	it('a network failure keeps the verifier and the code, so a reload can finish the sign-in', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=unspent');
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		if (out.status === 'failed') expect(out.retry).toBe('reload');
+		expect(localStorage.getItem(VERIFIER)).toBe('pkce-verifier');
+		expect(location.search).toBe('?code=unspent');
+	});
+	it('two concurrent calls (StrictMode double effect) exchange the code once', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=once');
+		const fetchSpy = vi.fn(async (url: string) => (String(url).includes('/auth/keys') ? new Response('{"key":"sk-or-once"}', { status: 200 }) : new Response('{"data":[]}', { status: 200 })));
+		vi.stubGlobal('fetch', fetchSpy);
+		const [a, b] = await Promise.all([resumePendingAuth(), resumePendingAuth()]);
+		expect(a.status).toBe('connected');
+		expect(b.status).toBe('connected');
+		expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes('/auth/keys'))).toHaveLength(1);
 	});
 	it('no pending sign-in is a no-op', async () => {
 		history.replaceState(null, '', '/studio/?code=stray');

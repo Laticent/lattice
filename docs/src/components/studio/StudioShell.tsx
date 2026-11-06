@@ -3770,7 +3770,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		resumePendingAuth().then((r) => {
 			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
 			// A failed return used to say nothing, so Connect looked like it did nothing.
-			else if (r?.status === 'failed') notifyAction(r.note, { label: 'Try again', onClick: () => { connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.')); } });
+			else if (r?.status === 'failed')
+				notifyAction(r.note, {
+					label: r.retry === 'reload' ? 'Reload' : 'Try again',
+					onClick: () => {
+						if (r.retry === 'reload') location.reload();
+						else connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.'));
+					},
+				});
 		});
 	}, []);
 	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark

@@ -2063,9 +2063,20 @@ export function scrubOAuthCode(pathname: string, search: string, hash: string): 
 
 /** What the OAuth return did: nothing to resume, a key stored, or a failure the author
  *  must hear about (`note` says what came back). */
-export type AuthResume = { status: 'none' } | { status: 'connected' } | { status: 'failed'; note: string };
+export type AuthResume = { status: 'none' } | { status: 'connected' } | { status: 'failed'; note: string; retry: 'connect' | 'reload' };
 
-export async function resumePendingAuth(): Promise<AuthResume> {
+// Single-flight: React StrictMode runs the mount effect twice in development, and two
+// exchanges of one single-use code mean one of them fails and reports a false "did not
+// connect" after a sign-in that worked.
+let resumeInflight: Promise<AuthResume> | null = null;
+export function resumePendingAuth(): Promise<AuthResume> {
+	resumeInflight ??= resumeOnce().finally(() => {
+		resumeInflight = null;
+	});
+	return resumeInflight;
+}
+
+async function resumeOnce(): Promise<AuthResume> {
 	const m = await architectModel();
 	if (!m) return { status: 'none' };
 	const params = new URLSearchParams(location.search);
@@ -2078,16 +2089,20 @@ export async function resumePendingAuth(): Promise<AuthResume> {
 		const error = params.get('error');
 		if (!error) return { status: 'none' };
 		m.clearPendingOpenRouterAuth?.();
-		return { status: 'failed', note: `OpenRouter did not connect (${error.slice(0, 80)}).` };
+		return { status: 'failed', note: `OpenRouter did not connect (${error.slice(0, 80)}).`, retry: 'connect' };
 	}
 	try {
 		await m.resumeOpenRouterAuth(code);
 	} catch (e) {
-		// The code is single-use and the adapter already dropped the verifier, so scrub the
-		// code too: a reload must not replay a dead exchange.
+		const status = /auth failed \((\d{3})\)/.exec(errorText(e))?.[1];
+		const refused = !!status || /returned no key/.test(errorText(e));
+		// OpenRouter never answered: the code is unspent and the adapter kept the verifier, so
+		// leave the code in the URL and let a reload finish the sign-in.
+		if (!refused) return { status: 'failed', note: 'Could not reach OpenRouter to finish signing in — check the connection, then reload.', retry: 'reload' };
+		// OpenRouter refused: the code is single-use and the adapter already dropped the
+		// verifier, so scrub the code too, and a reload cannot replay a dead exchange.
 		history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
-		const status = /\((\d{3})\)/.exec(errorText(e))?.[1];
-		return { status: 'failed', note: `OpenRouter did not connect${status ? ` (error ${status})` : ''} — the sign-in came back without a key.` };
+		return { status: 'failed', note: `OpenRouter did not connect${status ? ` (error ${status})` : ''} — the sign-in came back without a key.`, retry: 'connect' };
 	}
 	// Scrub ONLY the OAuth code, and carry `history.state` through.
 	//

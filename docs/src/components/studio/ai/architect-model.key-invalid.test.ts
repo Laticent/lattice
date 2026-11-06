@@ -41,10 +41,28 @@ describe('architect-model — a rejected key is noticed', () => {
 		window.addEventListener('db-model-changed', heard);
 		vi.stubGlobal('fetch', respond(401));
 		await m.complete({ messages: [{ role: 'user', content: 'hi' }], fallback: '' });
-		await m.openRouterCredits();
+		await m.complete({ messages: [{ role: 'user', content: 'again' }], fallback: '' });
 		window.removeEventListener('db-model-changed', heard);
 		expect(m.availability().openRouterKeyInvalid).toBe(true);
 		expect(heard).toHaveBeenCalledTimes(1);
+	});
+	it('a late 401 from a request made with the OLD key does not mark the new one', async () => {
+		localStorage.setItem(KEY, 'sk-or-old');
+		const m = make();
+		let release: (r: Response) => void = () => {};
+		vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((r) => { release = r; })));
+		const pending = m.openRouterAccount();
+		localStorage.setItem(KEY, 'sk-or-new'); // a reconnect lands while the old request is out
+		release(new Response('{}', { status: 401 }));
+		await pending;
+		expect(m.availability().openRouterKeyInvalid).toBe(false);
+	});
+	it('/credits is not a key-health signal: its 401 marks nothing', async () => {
+		localStorage.setItem(KEY, 'sk-or-live');
+		const m = make();
+		vi.stubGlobal('fetch', respond(401));
+		await m.openRouterCredits();
+		expect(m.availability().openRouterKeyInvalid).toBe(false);
 	});
 	it('a 402 or 429 is not a rejected key', async () => {
 		localStorage.setItem(KEY, 'sk-or-live');
