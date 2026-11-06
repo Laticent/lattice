@@ -979,10 +979,13 @@ describe('generateFinish — a real JSON reply survives the adapter', () => {
 // so a typo or a revoked key is refused at the door instead of on the first paid request.
 describe('saveOpenRouterKey — a pasted key is checked before it is stored', () => {
 	const KEY = 'lattice-db-or-key';
+	const REJECTED = 'lattice-db-or-key-invalid';
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		localStorage.removeItem(KEY);
+		localStorage.removeItem(REJECTED);
 	});
+	const answering = (status: number) => vi.fn(async (_url: string, _init?: RequestInit) => new Response(status === 200 ? '{"data":{}}' : '{}', { status }));
 	it('refuses a key that is not an OpenRouter key, without a request', async () => {
 		const fetchSpy = vi.fn();
 		vi.stubGlobal('fetch', fetchSpy);
@@ -992,12 +995,13 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(fetchSpy).not.toHaveBeenCalled();
 		expect(localStorage.getItem(KEY)).toBeNull();
 	});
-	it('a 401 is refused and nothing is stored', async () => {
-		vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
-		const out = await saveOpenRouterKey('  sk-or-v1-revoked  ');
+	it('a 401 is refused, and a key already stored stays exactly as it was (Replace → refused)', async () => {
+		localStorage.setItem(KEY, 'sk-or-v1-working');
+		vi.stubGlobal('fetch', answering(401));
+		const out = await saveOpenRouterKey('sk-or-v1-revoked');
 		expect(out.ok).toBe(false);
 		if (!out.ok) expect(out.note).toMatch(/rejected this key/);
-		expect(localStorage.getItem(KEY)).toBeNull();
+		expect(localStorage.getItem(KEY)).toBe('sk-or-v1-working');
 	});
 	it('no network is refused with its own sentence', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
@@ -1005,10 +1009,18 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(out.ok).toBe(false);
 		if (!out.ok) expect(out.note).toMatch(/Could not reach OpenRouter/);
 	});
-	it('a 200 stores the trimmed key', async () => {
-		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"data":[]}', { status: 200 })));
-		const out = await saveOpenRouterKey('  sk-or-v1-good  ');
+	it('a 200 stores the cleaned key, asked of /auth/key with that key, and clears a stale rejected mark', async () => {
+		localStorage.setItem(KEY, 'sk-or-v1-old');
+		localStorage.setItem(REJECTED, '1');
+		const fetchSpy = answering(200);
+		vi.stubGlobal('fetch', fetchSpy);
+		// A line break and a zero-width space, as a copy from a chat or a PDF can carry.
+		const out = await saveOpenRouterKey('  sk-or-v1-go\nod\u200B  ');
 		expect(out.ok).toBe(true);
 		expect(localStorage.getItem(KEY)).toBe('sk-or-v1-good');
+		expect(localStorage.getItem(REJECTED)).toBeNull();
+		const check = fetchSpy.mock.calls.find(([url]) => String(url).includes('/auth/key'));
+		expect(check, 'the key was checked with /auth/key').toBeTruthy();
+		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe('Bearer sk-or-v1-good');
 	});
 });

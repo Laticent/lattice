@@ -242,7 +242,13 @@ OpenAI, Anthropic and Gemini, with OpenRouter as the default.
 (`architect.ts`) refuses anything not shaped `sk-or-…` without a request, checks the rest with
 OpenRouter's `/auth/key` (the adapter's `checkOpenRouterKey`, read-only and free), and stores it
 only on a 200, through `lib/openrouter-key.js`. A saved key shows as `…` plus its last four
-characters (`openRouterKeyHint`), with Replace and Remove. "API key" is a way to CONNECT the cloud
+characters (`openRouterKeyHint`), with Replace and Remove. Saving a key also makes Cloud the active tier
+(`setStudioTier('auto')`): the Studio lets an explicit on-device pick outrank the cloud, so
+without it a saved key sat behind an on-device tier while the toast said Cloud was active. The
+pasted text loses every whitespace and zero-width character before the shape check, since a key
+copied from a chat or a PDF can carry one and `fetch` refuses it in a header. The field asks
+password managers not to store it (`autocomplete="new-password"` and their opt-out
+attributes). These three came from an independent checker pass on the pasted-key flow. "API key" is a way to CONNECT the cloud
 tier, not a third backend, so everything below the switch (spend, standing instructions, the
 voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
 `WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.

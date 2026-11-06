@@ -81,7 +81,14 @@ export function ApiKeyPanel({ status }: { status: ArchitectStatus }) {
 						if (e.key === 'Enter' && value.trim() && !busy) save();
 					}}
 					placeholder="sk-or-v1-…"
-					autoComplete="off"
+					// Chrome ignores `off` on a password field and offers to save the key as a synced
+					// password once the field disappears after a request; `new-password` and the
+					// managers' own opt-outs keep it out of the vault.
+					autoComplete="new-password"
+					data-1p-ignore=""
+					data-lpignore="true"
+					data-bwignore=""
+					data-form-type="other"
 					spellCheck={false}
 					aria-invalid={!!error}
 					aria-describedby={`${inputId}-help`}
