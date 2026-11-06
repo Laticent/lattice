@@ -6,13 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
-### 2026-11-06 — Studio eager ceiling raised by 2 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
+### 2026-11-06 — Studio eager ceiling raised by 2.5 KB and lint-core by 0.5 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
 
-Owner OK 2026-11-06 (asked on PR 2988, "Raise to 565.0KB", chosen over lazy-loading the Align and venue pickers or dropping the Studio's Align pickers). PR 2988 gives the Studio a phone and tablet venue picker with a per-shape table (`src/components/studio/venue.ts`), runs the measured split in the preview (the lazy `src/lib/measured-split.ts`, called from `single-slide-render.ts`), and adds two Align pickers (`src/components/studio/align-catalog.ts`). It gave back about 1.4 KB before asking: the align words split from the resolver, the align lint through the shared axis check, the pickers' unused swatches and blurbs dropped, bundled icons reused, and the preview's measured-split orchestration moved into the lazy module. CI on 9b29219 then measured studio eagerJsGz at 563.5 KB (+1,219 B over main, declared in `route-budget.d/2988-measured-split.md`) against a 563.0 KB ceiling; main measures 561.8 KB locally. The ceiling rises to 565.0 KB, so the route keeps about 1.5 KB of headroom over this PR. The soft target is unchanged.
+Owner OK 2026-11-06, in two rounds asked in the PR 2988 session: "Raise to 565.0KB" (chosen over lazy-loading the Align and venue pickers or dropping the Studio's Align pickers), then, after PR 2988 was rebased onto a `main` that had grown, "Make it 565.5KB" for the eager ceiling and "Raise by 0.5KB" for the lint core (chosen over cutting the handheld-venue lint or moving it into a lazy lint plugin).
+
+PR 2988 gives the Studio a phone and tablet venue picker with a per-shape table (`src/components/studio/venue.ts`), runs the measured split in the preview (the lazy `src/lib/measured-split.ts`, called from `single-slide-render.ts`), adds two Align pickers (`src/components/studio/align-catalog.ts`), and adds the handheld venue rungs to lint (`lib/core/resolve-venue.js`, +392 B in the lint core). It gave back about 1.5 KB before asking: the align words split from the resolver, the align lint through the shared axis check, the pickers' unused swatches and blurbs dropped, bundled icons reused, the preview's measured-split orchestration moved into the lazy module, and the retired-name lint hints trimmed. CI on 9b29219 measured studio eagerJsGz at 563.5 KB (+1,219 B over main, declared in `route-budget.d/2988-measured-split.md`) against 563.0 KB; rebased onto `main` at d3330e5 it measured 563.7 KB eager and 148.7 KB lint core. A local docs build of the rebased branch measured 577,747 B eager and 152,264 B lint core. The eager ceiling rises to 565.5 KB and the lint-core ceiling to 149.1 KB, each about 0.5 KB over what CI should read, so normal drift from `main` does not trip them at once. Soft targets are unchanged.
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | eagerJsGz | 504833 | 504833 | +0 | 578560 |
+| studio | eagerJsGz | 504833 | 504833 | +0 | 579072 |
+| studio | lintCoreGz | 112808 | 112808 | +0 | 152705 |
 
 ### 2026-11-05 — three ceilings raised by hand, for the deck model in the Studio (PR 3038)
 

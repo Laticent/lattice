@@ -6,7 +6,7 @@
       "html": "studio/index.html",
       "eagerJsGz": {
         "soft": 504833,
-        "hard": 578560
+        "hard": 579072
       },
       "htmlRaw": {
         "soft": 226628,
@@ -22,7 +22,7 @@
       },
       "lintCoreGz": {
         "soft": 112808,
-        "hard": 152193
+        "hard": 152705
       },
       "chartKernelsGz": {
         "soft": 231477,
