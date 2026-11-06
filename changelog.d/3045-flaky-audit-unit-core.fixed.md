@@ -4,8 +4,10 @@
   its timer queue is empty (`test/helpers/runtime-boot.js`). Timeout tests move a mocked clock across their bound. The
   "stays linear on hostile input" stopwatches count the characters each scan covered (`test/helpers/work-count.js`:
   `scanWork`, `charReads`). Where the regression is backtracking inside one regex, which nothing can count, the test
-  stays a hang guard sized so the old pattern needs a minute or more, marked `flaky-ok` with both measurements. Every
-  rewritten assertion was shown failing on a copy of its module with the old defect put back.
+  stays a hang guard sized so the old pattern needs a minute or more, marked `flaky-ok` with both measurements. A
+  stress run found four more stopwatches the census cannot see (in chart-row-record, front-matter-scalar,
+  lift-bracket-span and slide-camera-faces); they are hang guards now too. Each rewrite whose old code could be rebuilt
+  was shown failing on a copy of its module with the defect put back.
 - **Fixed: `checkFlakyTests` read a `// flaky-ok:` mark from the wrong line after a string holding U+2028 or U+2029,**
   so every mark below one was ignored.
 - **Fixed: a chart row with many trailing pills no longer slows narration with the square of the pill count.**
