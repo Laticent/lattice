@@ -60,3 +60,21 @@ describe('openrouter-key — read, write, reject', () => {
 		expect(isOpenRouterKeyEvent({ key: 'lattice-db-or-model' })).toBe(false);
 	});
 });
+
+// The name guard above covers source. This covers the other way a value leaves: code that SWEEPS
+// storage. Every sweep in docs/src today (found by `localStorage.key(` — the storage meter, the
+// settings-row summary, the deck stats, the workspace backup) reports names and byte counts only.
+// If one ever starts returning values, the seeded key must not ride out with them. The workspace
+// backup has its own pin (workspace-backup.test.ts, "never packs the OpenRouter key").
+describe('openrouter-key — no storage sweep returns the key value', () => {
+	afterEach(() => localStorage.clear());
+	it('the storage meter, summary and deck stats never carry the seeded value', async () => {
+		const SECRET = 'sk-or-v1-sweep-canary-0123456789';
+		writeOpenRouterKey(SECRET);
+		const { scanLocalStorage } = await import('../playground/storage-metrics');
+		const { storageSummary } = await import('../components/studio/workspace-backup-meta');
+		const { deckContentStats } = await import('../components/studio/studio-store');
+		const outputs = [scanLocalStorage(), await storageSummary(), deckContentStats()];
+		for (const out of outputs) expect(JSON.stringify(out)).not.toContain(SECRET);
+	});
+});

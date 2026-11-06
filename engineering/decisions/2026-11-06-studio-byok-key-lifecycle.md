@@ -100,9 +100,16 @@ outside `docs/src` and are not app code.
 Measured: on `main`, `git grep -l lattice-db-or-key -- docs/src` lists 4 non-test files;
 on this branch it lists 1.
 
-Not a reader: `workspace-backup.ts` packs storage into a zip, and
-`workspace-backup.test.ts` › "never packs the OpenRouter key, even if present" already pins
-that the key stays out of a backup.
+Not readers, and pinned so: every code path that sweeps storage (found by `localStorage.key(`:
+the storage meter `scanLocalStorage`, `storageSummary`, `deckContentStats`, the workspace
+backup) reports key names and byte counts, never values. `openrouter-key.test.ts` › "no storage
+sweep returns the key value" seeds a canary and checks all three outputs (red when the meter is
+made to leak a value); `workspace-backup.test.ts` › "never packs the OpenRouter key, even if
+present" pins the backup.
+
+The shipped bundle names the key in one chunk, `openrouter-key.*.js` (measured on the built
+site, 2026-11-06). A post-build check that keeps it that way is a new CI step and so waits on
+the owner (`followups.d/3048-p4-key-name-in-one-shipped-chunk.md`).
 
 ## 4. A shared deck cannot read the key
 
@@ -176,9 +183,8 @@ A red team, a Munger inversion and an independent checker reviewed §1–§4.
 - **Inversion: the §3-protects-§4 claim was wrong**, corrected above.
 
 Deferred, each with a follow-up file: a frame `script-src` that refuses inline handlers
-(defense in depth for §4); browser proof on the Stage and Read Article surfaces; and a check
-that the key's value never reaches the storage enumerators or more than one shipped bundle
-chunk.
+(defense in depth for §4); browser proof on the other same-origin surfaces; and a post-build check that the key's name
+stays in one shipped chunk (blocked on a CI-step decision).
 
 ## 6. Live run on a real model (2026-11-06)
 
