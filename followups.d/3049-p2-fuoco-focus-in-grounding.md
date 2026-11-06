@@ -5,7 +5,7 @@ recorded: 2026-11-06
 area: website
 severity: low
 swimlane: engineering/decisions/2026-11-06-skills-tools-and-chat-reach.md §6
-deferred: large — a separate Studio change with its own tests and cost readout; this PR is the skill index
+deferred: off-path — the Studio grounding (architect.ts, StudioShell.tsx), not the skill index this PR changes
 source: https://github.com/Laticent/lattice/pull/3049
 ---
 
