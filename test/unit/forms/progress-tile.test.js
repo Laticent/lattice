@@ -19,6 +19,11 @@ const deckHtml = (sections) => sections.join('');
 // nothing), so a fixture about docking or suppression appends this to clear the floor without
 // changing which section its own slides sit in.
 const ENDER = sec('divider no-progress', '<h2>End</h2>');
+// `progress-rail: on`, deck-wide: lowers the floor to two sections and any length, so a fixture about
+// docking, suppression or idempotence stays small. The floors themselves are pinned on their own below.
+const ON = 'progress-rail-on';
+/** A plain content slide, `n` times. */
+const filler = (n, cls = 'content form') => Array.from({ length: n }, () => sec(cls));
 const formRails = (d) => [...d.querySelectorAll('section.form .tile-progress')];
 const doc = (html) => new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
 const tilesIn = (html) => [...doc(html).querySelectorAll('.tile-progress')].map((n) => n.outerHTML).sort();
@@ -68,93 +73,120 @@ describe('progress Tile — the rail\'s width budget (dot bucketing)', () => {
   });
 });
 
+describe('progress Tile — when the rail is drawn (railWanted)', () => {
+  const { railWanted, MIN_SECTIONS, MIN_SECTIONS_FORCED, MIN_SLIDES } = progress;
+  const none = () => false;
+  const forced = (t) => t === ON;
+
+  test('the floors are three sections and fifteen slides; `progress-rail: on` lowers them to two and any length', () => {
+    assert.equal(MIN_SECTIONS, 3);
+    assert.equal(MIN_SLIDES, 15);
+    assert.equal(MIN_SECTIONS_FORCED, 2);
+    assert.equal(railWanted(3, 15, none), true);
+    assert.equal(railWanted(2, 40, none), false, 'two sections: first half / second half, which the page number says');
+    assert.equal(railWanted(5, 14, none), false, 'a short deck is held in the head');
+    assert.equal(railWanted(2, 4, forced), true);
+    assert.equal(railWanted(1, 40, forced), false, 'a scale of one is never drawn, forced or not');
+  });
+
+  test('a short deck draws nothing on either arm; the same deck with `on` draws', () => {
+    const short = deckHtml([sec('divider', '<h2>A</h2>'), sec('content form'), sec('divider', '<h2>B</h2>'),
+      sec('content form'), sec('divider', '<h2>C</h2>'), sec('content form')]);
+    assert.equal(progress.applyToHtml(short), short);
+    const d = doc(short);
+    progress.applyToDom(d);
+    assert.equal(d.querySelector('.tile-progress, .divider-marker'), null);
+    const on = short.replaceAll('class="', `class="${ON} `);
+    assert.equal((progress.applyToHtml(on).match(/class="tile-progress/g) || []).length, 3);
+  });
+
+  test('a long, sectioned deck draws by default', () => {
+    const html = deckHtml([sec('divider', '<h2>A</h2>'), ...filler(4), sec('divider', '<h2>B</h2>'), ...filler(4),
+      sec('divider', '<h2>C</h2>'), ...filler(4)]);
+    assert.equal((progress.applyToHtml(html).match(/class="tile-progress/g) || []).length, 12);
+  });
+
+  test('past eight sections the rail and the marker draw as a bar, unless the deck asks for dots', () => {
+    const nine = Array.from({ length: 9 }, (_, i) => [sec(`divider ${ON}`, `<h2>S${i}</h2>`), sec(`content form ${ON}`)]).flat();
+    const out = progress.applyToHtml(deckHtml(nine));
+    assert.match(out, /class="tile-progress bar-auto"/);
+    assert.match(out, /class="divider-marker bar-auto"/);
+    const dots = progress.applyToHtml(deckHtml(nine).replaceAll(ON, `${ON} progress-rail-dots`));
+    assert.doesNotMatch(dots, /bar-auto/);
+  });
+});
+
 describe('progress Tile — applyToHtml (HTML-string path)', () => {
   test('injects a dot-rail into form slides within a section', () => {
     const html = deckHtml([
-      sec('divider', '<h2>One</h2>'),
-      sec('content form'),
-      sec('divider', '<h2>Two</h2>'),
-      sec('content form'),
+      sec(`divider ${ON}`, '<h2>One</h2>'),
+      sec(`content form ${ON}`),
+      sec(`divider ${ON}`, '<h2>Two</h2>'),
+      sec(`content form ${ON}`),
     ]);
     const out = progress.applyToHtml(html);
-    // Two form slides and the two dividers that open their sections.
-    assert.equal((out.match(/class="tile-progress"/g) || []).length, 4);
+    assert.equal((out.match(/class="tile-progress"/g) || []).length, 2);
   });
 
   test('injects the rail without a vestigial class (footer zones are independent Cells)', () => {
-    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form'), ENDER]);
+    const html = deckHtml([sec(`divider ${ON}`, '<h2>S</h2>'), sec(`content form ${ON}`), ENDER]);
     const out = progress.applyToHtml(html);
-    assert.match(out, /class="content form"/);   // class untouched — no has-progress
+    assert.match(out, new RegExp(`class="content form ${ON}"`));   // class untouched — no has-progress
     assert.doesNotMatch(out, /has-progress/);
-    assert.match(out, /class="tile-progress"/);   // the rail itself is present
+    assert.match(out, /class="tile-progress"/);
   });
 
   test('the rail carries NO section label — dots only', () => {
-    // Rank 4 of the footer band's allocation policy. The rail used to print the divider's
-    // eyebrow beside the dots, and that one `white-space: nowrap` string is what made the band
-    // unresolvable: it could not yield, so it either overprinted the author's footer text or bid
-    // the footer's width away and deleted words from the exported PDF. Not emitted at all now —
-    // hiding it in CSS would leave a node that can still bid.
-    // engineering/decisions/2026-07-27-footer-band-allocation.md
+    // Rank 4 of the footer band's allocation policy (engineering/decisions/2026-07-27-footer-band-allocation.md).
     const html = deckHtml([
-      sec('divider', '<p><code>Section 01</code></p><h2>A long editorial heading</h2>'),
-      sec('content form'),
+      sec(`divider ${ON}`, '<p><code>Section 01</code></p><h2>A long editorial heading</h2>'),
+      sec(`content form ${ON}`),
       ENDER,
     ]);
     const out = progress.applyToHtml(html);
     const rail = out.match(/<div class="tile-progress"[\s\S]*?<\/div>/)[0];
     assert.doesNotMatch(rail, /class="seg"/);
-    // Scoped to the RAIL, not the whole deck — the divider slide itself still carries its own
-    // eyebrow and heading, which is the point: the section is named where the reader is looking.
-    assert.doesNotMatch(rail, /Section 01|A long editorial heading/,
-      'neither the eyebrow nor the heading may reach the rail');
+    assert.doesNotMatch(rail, /Section 01|A long editorial heading/, 'neither the eyebrow nor the heading may reach the rail');
     assert.match(rail, /class="dot on"/, 'the dots still say where you are');
   });
 
   test('no dividers → no-op (nothing to orient against)', () => {
-    const html = deckHtml([sec('content form')]);
+    const html = deckHtml([sec(`content form ${ON}`)]);
     assert.equal(progress.applyToHtml(html), html);
   });
 
-  test('ONE section → no rail anywhere: a scale of one says nothing', () => {
-    // The owner's report (2026-11-06): a one-section deck drew a single lit pill beside every page
-    // number, which nobody could read as anything. The floor is the topic track's own
-    // (MIN_TRACK_LABELS), and both arms hold it.
-    const html = deckHtml([sec('divider', '<h2>Only</h2>'), sec('content form'), sec('content form')]);
+  test('ONE section → nothing anywhere, even when forced: a scale of one says nothing', () => {
+    const html = deckHtml([sec(`divider ${ON}`, '<h2>Only</h2>'), sec(`content form ${ON}`), sec(`content form ${ON}`)]);
     assert.equal(progress.applyToHtml(html), html);
     const d = doc(html);
     progress.applyToDom(d);
-    assert.equal(d.querySelector('.tile-progress'), null, 'the live-DOM path agrees');
-    assert.equal(progress.MIN_SECTIONS, 2);
+    assert.equal(d.querySelector('.tile-progress, .divider-marker'), null, 'the live-DOM path agrees');
   });
 
-  test('a divider carries the rail, lit on the section it OPENS', () => {
-    // The divider is where the reader learns what the dots mean: the section's name in display
-    // type beside its own lit dot.
+  test('a divider composes its own MARKER, lit on the section it opens — never the chrome rail', () => {
+    // A divider is a sovereign Frame and hosts no chrome Cell (frame-identity-agrees.test.js); its
+    // marker is frame content that teaches the footer rail, the count in figures and the same marks.
     const html = deckHtml([
-      sec('divider', '<h2>One</h2>'), sec('content form'),
-      sec('divider', '<h2>Two</h2>'), sec('content form'),
-      sec('divider', '<h2>Three</h2>'),
+      sec(`divider ${ON}`, '<h2>One</h2>'), sec(`content form ${ON}`),
+      sec(`divider light ${ON}`, '<h2>Two</h2>'), sec(`content form ${ON}`),
+      sec(`divider numbered ${ON}`, '<h2>Three</h2>'),
     ]);
-    const d = doc(progress.applyToHtml(html));
-    const lit = [...d.querySelectorAll('section.divider')].map((s) =>
-      [...s.querySelectorAll('.tile-progress .dot')].findIndex((x) => x.classList.contains('on')));
-    assert.deepEqual(lit, [0, 1, 2]);
-  });
-
-  test('a `divider numbered` carries no rail — its numeral already says which section this is', () => {
-    const html = deckHtml([sec('divider numbered', '<h2>One</h2>'), sec('content form'), sec('divider', '<h2>Two</h2>')]);
-    const out = progress.applyToHtml(html);
-    const d = doc(html);
-    progress.applyToDom(d);
-    for (const [arm, root] of [['string', doc(out)], ['DOM', d]]) {
-      assert.equal(root.querySelector('section.numbered .tile-progress'), null, `${arm} arm: numbered divider`);
-      assert.equal(root.querySelectorAll('.tile-progress').length, 2, `${arm} arm: the content slide and the plain divider`);
+    for (const [arm, root] of [['string', doc(progress.applyToHtml(html))], ['DOM', (() => { const d = doc(html); progress.applyToDom(d); return d; })()]]) {
+      assert.equal(root.querySelector('section.divider .tile-progress'), null, `${arm} arm: no chrome rail on a divider`);
+      const markers = [...root.querySelectorAll('section.divider')].map((s) => s.firstElementChild);
+      assert.deepEqual(markers.map((m) => m.className), ['divider-marker', 'divider-marker', 'divider-marker'], `${arm} arm: the marker leads each divider`);
+      assert.deepEqual(markers.map((m) => m.querySelector('.divider-marker-count').textContent), ['1 / 3', '2 / 3', '3 / 3']);
+      assert.deepEqual(markers.map((m) => [...m.querySelectorAll('.dot')].findIndex((x) => x.classList.contains('on'))), [0, 1, 2]);
     }
   });
 
-  test('non-form, non-divider slides get no rail — a `topic` already draws its own track', () => {
-    const html = deckHtml([sec('divider no-progress', '<h2>S</h2>'), sec('content'), sec('topic'), ENDER]);
+  test('the marker follows the rail: no rail in the deck, no marker on its dividers', () => {
+    const html = deckHtml([sec(`divider ${ON} no-progress`, '<h2>A</h2>'), sec(`content form ${ON} no-progress`), sec(`divider ${ON} no-progress`, '<h2>B</h2>')]);
+    assert.doesNotMatch(progress.applyToHtml(html), /divider-marker|tile-progress/);
+  });
+
+  test('non-form slides get no rail — a `topic` already draws its own track', () => {
+    const html = deckHtml([sec(`divider no-progress ${ON}`, '<h2>S</h2>'), sec(`content ${ON}`), sec(`topic ${ON}`), ENDER]);
     assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));
     const d = doc(html);
     progress.applyToDom(d);
@@ -163,24 +195,22 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
 
   test('`no-progress` and `silent` suppress the rail', () => {
     const html = deckHtml([
-      sec('divider', '<h2>S</h2>'),
-      sec('content form no-progress'),
-      sec('content form silent'),
+      sec(`divider ${ON}`, '<h2>S</h2>'),
+      sec(`content form no-progress ${ON}`),
+      sec(`content form silent ${ON}`),
       ENDER,
     ]);
-    assert.ok(!/class="content form[^"]*"[^>]*><div class="tile-progress"/.test(progress.applyToHtml(html)));
-    assert.equal((progress.applyToHtml(html).match(/class="tile-progress"/g) || []).length, 1,
-      'only the opening divider carries one');
+    assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));
   });
 
   // The owner's rule (2026-11-03): a deck-wide `class: no-progress` reaches every slide, and a slide
   // overrides it with an explicit token. The deck class is ON every slide, so the override has to win.
   test('`with-progress` opts a slide back in, over a deck-wide `no-progress` and over `silent`', () => {
     const html = deckHtml([
-      sec('divider no-progress', '<h2>S</h2>'),
-      sec('content form no-progress'),
-      sec('content form no-progress with-progress'),
-      sec('content form silent with-progress'),
+      sec(`divider no-progress ${ON}`, '<h2>S</h2>'),
+      sec(`content form no-progress ${ON}`),
+      sec(`content form no-progress with-progress ${ON}`),
+      sec(`content form silent with-progress ${ON}`),
       ENDER,
     ]);
     assert.equal((progress.applyToHtml(html).match(/class="tile-progress"/g) || []).length, 2);
@@ -191,62 +221,67 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
   });
 
   test('idempotent', () => {
-    const html = deckHtml([sec('divider', '<h2>S</h2>'), sec('content form'), ENDER]);
+    const html = deckHtml([sec(`divider ${ON}`, '<h2>S</h2>'), sec(`content form ${ON}`), sec(`divider ${ON}`, '<h2>T</h2>')]);
     const once = progress.applyToHtml(html);
     assert.equal(progress.applyToHtml(once), once);
   });
 
   test('docks the rail INTO the footer Cell, just left of the page number', () => {
     const html = deckHtml([
-      sec('divider', '<h2>S</h2>'),
-      sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
+      sec(`divider no-progress ${ON}`, '<h2>S</h2>'),
+      sec(`content form ${ON}`, '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
       ENDER,
     ]);
     const out = progress.applyToHtml(html);
-    // rail is inside the footer cell, between footer text and the page number
     assert.match(out, /<div class="cell-footer"><footer>F<\/footer><div class="tile-progress"[\s\S]*?<\/div><span class="lat-pagination">2<\/span><\/div>/);
-    // the stage cell is untouched
-    assert.doesNotMatch(out, /cell-stage"><p>B<\/p><nav/);
   });
 
   test('docks into a footer Cell that has no page number', () => {
     const html = deckHtml([
-      sec('divider', '<h2>S</h2>'),
-      sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer></div>'),
+      sec(`divider no-progress ${ON}`, '<h2>S</h2>'),
+      sec(`content form ${ON}`, '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer></div>'),
       ENDER,
     ]);
     const out = progress.applyToHtml(html);
     assert.match(out, /<div class="cell-footer"><footer>F<\/footer><div class="tile-progress"[\s\S]*?<\/div><\/div>/);
   });
+
+  test('a supplied position carries the deck length, so a one-slide preview matches the full deck', () => {
+    // Fifteen-slide floor: the slice route renders ONE slide, so it must be told the deck's length.
+    const one = deckHtml([sec('content form')]);
+    assert.equal(progress.applyToHtml(one, { deckSection: { index: 2, total: 3 } }), one, 'length unknown → a one-slide deck');
+    assert.match(progress.applyToHtml(one, { deckSection: { index: 2, total: 3, slides: 20 } }), /class="tile-progress"/);
+  });
 });
 
 describe('progress Tile — applyToDom (live-DOM path)', () => {
+  const forcedDeck = deck.replaceAll('class="', `class="${ON} `);
+
   test('one rail per eligible form slide; dots + .on correct, and no label', () => {
-    const d = doc(deck);
+    const d = doc(forcedDeck);
     progress.applyToDom(d);
     const rails = formRails(d);
     assert.equal(rails.length, 2, 'skips the no-progress slide');
-    assert.equal(d.querySelectorAll('section.divider > .tile-progress').length, 2, 'each divider carries one');
-    assert.equal(rails[0].querySelector('.seg'), null, 'the rail carries dots only — see applyToHtml');
+    assert.equal(d.querySelectorAll('section.divider > .divider-marker').length, 2, 'each divider carries its marker');
+    assert.equal(d.querySelector('section.divider .tile-progress'), null, 'and never the chrome rail');
+    assert.equal(rails[0].querySelector('.seg'), null);
     assert.deepEqual([...rails[0].querySelectorAll('.dot')].map((x) => x.className), ['dot on', 'dot']);
     assert.deepEqual([...rails[1].querySelectorAll('.dot')].map((x) => x.className), ['dot', 'dot on']);
   });
 
   test('no dividers → no-op; idempotent', () => {
-    const d = doc(sec('content form'));
+    const d = doc(sec(`content form ${ON}`));
     progress.applyToDom(d);
     assert.equal(d.querySelector('.tile-progress'), null);
-    const d2 = doc(deck);
+    const d2 = doc(forcedDeck);
     progress.applyToDom(d2);
     progress.applyToDom(d2);
-    assert.equal(d2.querySelectorAll('.tile-progress').length, 4);
+    assert.equal(d2.querySelectorAll('.tile-progress').length, 2);
+    assert.equal(d2.querySelectorAll('.divider-marker').length, 2);
   });
 
-  // A deck-wide `no-progress` can land AFTER the first pass (a re-rendered deck's settings are
-  // resolved again; the VS Code preview reads the saved file asynchronously). A rail injected before
-  // it must go with it, and come back when the class does.
   test('reconciles: a slide that gains `no-progress` loses its rail, and gets it back when the class goes', () => {
-    const d = doc(deck);
+    const d = doc(forcedDeck);
     progress.applyToDom(d);
     const first = d.querySelectorAll('section')[1];
     assert.ok(first.querySelector('.tile-progress'));
@@ -264,22 +299,32 @@ describe('progress Tile — applyToDom (live-DOM path)', () => {
 
   test('docks the rail into the footer Cell, left of the page number', () => {
     const d = doc(deckHtml([
-      sec('divider', '<h2>S</h2>'),
-      sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
+      sec(`divider no-progress ${ON}`, '<h2>S</h2>'),
+      sec(`content form ${ON}`, '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer><span class="lat-pagination">2</span></div>'),
       ENDER,
     ]));
     progress.applyToDom(d);
     const fc = d.querySelector('.cell-footer');
     const kids = [...fc.children].map((n) => n.className || n.tagName.toLowerCase());
     assert.deepEqual(kids, ['footer', 'tile-progress', 'lat-pagination'], 'rail sits between footer and page number');
-    assert.equal(d.querySelector('.cell-stage .tile-progress'), null, 'rail is not in the stage');
   });
 });
 
 describe('progress Tile — cross-path parity', () => {
-  test('applyToDom and applyToHtml inject byte-identical Tile markup', () => {
-    const d = doc(deck);
+  test('applyToDom and applyToHtml inject byte-identical markup', () => {
+    const forcedDeck = deck.replaceAll('class="', `class="${ON} `);
+    const d = doc(forcedDeck);
     progress.applyToDom(d);
-    assert.deepEqual(domTilesIn(d), tilesIn(progress.applyToHtml(deck)));
+    const marks = (root) => [...root.querySelectorAll('.tile-progress, .divider-marker')].map((n) => n.outerHTML).sort();
+    assert.deepEqual(marks(d), marks(doc(progress.applyToHtml(forcedDeck))));
+  });
+
+  test('a long deck by default: both arms agree slide by slide', () => {
+    const long = deckHtml([sec('divider', '<h2>A</h2>'), ...filler(5), sec('divider light', '<h2>B</h2>'), ...filler(5),
+      sec('divider numbered', '<h2>C</h2>'), ...filler(5), sec('topic', '<h2>T</h2>')]);
+    const d = doc(long);
+    progress.applyToDom(d);
+    const perSlide = (root) => [...root.querySelectorAll('section')].map((s) => (s.querySelector('.tile-progress, .divider-marker')?.outerHTML || '-'));
+    assert.deepEqual(perSlide(d), perSlide(doc(progress.applyToHtml(long))));
   });
 });

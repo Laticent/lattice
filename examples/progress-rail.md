@@ -4,22 +4,31 @@ theme: indaco
 paginate: true
 header: "Lattice · Section rail"
 footer: "Acme · Q3 board review"
+progress-rail: on
 ---
 
 <!-- _class: title -->
 
 `Lattice · Feature deck`
 
-# One rail, one line of front matter
+# Where am I in this deck?
 
-The section rail says which part of the deck you are in, and `progress-rail:` says where it sits and how it looks.
+The section rail answers "which part", and the page number answers "how far".
+
+---
+
+<!-- _class: agenda -->
+
+## Three parts, and the mark each one wears
+
+1. What the rail means
+2. Where it sits
+3. How it looks
 
 ---
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-
-`Section 01`
 
 ## What the rail means
 
@@ -27,17 +36,15 @@ The section rail says which part of the deck you are in, and `progress-rail:` sa
 
 ## Each mark is one section of the deck
 
-- The deck has three dividers, so the rail has three marks
-- The lit mark is the section this slide sits in
+- The divider before this slide drew the marks large, next to the section's name
+- The footer repeats them small, with this section lit in the heading's ink
 - A hairline sets the page number apart, so it is not read as one more mark
-- A deck with one divider draws no rail, because a scale of one says nothing
+- A deck needs three sections and fifteen slides before the rail draws on its own; this one says `progress-rail: on`
 
 ---
 
-<!-- _class: divider -->
+<!-- _class: divider light -->
 <!-- _header: '' -->
-
-`Section 02`
 
 ## Where it sits
 
@@ -63,10 +70,8 @@ The section rail says which part of the deck you are in, and `progress-rail:` sa
 
 ---
 
-<!-- _class: divider -->
+<!-- _class: divider numbered -->
 <!-- _header: '' -->
-
-`Section 03`
 
 ## How it looks
 
@@ -77,15 +82,13 @@ The section rail says which part of the deck you are in, and `progress-rail:` sa
 ## A bar instead of dots
 
 - `progress-rail: bar` draws one thin segment per section
-- Every segment is the same length, and the lit one is filled
-- The lit mark uses the heading's ink, as the topic track does
+- Past eight sections the rail turns into a bar by itself
+- `progress-rail: off` hides the rail and the divider markers together
 
 ---
 
-<!-- _class: progress-rail-edge progress-rail-bar -->
+<!-- _class: topic -->
 
-## Both words on one line
+## Topics name their section
 
-- `progress-rail: edge bar` sets placement and style together
-- `progress-rail: off` hides the rail on every slide
-- The Studio completes each word, and the Deck Inspector sets them under Chrome
+The eyebrow above says which section this topic belongs to, read from the divider.

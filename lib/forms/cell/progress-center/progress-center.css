@@ -17,7 +17,7 @@
  * INDEPENDENTLY (e.g. to the right-middle) for infinite layouts (forms.md §7.3).
  * The region id stays `progress-center` for compatibility; its default geometry is
  * now right-grouped, not centered. */
-section:is(.form, .divider) .tile-progress {
+section.form .tile-progress {
   position: absolute;
   /* default: parked just left of the page number (--footer-pag-reserve), bottom
    * baseline shared with it. Override the single --progress-inset token to move
@@ -41,34 +41,16 @@ section:is(.form, .divider) .tile-progress {
   max-width: var(--footer-center-w);
   pointer-events: none;
 }
-/* A SECTION-LEVEL rail (a divider, a sovereign frame, `edge`) takes the band's own height, so its
+/* A SECTION-LEVEL rail (a frame with no footer Cell, or `edge`) takes the band's own height, so its
  * dots center on the line the footer text centers on rather than on the berth's bottom edge. Only
  * there: a rail docked in the footer Cell is a flex item, and a definite height on it grew the band
  * from 24px to 64px and moved the page number 20px between slides with and without a rail. */
-section:is(.form, .divider) > .tile-progress { block-size: var(--footer-h, auto); }
+section.form > .tile-progress { block-size: var(--footer-h, auto); }
 
 /* ── PLACEMENT — the `progress-rail:` register (lib/core/resolve-progress-rail.js) ─────────────
  * `right` is the default above and carries no rule. Every placement below sets `inset` through the
  * same `--progress-inset` hook as the default, so a deck that moves the rail by hand still can.
- *
- * A DIVIDER has no page number to group with, so its `right` rail hugs the frame's own right inset
- * instead of leaving the number's berth empty beside it. */
-section.divider > .tile-progress {
-  inset: var(--progress-inset, auto var(--frame-inset-r) var(--frame-inset-b) auto);
-  /* A divider hosts no footer Cell, so `--footer-h` is not set here; its footer is one `line-height: 1`
-   * line of `--chrome-fs` (base.modifiers.css `section footer`), and a rail that tall centers on it. */
-  block-size: var(--chrome-fs);
-}
-/* …and the divider's running footer, a separate absolute box (base.modifiers.css `section footer`)
- * that wraps freely, stops short of the rail's berth and ends in an ellipsis, the way the footer
- * Cell treats it on a content slide. Rank 2 over rank 3 of the band's allocation policy
- * (engineering/decisions/2026-07-27-footer-band-allocation.md): the marks never yield. */
-section.divider:has(> .tile-progress):not(.progress-rail-edge) > footer {
-  right: calc(var(--frame-inset-r) + var(--footer-center-w) + var(--sp-md));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+ */
 
 /* `center` — the middle of the footer band. NOT where a bottom-center LOGO sits: the brand wins
  * that berth (`logo-finish:`, base.modifiers.css), and the rail falls back to `right` rather than
@@ -92,21 +74,17 @@ section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) 
   inset: 0 auto 0 50%;
   translate: -50% 0;
 }
-/* A section-level rail (a divider, a sovereign frame) centers on the slide the same way, and a
- * divider's footer then stops short of the center line instead of the right-hand berth. */
-section:is(.form, .divider).progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .tile-progress {
+/* A section-level rail (a frame with no footer Cell) centers on the slide the same way. */
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .tile-progress {
   inset: var(--progress-inset, auto auto var(--frame-inset-b) 50%);
   translate: -50% 0;
-}
-section.divider.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)):has(> .tile-progress) > footer {
-  right: calc(50% + var(--footer-center-half) + var(--sp-md));
 }
 
 /* `edge` — upright on the slide's right edge, at mid-height, centered in the frame's right inset
  * where no content reaches. progress.transform.js places it at SECTION level for this, never in
  * the footer Cell, so it is clear of the band entirely and has no width budget to share: the
  * column runs vertically, and `--footer-center-w` does not apply. */
-section:is(.form, .divider).progress-rail-edge > .tile-progress {
+section.form.progress-rail-edge > .tile-progress {
   inset: var(--progress-inset, 50% calc(var(--frame-inset-r) / 2) auto auto);
   translate: 50% -50%;
   flex-direction: column;

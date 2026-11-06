@@ -1422,36 +1422,45 @@ progress-rail: edge bar
 
 | Axis | Words (default first) | What it does |
 |---|---|---|
-| placement | `right` · `center` · `edge` | `right` sits beside the page number, closed off from it by a hairline. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
-| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. |
-| show | `on` · `off` | `off` is the rail's own switch, `no-progress`, so `progress-rail: off` and the older `class: no-progress` are the same thing. |
+| placement | `right` · `center` · `edge` | `right` sits beside the page number, which a hairline sets apart. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. Past eight sections the rail draws as a bar unless the deck names `dots`. |
+| show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
 
 Per slide, a word on one axis replaces the deck's word on that axis only:
-`<!-- _class: progress-rail-edge -->` moves one slide's rail, `no-progress` hides it, and
-`with-progress` brings it back on a deck that turned it off.
+`<!-- _class: progress-rail-edge -->` moves one slide's rail and `progress-rail-on` brings it back on a
+deck that said `off`. The older switch still works beside the key: `no-progress` hides one slide's
+rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: off`, and a deck-wide
+`class: no-progress` reads as off in the Inspector.
 
-**What the rail means is not a setting.** Three rules hold whatever the line says
-(`lib/forms/tile/progress/progress.transform.js`):
+**When it draws, and where** (`lib/forms/tile/progress/progress.transform.js`; the reasoning is
+`engineering/decisions/2026-11-06-section-rail-placement.md`):
 
-- **It draws only when the deck has two or more sections.** A scale of one says nothing: a
-  one-section deck used to show a single lit pill beside every page number. The topic track has
-  the same floor.
-- **Each `divider` carries it, lit on the section it opens.** The divider names the section in
-  display type, so it is where a reader learns what the marks mean. Content slides then repeat it.
-- **A `divider numbered` does not either.** Its numeral already says which section this is, and
-  the variant clears its chrome to keep the bands around that numeral empty.
-- **A `topic` slide does not.** It already draws its own track, one level down (the topics inside
-  this section), and two unlabeled scales on one slide is the confusion the rail is meant to remove.
+- **Only in a deck with 3 or more sections and 15 or more slides**, by default. Two sections is
+  "first half, second half", which the page number already says, and a short deck is held in the head.
+  `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
+- **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
+  slides before the first divider carry no rail.
+- **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
+  marks, larger, this section lit, above the section name. That is where a reader learns what the
+  footer marks mean. A `divider numbered` carries it in its top band beside the numeral.
+- **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
+  rail as it will look in that section. A different count draws nothing.
+- **A topic slide with no eyebrow of its own names its section**: `Section 2 · <the divider's heading>`.
 
 **The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
 the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
 `--accent` is not used because it merges into `--border` on onyx, concrete, a11y-base and
 a11y-achromatopsia (`topic.styles.css` § the lit item).
 
+**One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
+same number the rail lights. `npm run lint:deck` suggests `empty-section` when a divider follows a
+divider directly, because the first section then holds no slide and its mark never lights.
+
 **`center` costs footer width.** The rail never yields in the footer band, and the author's
 footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
 the center line, a long footer line ends in an ellipsis before the rail's reserved berth
-(`--footer-center-half`). `right` and `edge` do not pay this.
+(`--footer-center-half`). `right` and `edge` do not pay this. With a bottom-center logo, the rail
+falls back to `right`.
 
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 

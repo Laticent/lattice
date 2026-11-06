@@ -108,3 +108,44 @@ section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-
  * (mode:wrap, style:auto). Caught by review; the first cut shipped the dead
  * `normal`. */
 section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-width:none; text-wrap:wrap; }
+
+/* ── THE SECTION MARKER — the divider's own legend for the deck's section rail ─────────────────
+ * progress.transform.js writes `.divider-marker` as the FIRST child of a divider, when the deck draws
+ * a section rail at all: the count in figures (`2 / 4`) and the same row of marks as the footer rail,
+ * drawn larger, with this section lit. It is what teaches the rail — every later footer rail is a
+ * miniature of it — so it shares the rail's mark geometry and inks (progress.css, scaled by `--_mk`)
+ * and its style (`progress-rail: bar`). It is frame content, not a chrome Cell: a divider is a
+ * sovereign Frame and hosts none (design/forms.md §6).
+ *
+ * In flow, above the eyebrow and the name, so the plain divider reads "2 / 4 · ━ ● ● ●", then the
+ * section, and a `divider light` centers it with the rest of its block. Spaced with padding, never
+ * margin (HARD RULE #20). */
+section.divider > .divider-marker {
+  --_mk: 1.5;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  padding-block-end: var(--sp-md);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--_rail-on);
+}
+section.divider > .divider-marker > .divider-marker-marks {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-sm) * var(--_mk));
+}
+/* A `divider numbered` reserves symmetric top and bottom bands to center its block between them,
+ * and its numeral already sits in the top band. The marker joins the numeral THERE, right-aligned
+ * on the numeral's center line, so the centered block and the bottom band stay exactly as they were
+ * (check:jank's `divider numbered` sweep measures both). */
+section.divider.numbered > .divider-marker {
+  position: absolute;
+  inset-block-start: calc(var(--_mark-top) + var(--fs-hero) / 2);
+  inset-inline-end: var(--frame-inset-r);
+  translate: 0 -50%;
+  padding-block-end: 0;
+}

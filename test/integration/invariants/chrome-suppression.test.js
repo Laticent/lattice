@@ -42,8 +42,9 @@ function resolveChrome() {
 // set deck-wide, then slides that opt out via each chrome token (1-based slide
 // indices in `data-lattice-slide`). A leading divider establishes a SECTION so the
 // progress rail renders on the content slides that follow (the rail is a no-op
-// outside a section), and a closing one makes it TWO: the rail draws nothing below
-// two sections (progress.transform.js MIN_SECTIONS). It comes last so no index moves; the divider is a sovereign frame, so slides 2+ are the ones
+// outside a section), and a closing one makes it TWO. A short deck draws no rail by
+// default, so the deck says `progress-rail: on` (progress.transform.js `railWanted`).
+// The closing divider comes last so no index moves; the divider is a sovereign frame, so slides 2+ are the ones
 // under test.
 const DECK = `---
 marp: true
@@ -51,6 +52,7 @@ theme: indaco
 header: "Running Header"
 footer: "Footer Text"
 paginate: true
+progress-rail: on
 ---
 
 # Section One

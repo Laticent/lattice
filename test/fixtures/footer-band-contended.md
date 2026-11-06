@@ -4,6 +4,10 @@ theme: indaco
 paginate: true
 header: "Lattice · footer band"
 footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not distribute outside the Audit Committee · ÅÉÀÖ"
+# Dots by name, and on at any length: eleven sections would otherwise draw as a bar (progress.transform.js
+# AUTO_BAR_PAST) and this short deck would draw no rail at all (`railWanted`). This fixture exists to
+# measure the WIDEST rail, ten dots, against the berth reserved for it, so it asks for exactly that.
+progress-rail: dots on
 ---
 
 <!-- _class: divider -->

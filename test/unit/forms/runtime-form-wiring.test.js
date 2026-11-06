@@ -23,15 +23,17 @@ const progressTile = require('../../../lib/forms/tile/progress/progress.transfor
 const watermarkTile = require('../../../lib/forms/tile/watermark/watermark.transform');
 
 // Raw-Marp DOM: `_class` -> section class, NO `form`, NO data-lattice-slide.
-const RAW = `
+const RAW_BASE = `
   <section class="title silent"><h1>Deck</h1></section>
   <section class="divider"><p><code>Section 01</code></p><h2>The Lift</h2></section>
   <section class="content watermark"><p><code>Context</code></p><h2>On by default.</h2><p>Body.</p></section>
   <section class="cards-grid"><h2>Composes.</h2><ul><li>a<ul><li>x</li></ul></li></ul></section>
   <section class="divider"><p><code>Section 02</code></p><h2>The Bay</h2></section>
   <section class="closing silent"><h1>End.</h1></section>`;
-// TWO sections, because the section rail draws nothing below two (a scale of one says nothing,
-// progress.transform.js MIN_SECTIONS); the second divider is what keeps the rail in this test.
+const RAW = RAW_BASE.replaceAll('class="', 'class="progress-rail-on ');
+// TWO sections and `progress-rail-on` (a deck's `progress-rail: on`, which Marpit would propagate as a
+// class): a short deck draws no rail by default (progress.transform.js `railWanted`), and this test is
+// about the wiring, not the floor.
 
 function runRuntimePass(html) {
   const doc = new JSDOM(`<!DOCTYPE html><body>${html}</body>`).window.document;
@@ -60,10 +62,11 @@ describe('runtime Form wiring — raw Marp deck composes as Form', () => {
     assert.equal(doc.querySelectorAll('section[data-frame="standard"]').length, 2);
     // masthead bands built by masthead-lift on the chrome-hosting slides.
     assert.equal(doc.querySelectorAll('.cell-masthead').length, 2);
-    // progress rail docked on the chrome-hosting slides within a divider section, and drawn on
-    // each divider lit on the section it opens.
+    // progress rail docked on the chrome-hosting slides within a divider section; each divider
+    // composes its own marker instead.
     assert.equal(doc.querySelectorAll('section.form .tile-progress').length, 2);
-    assert.equal(doc.querySelectorAll('section.divider > .tile-progress').length, 2);
+    assert.equal(doc.querySelectorAll('section.divider > .divider-marker').length, 2, 'each divider composes its marker');
+    assert.equal(doc.querySelectorAll('section.divider .tile-progress').length, 0, 'and never the chrome rail');
     // watermark glyph on the single `watermark` form slide.
     assert.equal(doc.querySelectorAll('.tile-watermark').length, 1);
     // every top-level slide marked so slide-scoped passes can see it.

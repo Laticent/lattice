@@ -2392,8 +2392,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the control reads as "this is what the deck is called, blank follows the cover".
 	const deckNameOverride = (getFrontMatter(source, 'title') ?? '').trim() ? (getFrontMatter(source, 'title') ?? '') : '';
 	// The section rail is ONE front-matter line, `progress-rail:` (lib/core/resolve-progress-rail.js):
-	// placement, style and show. `off` stamps the rail's own switch token, `no-progress`, so a deck
-	// that still says `class: no-progress` (how this toggle used to write it) reads as OFF too, and
+	// placement, style and show. `off` stamps the register's own `progress-rail-off`; a deck that still
+	// says `class: no-progress` (how this toggle used to write it) reads as OFF too, and
 	// the toggle clears that old spelling whichever way it is flipped.
 	const railWords = parseProgressRail(getFrontMatter(source, 'progress-rail') || '');
 	const deckRail = railWords.show !== 'off' && !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
@@ -6187,7 +6187,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
 				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." find="running confidential chrome" help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 				{pageNumbersField}
-				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section, the current one lit. It draws only when the deck has two or more <code>divider</code> slides, and each divider shows it lit on the section it opens. On by default; turning it off writes <code>progress-rail: off</code>.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section on content slides, the current one lit; each divider draws a larger marker, and an agenda with one item per section shows the marks as a legend. It draws on its own in a deck of three or more sections and fifteen or more slides. Turning it off writes <code>progress-rail: off</code>.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{deckRail && (
 					// A SCOPE for the same reason as the logo's: `Position` and `Style` do not say "rail".
 					<SettingsScope label="Section rail" keywords="progress dots bar progress-rail" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">

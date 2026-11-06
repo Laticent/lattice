@@ -143,7 +143,7 @@ specify them, and `split:` and `preset:` have none.
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
 | `logo-finish:` | up to one word per axis: a placement (`top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right`), a color (`auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas`), a plate (`no-plate` `plate`), a size (`md` `sm` `lg`), a scope (`all` `title`) | How the logo looks and where it sits. A placement word hides the header, footer or page number in that band. | `unknown-logo-finish` |
-| `progress-rail:` | up to one word per axis: a placement (`right` `center` `edge`), a style (`dots` `bar`), a show (`on` `off`) | Where the section rail sits and how it looks. It draws only when the deck has two or more `divider` slides; `off` is the rail's `no-progress` switch. | `unknown-progress-rail` |
+| `progress-rail:` | up to one word per axis: a placement (`right` `center` `edge`), a style (`dots` `bar`), a show (`on` `off`) | Where the section rail sits and how it looks. By default it draws in a deck of 3+ sections and 15+ slides; `on` lowers that to 2 sections, `off` hides it. | `unknown-progress-rail` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 
 **Delivery** keys change no rendered pixel. They tell a self-presenting player how to

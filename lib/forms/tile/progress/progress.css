@@ -7,7 +7,7 @@
 /* Appearance only — the progress-center Cell (lib/forms/cell/progress-center)
  * owns POSITION (so the rail is an independently-movable Cell). The dots + label
  * lay out right-aligned, so the group hugs the page number to its right. */
-section:is(.form, .divider) .tile-progress {
+section.form .tile-progress {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -42,14 +42,14 @@ section.divider:not(.light) {
   --_rail-on: var(--text-display);
   --_rail-off: color-mix(in srgb, var(--text-display) 35%, transparent);
 }
-.tile-progress .dot {
-  width: 0.85cqi;
-  height: 0.85cqi;
+:is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot {
+  width: calc(0.85cqi * var(--_mk, 1));
+  height: calc(0.85cqi * var(--_mk, 1));
   border-radius: 50%;
   background: var(--_rail-off);
 }
-.tile-progress .dot.on {
-  width: 2.6cqi;
+:is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot.on {
+  width: calc(2.6cqi * var(--_mk, 1));
   border-radius: 999px;
   background: var(--_rail-on);
 }
@@ -58,19 +58,44 @@ section.divider:not(.light) {
  * One thin segment per section, the current one filled: a line that reads as distance through the
  * deck. Every segment is the same length, so the lit one is told apart by ink alone — the same tone
  * cue the dots use. Narrower than ten dots in total (10 × 2cqi + 9 gaps), so it fits the berth
- * `--footer-center-w` reserves for the dots. */
-section.progress-rail-bar .tile-progress { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3); }
-section.progress-rail-bar .tile-progress .dot,
-section.progress-rail-bar .tile-progress .dot.on {
-  width: 2cqi;
-  height: 0.35cqi;
+ * `--footer-center-w` reserves for the dots. `bar-auto` is the same look, chosen by the kernel past
+ * eight sections (progress.transform.js AUTO_BAR_PAST), where dots stop being countable. The divider's
+ * marker follows the rail's style, so the legend always looks like the thing it explains. */
+section.progress-rail-bar .tile-progress,
+.tile-progress.bar-auto { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3); }
+section.progress-rail-bar .divider-marker-marks,
+.divider-marker.bar-auto .divider-marker-marks { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3 * var(--_mk, 1)); }
+/* Separate rules, not one `:is()` list: the arms differ in specificity, and a distributed `:is()`
+ * head takes its strongest arm's weight for every arm (leading-is.test.js). */
+section.progress-rail-bar :is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot,
+section.progress-rail-bar :is(.tile-progress, .divider-marker-marks, .agenda-rail) .dot.on,
+.bar-auto .dot,
+.bar-auto .dot.on {
+  width: calc(2cqi * var(--_mk, 1));
+  height: calc(0.35cqi * var(--_mk, 1));
   border-radius: 999px;
 }
 /* Upright on the edge, each mark turns with the rail: the lit dot stretches DOWN, the bar's
- * segments stand vertical. */
+ * segments stand vertical. The divider's marker never stands upright: it is a legend, read in line. */
 section.progress-rail-edge .tile-progress .dot.on { width: 0.85cqi; height: 2.6cqi; }
 section.progress-rail-edge.progress-rail-bar .tile-progress .dot,
-section.progress-rail-edge.progress-rail-bar .tile-progress .dot.on { width: 0.35cqi; height: 2cqi; }
+section.progress-rail-edge.progress-rail-bar .tile-progress .dot.on,
+section.progress-rail-edge .tile-progress.bar-auto .dot,
+section.progress-rail-edge .tile-progress.bar-auto .dot.on { width: 0.35cqi; height: 2cqi; }
+
+/* ── THE AGENDA LEGEND ─────────────────────────────────────────────────────────────
+ * progress.transform.js ends each item of a deck's contents with the rail as it will look in that
+ * item's section: the same marks, a little smaller than the footer's, set in the line after the
+ * title. Padding, not margin (HARD RULE #20). */
+.agenda-rail {
+  --_mk: 0.8;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-sm) * 0.6);
+  padding-inline-start: var(--sp-md);
+  vertical-align: middle;
+}
+section.progress-rail-bar .agenda-rail { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3); }
 
 /* ── SEPARATION FROM THE PAGE NUMBER ─────────────────────────────────────────────
  * Beside the page number, `• ━ • • 8` read as five stops, the number the fifth. A hairline opens
