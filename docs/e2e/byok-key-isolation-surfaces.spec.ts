@@ -78,7 +78,7 @@ async function expectNoLeak(page: Page, beacons: string[]) {
 	expect(beacons, 'no payload should reach the beacon host').toEqual([]);
 }
 
-test('@gecko @webkit-tablet Read Article: a hostile deck cannot read the key', async ({ page }) => {
+test('@gecko Read Article: a hostile deck cannot read the key', async ({ page }) => {
 	const beacons = await seed(page);
 	await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
 	await page.getByRole('button', { name: CHROME.readArticle }).click();
@@ -88,7 +88,7 @@ test('@gecko @webkit-tablet Read Article: a hostile deck cannot read the key', a
 	await expectNoLeak(page, beacons);
 });
 
-test('@gecko @webkit-tablet the Stage popup: a hostile deck cannot read the key', async ({ page, context }: { page: Page; context: BrowserContext }) => {
+test('@gecko the Stage popup: a hostile deck cannot read the key', async ({ page, context }: { page: Page; context: BrowserContext }) => {
 	const beacons = await seed(page);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
@@ -118,7 +118,7 @@ for (const [format, label] of [
 	['print', 'Print deck (the print sheets)'],
 	['webpage', 'Webpage export (the prune frame)'],
 ] as const) {
-	test(`@gecko @webkit-tablet ${label}: exporting a hostile deck cannot read the key`, async ({ page }) => {
+	test(`@gecko ${label}: exporting a hostile deck cannot read the key`, async ({ page }) => {
 		const beacons = await seed(page);
 		await page.getByRole('button', { name: 'Share', exact: true }).click();
 		await expect(page.getByRole('dialog')).toBeVisible();
@@ -131,7 +131,7 @@ for (const [format, label] of [
 	});
 }
 
-test('@gecko @webkit-tablet Library scene art: an imported motion package cannot read the key', async ({ page }) => {
+test('@gecko Library scene art: an imported motion package cannot read the key', async ({ page }) => {
 	const beacons = await seed(page);
 	const leak = (tag: string) => `top.__byokLeak=(top.__byokLeak||[]).concat('${tag}:'+localStorage.getItem('lattice-db-or-key'))`;
 	// A valid scene whose drawing carries the handler vectors an SVG can hold.

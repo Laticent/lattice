@@ -21,3 +21,8 @@ done when — byok-key-isolation-surfaces.spec.ts stays green on each surface wi
             call removed, as byok-key-isolation.spec.ts does for the Studio preview.
 evidence  — the red-arm run, per surface.
 verify    — tier 2 trio: a CSP mistake breaks every export.
+
+Also: the Studio preview's nonce is per PAGE LOAD and readable (a `<meta>` policy does not hide it),
+so a nonce per document would stop a leaked one from helping a later injection. The render
+signatures assume byte-identical rewrites of a slide, so that change has to move the nonce out of
+what they compare (lifecycle note §4).
