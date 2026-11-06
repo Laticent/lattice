@@ -140,8 +140,23 @@ test('reopening the Print drawer builds no preview documents, and each open star
 		w.__printMutations = 0;
 		return n;
 	});
-	// Settled: the pool answers the hide on its own apply pass, which is not a keystroke.
-	await expect.poll(takeMutations, { intervals: [300], timeout: 10_000 }).toBe(0);
+	// Settled: the pool answers the hide on its own pass, which is not a keystroke. It releases each
+	// slot RELEASE_GRACE (600 ms, preview-pool.tsx) after its tile leaves the band, and hides the
+	// released slot's box. Wait for that signal, every slot box hidden, and only then start counting:
+	// a poll for "no mutations" passed on its first read, before the release, and the release then
+	// landed among the keystrokes as 4 style writes (measured with no edit at all: the same 4, 480 ms
+	// after the observer went on).
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const root = document.querySelector('div[hidden] .pod-stage')?.closest('[hidden]');
+				const boxes = [...(root?.querySelectorAll('[data-slide-frame]') ?? [])].map((f) => f.parentElement as HTMLElement);
+				return boxes.length > 0 && boxes.every((b) => b.style.visibility === 'hidden');
+			}),
+			{ timeout: 10_000 },
+		)
+		.toBe(true);
+	await takeMutations();
 	// A slide ADDED, not just text: the kept drawer must not read 13 markdown slides against the
 	// 12 sections it rendered before the close, take the per-cell fallback, and drop its pool.
 	await setEditorContent(page, `${DECK.replace('Body 1.', 'Body one, edited while the sheet was closed.')}\n---\n\n## Slide 13\n\nBody 13.\n`);
