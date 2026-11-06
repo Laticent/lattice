@@ -815,6 +815,15 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
   stroke-width: 4px;
   stroke-linejoin: round;
 }
+/* drawRels puts the technology line its font size plus 5px BELOW the label, so the shared lift
+ * above leaves it on the line, struck through. With one present, the technology line rises by
+ * that gap into the label's slot and the label rises one line above it. */
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text:has(+ text) {
+  transform: translate(-50%, calc(-50% - 2.05em));
+}
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text + text {
+  transform: translate(-50%, calc(-50% - 1.85em - 5px));
+}
 :is(section, figure) text.legendW, :is(section, figure) text.legendT, :is(section, figure) .legend text, :is(section, figure) .legend tspan {
   fill: var(--cat-on-fill) !important;
 }

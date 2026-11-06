@@ -174,5 +174,13 @@ describe('C4 keeps the deck palette and still needs the label re-center', { skip
     const mid = (Number(m[1]) + Number(m[2])) / 2;
     assert.ok(Number(m[3]) - mid > 5, `label x ${m[3]} vs midpoint ${mid}: if Mermaid now centers C4 labels itself, drop the translate in mermaid.styles.css`);
   });
+  test('Mermaid puts a [technology] line its font size plus 5px below the label (the CSS lifts it by exactly that)', () => {
+    const [r] = render(false, ['C4Context\n  Person(u, "User")\n  System(s, "Ledger")\n  Rel(u, s, "reads", "HTTPS")'], PALETTE);
+    assert.ok(r.ok, 'the C4 fixture with a technology renders');
+    const m = r.svg.match(/<line [^>]*\/?>(?:<\/line>)?<text [^>]*?y="([\d.]+)"[^>]*?font-size: ([\d.]+)px[^>]*>(?:<tspan[^>]*>)?reads(?:<\/tspan>)?<\/text><text [^>]*?y="([\d.]+)"[^>]*>(?:<tspan[^>]*>)?\[HTTPS\]/);
+    assert.ok(m, 'a relationship is a <line>, its label <text>, then its [technology] <text>');
+    const gap = Number(m[3]) - Number(m[1]);
+    assert.ok(Math.abs(gap - (Number(m[2]) + 5)) < 0.5, `technology line ${gap}px below its label at font size ${m[2]}: the "1.85em - 5px" lift in mermaid.styles.css assumes font size + 5`);
+  });
 });
 
