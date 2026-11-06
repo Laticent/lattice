@@ -18,7 +18,7 @@ import { createThemeFetcher } from '@/lib/theme-fetch';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import fontPolicyCore from '../../../../lib/core/font-policy.js';
 import { glossaryEntries, resolveGlossaryMode, withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
-import hiddenSlides from '../../../../lib/core/hidden-slides.js';
+import * as hiddenSlides from '../../../../lib/core/hidden-slides.mjs';
 import { sanitizeStyleText } from '../../../../lib/core/sanitize-style-text.mjs';
 import { splitSlideChunks } from '../../../../lib/core/slide-boundaries.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
