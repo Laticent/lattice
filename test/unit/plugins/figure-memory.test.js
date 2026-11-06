@@ -108,3 +108,18 @@ describe('an in-place edit holds the outgoing drawing', () => {
     assert.doesNotMatch(refuseAuthorMarkup('<div data-lattice-held>'), /data-lattice-held/);
   });
 });
+
+describe('fast typing', () => {
+  test('a figure still drawing when the next key lands donates its drawing', () => {
+    const { doc, host } = setup();
+    figure(doc).setAttribute('data-lattice-settle', 'hydrating'); // the previous keystroke's frame draw is in flight
+    host.settleSwap(swap(doc, fig('Qg==')), 'in-place');
+    assert.equal(figure(doc).querySelector('svg').getAttribute('data-drawn'), 'QQ==');
+  });
+  test('an error state donates nothing: its text is not a drawing', () => {
+    const { doc, host } = setup();
+    figure(doc).setAttribute('data-lattice-settle', 'error');
+    host.settleSwap(swap(doc, fig('Qg==')), 'in-place');
+    assert.equal(figure(doc).firstChild, null);
+  });
+});
