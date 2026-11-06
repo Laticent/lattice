@@ -100,6 +100,132 @@
   flex-grow: 1 !important;
 }
 
+/* A TALL FLUID SLIDE STACKS ITS PANES. The fluid view keeps a slide's markup and re-derives its
+ * orientation from the screen, so on a phone a `columns ratio-30-70` slide kept its panes side by
+ * side and gave the narrow one about 92px (5em): a record table read one letter per line, a card
+ * title broke mid-word. A paged tall deck never meets this, because the engine splits a panes slide
+ * into one slide per pane there (lib/core/panes.js `installPaneSplit`, on every family but `wide`).
+ * The fluid view cannot re-form slides after the render, so it stacks them: each pane gets the full
+ * width. Two gates. The box is tall: the runtime stamps `data-orientation` (portrait or square) on
+ * exactly the boxes the engine would split, and clears it when the box turns wide again, so a rotated
+ * phone gets its side-by-side panes back. And the screen is a phone's, at most 40em (640px) wide; the
+ * runtime's `stampStackedPanes` reads the same media query, so keep the two in step. A portrait tablet
+ * keeps the panes side by side: at 820px a 35% pane is about 258px, which its component reads in, and
+ * stacked there a two-per-row stats pane (717px) and a line chart could not both fit a 792px stage,
+ * so the chart got 11px where the side-by-side slide on `main` was clean.
+ *
+ * Specificity: every rule carries the fluid root, the host and `[data-orientation]`, so each outranks
+ * the pane.css rule it replaces: (0,6,1) over the `side` flex row, and (0,10,1) over the headed `side`
+ * grid's (0,6,1), which this turns back into a flex column so each head sits above its own pane. */
+@media (max-width: 40em) {
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes {
+    --pane-gap: var(--sp-xl); /* the `stack` gutter (pane.css) */
+    --pane-stack-gap: var(--pane-gap);
+    flex-direction: column;
+    row-gap: var(--pane-stack-gap);
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes[data-panes]:has(> .lat-pane-cell[data-head]) {
+    display: flex;
+    row-gap: var(--pane-stack-gap); /* the headed grid zeroes it; in a column it is the gutter */
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes[data-panes]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell {
+    display: flex;
+    gap: var(--pane-head-gap);
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes[data-panes]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head:not([data-hidden]) {
+    display: flex;
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes[data-panes]:has(> .lat-pane-cell[data-head]) > .lat-pane-cell > .lat-pane-head > h3 + p {
+    padding-block-start: 0;
+  }
+  /* HEIGHT FOLLOWS CONTENT, then the ratio. The authored ratio was written for WIDTH; split over a
+   * phone's height it gave a three-row table 30% (167px, clipped) under a short paragraph holding 70%,
+   * half of it empty. So a stacked pane starts at its content's height (`flex-basis: auto`) and the
+   * panes share what is left by the ratio (the grow factors stay pane.css's `--pane-a` / `--pane-b`).
+   * Content height needs the pane to stop containing its block size, so here it is an `inline-size`
+   * container: its width still sets every inline container unit its component reads, and a block-axis
+   * unit resolves against the slide instead. A body that only fills (a chart sized by its container)
+   * has no content height and takes the spare. Two panes that overflow together shrink in proportion
+   * and clip at their own edge, as on a slide, and the fit check holds a table that does not fit. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes > :is(lat-pane, .lat-pane-cell) {
+    flex-basis: auto;
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes > lat-pane,
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane {
+    container-type: inline-size;
+  }
+  /* A PICTURE FILLS, it does not size its pane: a stacked pane is as tall as its content, and a
+   * photo's content height is its natural aspect at full width (418px of a 621px stage), which left the
+   * other pane 32px short. A body that is only pictures (one photo, or a collage's run of them) starts
+   * at no height and takes the spare, and the images keep their pane.css fit inside the box that leaves. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > :is(img, picture, figure, p:has(> :is(img, picture)):not(:has(> :not(img, picture, br)))) {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  /* THE SPARE GOES TO WHAT FILLS, AND SO DOES THE SHORTFALL. Shared by the ratio, a text pane beside
+   * a picture or chart took half the spare as dead space under its last line (200px under three
+   * bullets) while the picture stayed small. So when either pane's body is a filler, a pane without one
+   * keeps its content height, neither growing nor shrinking, and the filler takes the rest. A filler
+   * can have a content height of its own (a diagram drawn top-down for its narrow authored pane, 577px;
+   * a line chart, 538px), and when the two do not fit it is the filler that gives way: shrinking both
+   * cut a list pane to 72px of its 138px. Two text panes, or two fillers, still share by the ratio. The
+   * filler list is the one the slide-level exemption above uses, read at the pane's stage, plus a
+   * paragraph holding a picture (`:has()` cannot nest, so it is named by its image). */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes:has(> lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p > :is(img, picture), > .lat-pane-cell > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .lat-pane-cell > lat-pane > .cell-stage > p > :is(img, picture))
+    > :is(lat-pane, .lat-pane-cell):not(:has(> .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .cell-stage > p > :is(img, picture), > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p > :is(img, picture))) {
+    flex-grow: 0;
+    flex-shrink: 0;
+  }
+  /* A RUN OF PICTURES SHARES THE BOX. A collage's paragraph holds its images one under another
+   * (`<br>` between), each at its natural height: at the stacked pane's full width three photos came
+   * to 1155px in a 571px pane and the slide clipped. Stacked, they share the paragraph's height and
+   * each is cropped to its share, as a photo in a pane is. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > p:has(> :is(img, picture) ~ :is(img, picture)):not(:has(> :not(img, picture, br))) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > p:has(> :is(img, picture) ~ :is(img, picture)):not(:has(> :not(img, picture, br))) > :is(img, picture) {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    object-fit: cover;
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > p:has(> :is(img, picture) ~ :is(img, picture)):not(:has(> :not(img, picture, br))) > br {
+    display: none;
+  }
+  /* A STACKED PROGRESS PANE'S LABEL TAKES THE PANE'S MEASURE. pane.css sizes a side pane's label column
+   * at its SLIDE width (18.75% of the slide, capped at 40% of the pane), which on a 16:9 slide is 240px.
+   * A phone's slide is 360px, so the same rule gave a stacked pane a 67px column, set every label one
+   * word per line and clipped the last row. Stacked, the pane is the slide's width, so the label takes
+   * up to the cap (40% of the pane) and no more than it needs. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes lat-pane[data-pane="progress"]:not([data-family]) .progress-bars {
+    grid-template-columns: fit-content(40cqi) 1fr minmax(min(calc(7.5 * var(--_sec-1cqi, 1cqi)), 16cqi), max-content);
+  }
+  /* THE SPINE turns with the panes and sits BETWEEN them. pane.css places it from the ratio, which no
+   * longer says where the first pane ends, so here it is a flex item: `order` puts it after the first
+   * pane, and the gutter halves on either side of it. The `stack` rule's horizontal fade. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes:not([data-rule="none"]) {
+    --pane-stack-gap: calc(var(--pane-gap) / 2);
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes > :last-child {
+    order: 2;
+  }
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes:not([data-rule="none"])::before {
+    position: static;
+    order: 1;
+    flex: none;
+    inline-size: auto;
+    block-size: var(--pane-spine-w);
+    background: linear-gradient(90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--accent) 32%, transparent) 14%,
+      color-mix(in oklab, var(--accent) 60%, transparent) 50%,
+      color-mix(in oklab, var(--accent) 32%, transparent) 86%,
+      transparent 100%);
+  }
+}
+
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */
 :root[data-lattice-view="fluid"] .lattice-bg { display: none !important; }

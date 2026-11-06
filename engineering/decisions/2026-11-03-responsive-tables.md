@@ -189,9 +189,53 @@ rotation or widening the holds equal a fresh load's at that size. A section nest
 scale (it once could: a small landscape box in the last slide stripped the portrait scale from a deck).
 test/integration/export/fluid-reflow-hold.test.js pins all three on the real export; it fails on `main`.
 
-The held table still clips in that repro, as it does in table form on `main`: a 30% pane on a 390px
-phone is about 5em wide, and the fluid view keeps panes side by side where the mobile canvas splits them
-into slides. That is a fluid-view limit this change does not reach (`followups.d/3021-p13-fluid-panes-stack-on-a-phone.md`).
+**On a phone the fluid view stacks a slide's panes** (third change, closing `followups.d/3021-p13`). The
+held table still clipped in that repro: a 30% pane on a 390px phone is about 92px (5em), because the
+fluid view kept panes side by side where a paged tall deck splits them into one slide per pane
+(lib/core/panes.js `installPaneSplit`). The fluid view cannot re-form slides after the render, so
+lib/base/base.fluid-view.css stacks them, each at the full width, behind two gates: the box is tall (the
+runtime's `data-orientation` stamp, the boxes the engine would split, cleared when the box turns wide
+again) and the screen is at most 40em (640px) wide. Measured on every deck with panes (twelve examples
+and two stress decks), the rules below are what it took for no slide to gain a "Content clipped" tag
+at 390 × 844, 360 × 640 or 820 × 1180:
+
+- **Phones only.** A portrait tablet stacked too in the first cut, and lost a slide `main` lays out
+  cleanly: a 35% pane at 820px is about 258px, enough for a line chart side by side, but stacked, a
+  two-per-row stats pane (717px) and the chart could not both fit a 792px stage, and the chart got 11px.
+  So a tablet keeps the side-by-side form, and its clip tags are `main`'s, slide for slide.
+- **Height follows content, not the ratio.** The ratio was written for width. Split over a phone's
+  height, `ratio-30-70` gave a three-row table 167px (clipped) under a short paragraph holding 427px.
+  A stacked pane starts at its content's height and the panes share the spare by the ratio. That needs
+  the pane to stop containing its block size, so in this form it is an `inline-size` container: its
+  width still sets every inline container unit, and a block-axis unit resolves against the slide
+  (chart bodies are their own size containers, so their `cqh` units are unaffected).
+- **What fills takes the spare, and gives way first.** Beside a chart body or a picture, a text pane
+  keeps its content height exactly, neither growing nor shrinking, and the filler takes what is left.
+  Shared by the ratio, a text pane got 200px of dead space under three bullets; shrunk alongside a
+  filler that has a content height of its own (a Mermaid diagram drawn top-down, 577px), a list pane was
+  cut to 72px of its 138px.
+- **A picture fills; it does not size its pane.** A paragraph of only pictures starts at no height: a
+  photo's natural height at full width (418px of a 621px stage) had left the other pane 32px short. A
+  collage's run of photos (1155px) shares the box, each cropped to its share.
+- **A stacked pane is wide.** The engine stamps a narrow pane `data-family` from its authored box (a 35%
+  pane is `tall`), and a component rule keyed to it kept the narrow form at 351px. While stacked, the
+  runtime (lib/runtime/index.js `stampStackedPanes`, same two gates) sets those stamps aside, so the
+  pane reads in the wide form, and puts them back when the slide turns wide. Taking the SLIDE's `tall`
+  stamp instead was tried and refused: a tall form assumes it owns the whole stage, and a stacked stats
+  pane went to 806px. One wide rule needed a stacked arm: progress sizes its label column at 18.75% of
+  the slide, 67px on a phone, so stacked it takes up to 40% of the pane.
+- **The spine sits between the panes.** pane.css places it from the ratio, which no longer says where
+  the first pane ends, so here it is a flex item ordered between them.
+
+Measured with Chromium on those fourteen decks: "Content clipped" slides go from 4 to 0 at 390 × 844 and
+from 11 to 0 at 360 × 640, and stay at `main`'s 16, the same slides, at 820 × 1180. The narrowest pane on responsive-tables slide 2 goes from 92 × 622px to
+351 × 264px. WebKit and Firefox give the same stacked geometry on examples/panes.md (each pane within 7px
+of Chromium's height, equal in width). test/integration/export/fluid-reflow-hold.test.js pins it on the
+real export: a phone stacks and clears the pane stamp, landscape and a portrait tablet keep the panes
+side by side with the stamp restored; the hold test now uses a five-column, 14-row table, which still
+switches to cards at a phone's full width and overflows as cards. A chart drawn for a wide box still
+reads small in a stacked pane, and a diagram drawn for a narrow one stays top-down: both are drawings
+made at render time, the chart narrow form of `followups.d/3021-p9-chart-narrow-forms.md`.
 
 **No continuous host exists yet.** The Studio's Read · Article view projects the deck to prose
 (`lp-*` markup), not to slides, so it never meets a slide layout. The Frame Lab stays the only host
