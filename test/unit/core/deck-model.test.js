@@ -108,10 +108,29 @@ test('a fuzz over CommonMark\'s rule surface agrees with markdown-it token for t
 	assert.deepEqual(bad, []);
 });
 
+test('the markdown-it 14.3 block changes hold in the port', () => {
+	// Each source exercises one rule markdown-it 14.3 changed, so the port cannot pass the corpus while missing
+	// one: a lowercase declaration opener, a comment across an outdented blank line in a list item, an escaped
+	// space in a reference destination, a label past 999 code points, a reference across lines, and a
+	// setext-less paragraph whose lheading probe used to leave parentType stale.
+	const cases = [
+		'<!doctype html>\n\ntext',
+		'- item\n  <!-- a\n\n  b -->\n- next',
+		'- item\n  <div>\n\n  x</div>',
+		'[a]: /x\\ y\n\n[a]',
+		`[${'x'.repeat(1000)}]: /u\n\npara`,
+		`[${'x'.repeat(999)}]: /u\n\npara`,
+		'[multi\nline]:\n/dest\n"title\ncontinues"\n\nafter',
+		'[a]: /x "t" junk\n\npara',
+		'para\n> quote\n- list',
+	];
+	for (const src of cases) assert.equal(mine(src).join('\n'), oracle(src).join('\n'), JSON.stringify(src));
+});
+
 test('the port is of the markdown-it it is tested against', () => {
-	// block.ts is markdown-it 14.1.1's block rules, line for line. A bump (Dependabot merges minors on its own) is
+	// block.ts is markdown-it 14.3.3's block rules, line for line. A bump (Dependabot merges minors on its own) is
 	// a reason to diff the two rule sets by hand, not only to trust the corpus and the fuzz to notice.
-	assert.equal(require('markdown-it/package.json').version, '14.1.1', 'markdown-it moved: diff its lib/rules_block against docs/src/lib/segno-markdown/block.ts, then update this pin');
+	assert.equal(require('markdown-it/package.json').version, '14.3.3', 'markdown-it moved: diff its lib/rules_block against docs/src/lib/segno-markdown/block.ts, then update this pin');
 });
 
 test('every plugin block rule keeps the promise its triggers make', () => {
