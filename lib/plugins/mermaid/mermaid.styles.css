@@ -804,7 +804,10 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
  * on the midpoint, and -0.85em more lifts it just above the line. The <text> carries x/y and no
  * transform attribute, so this is the only transform. A halo in the slide's own background masks
  * whatever line still crosses the word, light or dark, since Mermaid gives it no background. */
-:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text {
+/* `+ text + text` is the relationship's optional [technology] line, which drawRels offsets the same
+ * way; without it the label moved and its technology line stayed 19px off to the side. */
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text,
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text + text {
   transform-box: fill-box;
   transform: translate(-50%, calc(-50% - 0.85em));
   paint-order: stroke;

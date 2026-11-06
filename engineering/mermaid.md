@@ -653,7 +653,9 @@ list cannot rot again.
 **C4 relationship labels (2026-11-06).** Mermaid's `drawRels` places a label at the line's
 midpoint plus half the label's own width and height, so labels drift into the target box or onto
 the arrowhead. `mermaid.styles.css` cancels that offset (`transform-box: fill-box` with
-`translate(-50%, …)`), lifts the label just above its line, and gives it a halo in `--bg`. A label
+`translate(-50%, …)`), lifts the label and its optional `[technology]` line just above the
+line, and gives both a halo in `--bg`. `test/integration/mermaid/diagram-look-support.test.js`
+fails the day Mermaid fixes the offset itself (drop the translate then) or the C4 palette keys move. A label
 whose line runs *behind* a box (a relationship that skips a row) still lands on that box; that is
 the diagram's layout, fixed in the source.
 

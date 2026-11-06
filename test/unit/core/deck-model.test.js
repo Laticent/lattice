@@ -131,6 +131,10 @@ test('the port is of the markdown-it it is tested against', () => {
 	// block.ts is markdown-it 14.3.3's block rules, line for line. A bump (Dependabot merges minors on its own) is
 	// a reason to diff the two rule sets by hand, not only to trust the corpus and the fuzz to notice.
 	assert.equal(require('markdown-it/package.json').version, '14.3.3', 'markdown-it moved: diff its lib/rules_block against docs/src/lib/segno-markdown/block.ts, then update this pin');
+	// The docs site resolves its OWN markdown-it (docs/package.json, its own Dependabot entry), and the
+	// Studio's editor parse uses it. A docs-only bump would drift from the port with the root pin green.
+	const docsLock = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'package-lock.json'), 'utf8'));
+	assert.equal(docsLock.packages['node_modules/markdown-it']?.version, '14.3.3', 'the docs site\'s markdown-it moved: port it the same way, then update this pin');
 });
 
 test('every plugin block rule keeps the promise its triggers make', () => {

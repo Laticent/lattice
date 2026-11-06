@@ -84,16 +84,16 @@ function roleOf(svg) {
   return ((svg || '').match(/aria-roledescription="([^"]*)"/) || [])[1] || null;
 }
 
-function render(withLook) {
+function render(withLook, definitions = Object.values(FAMILIES), themeVars = { fontSize: '14px' }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'look-'));
   try {
     const jobFile = path.join(dir, 'job.json');
     const outFile = path.join(dir, 'out.json');
     fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB,
       pkgRoot: REPO, chromePath: CHROME, backgroundColor: 'transparent', outFile,
-      diagrams: Object.values(FAMILIES).map((definition) => ({
+      diagrams: definitions.map((definition) => ({
         definition,
-        config: engineInitConfig({ fontSize: '14px' }, withLook ? { look: 'handDrawn' } : {}),
+        config: engineInitConfig(themeVars, withLook ? { look: 'handDrawn' } : {}),
       })),
     }));
     try {
@@ -152,3 +152,27 @@ describe('which families honor look: handDrawn', { skip: skipWithoutChrome(CHROM
     }
   });
 });
+
+// Mermaid 11.17 moved C4 onto its node renderer, which writes box colors INLINE, so the palette
+// reaches C4 only through `c4Colors` (init-directive.js) and the relationship labels need the CSS
+// re-center in mermaid.styles.css. Both lean on Mermaid internals; this arm fails the day either
+// moves (red-team and inversion review of #3051).
+describe('C4 keeps the deck palette and still needs the label re-center', { skip: skipWithoutChrome(CHROME) }, () => {
+  const C4 = 'C4Context\n  Person(u, "User")\n  System(s, "Ledger")\n  Rel(u, s, "reads")';
+  const PALETTE = { fontSize: '14px', fillType0: '#ABCDEF', fillType1: '#FEDCBA', primaryBorderColor: '#123456' };
+  test('a C4 box carries the palette fill, not Mermaid\'s stock navy', () => {
+    const [r] = render(false, [C4], PALETTE);
+    assert.ok(r.ok, 'the C4 fixture renders');
+    assert.match(r.svg, /c4-person[\s\S]*?fill:#ABCDEF/i, 'the person box takes fillType0');
+    assert.match(r.svg, /c4-system[\s\S]*?fill:#FEDCBA/i, 'the system box takes fillType1');
+    assert.doesNotMatch(r.svg, /#08427B/i, 'no stock C4 navy survives');
+  });
+  test('Mermaid still places a relationship label past its line\'s midpoint (the CSS cancels that)', () => {
+    const [r] = render(false, [C4], PALETTE);
+    const m = r.svg.match(/<line x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"[^>]*\/?>(?:<\/line>)?<text x="([\d.]+)"/);
+    assert.ok(m, 'a relationship is a <line> followed by its label <text>');
+    const mid = (Number(m[1]) + Number(m[2])) / 2;
+    assert.ok(Number(m[3]) - mid > 5, `label x ${m[3]} vs midpoint ${mid}: if Mermaid now centers C4 labels itself, drop the translate in mermaid.styles.css`);
+  });
+});
+

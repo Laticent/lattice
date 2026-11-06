@@ -87,3 +87,10 @@ test('a speaker note that names a reserved attribute is still stripped from the 
   assert.doesNotMatch(notes.stripNotesFromSource(src, bodies), /Secret/);
   assert.doesNotMatch(notes.stripChannelsFromSource(src, { noteBodies: bodies }), /Secret/);
 });
+
+test('only the exact data-lattice-slide name is reserved, not a longer name that starts with it', () => {
+  for (const s of ['<i data-lattice-slides="3">', '<i data-lattice-slide-bake="1">', '<i data-lattice-slide.x="1">']) {
+    assert.equal(neutralizeReservedAttrs(s), s, s);
+  }
+  assert.equal(neutralizeReservedAttrs('<i data-lattice-slide="2">'), '<i data-x-lattice-slide="2">');
+});
