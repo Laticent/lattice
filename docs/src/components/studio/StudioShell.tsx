@@ -5923,9 +5923,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => ({ options: deckOptions, palette: preview.paletteOverride ?? palette, mode: (preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')) as 'light' | 'dark', extra: preview.extraTheme, extraCss: previewExtraCss }),
 		[deckOptions, preview, palette, mode, previewExtraCss],
 	);
+	// The author's place for the chat, read from the hub once per send (never subscribed, so a
+	// caret move re-renders nothing). The unit index is the authored slide, in deck order.
+	const readChatFocus = React.useCallback(() => {
+		const f = hub.get();
+		return f.unitIndex < 0 ? null : { slide: f.unitIndex + 1, line: f.line };
+	}, [hub]);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors, checkDraft, fitRender],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, focus: readChatFocus, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft, fitRender, readChatFocus],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.

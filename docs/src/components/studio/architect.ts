@@ -1315,6 +1315,9 @@ export type ChatResult =
  *  the author is looking at (the deterministic scorecard + findings) rather than from
  *  the deck text alone. `catalog` is the component dossier the Lattice primer is built
  *  from. All optional — a caller that passes nothing gets the pre-grounding prompt. */
+/** The author's place in the deck when they send a message (see ChatGrounding.focus). */
+export type ChatFocus = { slide: number; line?: string };
+
 export type ChatGrounding = {
 	/** The deterministic read the author is looking at. TWO grades since the Craft/Style
 	 *  split: a single number here would make the model narrate a genre-fit score as if it
@@ -1329,6 +1332,11 @@ export type ChatGrounding = {
 	 *  shared with the CLI — it can't take a ~1MB dependency). Empty when the deck has no
 	 *  diagrams or the check couldn't run; never a guess. */
 	diagrams?: { slide: number; message: string }[];
+	/** Where the author is when they send: the slide (1-based, deck order) and the caret line's
+	 *  text. A FUNCTION read once per send from the Fuoco hub (`hub.get()`), never a subscribed
+	 *  value: a caret move must not re-render the chat or rebuild this object. Null when nothing
+	 *  is focused (an empty deck). engineering/decisions/2026-11-06-skills-tools-and-chat-reach.md §6. */
+	focus?: () => ChatFocus | null;
 	/** Lint + review + Mermaid-parse ANY source — the chat agent's `check_deck` tool runs it
 	 *  over its draft, so an edit is checked before the author sees it. The host supplies it
 	 *  because only the host holds the lint vocabulary and the author's local components. */

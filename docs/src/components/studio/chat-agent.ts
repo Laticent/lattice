@@ -99,9 +99,18 @@ function agentBudget(grounding?: ChatGrounding): { slideWordBudget: number; prof
 }
 
 /** The agent's two system halves — exported so the cost readout prices the same prompt. */
+/** The author's place, read once; a throwing reader never breaks a turn. */
+function readFocus(grounding?: ChatGrounding): { slide: number; line?: string } | null {
+	try {
+		return grounding?.focus?.() ?? null;
+	} catch {
+		return null;
+	}
+}
+
 export function agentSystemParts(source: string, grounding?: ChatGrounding, factGuard = '', assetsBlock = ''): { staticPrefix: string; dynamicTail: string } {
 	const budget = agentBudget(grounding);
-	const brief = deckBrief(source, { ...budget, findings: grounding?.findings, diagrams: grounding?.diagrams });
+	const brief = deckBrief(source, { ...budget, findings: grounding?.findings, diagrams: grounding?.diagrams, focus: readFocus(grounding) });
 	// The Library manifest changes whenever a photo is added or captioned, so it rides in the
 	// tail with the deck brief, never in the cached prefix.
 	return { staticPrefix: agentSystem(grounding?.catalog ?? []), dynamicTail: `\n\n${brief}${assetsBlock ? `\n\n${assetsBlock}` : ''}${factGuard}` };

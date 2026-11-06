@@ -182,11 +182,15 @@ has to change:
 
 ## 6. Proposed: awareness through Fuoco, in two steps
 
-**Step 1 (no new channel).** When the author sends a message, the shell reads `hub.get()` once
+**Step 1 (no new channel) — shipped in PR #3049.** When the author sends a message, the shell reads `hub.get()` once
 and adds `focus: { slide, section, caretLine }` to `ChatGrounding`. This is read once per send,
 never subscribed, so the chat never re-renders on caret moves. It costs about 30 tokens a turn,
 in the dynamic tail that is not cached. It lets "fix this slide" mean the slide the author is
-on.
+on. As built: `ChatGrounding.focus` is a function (`StudioShell.readChatFocus`) that the agent
+calls once in `agentSystemParts`; `deckBrief` prints `The author is on slide N ("title"), caret
+on the line "…"`, JSON-quoted like all deck text, and drops a slide number outside the deck.
+The hub's `unitIndex` and `deckSlides` agree on slide numbers (`chat-focus.test.ts`). The
+on-device one-shot path does not carry it.
 
 **Step 2 (after `3037-p1`, `p4`, `p5`).** At send time, read the last value of the event facts
 the chat should know (`fit.overflow`, `lint.changed`, `coach.photo-contrast`, `doc.changed` with
@@ -201,7 +205,7 @@ for.
 |---|---|---|
 | 1 | Skill index | **Shipped** in this PR |
 | 2 | The missing skills: `edit-deck`, `restyle-deck`, `fix-findings`, `chart-from-data`, `diagram`, `math`, `import`, `accessibility-review`, `studio` | Each is `kind: operate` where it acts on an existing deck; written to the same nine-part shape; `studio: true` where the chat can do the job |
-| 3 | Fuoco focus in grounding (§6 step 1) | Small; a test that the field reaches the dynamic tail and the cost readout counts it |
+| 3 | Fuoco focus in grounding (§6 step 1) | **Shipped** in this PR |
 | 4 | Action registry + modes + `create_deck` (§4, §5) | The adversarial trio on the act tier (HARD RULE #25: it widens what untrusted content can make the Studio do); a measured cost per tool round from a real turn; screenshots of the mode button at 1440 / 820 / 390 |
 | 5 | `set_theme`, `set_finish`, `render_slide`, `chart_from_data` | Per tool: schema, tier, a test that Talk cannot call it |
 | 6 | Event-backed awareness (§6 step 2) | Waits for `3037-p1`/`p4`/`p5` |
