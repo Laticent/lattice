@@ -322,7 +322,7 @@ export function architectModel(): Promise<ArchitectModel | null> {
 			// The stored key is sealed at rest; open it before the model answers "is a key
 			// connected?", or a reload would read "not connected" until it arrived.
 			.then(async (m) => {
-				await m.loadOpenRouterKey();
+				await m.loadOpenRouterKey?.();
 				return m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
 			})
 			.catch(() => null);
