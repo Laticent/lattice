@@ -1805,4 +1805,5 @@ never turn "passed in headless" into "works on iOS."
   selection bar) must skip it with `blurToDoorbell(e)` (`studio-filo.ts`), and any NEW blur handler on a Filo-owned
   editable needs the same check. The bell also waits while a finger is down, a selection (not a caret) is up, a
   completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
-  bell's step then sits on WebKit's redo list, and re-ringing would empty it), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+  bell's step then sits on WebKit's redo list, and re-ringing would empty it; several edits with the caret moved between them still make one step on iOS,
+  measured in `followups.d/3040-p5`), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
