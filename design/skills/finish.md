@@ -1,3 +1,10 @@
+---
+name: finish
+description: "Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content."
+kind: make
+studio: true
+---
+
 # Skill — Create a finish
 
 > Author a new `finish:` backdrop — a z-stack of up to four palette-blind CSS

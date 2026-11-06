@@ -10,7 +10,7 @@
  *
  *   authoring/    I am writing a deck        canon (what good looks like), rules, primer
  *   components/   which layout, and how      the pick index + one file per component
- *   skills/       I am creating a NEW X      the eight design/skills, verbatim
+ *   skills/       I need a skill for a job    every design/skills file, verbatim
  *   reference/    I am building a tool       the machine catalogs + the Studio's prompts
  *
  * WHAT THIS FIXES BEYOND LAYOUT. The kit could tell an agent WHICH component to
@@ -69,6 +69,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
+const { readSkills: readSkillIndex } = require('./skill-index.js');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS_DIR = path.join(ROOT, 'dist', 'docs');
 const SKILLS_DIR = path.join(ROOT, 'design', 'skills');
@@ -1189,28 +1190,22 @@ function skillsReadme(skills) {
     .filter((n) => titles.has(n))
     .map((n) => `| #${n} | ${mdCell(titles.get(n))} |`);
 
-  const LABEL = {
-    'deck.md': 'A **deck** — a full presentation from a blank `.md`',
-    'theme.md': 'A **theme** — a palette',
-    'component.md': 'A **component** — a new `<!-- _class: X -->` layout',
-    'chart-component.md': 'A **chart component** — a data visualization',
-    'finish.md': 'A **finish** — a backdrop layer stack',
-    'lens.md': 'A **lens** — a reader-side subset of a deck',
-    'speaker-notes.md': '**Speaker notes, reviews and captions**',
-    'cli.md': 'A finished deck **rendered, shared or checked** with the `lattice` command',
-  };
+  // One line per skill, from the skill's own front matter (tools/skill-index.js), so this
+  // index cannot drift from the repo's README or the Studio chat's read_guide topics.
+  const LABEL = Object.fromEntries(readSkillIndex().map((r) => [`${r.name}.md`, `${mdCell(r.description)} (≈${(r.tokens / 1000).toFixed(1)}k tokens)`]));
 
   return [
-    '# Creating something new',
+    '# Lattice skills',
     '',
-    'Each file here teaches you to build **one** kind of Lattice artifact from a blank file,',
-    'end to end, except `cli.md`, which renders and ships a deck you already have. They are',
-    'self-contained on purpose: the tokens, slots, budgets and commands are inlined so you',
-    'never have to chase a link mid-task.',
+    'Each file here teaches one Lattice job end to end. Read this table first and open only',
+    'the skill the task needs: each row says when to use it and roughly what it costs to read.',
+    'They are self-contained on purpose: the tokens, slots, budgets and commands are inlined so',
+    'you never have to chase a link mid-task. Each opens with front matter (`name`,',
+    '`description`) that an agent harness can index without reading the body.',
     '',
     '## Which one',
     '',
-    '| You want to create… | Open |',
+    '| Use when… | Open |',
     '|---|---|',
     ...files.map((f) => `| ${LABEL[f] || `\`${f.replace(/\.md$/, '')}\``} | [\`${f}\`](./${f}) |`),
     '',

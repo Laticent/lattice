@@ -11,7 +11,7 @@ summary: A Windows-authored deck exported in the WRONG PALETTE because one front
 
 A Windows-authored deck declaring `theme: cuoio` exported **entirely in the default palette**,
 silently. `lib/core/resolve-palette.js` was the one front-matter reader of ~55 whose regex lacked
-`\r?`, and `lattice-emulator.js` calls it on raw file text *outside* the engine's `render()`, so
+`\r?`, and the CLI (`lattice.js`, then `lattice-emulator.js`) calls it on raw file text *outside* the engine's `render()`, so
 nothing downstream could rescue it.
 
 Rendered, through the real pipeline, with `main` in a worktree as the control:
@@ -76,7 +76,7 @@ The boundaries themselves:
 |---|---|
 | `.gitattributes` — `* text=auto eol=lf` | a Windows clone checks out LF and cannot commit CRLF back |
 | `lib/engine/index.js` — `render()` **and** `geometry()` | the engine's two public doors; both parse front matter, so both must agree |
-| `lattice-emulator.js` — `readFileOrDie` | the CLI's only door for author text; **the one that actually fixes #1349** |
+| `lattice.js` — `readFileOrDie` (the CLI; it was `lattice-emulator.js` when this note was written) | the CLI's only door for author text; **the one that actually fixes #1349** |
 | `tools/lint-deck.js` — the file read | without it a Windows author got *different lint advice for identical content* |
 | `lib/core/resolve-palette.js` | normalizes its own input rather than growing another `\r?` |
 | `docs/src/lib/normalize-source-text.ts` | the shared `docs/src` helper; the Studio's three ingests call it |

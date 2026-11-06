@@ -1,3 +1,10 @@
+---
+name: component
+description: "Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs."
+kind: make
+studio: false
+---
+
 # Skill — Create a component
 
 > Add a new `<!-- _class: X -->` layout to the catalog: a manifest, palette-blind

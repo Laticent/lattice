@@ -2754,6 +2754,36 @@ function dataUrlToBlob(dataUrl) {
 	return new Blob([arr], { type: mime });
 }
 
+/**
+ * One rendered slide as a small JPEG data URL, for the Studio chat's `render_slide`: a look for the
+ * model, never an export. It reuses the export's capture (the same frame, fonts and fixups) so the
+ * model sees what an export would draw, and it changes nothing any export writes.
+ * `index` is the rendered section (0-based); `url` is null when the deck has no such section.
+ */
+export async function rasterizeSlidePreview(render, index, maxWidth = 768) {
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const section = sections[index];
+		if (!section) return { url: null, sections: sections.length };
+		const ratio = Math.min(1, maxWidth / slideGeom(section).w);
+		const url = await withCaptureFixups(
+			section,
+			async (_w, _h, pixelRatio) => {
+				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export');
+				return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 80 })], { type: 'image/jpeg' }));
+			},
+			ratio,
+			// JPEG has no alpha, so its corners are squared the way a JPEG export squares them
+			// (lib/core/corner-export-capability.mjs); 'png' would show the model corners export never draws.
+			'jpeg',
+		);
+		return { url, sections: sections.length };
+	} finally {
+		dispose();
+	}
+}
+
 // Export the chart on slide `activeIndex` (the cursor's slide — its index is read
 // from the live preview by the caller, since the capture host has no cursor). SVG
 // tier: a single self-contained <svg> (piechart/radar/map/quadrant/funnel) flattens

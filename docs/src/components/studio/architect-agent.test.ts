@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import skillIndex from '../../../../design/skills/index.json';
 import { getFrontMatter } from '../../lib/front-matter';
 import { agentLibrary, agentLibraryInventory } from './agent-library';
 import { applyProposedEditsChecked, chatAgentDeps, loadArchitectAuthoring } from './architect';
-import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
+import { type AgentComplete, type AgentLibrary, buildAgentSystem, createToolbox, deckBrief, deckForTurn, deckSlides, GUIDE_TOPICS, INLINE_DECK_CHARS, isBlockKey, mdSections, proposalFromDraft, runAgentLoop, slideWords, type ToolCall } from './architect-agent';
 import { checkerNote, finalizeAgent, init as initChatAgent } from './chat-agent';
 import { FRONT_MATTER_KEYS } from './editor-complete';
 
@@ -55,6 +56,10 @@ describe('the system prompt', () => {
 		expect(sys).toContain('indaco, cuoio');
 		expect(sys).toContain('atrium');
 		expect(sys).toContain('read_guide');
+		// A real model (Haiku 5.5, 2026-11-06) answered "make me a new deck" with edit_slides on the open
+		// deck while the rule lived only in the mode line; the static prompt now carries it in every mode.
+		expect(sys).toContain('A request for a NEW or separate deck');
+		expect(sys).toContain('Never claim you drafted a new deck unless create_deck accepted it.');
 		expect(sys).toContain('CANON');
 		// The contract the old primer carried rides along verbatim.
 		expect(sys).toContain('NESTED bullets');
@@ -538,6 +543,19 @@ describe('the reading shelf', () => {
 		expect(await agentLibrary.guide('editorial')).toBeTruthy();
 		expect(await agentLibrary.registersDoc()).toContain('`finish:`');
 		expect(await agentLibrary.componentDoc('no-such-thing')).toBeNull();
+	});
+
+	it('offers exactly the skills the index marks studio: true, each readable without its front matter', async () => {
+		const offered = skillIndex.skills.filter((s) => s.studio).map((s) => s.name);
+		const skillTopics = Object.keys(GUIDE_TOPICS).filter((t) => !['editorial', 'principles', 'universals'].includes(t));
+		expect(skillTopics.sort()).toEqual([...offered].sort());
+		expect(Object.keys(GUIDE_TOPICS)).not.toContain('cli');
+		for (const name of offered) {
+			const doc = await agentLibrary.guide(name);
+			expect(doc, name).toBeTruthy();
+			expect(doc?.startsWith('---'), `${name} still carries its front matter`).toBe(false);
+			expect(doc).toMatch(/^# /);
+		}
 	});
 });
 

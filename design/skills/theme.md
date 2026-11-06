@@ -1,3 +1,10 @@
+---
+name: theme
+description: "Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes."
+kind: make
+studio: true
+---
+
 # Skill — Create a theme
 
 > Author a new palette (`themes/<name>/<name>.css`) that recolors every deck, holds WCAG

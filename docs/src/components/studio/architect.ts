@@ -1340,9 +1340,12 @@ export type ProposedEdit = {
 	diff: DiffRow[];
 };
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace; /** An act the turn queued for the author to confirm (chat-actions.ts). */ action?: import('./chat-actions').ChatAction; /** Which path answered: the tool agent, or the one-shot fallback (on-device, or a model that refuses tools). */ via?: 'agent' | 'oneshot'; /** The agent turn ran to its own end and left no checker errors. Only such a turn may auto-apply. */ clean?: boolean }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
+
+/** The author's place in the deck when they send a message (see ChatGrounding.focus). */
+export type ChatFocus = { slide: number; line?: string };
 
 /** What the Coach knows, handed to the chat so the model argues from the SAME facts
  *  the author is looking at (the deterministic scorecard + findings) rather than from
@@ -1362,6 +1365,11 @@ export type ChatGrounding = {
 	 *  shared with the CLI — it can't take a ~1MB dependency). Empty when the deck has no
 	 *  diagrams or the check couldn't run; never a guess. */
 	diagrams?: { slide: number; message: string }[];
+	/** Where the author is when they send: the slide (1-based, deck order) and the caret line's
+	 *  text. A FUNCTION read once per send from the Fuoco hub (`hub.get()`), never a subscribed
+	 *  value: a caret move must not re-render the chat or rebuild this object. Null when nothing
+	 *  is focused (an empty deck). engineering/decisions/2026-11-06-skills-tools-and-chat-reach.md §6. */
+	focus?: () => ChatFocus | null;
 	/** Lint + review + Mermaid-parse ANY source — the chat agent's `check_deck` tool runs it
 	 *  over its draft, so an edit is checked before the author sees it. The host supplies it
 	 *  because only the host holds the lint vocabulary and the author's local components. */
@@ -1471,7 +1479,7 @@ export function buildChatSystem(generation: string, grounding?: ChatGrounding, f
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export type ChatOptions = { onToken?: (t: string) => void; onActivity?: (label: string) => void; /** The model's own thinking as it streams, on a provider that sends it. */ onReasoning?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
+export type ChatOptions = { /** The chat mode (chat-actions.ts): which tool tiers this turn may use. Default Review. */ mode?: import('./chat-actions').ChatMode; onToken?: (t: string) => void; onActivity?: (label: string) => void; /** The model's own thinking as it streams, on a provider that sends it. */ onReasoning?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding; /** This turn's photos, as data URLs the model can see (cloud tier only; see chat-photos.ts). */ photos?: { name: string; dataUrl: string }[]; /** This turn's short video, as a data URL (cloud tier, a model that reads video). `name` is its Library name, so the prompt can say this clip is the one in the message. */ videos?: { name?: string; dataUrl: string }[] };
 
 // "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 // model may improve wording/structure but must not alter any number, date, name, or
@@ -1498,7 +1506,10 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		if (agent) return agent;
 	}
 	const last = history[history.length - 1];
-	const factGuard = opts?.constrainFacts ? FACT_GUARD : '';
+	// The one-shot path cannot call tools, so it can only PROPOSE edits; Talk still forbids even that.
+	// It never auto-applies: `via: 'oneshot'` tells the panel so (chat-actions.ts autoHold).
+	const factGuard = `${opts?.constrainFacts ? FACT_GUARD : ''}${opts?.mode === 'talk' ? '\n\nMODE — Talk: answer only. Do not write any edit block; if the author asks for a change, describe it and say they can switch the chat to Review to have you make it.' : ''}`;
+	const oneShot = (r: ChatResult): ChatResult => (r.status === 'ok' ? { ...r, via: 'oneshot', proposed: opts?.mode === 'talk' ? null : r.proposed } : r);
 	// The grounded system turn, split static/dynamic (buildChatSystem). On the cloud tier
 	// the two halves stay SEPARATE content-parts so the cache breakpoint can land between
 	// them; on-device backends read `content` as a string, so they get the halves joined.
@@ -1614,11 +1625,11 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 			}
 			// An explicit Stop is the author's own doing — the parser will still flag any block
 			// the abort cut in half, but this isn't the ceiling's fault, so no truncation note.
-			return finalizeChat(streamed || reply, source);
+			return oneShot(finalizeChat(streamed || reply, source));
 		}
 		return { status: 'offline' };
 	}
-	return finalizeChat(reply, source, finishReason === 'length');
+	return oneShot(finalizeChat(reply, source, finishReason === 'length'));
 }
 
 // Parse a (possibly partial) reply into prose + a set of reviewable, RE-APPLIABLE

@@ -72,6 +72,8 @@ const PARTS = [
   { part: 'lib/base', layer: 0, match: 'lib/base/' },
   // The root manifest, read as data (a build stamps its version into the player core).
   { part: 'package.json', layer: 0, match: (f) => f === 'package.json' },
+  // The skill index (tools/skill-index.js output), read as data by the Studio chat's guide list.
+  { part: 'design/skills', layer: 0, match: (f) => f === 'design/skills/index.json' },
   { part: 'lib/schemas', layer: 0, match: (f) => /^lib\/(?!plugins\/[^/]+\/).*\.schema\.json$/.test(f) },
   { part: 'lib/core', layer: 1, match: 'lib/core/' },
   { part: 'lib/theme', layer: 2, match: 'lib/theme/' },

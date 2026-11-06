@@ -1,0 +1,1 @@
+- The Studio chat now knows which slide you are on and the line your caret is on when you send a message, so "fix this slide" means the slide in front of you. The shell reads the place once per send from the focus hub; the chat never re-renders on caret moves.
