@@ -1,7 +1,5 @@
 import { buildDeckIndex, type DeckIndex } from '@/lib/deck-outline';
 import { unitText } from '@/lib/fuoco/outline';
-import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
-import { hideOfComment } from '../../../../lib/core/hide-directive.mjs';
 import { renumberFrontMatterSay } from '../../../../lib/core/renumber-say.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from '../../lib/front-matter';
@@ -374,66 +372,14 @@ export function slideCount(source: string): number {
 	return read(source).slots.length;
 }
 
-// ── Hide / show (engineering/decisions/2026-11-06-hidden-slides.md) ───────────────────────────────────────────────────
-//
-// Both directions first remove every line that IS a hide directive, found the way the engine finds one: the shared
-// boundary parser's TOP-LEVEL comment blocks that are only a comment, read by the one reader (lib/core/hide-directive.mjs)
-// as on or off. So a note such as `<!-- hide: if short on time -->`, a sample in code, and a comment in a list item, a
-// blockquote or an HTML block all survive both (a line regex took the list-item one, a checker found). A removed line
-// takes one adjacent blank line with it, so Hide then Show gives the slide back byte for byte. Hiding then writes the
-// authored form, `<!-- hide -->`, as the slide's first line; since every other hide line is gone, no older
-// `_hide: false` can outvote it. A hide written some other way that survives the removal is outvoted at the end:
-// `<!-- hide -->` to hide, `<!-- _hide: false -->` to show, the last hide on a slide winning.
-
-function withoutHideLines(text: string): string {
-	if (!/hide/.test(text)) return text;
-	const lines = text.split('\n');
-	const cut: [number, number][] = [];
-	for (const t of boundaryParser.parse(text, {}) as { type: string; level: number; map: [number, number] | null; content: string }[]) {
-		if (t.type !== 'html_block' || t.level || !t.map) continue;
-		if (!/^\s*<!--[\s\S]*?-->\s*$/.test(t.content) || !hideOfComment(t.content.trim())) continue;
-		cut.push(t.map);
-	}
-	const blank = (i: number) => i < 0 || i >= lines.length || lines[i].trim() === '';
-	for (const [a, b] of cut.reverse()) {
-		// Take one blank line along, but only one the slide does not need: a blank that is the only thing between two
-		// blocks (the comment sat flush against text on its other side) stays, or the two would merge (a checker found
-		// "Para one.\n\n<!-- hide -->\nPara two." becoming one paragraph). So: the blank after, when the line before the
-		// comment is blank or the slide's edge; else the blank before, when the line after is.
-		const end = b < lines.length && blank(b) && blank(a - 1) ? b + 1 : b;
-		const start = end === b && a > 0 && blank(a - 1) && blank(b) ? a - 1 : a;
-		lines.splice(start, end - start);
-	}
-	return lines.join('\n');
-}
-
-/** The slide's markdown with its hide state set to `hidden`. */
-export function withHidden(content: string, hidden: boolean): string {
-	if (slideSourceHidden(content) === hidden) return content;
-	// A removed last line leaves its blank lines behind: trim them, as the deck's slots hold trimmed content.
-	const removed = withoutHideLines(content).replace(/\s+$/, '');
-	if (hidden) {
-		const written = `<!-- hide -->\n${removed}`;
-		return slideSourceHidden(written) ? written : `${removed}\n\n<!-- hide -->`;
-	}
-	return slideSourceHidden(removed) ? `${removed}\n\n<!-- _hide: false -->` : removed;
-}
+// ── Hidden slides (engineering/decisions/2026-11-06-hidden-slides.md) ─────────────────────────────────────────────────
+// The READ stays here, because the strip, the map and the preview bar paint from it. The WRITE (Hide Slide / Show
+// Slide) lives in ./hide-ops, loaded on the click: it parses the slide, and the Studio route's startup JavaScript sits
+// at its ceiling (docs/route-budget.json).
 
 /** Is rendered slide `s` hidden? Hiding belongs to the `---` block (a heading-split part shares its block's state, as the
  *  engine renders it), so this reads block `s.unit`. Pass the deck index the caller holds (`ix`): its OWN text is read,
  *  never `source` sliced at its offsets, which may be a render behind (the checker's finding). */
 export function isHiddenAt(source: string, s: SlideAt, ix: DeckIndex = buildDeckIndex(source)): boolean {
 	return slideSourceHidden(unitText(ix, s.unit));
-}
-
-/** Hide (`hidden` true) or show rendered slide `s`'s `---` block. Hide writes `<!-- hide -->` as the block's first line
- *  and touches no other byte, so Show restores the block exactly; no block is cut, even under `split: headings`.
- *  Active stays on the block. */
-export function setHiddenAt(source: string, s: SlideAt, hidden: boolean): DeckOpResult {
-	const d = read(source);
-	const slot = d.slots[s.unit];
-	if (!slot || slideSourceHidden(slot.content) === hidden) return { source, active: s.unit, moved: identity(d.slots.length) };
-	slot.content = withHidden(slot.content, hidden);
-	slot.touched = true;
-	return done(d, s.unit, identity(d.slots.length));
 }

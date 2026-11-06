@@ -90,7 +90,7 @@ The source reader parses with the engine's own comment grammar and value rule, a
 | Present | Never presented under any lens; opening on a hidden slide lands on the next shown one | `deck-lint.ts` `presentationPairs`, `PresentOverlay.tsx` |
 | Studio strip, slide map | Keeps its place; an eye-off mark stands where its number was; the accessible name says "hidden" | `SlideRail.tsx`, `StudioMap.tsx` |
 | Studio preview bar | A **Hidden** chip that is also Show slide | `StudioShell.tsx` |
-| Slide menu, command palette | **Hide slide** / **Show slide** (one Undo step) | `strip-actions/model.ts`, `deck-ops.ts` `setHiddenAt` |
+| Slide menu, command palette | **Hide slide** / **Show slide** (one Undo step) | `strip-actions/model.ts`, `hide-ops.ts` `setHiddenAt` (loaded on the click; `deck-ops.ts` `isHiddenAt` is the read) |
 
 **What the Studio writes.** Hide Slide and Show Slide first remove every hide DIRECTIVE line of the block: a top-level
 comment block, found by the shared boundary parser, that the one reader reads as on or off (a `hide:` note, a sample in
@@ -98,7 +98,8 @@ code, and a comment in a list item, blockquote or HTML block are the author's an
 line with it. Hide then writes `<!-- hide -->` as the block's first line; Show is done. Hide then Show therefore gives
 the block back byte for byte unless it held hide lines of its own, which are gone. A hide the removal cannot see is
 outvoted at the end, `<!-- hide -->` or `<!-- _hide: false -->`, the last hide winning. Pinned by
-`deck-ops.hide.test.ts`.
+`deck-ops.hide.test.ts`. This write code lives in `hide-ops.ts`, which the Studio imports on the Hide or Show click:
+it parses the slide, and the Studio route's startup JavaScript sits at its ceiling.
 
 ## 5. Verification
 

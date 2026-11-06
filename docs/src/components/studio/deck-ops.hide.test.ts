@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
-import { isHiddenAt, setHiddenAt, withHidden } from './deck-ops';
+import { isHiddenAt } from './deck-ops';
+import { setHiddenAt, withHidden } from './hide-ops';
 
 const deck = '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\nBody.\n\n---\n\n# Three\n';
 

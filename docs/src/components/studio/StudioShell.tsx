@@ -90,7 +90,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
-import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt, setHiddenAt } from './deck-ops';
+import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -5210,12 +5210,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// reads the LATEST text (`sourceRef`), never the rendered `source`, which can trail typing in flight: a click that
 	// fires no pointerdown (a tour's `el.click()`, a screen reader's activation) gets no catch-up.
 	// Hide slide / Show slide (2026-11-06-hidden-slides.md): one step of the undo history, like every strip op.
-	const opHide = (at: SlideAt = hereAt) => {
+	// The write half loads on the click (./hide-ops): it parses the slide, and the route's startup JavaScript is at its ceiling.
+	const opHide = (at: SlideAt = hereAt) => void import('./hide-ops').then(({ setHiddenAt }) => {
 		const hide = !isHiddenAt(sourceRef.current, at);
 		applyDeckOp(setHiddenAt(sourceRef.current, at, hide), hide
 			? { label: 'Hide slide', note: 'Slide hidden. Present and exports leave it out.', say: () => 'Slide hidden. Present and exports leave it out. Undo available.' }
 			: { label: 'Show slide', note: 'Slide shown.', say: () => 'Slide shown. Present and exports include it again.' });
-	};
+	});
 	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(sourceRef.current, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
 	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(sourceRef.current, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
 	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide before' : 'Move slide after', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
