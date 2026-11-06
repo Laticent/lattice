@@ -27,8 +27,21 @@ const claim: OverlayClaim = { held: false };
 
 // The panel (metrics + readout) loads only once the overlay is on: off, which is nearly every page view, it costs
 // nothing to download. Its loops start on mount and stop on unmount, as before.
-// A chunk that cannot load (offline, a redeploy) leaves the overlay closed rather than throwing out of the island.
-const Overlay = React.lazy<React.ComponentType>(() => import('./PerfOverlayPanel').catch(() => ({ default: () => null })));
+//
+// A chunk that cannot load (offline, a redeploy) must not throw out of the island, and must not leave the switch
+// reading on over an empty screen: React.lazy caches a settled promise, so a failed load would render nothing on every
+// later switch-on. So a failure switches the overlay back off (the Workspace switch follows the pref) and swaps in a
+// fresh lazy component, so each switch-on asks again. A browser can keep a failed module import for the page's
+// life, so in practice the overlay comes back in a new page load.
+const lazyPanel = (): React.LazyExoticComponent<React.ComponentType> =>
+	React.lazy<React.ComponentType>(() =>
+		import('./PerfOverlayPanel').catch(() => {
+			Overlay = lazyPanel();
+			setPerfOverlayEnabled(false);
+			return { default: () => null };
+		}),
+	);
+let Overlay = lazyPanel();
 
 export default function PerfOverlay() {
 	const active = useDiagnosticGate({
