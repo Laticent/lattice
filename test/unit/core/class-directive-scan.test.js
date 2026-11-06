@@ -463,6 +463,29 @@ describe('the comment END mirrors markdown-it, not the HTML spec', () => {
   });
 });
 
+/** Run `fn` and return how many characters its `-->` searches covered, by wrapping String's indexOf and includes. */
+function closeSearchCost(fn) {
+  const P = String.prototype;
+  const { indexOf, includes } = P;
+  let scanned = 0;
+  P.indexOf = function (needle, from = 0) {
+    const at = indexOf.call(this, needle, from);
+    if (needle === '-->') scanned += (at === -1 ? this.length : at + 3) - Math.max(0, from);
+    return at;
+  };
+  P.includes = function (needle, from = 0) {
+    if (needle === '-->') scanned += this.length - Math.max(0, from);
+    return includes.call(this, needle, from);
+  };
+  try {
+    fn();
+  } finally {
+    P.indexOf = indexOf;
+    P.includes = includes;
+  }
+  return scanned;
+}
+
 describe('cost — this runs on every keystroke', () => {
   test('a full-deck scan is well under a frame', () => {
     // The measurement behind lib/core/class-directive-scan.mjs's "why a line scan
@@ -486,14 +509,17 @@ describe('cost — this runs on every keystroke', () => {
     // against 5ms clean. The Studio lints untrusted markdown (shared and
     // AI-generated decks) on every keystroke, so this is a hang, not a slow path.
     //
-    // Asserted as a RATIO against the same deck's clean scan rather than a
-    // wall-clock number, so it means the same thing on a loaded sandbox: linear
-    // costs a small constant factor, quadratic costs three orders of magnitude.
+    // COUNTED, not timed (HARD RULE #32). The quadratic path re-searches for `-->` from each opener to the end of
+    // the deck, so the test totals the characters every `-->` search covers (`indexOf` and `includes`, the two the
+    // scan uses) and holds it to three times the source. A linear scan covers each character one to two times (1.0
+    // and 1.7 on these decks); with the parser's search memo removed (docs/src/lib/segno-markdown/block.ts
+    // `nextClose`), the list of unclosed comments covers 2,501 times its length and fails. It used to divide one timing
+    // by another, which failed whenever a CI runner stalled during a 0.05 ms measurement (it ejected #3041 from the
+    // merge queue twice).
     const body = 'some ordinary prose line here\n'.repeat(20000);
-    const clean = () => { const t = performance.now(); slideClassDirectives(body); return performance.now() - t; };
-    const poisoned = () => { const t = performance.now(); slideClassDirectives(`<!-- oops\n${body}`); return performance.now() - t; };
-    clean(); poisoned(); // warm
-    const ratio = Math.max(poisoned(), 0.01) / Math.max(clean(), 0.01);
-    assert.ok(ratio < 25, `an unterminated \`<!--\` cost ${ratio.toFixed(0)}× a clean scan of the same deck — the consumption is re-scanning its buffer`);
+    for (const src of [`<!-- oops\n${body}`, '- <!-- open\n'.repeat(5000)]) {
+      const scanned = closeSearchCost(() => slideClassDirectives(src));
+      assert.ok(scanned <= 3 * src.length, `the \`-->\` searches covered ${scanned} characters of a ${src.length}-character deck — the consumption is re-scanning its buffer`);
+    }
   });
 });

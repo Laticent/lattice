@@ -116,10 +116,12 @@ describe('the comment finder is linear on hostile text', () => {
 
 describe('hostile-input cost, round 1 findings', () => {
   test('many comments against many fences stay linear (the fence scan advances one pointer)', () => {
+    // Counted, not timed (HARD RULE #32): one step per opener and one per fence the pointer passes. Linear is about
+    // 2 x 8,000; scanning every fence per comment, the path this guards, is about 8,000 x 8,000 / 2.
     const t = '```\n```\n<!-- x -->\n'.repeat(8000);
-    const t0 = performance.now();
-    m.comments(t);
-    assert.ok(performance.now() - t0 < 250, 'comments x fences took the quadratic path');
+    const work = { steps: 0 };
+    m.comments(t, work);
+    assert.ok(work.steps <= 2 * 8000 + 2, `comments x fences took ${work.steps} steps, the quadratic path`);
   });
   test('many unterminated openers on separate lines are one failed scan, not one each', () => {
     const t = '<!-- open\n'.repeat(20000);

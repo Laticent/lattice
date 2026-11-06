@@ -1,0 +1,680 @@
+{
+  "_comment": "HARD RULE #32 backlog: each committed test file's flaky-shape counts, held exactly by checkFlakyTests in tools/check-ownership.js. Lower a count in the PR that rewrites the test, or mark a line that is right as it is with // flaky-ok: <why>. Never raise a count without the reason in the PR. A docs/e2e waitForTimeout is held by SANCTIONED_E2E_SLEEPS instead. followups.d/3045-p1-flaky-test-audit.md drives this to empty.",
+  "files": {
+    "docs/e2e/chat-library-assets.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/chat-polish.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/chat-sheet-webkit.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/chat-transparency.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/compose-insert.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/draw-frame-preview.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/export-images-policy.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/library-images-complete.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/library-images-durability.spec.ts": {
+      "unseeded-random": 3,
+      "fixed-sleep": 2
+    },
+    "docs/e2e/library-images-export.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/library-images-render.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/library-images.spec.ts": {
+      "fixed-sleep": 3
+    },
+    "docs/e2e/logo-wall-first-visit.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/logo-wall-revisit.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/mermaid-unavailable-export.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/playground-editor-deferred.spec.ts": {
+      "unseeded-random": 2
+    },
+    "docs/e2e/playground-lint-hidden.spec.ts": {
+      "unseeded-random": 2
+    },
+    "docs/e2e/playground-paint.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/pptx-export-photo-size.spec.ts": {
+      "unseeded-random": 1
+    },
+    "docs/e2e/present-beat.spec.ts": {
+      "clock-assert": 1
+    },
+    "docs/e2e/present-delivery.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/present-emphasis.spec.ts": {
+      "clock-assert": 3
+    },
+    "docs/e2e/present-guide-handles.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/present-guide.spec.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/e2e/preview-font-swap.spec.ts": {
+      "unseeded-random": 1,
+      "fixed-sleep": 1
+    },
+    "docs/e2e/preview-photo-copies.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/print-waits-for-measuring.spec.ts": {
+      "fixed-sleep": 1,
+      "clock-assert": 1
+    },
+    "docs/e2e/read-aloud.spec.ts": {
+      "fixed-sleep": 5
+    },
+    "docs/e2e/restyle-overlap.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/status-pill.spec.ts": {
+      "clock-assert": 1
+    },
+    "docs/e2e/studio-instant-shell.spec.ts": {
+      "fixed-sleep": 11
+    },
+    "docs/e2e/studio-reserved-slots.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/studio-shell-parity.spec.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/e2e/vetrina-cursor-caption.spec.ts": {
+      "clock-assert": 1
+    },
+    "docs/scripts/check-route-budget.test.mjs": {
+      "unseeded-random": 3
+    },
+    "docs/src/components/DeckPreview.test.tsx": {
+      "fixed-sleep": 8
+    },
+    "docs/src/components/studio/NewSlideButton.test.tsx": {
+      "fixed-sleep": 3
+    },
+    "docs/src/components/studio/ai/architect-model.catalog.test.ts": {
+      "fixed-sleep": 3
+    },
+    "docs/src/components/studio/architect-agent.chat.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/studio/article-projection-gate.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/components/studio/asset-refs.test.ts": {
+      "clock-assert": 2
+    },
+    "docs/src/components/studio/editor-complete.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/components/studio/export/deck-export.picture-setting.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/studio/export/deck-export.test.ts": {
+      "clock-assert": 9
+    },
+    "docs/src/components/studio/live/live-controller.test.ts": {
+      "fixed-sleep": 33
+    },
+    "docs/src/components/studio/live/live-wake.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/studio/media-exif.test.ts": {
+      "clock-assert": 4
+    },
+    "docs/src/components/studio/motion/svg-intake.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/components/studio/studio-filo-persist.test.ts": {
+      "fixed-sleep": 4
+    },
+    "docs/src/components/studio/studio.coach-card.test.tsx": {
+      "fixed-sleep": 6
+    },
+    "docs/src/components/studio/studio.controls.test.tsx": {
+      "fixed-sleep": 3
+    },
+    "docs/src/components/studio/studio.editor-hold.test.tsx": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/studio/studio.present-bookends.test.tsx": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/studio/studio.present-pace.test.tsx": {
+      "fixed-sleep": 5,
+      "clock-assert": 2
+    },
+    "docs/src/components/ui/tap-away.test.tsx": {
+      "fixed-sleep": 1
+    },
+    "docs/src/components/ui/tooltip.test.tsx": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/cadenza/normalize.test.ts": {
+      "clock-assert": 2
+    },
+    "docs/src/lib/code-packages/door.fence.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/code-packages/draw-host.test.ts": {
+      "fixed-sleep": 16
+    },
+    "docs/src/lib/compose/deck-markdown-soft-break.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/compose/pane-gallery.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/filo/store.test.ts": {
+      "unseeded-random": 1
+    },
+    "docs/src/lib/frame-scheduler.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/front-matter.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/lente/tags.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/lint-dom-contract.test.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/src/lib/ltt/validate.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/markup/text.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/notify.dom.test.tsx": {
+      "fixed-sleep": 1,
+      "clock-assert": 2
+    },
+    "docs/src/lib/overlay-back.test.tsx": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/preview-draw-host.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/preview-image-scale.test.ts": {
+      "clock-assert": 2
+    },
+    "docs/src/lib/segno-markdown/deck.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/segno-playground-grammar.test.ts": {
+      "clock-assert": 3
+    },
+    "docs/src/lib/segno/codegen.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/segno/engine-additions.test.ts": {
+      "clock-assert": 4
+    },
+    "docs/src/lib/segno/grammar.test.ts": {
+      "clock-assert": 4
+    },
+    "docs/src/lib/segno/notation.test.ts": {
+      "clock-assert": 3
+    },
+    "docs/src/lib/segno/publish-review.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/segno/types.test.ts": {
+      "clock-assert": 2
+    },
+    "docs/src/lib/settings-search.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/squadra/select.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/stale-deploy-recovery.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/style-loader.test.ts": {
+      "fixed-sleep": 2
+    },
+    "docs/src/lib/suono/sequence.test.ts": {
+      "fixed-sleep": 11
+    },
+    "docs/src/lib/sw-version-evict.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/tavola/adapters/yjs.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/tavola/session.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/lib/veduta/core.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/vetrina-narration/cadenza-narrator.test.ts": {
+      "fixed-sleep": 4
+    },
+    "docs/src/lib/vetrina-narration/recorder.test.ts": {
+      "fixed-sleep": 5,
+      "clock-assert": 1
+    },
+    "docs/src/lib/vetrina/caption-rhythm.test.ts": {
+      "clock-assert": 1
+    },
+    "docs/src/lib/vetrina/cursor-caption.test.ts": {
+      "clock-assert": 1,
+      "fixed-sleep": 2
+    },
+    "docs/src/lib/vetrina/geometry.test.ts": {
+      "fixed-sleep": 3
+    },
+    "docs/src/lib/vetrina/runner.test.ts": {
+      "fixed-sleep": 3
+    },
+    "docs/src/lib/vetrina/word-cue.test.ts": {
+      "fixed-sleep": 1,
+      "clock-assert": 3
+    },
+    "docs/src/playground/chart-interact.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/playground/narration-store.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/playground/single-slide-render.dispose.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/playground/voice-model.kokoro-priority.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/playground/voice-model.prefetch-drop.test.ts": {
+      "fixed-sleep": 1
+    },
+    "docs/src/playground/voice-model.test.ts": {
+      "fixed-sleep": 8
+    },
+    "test/integration/export-nightly/npm-plugin-export-check.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/calco-redteam.test.js": {
+      "clock-assert": 1
+    },
+    "test/integration/export/calco-refusals.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/code-package-door.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/code-package-parity.test.js": {
+      "clock-assert": 1,
+      "fixed-sleep": 2
+    },
+    "test/integration/export/code-sandbox-network.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/collage-player.test.js": {
+      "fixed-sleep": 18
+    },
+    "test/integration/export/draw-frame-mermaid.test.js": {
+      "clock-assert": 1
+    },
+    "test/integration/export/draw-frame.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/export-formats.test.js": {
+      "unseeded-random": 1
+    },
+    "test/integration/export/export-load-lock.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/export-remote-subresource.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/fluid-reflow-hold.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/html-player.test.js": {
+      "fixed-sleep": 4
+    },
+    "test/integration/export/inliner-browser-oracle.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/marp-admission.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/marp-bundle-author-script.test.js": {
+      "fixed-sleep": 3
+    },
+    "test/integration/export/marp-kit-render.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/marp-video-link.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/mermaid-worker-confine.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/npm-plugin-canary.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/export/plugin-fence-door.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/rehost-remote-oracle.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/reopenable.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/export/slide-camera.test.js": {
+      "fixed-sleep": 3
+    },
+    "test/integration/export/video-plugin-attack.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/invariants/axe-a11y.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/invariants/footer-band.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/invariants/legibility-watcher.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/invariants/plugin-data-runtime-load.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/invariants/slide-contrast.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/invariants/team-profile-capacity.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/invariants/team-profile-sides-leadin.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/invariants/web-ref-beacon.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/mermaid/mermaid-cache-bindings.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/mermaid/mermaid-host-strip.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/mermaid/mermaid-unavailable.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/mermaid/preview-diagram-face.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/parity/chart-overflow-preserved.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/parity/content-clipped-pill.test.js": {
+      "fixed-sleep": 5
+    },
+    "test/integration/parity/guards-trim-deliverables.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/parity/label-set-key-runtime.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/parity/runtime-cards-align.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/integration/parity/runtime-frontmatter-refire.test.js": {
+      "fixed-sleep": 16
+    },
+    "test/integration/parity/runtime-marks.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/integration/parity/runtime-mode-geometry.test.js": {
+      "fixed-sleep": 3
+    },
+    "test/integration/parity/runtime-overflow-marker.test.js": {
+      "fixed-sleep": 3
+    },
+    "test/integration/parity/runtime-plugin-output-not-reread.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/authoring/class-comment-strip.test.js": {
+      "clock-assert": 4
+    },
+    "test/unit/authoring/notes-core.test.js": {
+      "clock-assert": 5
+    },
+    "test/unit/calco/shapes.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/cli/code-door-fence.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/cli/npm-plugin-loader.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/cli/plugin-returns.test.js": {
+      "clock-assert": 2
+    },
+    "test/unit/components/cartesian.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/components/chart-folder-drop.test.js": {
+      "unseeded-random": 1
+    },
+    "test/unit/components/collage-pack.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/components/flowchart.test.js": {
+      "fixed-sleep": 9
+    },
+    "test/unit/components/hub-spoke.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/components/lint-core.test.js": {
+      "clock-assert": 4
+    },
+    "test/unit/core/author-deferral-probe.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/bracket-list.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/chart-narration.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/chart-native-record.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/chart-row-record-differential.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/chart-row-record.test.js": {
+      "fixed-sleep": 5,
+      "clock-assert": 9
+    },
+    "test/unit/core/chart-values-money.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/chart-values-numeric-pill.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/class-directive-scan.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/closed-comments.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/core/codeql-1958-sanitizers.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/collage-lightbox.test.js": {
+      "fixed-sleep": 5
+    },
+    "test/unit/core/css-ref-image-set.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/css-scan-var-address.test.js": {
+      "clock-assert": 2
+    },
+    "test/unit/core/deck-front-matter-settings.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/directive-island.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/flowchart-grammar.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/font-settle.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/core/html-ref-differential.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/inline-code-owned-rows.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/inline-run.test.js": {
+      "clock-assert": 2
+    },
+    "test/unit/core/lattice-doc.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/live-author-html.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/marp-fidelity-render.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/measure-kit.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/meta-record.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/core/panes.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/render-target-keys.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/reopenable.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/restore-tokens-paths.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/shape-glyphs.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/spark-register.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/core/video-providers.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/core/web-css-bypass.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/diagnostics/slice-equivalence-core.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/engine/hoist-dangling-import.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/export/html-player-inline-differential.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/export/html-player-inline-file-urls.test.js": {
+      "clock-assert": 2
+    },
+    "test/unit/export/inline-url-media-differential.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/export/player-collage-keys.test.js": {
+      "fixed-sleep": 1
+    },
+    "test/unit/mermaid/init-directive.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/mermaid/label-length.test.js": {
+      "clock-assert": 2
+    },
+    "test/unit/playground/rehearsal.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/unit/playground/tts-cost.test.js": {
+      "fixed-sleep": 4
+    },
+    "test/unit/playground/voice-model.test.js": {
+      "fixed-sleep": 14,
+      "clock-assert": 1
+    },
+    "test/unit/plugins/admit.test.js": {
+      "clock-assert": 4
+    },
+    "test/unit/plugins/author-markup.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/plugins/code-record.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/plugins/component-plugins.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/plugins/hydrate-host.test.js": {
+      "fixed-sleep": 4,
+      "clock-assert": 1
+    },
+    "test/unit/plugins/katex-wall.test.js": {
+      "clock-assert": 3
+    },
+    "test/unit/runtime/bundle-settings-live.test.js": {
+      "fixed-sleep": 8
+    },
+    "test/unit/runtime/code-copy-surfaces.test.js": {
+      "fixed-sleep": 3
+    },
+    "test/unit/runtime/host-swap-layout.test.js": {
+      "fixed-sleep": 2
+    },
+    "test/unit/tools/style-needs-markdown.test.js": {
+      "clock-assert": 1
+    },
+    "test/unit/tools/wait-for.test.js": {
+      "clock-assert": 4
+    },
+    "test/unit/trama/pipeline-draw.test.js": {
+      "fixed-sleep": 17
+    },
+    "test/unit/transformers/logo-marks.test.js": {
+      "fixed-sleep": 5
+    },
+    "test/unit/transformers/prose-projection-poster.test.js": {
+      "clock-assert": 3
+    }
+  }
+}

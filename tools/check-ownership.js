@@ -8962,6 +8962,231 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
   errors.push(...spineCensusFindings(spineCensusTree(root), sanctions));
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// HARD RULE #32 — a test passes or fails on the code alone.
+// ══════════════════════════════════════════════════════════════════════════
+// A flaky test is one whose verdict depends on something the code does not control: the clock, the machine's load, the
+// order things finish, a random draw, the network (engineering/decisions/2026-11-06-flaky-tests.md lists the nine shapes,
+// F1 to F9). This census counts the three a parser can find in a committed test file:
+//
+//   fixed-sleep     F2  a hand-made sleep (`new Promise((r) => setTimeout(r, ANY))`), a call to a `sleep` / `delay` /
+//                       `wait` / `pause` helper, and `waitForTimeout(…)` OUTSIDE docs/e2e. Inside docs/e2e every
+//                       `waitForTimeout` is already held, one reason per sleep, by checkE2ESleeps / SANCTIONED_E2E_SLEEPS
+//                       above (HARD RULE #15: one gate per fact), so this census does not count it twice.
+//   clock-assert    F1  an assertion (`expect(…)`, `assert(…)`, `assert.x(…)`) whose arguments read a clock
+//                       (`performance.now()`, `Date.now()`, `process.hrtime`) directly, or through a variable or a
+//                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
+//                       `poisoned` times a call is caught.
+//   unseeded-random F5  `Math.random()`.
+//
+// PARSED with TypeScript, as checkE2ESleeps is, so a comment or a string never counts and a named duration
+// (`setTimeout(r, SETTLE_MS)`) does. A line that is right as it is says so: `// flaky-ok: <why>` on the line (a deadline
+// computed for a wait's timeout, a timing that is logged and never asserted). The reason is required.
+//
+// Each file's count is held EXACTLY to tools/flaky-test-baseline.json, the backlog the owner chose to ratchet down
+// (2026-11-06): a new hit fails, a file new to the baseline fails, and so does a count the baseline overstates, so the
+// list can only shrink. followups.d/3045-p1-flaky-test-audit.md drives it to empty.
+//
+// Known limits: a timing is followed through a declaration's initializer (a name resolves to its nearest enclosing
+// declaration), not through an assignment, a `.push` or a `.map`, nor into another module; a clock compared without a
+// subtraction (`expect(performance.now()).toBeLessThan(start + 5)`) and `process.hrtime(start)` are not seen; a count
+// cannot tell one sleep swapped for another in the same file; a file not yet committed is not read; and F3, F4, F6 to F9
+// are behavior, not spelling. Those are held by review.
+const FLAKY_TEST_BASELINE_FILE = path.join(ROOT, 'tools', 'flaky-test-baseline.json');
+const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /^docs\/e2e\/.*\.[cm]?[jt]sx?$/.test(rel);
+const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
+const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
+const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
+const FLAKY_TRIGGER = /setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+
+/** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
+function flakyTestHits(text, rel = 'test/x.test.js') {
+  const ts = require('typescript');
+  const kind = /\.tsx$/.test(rel) ? ts.ScriptKind.TSX : /\.[cm]?ts$/.test(rel) ? ts.ScriptKind.TS : /\.jsx$/.test(rel) ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, kind);
+  const lines = String(text).split('\n');
+  const okAt = (node) => FLAKY_OK.test(lines[sf.getLineAndCharacterOfPosition(node.getStart(sf)).line] || '');
+  const each = (node, fn) => { fn(node); node.forEachChild((c) => each(c, fn)); };
+  const calleeName = (call) => {
+    const e = call.expression;
+    if (ts.isIdentifier(e)) return e.text;
+    if (ts.isPropertyAccessExpression(e)) return e.name.text;
+    return '';
+  };
+  const isClockRead = (node) => {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const obj = node.expression.expression;
+      const name = node.expression.name.text;
+      if (ts.isIdentifier(obj) && ((obj.text === 'performance' && name === 'now') || (obj.text === 'Date' && name === 'now'))) return true;
+    }
+    if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'process' && node.name.text === 'hrtime') return true;
+    return false;
+  };
+
+  // The names this file builds from a clock: a variable whose initializer reads one, a function whose body reads one, and
+  // anything initialized from those, to a fixpoint. A name resolves to its nearest enclosing declaration (block, function or
+  // file), so a `const t = Date.now()` in one test does not taint a `t` in the next.
+  const isScope = (n) => ts.isSourceFile(n) || ts.isBlock(n) || ts.isFunctionLike(n) || ts.isModuleBlock(n) || ts.isCaseBlock(n);
+  const scopeOf = (n) => { let p = n.parent; while (p && !isScope(p)) p = p.parent; return p; };
+  const declsIn = new Map(); // scope node -> Map(name -> init)
+  const declare = (scope, name, init) => { if (!declsIn.has(scope)) declsIn.set(scope, new Map()); declsIn.get(scope).set(name, init); };
+  each(sf, (n) => {
+    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) declare(scopeOf(n), n.name.text, n.initializer);
+    else if (ts.isFunctionDeclaration(n) && n.name && n.body) declare(scopeOf(n), n.name.text, n.body);
+  });
+  const resolve = (id) => {
+    for (let p = id.parent; p; p = p.parent) {
+      const m = isScope(p) ? declsIn.get(p) : null;
+      if (m?.has(id.text)) return m.get(id.text);
+    }
+    return null;
+  };
+  // Two sets, to a fixpoint. A STAMP reads a clock (`const start = performance.now()`). A DURATION subtracts one stamp from
+  // another (`performance.now() - start`), or is built from one (`const ratio = best(poisoned) / best(clean)`, where
+  // `poisoned` returns a duration). Only an assertion on a duration is a stopwatch; `Date.now() - 3_600_000` is a fixed
+  // point in time to build test data from (F8, not F1) and is not counted.
+  const stamps = new Set();
+  const durations = new Set();
+  const touches = (node, set, alsoClock) => {
+    let hit = false;
+    each(node, (c) => {
+      if (hit) return;
+      if (alsoClock && isClockRead(c)) hit = true;
+      else if (ts.isIdentifier(c)) { const d = resolve(c); if (d && set.has(d)) hit = true; }
+    });
+    return hit;
+  };
+  const isStamp = (node) => touches(node, stamps, true);
+  // An object or array literal does not pass a duration on (`return { settled, settledMs }` would taint every assertion on
+  // `settled`), and a function is a duration only when it RETURNS one, not when it merely measures one inside.
+  const hasDuration = (node) => {
+    let hit = false;
+    const walk = (c) => {
+      if (hit || ts.isObjectLiteralExpression(c) || ts.isArrayLiteralExpression(c)) return;
+      if (ts.isBinaryExpression(c) && c.operatorToken.kind === ts.SyntaxKind.MinusToken && isStamp(c.left) && isStamp(c.right)) { hit = true; return; }
+      if (ts.isIdentifier(c)) { const d = resolve(c); if (d && durations.has(d)) { hit = true; return; } }
+      if (ts.isFunctionLike(c) && c !== node) return; // a nested function's body is its own question
+      c.forEachChild(walk);
+    };
+    walk(node);
+    return hit;
+  };
+  const returnsDuration = (fn) => {
+    const body = fn.body;
+    if (!body) return false;
+    if (!ts.isBlock(body)) return hasDuration(body);
+    let hit = false;
+    const walk = (c) => {
+      if (hit || (ts.isFunctionLike(c) && c !== fn)) return;
+      if (ts.isReturnStatement(c) && c.expression && hasDuration(c.expression)) { hit = true; return; }
+      c.forEachChild(walk);
+    };
+    body.forEachChild(walk);
+    return hit;
+  };
+  const isDuration = (init) => {
+    const fn = ts.isBlock(init) && ts.isFunctionLike(init.parent) ? init.parent : ts.isFunctionLike(init) ? init : null;
+    return fn ? returnsDuration(fn) : hasDuration(init);
+  };
+  const inits = [...declsIn.values()].flatMap((m) => [...m.values()]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const init of inits) {
+      if (!stamps.has(init) && isStamp(init)) { stamps.add(init); grew = true; }
+      if (!durations.has(init) && isDuration(init)) { durations.add(init); grew = true; }
+    }
+  }
+  const touchesClock = hasDuration;
+
+  const out = {};
+  const add = (shape, node) => { if (!okAt(node)) out[shape] = (out[shape] || 0) + 1; };
+  const inE2E = rel.startsWith('docs/e2e/');
+  each(sf, (n) => {
+    if (!ts.isCallExpression(n)) return;
+    const name = calleeName(n);
+    if (name === 'random' && ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === 'Math') add('unseeded-random', n);
+    else if (name === 'waitForTimeout') { if (!inE2E) add('fixed-sleep', n); }
+    else if (name === 'setTimeout' && ts.isIdentifier(n.expression) && n.arguments.length >= 2) {
+      // a hand-made sleep: setTimeout that only resolves the `new Promise` it sits in, `setTimeout(r, MS)` or
+      // `setTimeout(() => r(), MS)`. A callback that does more (`() => r('HUNG')` in a Promise.race, a mock's reply after a
+      // simulated latency) is a hang guard or a stub, not a wait-then-check.
+      const cb = n.arguments[0];
+      const bareResolve = ts.isIdentifier(cb) || ((ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) && !ts.isBlock(cb.body) && ts.isCallExpression(cb.body) && ts.isIdentifier(cb.body.expression) && cb.body.arguments.length === 0);
+      if (!bareResolve) return;
+      let p = n.parent;
+      for (let i = 0; p && i < 4 && !ts.isNewExpression(p); i++) p = p.parent;
+      if (p && ts.isNewExpression(p) && ts.isIdentifier(p.expression) && p.expression.text === 'Promise') add('fixed-sleep', n);
+    } else if (SLEEP_HELPERS.has(name) && ts.isIdentifier(n.expression) && n.arguments.length === 1 && !ts.isFunctionLike(n.arguments[0])) add('fixed-sleep', n);
+    else if ((name === 'expect' && ts.isIdentifier(n.expression)) || (ts.isIdentifier(n.expression) && n.expression.text === 'assert') || (ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === 'assert')) {
+      if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
+    }
+  });
+  return out;
+}
+
+/** Every committed test file under `root` with a flaky shape: { 'path': { shape: n } }. Throws when git cannot list the tree. */
+function flakyTestTree(root = ROOT) {
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean);
+  const tree = {};
+  for (const rel of files) {
+    if (!FLAKY_TEST_FILE(rel) || FLAKY_TEST_SKIP.test(rel)) continue;
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!FLAKY_TRIGGER.test(text)) continue; // nothing to count, so nothing to parse
+    const hits = flakyTestHits(text, rel);
+    if (Object.keys(hits).length) tree[rel] = hits;
+  }
+  return tree;
+}
+
+/** The census's verdict: each count held exactly to the baseline. */
+function flakyTestFindings(tree, baseline) {
+  const errors = [];
+  const files = new Set([...Object.keys(tree), ...Object.keys(baseline)]);
+  for (const file of [...files].sort()) {
+    const got = tree[file] || {};
+    const want = baseline[file] || {};
+    for (const shape of new Set([...Object.keys(got), ...Object.keys(want)])) {
+      const g = got[shape] || 0;
+      const w = want[shape] || 0;
+      if (g > w) {
+        errors.push(
+          `flaky test shape in ${file}: ${g} ${shape} where the baseline allows ${w} (HARD RULE #32) — a test passes or fails on ` +
+          `the code alone. Wait for a signal, not a duration; assert on work done, not milliseconds; seed the randomness ` +
+          `(engineering/decisions/2026-11-06-flaky-tests.md). A line that is right as it is carries // flaky-ok: <why>; raise ` +
+          `tools/flaky-test-baseline.json only with the reason in the PR.`,
+        );
+      } else if (g < w) {
+        errors.push(`stale flaky-test baseline: ${file} holds ${g} ${shape}, the baseline says ${w}. Lower it in tools/flaky-test-baseline.json so the backlog stays honest.`);
+      }
+    }
+  }
+  return errors;
+}
+
+function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
+  let baseline;
+  try {
+    baseline = JSON.parse(fs.readFileSync(baselineFile, 'utf8')).files || {};
+  } catch (e) {
+    errors.push(`flaky-test baseline ${path.relative(ROOT, baselineFile)} could not be read (${e.message}) (HARD RULE #32).`);
+    return;
+  }
+  let tree;
+  try {
+    tree = flakyTestTree(root);
+  } catch (e) {
+    // Fail closed, and say why: an empty tree would read as "every entry is stale", and following that advice empties the baseline.
+    errors.push(`the flaky-test census could not list the committed test files (${String(e.message).split('\n')[0]}) (HARD RULE #32). It needs git; do not edit the baseline to match.`);
+    return;
+  }
+  errors.push(...flakyTestFindings(tree, baseline));
+}
+
 // ── Media source rows: a census (media note §4.11, "A contributed source or provider row cannot widen trust") ──
 // `lib/core/media-sources.js` SOURCES is the one table that says whether naming a picture reaches a stranger's
 // server (`locality`) — `isRemoteRef`, the security predicate, is DERIVED from it. So a row that quietly says
@@ -14656,6 +14881,7 @@ function run() {
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
+  checkFlakyTests(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
   checkOpenRouterBudget(errors);
@@ -14908,6 +15134,10 @@ module.exports = {
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
   checkSecuritySpineCensus,
+  checkFlakyTests,
+  flakyTestHits,
+  flakyTestTree,
+  flakyTestFindings,
   spineCensusHits,
   spineCensusFindings,
   spineCensusTree,
