@@ -35,3 +35,33 @@ An existing key is never touched by a failed exchange: only the verifier is clea
 
 Pinned by `architect.test.ts` › "resumePendingAuth — a failed OAuth return says so"
 and `docs/e2e/openrouter-oauth-return.spec.ts` (mocked endpoint, HARD RULE #24).
+
+## 2. A revoked key is noticed
+
+**Before.** Nothing read a 401 as "this key is dead". An author who revoked the key on
+openrouter.ai, or whose key expired, kept seeing "OpenRouter — active" in Workspace; every
+cloud request failed, and nothing offered the fix.
+
+**Now.** The OpenRouter backend in `ai/architect-model.js` taps the status of every call it
+makes with the stored key — `/auth/key`, `/credits` and `/chat/completions`. A **401**, and
+only a 401, sets `lattice-db-or-key-invalid`, and the transition fires `db-model-changed`
+once so live surfaces re-read. `availability().openRouterKeyInvalid` carries it to
+`useArchitectStatus`, and the Workspace AI tab replaces the connected row with
+"OpenRouter — key rejected · Reconnect".
+
+Three choices worth recording:
+
+- **The key stays.** Deleting it would drop the author to "not connected", which hides
+  what happened. The row says the key was rejected; the requests themselves still name
+  the 401 (`describeModelError`, `model-error.ts`).
+- **Only 401.** A 402 is an empty wallet, a 429 is a rate limit, and OpenRouter uses 403
+  for moderation as well as auth. None of those mean the key is dead.
+- **Every write of the key clears the mark** (`setKey` in the backend), so a reconnect, a
+  disconnect, or the Disconnect Undo's `restore` always starts clean.
+
+The Studio's `useArchitectStatus` already fetches `/auth/key` when the Workspace opens, so
+a revoked key is caught there before any paid request is attempted.
+
+Pinned by `ai/architect-model.key-invalid.test.ts` (the mark, its one-time announcement,
+that 402/429/500 do not set it, and that a disconnect clears it) and
+`WorkspaceSheet.test.tsx` › "a rejected key".

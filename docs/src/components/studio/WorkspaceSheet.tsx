@@ -1029,17 +1029,27 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							</div>
 							<p className="mb-3 mt-1.5 px-0.5 text-[11px] text-muted-foreground">
 								<span className="font-semibold text-[var(--text-heading)]">{cloudActive ? 'Cloud is active' : onDeviceActive ? 'On-device is active' : 'No tier active yet'}</span>
-								{cloudActive ? ' — edits run on OpenRouter.' : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
+								{cloudActive ? (ai.openRouterKeyInvalid ? ' — but OpenRouter rejected the key, so requests fail until you reconnect.' : ' — edits run on OpenRouter.') : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
 							</p>
 
 							{genView === 'cloud' ? (
 								ai.openRouterReady ? (
 									<div>
-										<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', cloudActive ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-											<span className={cn('grid size-[30px] place-items-center rounded-lg', cloudActive ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}><Zap className="size-4" /></span>
-											<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
-											<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
-										</div>
+										{ai.openRouterKeyInvalid ? (
+											// OpenRouter answered 401 for this key: it was revoked, deleted or expired.
+											// Every cloud request now fails, so say so here and offer the one fix.
+											<div role="alert" className="flex items-center gap-3 rounded-xl border border-[var(--fail)] px-3 py-2.5">
+												<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--fail)_12%,transparent)] text-[var(--fail)]"><Plug className="size-4" /></span>
+												<span className="min-w-0"><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — key rejected</div><div className="text-[11px] text-muted-foreground">Revoked or expired. Reconnect to keep using Cloud.</div></span>
+												<button type="button" onClick={connect} disabled={connecting} className="ml-auto shrink-0 rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground disabled:opacity-60">{connecting ? 'Opening…' : 'Reconnect'}</button>
+											</div>
+										) : (
+											<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', cloudActive ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+												<span className={cn('grid size-[30px] place-items-center rounded-lg', cloudActive ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}><Zap className="size-4" /></span>
+												<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">OpenRouter — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
+												<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
+											</div>
+										)}
 										<div className="mt-3"><ModelPicker status={ai} /></div>
 										<div className="mt-4"><React.Suspense fallback={<div className="h-[88px]" aria-hidden />}><ImageModelSettings status={ai} /></React.Suspense></div>
 										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>

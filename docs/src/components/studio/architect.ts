@@ -239,6 +239,8 @@ export type ModelAvailability = {
 	webllmReady: boolean;
 	universalReady: boolean;
 	openRouterReady: boolean;
+	/** OpenRouter answered 401 for the stored key (revoked, deleted or expired). */
+	openRouterKeyInvalid?: boolean;
 	modelOn: boolean;
 };
 
@@ -1871,12 +1873,14 @@ export type ArchitectStatus = {
 	webllmReady: boolean;
 	universalReady: boolean;
 	openRouterReady: boolean;
+	/** The stored key was rejected (401): the Workspace offers Reconnect. */
+	openRouterKeyInvalid: boolean;
 };
 
 const FLOOR_STATUS: ArchitectStatus = {
 	ready: false, generation: 'floor', modelName: null, modelId: null, remaining: null, usage: null, limit: null,
 	usageMonthly: null, limitReset: null, wallet: null, price: null, keySettingsUrl: null,
-	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false,
+	promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, openRouterKeyInvalid: false,
 };
 
 // The universal Transformers.js backend reports its active name as 'transformers'
@@ -1932,6 +1936,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				webllmReady: a.webllmReady,
 				universalReady: a.universalReady,
 				openRouterReady: a.openRouterReady,
+				openRouterKeyInvalid: !!a.openRouterKeyInvalid,
 			});
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.

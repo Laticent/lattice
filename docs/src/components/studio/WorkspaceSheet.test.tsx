@@ -38,6 +38,7 @@ const connectedStatus: ArchitectStatus = {
 	webllmReady: false,
 	universalReady: false,
 	openRouterReady: true,
+	openRouterKeyInvalid: false,
 };
 
 const setModelSpy = vi.hoisted(() => vi.fn(async () => {}));
@@ -143,6 +144,21 @@ describe('WorkspaceSheet — G6 model picker', () => {
 		await user.click(sheet.getByRole('tab', { name: 'Value' }));
 		await user.click(await sheet.findByText('R1'));
 		expect(setModelSpy).toHaveBeenCalledWith('deepseek/deepseek-r1');
+	});
+});
+
+describe('WorkspaceSheet — a rejected key', () => {
+	it('a 401-marked key replaces the connected row with "key rejected" and Reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterKeyInvalid: true });
+		try {
+			const { sheet } = openSheet();
+			const alert = await sheet.findByRole('alert');
+			expect(alert).toHaveTextContent('OpenRouter — key rejected');
+			expect(within(alert).getByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
+			expect(sheet.queryByText(/OpenRouter — active/)).toBeNull();
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
 	});
 });
 

@@ -51,6 +51,7 @@ const CATALOG_FETCH_TIMEOUT_MS = 15000;
 const OR_KEY_LS = 'lattice-db-or-key'; // the user's OpenRouter API key (persists)
 const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
+const OR_KEY_INVALID_LS = 'lattice-db-or-key-invalid'; // '1' once OpenRouter answered 401 for the stored key; cleared when a key is written
 const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-cached /models catalog
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
 // A retired/renamed model id fails with this signature — the trigger to self-heal
@@ -248,10 +249,22 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
   let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
   let catalogGen = 0; // bumped when the cache is invalidated: a fetch that started before must not write its stale answer back
+  // Every write of the key goes through here, so a fresh key (or none) always clears the
+  // "rejected" mark the previous key earned.
+  const setKey = (key) => { writeLS(OR_KEY_LS, key); writeLS(OR_KEY_INVALID_LS, null); };
+  // OpenRouter answered 401 for the stored key: it was revoked, deleted or expired. Mark it
+  // once (the transition is what live surfaces hear about), and keep the key itself so the
+  // author sees "rejected · Reconnect" rather than a silent fall to "not connected".
+  const noteStatus = (status) => {
+    if (status !== 401 || !readLS(OR_KEY_LS) || readLS(OR_KEY_INVALID_LS)) return;
+    writeLS(OR_KEY_INVALID_LS, '1');
+    if (typeof window !== 'undefined') { try { window.dispatchEvent(new Event('db-model-changed')); } catch {} }
+  };
   return {
     name: 'openrouter',
     ready() { return !!readLS(OR_KEY_LS); },
     hasPendingAuth() { return !!readLS(OR_VERIFIER_LS); },
+    keyInvalid() { return !!readLS(OR_KEY_LS) && !!readLS(OR_KEY_INVALID_LS); },
     getModel() { return readLS(OR_MODEL_LS) || defaultModel; },
     // Where the user sets a HARD, server-enforced per-key spend limit. We can't set
     // it from the browser PKCE flow (the redirect can't carry a limit, and the
@@ -259,7 +272,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
     setModel(id) { writeLS(OR_MODEL_LS, id || null); },
     keySnapshot() { return readLS(OR_KEY_LS); }, // for the Disconnect Undo (restore without re-OAuth)
-    restore(key) { writeLS(OR_KEY_LS, key || null); if (key) this.listModels().catch(() => {}); },
+    restore(key) { setKey(key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
     // limit is set). Best-effort, client-side, the user's own key — null on failure
     // so the UI just hides the strip. Pay-as-you-go keys report a null limit.
@@ -268,6 +281,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        noteStatus(res.status);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
         return {
@@ -288,6 +302,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_CREDITS_URL, { headers: { Authorization: 'Bearer ' + key } });
+        noteStatus(res.status);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
         if (d.total_credits == null && d.total_usage == null) return null;
@@ -338,7 +353,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // `contextLength` only for a listed model: an alias's dearest family member may have a different window, so it stays null there.
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null, contextLength: m.id === id ? m.contextLength ?? null : null } : null;
     },
-    disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
+    disconnect() { setKey(null); writeLS(OR_VERIFIER_LS, null); },
     clearPendingAuth() { writeLS(OR_VERIFIER_LS, null); }, // drop a dead PKCE verifier; the key, if any, stays
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
     // caller navigates there; OpenRouter returns to callbackUrl with ?code=.
@@ -364,7 +379,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!res.ok) throw new Error('OpenRouter auth failed (' + res.status + ')');
       const j = await res.json();
       if (!j.key) throw new Error('OpenRouter returned no key');
-      writeLS(OR_KEY_LS, j.key);
+      setKey(j.key);
       writeLS(OR_VERIFIER_LS, null);
       // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).
       this.listModels().catch(() => {});
@@ -497,6 +512,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           res = await send(defaultModel);
         }
         if (!res.ok) {
+          noteStatus(res.status);
           const detail = res.bodyUsed ? errText : await res.text().catch(() => '');
           throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
         }
@@ -977,6 +993,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
         webllmReady: webllm.ready(),
         universalReady: universal.ready(),
         openRouterReady: openrouter.ready(),
+        openRouterKeyInvalid: !!openrouter.keyInvalid?.(),
         embeddings: modelOn() && hasWindow,
         modelOn: modelOn(),
       };
