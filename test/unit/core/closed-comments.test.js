@@ -107,9 +107,10 @@ describe('the boundary parser stays linear on unclosed comments (HARD RULE #22)'
   const { splitSourceToSections } = require(path.join(ROOT, 'lib/core/section-source-split.js'));
 
   test('splitSourceToSections — a full md.parse on the CLI export path — stays linear', () => {
-    // Three boundaryParser callers run the full `md.parse`. On markdown-it 14.1.1 with no guard,
-    // 273 KB of `a <!--` lines took 32.8 s here; with the guard, or on 14.3.3, well under a second.
-    // Counted, not timed (HARD RULE #32): the characters every search in the parse covered, against the source.
+    // This was a full `md.parse`: on markdown-it 14.1.1 with no guard, 273 KB of `a <!--` lines took 32.8 s. It
+    // now runs the deck model's own block pass (lib/core/deck-model.mjs), where `a <!--` never opens an HTML block,
+    // so no mutant of today's path reaches this input and the test is a sentinel: it reads 10 characters per
+    // character at 10,000 and at 40,000 lines. Counted, not timed (HARD RULE #32).
     const src = 'a <!--\n'.repeat(40000);
     const { scanned } = scanWork(() => splitSourceToSections(src));
     assert.ok(scanned <= 30 * src.length, `${scanned} chars scanned for ${src.length}`);
