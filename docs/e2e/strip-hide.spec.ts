@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 	await expect(railButtons(page)).toHaveCount(3);
 });
 
-test('@crosswidth Hide slide hides the slide, marks it, and Show slide (the chip) brings it back', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko Hide slide hides the slide, marks it, and Show slide (the chip) brings it back', async ({ page }) => {
 	await railButtons(page).nth(1).click();
 	await strip(page).getByRole('button', { name: 'Slide actions' }).click();
 	await expect(item(page, 'hide')).toHaveText(/Hide Slide/);

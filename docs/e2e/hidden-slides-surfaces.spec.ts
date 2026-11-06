@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
+import { expect, gotoStudio, shareExport, test, typeDeck } from './studio-fixture';
 
 // HIDDEN SLIDES ON THE REAL STUDIO (engineering/decisions/2026-11-06-hidden-slides.md §4). Present and every Studio
 // export leave a `<!-- hide -->` slide out: Present's count and slides, the PDF's pages and their numbers, the
@@ -62,10 +62,10 @@ async function download(page: Page, format: 'pdf' | 'webpage' | 'captions', ext:
 
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, DECK);
+	await typeDeck(page, DECK);
 });
 
-test('Present skips the hidden slide: 3 slides, Bravo never shown', async ({ page }) => {
+test('Present skips the hidden slide: 3 slides, Bravo never shown @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const present = page.getByRole('dialog', { name: 'Present' });
 	await expect(present).toBeVisible();
