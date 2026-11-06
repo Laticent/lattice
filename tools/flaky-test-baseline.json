@@ -442,7 +442,7 @@
     "test/integration/parity/label-set-key-runtime.test.js": {
       "fixed-sleep": 1
     },
-    "test/integration/parity/runtime-cards-align.test.js": {
+    "test/integration/parity/runtime-align.test.js": {
       "fixed-sleep": 1
     },
     "test/integration/parity/runtime-frontmatter-refire.test.js": {

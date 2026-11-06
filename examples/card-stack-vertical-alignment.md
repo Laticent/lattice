@@ -93,7 +93,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 ## One token, and every default survives it.
 
 - **A class sets a variable**
-  - `align: top` stamps a class that sets `--cards-align`.
+  - `align: top` stamps a class that sets `--align-v`.
 - **Each row keeps its own default**
   - Each row reads the variable with its own fallback.
 - **So a rule keeps its own default**
