@@ -158,7 +158,7 @@
    * photo's content height is its natural aspect at full width (418px of a 621px stage), which left the
    * other pane 32px short. A body that is only pictures (one photo, or a collage's run of them) starts
    * at no height and takes the spare, and the images keep their pane.css fit inside the box that leaves. */
-  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > :is(img, picture, figure, p:has(> :is(img, picture)):not(:has(> :not(img, picture, br)))) {
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] lat-pane > .cell-stage > :is(img, picture, figure, p[data-pane-figure], p:has(> :is(img, picture):first-child + br + :is(img, picture)):not(:has(> :not(img, picture, br)))) {
     flex: 1 1 0;
     min-height: 0;
   }
@@ -170,9 +170,12 @@
    * a line chart, 538px), and when the two do not fit it is the filler that gives way: shrinking both
    * cut a list pane to 72px of its 138px. Two text panes, or two fillers, still share by the ratio. The
    * filler list is the one the slide-level exemption above uses, read at the pane's stage, plus a
-   * paragraph holding a picture (`:has()` cannot nest, so it is named by its image). */
-  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes:has(> lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p > :is(img, picture), > .lat-pane-cell > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .lat-pane-cell > lat-pane > .cell-stage > p > :is(img, picture))
-    > :is(lat-pane, .lat-pane-cell):not(:has(> .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .cell-stage > p > :is(img, picture), > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p > :is(img, picture))) {
+   * paragraph that is only pictures: one image (the engine marks it `data-pane-figure`, lib/core/panes.js
+   * `embed`), or a run split by `<br>` (a collage). `:has()` cannot nest, so the collage is named by
+   * its images. A paragraph of text with an image in it is not a filler: it would not fill, and its
+   * neighbor would take none of the shortfall. */
+  :root[data-lattice-view="fluid"] section.lat-pane-host[data-orientation] > .cell-stage > .lat-panes:has(> lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p[data-pane-figure], > lat-pane > .cell-stage > p > :is(img, picture):first-child + br + :is(img, picture), > .lat-pane-cell > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .lat-pane-cell > lat-pane > .cell-stage > p[data-pane-figure], > .lat-pane-cell > lat-pane > .cell-stage > p > :is(img, picture):first-child + br + :is(img, picture))
+    > :is(lat-pane, .lat-pane-cell):not(:has(> .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > .cell-stage > p[data-pane-figure], > .cell-stage > p > :is(img, picture):first-child + br + :is(img, picture), > lat-pane > .cell-stage > :is(figure, img, picture, svg, canvas, video, [data-lattice-figure], .chart-body, [data-lattice-hydrate]), > lat-pane > .cell-stage > p[data-pane-figure], > lat-pane > .cell-stage > p > :is(img, picture):first-child + br + :is(img, picture))) {
     flex-grow: 0;
     flex-shrink: 0;
   }
