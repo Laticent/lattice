@@ -648,6 +648,12 @@ fails on a rise, so the baseline keeps the higher reading: `test/fit/baseline.js
 `main` (run 40996342102, before this branch) rose by one in two cells of the same kind and filed
 #2989; a runner-blessed baseline is the remedy §10 names.
 
+**The phone venue joins the baseline** (2026-11-06). At the owner's call the nightly scores
+`--venues laptop,hall,phone`. Run 42226567991 on this branch (commit 26c2286, after the measured
+split became the default) added 846 phone cells, raised no existing cell, and lowered 190 of them;
+`test/fit/baseline.json` is now that run's `baseline.json`. Later commits on this branch only
+lower counts (the math fixes of 2026-11-06), which a ratchet accepts.
+
 ## 15. Charts and diagrams: the design round (2026-10-30)
 
 The chart and diagram galleries clip 272 slide-cells after §13, and 129 of them are text slides in
