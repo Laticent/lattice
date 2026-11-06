@@ -115,12 +115,15 @@ describe('openrouter-key — encrypted at rest', () => {
 		expect(readOpenRouterKey()).toBe(SECRET);
 	});
 	it('a plaintext key from before encryption is used, then re-sealed in place', async () => {
-		localStorage.setItem(KEY, SECRET);
-		expect(readOpenRouterKey()).toBe(SECRET);
+		// Deliberately plaintext: this fixture IS the pre-encryption storage the migration reads.
+		// A fake key, never a real one.
+		const LEGACY = 'sk-or-v1-legacy-plaintext-5e1f';
+		localStorage.setItem(KEY, LEGACY);
+		expect(readOpenRouterKey()).toBe(LEGACY);
 		await loadOpenRouterKey();
 		await vi.waitFor(() => expect(String(localStorage.getItem(KEY)).startsWith('v1:')).toBe(true));
 		__resetOpenRouterKeyForTests();
-		expect(await loadOpenRouterKey()).toBe(SECRET);
+		expect(await loadOpenRouterKey()).toBe(LEGACY);
 	});
 	it('an envelope whose sealing key was cleared reads as no key, and is removed', async () => {
 		writeOpenRouterKey(SECRET);
