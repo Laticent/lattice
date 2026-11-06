@@ -268,9 +268,10 @@ describe('html-player export — a declared `size:` reaches the player (#1577)',
 	}, { timeout: TIMEOUT });
 });
 
-// P3d — speaker notes: default-in, with a --strip-notes privacy export that must
-// scrub the note text from EVERY baked copy (the DOM aside AND the envelope source).
-// The grep test is the whole point: a stripped file that leaks note text is a bug.
+// P3d — speaker notes: a --strip-notes privacy export must scrub the note text from EVERY baked
+// copy (the DOM aside AND the envelope source). The grep test is the whole point: a stripped file
+// that leaks note text is a bug. Since #1833 a player strips notes by DEFAULT, because a player is
+// a file you send; `--with-notes` keeps them for an author who presents from the file.
 describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
 	const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -280,26 +281,41 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 	const NOTE_B = 'Land the Q3 revenue figure before moving on.';
 	const DECK = ['---', 'theme: indaco', '---', '', '# One', '', `<!-- ${NOTE_A} -->`, '', 'Body A.', '', '---', '', '# Two', '', `<!-- ${NOTE_B} -->`, '', 'Body B.', ''].join('\n');
 
-	function renderPlayer(strip) {
+	function renderPlayer(flag) {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-notes-'));
 		const deck = path.join(dir, 'deck.md');
 		fs.writeFileSync(deck, DECK);
 		const out = path.join(dir, 'deck.pdf');
 		const args = [EMULATOR, deck, out, '--quiet', '--player'];
-		if (strip) args.push('--strip-notes');
+		if (flag) args.push(flag);
 		const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 		return fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
 	}
 
-	test('by DEFAULT the notes ride: aside in the DOM + text in the envelope source', { timeout: TIMEOUT }, () => {
-		const html = renderPlayer(false);
+	test('by DEFAULT a player carries no note text a recipient can open (#1833)', { timeout: TIMEOUT }, () => {
+		const html = renderPlayer(null);
+		for (const note of [NOTE_A, NOTE_B]) assert.equal(html.includes(note), false, `default player must not contain "${note}"`);
+		assert.doesNotMatch(html, /<aside class="lattice-notes"/, 'no note aside in a default player');
+		const src = parseEnvelope(html).source;
+		assert.equal(src.includes(NOTE_A) || src.includes(NOTE_B), false, 'the envelope source carries no note');
+		assert.match(src, /# One/, 'the deck body still rides, so the file re-imports');
+	});
+
+	test('--with-notes keeps the notes: aside in the DOM + text in the envelope source', { timeout: TIMEOUT }, () => {
+		const html = renderPlayer('--with-notes');
 		assert.match(html, /<aside class="lattice-notes"[^>]*>[^<]*Pause here/, 'the note aside is baked in');
 		assert.equal(parseEnvelope(html).source.includes(NOTE_A), true, 'the note rides in the envelope source');
 	});
 
+	test('--with-notes and --strip-notes together is an error, not a silent pick', { timeout: TIMEOUT }, () => {
+		const r = spawnSync(process.execPath, [EMULATOR, path.join(ROOT, 'examples', 'read-along-captions.md'), path.join(os.tmpdir(), 'never.html'), '--player', '--with-notes', '--strip-notes'], { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT });
+		assert.equal(r.status, 1);
+		assert.match(r.stderr, /--with-notes keeps speaker notes and --strip-notes removes them/);
+	});
+
 	test('--strip-notes scrubs the note text from EVERY baked copy (the privacy grep)', { timeout: TIMEOUT }, () => {
-		const html = renderPlayer(true);
+		const html = renderPlayer('--strip-notes');
 		// The note text must appear NOWHERE in the shipped bytes — not the DOM, not the
 		// base64 envelope (decode it), not anywhere.
 		for (const note of [NOTE_A, NOTE_B]) {
@@ -373,7 +389,10 @@ describe('html-player export — captions + --strip-say (orthogonal to --strip-n
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caps-'));
 		const out = path.join(dir, 'deck.pdf');
 		fs.writeFileSync(path.join(dir, 'deck.md'), DECK);
-		const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), out, '--quiet', '--player', '--captions', ...flags], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+		// A player strips notes by default (#1833); these cells pin the say channel's independence
+		// from the note channel, so they keep notes unless the cell is the --strip-notes one.
+		const keep = flags.includes('--strip-notes') ? [] : ['--with-notes'];
+		const r = spawnSync(process.execPath, [EMULATOR, path.join(dir, 'deck.md'), out, '--quiet', '--player', '--captions', ...keep, ...flags], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 		const vttPath = out.replace(/\.pdf$/, '.vtt');
 		return {

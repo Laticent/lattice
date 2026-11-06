@@ -225,12 +225,16 @@ beside every PDF) keeps any `<script>` or `onerror=` in your deck live, so it
 runs in whoever opens it, and the CLI warns when a deck has any. The player
 drops both.
 
-Your speaker notes travel with the player so that you can present from it. If
-you are sending it to someone else, strip them first:
+A player is a file you send, so it leaves your speaker notes out. Anyone who
+opens it could otherwise read them in its Present view. To present from the
+file yourself, keep them:
 
 ```sh
-npx lattice deck.md deck.html --player --strip-notes
+npx lattice deck.md deck.html --player --with-notes
 ```
+
+The strip covers every copy the run writes, including a PDF made in the same
+run and any embedded source.
 
 The player shows a deck's motion when the deck turns it on. To ship still
 slides in a file you forward, add `--no-player-motion`.
@@ -242,7 +246,7 @@ add `--narrate`. It uses the same optional voice install as
 
 ```sh
 npx lattice deck.md deck.html --player --player-mode dark
-npx lattice deck.md deck.html --player --narrate --strip-notes
+npx lattice deck.md deck.html --player --narrate
 ```
 
 A player loads nothing from the web, so a picture from a web address ships as

@@ -23,7 +23,7 @@ nothing they should not have:
 | to read or forward it | a vector `.pdf` with selectable text | a `--raster` PDF when no viewer asked for one |
 | to present it | `--present` PDF, or a `--player` `.html` | a PowerPoint when they never open PowerPoint |
 | to print it | `--print`, plus `--paper` for office paper | the screen palette, which wastes ink and loses series in grayscale |
-| to receive it from you | `--strip-notes` on anything that leaves your hands | your speaker notes riding in the file |
+| to receive it from you | `--strip-notes` on anything that leaves your hands (a `--player` strips by default; `--with-notes` keeps them) | your speaker notes riding in the file |
 | images for a site or doc | a `.zip` image set in the format they asked for | loose PNGs renamed to `.jpg` |
 
 And a 10/10 run is **quiet**: no `OVERFLOW` warning, no placeholder count from a

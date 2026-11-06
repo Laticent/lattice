@@ -199,11 +199,15 @@ OPTIONS
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text. Removes the NOTE
+                          shareable file with no speaker text. A --player export
+                          does this by default; --with-notes keeps them. Removes the NOTE
                           channel only: a <!-- describe: --> accessibility
                           description survives (it is the slide's text
                           alternative, not speaker text), and so do say: lines,
                           which are public narration and have --strip-say
+      --with-notes        Keep speaker notes in a --player export, for presenting
+                          from the file yourself. Without it a player leaves notes
+                          out, because a player is a file you send (#1833)
       --no-guide          Leave the Guide out of a narrated --player (on by default:
                           the focus and gestures that follow the narration, as in
                           Present; the deck's delivery: picks only their style).
@@ -705,14 +709,19 @@ if (PLAYER_MODE !== null && !PLAYER_MODES.includes(PLAYER_MODE)) {
   console.error('error: --player-mode is light, dark or system');
   process.exit(1);
 }
-// `--strip-notes`: the privacy strip for the self-contained player. Notes ride by
-// default (present-from-it), but this scrubs them from EVERY baked copy — the slide
+// `--strip-notes`: the privacy strip for the self-contained player. A --player export runs it
+// by default since #1833 (`--with-notes` keeps notes, to present from the file); it scrubs them from EVERY baked copy — the slide
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
 // on export) — so a shared file leaks no speaker text.
 // Instrumentation, not authoring: hold the deck still so a rig can measure it (page N
 // must stay slide N). See the AUTOSPLIT comment below.
 const NO_SPLIT = !!flags['no-split'];
-const STRIP_NOTES = !!flags['strip-notes'];
+// `let`: a --player export turns it on below unless the author asks for `--with-notes` (#1833).
+let STRIP_NOTES = !!flags['strip-notes'];
+if (flags['with-notes'] && STRIP_NOTES) {
+  console.error('error: --with-notes keeps speaker notes and --strip-notes removes them; pass one');
+  process.exit(1);
+}
 // --player-consent: the web origins the player may load pictures from after the reader allows it.
 // Each must be an origin (`https://host[:port]`); anything else is an error, not a silent drop.
 const PLAYER_CONSENT = (() => {
@@ -2059,6 +2068,19 @@ if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx') && (paletteSou
 // Enabled by `--player` OR a `player: true` front-matter key. Takes precedence over
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
 const PLAYER = !!flags.player || readRenderTargetKey(fm, 'player');
+// NOTES ARE FOR THE AUTHOR (#1833). A player is a file you send, and its Present view opens the
+// notes sheet with one key, so a player export strips speaker notes unless the author asks to
+// keep them with `--with-notes` (to present from the file themselves). It used to be the other way
+// round: notes rode unless the author remembered `--strip-notes`, and a `player: true` deck had no
+// natural place to remember it. The strip is the same one `--strip-notes` runs, so it covers every
+// copy this run writes: the player DOM, the PDF annotations, and any embedded source.
+if (PLAYER && !STRIP_NOTES && !flags['with-notes']) {
+  STRIP_NOTES = true;
+  if (!QUIET) console.log('  speaker notes: left out of the player (a file you send); --with-notes keeps them');
+}
+if (flags['with-notes'] && !PLAYER && !QUIET) {
+  console.warn('note: --with-notes applies to the --player export; other outputs keep notes already');
+}
 // READING ARTICLE (--read): rewrite the .html as the deck's PROSE — the shared
 // `projectDeckToProse` projection — INSTEAD of the slide stack, not beside it.
 //
@@ -2527,7 +2549,8 @@ function strippedSlidesOrAuthored() {
   // NAMES THE FLAGS THAT ARE ON, not `--strip-notes` unconditionally. An author who ran only
   // `--strip-say` and was told a NOTE comment could not be removed would go looking for a
   // note the deck does not have.
-  const flagList = [STRIP_NOTES && '--strip-notes', STRIP_SAY && '--strip-say'].filter(Boolean).join(' + ');
+  // A player strips notes without the flag (#1833), so name what actually ran.
+  const flagList = [STRIP_NOTES && (flags['strip-notes'] ? '--strip-notes' : "the player's note strip"), STRIP_SAY && '--strip-say'].filter(Boolean).join(' + ');
   const kind = STRIP_NOTES && STRIP_SAY ? 'a note or say comment' : (STRIP_NOTES ? 'a note comment' : 'a say comment');
   console.warn(
     `  WARNING: ${flagList} could not remove ${kind} without changing this deck, `
@@ -5250,7 +5273,7 @@ async function renderBody(browser, g, closeBrowser) {
         // this stays silent (#1833).
         const shippedNotes = materializedNotes.filter(Boolean).length;
         if (shippedNotes) {
-          console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+          console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Drop --with-notes to leave them out.`);
         }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
