@@ -37,7 +37,7 @@ for (const [label, width, height] of [
 		await position.click();
 		await page.getByRole('option', { name: 'Right edge' }).click();
 		await expect.poll(() => source()).toContain('progress-rail: edge');
-		await expect(page.getByText('Upright on the right edge, mid-height.')).toBeVisible();
+		await expect(page.getByText('Upright, mid-height.')).toBeVisible();
 
 		await page.getByRole('combobox', { name: 'Choose section rail style' }).click();
 		await page.getByRole('option', { name: 'Bar' }).click();

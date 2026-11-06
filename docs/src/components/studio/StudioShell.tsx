@@ -6187,14 +6187,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
 				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." find="running confidential chrome" help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 				{pageNumbersField}
-				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section on content slides, the current one lit; each divider draws a larger marker, and an agenda with one item per section shows the marks as a legend. It draws on its own in a deck of three or more sections and fifteen or more slides. Turning it off writes <code>progress-rail: off</code>.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section, the current one lit; dividers show it larger. Drawn on its own from three sections and fifteen slides.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{deckRail && (
 					// A SCOPE for the same reason as the logo's: `Position` and `Style` do not say "rail".
 					<SettingsScope label="Section rail" keywords="progress dots bar progress-rail" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
 						{(['placement', 'style'] as const).map((axis) => {
 							const meta = {
-								placement: { label: 'Position', desc: railWords.placement === 'center' ? 'The middle of the footer; a long footer line shortens.' : railWords.placement === 'edge' ? 'Upright on the right edge, mid-height.' : 'Beside the page number.', help: <>Where the rail sits. <strong>Footer center</strong> puts it on the slide's center line, and a long footer line then ends in an ellipsis before it. <strong>Right edge</strong> stands it upright in the right margin, clear of the footer. Written as one word on the <code>progress-rail:</code> line; one slide can move its own with <code>_class: progress-rail-edge</code>.</> },
-								style: { label: 'Style', desc: railWords.style === 'bar' ? 'One segment per section.' : 'One dot per section.', help: <><strong>Dots</strong> stretch the current one into a pill. <strong>Bar</strong> draws a thin line in equal segments and fills the current one.</> },
+								placement: { label: 'Position', desc: railWords.placement === 'center' ? 'A long footer line shortens.' : railWords.placement === 'edge' ? 'Upright, mid-height.' : 'Beside the page number.', help: <>One slide can move its own with <code>_class: progress-rail-edge</code>.</> },
+								style: { label: 'Style', desc: railWords.style === 'bar' ? 'One segment per section.' : 'One dot per section.', help: <>The current section is lit in either.</> },
 							}[axis];
 							return (
 								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
