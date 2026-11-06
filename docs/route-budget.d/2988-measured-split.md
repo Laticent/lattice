@@ -1,4 +1,4 @@
-studio: +600
+studio: +1200
 playground: +360
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
@@ -15,3 +15,7 @@ module; a deck without a `fit:` line never loads it. Declared with headroom for 
 The checker's fixes (§17) add the call that cancels a pending measurement when the shown slide
 stops taking the measured split, and hash the stylesheets into the layout key: CI on e01dea7 measured
 +546 B gz on studio (+427 single-slide-render) and +463 on home.
+The handheld venues (fit-everywhere-model.md §18) then gave the Studio's venue picker a per-shape
+table and phone and tablet rows (`src/components/studio/venue.ts`), and the island reads the deck's
+shape for it: CI on a09e5df measured +1122 B gz on studio (+427 single-slide-render, +391 venue.ts,
++272 StudioIsland), +292 on playground and +463 on home, all inside the 2048 B a PR may declare.
