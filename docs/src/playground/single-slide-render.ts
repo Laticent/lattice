@@ -57,6 +57,16 @@ import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/d
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { previewCspMeta } from '../playground/preview-csp.js';
+
+// One nonce per page load for every preview frame this module writes (see srcdoc()). Random, so a
+// shared deck's markup cannot carry it; constant for the page, so a rewrite of the same slide is
+// byte-identical and the render signatures below keep matching.
+const PREVIEW_SCRIPT_NONCE = (() => {
+	const b = new Uint8Array(18);
+	globalThis.crypto.getRandomValues(b);
+	return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_');
+})();
+
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 
@@ -1212,6 +1222,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// bug (see frame-css.js + index.astro srcdoc note). `geom` is the render's
 	// reported { width, height } (px).
 	function srcdoc(html: string, css: string, mode: 'light' | 'dark', drawn: boolean, geom: Geom, extraCss = ''): string {
+		// Every script this document carries is stamped with the page's nonce, and its CSP refuses
+		// any script without it: an inline handler or a `<script>` that got past the sanitizer does
+		// not run (lifecycle note §4; `scriptSources` in lib/core/subresource-csp.mjs).
+		const n = ' nonce="' + PREVIEW_SCRIPT_NONCE + '"';
 		// Strip script-bearing content before it enters this same-origin,
 		// un-sandboxed frame (#616 T-CONTENT) — the runtime/Mermaid scripts are
 		// appended separately below, so they're untouched.
@@ -1231,7 +1245,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			' data-lattice-live-media><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
-			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
+			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked, scriptNonce: PREVIEW_SCRIPT_NONCE }) +
 			// THREE elements in cascade order — frame box, then the engine sheet (shared across
 			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
 			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
@@ -1244,10 +1258,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// agent at the end of <body> the poll read `undefined`, concluded "no gate",
 			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
 			// no-op. See lib/core/preview-font-gate.mjs.
-			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+			'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
 			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
-			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds) : '') +
+			// The preload carries the nonce too: under 'strict-dynamic' a script preload without it is refused.
+			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 			'</head><body>' +
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
@@ -1260,13 +1275,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
 		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
 		if ((html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
-			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
+			s += '<scr' + 'ipt' + n + ' src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
-		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
+		s += '<scr' + 'ipt' + n + ' src="' + runtimeUrl + '"></scr' + 'ipt>';
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also
 		// carries the video-playback bridge (window.__videoPlay) for the Studio.
-		s += '<scr' + 'ipt>' + linkGuardAgent() + '</scr' + 'ipt>';
+		s += '<scr' + 'ipt' + n + '>' + linkGuardAgent() + '</scr' + 'ipt>';
 		s += '</body></html>';
 		return s;
 	}

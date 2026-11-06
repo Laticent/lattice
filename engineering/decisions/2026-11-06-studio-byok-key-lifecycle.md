@@ -115,9 +115,9 @@ the owner (`followups.d/3048-p4-key-name-in-one-shipped-chunk.md`).
 
 **The exposure.** The Studio's slide preview is a same-origin, unsandboxed `srcdoc` iframe
 (`docs/src/playground/single-slide-render.ts`, `srcdoc()`), and its CSP
-(`lib/core/subresource-csp.mjs`) has **no `script-src`**: it closes `img-src`,
-`connect-src`, `object-src`, `base-uri` and `form-action` against data beacons, and leaves
-script loading unrestricted. Same origin means a script in the frame shares the Studio's
+(`lib/core/subresource-csp.mjs`) had **no `script-src`** when this section was first written: it
+closed `img-src`, `connect-src`, `object-src`, `base-uri` and `form-action` against data beacons,
+and left script loading unrestricted (the second wall below changes that for this frame). Same origin means a script in the frame shares the Studio's
 `localStorage`, which is where the key lives. Closing `connect-src` does not save it: the
 script can call `parent.fetch` (the parent's realm, without the frame's CSP) or set
 `top.location` to a URL carrying the key.
@@ -129,10 +129,9 @@ enters the frame. HARD RULE #22 already gates that the builder calls it
 
 §3 does **not** add to this defense. It makes our own code auditable, but an injected script
 does not need our module: it types `localStorage.getItem(…)` itself. The key's safety in the
-preview rests on one sanitizer call. The stronger, defense-in-depth move is a `script-src` in
+preview rests on one sanitizer call. The stronger, defense-in-depth move was a `script-src` in
 the frame's CSP that refuses inline event handlers, which are the vectors that fired
-unguarded below; it is recorded as a follow-up, because the runtime and Mermaid scripts the
-frame does need must be allowed by hash or nonce first.
+unguarded below. It shipped as the second wall, below.
 
 **The proof.** `docs/e2e/byok-key-isolation.spec.ts` seeds a canary key, types a deck
 carrying nine script vectors (`<script>`, `img onerror` with a beacon, `svg onload`,
@@ -154,6 +153,39 @@ the same spec goes red, and four vectors read the canary:
 (Measured 2026-11-06, desktop Chromium. A bare `<script>` and `<svg onload>` did not fire
 even unguarded, because markup inserted through the preview's patch paths does not run
 `<script>` elements; the guard is what stops the event-handler vectors, which do.)
+
+**The second wall: a `script-src` (#3048-p5, 2026-11-06).** The Studio preview frame now
+carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `single-slide-render.ts`
+makes one random nonce per page load (`PREVIEW_SCRIPT_NONCE`, 18 bytes) and stamps it on every
+script `srcdoc()` writes: the font gate, dagre, the runtime, the link guard, and the drawn
+libraries' preloads. The browser then refuses any inline event handler, `javascript:` URL, or
+`<script>` the parser meets without that nonce, whatever the sanitizer let through.
+`'strict-dynamic'` trusts what those scripts insert with `createElement('script')` (the runtime's
+dagre, plugin data and drawn-library loads), so no library URL is listed. The origin is a fallback
+for a browser without `'strict-dynamic'`, which ignores it otherwise. There is no `'unsafe-inline'`
+and no `'unsafe-eval'`.
+
+The policy is opt-in in `lib/core/subresource-csp.mjs` (`scriptSources`, reached by passing
+`scriptNonce`). Without a nonce the policy has no `script-src`, as before, so the CLI export and the
+other preview builders (Stage, Print, the deck preview) are unchanged until each one stamps its own
+scripts.
+
+Measured, 2026-11-06:
+
+- **It holds alone.** Built with `sanitizeOnce` returning its input, `byok-key-isolation.spec.ts`
+  stays green on desktop and mobile Chromium, Gecko, and WebKit phone and tablet. A scratch probe on
+  the same build found the `ontoggle` and `onerror` handlers in the frame's DOM, neither ran, and
+  Chromium logged "Refused to execute inline event handler because it violates … script-src
+  'nonce-…' 'strict-dynamic'". Without the `script-src` (before this change), the same arm read the
+  key through four vectors (above).
+- **It breaks nothing found.** One gallery slide of each of 59 kinds (Mermaid, flowcharts, state
+  charts, KaTeX, every chart family, code) rendered in the Studio preview with zero CSP refusals in
+  the console. The probe does see refusals: it caught the two above. The desktop `@smoke` suite
+  (152 tests) passed with the policy in place.
+
+Pinned by `test/unit/core/subresource-csp-script-nonce.test.js` (the directive, no unsafe
+keywords, a malformed nonce or origin refused, no change without a nonce) and by
+`byok-key-isolation.spec.ts`, which now also asserts the frame's policy carries the nonce.
 
 **What this does not cover.** The proof drives the Studio preview only. The other surfaces
 that render a deck on the key's origin were TRACED to a sanitizer call by the adversarial
