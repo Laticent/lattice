@@ -6,6 +6,19 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-06 — engine ceiling raised by 2.5 KB on four routes, by hand, for the passage split (PR 2988)
+
+Owner OK 2026-11-06 in the PR 2988 session: "Raise to 763.3KB", chosen over leaving the passage split out of the browser engine (the export and the Studio preview would then split quotes differently, against HARD RULE #1) and over lazy-loading it (about half a day, and an asynchronous split path in the preview).
+
+PR 2988 splits a `quote`, a `citation-card` and a one-clause `redline` that do not fit a phone or tablet: the gloss list moves to the next page and a long quote continues at a sentence break. The code lives in the engine because every surface splits the same way: `lib/core/passage-sentences.js` (the shared sentence rule), the `passage` strategy in `lib/core/carousel.js`, and the passage arm of `measureFit` in `lib/core/fit-measure.js`. Minified and gzipped one file at a time, those add about 2.2 KB (passage-sentences 1,591 B; carousel +895 B; fit-measure +865 B). CI on b16ddd6 measured engineJsGz at 761.8 KB against the 760.8 KB ceiling on studio, playground, home and components. The ceiling on those four routes rises to 763.3 KB (781,620 B), about 1.5 KB over what CI read, so normal drift from `main` does not trip it at once. getting-started's engine (307.1 KB against 314.7 KB) has room and is unchanged. Soft targets are unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
+| playground | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
+| home | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
+| components | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
+
 ### 2026-11-06 — Studio eager ceiling raised by 2.5 KB and lint-core by 0.5 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
 
 Owner OK 2026-11-06, in two rounds asked in the PR 2988 session: "Raise to 565.0KB" (chosen over lazy-loading the Align and venue pickers or dropping the Studio's Align pickers), then, after PR 2988 was rebased onto a `main` that had grown, "Make it 565.5KB" for the eager ceiling and "Raise by 0.5KB" for the lint core (chosen over cutting the handheld-venue lint or moving it into a lazy lint plugin).
