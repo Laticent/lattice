@@ -64,7 +64,8 @@ left      — each needs a decision, not a test edit:
               6 is main's, measured on a clean checkout of main 867e0fff: visual.spec.ts:37 (tablet and mobile),
               ios-zoom.spec.ts:65 and plugin-inline-ui.spec.ts:170 (mobile) fail there every run;
               compose-soft-break.spec.ts:22 and :50 (mobile) are FLAKY there, 3 of 6 runs failing with the editor's
-              source lacking the typed lines (on the branch: 3 of 6 with its studio-fixture.ts, 1 of 6 with main's).
+              source lacking the typed lines (on the branch, 40 runs each: 18 failed with its studio-fixture.ts, 16 with main's, so the fixture does not
+              worsen it).
               A flaky test is fixed at its cause (HARD RULE #32); not investigated here.
 done when — `npx playwright test --project=desktop --project=tablet --project=mobile` on a fresh cloud session of `main`
             ends with 0 failed, or each remaining test skips with a stated reason the sandbox cannot meet.
