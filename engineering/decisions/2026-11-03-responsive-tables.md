@@ -338,6 +338,23 @@ compare-prose, q-and-a, inventory and kpi reuse it. Two take something else on p
 to a row at the number's own size (its tall form enlarges the numbers, and a narrow box is no reason to
 change type), and kpi takes only the layout half of its tall form for the same reason.
 
+**Stacked verdict cards follow the `cards:` register** (third change, closing `followups.d/3031-p1`).
+verdict-grid's three one-column rules (portrait orientation, the tall/strip family, the width rule) gave
+every card `flex: 1`, so the stack always filled: in a 35% pane on 16:9, center, stretch and top all
+filled 93% of the list with identical 135px cards. They now take matrix-2x2's form: `justify-content:
+var(--cards-align)`, `flex: var(--cards-grow) 0 var(--cards-basis)`, `min-height: min-content`, and
+`nowrap`, so a stack that does not fit overflows where the fit check and the export's warning see it.
+Measured after: center leaves 32px above and below, top leaves 63px below, stretch fills 93%.
+Stretch needed a second fix. lib/forms/cell/pane/pane.css stamps a pane's register itself (a pane is not
+a section) and set only `--cards-align` and `--cards-grow`; with `--cards-basis` unset the new `flex`
+was invalid and fell back to `0 1 auto`, so no pane's cards could stretch (matrix-2x2's narrow form had
+the same gap). The pane rules now set all four tokens, as base.tokens.css does for a section.
+A portrait PAGE does not change: verdict-grid splits one option per portrait page, and the split run's
+lone-member rule (base.modifiers.css) makes that card fill the page on purpose. Rendered on this
+change and on `main` (verdict-grid and matrix-2x2 galleries and every deck with panes, at hd, portrait
+and mobile): 0 of 965 slide images differ. examples/stacked-verdict-register.md shows the four
+registers in a narrow pane.
+
 **cards-grid's column count is one variable now**, `--cards-cols`, with `--cards-last` for a last card
 alone on its row. That fixed a real bug on the way: the tall/strip single-column rule was (0,3,3) and
 `.three` was (0,4,3), so a `three` grid stayed three across on a portrait or mobile deck (50
