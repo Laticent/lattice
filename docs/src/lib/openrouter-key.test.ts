@@ -118,7 +118,6 @@ describe('openrouter-key — encrypted at rest', () => {
 		localStorage.setItem(KEY, SECRET);
 		expect(readOpenRouterKey()).toBe(SECRET);
 		await loadOpenRouterKey();
-		await new Promise((r) => setTimeout(r, 0));
 		await vi.waitFor(() => expect(String(localStorage.getItem(KEY)).startsWith('v1:')).toBe(true));
 		__resetOpenRouterKeyForTests();
 		expect(await loadOpenRouterKey()).toBe(SECRET);
@@ -195,14 +194,21 @@ describe('openrouter-key — encrypted at rest, under races and faults', () => {
 		writeOpenRouterKey('sk-or-v1-OLD-aaaa');
 		await openRouterKeySettled();
 		__resetOpenRouterKeyForTests();
+		// The decrypt is held open until the newer write has fully landed: an explicit gate, not a
+		// duration, so the order is the code's alone.
 		const decrypt = crypto.subtle.decrypt.bind(crypto.subtle);
+		let release: () => void = () => {};
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
 		vi.spyOn(crypto.subtle, 'decrypt').mockImplementation(async (...a) => {
-			await new Promise((r) => setTimeout(r, 50));
+			await gate;
 			return decrypt(...(a as Parameters<typeof decrypt>));
 		});
 		const loading = loadOpenRouterKey();
 		writeOpenRouterKey('sk-or-v1-NEW-bbbb');
 		await openRouterKeySettled();
+		release();
 		await loading;
 		expect(readOpenRouterKey()).toBe('sk-or-v1-NEW-bbbb');
 		__resetOpenRouterKeyForTests();
@@ -218,10 +224,11 @@ describe('openrouter-key — encrypted at rest, under races and faults', () => {
 		vi.spyOn(indexedDB, 'open').mockImplementation((...a) => {
 			if (calls++ > 0) return open(...a);
 			const req = {} as IDBOpenDBRequest & { error: Error };
-			setTimeout(() => {
+			// Fail on the next microtask, after the caller has attached `onerror`, as a real request does.
+			queueMicrotask(() => {
 				Object.assign(req, { error: new Error('UnknownError') });
 				req.onerror?.(new Event('error'));
-			}, 0);
+			});
 			return req;
 		});
 		expect(await loadOpenRouterKey()).toBeNull(); // this load could not open it…
