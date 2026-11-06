@@ -427,8 +427,12 @@ the default model, a 401, routing, sealing, remove-all) and `docs/e2e/byok-direc
 Theme, Finish and Motion succeed and Component's 402 names the provider, with every request on the
 provider's endpoint and key and none on OpenRouter's; plus switching with Use and Remove).
 
-**Live run: UNVERIFIED.** This session had no OpenAI, Anthropic or Gemini key, so no request
-reached a real provider. Three things only a live run can confirm: that each provider still
+**Live run: Anthropic verified by the owner; OpenAI and Gemini UNVERIFIED.** On 2026-11-06 the
+owner pasted their own Anthropic key into the PR's deployed preview (Cloudflare Pages, production
+build) and reported that it worked. The key never entered this repo's sandbox, which cannot store a
+key for Anthropic's hosts. The owner declined OpenAI and Gemini keys for now
+(`followups.d/3058-p1-live-provider-run.md`). Before that, this session had no provider key, so no
+request reached a real provider. Three things only a live run can confirm: that each provider still
 accepts browser (CORS) requests on these endpoints, that the price mapping finds the real ids,
 and that the four faculties' replies parse. The brief asks for one under $1 total.
 
