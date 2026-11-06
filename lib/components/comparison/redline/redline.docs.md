@@ -6,7 +6,7 @@
 
 **Tags** `contract` · `contrast` · `compliance` · `transformation`
 
-Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.
+Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally. On a phone or tablet a one-clause redline that does not fit moves its why list to the next page, and a clause longer than a page continues at the end of a sentence; a clause that is one sentence longer than a page still clips.
 
 ## Agent contract
 

@@ -12,7 +12,7 @@
   },
   "split": {
     "strategy": "redline-blocks",
-    "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. Needs >=2 blockquotes (a single-passage redline rings, never splits a passage mid-sentence). lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+    "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. With one blockquote it splits as a passage (owner, 2026-11-06): the why list moves to the next page, and a clause longer than a page continues at a sentence break, on a measured plan only. lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md."
   },
   "function": "comparison",
   "form": "canvas",
@@ -30,7 +30,7 @@
     "transformation"
   ],
   "description": "Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment.",
-  "purpose": "Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.",
+  "purpose": "Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally. On a phone or tablet a one-clause redline that does not fit moves its why list to the next page, and a clause longer than a page continues at the end of a sentence; a clause that is one sentence longer than a page still clips.",
   "variants": [
     "annotated",
     "three-col",

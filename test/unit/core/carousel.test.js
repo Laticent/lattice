@@ -1004,6 +1004,13 @@ const tlInner = '<div class="chart-header"><h2>The timeline pins events to their
   + tlItem('Q1', 'Kickoff') + tlItem('Q2', 'Pilot') + tlItem('Q3', 'Launch') + tlItem('Q4', 'Review') + tlItem('Q5', 'Scale')
   + '</div></div><footer>F</footer>';
 
+// passage: a real rendered citation-card (fixtures/citation-card.rendered.html), its clause given a
+// second sentence so the plan has a sentence break to cut at as well as the gloss seam.
+const pcFixture = fs.readFileSync(path.join(__dirname, 'fixtures/citation-card.rendered.html'), 'utf8');
+const [pcBase] = splitSections(pcFixture).filter((p) => p.type === 'section');
+// `§` swapped out: the replacement-pattern test stands `§` in for `$` and swaps it back.
+const pcSection = { openTag: pcBase.openTag, inner: pcBase.inner.replaceAll('§', 'Sec. ').replace(/(<blockquote\b[^>]*>)[\s\S]*?(<\/blockquote>)/, '$1\n<p>The first rule binds. The second rule widens it.</p>\n$2') };
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -1021,6 +1028,8 @@ const STRATEGY_CASES = [
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
   ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
   ['code-cards',     cdTag2,            cdInner,         { strategy: 'code-cards', axis: 'line', perPage: 12 }],
+  // passage reads only a MEASURED plan: two sentences, then the gloss's two items, two a page.
+  ['passage',        pcSection.openTag, pcSection.inner, { strategy: 'passage', plan: [2, 2] }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to

@@ -60,6 +60,16 @@
       "deck": "lib/plugins/chart-family/kinds/timeline-list/timeline-list.gallery.md",
       "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; and with fit: pack)",
       "note": "On every shape but 16:9 the spine is vertical. Each overflowing slide opens on a cover carrying the lead-in \"Where the line starts\", then milestones in date order on body pages, each page with its own rail through its own dots: the four-milestone slides split as a cover and one page under fit: pack, the six-milestone stress slide 3 + 3. At square laptop and portrait tablet the row stays horizontal and the stress slide splits 3 + 3. No page holds a lone milestone, and every chart page passes the fit verdict; the gallery's closing See-also list still overflows at phone, which is not this component."
+    },
+    "citation-card": {
+      "deck": "examples/passage-split.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; the component gallery at square, portrait and story under the fit harness)",
+      "note": "A card that overflows opens on a cover with its heading; the cite and the quote take the first body page, and the gloss list moves to the next page (both items together when the plan fits them, one a page when not). A three-sentence-plus quote continues on a second page at a sentence break, its cite repeated above it. Every word lands on exactly one page. A card that fits stays one page. The gallery stress slide (the longest quotable block) still rings by design."
+    },
+    "quote": {
+      "deck": "examples/passage-split.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; the component gallery at square, portrait and story under the fit harness)",
+      "note": "A seven-sentence quote at square splits into pages at sentence breaks, each page a whole quote card with its marks, and the attribution rides the last page. A one-sentence quote has nowhere to break and stays whole (the gallery stress slide rings by design). Quote has no masthead, so its run opens on the first quote page rather than a cover."
     }
   },
   "components": {
@@ -163,13 +173,13 @@
       "relationship": null
     },
     "citation-card": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "passage",
+      "reshape": "paginator",
+      "coverClass": "citation-card-cover",
       "perPage": null,
       "relationship": null
     },
@@ -636,13 +646,13 @@
       "relationship": null
     },
     "quote": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "passage",
+      "reshape": "paginator",
+      "coverClass": "quote-cover",
       "perPage": null,
       "relationship": null
     },

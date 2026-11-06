@@ -1176,3 +1176,19 @@ whose content the export clipped (footer-only cuts aside). Three groups had one 
 The rest are layouts that never split (citation-card, redline, quote, legal stress slides) and some
 grids. The owner chose "Split at the seam": a slide that does not fit moves its gloss to the next
 page, and a quote longer than a page continues at a sentence break.
+
+**How the passage split works.** `quote` and `citation-card` moved from `atomic` to `read-across` with
+a new `passage` strategy (lib/core/carousel.js), and `redline-blocks` falls back to it for a one-clause
+redline. The members are the passage's sentences, then the gloss list's items. One rule finds the
+sentences (lib/core/passage-sentences.js: a stop, then whitespace and a capital, but not after an
+abbreviation such as `Cal.` or `U.S.C.`). The measured split reads each sentence's height in the page
+as a Range, so `measureFit` carries the rule in as source. The strategy cuts the HTML only where a page
+begins, so the sentences a page holds stay in the author's paragraphs. It closes and reopens any inline
+element the cut falls inside. The cite rides every page that carries the quote. With no measured plan
+(`fit: heal`), the slide stays whole: a sentence has no count to cut by.
+
+Measured at the phone venue, the citation-card gallery went from 13 clipped slides to its stress
+specimen alone, and the quote gallery to its stress specimen alone. The redline gallery's 7 remain:
+its sample clause is one 60-word sentence (with its deletions, 772px against 711px of room), and the
+ruling does not allow a cut inside a sentence. A stress specimen (`<!-- stress-slide -->`) rings by
+design and is never split.
