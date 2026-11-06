@@ -75,8 +75,8 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in t
 	// queued `toggle`/`load` events.
 	const frame = page.locator(LIVE_PREVIEW).contentFrame();
 	// `decode()` settles once an image has loaded or failed. Firefox never marks a refused
-	// image `complete`, so that flag is not the signal; the 10 s race only bounds a hung decode.
-	await frame.locator('img').evaluateAll((imgs) => Promise.race([Promise.allSettled(imgs.map((i) => (i as HTMLImageElement).decode())), new Promise((r) => setTimeout(r, 10_000))]));
+	// image `complete`, so that flag is not the signal. The test's own timeout bounds a hung decode.
+	await frame.locator('img').evaluateAll((imgs) => Promise.allSettled(imgs.map((i) => (i as HTMLImageElement).decode())));
 	await frame.locator('body').evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 
 	const leaked = await page.evaluate(() => (window as unknown as { __byokLeak?: string[] }).__byokLeak ?? []);
