@@ -12,9 +12,9 @@ describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 
 	it('names the moves by the deck order and Hide by the slide state (§5.1)', () => {
 		const labels = menuItems({ count: 7, at: 3 }, true).map((i) => i.label);
-		expect(labels).toEqual(['New slide after', 'New slide before', 'Duplicate', 'Move before', 'Move after', 'Hide slide', 'Delete']);
+		expect(labels).toEqual(['New Slide After', 'New Slide Before', 'Duplicate', 'Move Before', 'Move After', 'Hide Slide', 'Delete']);
 		const hidden = menuItems({ count: 7, at: 3, hidden: true }, true).find((i) => i.id === 'hide');
-		expect(hidden).toMatchObject({ label: 'Show slide', hidden: true, keys: '' });
+		expect(hidden).toMatchObject({ label: 'Show Slide', hidden: true, keys: '' });
 	});
 
 	it('keeps a disabled action visible and says why', () => {
@@ -32,7 +32,7 @@ describe('the slide menu (2026-10-27-slide-structure-strip.md §5)', () => {
 
 	it('turns Delete into a confirm that names the slide while armed', () => {
 		const d = menuItems({ count: 4, at: 1, armed: true, name: '“Pricing”' }, true).find((i) => i.id === 'delete');
-		expect(d?.label).toBe('Confirm delete “Pricing”');
+		expect(d?.label).toBe('Confirm Delete “Pricing”');
 		expect(d?.danger).toBe(true);
 	});
 

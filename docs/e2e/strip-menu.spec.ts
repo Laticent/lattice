@@ -24,7 +24,7 @@ test('a right-click opens the slide’s menu, makes it current, and its action t
 	await railButtons(page).nth(2).click({ button: 'right' });
 	await expect(menu(page)).toBeVisible();
 	await expect(counter(page)).toHaveText('Slide 3 / 4');
-	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide after/, /New slide before/, /Duplicate/, /Move before/, /Move after/, /Hide slide/, /Delete/]);
+	await expect(menu(page).getByRole('menuitem')).toHaveText([/New Slide After/, /New Slide Before/, /Duplicate/, /Move Before/, /Move After/, /Hide Slide/, /Delete/]);
 	await item(page, 'duplicate').click();
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Charlie Charlie Delta');
 	await expect(stripNote(page)).toContainText('Slide duplicated');

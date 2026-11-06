@@ -53,21 +53,22 @@ export function keysFor(id: StripActionId, mac: boolean): string {
 	}
 }
 
-/** The menu for slide `s.at`: New slide after, New slide before, Duplicate, Move before, Move after, Hide slide (Show slide
- *  on a hidden slide), Delete, in that order. A disabled item says why rather than vanishing, so the menu has the same
+/** The menu for slide `s.at`: New Slide After, New Slide Before, Duplicate, Move Before, Move After, Hide Slide (Show Slide
+ *  on a hidden slide), Delete, in that order. The menu's items are Title Case (the owner's call, 2026-11-06); the
+ *  palette, the shortcut list and Undo keep the Studio's sentence case. A disabled item says why rather than vanishing, so the menu has the same
  *  shape on every slide. The words are the nomenclature table's (2026-10-27-slide-structure-strip.md §5.1). */
 export function menuItems(s: StripMenuState, mac: boolean): StripMenuItem[] {
 	const one = s.count <= 1;
 	const first = s.at <= 0;
 	const last = s.at >= s.count - 1;
 	return [
-		{ id: 'new-after', label: 'New slide after', keys: keysFor('new-after', mac) },
-		{ id: 'new-before', label: 'New slide before', keys: keysFor('new-before', mac) },
+		{ id: 'new-after', label: 'New Slide After', keys: keysFor('new-after', mac) },
+		{ id: 'new-before', label: 'New Slide Before', keys: keysFor('new-before', mac) },
 		{ id: 'duplicate', label: 'Duplicate', keys: keysFor('duplicate', mac) },
-		{ id: 'move-before', label: 'Move before', keys: keysFor('move-before', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
-		{ id: 'move-after', label: 'Move after', keys: keysFor('move-after', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
-		{ id: 'hide', label: s.hidden ? 'Show slide' : 'Hide slide', keys: keysFor('hide', mac), hidden: !!s.hidden },
-		{ id: 'delete', label: s.armed ? `Confirm delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
+		{ id: 'move-before', label: 'Move Before', keys: keysFor('move-before', mac), disabled: one ? 'Only one slide' : first ? 'Already first' : undefined },
+		{ id: 'move-after', label: 'Move After', keys: keysFor('move-after', mac), disabled: one ? 'Only one slide' : last ? 'Already last' : undefined },
+		{ id: 'hide', label: s.hidden ? 'Show Slide' : 'Hide Slide', keys: keysFor('hide', mac), hidden: !!s.hidden },
+		{ id: 'delete', label: s.armed ? `Confirm Delete ${s.name ?? 'this slide'}` : 'Delete', keys: keysFor('delete', mac), danger: true, disabled: one ? 'A deck needs one slide' : undefined },
 	];
 }
 

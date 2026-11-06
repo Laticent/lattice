@@ -429,9 +429,9 @@ and the PDF reads 1 to 5, with no gap. A hidden divider opens no section, so the
 section rail counts only the dividers that show.
 
 In the **Studio**, open a slide's menu (the ⋯ on its pill, a right-click, or a
-tap on the current slide) and choose **Hide slide**. The slide keeps its place
+tap on the current slide) and choose **Hide Slide**. The slide keeps its place
 in the strip with an eye-off mark where its number was, and the preview bar
-shows a **Hidden** chip. Choose **Show slide** from the same menu, or tap the
+shows a **Hidden** chip. Choose **Show Slide** from the same menu, or tap the
 chip, to bring it back. The command palette has both.
 
 ## Where to go next

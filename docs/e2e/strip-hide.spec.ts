@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 test('@crosswidth Hide slide hides the slide, marks it, and Show slide (the chip) brings it back', async ({ page }) => {
 	await railButtons(page).nth(1).click();
 	await strip(page).getByRole('button', { name: 'Slide actions' }).click();
-	await expect(item(page, 'hide')).toHaveText(/Hide slide/);
+	await expect(item(page, 'hide')).toHaveText(/Hide Slide/);
 	await item(page, 'hide').click();
 	await expect.poll(() => source(page)).toContain('<!-- hide -->\n# Bravo');
 	await expect(stripNote(page)).toContainText('Slide hidden');
@@ -32,7 +32,7 @@ test('@crosswidth Hide slide hides the slide, marks it, and Show slide (the chip
 	await page.screenshot({ path: test.info().outputPath('hidden.png') });
 	// The menu now offers Show slide.
 	await strip(page).getByRole('button', { name: 'Slide actions' }).click();
-	await expect(item(page, 'hide')).toHaveText(/Show slide/);
+	await expect(item(page, 'hide')).toHaveText(/Show Slide/);
 	await page.keyboard.press('Escape');
 	// The preview bar's chip shows it again.
 	await page.locator('[data-preview-hidden]').filter({ visible: true }).first().click();

@@ -170,16 +170,20 @@ One vocabulary for every slide action, in every surface that names one: the stri
 order, never a direction on screen**: a strip can run across a phone or down a sidebar, and "left" in one is "up"
 in the other. The deck's order is the same in all of them.
 
-| Action | Menu / palette | Undo step | Code id | Never |
-|---|---|---|---|---|
-| Add a slide after this one | New slide after | Insert … | `new-after` | Add below, + below |
-| Add a slide before this one | New slide before | Insert … | `new-before` | Add above |
-| Copy this slide in place | Duplicate | Duplicate slide | `duplicate` | Copy, Clone |
-| Swap with the slide before | Move before | Move slide before | `move-before` | Move left, Move up, Move earlier |
-| Swap with the slide after | Move after | Move slide after | `move-after` | Move right, Move down, Move later |
-| Leave out of Present and every export | Hide slide | Hide slide | `hide` | Skip, Exclude |
-| Put a hidden slide back | Show slide | Show slide | `hide` (toggle) | Unhide, Unskip |
-| Remove the slide | Delete | Delete slide | `delete` | Remove |
+| Action | Slide menu | Palette | Undo step | Code id | Never |
+|---|---|---|---|---|---|
+| Add a slide after this one | New Slide After | — | Insert … | `new-after` | Add below, + below |
+| Add a slide before this one | New Slide Before | New slide before this one… | Insert … | `new-before` | Add above |
+| Copy this slide in place | Duplicate | Duplicate slide | Duplicate slide | `duplicate` | Copy, Clone |
+| Swap with the slide before | Move Before | Move slide before | Move slide before | `move-before` | Move left, Move up, Move earlier |
+| Swap with the slide after | Move After | Move slide after | Move slide after | `move-after` | Move right, Move down, Move later |
+| Leave out of Present and every export | Hide Slide | Hide slide | Hide slide | `hide` | Skip, Exclude |
+| Put a hidden slide back | Show Slide | Show slide | Show slide | `hide` (toggle) | Unhide, Unskip |
+| Remove the slide | Delete | Delete slide | Delete slide | `delete` | Remove |
+
+**Case.** The slide menu's items are Title Case (the owner's call, 2026-11-06, on the phone screenshot of this menu).
+Everything else keeps the Studio's sentence case: the palette, the "?" shortcut list, Undo's step names, notes and the
+disabled-item reasons ("Already first").
 
 "Before" and "after" always name the slide's neighbor in the deck's order, so "Move before" reads as "move this
 slide before the one ahead of it". The authored form of Hide is the `hide` directive

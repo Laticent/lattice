@@ -23,7 +23,7 @@ owner ruled on 2026-10-28 that hidden slides are skipped in every export, and le
 
 | Question | Call | Why |
 |---|---|---|
-| How is a slide hidden? | **A `hide` slide directive**: `<!-- hide -->`, `<!-- _hide -->`, `<!-- _hide: true -->`. `_hide: false` shows it. The menu says **Hide slide** / **Show slide**. | The owner's word and PowerPoint's. `skip` already means something else in Marp's `paginate: skip`, which our lint warns about. |
+| How is a slide hidden? | **A `hide` slide directive**: `<!-- hide -->`, `<!-- _hide -->`, `<!-- _hide: true -->`. `_hide: false` shows it. The slide menu says **Hide Slide** / **Show Slide** (Title Case, as that menu is); the palette says Hide slide / Show slide. | The owner's word and PowerPoint's. `skip` already means something else in Marp's `paginate: skip`, which our lint warns about. |
 | Page numbers | **Renumber everywhere.** Shown slides read 1..N; the total is N. | The PDF reads 1, 2, 3 of 3, and the Studio's numbers on a shown slide match the PDF's. |
 | Section rail | **Counts shown dividers only.** A hidden divider opens no section; slides after it stay in the section before. | Same rule as the numbers: the audience's view decides. |
 
