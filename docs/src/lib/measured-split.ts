@@ -15,20 +15,18 @@
  */
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
-import frontMatterKey from '../../../lib/core/front-matter-key.js';
+import resolveGuards from '../../../lib/core/resolve-guards.js';
 
-const { frontMatterName } = frontMatterKey;
+const { fitPacks } = resolveGuards;
 
 /**
- * Does a deck ask for the measured split? `fit: pack` in its front matter, read with the engine's
- * own reader (`frontMatterName`), the one the CLI's `fitPacks` calls, so case, indentation, quoting,
- * comments and a repeated key resolve alike on every surface (HARD RULE #1).
+ * Does a deck split by measurement? The DEFAULT: the CLI's own `fitPacks` decides, so a deck with no
+ * `fit:` line or `fit: pack` measures, and one that writes `heal`, `trim` or `report` keeps its level,
+ * on every surface (HARD RULE #1). A source with no front matter measures too.
  */
 export function measuredSplitWanted(source: string): boolean {
 	const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/.exec(source);
-	if (!fm) return false;
-	const fit = frontMatterName(fm[1], 'fit') as string | null;
-	return typeof fit === 'string' && fit.trim().toLowerCase() === 'pack';
+	return fitPacks(fm ? fm[1] : '');
 }
 
 /** What a live surface remembers between renders of one slide or deck (`nextMemory`). */

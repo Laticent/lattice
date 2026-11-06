@@ -769,7 +769,8 @@ the two differ, and it ties on every hard rule and on page count. Its one cost, 
 pair flips, applies to a live surface without memory, and the §11 memory removes it there. The
 export path renders once and is unaffected.
 
-**Shipped opt-in.** The measured split changes the bytes of an exported deck, so making it the
+**Shipped opt-in (superseded 2026-11-06: measuring is now the default, the owner's ruling; see the
+handheld-ladder paragraph at the end of this note).** The measured split changes the bytes of an exported deck, so making it the
 default (`heal` gaining packing) waits on the owner's sign-off of dark and light renders
 (CLAUDE.md, export changes). Until then a deck asks for it with `fit: pack`, on every surface at
 once (below).

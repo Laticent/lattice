@@ -150,9 +150,12 @@ describe('split chrome budget (real render)', () => {
 // ran on under the rail's lane.
 const LONG_FOOTER = 'Confidential · board pre-read · do not forward outside the org';
 const points = (n) => Array.from({ length: n }, (_, i) => `- Point ${i + 1}\n  - Detail ${i + 1}.`).join('\n');
+// `fit: heal` (the COUNT-based split): measuring is the default (lib/core/resolve-guards.js fitPacks)
+// and keeps the 3-point slide whole, and this file needs both of its runs to split, one per rail form.
 const PORTRAIT_DECK = `---
 marp: true
 size: portrait
+fit: heal
 theme: indaco
 paginate: true
 ---

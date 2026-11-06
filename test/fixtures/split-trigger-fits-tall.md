@@ -1,6 +1,7 @@
 ---
 marp: true
 theme: indaco
+fit: heal
 size: portrait
 ---
 

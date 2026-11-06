@@ -25,8 +25,9 @@ const lines = (last: string) =>
 	+ `linear-gradient(${INK(30)}, ${INK(30)}) 18% 50% / 64% 10% no-repeat, `
 	+ `linear-gradient(${INK(30)}, ${INK(30)}) 18% 70% / ${last} 10% no-repeat, var(--bg)`;
 
-// Ordered as the picker shows them. `heal` is the baseline (it maps to no class token, so
-// omitting the key renders it).
+// Ordered as the picker shows them. `pack` is the DEFAULT since 2026-11-06 (omitting the key
+// measures the split; lib/core/resolve-guards.js `fitPacks`); `heal` splits by count, as the old
+// default did, and is chosen by writing it.
 export const GUARDS: GuardsEntry[] = [
 	{
 		name: 'report', label: 'Report only',
@@ -34,18 +35,19 @@ export const GUARDS: GuardsEntry[] = [
 		swatch: { background: lines('82%') },
 	},
 	{
-		name: 'heal', label: 'Heal',
-		blurb: 'The engine fixes what it can without losing words: it splits an overfull slide at portrait sizes. The default. It never changes the type size.',
+		name: 'pack', label: 'Measure and split',
+		blurb: 'The default. The engine measures each slide: one that fits stays one page, and one that overflows splits into as many items a page as fit. It never changes the type size.',
 		swatch: { background: lines('64%') },
 	},
 	{
-		name: 'trim', label: 'Heal and trim',
-		blurb: 'Also lets the engine cut the tail of text that does not fit its box.',
-		swatch: { background: lines('30%') },
-	},	{
-		name: 'pack', label: 'Heal and pack',
-		blurb: 'Heal, and measure the split: a slide that fits stays one page, and one that overflows puts as many items on each page as fit.',
+		name: 'heal', label: 'Split by count',
+		blurb: 'Splits an overfull slide by a set number of items a page, without measuring. The default before measuring.',
 		swatch: { background: lines('64%') },
+	},
+	{
+		name: 'trim', label: 'Split by count and trim',
+		blurb: 'Splits by count, and also lets the engine cut the tail of text that does not fit its box.',
+		swatch: { background: lines('30%') },
 	},
 ];
 
@@ -55,8 +57,8 @@ export const GUARDS_BY_NAME: Record<string, GuardsEntry> = Object.fromEntries(
 
 /**
  * The active fit entry for a deck's front matter, resolved exactly as the engine does: any
- * `fit:` wins (an unknown one reads as `heal`); else the old `guards:` reads as its new name
- * (`strict` → trim, `loose` → heal); else the `heal` baseline.
+ * `fit:` wins (an unknown one reads as the default, `pack`); else the old `guards:` reads as its
+ * new name (`strict` → trim, `loose` → heal); else the `pack` default.
  */
 export function activeGuards(fit: string | undefined | null, guards?: string | undefined | null): GuardsEntry {
 	const key = (fit ?? '').trim().toLowerCase();
@@ -64,8 +66,9 @@ export function activeGuards(fit: string | undefined | null, guards?: string | u
 	// A `fit:` the engine does not know still WINS over `guards:` there
 	// (fitClassFromFrontMatter), resolving to the default — so it must here too, or the
 	// picker shows a level the deck does not render.
-	if (key) return GUARDS_BY_NAME.heal;
+	if (key) return GUARDS_BY_NAME.pack;
 	const legacy = (guards ?? '').trim().toLowerCase();
 	if (legacy === 'strict') return GUARDS_BY_NAME.trim;
-	return GUARDS_BY_NAME.heal;
+	if (legacy) return GUARDS_BY_NAME.heal;
+	return GUARDS_BY_NAME.pack;
 }

@@ -47,7 +47,7 @@ model, see `design/concepts.md`.
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
-| [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
+| [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `pack` |
 | [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
 
@@ -138,17 +138,17 @@ replaced `guards:` on 2026-09-25 (`engineering/decisions/2026-09-25-fit-policy.m
 | `fit:` value | Resolves to | Effect |
 |---|---|---|
 | `report` | `fit-report` | The engine changes nothing and only flags. No SPLIT, no TRIM: a slide that does not fit clips; the export's `⚠ OVERFLOW` line and "Content clipped" tag say so, and the live preview rings it. The switch for "this is misbehaving", and for an exact reproduction. |
-| `heal` | *(no class)* | **The default.** Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes. |
+| `heal` | *(no class)* | Moves that lose no words: SPLIT divides an overfull slide at portrait/square @sizes, by a set number of items a page, without measuring. The default before 2026-11-06. |
 | `trim` | `fit-trim` | Everything `heal` does, and TRIM may also cut a trimmable text block so the slide fits, recording what it removed. |
-| `pack` | *(no class)* | Everything `heal` does, with a MEASURED split. A slide that fits its box and venue stays one page even past its component's item count, and one that overflows packs as many items a page as fit by measured height, instead of one a page. Every surface splits it the same way: the CLI, the Studio and Playground preview, and the webpage export. In the live preview a slide keeps its pages while you type, and goes back to one page only when it fits with 30% of its room spare. See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §16. |
+| `pack` | *(no class)* | **The default** (owner, 2026-11-06: "we want the best results out of the box"; a deck with no `fit:` line splits this way). Everything `heal` does, with a MEASURED split. A slide that fits its box and venue stays one page even past its component's item count, and one that overflows packs as many items a page as fit by measured height, instead of one a page. Every surface splits it the same way: the CLI, the Studio and Playground preview, and the webpage export. In the live preview a slide keeps its pages while you type, and goes back to one page only when it fits with 30% of its room spare. See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §16. |
 
 **The old spelling still works.** `guards: loose` reads as `heal` and `guards: strict` as
 `trim`; `lint:deck` names the new key (`guards-renamed`). When a deck carries both, `fit:`
-wins. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
+wins, and a deck that carries only `guards:` splits by count, as it always did. A typo (`fit: reprot`) resolves to the default and is flagged as `unknown-fit`.
 
 **Per slide:** `<!-- _class: fit-report -->`, `fit-heal` or `fit-trim` (and the old
 `guards-strict` / `guards-loose`). The per-slide token **evicts** the deck token rather
-than stacking on it, so a slide's own choice always wins.
+than stacking on it, so a slide's own choice always wins. One exception: whether a deck MEASURES its split is deck-wide, so a slide's `fit-heal` inside a measuring deck does not switch that slide back to the count-based split.
 
 **Two invariants, not settings.** No level changes the type size, and no level changes
 what is REPORTED — `report` changes what the engine does, never what it tells you.

@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 const items = (n: number) => Array.from({ length: n }, (_, i) => `- Item ${i + 1} on the agenda`).join('\n');
+// The count-based control writes `fit: heal`: measuring is the default (lib/core/resolve-guards.js fitPacks).
 const deck = (fit: string, size: string, n: number) => `---\nmarp: true\ntheme: indaco\nsize: ${size}\n${fit ? `fit: ${fit}\n` : ''}---\n\n<!-- _class: agenda -->\n\n## The agenda\n\n${items(n)}\n`;
 
 type Measured = { plan: Record<string, unknown>; remembered: string[]; facts: { slide: string; over: boolean }[]; rounds: number; fellBack: number; reused?: boolean } | null;
@@ -42,7 +43,7 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 
 	test('a slide that fits stays one page under fit: pack; the structural split cuts it', async ({ page }, info) => {
 		await gotoStudio(page);
-		await setEditorContent(page, deck('', 'portrait', 8));
+		await setEditorContent(page, deck('heal', 'portrait', 8));
 		await expect(livePreview(page).locator('section').first()).toBeVisible();
 		await expect.poll(() => pagesInSlide(page), { timeout: 20000 }).toBeGreaterThan(1);
 
@@ -58,7 +59,7 @@ test.describe('@crosswidth @webkit-tablet @gecko the measured split in the Studi
 
 	test('an overflowing slide packs several items a page, and a small edit keeps its pages', async ({ page }, info) => {
 		await gotoStudio(page);
-		await setEditorContent(page, deck('', 'square', 18));
+		await setEditorContent(page, deck('heal', 'square', 18));
 		await expect.poll(() => pagesInSlide(page), { timeout: 20000 }).toBeGreaterThan(18);
 		const structural = await pagesInSlide(page);
 

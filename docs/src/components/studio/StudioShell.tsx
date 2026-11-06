@@ -2551,12 +2551,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
 	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
 	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
-	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
-	// key. Writing the new key also drops the old one, so a deck never carries both.
+	// pack / heal / trim / report. lib/core/resolve-guards.js `fitPacks`; `pack` (measure and split)
+	// is the DEFAULT and writes no key, and every other level, `heal` included, is written by name
+	// (an absent key measures, so heal must be explicit). Writing the new key also drops the old
+	// one, so a deck never carries both.
 	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
 	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
-		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'pack' ? null : value);
 	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
@@ -6194,8 +6196,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
 						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
 					</Field>
-					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
+					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose measure pack" help={<><strong>Measure and split</strong> (the default) measures each slide: one that fits stays one page, and one that overflows splits into as many items a page as fit. It never changes the type size — a venue is a fixed setting. <strong>Split by count</strong> splits by a set number of items a page, without measuring. <strong>Split by count and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'pack', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>

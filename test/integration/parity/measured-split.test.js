@@ -38,13 +38,17 @@ function render(name, md, ...flags) {
   return fs.readFileSync(out, 'utf8');
 }
 
+// The count-based control: measuring is the DEFAULT (lib/core/resolve-guards.js `fitPacks`), so the
+// structural split is the one a deck asks for by name, `fit: heal`.
+const counted = (md) => md.replace('\nsize:', '\nfit: heal\nsize:');
+
 const sections = (html) => (html.match(/<section\b[^>]*data-lattice-slide="[^"]*"/g) || []);
 const bodies = (html) => sections(html).filter((s) => /data-split-role="body"/.test(s));
 const memberCount = (html, n) => Array.from({ length: n }, (_, i) => new RegExp(`Item ${i + 1} on the agenda`).test(html)).filter(Boolean).length;
 
 describe('measured split, through the CLI', () => {
   test('a slide past its hard count that fits stays whole', () => {
-    const structural = render('fits-structural', FITS);
+    const structural = render('fits-structural', counted(FITS));
     const measured = render('fits-measured', FITS, '--fit-pack', 'knuth-plass');
     assert.ok(bodies(structural).length > 1, 'the structural split cuts it (the control)');
     assert.equal(bodies(measured).length, 0, 'the measured split keeps it whole');
@@ -53,7 +57,7 @@ describe('measured split, through the CLI', () => {
 
   for (const packer of ['greedy', 'balanced', 'knuth-plass']) {
     test(`an overflowing slide packs several members a page (${packer})`, () => {
-      const structural = render(`over-structural-${packer}`, OVER);
+      const structural = render(`over-structural-${packer}`, counted(OVER));
       const measured = render(`over-measured-${packer}`, OVER, '--fit-pack', packer);
       const b = bodies(measured).length;
       assert.ok(b >= 1, 'the measured split splits it');
@@ -61,6 +65,11 @@ describe('measured split, through the CLI', () => {
       assert.equal(memberCount(measured, 18), 18, 'no member lost');
     });
   }
+
+  test('a deck with no fit: line measures by default, the way --fit-pack knuth-plass does', () => {
+    assert.equal(bodies(render('fits-default', FITS)).length, 0, 'the default keeps a slide that fits whole');
+    assert.equal(bodies(render('over-default', OVER)).length, bodies(render('over-kp', OVER, '--fit-pack', 'knuth-plass')).length);
+  });
 
   test('an unknown packer is refused', () => {
     fs.mkdirSync(TMP, { recursive: true });
