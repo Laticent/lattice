@@ -102,8 +102,9 @@ function readSkills(errors) {
   return rows;
 }
 
+/** Escape a table cell: backslashes first, so an escape we add cannot be undone by one already there. */
 function mdCell(s) {
-  return String(s).replace(/\|/g, '\\|');
+  return String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
 function renderJson(rows) {
@@ -207,6 +208,6 @@ function main() {
   if (!silent) console.log(`[skill-index] ${rows.length} skills indexed.`);
 }
 
-module.exports = { parseFrontMatter, validate, readSkills, renderTable, renderClaudeSkill, START, END };
+module.exports = { mdCell, parseFrontMatter, validate, readSkills, renderTable, renderClaudeSkill, START, END };
 
 if (require.main === module) main();

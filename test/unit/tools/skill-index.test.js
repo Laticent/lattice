@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { parseFrontMatter, validate, readSkills } = require('../../../tools/skill-index.js');
+const { mdCell, parseFrontMatter, validate, readSkills } = require('../../../tools/skill-index.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -53,4 +53,9 @@ test('the validator bites: missing block, wrong name, unquoted description, bad 
   assert.ok(validate('deck.md', unquoted).some((e) => /quote the description/.test(e)));
   assert.ok(validate('deck.md', { ...ok, kind: 'build' }).some((e) => /kind must be/.test(e)));
   assert.ok(validate('deck.md', { ...ok, studio: 'yes' }).some((e) => /studio must be/.test(e)));
+});
+
+test('table cells escape backslashes before pipes', () => {
+  assert.equal(mdCell('a|b'), 'a\\|b');
+  assert.equal(mdCell('a\\|b'), 'a\\\\\\|b');
 });
