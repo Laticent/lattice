@@ -52,6 +52,7 @@ vi.mock('./architect', () => ({
 	architectSpend: spendSpy,
 	connectOpenRouter: vi.fn(),
 	disconnectOpenRouter: vi.fn(),
+	saveOpenRouterKey: vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' })),
 	setBudget: vi.fn(),
 	listStudioModels: vi.fn(async () => CATALOG),
 	currentStudioModel: vi.fn(async () => 'anthropic/claude-sonnet-4'),
@@ -158,6 +159,36 @@ describe('WorkspaceSheet — a rejected key', () => {
 			expect(sheet.queryByText(/OpenRouter — active/)).toBeNull();
 		} finally {
 			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+});
+
+describe('WorkspaceSheet — the API key tab', () => {
+	it('with no key: a password field and Check & save; a refusal is shown, not stored', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterReady: false });
+		try {
+			const { user, sheet } = openSheet();
+			await user.click(sheet.getByRole('tab', { name: 'API key' }));
+			const field = sheet.getByLabelText('OpenRouter API key');
+			expect(field).toHaveAttribute('type', 'password');
+			await user.type(field, 'sk-or-v1-revoked');
+			await user.click(sheet.getByRole('button', { name: 'Check & save' }));
+			expect(await sheet.findByRole('alert')).toHaveTextContent('OpenRouter rejected this key.');
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('with a key: only its last four characters, plus Replace and Remove', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		try {
+			const { user, sheet } = openSheet();
+			await user.click(sheet.getByRole('tab', { name: 'API key' }));
+			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
+			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
+			expect(sheet.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+		} finally {
+			localStorage.removeItem('lattice-db-or-key');
 		}
 	});
 });

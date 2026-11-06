@@ -224,3 +224,35 @@ bullet in `2026-06-29-studio-theme-ai.md`).
   measured.
 - **#1791's matrix.** This run is one prompt per cell, not the frozen prompt set, repeats or
   committed baseline that #1791 asks for, so #1791 stays open.
+
+## 7. Bring your own key: a pasted key, then direct providers
+
+**Asked (owner, 2026-11-06):** a UI to supply your own API key, for OpenRouter and directly for
+OpenAI, Anthropic and Gemini, with OpenRouter as the default.
+
+**Decided, in one round:**
+1. **Ship a pasted OpenRouter key first**, then the direct providers in a separate PR behind
+   one provider adapter.
+2. **A third tab** in Workspace → AI: **Cloud · On-device · API key**.
+3. **For a direct provider that cannot report a balance**, the Spend tab shows this session's
+   cost from token counts and a price table we keep, labeled as an estimate, plus "Balance not
+   available for this provider" with a link to its billing page.
+
+**Shipped here (step 1).** `ApiKeyPanel.tsx` takes a pasted key; `saveOpenRouterKey`
+(`architect.ts`) refuses anything not shaped `sk-or-…` without a request, checks the rest with
+OpenRouter's `/auth/key` (the adapter's `checkOpenRouterKey`, read-only and free), and stores it
+only on a 200, through `lib/openrouter-key.js`. A saved key shows as `…` plus its last four
+characters (`openRouterKeyHint`), with Replace and Remove. "API key" is a way to CONNECT the cloud
+tier, not a third backend, so everything below the switch (spend, standing instructions, the
+voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
+`WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.
+
+**Next (step 2), and what it has to answer.** OpenAI and Gemini accept OpenAI-shaped chat
+requests and allow browser calls, so they can share the OpenRouter transport with a different
+base URL, model list and price table. Anthropic's Messages API has its own request, streaming and
+cache-control shapes and needs the `anthropic-dangerous-direct-browser-access` header, so it gets
+its own transport. Per provider: no `/credits` or `/auth/key` (so the spend decision above), a
+model list of its own, and voice only where the provider has one (OpenAI). Each provider key is
+another secret in this origin's storage, some broader than OpenRouter's, which raises the value
+of the preview-frame `script-src` follow-up (§4). `lib/openrouter-key.js` generalizes to one
+module per-provider keys go through, keeping §3's one-reader property.

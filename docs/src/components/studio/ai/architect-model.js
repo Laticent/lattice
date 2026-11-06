@@ -353,6 +353,14 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     },
     disconnect() { setKey(null); writeLS(OR_VERIFIER_LS, null); },
     clearPendingAuth() { writeLS(OR_VERIFIER_LS, null); }, // drop a dead PKCE verifier; the key, if any, stays
+    // A PASTED key, checked before it is stored: the status /auth/key answers for it (0 when
+    // the request never reached OpenRouter). Read-only and free; nothing is written here.
+    async checkKey(key) {
+      try {
+        const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        return res.status;
+      } catch { return 0; }
+    },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
     // caller navigates there; OpenRouter returns to callbackUrl with ?code=.
     async beginAuth(callbackUrl) {
@@ -1021,6 +1029,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       return true;
     },
     clearPendingOpenRouterAuth() { openrouter.clearPendingAuth(); },
+    checkOpenRouterKey(key) { return openrouter.checkKey(key); },
     listOpenRouterModels() { return openrouter.listModels(); },
     openRouterModel() { return openrouter.getModel(); },
     setOpenRouterModel(id) { openrouter.setModel(id); emitChange(); },

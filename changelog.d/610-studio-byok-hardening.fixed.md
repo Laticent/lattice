@@ -4,3 +4,4 @@
 - Charts: the hover card escapes a chart mark's label and value, so markup in a shared deck's chart cannot run in the page that holds your OpenRouter key.
 - Studio: **Describe a finish** now works on a real model. It used to discard every cloud reply as "no usable finish recipe". Finish and Describe a drawing also say why a failed request failed.
 - Docs: the features page lists the describe-it faculties and cloud read-aloud, and says plainly that the AI features send deck text to OpenRouter on your own key.
+- Studio: Workspace → AI has a third tab, **API key**, to paste your own OpenRouter key instead of signing in. The key is checked with OpenRouter before it is saved, and afterwards only its last four characters are shown.

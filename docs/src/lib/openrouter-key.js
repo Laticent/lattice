@@ -42,6 +42,12 @@ export function writeOpenRouterKey(key) {
 	write(REJECTED, null);
 }
 
+/** A safe label for the stored key — its last four characters — or null. Never the key. */
+export function openRouterKeyHint() {
+	const key = readOpenRouterKey();
+	return key && key.length > 8 ? `…${key.slice(-4)}` : key ? '…' : null;
+}
+
 /** True when OpenRouter has rejected the stored key with a 401. */
 export function openRouterKeyRejected() {
 	return !!readOpenRouterKey() && read(REJECTED) === '1';

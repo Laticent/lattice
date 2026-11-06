@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, saveOpenRouterKey, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -971,5 +971,43 @@ describe('generateFinish — a real JSON reply survives the adapter', () => {
 			expect(out.status).toBe('failed');
 			if (out.status === 'failed') expect(out.note).toMatch(/out of credits/);
 		});
+	});
+});
+
+// Workspace → AI → API key: a PASTED OpenRouter key is checked with /auth/key before it is stored,
+// so a typo or a revoked key is refused at the door instead of on the first paid request.
+describe('saveOpenRouterKey — a pasted key is checked before it is stored', () => {
+	const KEY = 'lattice-db-or-key';
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		localStorage.removeItem(KEY);
+	});
+	it('refuses a key that is not an OpenRouter key, without a request', async () => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		const out = await saveOpenRouterKey('sk-proj-openai-key');
+		expect(out.ok).toBe(false);
+		if (!out.ok) expect(out.note).toMatch(/start with/);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+	it('a 401 is refused and nothing is stored', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+		const out = await saveOpenRouterKey('  sk-or-v1-revoked  ');
+		expect(out.ok).toBe(false);
+		if (!out.ok) expect(out.note).toMatch(/rejected this key/);
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+	it('no network is refused with its own sentence', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+		const out = await saveOpenRouterKey('sk-or-v1-good');
+		expect(out.ok).toBe(false);
+		if (!out.ok) expect(out.note).toMatch(/Could not reach OpenRouter/);
+	});
+	it('a 200 stores the trimmed key', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"data":[]}', { status: 200 })));
+		const out = await saveOpenRouterKey('  sk-or-v1-good  ');
+		expect(out.ok).toBe(true);
+		expect(localStorage.getItem(KEY)).toBe('sk-or-v1-good');
 	});
 });

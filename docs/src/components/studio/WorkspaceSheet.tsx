@@ -20,6 +20,7 @@ import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOve
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
+import { ApiKeyPanel } from './ApiKeyPanel';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
@@ -79,7 +80,9 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // the AI model, so they live as sections under AI rather than as sibling tabs.
 const TABS = WORKSPACE_TABS;
 type Tab = WorkspaceTab;
-type GenView = 'cloud' | 'ondevice';
+// `apikey` is a way to CONNECT the cloud tier (a pasted OpenRouter key), not a third backend:
+// everything below the switch (spend, instructions, voice) treats it as cloud.
+type GenView = 'cloud' | 'ondevice' | 'apikey';
 
 const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 
@@ -528,6 +531,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		userPickedView.current = true;
 		setGenView('ondevice');
 	};
+	const pickApiKey = () => {
+		userPickedView.current = true;
+		setGenView('apikey');
+	};
+	const sideView: 'cloud' | 'ondevice' = genView === 'ondevice' ? 'ondevice' : 'cloud';
 
 
 	return (
@@ -1023,7 +1031,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							<GroupLabel icon={<Sparkles className="size-3.5" />}>Model</GroupLabel>
 							{/* The active-tier SWITCH — picking a side sets which tier generates. */}
 							<div className="flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Active generation tier">
-								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice]] as const).map(([key, label, icon, onPick]) => (
+								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice], ['apikey', 'API key', <KeyRound key="k" className="size-3.5" />, pickApiKey]] as const).map(([key, label, icon, onPick]) => (
 									<button type="button" key={key} role="tab" aria-selected={genView === key} onClick={onPick} className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold', genView === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{icon}{label}</button>
 								))}
 							</div>
@@ -1032,7 +1040,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								{cloudActive ? (ai.openRouterKeyInvalid ? ' — but OpenRouter rejected the key, so requests fail until you reconnect.' : ' — edits run on OpenRouter.') : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
 							</p>
 
-							{genView === 'cloud' ? (
+							{genView === 'apikey' ? (
+								<ApiKeyPanel status={ai} />
+							) : genView === 'cloud' ? (
 								ai.openRouterReady ? (
 									<div>
 										{ai.openRouterKeyInvalid ? (
@@ -1075,7 +1085,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 
 							{/* ── SPEND — a facet of the model, not its own tab. Cloud only — */}
 							{/* on-device is unconditionally free, so a cap/gauge don't apply. */}
-							{genView === 'cloud' ? (
+							{sideView === 'cloud' ? (
 							<AiSection>
 								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
 
@@ -1155,7 +1165,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							{/* ── STANDING INSTRUCTIONS — separate cloud/on-device fields, not one shared+truncated field ── */}
 							<AiSection>
 								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions{genView === 'ondevice' ? ' · on-device' : ''}</GroupLabel>
-								{genView === 'cloud' ? (
+								{sideView === 'cloud' ? (
 									<div>
 										<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every cloud generation. Leave blank for none.</p>
 										<textarea
@@ -1195,7 +1205,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							{/* ── READ-ALOUD VOICE — cloud (OpenRouter TTS) or on-device (Kokoro), never both at once ── */}
 							<AiSection>
 								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
-								<TtsSettings tier={genView} />
+								<TtsSettings tier={sideView} />
 							</AiSection>
 
 							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model
