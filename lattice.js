@@ -1601,8 +1601,8 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
   // viewer; we collapse it now to whichever side matches what the deck is
   // declared as. Dark variants (e.g. cuoio-dark.css) declare
   // `color-scheme: dark` at :root; everything else is treated as light.
-  // `forceDark` collapses to the dark branch regardless — used by the
-  // dual-render path to bake a second, dark-scheme SVG for section.dark slides.
+  // `forceDark` collapses to the dark branch regardless — the palette a
+  // diagram on a section.dark slide is drawn from (PALETTE_VARS_DARK).
   const isDark = forceDark || /:root\s*\{[^}]*color-scheme\s*:\s*dark\b/.test(stripped);
   // Resolve every declaration against the RAW map with the recursive
   // evaluator. Order-independent, unlike the former "collapse light-dark,
@@ -1699,8 +1699,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // kernel builds one palette per band the deck ACTUALLY uses, on first use.
 function paletteVarsForBand(band) {
   if (band === 'print') return PALETTE_VARS_PRINT;
-  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light bake — the
-  // documented fallback to the per-diagram CSS overrides. It has to live in the
+  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light palette. It has to live in the
   // READER, not at the call site, or the two ways of asking for a dark palette
   // (this preprocess pass and the image-set look re-bake) could answer differently.
   if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;

@@ -323,7 +323,7 @@ renders `rawMd` into `htmlDoc`, which becomes `cleanDocHtml`, is written to `out
 | narration, `.vtt`, speech, glossary | the chart narrator reads a fence-intact source on purpose; `acronymSpokenMap`, `lexiconMap` and the glossary read `rawMd`, which holds the baked SVG's text | — | — |
 
 Two facts the follow-up note had wrong, corrected here: **there is no light/dark SVG pair** (`.mmd-light`/`.mmd-dark`
-survive only in a stale comment; each fence is drawn ONCE, in its own slide's band, and no output recolors a diagram at
+survived only in two stale comments in lattice.js, rewritten here; each fence is drawn ONCE, in its own slide's band, and no output recolors a diagram at
 view time), and the "extract standalone svgs" step belongs to the image set, not to PPTX.
 
 **What a post-render draw has to supply** (each already exists in the PREVIEW's pass, `mermaid.hydrate.js`, which
@@ -339,8 +339,11 @@ Node (the image-set look); and `--html`'s bytes, which today exist before any pa
 1. **The locked page opens a module-loaded frame (done, this branch).** `lib/export/locked-figures.js` `openDrawPage`
    serves Mermaid's ESM graph from its own origin: only the files the registry's integrity map names, each checked
    against its SHA-256 before it is served (and again by the browser, through the import map); the frame's `failed`
-   reply is a failed open at once. Evidence: test/integration/export/draw-frame.test.js `MODULES` draws a flowchart in
-   the CLI's locked page byte-identical to the preview's frame. No export bytes move: `hostDrawnKinds` still excludes a
+   reply is a failed open at once; the frame takes the export's size limit (`CLI_MAX_DRAW_CHARS`), as the inline frame
+   does. Evidence: test/integration/export/draw-frame.test.js `MODULES` draws a flowchart in the CLI's module frame
+   byte-identical to the inline (UMD) frame the same test file builds; a checker drew 14 diagram types there, each
+   loading its own lazy chunk, and saw a chunk left off the map refused. Equality with the PREVIEW's own module frame
+   (draw-host.ts `esmDocument`, sandboxed, with font folders) is **UNVERIFIED**: no test builds that document. No export bytes move: `hostDrawnKinds` still excludes a
    module-loaded kind, so Mermaid still draws through its bake.
 2. **A capture-page driver for Mermaid's pass.** A bundle of the pass and its draw shim (`mermaid.draw-shim.mjs`)
    driven by a small boot/run loop, with `window.__latticeExportDrawHost` standing where the preview's

@@ -137,14 +137,15 @@ test('DRAW: Mermaid and function-plot come back as SVG; the plot is the CLI lock
   }
 });
 
-test('MODULES: the CLI locked page opens Mermaid\'s module-loaded frame and draws what the preview\'s frame draws, byte for byte', { timeout: TIMEOUT }, async () => {
+test('MODULES: the CLI locked page opens Mermaid\'s module-loaded frame and draws what the inline frame draws, byte for byte', { timeout: TIMEOUT }, async () => {
   const browser = await open();
   try {
     const job = { kind: 'mermaid', svgId: 'dg-0', definition: 'flowchart LR\n  A[Draft] --> B{Review}\n  B -->|ok| C[Ship]', config: { startOnLoad: false, theme: 'base', securityLevel: 'strict' } };
     const preview = await inPage(browser, await frameHtml('mermaid'), [job]);
     assert.equal(preview.ready, true);
-    // The locked page serves the ESM graph from its own origin (lib/export/locked-figures.js `esmDrawDocument`): every file
-    // the registry's integrity map names, checked against its digest, and nothing else.
+    // The locked page serves the ESM graph from its own origin (lib/export/locked-figures.js `esmDrawDocument`): the files
+    // the registry's integrity map names, each checked against its digest. The arm below proves the module build draws the
+    // inline build's figure; refusals (a file off the map, a tampered file) are not exercised here.
     const locked = await openDrawPage(browser, 'mermaid');
     try {
       const cli = await locked.draw(job);
