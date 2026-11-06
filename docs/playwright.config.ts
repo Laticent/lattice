@@ -20,9 +20,11 @@ import { defineConfig, devices } from '@playwright/test';
 // whose subject is resource ordering, first paint or a pre-hydration window has
 // to say WHICH build produced the `dist` it was measured against.
 //
-// Browser: Chromium from the sandbox at PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
-// (build 1194 ↔ @playwright/test 1.56.1). In CI, provision the pinned browser
-// explicitly (the version pin IS the browser pin). See the decision doc
+// Browser: Chromium build 1194 ↔ @playwright/test 1.56.1, at
+// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox USED TO ship that build;
+// since 2026-11 it ships a newer one (1243), so `globalSetup` installs 1194 beside it
+// when it is missing (about 20 s). In CI, provision the pinned browser explicitly
+// (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
 // EVERY ENGINE RUNS HERE. Only Chromium is baked into the sandbox, so `globalSetup`
