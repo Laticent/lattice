@@ -34,9 +34,11 @@ that host (at Disable a fence reaches `rendered` with an empty container).
 a tilde fence exactly as it does for a backtick one, so the preview has always rendered
 either — but the export's substitution was backtick-only until 2026-09-06, and a
 `~~~mermaid` fence therefore rendered in the preview the author was working in and printed
-as raw source in the PDF. Both callers now read one walker
+as raw source in the PDF. Both callers then read one walker
 (`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
-slide from the same fence it renders.
+slide from the same fence it renders. **Since 2026-11-06 the export's bake does not walk lines:**
+it receives the fences the ENGINE parses (`ctx.fences()`, lib/plugins/host-fences.mjs), so it
+draws exactly the diagrams the preview draws (engineering/decisions/2026-11-06-plugin-patterns.md §9).
 
 It walks lines rather than matching a regex, because a regex got five things wrong that only
 became reachable once tildes were recognized — a longer closing run left a stray `~` on the

@@ -230,6 +230,18 @@ pixel ratio, sanitize, release, the real CLI), test/integration/export/draw-fram
 CLI's locked page agree byte for byte), test/unit/plugins/hydrate-host.test.js (the capture page's job goes through the
 draw host and never a library in the page).
 
-**Slices 3 and 4 — not started.** Mermaid's frame loads its library as modules (`esm`), so slice 3 serves that module
-tree to the locked page, moves Mermaid's export onto this path and retires `bake`; export bytes move there, and the owner
-signs off on dark and light renders.
+**Slice 3 — Mermaid's export draws the fences the engine parses (done; `bake` not yet retired).** The host hands a bake
+its plugin's fences as the ENGINE parses the source (`ctx.fences()`, lib/plugins/host-fences.mjs: the engine's own block
+grammar, lib/core/boundary-parser.mjs). Mermaid's bake reads them instead of its line walker (`mermaid-fences.js`) and
+its second markdown-it pass (`nested-fences.js`, which imitated the math block by counting `$$` lines). What moves:
+a fence inside an HTML block or a `$$` block is no longer drawn (the engine reads HTML or math there, and the preview
+never drew it; the old export drew the `<div>` one, clipped), and a closed fence whose body holds `***` is drawn. Evidence:
+all 43 decks in the repo with a Mermaid fence exported to HTML before and after are identical once Mermaid's own random
+ids are masked (gitGraph's id-less merge commits and the architecture diagram's icon ids differ between two runs of the
+SAME code; shown on examples/cat-ink-tier.md); none of them holds a shape the two readers disagreed on.
+`examples/mermaid-engine-fences.md` shows the change, rendered dark and light for the owner's sign-off.
+
+**`bake` is not retired.** Mermaid still inserts its pictures into the source before the engine renders. Retiring it
+means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that
+themes each diagram for its slide's band: that is a redesign of the export's diagram path, recorded with its reason
+(followups.d/3049-p2-retire-mermaid-bake.md). Owner decision 2 stands; Mermaid has not left `bake` yet.
