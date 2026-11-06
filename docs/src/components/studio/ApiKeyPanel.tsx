@@ -2,7 +2,8 @@ import { KeyRound, Loader2 } from 'lucide-react';
 import * as React from 'react';
 import { notify } from '@/lib/notify';
 import { openRouterKeyHint } from '@/lib/openrouter-key.js';
-import { type ArchitectStatus, disconnectOpenRouter, saveOpenRouterKey } from './architect';
+import { saveOpenRouterKey } from './api-key';
+import { type ArchitectStatus, disconnectOpenRouter } from './architect';
 
 /**
  * Workspace → AI → API key: paste an OpenRouter key instead of the one-click sign-in.

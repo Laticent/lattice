@@ -1,0 +1,3 @@
+studio: +340
+The Studio's first load now handles a failed OpenRouter sign-in: `resumePendingAuth` runs at boot on the OAuth return, so its refused/network split, its single-flight guard and the shell's Try again / Reload notice ship eagerly (+297 B gz measured locally against main d232b27; architect +379, StudioIsland +115, a shared chunk +81). +340 covers gzip spread on this head.
+Given back first: the per-cause failure sentences (`model-error.ts`) load only when a request fails, and the pasted-key check (`api-key.ts`) only with the Workspace sheet. Those two moves took the PR from +1,607 B to +297 B. The Playground and home pages read 44 B under main.

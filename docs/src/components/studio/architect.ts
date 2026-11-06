@@ -16,7 +16,6 @@ import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../li
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
-import { describeModelError } from './model-error';
 import { BUILTIN_PALETTES } from './palettes';
 import { type ContentPart, type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -552,6 +551,10 @@ export type ThemeEssentials = Record<string, string>;
 
 // The text of whatever a failed model call threw, for describeModelError.
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e ?? ''));
+// The sentence for a failed request, loaded only when a request fails: the per-cause sentences are
+// most of model-error.ts's weight, and a first load that never fails should not pay for them
+// (docs/route-budget.json). The chat agent imports it statically, inside its own lazy chunk.
+const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e));
 
 export type ThemeGenOutcome =
 	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
@@ -606,7 +609,7 @@ export async function generateTheme(current: ThemeEssentials, prompt: string, do
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
-		return { status: 'failed', note: describeModelError(errorText(e)) };
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const { essentials, rampStrategy, name, description, applied, ok } = tc.coerceEssentials(reply, fallback);
 	// A connected model that proposed nothing usable (e.g. the json:true floor
@@ -698,7 +701,7 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
-		return { status: 'failed', note: describeModelError(errorText(e)) };
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const parsed = parseFinishReply(reply);
 	if (!parsed) return { status: 'nochange', note: 'The model returned no usable finish recipe.' };
@@ -770,7 +773,7 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
-		return { status: 'failed', note: describeModelError(errorText(e)) };
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const svg = extractSvg(reply);
 	if (!svg) {
@@ -1142,7 +1145,7 @@ export async function generateComponent(
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
-		return { status: 'failed', note: describeModelError(errorText(e)) };
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	if (coerced.decline) {
@@ -1238,7 +1241,7 @@ export async function refineComponent(
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
-		return { status: 'failed', note: describeModelError(errorText(e)) };
+		return { status: 'failed', note: await failedNote(e) };
 	}
 	const coerced = (await loadLayoutCore()).coerceComponent(reply) as CoercedComponent;
 	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
@@ -2133,28 +2136,6 @@ async function resumeOnce(): Promise<AuthResume> {
 	// next parameter anyone adds from being collateral, but it fixes no observed bug today.
 	history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
 	return { status: 'connected' };
-}
-
-/**
- * Save an OpenRouter key the author PASTED (Workspace → AI → API key), the alternative to the
- * one-click OAuth sign-in. The key is checked against OpenRouter's /auth/key first, so a typo or
- * a revoked key is refused here instead of failing on the first paid request. On success it is
- * stored through lib/openrouter-key.js (which clears any rejected mark) and Cloud becomes active.
- */
-export async function saveOpenRouterKey(raw: string): Promise<{ ok: true } | { ok: false; note: string }> {
-	const key = raw.trim();
-	if (!key) return { ok: false, note: 'Paste a key first.' };
-	if (!/^sk-or-/.test(key)) return { ok: false, note: 'That is not an OpenRouter key — they start with “sk-or-”.' };
-	const m = await architectModel();
-	if (!m?.checkOpenRouterKey || !m.restoreOpenRouter) return { ok: false, note: 'AI is unavailable in this environment.' };
-	const status = await m.checkOpenRouterKey(key);
-	if (status === 200) {
-		m.restoreOpenRouter(key);
-		return { ok: true };
-	}
-	if (status === 401 || status === 403) return { ok: false, note: 'OpenRouter rejected this key. Check it, or create a new one at openrouter.ai/keys.' };
-	if (status === 0) return { ok: false, note: 'Could not reach OpenRouter to check the key — check the connection and try again.' };
-	return { ok: false, note: `OpenRouter could not check the key (error ${status}) — try again in a moment.` };
 }
 
 export async function disconnectOpenRouter(): Promise<void> {

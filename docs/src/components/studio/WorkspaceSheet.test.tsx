@@ -47,12 +47,15 @@ const loadUniversalSpy = vi.hoisted(() => vi.fn(async () => true));
 const statusSpy = vi.hoisted(() => vi.fn(() => connectedStatus));
 const spendSpy = vi.hoisted(() => vi.fn(() => ({ total: 0, session: 0.032, totalTokens: 0, sessionTokens: 9800, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } })));
 
+vi.mock('./api-key', () => ({
+	saveOpenRouterKey: vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' })),
+}));
+
 vi.mock('./architect', () => ({
 	useArchitectStatus: statusSpy,
 	architectSpend: spendSpy,
 	connectOpenRouter: vi.fn(),
 	disconnectOpenRouter: vi.fn(),
-	saveOpenRouterKey: vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' })),
 	setBudget: vi.fn(),
 	listStudioModels: vi.fn(async () => CATALOG),
 	currentStudioModel: vi.fn(async () => 'anthropic/claude-sonnet-4'),
