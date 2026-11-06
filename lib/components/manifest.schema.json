@@ -1569,6 +1569,7 @@
             "redline-blocks",
             "kanban-lanes",
             "progress-rows",
+            "timeline-items",
             "roadmap-horizons",
             "journey-stages",
             "cover-cards",

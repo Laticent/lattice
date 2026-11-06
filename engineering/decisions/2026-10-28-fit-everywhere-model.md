@@ -1074,3 +1074,24 @@ recorded reason was one bar a page losing the shared-baseline comparison, and pa
 The measured split reads a `role="list"` of `role="listitem"` divs as members, so `fit: pack` plans
 it. Progress gallery at square, phone venue: 5 bars 3 + 2, the eight-bar stress slide 4 + 4
 (measured plan 5 + 3), every page passing the fit verdict; it rang on 6 slides before.
+
+timeline-list second, a list of milestones. Two moves. Its vertical spine, keyed on `data-family`
+tall and strip since 2026-06-19, now keys on the shared narrow text room (`width < 23em`): square
+at phone or hall takes it, where four milestones across left each about five characters a line;
+portrait and story at laptop or phone keep it; a portrait deck at `venue: tablet` (about 34em)
+reads the row, as a square deck at laptop does. Then `timeline-items` splits it the way
+`progress-rows` splits bars, and split-facts moves it atomic -> read-across: the dot spectrum its
+atomic reason named is gone (one accent), and each page draws its own rail through its own dots.
+
+Two measured-split defects surfaced on the way, both in lib/core/fit-measure.js:
+- On a built body page the room now starts at the member container's top. The masthead-free
+  estimate assumed a body page drops the heading, which a chart's native slice does not. It planned
+  four square milestones into 886px that held 745.
+- A `role="list"` laid out on ONE row (the horizontal spine) gives the plan no members. Its columns
+  share the width, so fewer a page means wider and shorter, and the row-packing plan, which assumes
+  a member keeps its width, drove a square timeline at laptop to one milestone a page. The recipe's
+  `perPage` cuts it instead (6 milestones: 3 + 3).
+And a native slice given a measured plan of ONE page now builds a cover and that page, as an
+envelope does, so the host's measuring pass can build the body page it measures.
+Timeline gallery at square, phone: 0 of 15 chart pages failing (6 of 10 before); at square laptop
+and portrait tablet the stress slide is 3 + 3 horizontally; hd unchanged.

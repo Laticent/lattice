@@ -995,6 +995,15 @@ const pgInner = '<div class="chart-header"><p class="chart-eyebrow"><code>H1 202
   + pgRow('Calibration cadence', 34, 'deferred') + pgRow('Adoption', 12, 'blocked')
   + '</div></div><footer>F</footer>';
 
+// timeline-items: the markup `timeline-list.transform.js` emits, one `.timeline-item` a milestone inside
+// the `role="list"` spine.
+const tlTag = '<section data-lattice-slide="1" id="s1" class="timeline-list chart-frame canvas">';
+const tlItem = (d, t) => `<div class="timeline-item" role="listitem" data-label="${d}"><div class="timeline-dot"></div><div class="timeline-pill">${d}</div><div class="timeline-title">${t}</div><div class="timeline-body">What changed.</div></div>`;
+const tlInner = '<div class="chart-header"><h2>The timeline pins events to their dates.</h2></div>'
+  + '<div class="chart-body"><div class="timeline-spine" role="list">'
+  + tlItem('Q1', 'Kickoff') + tlItem('Q2', 'Pilot') + tlItem('Q3', 'Launch') + tlItem('Q4', 'Review') + tlItem('Q5', 'Scale')
+  + '</div></div><footer>F</footer>';
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -1006,6 +1015,7 @@ const STRATEGY_CASES = [
   ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
   ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
   ['progress-rows',  pgTag,             pgInner,         { strategy: 'progress-rows', perPage: 3 }],
+  ['timeline-items', tlTag,             tlInner,         { strategy: 'timeline-items', perPage: 3 }],
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
@@ -2103,4 +2113,15 @@ test('core: carousel — progress-rows keeps several bars a page and never leave
   assert.deepEqual(bodies({ strategy: 'progress-rows', perPage: 4 }).map(bars), [3, 2], 'a ceiling of 4 still spreads 5 as 3 + 2, never 4 + 1');
   assert.deepEqual(bodies({ strategy: 'progress-rows', perPage: 3, plan: [2, 3] }).map(bars), [2, 3], 'a measured plan sets the pages');
   assert.equal(carouselize(pgTag, pgInner, { strategy: 'progress-rows', perPage: 5 }), null, 'all five fit one page: no split');
+});
+
+// timeline-items groups milestones the way progress-rows groups bars, in date order, and each page
+// carries its own spine (fit-everywhere-model.md §18).
+test('core: carousel — timeline-items keeps several milestones a page, in order, each page with its spine', () => {
+  const bodies = (rec) => carouselize(tlTag, tlInner, rec).filter((p) => /data-split-role="body"/.test(p));
+  const dates = (p) => [...p.matchAll(/class="timeline-pill">([^<]+)</g)].map((m) => m[1]);
+  assert.deepEqual(bodies({ strategy: 'timeline-items', perPage: 4 }).map(dates), [['Q1', 'Q2', 'Q3'], ['Q4', 'Q5']]);
+  assert.deepEqual(bodies({ strategy: 'timeline-items', perPage: 4, plan: [2, 3] }).map(dates), [['Q1', 'Q2'], ['Q3', 'Q4', 'Q5']]);
+  for (const page of bodies({ strategy: 'timeline-items', perPage: 3 })) assert.match(page, /<div class="timeline-spine" role="list">/);
+  assert.equal(carouselize(tlTag, tlInner, { strategy: 'timeline-items', perPage: 5 }), null, 'all five fit one page: no split');
 });

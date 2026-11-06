@@ -182,13 +182,6 @@ figure.timeline-list.chart-frame .chart-body {
   padding-top: var(--sp-xs);
 }
 
-/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
- * a real vertical timeline — items stack down the page, each dot rides a left
- * rail, the date/title/body fill the width beside it. Keyed on the deck's `data-family` stamp (the section), so it fires on any tall or strip deck. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
-  align-items: stretch;
-  justify-content: center;
-}
 /* The tall/strip block inset, on the same tokens as the landscape one (#1598).
  * Out-specifies the family's tall/strip token block on class count — (0,2,1) vs
  * (0,1,1) — and its own landscape block above by source order at equal weight.
@@ -215,100 +208,114 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
    * than inheriting the family's tightening — the inline half's exact argument. */
   --chart-panel-y: var(--sp-lg);
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine {
-  grid-auto-flow: row;
-  grid-auto-columns: auto;
-  max-width: none;
-  width: 100%;
-  height: 100%;
-  /* Dot, date pill, title and status columns are the SPINE's, so every entry's title starts
-   * at the same x whatever its date reads ("Q1" or "Sept 2026"); each entry subgrids onto
-   * them. The fourth is the status chip's (below) and is 0 wide when no entry has one. */
-  grid-template-columns: auto auto 1fr auto;
-  column-gap: var(--sp-md);
-  row-gap: var(--sp-md);
-  padding: var(--sp-xs) 0;
-  align-content: space-evenly;
+/* ── NARROW RESTRUCTURE (the shared `width < 23em` text room): the left-to-right spine becomes
+ * a real vertical timeline — items stack down the page, each dot rides a left rail, the
+ * date/title/body fill the width beside it. Under 23em a row of four milestones leaves each one
+ * about five characters a line ("Six-/teen/words"), and square at phone or hall measures 21.4em
+ * (fit-everywhere-model.md §13, §18). Keyed on the room, not the shape: portrait and story at
+ * laptop or phone (20.7em) take it as they did when this was keyed on `data-family`; square
+ * takes it at phone and hall; a 16:9 deck never does (35.9em even at hall); and a tall deck at
+ * `venue: tablet` (x0.6, about 34em) keeps the row a square deck at laptop reads well at.
+ * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
+@container lattice (width < 23em) {
+  section.timeline-list.chart-frame .chart-body {
+    align-items: stretch;
+    justify-content: center;
+  }
+  section.timeline-list .timeline-spine {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    max-width: none;
+    width: 100%;
+    height: 100%;
+    /* Dot, date pill, title and status columns are the SPINE's, so every entry's title starts
+     * at the same x whatever its date reads ("Q1" or "Sept 2026"); each entry subgrids onto
+     * them. The fourth is the status chip's (below) and is 0 wide when no entry has one. */
+    grid-template-columns: auto auto 1fr auto;
+    column-gap: var(--sp-md);
+    row-gap: var(--sp-md);
+    padding: var(--sp-xs) 0;
+    align-content: space-evenly;
+  }
+  /* The spine line runs vertically through the dots on the left rail. */
+  section.timeline-list .timeline-spine::before {
+    top: 1.5cqi;
+    bottom: 1.5cqi;
+    left: 0.546875cqi;
+    right: auto;
+    width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
+    height: auto;
+    /* A flat rule: the chart family paints nothing graded. */
+    background: color-mix(in oklab, var(--accent) 55%, transparent);
+    transform: translateX(-1px);
+  }
+  section.timeline-list .timeline-item {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    row-gap: var(--sp-2xs);
+    align-items: start;
+    padding: 0;
+  }
+  /* Dot anchors the left rail; everything else fills the right column. */
+  section.timeline-list .timeline-item > * {
+    grid-column: 2;
+    text-align: left;
+    align-self: start;
+  }
+  section.timeline-list .timeline-dot {
+    grid-column: 1;
+    grid-row: 1;
+    /* Portrait: the dot rides its own left-rail grid cell, so it needs no
+     * dot→pill padding-bottom (override the base). It centers on row 1, the date
+     * pill's row: a fixed top nudge (0.234375cqi) was tuned to the old fixed-cqi
+     * pill and fell above center once the pill took its height from its text. */
+    padding: 0;
+    align-self: center;
+  }
+  /* Chips hug their content; the title/body keep the default stretch so prose
+   * fills the column and wraps. */
+  section.timeline-list .timeline-dot,
+  section.timeline-list .timeline-pill,
+  section.timeline-list .timeline-item .chart-status { justify-self: start; }
+  /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
+   * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
+   * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
+   * the pill itself. */
+  section.timeline-list .timeline-title { padding-top: var(--sp-2xs); }
+  section.timeline-list .timeline-title,
+  section.timeline-list .timeline-body { max-width: none; }
+  /* The date pill and the title share one row on the rail: pill, then title beside it, body
+   * and status beneath. Stacked in their own rows they cost a pill-height of block space per
+   * entry, and four entries with a two-line headline and a lead clipped a portrait slide by
+   * 174px (check:chart-fit; the fourth row never painted). Sharing the row buys that height
+   * back without touching type size or the budget. */
+  section.timeline-list .timeline-item > .timeline-pill {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  section.timeline-list .timeline-item > .timeline-title {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    padding-block: 0;
+  }
+  section.timeline-list .timeline-item > .timeline-body {
+    grid-column: 2 / -1;
+  }
+  /* The STATUS chip shares that row too, at its end, in a fourth spine column that only
+   * a status widens. Stacked under the title it cost a chip-height plus a gap per entry,
+   * and the gallery's four-entry slide with three statuses clipped a portrait slide by
+   * 109px (check:family-tiers, the fourth body never painted). Beside the status the body
+   * would wrap to two lines in a narrower column and give most of that height back, so it
+   * keeps the full width under the row; the stacked status→body gap goes with the stack. The
+   * fourth column is declared on the spine above. */
+  section.timeline-list .timeline-item > .chart-status {
+    grid-column: 4;
+    grid-row: 1;
+    align-self: center;
+  }
+  section.timeline-list .chart-status + .timeline-body {
+    padding-top: 0;
+  }
 }
-/* The spine line runs vertically through the dots on the left rail. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine::before {
-  top: 1.5cqi;
-  bottom: 1.5cqi;
-  left: 0.546875cqi;
-  right: auto;
-  width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
-  height: auto;
-  /* A flat rule: the chart family paints nothing graded. */
-  background: color-mix(in oklab, var(--accent) 55%, transparent);
-  transform: translateX(-1px);
-}
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  row-gap: var(--sp-2xs);
-  align-items: start;
-  padding: 0;
-}
-/* Dot anchors the left rail; everything else fills the right column. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > * {
-  grid-column: 2;
-  text-align: left;
-  align-self: start;
-}
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot {
-  grid-column: 1;
-  grid-row: 1;
-  /* Portrait: the dot rides its own left-rail grid cell, so it needs no
-   * dot→pill padding-bottom (override the base). It centers on row 1, the date
-   * pill's row: a fixed top nudge (0.234375cqi) was tuned to the old fixed-cqi
-   * pill and fell above center once the pill took its height from its text. */
-  padding: 0;
-  align-self: center;
-}
-/* Chips hug their content; the title/body keep the default stretch so prose
- * fills the column and wraps. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-pill,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item .chart-status { justify-self: start; }
-/* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
- * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
- * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
- * the pill itself. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title { padding-top: var(--sp-2xs); }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-body { max-width: none; }
-/* The date pill and the title share one row on the rail: pill, then title beside it, body
- * and status beneath. Stacked in their own rows they cost a pill-height of block space per
- * entry, and four entries with a two-line headline and a lead clipped a portrait slide by
- * 174px (check:chart-fit; the fourth row never painted). Sharing the row buys that height
- * back without touching type size or the budget. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-pill {
-  grid-column: 2;
-  grid-row: 1;
-}
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-title {
-  grid-column: 3;
-  grid-row: 1;
-  align-self: center;
-  padding-block: 0;
-}
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-body {
-  grid-column: 2 / -1;
-}
-/* The STATUS chip shares that row too, at its end, in a fourth spine column that only
- * a status widens. Stacked under the title it cost a chip-height plus a gap per entry,
- * and the gallery's four-entry slide with three statuses clipped a portrait slide by
- * 109px (check:family-tiers, the fourth body never painted). Beside the status the body
- * would wrap to two lines in a narrower column and give most of that height back, so it
- * keeps the full width under the row; the stacked status→body gap goes with the stack. The
- * fourth column is declared on the spine above. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .chart-status {
-  grid-column: 4;
-  grid-row: 1;
-  align-self: center;
-}
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .chart-status + .timeline-body {
-  padding-top: 0;
-}
-
