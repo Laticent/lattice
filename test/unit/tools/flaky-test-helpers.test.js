@@ -27,6 +27,11 @@ describe('scanWork', () => {
     assert.equal(scanWork(() => re.exec(text)).scanned, 2);
   });
 
+  test('a wrapped search behaves as the native one: includes still refuses a regex', () => {
+    assert.throws(() => scanWork(() => 'a/a/'.includes(/a/)), TypeError);
+    assert.equal(scanWork(() => 'abcabc'.lastIndexOf('c', Number.NaN)).scanned, 1, 'a NaN start searches from the end');
+  });
+
   test('the prototypes are restored, even when the work throws', () => {
     const { indexOf } = String.prototype;
     const { exec } = RegExp.prototype;
@@ -73,6 +78,8 @@ describe('virtualClock', () => {
     assert.equal(await settle(), 4);
     assert.deepEqual(seen, ['a', 'frame', 'b', 'c']);
     assert.equal(now(), 110);
+    assert.equal(win.performance.now(), 110, 'the window reads the virtual time too');
+    assert.equal(win.Date.now() - win.Date.now(), 0, 'and its Date does not move between reads');
   });
 
   test('work that never stops is an error, not a hang', async () => {

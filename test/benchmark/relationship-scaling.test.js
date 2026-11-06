@@ -36,8 +36,9 @@ describe('perf: relationship — the katex scan scales linearly', () => {
   test('the two old regex shapes would hang here; the scanner does not', () => {
     // A hang guard, sized by F4: nothing counts backtracking inside one regex exec (test/helpers/work-count.js says
     // why), so each input is large enough that its old pattern needs minutes, with the bound far above today's cost.
-    // Measured 2026-11-06: the unclosed tag 45 ms at 400,000 characters, against the old tag regex's 72 ms at 10,000
-    // growing with the square (about 115 s here); the candidate tags 204 ms at 150,000, against the old katex search's
+    // Measured 2026-11-06: the unclosed tag 45 ms at 400,000 characters, against the old tag regex alone (one
+    // `replace`, not `labelOf`'s repeated passes, which made the 6.0 s above) at 72 ms on 10,000, growing with the square
+    // (about 115 s here); the candidate tags 204 ms at 150,000, against the old katex search's
     // 3.2 s at 20,000 (about 180 s here).
     const time = (fn) => { const t0 = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t0) / 1e6; };
     const tag = time(() => labelOf(`<${'a'.repeat(400000)}`));

@@ -55,14 +55,17 @@ function scanWork(fn) {
   });
   S.lastIndexOf = counted(function (needle, at) {
     const s = str(this); const hit = orig.lastIndexOf.call(s, needle, at);
-    const end = at === undefined ? s.length : from(s.length, at) + String(needle).length;
+    // A missing or NaN start searches from the end, as the native method does.
+    const end = at === undefined || Number.isNaN(Number(at)) ? s.length : from(s.length, at) + String(needle).length;
     scanned += Math.max(0, Math.min(s.length, end) - (hit === -1 ? 0 : hit));
     return hit;
   });
   S.includes = counted(function (needle, at) {
+    // The native call decides the answer (it refuses a regex with a TypeError); indexOf only sizes the count.
+    const found = orig.includes.call(this, needle, at);
     const s = str(this); const start = from(s.length, at); const hit = orig.indexOf.call(s, needle, start);
     scanned += (hit === -1 ? s.length : hit + String(needle).length) - start;
-    return hit !== -1;
+    return found;
   });
   S.startsWith = counted(function (needle, at) {
     scanned += String(needle).length;

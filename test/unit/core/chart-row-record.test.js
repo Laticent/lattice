@@ -12,6 +12,12 @@ const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const rows = require('../../../lib/core/chart-rows.js');
+// The bound, written out, not read from the module it guards: read from `rows.RAW_SCAN_BUDGET`, a raised budget raised
+// the bound with it and the scan tests passed on `Infinity`. A deliberate change to the budget changes this line too.
+const SCAN_BUDGET = 32000;
+test('the scan budget is the one the bounds below are written against', () => {
+  assert.equal(rows.RAW_SCAN_BUDGET, SCAN_BUDGET, 'lib/core/chart-rows.js changed its scan budget: change SCAN_BUDGET with it');
+});
 const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
@@ -342,7 +348,7 @@ describe('the paths agree on the data row', () => {
     // Counted, not timed. The comment's `<a ""` openers, read as tags, cost the tag scan up to 4000 steps each; the
     // scan's caps keep this 100 KB block from it (0 characters today; uncapped, it reads all 100,011).
     const tags = tagScanned(() => render(src));
-    assert.ok(tags <= rows.RAW_SCAN_BUDGET, `the tag scan read ${tags} characters`);
+    assert.ok(tags <= SCAN_BUDGET, `the tag scan read ${tags} characters`);
   });
 
   test('a grid chart owns the first table only, and not a quoted one', () => {
@@ -596,8 +602,8 @@ describe('the paths agree on the data row', () => {
     // slide; with neither, it reads all 30 blocks (about 600,000 characters, each `<a` up to 4000 steps).
     const drawn = tagScanned(() => engine.render(src, {}));
     const linted = tagScanned(() => findings(src));
-    assert.ok(drawn <= rows.RAW_SCAN_BUDGET, `the render's tag scan read ${drawn} characters`);
-    assert.ok(linted <= rows.RAW_SCAN_BUDGET, `lint's tag scan read ${linted} characters`);
+    assert.ok(drawn <= SCAN_BUDGET, `the render's tag scan read ${drawn} characters`);
+    assert.ok(linted <= SCAN_BUDGET, `lint's tag scan read ${linted} characters`);
   });
 
   test('an author-written chart-frame class cannot leave a stamp or raw braces', () => {
@@ -646,7 +652,7 @@ describe('the paths agree on the data row', () => {
     const grid = deck('matrix-grid', `${Array(240).fill(block).join('\n\n')}\n\n| | A |\n|---|---|\n| r | \`{done}\` |`);
     const onGrid = tagScanned(() => engine.render(grid, {}));
     // Two passes place a matrix-grid's spans (the pill pass and the sole-cell pass), each with its own budget.
-    assert.ok(onGrid <= 2 * rows.RAW_SCAN_BUDGET, `a matrix-grid slide: the tag scan read ${onGrid} characters`);
+    assert.ok(onGrid <= 2 * SCAN_BUDGET, `a matrix-grid slide: the tag scan read ${onGrid} characters`);
   });
 
   test('a hand-written chart-frame class in the browser shows the old-form list, never raw braces', async () => {

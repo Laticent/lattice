@@ -13,7 +13,8 @@
  * queued callback. When nothing is queued after a drain, the runtime is done. A runtime that keeps re-arming work
  * forever is a defect, and `settle()` says so after `maxSteps` callbacks instead of hanging.
  *
- * A pinned clock is also the F8 fix: the runtime's debounces see the same time on every machine.
+ * A pinned clock is also the F8 fix: the runtime's timers and its `performance.now()` / `Date.now()` reads see the same
+ * time on every machine.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -43,6 +44,12 @@ function virtualClock(win) {
   win.clearTimeout = win.clearInterval = (id) => { queue.delete(id); };
   win.requestAnimationFrame = (fn) => add(() => fn(now), 16, [], false);
   win.cancelAnimationFrame = (id) => { queue.delete(id); };
+  // The runtime also READS the clock (its fit scheduler's max-wait checks `performance.now()`), so a loaded runner would
+  // send it down a different branch. Both clocks read the virtual time; the window's `Date` and `performance` are its
+  // own, never Node's.
+  const epoch = Date.UTC(2026, 0, 1);
+  if (win.performance) win.performance.now = () => now;
+  win.Date.now = () => epoch + now;
 
   /** Run the runtime until it has nothing queued. Resolves with the number of callbacks fired. */
   async function settle({ maxSteps = 500 } = {}) {
