@@ -895,9 +895,13 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   const directFor = (p) => (directs[p] ||= directBackend(p, { catalog: () => openrouter.listModels(), catalogNow: () => openrouter.catalogSnapshot?.() ?? null, defaultMaxTokens }));
   // THE CLOUD TIER: OpenRouter unless the author chose a direct provider AND it holds a key.
   // Everything above this adapter asks `cloud()`, never a provider by name.
+  // A chosen direct provider stays the cloud tier even while its sealed key is being re-opened
+  // (readProviderKey answers null then): falling back to OpenRouter in that window would bill
+  // the wrong account (red team, BYOK phase 2). It reads not-ready instead, for that moment.
+  // Removing the active direct key sets the provider back to OpenRouter (removeProviderKey).
   const cloud = () => {
     const p = readActiveProvider();
-    return p !== 'openrouter' && readProviderKey(p) ? directFor(p) : openrouter;
+    return p !== 'openrouter' ? directFor(p) : openrouter;
   };
   // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
   // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.

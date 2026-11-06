@@ -2,9 +2,9 @@
 // the adapter routing the cloud tier to the provider the author chose. Every request is mocked.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetOpenRouterKeyForTests, openRouterKeySettled, readActiveProvider, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { __resetOpenRouterKeyForTests, openRouterKeySettled, readActiveProvider, readProviderKey, writeActiveProvider, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
-import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody } from './direct-providers.js';
+import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
 
 const CATALOG = [
 	{ id: 'openai/gpt-6.1-terra', name: 'OpenAI: GPT-6.1 Terra', promptPerM: 1, completionPerM: 5, contextLength: 400000, vision: true },
@@ -252,6 +252,48 @@ describe('the adapter routes the cloud tier to the chosen provider', () => {
 		m.disconnectAllProviders();
 		await openRouterKeySettled();
 		expect(m.providersWithKeys()).toEqual([]);
+		expect(readActiveProvider()).toBe('openrouter');
+	});
+});
+
+describe('red-team and checker findings (BYOK phase 2)', () => {
+	it('a catalog row with no price, or a $0 one, prices nothing rather than $0', () => {
+		expect(usablePrice({ promptPerM: null, completionPerM: 5 })).toBeNull();
+		expect(usablePrice({ promptPerM: 0, completionPerM: 0 })).toBeNull();
+		expect(usablePrice({ promptPerM: 1, completionPerM: 5 })).toMatchObject({ promptPerM: 1, completionPerM: 5 });
+		const b = directBackend('openai', { catalog: async () => [], catalogNow: () => [{ id: 'openai/gpt-free', promptPerM: 0, completionPerM: 0 }] });
+		expect(b.modelPrice('gpt-free')).toBeNull();
+	});
+
+	it('Gemini answers a bad key with 400 API_KEY_INVALID: read as a rejected key', async () => {
+		writeProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		const body = '[{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}]';
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 400 })));
+		const b = directBackend('gemini', { catalog: async () => CATALOG, catalogNow: () => CATALOG });
+		expect(await b.checkKey('AIzaTestKey000000000000000')).toBe(401);
+		await expect(b.complete({ model: 'gemini-3.8-flash', messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(/^Gemini error 401: /);
+		expect(b.keyInvalid()).toBe(true);
+		// Any other 400 stays a 400.
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"bad field"}}', { status: 400 })));
+		expect(await b.checkKey('AIzaTestKey000000000000000')).toBe(400);
+	});
+
+	it('never asks for reasoning or thinking on a direct key', () => {
+		const body = toAnthropicBody({ model: 'claude-sonnet-5-5', maxTokens: 20000, messages: [{ role: 'user', content: 'hi' }], reasoningEffort: 'high' });
+		expect(body.thinking).toBeUndefined();
+	});
+
+	it('the chosen provider stays the cloud tier while its key is not yet open, never falling to OpenRouter', async () => {
+		const m = createArchitectModel({});
+		m.saveProviderKey('openrouter', 'sk-or-v1-test');
+		await openRouterKeySettled();
+		writeActiveProvider('anthropic'); // chosen, but no key readable yet
+		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false });
+	});
+
+	it('a stored provider name that is not a provider reads as OpenRouter', () => {
+		localStorage.setItem('lattice-db-provider', 'constructor');
 		expect(readActiveProvider()).toBe('openrouter');
 	});
 });

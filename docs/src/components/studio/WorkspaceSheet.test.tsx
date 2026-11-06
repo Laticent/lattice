@@ -168,6 +168,32 @@ describe('WorkspaceSheet — a rejected key', () => {
 			statusSpy.mockReturnValue(connectedStatus);
 		}
 	});
+	it('a rejected DIRECT key names its provider and offers Replace key, not an OAuth Reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'anthropic', openRouterKeyInvalid: true, wallet: null });
+		try {
+			const { user, sheet } = openSheet();
+			const alert = await sheet.findByRole('alert');
+			expect(alert).toHaveTextContent('Anthropic — key rejected');
+			expect(within(alert).queryByRole('button', { name: 'Reconnect' })).toBeNull();
+			await user.click(within(alert).getByRole('button', { name: 'Replace key' }));
+			// It opens the API key tab, where the key is replaced.
+			expect(sheet.getByRole('tab', { name: 'API key' })).toHaveAttribute('aria-selected', 'true');
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('Spend on a direct key: no balance, a billing link, and an estimate label', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'openai', wallet: null, price: null });
+		try {
+			const { sheet } = openSheet();
+			expect(await sheet.findByText('Balance not available for this provider')).toBeInTheDocument();
+			expect(sheet.getByRole('link', { name: /OpenAI billing/ })).toHaveAttribute('href', expect.stringMatching(/platform\.openai\.com/));
+			expect(sheet.getByText('This session · estimate')).toBeInTheDocument();
+			expect(sheet.getByText(/no price, so its calls are not counted/)).toBeInTheDocument();
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
 });
 
 describe('WorkspaceSheet — the API key tab', () => {

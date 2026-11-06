@@ -111,6 +111,17 @@ export function priceRow(provider, id, catalog) {
 	return null;
 }
 
+/**
+ * The price pair of a catalog row, or null when it cannot price a DIRECT call: a missing or
+ * malformed field, or both at 0. OpenRouter lists some models free, but the provider still bills
+ * the direct call, and a $0 would let the hard-stop cap pass it (red team, BYOK phase 2).
+ */
+export function usablePrice(row) {
+	if (!row || row.promptPerM == null || row.completionPerM == null) return null;
+	if (!(row.promptPerM > 0) && !(row.completionPerM > 0)) return null;
+	return { promptPerM: row.promptPerM, completionPerM: row.completionPerM, imagePerM: row.imagePerM ?? null, contextLength: row.contextLength ?? null };
+}
+
 /** USD for a usage, from per-million prices; null without a price. Anthropic cache tokens priced at its published multipliers. */
 export function estimateCost(usage, price) {
 	if (!usage || !price || price.promptPerM == null || price.completionPerM == null) return null;
@@ -211,10 +222,10 @@ export function toAnthropicBody({ messages, model, maxTokens, json, tools, toolC
 		else if (toolChoice === 'required') body.tool_choice = { type: 'any' };
 		else if (toolChoice && typeof toolChoice === 'object' && toolChoice.function?.name) body.tool_choice = { type: 'tool', name: toolChoice.function.name };
 	}
-	if (reasoningEffort) {
-		const budget = { low: 1024, medium: 4096, high: 12000 }[reasoningEffort] ?? 4096;
-		if (body.max_tokens > budget) body.thinking = { type: 'enabled', budget_tokens: budget };
-	}
+	// No extended thinking, whatever `reasoningEffort` asks: Anthropic refuses a tool turn whose
+	// earlier thinking blocks were not passed back, and refuses thinking with a forced tool_choice.
+	// This transport does not carry thinking blocks between rounds, so it never turns thinking on.
+	void reasoningEffort;
 	return body;
 }
 
@@ -257,8 +268,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 	let models = null; // the provider's list, priced
 	let inflight = null;
 	const price = (id) => {
-		const row = priceRow(provider, id, catalogNow?.() ?? null);
-		return row ? { promptPerM: row.promptPerM, completionPerM: row.completionPerM, imagePerM: row.imagePerM ?? null, contextLength: row.contextLength ?? null } : null;
+		return usablePrice(priceRow(provider, id, catalogNow?.() ?? null));
 	};
 	const label = (status) => `${P.label} error ${status}`;
 
@@ -323,7 +333,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		async checkKey(key) {
 			try {
 				const res = await fetch(`${P.base}/models`, { headers: providerHeaders(provider, key) });
-				return res.status;
+				return await keyStatus(res);
 			} catch {
 				return 0;
 			}
@@ -334,8 +344,9 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 				const key = readProviderKey(provider);
 				if (!key) return [];
 				const res = await fetch(`${P.base}/models${P.transport === 'anthropic' ? '?limit=100' : ''}`, { headers: providerHeaders(provider, key) });
-				noteProviderStatus(provider, res.status, key);
-				if (!res.ok) throw new Error(`${label(res.status)}: could not list models`);
+				const st = await keyStatus(res);
+				noteProviderStatus(provider, st, key);
+				if (!res.ok) throw new Error(`${label(st)}: could not list models`);
 				const j = await res.json();
 				const cat = await Promise.resolve(catalog?.()).catch(() => null);
 				const list = (j.data || [])
@@ -391,10 +402,20 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		}
 	};
 
+	// Gemini answers a bad or revoked key with 400 "API key not valid" (reason API_KEY_INVALID),
+	// not 401. Read as 401 so the save path says "rejected" and the §2 mark is set.
+	const BAD_KEY = /API_KEY_INVALID|API key not valid|API key expired/i;
+	async function keyStatus(res) {
+		if (provider !== 'gemini' || res.status !== 400) return res.status;
+		const body = await res.clone().text().catch(() => '');
+		return BAD_KEY.test(body) ? 401 : 400;
+	}
+
 	async function fail(res, key) {
-		noteProviderStatus(provider, res.status, key);
 		const detail = await res.text().catch(() => '');
-		throw new Error(`${label(res.status)}${detail ? `: ${detail.slice(0, 160)}` : ''}`);
+		const status = provider === 'gemini' && res.status === 400 && BAD_KEY.test(detail) ? 401 : res.status;
+		noteProviderStatus(provider, status, key);
+		throw new Error(`${label(status)}${detail ? `: ${detail.slice(0, 160)}` : ''}`);
 	}
 
 	// OpenAI and Gemini: the OpenRouter request, at the provider's base URL.
@@ -405,7 +426,8 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 		// compatibility layer takes `max_tokens`.
 		if (cap > 0) body[provider === 'openai' ? 'max_completion_tokens' : 'max_tokens'] = cap;
 		if (json) body.response_format = { type: 'json_object' };
-		if (reasoningEffort) body.reasoning_effort = reasoningEffort;
+		// No `reasoning_effort`: a non-reasoning OpenAI model refuses it with a 400, and the one
+		// caller (photo description) asks for it only as a nicety. Ignored on direct keys.
 		if (tools?.length) {
 			body.tools = tools;
 			if (toolChoice) body.tool_choice = toolChoice;
@@ -455,6 +477,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 					continue;
 				}
 				if (obj.error && tools?.length) {
+					if (usage) report(onUsage, openaiUsage(usage, priced)); // what was billed so far, as OpenRouter's path does
 					try {
 						reader.cancel();
 					} catch {}

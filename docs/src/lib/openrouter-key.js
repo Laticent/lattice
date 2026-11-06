@@ -321,7 +321,7 @@ function makeSlot(KEY, REJECTED) {
 
 const SLOTS = Object.fromEntries(Object.entries(SLOT_NAMES).map(([p, [k, r]]) => [p, makeSlot(k, r)]));
 const slot = (provider) => {
-	const s = SLOTS[provider];
+	const s = Object.hasOwn(SLOTS, provider) ? SLOTS[provider] : null;
 	if (!s) throw new Error(`unknown key provider: ${provider}`);
 	return s;
 };
@@ -425,11 +425,11 @@ export function noteProviderStatus(provider, status, key) {
 /** The provider the cloud tier runs on: 'openrouter' (the default) or a direct provider. */
 export function readActiveProvider() {
 	const p = read(ACTIVE);
-	return p && p in SLOT_NAMES ? p : 'openrouter';
+	return p && Object.hasOwn(SLOT_NAMES, p) ? p : 'openrouter';
 }
 /** Choose the provider the cloud tier runs on. Announces `db-model-changed`. */
 export function writeActiveProvider(provider) {
-	write(ACTIVE, provider && provider !== 'openrouter' && provider in SLOT_NAMES ? provider : null);
+	write(ACTIVE, provider && provider !== 'openrouter' && Object.hasOwn(SLOT_NAMES, provider) ? provider : null);
 	announce();
 }
 

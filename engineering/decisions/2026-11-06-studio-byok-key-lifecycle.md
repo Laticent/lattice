@@ -162,8 +162,27 @@ libraries' preloads. The browser then refuses any inline event handler, `javascr
 `<script>` the parser meets without that nonce, whatever the sanitizer let through.
 `'strict-dynamic'` trusts what those scripts insert with `createElement('script')` (the runtime's
 dagre, plugin data and drawn-library loads), so no library URL is listed. The origin is a fallback
-for a browser without `'strict-dynamic'`, which ignores it otherwise. There is no `'unsafe-inline'`
-and no `'unsafe-eval'`.
+for a browser without `'strict-dynamic'`, which ignores it otherwise. There is no `'unsafe-inline'`.
+There IS `'unsafe-eval'`: function-plot's library compiles with `new Function`, and the runtime loads
+it into this frame when the draw host's sandbox is down (`host-browser.mjs`, found by the checker).
+It lets a running script call eval; it does not let markup run.
+
+Three things the adversarial trio found, all fixed in this PR:
+
+- **A DOM-clobbering gadget (red team, HIGH).** The runtime took its own URL from
+  `document.currentScript`, which a named element can override:
+  `<img name="currentScript" src="https://evil/x/lattice-runtime.js">`. It then built
+  `lattice-plugin-icons.js` and dagre URLs from it and inserted them with `createElement`, which
+  `'strict-dynamic'` trusts. Reproduced in Chromium, Gecko and WebKit on markup the sanitizer had
+  been bypassed for. `lib/runtime/index.js` now accepts only a real `HTMLScriptElement`; the same
+  harness then loads nothing in any of the three.
+- **The nonce is not hidden.** Browsers hide `nonce` from CSS and `getAttribute` only under a policy
+  sent as an HTTP header, and this one is a `<meta>`. Author CSS that can reach an image host the
+  reader allowed could leak it, and it is the same for every frame in one page load, so it would
+  help a LATER injection in that page load. The code comment that claimed otherwise is corrected.
+  A nonce per document would close it, but the render signatures depend on rewrites of the same
+  slide being byte-identical; recorded in `followups.d/3048-p10-…`.
+- **function-plot's eval**, above.
 
 The policy is opt-in in `lib/core/subresource-csp.mjs` (`scriptSources`, reached by passing
 `scriptNonce`). Without a nonce the policy has no `script-src`, as before, so the CLI export and the
@@ -215,8 +234,10 @@ already covered), not the print document; the print sheets are built only on Pri
 PDF", so the spec drives the download. The Stage resolves `src="x"` against a document with no
 base, so its images neither load nor fail; the spec waits for the popup's `load` event instead.
 
-Green, with the sanitizers in place, on desktop Chromium, Gecko and WebKit (iPad landscape). The
-red arm was measured on desktop Chromium only. Not run at phone width: the phone Studio has no
+Green, with the sanitizers in place, on desktop Chromium, Gecko and WebKit (iPad landscape), all
+measured 2026-11-06. The spec is tagged to run on desktop Chromium and Gecko; WebKit was a one-time
+run (the desktop project drops a test tagged `@webkit` unless it is also `@crosswidth`, and these
+cannot run at phone width). The red arm was measured on desktop Chromium only. Not run at phone width: the phone Studio has no
 posture dial or Stage, as the existing Read Article and Stage specs also reflect.
 
 ## 5. The adversarial pass (2026-11-06)
@@ -369,6 +390,30 @@ returns the tier to OpenRouter.
   Workspace → AI → API key", "Your OpenAI account is out of credits".
 - **Privacy & Data.** "AI keys" (formerly "OpenRouter credentials") and Delete everything remove
   every provider's key (`disconnectAllProviders`).
+
+**Found by the adversarial trio and fixed here:**
+
+- **Photo description** used the OpenRouter image-model pick, which names nothing on a direct key,
+  so it always answered "this model can't see pictures". On a direct key it now uses the author's
+  model on that provider (`suggest-photo-description.ts`).
+- **The model picker** opened on the Featured lens, which matches OpenRouter ids, so a direct
+  provider's list showed empty. A direct provider opens on All with no lens row, and the search
+  field names the provider. A list that answers after the provider changed is dropped.
+- **Gemini** answers a bad or revoked key with 400 `API_KEY_INVALID`, not 401. Read as 401, so the
+  save path says "rejected" and the §2 mark is set.
+- **No reasoning or thinking on a direct key.** A non-reasoning OpenAI model refuses
+  `reasoning_effort` with a 400, and Anthropic refuses a tool round whose thinking blocks were not
+  passed back. This transport does not carry them, so it never asks.
+- **A price of $0, or a row missing a price, is no price** (`usablePrice`): the provider still
+  bills the direct call, and a $0 would pass the hard-stop cap.
+- **The chosen provider stays the cloud tier** while its sealed key is re-opened (after another
+  tab changes it). It reads not-ready for that moment rather than falling through to OpenRouter,
+  which would bill the wrong account.
+
+**Not verified, and why the live run matters.** The mocks answer in shapes we wrote, so a provider
+that refuses one of our fields would pass the suite. A dispatch-only live smoke test per provider
+(HARD RULE #24's sanctioned-workflow pattern) would catch that; it is a new CI workflow, so it is
+the owner's call.
 
 **Not in step 2.** The cloud voice stays on OpenRouter: OpenAI is the only direct provider with
 speech, and it needs its own transport in `voice-model.js`
