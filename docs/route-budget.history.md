@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-06 — three ceilings raised by hand, for the wrong-slide-output fixes (PR 3050)
+
+Owner OK 2026-11-06 (PR 3050, "Raise ceilings, own PR", chosen over finding savings elsewhere, splitting D1 out, or holding). PR 3050 fixes three engine bugs that rendered a deck differently from its source and carries the owner's D1 ruling (a repeated front-matter key reads as its last line everywhere, and lint warns). Its growth has to load at startup: the `</style >` RAWTEXT close rule ships with the slide-boundary parser every live preview splits with, and the last-line readers are the ones the Studio reads its settings through. Its declared growth fit under these ceilings until #3049 and #3051 landed and used the headroom. Measured with fresh full docs builds of `main` (f8730d9) and of PR 3050 rebased on it: studio eagerJsGz 576,042 -> 577,077 B (+1,035), home eagerJsGz 296,699 -> 297,378 B (+679), studio lintCoreGz 152,093 -> 152,345 B (+252). P1-P4 without D1 still put home 16 B over, so splitting would not have avoided a raise. Each ceiling rises by that growth rounded up to the next 0.5 KB (1,536, 1,024 and 512 B), so each route keeps the headroom it had, as the 2026-11-05 raise did. The soft targets are unchanged; PR 3050 declares its bytes above soft in its own `docs/route-budget.d/` file.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 578072 |
+| studio | lintCoreGz | 112808 | 112808 | +0 | 152705 |
+| home | eagerJsGz | 264041 | 264041 | +0 | 298064 |
+
 ### 2026-11-06 — measured on the built tree at eaba4e51
 
 The perf overlay's panel loads only once the overlay is switched on (PerfOverlayPanel.tsx), so every route stops downloading about 6KB gz it never showed
