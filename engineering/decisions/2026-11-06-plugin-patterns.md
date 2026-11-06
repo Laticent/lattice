@@ -202,7 +202,10 @@ from Mermaid, handed to its pass as `ctx.scopeKey`); `lib/plugins/host-browser.m
 deferred figure's drawing in the swap's microtask. Real Studio, function-plot slide, blank frames per 6 keystrokes: in
 the heading 16/19/15 → 0/0/0, in the plot's config 24/25 → 0/0/0. **Mermaid keeps its own cache and hold** (owner,
 2026-11-06): its cache carries replayable binders (tooltips, gantt links) that cloned nodes cannot, and a host
-"re-attach" hook would have one user. Details: `2026-09-05-diagram-fence-flash.md` §9.
+"re-attach" hook would have one user. Details: `2026-09-05-diagram-fence-flash.md` §9. **The memory's palette rule:**
+a remembered drawing must take its colors from page CSS, because a restyle replays it without redrawing; a plugin that
+bakes a computed color into its drawing needs a palette signature in the memory key before it may use the memory
+(function-plot complies through `function-plot.styles.css`; found by the HARD RULE #25 inversion lens).
 
 **Slice 2 — the export draws through the preview's path (done).** §4 step 1 planned a manifest-driven version of
 `locked-figures.js`'s own read-draw-write loop. Building it found a shorter road: the preview's draw frame already runs a
@@ -266,6 +269,15 @@ reader decides "closed" from the token itself, not the last line's text.
 since slice 3, so their URLs are never fetched, but a security gate does not admit a gallery on a reader's word that a
 block is inert; a false alarm is the safe direction (test/unit/core/gallery-remote-refs.test.js keeps its HTML-block
 cases).
+
+**What "the export draws what the preview draws" covers, and what it does not.** The export draws every Mermaid fence
+the engine parses. Two shapes the PREVIEW still draws are not exported as diagrams, because the runtime finds figures by
+the class substring `code[class*="language-mermaid"]` and the engine's parse does not call them Mermaid fences: a
+` ```mermaid-x ` info string and a raw `<pre><code class="language-mermaid">` written as HTML. Both close when the bake
+retires and the export finds figures in the rendered page (followups.d/3052-p2-retire-mermaid-bake.md). The bytes slice 3
+moved, a fence folded into an HTML block, are no longer silent: `bakeDeck` warns with the line
+(`foldedFenceLines`, lib/core/plugin-fences.mjs), since a deck exported only from the CLI would otherwise lose a diagram
+without a word (HARD RULE #25 inversion lens). No committed deck but the demo holds one (4,227 Markdown files scanned).
 
 **`bake` is not retired.** Mermaid still inserts its pictures into the source before the engine renders. Retiring it
 means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that

@@ -4,7 +4,8 @@
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { pluginFences } = require('../../../lib/core/plugin-fences.mjs');
+const { pluginFences, foldedFenceLines } = require('../../../lib/core/plugin-fences.mjs');
+const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 
 const MERMAID = { fences: { mermaid: { aliases: [] } } };
 const fences = (src) => pluginFences(src, MERMAID);
@@ -52,5 +53,37 @@ describe('the fences the engine parses', () => {
   });
   test('an alias the manifest declares counts', () => {
     assert.deepEqual(pluginFences('```plot\nx\n```\n', { fences: { functionplot: { aliases: ['plot'] } } }).map((f) => f.body), ['x\n']);
+  });
+});
+
+describe('a fence the engine folds into an HTML block: the export says so (D2 slice 3 changed its bytes)', () => {
+  const folded = (src) => foldedFenceLines(src, MERMAID);
+  test('the opener\'s source line, front matter counted; a fence after a blank line is a fence, not folded', () => {
+    assert.deepEqual(folded('<div>\n~~~mermaid\nx\n~~~\n</div>\n'), [2]);
+    assert.deepEqual(folded('---\ntitle: t\n---\n\n<div>\n```mermaid\nx\n```\n</div>\n'), [6]);
+    assert.deepEqual(folded('<div>\n\n```mermaid\nx\n```\n\n</div>\n'), []);
+  });
+  test('NOT folded: a commented-out diagram, another plugin\'s fence, a top-level fence', () => {
+    assert.deepEqual(folded('<!--\n```mermaid\nx\n```\n-->\n'), []);
+    assert.deepEqual(folded('<div>\n```json\n{}\n```\n</div>\n'), []);
+    assert.deepEqual(folded('```mermaid\nx\n```\n'), []);
+  });
+  test('bakeDeck warns once for the plugin, naming the lines, and the bake still runs', () => {
+    const warnings = [];
+    let ran = 0;
+    const bakers = [{ name: 'mermaid', load: () => ({ bake: (src) => { ran++; return src; } }) }];
+    const grammar = [{ name: 'mermaid', requires: [], optional: [], fences: { mermaid: { aliases: [] } }, detect: null }];
+    const src = '# A\n\n<div>\n```mermaid\nx\n```\n</div>\n\n<div>\n```mermaid\ny\n```\n</div>\n';
+    bakeDeck(src, {}, { bakers, grammar, defaults: ['mermaid'], warn: (m) => warnings.push(m) });
+    assert.equal(ran, 1);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /plugin "mermaid": the fences on lines 4, 10 sit inside an HTML block/);
+    assert.match(warnings[0], /Leave a blank line after the HTML tag/);
+  });
+  test('no warning for a deck with no folded fence', () => {
+    const warnings = [];
+    const bakers = [{ name: 'mermaid', load: () => ({ bake: (src) => src }) }];
+    bakeDeck('```mermaid\nx\n```\n', {}, { bakers, grammar: [{ name: 'mermaid', requires: [], optional: [], fences: { mermaid: { aliases: [] } }, detect: null }], defaults: ['mermaid'], warn: (m) => warnings.push(m) });
+    assert.deepEqual(warnings, []);
   });
 });
