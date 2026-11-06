@@ -1,6 +1,6 @@
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
-// A ROW THAT STARTS TO APPLY WHILE THE PALETTE IS OPEN APPEARS IN IT (followups.d/3033).
+// A ROW THAT STARTS TO APPLY WHILE THE PALETTE IS OPEN APPEARS IN IT (engineering/decisions/2026-11-03-security-findings-spine.md §The command palette's late row).
 // The Studio lists a command only while it applies (studio-commands.ts), so a row can arrive after the palette opened:
 // "Fix all issues" joins once lint has counted a fixable issue. Before the fix an open palette filtered to "Fix all"
 // never showed it, even after the search was typed again; only closing and reopening did. The cause was cmdk's value

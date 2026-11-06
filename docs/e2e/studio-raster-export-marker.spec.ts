@@ -45,7 +45,7 @@ const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 
  * A pixel inside the reader pill ("Content clipped"), at the slide's horizontal center. A positive control: without it a
  * deck that fits would pass the ring checks for any reason; `the fitting slide has no pill` below is its negative twin.
  *
- * WHY A FRACTION OF THE HEIGHT, NOT A FIXED ROW (followups.d/3036). The pill's rail stands one spectrum-bar width above
+ * WHY A FRACTION OF THE HEIGHT, NOT A FIXED ROW (engineering/decisions/2026-11-03-security-findings-spine.md §The raster exports' reader pill). The pill's rail stands one spectrum-bar width above
  * the slide's bottom edge (`section > .marker-rail` in lib/base/base.modifiers.css), and both the bar and the capsule are
  * sized in frame units, so the pill scales with the picture. This oracle read `height - 3`: inside the pill on a 50 dpi
  * PDF page, but on the 2560×1440 images and PowerPoint pictures the pill spans rows 1400–1431 and row 1437 is the white

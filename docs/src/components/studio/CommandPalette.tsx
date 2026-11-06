@@ -208,7 +208,8 @@ export function CommandPalette({
 	// sheet would raise the keyboard before the sheet finished animating in.
 	const mkField = (autoFocus?: boolean) => <CommandInput autoFocus={autoFocus} data-focus-ring="container" placeholder="Search or run a command…" />;
 	const field = mkField();
-	// EVERY ROW NAMES ITS `value` (followups.d/3033). Without one, cmdk 1.1.1 (`useValue`) takes the first STRING among
+	// THE ACTIONS, LAYOUT, SWITCH DECK AND THEME ROWS NAME THEIR `value` (decisions/2026-11-03-security-findings-spine.md
+	// §The command palette's late row). Without one, cmdk 1.1.1 (`useValue`) takes the first STRING among
 	// `[value, children, ref]`; our children are `[<Icon />, label]`, so it falls back to the row's `textContent`. A row
 	// that mounts while a search is typed and does not match yet renders `null`, so it has no text, scores 0, stays
 	// `null`, and no retype can break the loop; only a cleared search (reopening) did. "Fix all issues" joins the list
@@ -566,8 +567,9 @@ function LearnGroup({ lessons, onLesson }: { lessons: readonly LessonMeta[]; onL
 	const search = useCommandState((st) => st.search);
 	// HIDDEN, NOT UNMOUNTED. cmdk scores an item when it registers, and a row that mounts after the
 	// query changed was never scored against it, so it never showed (measured: "dark" found only the
-	// action). The cause is the missing `value` noted above `list` in CommandPalette (followups.d/3033). So the rows stay mounted; with no query they are hidden and `disabled`, which also takes
-	// them out of arrow-key navigation.
+	// action). The cause is the missing `value` noted above `list`. These rows name none, because a done lesson's
+	// text includes its "Done" shortcut, so they stay mounted instead: with no query they are hidden and `disabled`,
+	// which also takes them out of arrow-key navigation.
 	const waiting = lessons.length > LEARN_ON_QUERY_ABOVE && !search.trim();
 	const done = doneLessons();
 	return (

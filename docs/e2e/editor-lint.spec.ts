@@ -114,7 +114,7 @@ async function runFixAllFromPalette(page: import('@playwright/test').Page): Prom
 	const row = page.getByRole('option', { name: 'Fix all issues' });
 	// The row is offered once lint has counted a fixable issue: 1.3 s after the 501-card deck is typed in Gecko, 7 s in
 	// WebKit (measured). An open palette shows a row that arrives while it is open (studio-palette-late-row.spec.ts,
-	// followups.d/3033), so open it once and wait on the row itself, at every width (the phone has no button).
+	// engineering/decisions/2026-11-03-security-findings-spine.md §The command palette's late row), so open it once and wait on the row itself, at every width (the phone has no button).
 	await page.keyboard.press('ControlOrMeta+k');
 	await page.getByPlaceholder('Search or run a command…').fill('Fix all');
 	await expect(row).toBeVisible({ timeout: 90_000 });
