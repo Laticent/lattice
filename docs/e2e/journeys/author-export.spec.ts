@@ -35,7 +35,7 @@ test('a drafted deck exports to a PDF artifact', async ({ page }) => {
 	await shareExport(page, 'pdf');
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
-	await expect(toastText(page)).toContainText('PDF ready.');
+	await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
 	// The default workspace setting is LOSSLESS: page images embed as PNG
 	// (Flate), never JPEG (DCT) — the fast format is strictly opt-in below.
 	const fs = await import('node:fs');
@@ -56,7 +56,7 @@ test('the Workspace "Fast (JPEG)" preference switches the PDF page images to DCT
 	await shareExport(page, 'pdf');
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
-	await expect(toastText(page)).toContainText('PDF ready.');
+	await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
 	const fs = await import('node:fs');
 	const bytes = fs.readFileSync((await d.path()) as string).toString('latin1');
 	expect(bytes.includes('/DCTDecode')).toBe(true);
@@ -66,7 +66,7 @@ test('a drafted deck exports its Markdown source', async ({ page }) => {
 	const download = page.waitForEvent('download');
 	await shareExport(page, 'markdown');
 	expect((await download).suggestedFilename()).toMatch(/\.md$/);
-	await expect(toastText(page)).toContainText('Markdown ready.');
+	await expect(toastText(page)).toContainText(/Markdown ready( \([^)]+\))?\./);
 });
 
 // The Marp bundle's pre-export step. The bundle renders through the browser RUNTIME
@@ -94,7 +94,7 @@ test('the Marp bundle exports at the workspace default overflow marker', async (
 	await page.getByRole('button', { name: /^Download bundle/ }).click();
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.zip$/);
-	await expect(toastText(page)).toContainText('Marp bundle ready.');
+	await expect(toastText(page)).toContainText(/Marp bundle ready( \([^)]+\))?\./);
 	expect(await markerInBundle((await d.path()) as string)).toBe('reader');
 });
 
