@@ -155,7 +155,8 @@ test('the open search collapses the row into one menu, and that menu can actuall
 	// It must survive its own press. Without the dismissal exception the search closes on
 	// pointerdown, the button unmounts, and this click opens nothing.
 	await burger.click();
-	await expect(page.getByRole('menuitem', { name: 'Present' }), 'the overflow menu did not open — the search dismissed itself on the press').toBeVisible();
+	// `exact`: the same menu holds the Show Me "Present tour" row (tours/index.ts), which a substring match also finds.
+	await expect(page.getByRole('menuitem', { name: 'Present', exact: true }), 'the overflow menu did not open — the search dismissed itself on the press').toBeVisible();
 	await expect(page.getByPlaceholder('Search or run a command…'), 'pressing the row’s own menu must not dismiss the field').toBeVisible();
 
 	// And running something from it leaves the search behind rather than stranding it open.
