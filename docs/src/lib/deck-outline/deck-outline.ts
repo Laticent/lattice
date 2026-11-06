@@ -46,10 +46,10 @@
 // addressed as (unit id, ordinal), since a heading section only exists as part of its slide.
 
 import { boundaryParser, boundaryRulesGeneration } from '../../../../lib/core/boundary-parser.mjs';
-import { updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
+import { deriveFromNearest, updateDeckModel as updateDeckModelJs } from '../../../../lib/core/deck-model.mjs';
 import { headingSplitPoints as headingSplitPointsJs } from '../../../../lib/core/heading-split-core.mjs';
 import { resolveSplitMode as resolveSplitModeJs } from '../../../../lib/core/resolve-split.mjs';
-import { slideBoundaryModel as slideBoundaryModelJs } from '../../../../lib/core/slide-boundaries.mjs';
+import { setBoundaryDeriver, slideBoundaryModel as slideBoundaryModelJs } from '../../../../lib/core/slide-boundaries.mjs';
 import { FORWARD_SCAN_LINES } from '../../../../lib/plugins/blocks.generated.mjs';
 import { frontMatterBlock } from '../front-matter';
 import { diffSpan, type EditSpan, type Kinds, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
@@ -66,6 +66,16 @@ interface BodyModel {
 	lineEnd(line: number): number;
 }
 const slideBoundaryModel = slideBoundaryModelJs as (body: string) => BodyModel;
+
+// THE EDITORS' BOUNDARY MEMO DERIVES A MISS FROM THE NEAREST MODEL IT HOLDS (engineering/decisions/
+// 2026-10-22-segno-deck-pipeline.md §The Studio's readers derive, not parse). Every editor loads this module, the
+// Studio at startup and the Playground just after (playground-engine.ts), and nothing else does, so installing here
+// reaches exactly the readers that see keystrokes: the outline, the preview's sample (single-slide-render.ts) and the
+// slide split (deck-lint.ts), which share this app's one copy of lib/core/slide-boundaries.mjs. The homepage hero
+// renders through single-slide-render.ts without this module, so it pays nothing. `updateDeckModel` is already here
+// for the outline; the deriver adds `deriveFromNearest`. The lint core (esm/lint.js) holds its own copy of the reader
+// by design (tools/build-playground.js, the lint's own boundary parser) and is not reached from here.
+setBoundaryDeriver(deriveFromNearest);
 const updateDeckModel = updateDeckModelJs as (prev: BodyModel, next: string, span?: EditSpan) => BodyModel;
 
 /** A Lattice deck as a Fuoco outline: units are authored slides (the text between separators),

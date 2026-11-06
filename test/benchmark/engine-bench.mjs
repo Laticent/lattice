@@ -426,8 +426,8 @@ const EDIT_BURST = 12;
 // (`scanMetaSource`, which reads `chunkBoundaryLines` of the editor's body) and the preview's `editorSample`, which
 // StudioShell rebuilds from trimmed chunks. `parses` counts deck models built FROM NOTHING (`deckModelStats.full`)
 // per keystroke, a work count like `typesets`: 2 when each missed the boundary memo and parsed, 0 since a miss derives
-// from the nearest held model (`deriveFromNearest`, installed here; the browser does not install it yet,
-// followups.d/3042-p2-segno-lint-core-still-parses.md). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
+// from the nearest held model (`deriveFromNearest`, installed here and in the editors by docs/src/lib/deck-outline/deck-outline.ts; the
+// browser's lint core keeps its own reader without it, by the owner's decision of 2026-11-06). Loaded at run time, so a base tree without these modules prints `n/a`, not a crash.
 async function studioBoundaryReaders() {
   try {
     const [sb, ms, segno] = await Promise.all([import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-scan.mjs'), import('@laticent/segno-markdown')]);
@@ -435,14 +435,21 @@ async function studioBoundaryReaders() {
     const dm = await import('../../lib/core/deck-model.mjs');
     if (dm.deriveFromNearest && sb.setBoundaryDeriver) sb.setBoundaryDeriver(dm.deriveFromNearest);
     if (!segno.deckModelStats || !sb.splitSlideChunks || !sb.resetBoundaryMemo) return null;
-    return { sb, scanMetaSource: ms.scanMetaSource, stats: segno.deckModelStats };
+    // The class editor's per-slide read (`readClassDirective` → `readMetaField` → `commentBlocks`), which the Studio
+    // runs for every slide on every keystroke (absent in a tree that predates it).
+    const mr = await import('../../lib/core/meta-record.mjs');
+    return { sb, scanMetaSource: ms.scanMetaSource, commentBlocks: mr.commentBlocks ?? null, stats: segno.deckModelStats };
   } catch {
     return null;
   }
 }
 function boundaryKeystrokes(readers, src) {
   if (!readers) return { parses: null, ms: null };
-  const { sb, scanMetaSource, stats } = readers;
+  const { sb, scanMetaSource, commentBlocks, stats } = readers;
+  const classReads = (t) => {
+    if (!commentBlocks) return;
+    for (const c of sb.splitSlideChunks(t.slice(sb.frontMatterBlockOf(t).length)).chunks) commentBlocks(c);
+  };
   const sampleOf = (t) => {
     const fm = sb.frontMatterBlockOf(t);
     return fm + sb.splitSlideChunks(t.slice(fm.length)).chunks.map((c) => c.trim()).join('\n\n---\n\n');
@@ -451,6 +458,7 @@ function boundaryKeystrokes(readers, src) {
   let text = src;
   scanMetaSource(text);
   sb.slideBoundaries(sampleOf(text));
+  classReads(text);
   const before = stats.full;
   const times = [];
   const N = 10;
@@ -462,6 +470,7 @@ function boundaryKeystrokes(readers, src) {
     const t = process.hrtime.bigint();
     scanMetaSource(text);
     sb.slideBoundaries(sample);
+    classReads(text);
     times.push(Number(process.hrtime.bigint() - t) / 1e6);
   }
   times.sort((a, b) => a - b);

@@ -130,3 +130,27 @@ describe('hostile-input cost, round 1 findings', () => {
     assert.ok(performance.now() - t0 < 1500, 'the comment scan rescanned to EOF per opener');
   });
 });
+
+// The Studio asks for every slide's blocks several times per keystroke; one slide changes. Before the memo, each ask
+// parsed its slide from nothing (594 of 595 full parses per 10 keystrokes in the real Studio, 2026-11-06).
+describe('commentBlocks remembers each text', () => {
+  test('asking again for the same text parses nothing; new text parses once', async () => {
+    const { deckModelStats } = await import('@laticent/segno-markdown');
+    const slide = '<!-- _class: kpi -->\n\n## Remembered\n';
+    const first = m.commentBlocks(slide);
+    const before = deckModelStats.full;
+    for (let i = 0; i < 20; i++) assert.deepEqual(m.commentBlocks(slide), first);
+    assert.equal(deckModelStats.full - before, 0, 'a repeated ask must not parse');
+    m.commentBlocks(`${slide}x`);
+    assert.equal(deckModelStats.full - before, 1, 'a changed slide parses once');
+  });
+
+  test('a caller cannot change what the next caller gets', () => {
+    const slide = '<!-- _class: lead -->\n\n## Shared\n';
+    const a = m.commentBlocks(slide);
+    a.pop();
+    assert.ok(m.commentBlocks(slide).every((r) => Object.isFrozen(r)), 'every cached record is frozen');
+    assert.equal(m.commentBlocks(slide).length, 1);
+    assert.equal(m.commentBlocks(slide)[0].body, ' _class: lead ');
+  });
+});
