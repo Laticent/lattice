@@ -8,3 +8,6 @@
   rewritten assertion was shown failing on a copy of its module with the old defect put back.
 - **Fixed: `checkFlakyTests` read a `// flaky-ok:` mark from the wrong line after a string holding U+2028 or U+2029,**
   so every mark below one was ignored.
+- **Fixed: a chart row with many trailing pills no longer slows narration with the square of the pill count.**
+  `stripTrailingPills` in `lib/core/chart-narration.js` read the remaining lead once per pill (443 ms at 1,600 pills);
+  it now reads it once, right to left, and gives the same result on a seeded 20,000-case comparison.
