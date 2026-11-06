@@ -14,10 +14,10 @@ PR 2988 splits a `quote`, a `citation-card` and a one-clause `redline` that do n
 
 | Route | Metric | Soft before | Soft after | Change | Ceiling after |
 |---|---|---|---|---|---|
-| studio | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
-| playground | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
-| home | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
-| components | engineJsGz | 707,731 | 707,731 | ceiling 779,016 → 781,620 | 781,620 |
+| studio | engineJsGz | 707731 | 707731 | +0 | 781620 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 781620 |
+| home | engineJsGz | 707731 | 707731 | +0 | 781620 |
+| components | engineJsGz | 707731 | 707731 | +0 | 781620 |
 
 ### 2026-11-06 — Studio eager ceiling raised by 2.5 KB and lint-core by 0.5 KB, by hand, for the handheld venues and the `align:` register (PR 2988)
 
