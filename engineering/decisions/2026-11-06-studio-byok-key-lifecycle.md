@@ -179,3 +179,42 @@ Deferred, each with a follow-up file: a frame `script-src` that refuses inline h
 (defense in depth for §4); browser proof on the Stage and Read Article surfaces; and a check
 that the key's value never reaches the storage enumerators or more than one shipped bundle
 chunk.
+
+## 6. Live run on a real model (2026-11-06)
+
+Every AI test in the repo runs on fake replies (#1791). This run drove the built Studio in
+headless Chromium on a real OpenRouter key, from a throwaway harness in `.scratch/` (HARD RULE
+#24: on-demand, never per-PR; the key was read from the environment and injected only into the
+browser's storage). Total spend, measured by the key's own `usage_monthly`: **$0.156**.
+
+| Surface | Model | Result | Cost |
+|---|---|---|---|
+| Theme — "describe a look" | Haiku (latest) | "Generated a full palette — every pair passes AA." | $0.0003 |
+| Theme | Sonnet (latest) | same | $0.0025 |
+| Component — "describe a component" | Haiku | `.pricing-tiers`, 1 design round, gate-clean | $0.0036 |
+| Component | Sonnet | `.quarter-track`, 1 design round, gate-clean | $0.0682 |
+| Finish — "describe a finish" | Haiku | **failed before the fix** ("no usable finish recipe"); after: recipe generated, twice | $0.0003 |
+| Finish | Sonnet | recipe generated | $0.0038 |
+| Motion — "describe a drawing" | Haiku / Sonnet | "Drew it" | $0.0007 / $0.0088 |
+| Voice — `/audio/speech` (Kokoro, via Workspace → Play sample at 1.05×) | catalog default | 200, `audio/mpeg`, 14,040 B, 2.11 s, mean −26.8 dB | (in total) |
+| Theme with a never-issued key | Haiku | 401 → Workspace shows "key rejected · Reconnect" | $0 |
+
+**The finish faculty never worked on a real model.** `generateFinish` asks the adapter for
+`json: true`, which returns the already-parsed object; `parseFinishReply` read only strings, so
+it saw `"[object Object]"` and found no JSON. Haiku's replies were well-formed and in
+vocabulary. `parseFinishReply` now accepts the object, and `architect.test.ts` › "generateFinish
+— a real JSON reply survives the adapter" drives the real adapter (red before the fix). Finish
+and motion also now name a failed request the way theme and component do (the 2026-11-06
+bullet in `2026-06-29-studio-theme-ai.md`).
+
+**Not verified live:**
+- **A 402.** Producing one means sending a request too big for the key's remaining limit. If
+  OpenRouter accepted it instead of refusing, it would spend real money, so this run did not
+  try. The 402 sentence is pinned on a mocked endpoint
+  (`docs/e2e/fabricate-model-error.spec.ts`) and in unit tests. **UNVERIFIED** against the
+  real service.
+- **How the voice sounds.** The clip is real synthesis at speech-level energy, but no person
+  has listened to it. Time-to-first-audio and the narrated-Present claims of #1398 were not
+  measured.
+- **#1791's matrix.** This run is one prompt per cell, not the frozen prompt set, repeats or
+  committed baseline that #1791 asks for, so #1791 stays open.

@@ -630,6 +630,7 @@ export type FinishRecipeOut = {
 };
 export type FinishGenOutcome =
 	| { status: 'ok'; recipe: FinishRecipeOut; name?: string }
+	| { status: 'failed'; note: string }
 	| { status: 'offline' }
 	| { status: 'blocked'; note: string }
 	| { status: 'nochange'; note: string };
@@ -691,10 +692,11 @@ export async function generateFinish(prompt: string): Promise<FinishGenOutcome> 
 			],
 			json: true,
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: describeModelError(errorText(e)) };
 	}
 	const parsed = parseFinishReply(reply);
 	if (!parsed) return { status: 'nochange', note: 'The model returned no usable finish recipe.' };
@@ -733,7 +735,7 @@ const DRAWING_SYSTEM = [
 	'Prefer rect, circle, ellipse, line, polyline and path. Keep stroke-width between 2 and 4. Leave generous margins inside the viewBox.',
 ].join('\n');
 
-export type DrawingGenOutcome = { status: 'ok'; svg: string } | { status: 'offline' } | { status: 'blocked'; note: string } | { status: 'nochange'; note: string };
+export type DrawingGenOutcome = { status: 'ok'; svg: string } | { status: 'offline' } | { status: 'blocked'; note: string } | { status: 'nochange'; note: string } | { status: 'failed'; note: string };
 
 /**
  * Ask a model for a drawing to choreograph. Honest like the rest: `offline` with no model
@@ -762,10 +764,11 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 				{ role: 'user', content: `Draw: ${prompt.trim()}` },
 			],
 			fallback: '',
+			surfaceErrors: true,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
-		return { status: 'offline' };
+	} catch (e) {
+		return { status: 'failed', note: describeModelError(errorText(e)) };
 	}
 	const svg = extractSvg(reply);
 	if (!svg) {
@@ -810,17 +813,23 @@ export function extractSvg(reply: string): string | null {
 // (finish-generate's coerceRecipe) — here we only extract + lightly normalize.
 // Exported for unit tests (the AI-recipe extraction contract: structured fields only,
 // never a forwarded model string).
-export function parseFinishReply(reply: string): { recipe: FinishRecipeOut; name?: string } | null {
-	const text = String(reply || '').trim();
-	if (!text) return null;
-	const start = text.indexOf('{');
-	const end = text.lastIndexOf('}');
-	if (start < 0 || end <= start) return null;
+export function parseFinishReply(reply: string | Record<string, unknown>): { recipe: FinishRecipeOut; name?: string } | null {
+	// `generateFinish` asks the adapter for `json: true`, which hands back the PARSED object.
+	// Reading only strings turned that object into "[object Object]", so a real cloud reply
+	// never parsed (found by the live run, 2026-11-06; the unit tests fed strings only).
 	let obj: Record<string, unknown>;
-	try {
-		obj = JSON.parse(text.slice(start, end + 1));
-	} catch {
-		return null;
+	if (reply && typeof reply === 'object') obj = reply;
+	else {
+		const text = String(reply || '').trim();
+		if (!text) return null;
+		const start = text.indexOf('{');
+		const end = text.lastIndexOf('}');
+		if (start < 0 || end <= start) return null;
+		try {
+			obj = JSON.parse(text.slice(start, end + 1));
+		} catch {
+			return null;
+		}
 	}
 	if (!obj || typeof obj !== 'object') return null;
 	const layer = (v: unknown) => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});

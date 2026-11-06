@@ -95,6 +95,9 @@ exactly (no regression for existing derivations). The chart-family spectrum
   same sentence the chat shows: a 401 says reconnect, a 402 says the account is out of
   credits, a 429 says wait, and no network says the request never reached OpenRouter.
   Before this, a 402 read as "the model returned no usable palette".
+  The finish and motion faculties (`generateFinish`, `generateDrawing`) do the same. Only
+  cloud failures are lifted: an on-device failure still floors, since the sentences read
+  OpenRouter's statuses.
 
 ## UI — the V4 Pro Inspector (chosen over four alternatives)
 

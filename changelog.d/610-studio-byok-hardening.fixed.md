@@ -2,3 +2,4 @@
 - Studio: a failed OpenRouter sign-in now says so and offers **Try again**, instead of returning to the Studio as if nothing happened; the dead sign-in state is cleared so it cannot replay.
 - Studio: a revoked or expired OpenRouter key is now noticed. Workspace shows "key rejected" with a **Reconnect** button instead of "active" while every request fails.
 - Charts: the hover card escapes a chart mark's label and value, so markup in a shared deck's chart cannot run in the page that holds your OpenRouter key.
+- Studio: **Describe a finish** now works on a real model. It used to discard every cloud reply as "no usable finish recipe". Finish and Describe a drawing also say why a failed request failed.

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -941,5 +941,35 @@ describe('resumePendingAuth — a failed OAuth return says so', () => {
 	it('no pending sign-in is a no-op', async () => {
 		history.replaceState(null, '', '/studio/?code=stray');
 		expect((await resumePendingAuth()).status).toBe('none');
+	});
+});
+
+// Found by the P6 live run (2026-11-06): `generateFinish` asks for `json: true`, the adapter hands
+// back the PARSED object, and `parseFinishReply` read only strings — so "[object Object]" never
+// parsed and every real cloud reply came back "no usable finish recipe". The finish unit tests fed
+// strings to a mocked model and could not see it. This drives the REAL adapter with a backend that
+// answers the way OpenRouter does: a JSON string.
+describe('generateFinish — a real JSON reply survives the adapter', () => {
+	const REPLY = '{"name":"blueprint-calm","wash":{"type":"corner-glow","intensity":8},"texture":{"type":"grid","intensity":5,"scale":24},"mark":{"type":"none","placement":"top-left"},"edge":{"type":"none","intensity":3}}';
+	async function withBackend(b: unknown, run: () => Promise<void>) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(b);
+		try { await run(); } finally { m.__setBackend(null); }
+	}
+	it('parses the recipe the adapter already parsed', async () => {
+		await withBackend({ name: 'mock', async complete() { return REPLY; }, async embed() { return null; } }, async () => {
+			const out = await generateFinish('a calm blueprint grid with a soft corner glow');
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.recipe.texture.type).toBe('grid');
+			expect(out.name).toBe('blueprint-calm');
+		});
+	});
+	it('a 402 names the empty wallet, like the theme and component faculties', async () => {
+		await withBackend({ name: 'openrouter', async complete() { throw new Error('OpenRouter error 402: {"error":{"message":"Insufficient credits"}}'); }, async embed() { return null; } }, async () => {
+			const out = await generateFinish('anything');
+			expect(out.status).toBe('failed');
+			if (out.status === 'failed') expect(out.note).toMatch(/out of credits/);
+		});
 	});
 });
