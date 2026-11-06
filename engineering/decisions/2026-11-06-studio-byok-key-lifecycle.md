@@ -256,3 +256,54 @@ model list of its own, and voice only where the provider has one (OpenAI). Each 
 another secret in this origin's storage, some broader than OpenRouter's, which raises the value
 of the preview-frame `script-src` follow-up (§4). `lib/openrouter-key.js` generalizes to one
 module per-provider keys go through, keeping §3's one-reader property.
+
+## 8. Plugins cannot read the key
+
+**Asked (owner, 2026-11-06):** make sure plugins, third-party plugins and what they can
+contribute cannot extract the key.
+
+**Where each kind of plugin code runs in the browser, and why none reaches the key:**
+
+| Plugin code | Where it runs | Why it cannot read the key |
+|---|---|---|
+| A third-party **code package** (`transform.js` from an imported zip) or a zip **plugin** fence/inline renderer | a worker inside `<iframe sandbox="allow-scripts">`, no `allow-same-origin` (`docs/src/lib/code-packages/runner.ts`), under a hash-pinned `default-src 'none'` policy | Two walls. The frame's origin is opaque, so nothing in it shares the Studio's storage; and the code runs in a WORKER, which has no `localStorage`, no DOM, no `parent`, `top` or `opener`. It runs only after the author approves its SHA-256 in this browser. |
+| What such code **returns** (markup, and the `contributes.returns` data fields) | the door sanitizes it (`sanitizeSlideHtml` + `doorFinish`), then the preview frame sanitizes it again (§4) | An event handler or script it smuggles in is stripped twice before it reaches a same-origin frame. |
+| A **first-party** plugin's drawing library (Mermaid and similar) in the Studio's previews | the draw host's sandboxed frames (`draw-host.ts`), each library pinned by SHA-256 | Opaque origin, as above. |
+| A first-party plugin's `hydrate` script on surfaces with no draw host (Stage, Print, export) | the deck's own document | First-party, pinned, and named as exceptions to migrate (`followups.d/2749-p3-migrate-in-tree-plugins-to-sandbox-model.md`); not third-party code. |
+| An **npm** plugin | nowhere in the browser: v1 loads npm plugins only in the CLI's locked page (`2026-10-16-npm-plugin-threat-model.md` §6, decisions 3 and 4) | The Studio never runs one. |
+
+**The parent never answers a request.** The Studio's listeners for these frames
+(`runner.ts`, `draw-host.ts`) accept only a result for a job the Studio started (a string,
+length-capped) and ignore everything else, so there is no message a plugin can send to ask for
+data. What the Studio sends in is the slide's markup, its plain facts, or a fence's text.
+
+**The proof.** `docs/e2e/byok-plugin-isolation.spec.ts` seeds a canary key, imports a hostile
+code package through the real Library, approves it, and has it probe from inside its realm
+(`localStorage`, `sessionStorage`, `parent`/`top`/`opener` storage, `document.cookie`, IndexedDB,
+Cache Storage, its own origin) and smuggle handler payloads into its output. Measured 2026-11-06
+on desktop Chromium, Gecko and WebKit (iPad landscape), identically:
+
+```
+{"local":"refused","session":"refused","parent":"refused","top":"refused","opener":"refused",
+ "cookie":"refused","idb":"refused","caches":"refused","origin":"null"}
+```
+
+No smuggled handler ran and the canary appears nowhere in the preview. The CONTROL runs the same
+probe in the Studio page and reads the canary, so a probe blind to storage cannot pass.
+
+**The proof can fail.** With the package frame given `allow-same-origin` and the site rebuilt,
+the spec goes red: the package's origin reads `http://localhost:4321`, not `null`. In that red run
+the key was still refused, because the worker wall held on its own. That is the point of having
+two walls; the spec watches the outer one so losing it is caught before the inner one is all
+that is left.
+
+`code-packages.spec.ts` already proves the same packages reach no network (about fifteen exits,
+against a real loopback server). Static, for in-tree plugin code: the purity gate in
+`tools/check-ownership.js` (`PURITY_NAMES`, over `lib/plugins`, `lib/components`, `lib/runtime`)
+fires on `localStorage`, `fetch`, the key's name and the other network and storage names. It is
+a tripwire for an honest contributor, not a defense: a built name such as `globalThis['fe'+'tch']`
+passes it. The sandbox is the defense; the gate only keeps first-party code from drifting.
+
+**Not covered:** WebKit iPhone (the package import flow is driven on the iPad project, as the
+existing code-package spec does); the desktop app, which is not built; and a browser exploit that
+escapes a sandboxed frame (`2026-10-16-npm-plugin-threat-model.md` §5.3).
