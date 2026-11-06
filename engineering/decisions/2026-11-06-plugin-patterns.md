@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: >
   The 16 contribution points plugins use fall into six standard patterns: grammar, data provider, service, check,
   slot and figure. One rule splits the figure pattern in two: a library that needs a layout engine to measure text
@@ -178,6 +178,14 @@ One PR per slice, each measured and independently revertible:
 3. **The flicker protections in the host** (§5), so every deferred figure gets them. Recommendation: yes, as slice 1.
 4. **`returns`** has no user (it was added for npm plugins, `2026-10-16-npm-plugin-threat-model.md` decisions 10–12, §6 and §6.1). Out of
    scope here; noted so the catalog is complete.
+
+### Owner decisions (2026-11-06)
+
+1. **Yes:** the six pattern names are the vocabulary for plugin docs and the scaffold, with figures split into
+   immediate and deferred.
+2. **Yes:** `bake` is retired once Mermaid leaves it.
+3. **Yes:** the flicker protections move into the shared host, as slice 1.
+4. **Noted:** `returns` stays out of scope here.
 
 ## 8. Not verified
 
