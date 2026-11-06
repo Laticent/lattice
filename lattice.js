@@ -2890,8 +2890,10 @@ const pluginHydrateScript = hasHydratedPlugins
 // THE CAPTURE PAGE DRAWS NO PLUGIN LIBRARY THE LOCKED PAGE CAN DRAW FOR IT (owner decisions 14 and 16; threat-model
 // note 2026-10-16 §6 rows 3 and 4). The `.html` file keeps function-plot's library and its zoom (decision 16). The page
 // every capture reads (PDF, PNG, PPTX, `--player`, `--read`) is served a copy without it: its placeholders wait, and
-// `awaitPluginFigures` draws them in the locked page (lib/export/locked-figures.js).
-const HOST_DRAWN = pagePlugins.filter((h) => h.name === 'function-plot').map((h) => h.name);
+// the CLI's draw host draws them in a locked page, through the path a preview uses (lib/export/locked-figures.js).
+// The plugins the CLI's draw host draws (lib/export/locked-figures.js): those whose manifest declares a draw frame with an
+// inlined library. From the registry, never by name (engineering/decisions/2026-11-06-plugin-patterns.md §4).
+const HOST_DRAWN = require('./lib/export/locked-figures.js').hostDrawnKinds(pagePlugins);
 const capturePageHydrateScript = HOST_DRAWN.length
   ? [
       ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
@@ -3441,11 +3443,12 @@ async function renderExport({ hardened }) {
 }
 
 async function renderBody(browser, g, closeBrowser) {
-  // function-plot's locked page and its sanitizer, made ready WHILE the capture page loads (lib/export/locked-figures.js
-  // `openPlotter`), so the draw below pays almost nothing for its setup. Settled into `{ plotter }` or `{ error }`, never
-  // left to reject unobserved.
-  const plotterReady = HOST_DRAWN.includes('function-plot')
-    ? require('./lib/export/locked-figures.js').openPlotter(browser).then((plotter) => ({ plotter }), (error) => ({ error }))
+  // THE CLI'S DRAW HOST: one locked page per host-drawn plugin, opened WHILE the capture page loads, so a figure's draw
+  // pays almost nothing for its setup (lib/export/locked-figures.js `openExportDrawHost`). A page that cannot open is
+  // reported once, and its figures export showing their source.
+  const lockedFigures = HOST_DRAWN.length ? require('./lib/export/locked-figures.js') : null;
+  const exportDrawHost = lockedFigures
+    ? lockedFigures.openExportDrawHost(browser, HOST_DRAWN, { warn: QUIET ? undefined : (m) => console.warn(`  ⚠ ${m}`) })
     : null;
   const page = await g(() => browser.newPage(), 'new page');
   // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
@@ -3492,6 +3495,13 @@ async function renderBody(browser, g, closeBrowser) {
   // race instead of finding a hole in the PDF. See lib/core/author-deferral-probe.js
   // and engineering/decisions/2026-08-16-render-format-cost-assessment.md §2a-ter.
   await g(() => page.evaluateOnNewDocument(INSTALL_AUTHOR_DEFERRAL_PROBE_SRC), 'install author-deferral probe');
+  // The capture page's draw host, ahead of the page's own scripts and on every re-navigation: the sanitizer the draws are
+  // written through, then `window.__latticeExportDrawHost`, whose draws reach the locked pages through one exposed function.
+  if (exportDrawHost) {
+    await g(() => page.exposeFunction(lockedFigures.DRAW_FN, (job, ratio) => exportDrawHost.call(job, ratio)), 'expose the draw host');
+    await g(() => page.evaluateOnNewDocument(lockedFigures.SANITIZER()), 'install the drawing sanitizer');
+    await g(() => page.evaluateOnNewDocument(lockedFigures.exportDrawHostScript(HOST_DRAWN)), 'install the draw host');
+  }
   // Set viewport to slide dimensions so section's own cqi properties (padding,
   // border-top) resolve against the correct ICB in screen mode.  Without this,
   // Puppeteer's default 800×600 viewport causes section's cqi fallback to
@@ -3597,44 +3607,9 @@ async function renderBody(browser, g, closeBrowser) {
   // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
   // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
   // that stays pending past the budget is closed with its source shown, and said so.
-  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in a locked page in a fresh context of THIS
-  // browser (no second browser: one per export), sanitized, written back and settled, before the barrier below waits on
-  // what is left. Remembered by the page's whole list of plots, so a re-navigation that shows the same ones (auto-split,
-  // rails) draws them once.
-  const hostDrawnMemo = new Map();
-  const drawHostFigures = async (label) => {
-    if (!HOST_DRAWN.includes('function-plot')) return;
-    const fpLocked = require('./lib/export/locked-figures.js');
-    const plots = await g(() => page.evaluate(fpLocked.READ), `read function plots${label}`);
-    if (!plots.some((p) => p.pending)) return;
-    const deviceScaleFactor = await g(() => page.evaluate(() => window.devicePixelRatio), `read pixel ratio${label}`);
-    const key = JSON.stringify([deviceScaleFactor, plots.map(({ config, w, h }) => [config, w, h])]);
-    let drawn = hostDrawnMemo.get(key);
-    if (!drawn) {
-      try {
-        drawn = await g(async () => {
-          const ready = await plotterReady;
-          if (ready.error) throw ready.error;
-          return ready.plotter.draw(plots, { deviceScaleFactor });
-        }, `draw function plots${label}`);
-        hostDrawnMemo.set(key, drawn);
-      } catch (e) {
-        // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
-        // rather than left for the barrier to close at the end of its budget (the checker).
-        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}) — they export showing their source.`);
-        const { releaseFigure } = require('./lib/plugins/host-browser.mjs');
-        const { fromBase64 } = require('./lib/core/base64-utf8');
-        await g(() => page.evaluate(`(() => { const releaseFigure = ${releaseFigure.toString()}; const fromBase64 = ${fromBase64.toString()};
-          for (const el of document.querySelectorAll('[data-lattice-hydrate="function-plot"][data-lattice-settle="pending"]:not([data-lattice-final])')) releaseFigure(el, fromBase64, true); })()`), `release function plots${label}`);
-        return;
-      }
-    }
-    await g(() => page.evaluate(fpLocked.SANITIZER()), `sanitizer for function plots${label}`);
-    await g(() => page.evaluate(fpLocked.WRITE, drawn), `write function plots${label}`);
-  };
   const awaitPluginFigures = async (label) => {
     if (!hasHydratedPlugins) return;
-    await drawHostFigures(label);
+    // A host-drawn figure is drawing already, through the page's draw host (installed above); the barrier waits for it.
     const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
     if (closed && !QUIET) {
       console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);

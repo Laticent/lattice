@@ -194,3 +194,42 @@ Playground before and after.
 - The full list of decks whose export bytes move in slice 3; the corpus differential produces it.
 - Whether `lib/export/marp-bundle.js` and `marp-fidelity.js` scan source for fences: a grep matched them, unread.
 - The ~150-line estimate for Mermaid's hydrate shrinking is a reading of `mermaid.hydrate.js`, not a measured diff.
+
+## 9. Progress (one PR for all four slices, branch `claude/d2-deferred-figures-x06qzv`)
+
+**Slice 1 — the host's flicker protections (done).** `lib/plugins/figure-scope.mjs` holds the slide scope key (moved
+from Mermaid, handed to its pass as `ctx.scopeKey`); `lib/plugins/host-browser.mjs` `settleSwap` remembers and holds a
+deferred figure's drawing in the swap's microtask. Real Studio, function-plot slide, blank frames per 6 keystrokes: in
+the heading 16/19/15 → 0/0/0, in the plot's config 24/25 → 0/0/0. **Mermaid keeps its own cache and hold** (owner,
+2026-11-06): its cache carries replayable binders (tooltips, gantt links) that cloned nodes cannot, and a host
+"re-attach" hook would have one user. Details: `2026-09-05-diagram-fence-flash.md` §9.
+
+**Slice 2 — the export draws through the preview's path (done).** §4 step 1 planned a manifest-driven version of
+`locked-figures.js`'s own read-draw-write loop. Building it found a shorter road: the preview's draw frame already runs a
+**per-plugin draw adapter** from the manifest (`lib/plugins/draw-frame-libraries.generated.mjs`, the frame kernel
+`lib/packages/draw-frame-core.mjs`), which is §3's `draw(job)` already built. So the CLI no longer has a figure loop:
+
+1. the capture page keeps each host-drawn plugin's real `hydrate` (`lib/plugins/hydrate-script.js` `hostDrawn`), so the
+   plugin builds its own draw job and calls `ctx.drawInto`, exactly as in the Studio;
+2. the page's draw host (`lib/export/locked-figures.js` `exportDrawHostScript`, installed before the page's scripts run)
+   sends the job through one exposed function to a **locked page that runs the plugin's own draw-frame document**
+   (`openDrawPage`: the same adapter, hash-pinned script policy and reply check as the preview; the library checked
+   against its pinned SHA-256), at the capture page's pixel ratio, remembered per job for re-navigations;
+3. the answer is sanitized in the capture page (`SANITIZER`, the slide sanitizer, as before) and written by the host's
+   one sanctioned sink (`drawInto`, HARD RULE #22). The old `WRITE` sink and its read loop are gone;
+4. which plugins this covers comes from the manifests (`hostDrawnKinds`: a `draw` section with an inlined library), not a
+   name in `lattice.js`. A locked page that cannot open releases its figures showing their source, as before (the host's
+   `drawInto` now writes only a string, so a draw host can settle a figure itself by answering `null`).
+
+**Evidence: byte-identical exports.** Three function-plot decks (`examples/plugin-sandbox-tour.md`,
+`math-form-frame.md`, `plugin-system-phase-b.md`) exported to PDF, PNG and `--player` HTML before and after: 32 files,
+all identical. (A first comparison showed 4 bytes moved in one deck: a Mermaid gantt's `today` line, which moves with
+the clock between runs hours apart; old and new code exported back to back are identical.) A second run of the old code
+was identical too, so the comparison has teeth. Tests: test/integration/export/function-plot-locked.test.js (draw, 2x
+pixel ratio, sanitize, release, the real CLI), test/integration/export/draw-frame.test.js (the preview's frame and the
+CLI's locked page agree byte for byte), test/unit/plugins/hydrate-host.test.js (the capture page's job goes through the
+draw host and never a library in the page).
+
+**Slices 3 and 4 — not started.** Mermaid's frame loads its library as modules (`esm`), so slice 3 serves that module
+tree to the locked page, moves Mermaid's export onto this path and retires `bake`; export bytes move there, and the owner
+signs off on dark and light renders.
