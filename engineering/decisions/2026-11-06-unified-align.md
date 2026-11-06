@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 date: 2026-11-06
 summary: One front-matter key, `align:`, sets where a slide's content sits, on both axes, at deck and slide level, in everyday words modeled on flexbox. Each component declares its default in its manifest, used when the deck omits the key. It replaces the `cards:` register outright (no alias; not GA) and the stage `align-*` classes become its per-slide form. A split run's pages share one alignment, so turning a page never moves the content. Built in PR #2988.
 ---

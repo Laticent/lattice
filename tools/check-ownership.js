@@ -3750,6 +3750,17 @@ const CANONICAL_LAYER_ORDER = [
 const SANCTIONED_KATEX_ONLY = [
   {
     file: 'lib/components/math/math/math.styles.css',
+    selector: 'section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .katex-display > .katex',
+    why:
+      'KaTeX-only by design. It lifts KaTeX\'s own `white-space: nowrap` on display math so an equation '
+      + 'wraps at the slide\'s real width off 16:9, at the safe points `breakableTex` leaves (owner, '
+      + '2026-11-06). The wrap is between KaTeX\'s inline `.base` groups; marp-core\'s MathJax emits one '
+      + 'SVG per equation, which no white-space rule can break, so a mjx- half would match a box with '
+      + 'nothing to wrap. The display SIZE is paired: `--math-display` reaches both through every '
+      + 'variant\'s `:is(.katex-display > .katex, mjx-container[display="true"] > svg)` rule.',
+  },
+  {
+    file: 'lib/components/math/math/math.styles.css',
     selector: 'section.math.form.compare > .cell-stage .katex .katex-mathml',
     why:
       'KaTeX-only by design. This pins KaTeX\'s hidden MathML alternative out of the '

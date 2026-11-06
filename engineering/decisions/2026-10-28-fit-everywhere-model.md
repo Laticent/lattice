@@ -1120,3 +1120,14 @@ Those 128 sit in components with no narrow form (legal, the grids, the compariso
 owner ruled they are fixed in this PR before the merge ask, component by component. The same
 round set two more rulings: measuring becomes the default way slides split, for every deck, and
 the nightly fit check gains the phone venue with today's clip count as its baseline.
+
+**Display math wraps at the real width, at one size (2026-11-06).** The owner asked whether the math
+library could help. KaTeX does not break display math, but its line breaking after top-level relations
+and binary operators works in display mode once its `white-space: nowrap` is lifted. A prototype set
+every gallery equation at 1.4 x body and let KaTeX wrap it in a square and a portrait box: nothing
+overflowed. `breakableTex` (tex-linebreak.js) now regroups each display equation off 16:9 so the only
+top-level operators left are the safe ones the old reflow trusted, and math.styles.css lifts the nowrap
+and routes every variant's display size through `--math-display`, `1.4 x --fs-body` off 16:9. It replaced
+the `aligned` reflow and its smaller sizes. Math gallery at square, phone: the long logistic equation and
+the compare columns fit; the stats hero still clips (a layout bug, fixed separately).
+
