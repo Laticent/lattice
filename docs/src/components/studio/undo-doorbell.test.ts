@@ -48,7 +48,7 @@ describe('the undo doorbell', () => {
 	it('rings when the browser has nothing to undo and Filo does, then puts focus and the caret back', () => {
 		const bell = createUndoDoorbell({ canUndo: () => true });
 		expect(bell.arm()).toBe(true);
-		expect(inserted).toEqual(['bell:​']);
+		expect(inserted).toEqual(Array(10).fill('bell:​'));
 		expect(document.activeElement).toBe(editor);
 		expect(getSelection()?.getRangeAt(0).startOffset).toBe(5);
 		expect(editor.textContent).toBe('Hello world');

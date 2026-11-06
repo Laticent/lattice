@@ -1797,12 +1797,14 @@ never turn "passed in headless" into "works on iOS."
   in-place patch path, and every wipe caught came with a mid-session remount, `followups.d/3040-p4`). The frame lab in `docs/scripts/ios-safari/undo-probe.js` measured it on
   real iOS Simulators; macOS Safari never empties its stack this way.
 - **Fix** — the undo doorbell (`docs/src/components/studio/undo-doorbell.ts`, installed by `StudioShell` on iOS and
-  iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
+  iPadOS only) re-arms WebKit's stack with ten invisible edits, each its own undo step, in a hidden `data-filo-owned` field, then puts focus and
   the caret back. Two traps it already avoids: never ring while WebKit holds a REDO step (the edit empties redo, and
   the redo gesture stops reaching Filo), and never ring on desktop WebKit, which undoes the bell's own step without a
   beforeinput, so a ⌘Z would go to the bell instead of Filo. A ring moves focus to the bell and straight back, which
   fires a real `blur` on the editor: an editor's leave-work (CodeMirror's format-on-blur, Compose's parked resync and
   selection bar) must skip it with `blurToDoorbell(e)` (`studio-filo.ts`), and any NEW blur handler on a Filo-owned
   editable needs the same check. The bell also waits while a finger is down, a selection (not a caret) is up, a
-  completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
-  bell's step then sits on WebKit's redo list, and re-ringing would empty it), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+  completion list is open or an IME is composing, and backs off after 3 rings that did not take. After a wipe, up to ten gesture undos in a row reach Filo (each spends one of
+  the bell's steps onto WebKit's redo list, and the bell will not re-ring while redo holds one: that would empty it).
+  WebKit merges back-to-back typing into one undo step, so the bell moves the caret between its edits. A ring also
+  closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.

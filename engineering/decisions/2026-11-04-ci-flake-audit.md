@@ -100,7 +100,7 @@ in-place patch path, and whether that remount is needed is `followups.d/3040-p4`
 simulators showed that adding a frame, a new `srcdoc` frame or a `srcdoc` rewrite empties iOS WebKit's undo stack, while
 `document.write` and an in-place body change do not, and macOS Safari never does. Filo owns the history, but iOS only
 sends a gesture's `historyUndo` while WebKit's own stack has a step. The fix is `undo-doorbell.ts`, installed on iOS and
-iPadOS: one invisible edit in a hidden `data-filo-owned` field re-arms the stack after a frame load, on focus, when
+iPadOS: ten invisible edits (separate undo steps) in a hidden `data-filo-owned` field re-arms the stack after a frame load, on focus, when
 Filo's history gains its first step and on a 400 ms re-check, then focus and the caret go back. It never rings while
 WebKit holds a redo step (the first version did, and redo stopped reaching Filo on every device: dispatch
 42094642587), during an IME composition, or on desktop WebKit, which undoes the bell's own step without a beforeinput. A checker

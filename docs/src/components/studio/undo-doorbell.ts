@@ -14,7 +14,7 @@
  * gesture. A reloaded page also starts empty while Filo restores its stored history (the macOS
  * after-reload gap, followups.d/2959-p3).
  *
- * The doorbell re-arms the native stack in those moments: one invisible edit in a hidden editable the
+ * The doorbell re-arms the native stack in those moments: ten invisible edits (separate undo steps) in a hidden editable the
  * Studio owns (`data-filo-owned`, so `undoOwner` still routes the request to Filo), then focus and the
  * caret go back exactly where they were. It never touches the deck's text and never runs while the
  * native stack already has an undo or a redo step, Filo has nothing to undo, or focus is not in an
@@ -33,6 +33,8 @@ export type UndoDoorbell = {
 
 /** The bell's text is a run of zero-width spaces; it is trimmed back once it grows past this. */
 const MAX_BELL_TEXT = 64;
+/** Separate undo steps one ring arms: how many gesture undos in a row reach Filo after a wipe. */
+const STEPS = 10;
 /** After this many rings in a row that left WebKit's undo off, ring at most once per BACKOFF_MS. */
 const MAX_MISSES = 3;
 const BACKOFF_MS = 10_000;
@@ -138,9 +140,15 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 				if ((el.textContent ?? '').length > MAX_BELL_TEXT) el.textContent = '';
 				el.focus({ preventScroll: true });
 				const s = doc.getSelection();
-				s?.selectAllChildren(el);
-				s?.collapseToEnd();
-				doc.execCommand('insertText', false, '​');
+				// STEPS separate steps, not one: WebKit merges back-to-back typing into a single undo step, and moving
+				// the caret between the edits starts a new one. Each gesture undo spends one step (it moves to the
+				// redo list), so one step would let one gesture through after a wipe; this lets STEPS through.
+				for (let i = 0; i < STEPS; i++) {
+					s?.selectAllChildren(el);
+					if (i % 2) s?.collapseToStart();
+					else s?.collapseToEnd();
+					doc.execCommand('insertText', false, '​');
+				}
 			} finally {
 				active.focus({ preventScroll: true });
 				const s = doc.getSelection();

@@ -488,6 +488,37 @@ async function latticeUndoProbe() {
 		}
 		for (const f of labFrames) f.remove();
 		k.step('focus in a plain text field after a ring: what a WebKit undo reaches (recorded, not asserted)', true, `\n    ${fieldRows.join('\n    ')}`);
+
+		// REPEATED GESTURES AFTER A WIPE (followups.d/3040-p5). Each gesture undo spends one native step, so the bell arms
+		// several (undo-doorbell.ts STEPS). Three words as three Filo steps, a forced wipe, then three undo commands and
+		// three redo commands in a row: does each reach Filo and take back, then bring back, one word? Recorded.
+		{
+			const words = [' R1', ' R2', ' R3'];
+			for (const w of words) {
+				await k.sleep(1500);
+				await k.type(w);
+				await k.until(() => k.deckText().includes(w), 15000, `repeat word ${w}`);
+			}
+			const full = k.deckText();
+			await k.sleep(300);
+			labFrame('<p>wipe</p>');
+			await k.sleep(700);
+			const trail = [];
+			for (let i = words.length - 1; i >= 0; i--) {
+				const fired = await k.command('undo');
+				const gone = await k.until(() => !k.deckText().includes(words[i]), 3000, 'repeat undo').then(() => true, () => false);
+				trail.push(`undo ${words.length - i}: ${fired || 'NONE'}, ${words[i].trim()} gone ${gone}`);
+			}
+			for (let i = 0; i < words.length; i++) {
+				const fired = await k.command('redo');
+				const back = await k.until(() => k.deckText().includes(words[i]), 3000, 'repeat redo').then(() => true, () => false);
+				trail.push(`redo ${i + 1}: ${fired || 'NONE'}, ${words[i].trim()} back ${back}`);
+			}
+			const reached = trail.filter((t) => /: history(Undo|Redo), R\d (gone|back) true/.test(t)).length;
+			k.step(`after a wipe, ${reached} of 6 gesture undos and redos in a row reached Filo and landed (recorded, not asserted)`, true, `${trail.join('; ')}; deck back to all three words ${k.deckText() === full}`);
+			for (const f of labFrames) f.remove();
+			await restoreDeck();
+		}
 		result.events = [];
 
 		// A new step: well past the 500 ms typing window, so the word does not join the paste on a slow runner.
@@ -537,6 +568,62 @@ async function latticeUndoProbe() {
 		result.ok = true;
 	} catch (e) {
 		result.error = String(e?.message ?? e);
+	}
+	return result;
+}
+
+/**
+ * The on-screen keyboard through a doorbell ring (followups.d/3040-p5). run.mjs taps the deck editor for real first, so
+ * iOS raises its keyboard as for a person. Then: type a word, force the wipe the live preview causes, and watch the
+ * visible viewport (it shrinks by the keyboard's height) on every frame for 2.5 s. A keyboard that hid and came back on
+ * the bell's focus round-trip shows as a height change. Recorded, not asserted.
+ */
+async function latticeUndoKeyboard() {
+	const result = { ua: navigator.userAgent, width: innerWidth, steps: [], ok: true };
+	const k = undoProbeKit(result);
+	try {
+		const vv = () => Math.round(globalThis.visualViewport?.height ?? innerHeight);
+		const bell = () => document.querySelector('[data-undo-doorbell]')?.textContent.length ?? 0;
+		const ed = document.querySelector('.cm-content');
+		const tapped = !!ed && ed.contains(document.activeElement);
+		await k.sleep(800);
+		const kbHeight = innerHeight - vv();
+		await k.sleep(1200);
+		const word = ' KB';
+		document.execCommand('insertText', false, word);
+		await k.until(() => k.deckText().includes(word), 15000, 'the keyboard word');
+		await k.sleep(300);
+		const heights = new Set();
+		let left = 0;
+		let samples = 0;
+		const rang = bell();
+		const t0 = performance.now();
+		const frame = document.createElement('iframe');
+		frame.srcdoc = '<p>wipe</p>';
+		frame.style.cssText = 'position:fixed;left:-50px;top:0;width:10px;height:10px;opacity:0';
+		document.body.appendChild(frame);
+		await new Promise((done) => {
+			const tick = () => {
+				samples++;
+				heights.add(vv());
+				if (!ed.contains(document.activeElement)) left++;
+				if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
+				else done();
+			};
+			requestAnimationFrame(tick);
+		});
+		// Read before the test frame goes: removing a frame can empty WebKit's list again.
+		const undoAfter = document.queryCommandEnabled('undo');
+		frame.remove();
+		const list = [...heights].sort((a, b) => a - b);
+		k.step(
+			'the on-screen keyboard through a doorbell ring (recorded, not asserted)',
+			true,
+			`editor focused by a real tap ${tapped}; keyboard height ${kbHeight} px (0 = no on-screen keyboard); the bell rang ${bell() - rang} edits; visible heights over ${samples} frames: ${list.join(', ')} px; frames with focus outside the editor ${left}; undo enabled at the end ${undoAfter}`,
+		);
+		result.keyboard = { tapped, kbHeight, heights: list, rangEdits: bell() - rang, left };
+	} catch (e) {
+		k.step('the on-screen keyboard through a doorbell ring (recorded, not asserted)', true, `could not run: ${String(e?.message ?? e)}`);
 	}
 	return result;
 }

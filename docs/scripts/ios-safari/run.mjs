@@ -254,6 +254,23 @@ async function runUndoProbe(id) {
 	await wd('POST', `/session/${id}/refresh`, {});
 	const second = await run(`latticeUndoAfterReload(${JSON.stringify(first.before)}, ${JSON.stringify(first.after)})`);
 	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	if (!MAC) {
+		// The on-screen keyboard through a ring (undo-probe.js latticeUndoKeyboard): a real tap on the deck editor first, so
+		// iOS raises its keyboard as it does for a person; a scripted focus does not. Recorded, never fails the run.
+		try {
+			await wd('POST', `/session/${id}/execute/async`, {
+				script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeShowDeckEditor().then(() => done(true), (e) => done(String(e)));`,
+				args: [],
+			});
+			const found = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: '.cm-content' });
+			const ref = found['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(found)[0];
+			await wd('POST', `/session/${id}/element/${ref}/click`, {});
+			const kb = await run('latticeUndoKeyboard()');
+			steps.push(...(kb.steps || []).map((s) => ({ ...s, name: `keyboard · ${s.name}` })));
+		} catch (e) {
+			steps.push({ name: 'keyboard · the on-screen keyboard through a doorbell ring (recorded, not asserted)', pass: true, detail: `could not run: ${String(e?.message ?? e).slice(0, 300)}` });
+		}
+	}
 	let ok = !!second.ok;
 	let error = second.error;
 	if (MAC) {
