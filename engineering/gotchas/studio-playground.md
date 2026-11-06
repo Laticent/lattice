@@ -1793,7 +1793,8 @@ never turn "passed in headless" into "works on iOS."
 - **Cause** — Filo owns the history, but iOS sends a gesture's `historyUndo` beforeinput only while WebKit's OWN undo
   stack has a step, and iOS WebKit empties that stack on any frame navigation in the page: adding a frame, a new
   `srcdoc` frame, or a `srcdoc` rewrite (`document.write` and an in-place body change do not). The live preview does
-  exactly that (`single-slide-render.ts`). The frame lab in `docs/scripts/ios-safari/undo-probe.js` measured it on
+  that when it mounts or remounts its frame and on its rarer full writes (`single-slide-render.ts`; typing takes the
+  in-place patch path, and every wipe caught came with a mid-session remount, `followups.d/3040-p4`). The frame lab in `docs/scripts/ios-safari/undo-probe.js` measured it on
   real iOS Simulators; macOS Safari never empties its stack this way.
 - **Fix** — the undo doorbell (`docs/src/components/studio/undo-doorbell.ts`, installed by `StudioShell` on iOS and
   iPadOS only) re-arms WebKit's stack with one invisible edit in a hidden `data-filo-owned` field, then puts focus and
@@ -1803,4 +1804,5 @@ never turn "passed in headless" into "works on iOS."
   fires a real `blur` on the editor: an editor's leave-work (CodeMirror's format-on-blur, Compose's parked resync and
   selection bar) must skip it with `blurToDoorbell(e)` (`studio-filo.ts`), and any NEW blur handler on a Filo-owned
   editable needs the same check. The bell also waits while a finger is down, a selection (not a caret) is up, a
-  completion list is open or an IME is composing, and backs off after 3 rings that did not take. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+  completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
+  bell's step then sits on WebKit's redo list, and re-ringing would empty it), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.

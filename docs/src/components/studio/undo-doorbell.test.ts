@@ -108,11 +108,37 @@ describe('the undo doorbell', () => {
 		bell.dispose();
 	});
 
+	it('forgets a pointer whose pointerup never came', () => {
+		vi.useFakeTimers();
+		const bell = createUndoDoorbell({ canUndo: () => true });
+		document.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerId: 7 }));
+		expect(bell.arm()).toBe(false);
+		vi.advanceTimersByTime(6000);
+		expect(bell.arm()).toBe(true);
+		bell.dispose();
+		vi.useRealTimers();
+	});
+
+	it('keeps the editor keyboard settings and a 16px text size', () => {
+		const bell = createUndoDoorbell({ canUndo: () => true });
+		bell.arm();
+		const el = document.querySelector('[data-undo-doorbell]') as HTMLElement;
+		expect([el.getAttribute('autocorrect'), el.getAttribute('autocapitalize'), el.getAttribute('spellcheck')]).toEqual(['off', 'off', 'false']);
+		expect(el.style.fontSize).toBe('16px');
+		bell.dispose();
+	});
+
 	it('backs off when its edit never takes', () => {
 		document.execCommand = vi.fn(() => true); // WebKit refuses: undo stays off
 		const bell = createUndoDoorbell({ canUndo: () => true });
 		const rang = Array.from({ length: 6 }, () => bell.arm());
 		expect(rang).toEqual([true, true, true, false, false, false]);
+		// Once WebKit's list works again, the misses are forgotten.
+		enabled = true;
+		bell.arm();
+		enabled = false;
+		document.execCommand = vi.fn(() => true);
+		expect(bell.arm()).toBe(true);
 		bell.dispose();
 	});
 

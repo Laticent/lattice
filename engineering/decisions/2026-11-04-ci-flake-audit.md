@@ -94,7 +94,9 @@ continuation PR.
 faults. (1) The deck editor rebuilt its CodeMirror view when the component list arrived, a moment after the Studio
 painted, so WebKit's undo step pointed at the removed DOM: `Editor.tsx` now updates the lint in place, and the iPad
 rebuild went from 3 of 5 runs to 0 of 10. (2) WebKit's undo turned off 0.4 to 0.9 s after a typed word, in 7 of 312
-recorded iOS cycles. A frame tracker in `undo-probe.js` tied it to the live preview: a "frame lab" on the real
+recorded iOS cycles. A frame tracker in `undo-probe.js` tied it to the live preview: every wipe it caught came with the preview
+remounting its frame (a second `iframe.live`, then 5 to 9 `srcdoc` writes in one millisecond; typing itself takes the
+in-place patch path, and whether that remount is needed is `followups.d/3040-p4`), and a "frame lab" on the real
 simulators showed that adding a frame, a new `srcdoc` frame or a `srcdoc` rewrite empties iOS WebKit's undo stack, while
 `document.write` and an in-place body change do not, and macOS Safari never does. Filo owns the history, but iOS only
 sends a gesture's `historyUndo` while WebKit's own stack has a step. The fix is `undo-doorbell.ts`, installed on iOS and

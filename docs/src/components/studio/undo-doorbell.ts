@@ -36,6 +36,8 @@ const MAX_BELL_TEXT = 64;
 /** After this many rings in a row that left WebKit's undo off, ring at most once per BACKOFF_MS. */
 const MAX_MISSES = 3;
 const BACKOFF_MS = 10_000;
+/** A pointer held longer than this is taken as lifted, its `pointerup` lost. */
+const POINTER_STALE_MS = 5_000;
 
 function nativeEnabled(doc: Document, command: 'undo' | 'redo'): boolean | null {
 	try {
@@ -64,13 +66,20 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 		composing = false;
 	};
 	// A finger or pen on the screen: a long-press selection, a handle drag, a callout menu. A ring then would
-	// move focus mid-gesture, so it waits for the next trigger.
-	const pointers = new Set<number>();
+	// move focus mid-gesture, so it waits for the next trigger. Each pointer is kept with the time it went down,
+	// and one held longer than POINTER_STALE_MS counts as lifted: a `pointerup` that never reached this document
+	// (the touched node was removed, the finger lifted over a frame) must not silence the bell for good.
+	const pointers = new Map<number, number>();
 	const onPointerDown = (e: PointerEvent) => {
-		pointers.add(e.pointerId);
+		pointers.set(e.pointerId, Date.now());
 	};
 	const onPointerUp = (e: PointerEvent) => {
 		pointers.delete(e.pointerId);
+	};
+	const pointerHeld = () => {
+		const now = Date.now();
+		for (const [id, at] of pointers) if (now - at > POINTER_STALE_MS) pointers.delete(id);
+		return pointers.size > 0;
 	};
 	// A ring that does not take (WebKit refused the edit) is retried at most once per BACKOFF_MS, so a
 	// browser that never registers it is not blurred and refocused every 400 ms.
@@ -93,18 +102,29 @@ export function createUndoDoorbell(opts: { canUndo: () => boolean; doc?: Documen
 		el.setAttribute('data-undo-doorbell', '');
 		el.setAttribute('aria-hidden', 'true');
 		el.tabIndex = -1;
-		el.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none;';
+		// The editor's own keyboard settings (CodeMirror sets these on its content), so a ring does not switch
+		// the iOS keyboard's autocorrect and capitals off and on; and 16px, under which iOS zooms into a field.
+		el.setAttribute('autocorrect', 'off');
+		el.setAttribute('autocapitalize', 'off');
+		el.setAttribute('spellcheck', 'false');
+		el.setAttribute('writingsuggestions', 'false');
+		el.style.cssText =
+			'position:fixed;left:-9999px;top:0;width:1px;height:1px;font-size:16px;opacity:0;overflow:hidden;pointer-events:none;';
 		doc.body.appendChild(el);
 		bell = el;
 		return el;
 	};
 	return {
 		arm() {
-			if (ringing || composing || pointers.size > 0 || !opts.canUndo()) return false;
-			if (misses >= MAX_MISSES && Date.now() - lastMiss < BACKOFF_MS) return false;
+			if (ringing || composing || pointerHeld() || !opts.canUndo()) return false;
 			// A step on WebKit's redo stack means a gesture undo just ran: an edit now would empty it, and the
 			// redo gesture would stop reaching Filo (iOS dispatch 42094642587).
-			if (nativeEnabled(doc, 'undo') !== false || nativeEnabled(doc, 'redo') !== false) return false;
+			if (nativeEnabled(doc, 'undo') !== false || nativeEnabled(doc, 'redo') !== false) {
+				// WebKit's own list works again (a ring took, or the author typed): forget earlier misses.
+				if (nativeEnabled(doc, 'undo') === true) misses = 0;
+				return false;
+			}
+			if (misses >= MAX_MISSES && Date.now() - lastMiss < BACKOFF_MS) return false;
 			const active = doc.activeElement;
 			if (!isFiloEditable(active)) return false;
 			// An open completion list closes on blur, and a selection (not a caret) is an author mid-choice.
