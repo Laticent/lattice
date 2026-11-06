@@ -60,5 +60,5 @@ export function setHiddenAt(source: string, s: SlideAt, hidden: boolean): DeckOp
 	if (!ix.units[s.unit]) return { source, active: s.unit };
 	const text = unitText(ix, s.unit);
 	if (slideSourceHidden(text) === hidden) return { source, active: s.unit };
-	return replaceSlide(source, s.unit, withHidden(text, hidden));
+	return replaceSlide(source, s.unit, withHidden(text, hidden), true);
 }

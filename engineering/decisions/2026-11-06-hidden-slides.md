@@ -99,7 +99,11 @@ line with it. Hide then writes `<!-- hide -->` as the block's first line; Show i
 the block back byte for byte unless it held hide lines of its own, which are gone. A hide the removal cannot see is
 outvoted at the end, `<!-- hide -->` or `<!-- _hide: false -->`, the last hide winning. Pinned by
 `deck-ops.hide.test.ts`. This write code lives in `hide-ops.ts`, which the Studio imports on the Hide or Show click:
-it parses the slide, and the Studio route's startup JavaScript sits at its ceiling.
+it parses the slide, and the Studio route's startup JavaScript sits at its ceiling. The idle warm-up
+(`studio-warm.ts`) fetches it early, even under Save-Data, so the click works offline; if it still cannot load, the
+click says so. The click reads the deck when it happens, and if the deck changes before the code arrives (a keystroke,
+a Live peer), it asks for another click rather than hide the wrong block. Show keeps the block's first line as written,
+so an indented code block that followed the hide stays code.
 
 ## 5. Verification
 

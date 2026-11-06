@@ -202,13 +202,14 @@ export function deleteSlide(source: string, index: number): DeckOpResult {
 	return done(d, clampIndex(i, n - 1), identity(n).map((k) => (k < i ? k : k === i ? -1 : k - 1)));
 }
 
-/** Replace slide `index`'s body in place (e.g. after editing its speaker note). */
-export function replaceSlide(source: string, index: number, body: string): DeckOpResult {
+/** Replace slide `index`'s body in place (e.g. after editing its speaker note). `keepIndent` keeps the body's leading
+ *  whitespace, which Show slide needs: a block that opens with indented code must stay code. */
+export function replaceSlide(source: string, index: number, body: string, keepIndent = false): DeckOpResult {
 	const d = read(source);
 	const n = d.slots.length;
 	if (!n) return { source, active: 0, moved: [] };
 	const i = clampIndex(index, n);
-	d.slots[i].content = body.trim();
+	d.slots[i].content = keepIndent ? body.replace(/^\s*\n/, '').trimEnd() : body.trim();
 	d.slots[i].touched = true;
 	return done(d, i, identity(n));
 }

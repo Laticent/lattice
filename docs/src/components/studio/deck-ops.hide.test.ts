@@ -84,3 +84,10 @@ describe('hide / show a slide (2026-11-06-hidden-slides.md)', () => {
 		expect(withHidden('- a\n- b\n\n<!-- _hide: false -->\nNext para.', true)).toBe('<!-- hide -->\n- a\n- b\n\nNext para.');
 	});
 });
+
+describe('Show slide keeps the block\'s first line as written (the third checker\'s finding)', () => {
+	it('an indented code block that follows the hide stays code', () => {
+		const deck = '# A\n\n---\n\n<!-- hide -->\n    code line\n\n---\n\n# C\n';
+		expect(setHiddenAt(deck, { unit: 1, part: 0 }, false).source).toBe('# A\n\n---\n\n    code line\n\n---\n\n# C\n');
+	});
+});
