@@ -79,7 +79,7 @@ describe('virtualClock', () => {
     assert.deepEqual(seen, ['a', 'frame', 'b', 'c']);
     assert.equal(now(), 110);
     assert.equal(win.performance.now(), 110, 'the window reads the virtual time too');
-    assert.equal(win.Date.now() - win.Date.now(), 0, 'and its Date does not move between reads');
+    assert.equal(win.Date.now(), Date.UTC(2026, 0, 1) + 110, 'and so does its Date, from a fixed epoch');
   });
 
   test('work that never stops is an error, not a hang', async () => {
