@@ -1438,6 +1438,8 @@ Per slide, a word on one axis replaces the deck's word on that axis only:
   the same floor.
 - **Each `divider` carries it, lit on the section it opens.** The divider names the section in
   display type, so it is where a reader learns what the marks mean. Content slides then repeat it.
+- **A `divider numbered` does not either.** Its numeral already says which section this is, and
+  the variant clears its chrome to keep the bands around that numeral empty.
 - **A `topic` slide does not.** It already draws its own track, one level down (the topics inside
   this section), and two unlabeled scales on one slide is the confusion the rail is meant to remove.
 

@@ -142,6 +142,17 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     assert.deepEqual(lit, [0, 1, 2]);
   });
 
+  test('a `divider numbered` carries no rail — its numeral already says which section this is', () => {
+    const html = deckHtml([sec('divider numbered', '<h2>One</h2>'), sec('content form'), sec('divider', '<h2>Two</h2>')]);
+    const out = progress.applyToHtml(html);
+    const d = doc(html);
+    progress.applyToDom(d);
+    for (const [arm, root] of [['string', doc(out)], ['DOM', d]]) {
+      assert.equal(root.querySelector('section.numbered .tile-progress'), null, `${arm} arm: numbered divider`);
+      assert.equal(root.querySelectorAll('.tile-progress').length, 2, `${arm} arm: the content slide and the plain divider`);
+    }
+  });
+
   test('non-form, non-divider slides get no rail — a `topic` already draws its own track', () => {
     const html = deckHtml([sec('divider no-progress', '<h2>S</h2>'), sec('content'), sec('topic'), ENDER]);
     assert.ok(!/tile-progress/.test(progress.applyToHtml(html)));

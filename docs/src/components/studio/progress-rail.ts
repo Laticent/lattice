@@ -4,6 +4,8 @@
 // docs build cannot import (CJS with its own require); progress-rail.test.ts pins every word and its
 // order to the engine's register, so the two cannot drift.
 
+import { axisLineValue, parseAxisLine } from './axis-line';
+
 export type ProgressRailAxis = 'placement' | 'style' | 'show';
 export type ProgressRailWords = Partial<Record<ProgressRailAxis, string>>;
 
@@ -20,19 +22,11 @@ export const PROGRESS_RAIL_AXIS_ORDER: readonly ProgressRailAxis[] = AXES.map((a
 export const progressRailWords = (axis: ProgressRailAxis): string[] => [...(AXES.find((a) => a.axis === axis)?.names ?? [])];
 
 /** The deck's current words, by axis: the first recognized word on each axis, as the kernel reads it. */
-export function parseProgressRail(value: string): ProgressRailWords {
-	const out: ProgressRailWords = {};
-	for (const word of value.trim().toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
-		const hit = AXES.find((a) => a.names.includes(word));
-		if (hit && !out[hit.axis]) out[hit.axis] = word;
-	}
-	return out;
-}
+export const parseProgressRail = (value: string): ProgressRailWords => parseAxisLine(AXES, value);
 
 /** Words → the line's value: axis order, every DEFAULT word dropped, `''` when nothing is left (the
  *  caller then drops the key). `on` is a default too — the rail shows unless a deck says `off`. */
-export const progressRailValue = (words: ProgressRailWords): string =>
-	PROGRESS_RAIL_AXIS_ORDER.map((a) => (words[a] && words[a] !== progressRailWords(a)[0] ? words[a] : '')).filter(Boolean).join(' ');
+export const progressRailValue = (words: ProgressRailWords): string => axisLineValue(AXES, words, true);
 
 const LABELS: Record<string, string> = {
 	right: 'Beside the page number', center: 'Footer center', edge: 'Right edge',
