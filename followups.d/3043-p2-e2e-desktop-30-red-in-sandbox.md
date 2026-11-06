@@ -33,13 +33,13 @@ left      — each needs a decision, not a test edit:
             - playground-paint.spec.ts:230: the first-paint snapshot is 122,947 units against 122,880, a real 67-unit
               overrun; the budget is not loosened (HARD RULE #14).
             - studio-warm-offline.spec.ts:80: the starter deck's only math is inside inline code, so the warm-up rightly
-              never fetches KaTeX; the test needs a deck with real math. :132: the offline Mermaid fence is never found
-              (may touch D2's draw path; not investigated).
+              never fetches KaTeX; the test needs a deck with real math. (:132 is diagnosed below.)
             - venue-fixed-size.spec.ts:104: a real defect, filed on its own (followups.d/*-new-slide-covers-clip-notice.md).
             - deck-register-gap.spec.ts:99: red only under full-suite load; 0 of 8 runs at 4 workers. Cause unknown.
-            - measured 2026-11-06, each run alone (--workers=1), each red every time, with its first error. The three
-              marked (main) were green at 8a755f69 and are red on a clean checkout of main 867e0fff, so a commit on main
-              between them broke them (#3048 or #3054 touched the Studio):
+            - measured 2026-11-06, each run alone (--workers=1), each red every time, with its first error, and EVERY ONE
+              of them, with the ones above, also red on a clean checkout of main 867e0fff (its own docs build; 15 failed,
+              14 passed). The three marked (main) were green at 8a755f69, so a commit on main between the two broke them
+              (#3048 or #3054 touched the Studio):
               - (main) strip-keyboard.spec.ts:51: Mod+D on a focused strip slide duplicates nothing (order stays
                 "Alpha Bravo Charlie Delta"); the handler is StudioShell.tsx `runStripShortcut`.
               - (main) strip-menu.spec.ts:106: "New slide after" from the strip menu, a `toMatch` on the source.
