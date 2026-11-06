@@ -218,8 +218,17 @@ the heading 16/19/15 → 0/0/0, in the plot's config 24/25 → 0/0/0. **Mermaid 
 3. the answer is sanitized in the capture page (`SANITIZER`, the slide sanitizer, as before) and written by the host's
    one sanctioned sink (`drawInto`, HARD RULE #22). The old `WRITE` sink and its read loop are gone;
 4. which plugins this covers comes from the manifests (`hostDrawnKinds`: a `draw` section with an inlined library), not a
-   name in `lattice.js`. A locked page that cannot open releases its figures showing their source, as before (the host's
-   `drawInto` now writes only a string, so a draw host can settle a figure itself by answering `null`).
+   name in `lattice.js`. When the HOST fails (its locked page cannot open, or breaks while drawing) the figures export
+   showing their source with one warning, as before; when the PLUGIN fails (a bad config) its error text shows, as
+   before. The host's `drawInto` now writes only a string, so a draw host settles a released figure itself by answering
+   `null`. (The first cut released only on a failed open; a page that broke mid-draw baked `functionplot error: Protocol
+   error…` into the PDF with no warning. The maker-checker found it; test/unit/export/export-draw-host.test.js pins it.)
+
+**The maker-checker on all four slices** found no security or correctness defect blocking merge, and two regressions,
+both fixed: the crash path above, and a remembered drawing replayed at its OLD SIZE when a slide's box changed width
+without its scope changing (function-plot bakes `cfg.width || rect.width` into the SVG). The memory key now carries the
+placeholder's size, so a different box is a miss and the figure is drawn again
+(test/unit/plugins/figure-memory.test.js).
 
 **Evidence: byte-identical exports.** Three function-plot decks (`examples/plugin-sandbox-tour.md`,
 `math-form-frame.md`, `plugin-system-phase-b.md`) exported to PDF, PNG and `--player` HTML before and after: 32 files,

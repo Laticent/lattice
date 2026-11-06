@@ -54,6 +54,17 @@ describe('the host remembers a finished drawing', () => {
     assert.deepEqual(draws, ['QQ=='], 'a remembered figure is not drawn again');
   });
 
+  test('a box of another size misses: the drawing is never replayed at the wrong size', () => {
+    const { doc, host, draws } = setup();
+    const records = swap(doc, fig('QQ=='));
+    // jsdom lays out nothing, so give the arriving placeholder a box the remembered one did not have.
+    figure(doc).getBoundingClientRect = () => ({ width: 640, height: 360 });
+    host.settleSwap(records, null);
+    assert.equal(figure(doc).getAttribute('data-lattice-settle'), 'pending');
+    host.run();
+    assert.deepEqual(draws, ['QQ==', 'QQ=='], 'drawn again at the size it now has');
+  });
+
   test('a slide whose colors differ misses: the drawing is never reused across scopes', () => {
     const { doc, host } = setup();
     host.settleSwap(swap(doc, fig('QQ==', 'content dark')), null);
