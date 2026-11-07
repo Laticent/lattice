@@ -2,7 +2,7 @@
 origin: 2988
 priority: P2
 recorded: 2026-11-07
-area: tests
+area: infra
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
 deferred: blocked — it did not reproduce: the test passed alone (79 s) and on the next commit attempt, and the hook's log carries only "test failed" with no assertion to start from
