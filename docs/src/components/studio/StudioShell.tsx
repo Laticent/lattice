@@ -72,13 +72,13 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL, readAlign, writeAlign } from './align-catalog';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
@@ -172,7 +172,7 @@ import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import type { UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
-import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
+import { defaultVenue, familyForAspect, deckVenue as readDeckVenue, smallerVenue, type VenueName, venueOption, venueOptionsFor, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
@@ -2546,17 +2546,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
-	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
-	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
-	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
-	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
+	// Align (`align:`) — where content sits, up and down and side to side. lib/core/resolve-align.js.
+	// Each axis's Auto is NOT any one word (each component decides), so Auto drops that word, and
+	// both Autos remove the key.
+	const deckAlign = readAlign(getFrontMatter(source, 'align'));
+	const setAlignAxis = (axis: 'v' | 'h') => (value: string) => {
+		const pick = value === AUTO_VALUE ? null : value;
+		const v = axis === 'v' ? pick : (deckAlign.v?.name ?? null);
+		const h = axis === 'h' ? pick : (deckAlign.h?.name ?? null);
+		const next = writeAlign(v, h);
+		settingsWrite(next ? `Align → ${next}` : 'Align → auto', (s) => writeFrontMatterLine(s, 'align', next));
+	};
 	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
-	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
-	// key. Writing the new key also drops the old one, so a deck never carries both.
+	// pack / heal / trim / report. lib/core/resolve-guards.js `fitPacks`; `pack` (measure and split)
+	// is the DEFAULT and writes no key, and every other level, `heal` included, is written by name
+	// (an absent key measures, so heal must be explicit). Writing the new key also drops the old
+	// one, so a deck never carries both.
 	const guards = activeGuards(getFrontMatterName(source, 'fit'), getFrontMatterName(source, 'guards')).name;
 	const setGuards = (value: string) => settingsWrite(`Fit → ${value}`, (s) => {
 		const withoutOld = writeFrontMatterLine(s, 'guards', null);
-		return writeFrontMatterLine(withoutOld, 'fit', value === 'heal' ? null : value);
+		return writeFrontMatterLine(withoutOld, 'fit', value === 'pack' ? null : value);
 	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
@@ -4890,6 +4899,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// observer and the stale one is torn down with it.
 	const previewRatio = sizeRatio(deckSize);
 	const previewRatioValue = previewRatio[0] / previewRatio[1];
+	// The deck's shape family: a square, tall or strip deck reads at the `phone` venue by default (venue.ts).
+	const deckFamily = familyForAspect(previewRatioValue);
 	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
 	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
 	// The zoom controller rides the SAME callback ref as the observer, and for the
@@ -5304,14 +5315,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// notice: that is where a clip comes from the room size the author picked, and where a smaller
 	// room is a fix. Every other overflow keeps the ring it always had.
 	const [slideClipped, setSlideClipped] = React.useState(false);
-	const clipVenue = venueOption(deckVenue);
+	// The venue the slide renders at: the deck's own, or its shape's default (phone on a social deck).
+	const clipVenue = venueOption(deckVenue ?? defaultVenue(deckFamily), deckFamily);
 	// Which smaller room to offer. Lint already knows the answer for a slide it has a budget for
 	// (`capacity-scale` names the largest venue that holds it, and says "Split" alone when no venue
 	// would), so the button follows lint and never offers a room the slide still clips in. With no
 	// finding for this slide (a clip lint has no budget for), it offers the next room down.
 	const clipLint = findings.find((f) => f.rule === 'capacity-scale' && f.slide === curIndex + 1);
 	const lintRoom = clipLint?.fix?.match(/set `venue: (laptop|huddle|conference|hall)`/)?.[1] as VenueName | undefined;
-	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom) : smallerVenue(deckVenue);
+	const clipDown = clipLint && !lintRoom ? null : lintRoom ? venueOption(lintRoom, deckFamily) : smallerVenue(deckVenue, deckFamily);
 	const opSplitForVenue = (split: (source: string, index: number) => { source: string; active: number } | null) => {
 		const prev = sourceRef.current;
 		const r = split(prev, curIndex);
@@ -6086,13 +6098,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</Field>
 	);
 	const venueField = (
-		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop scale" help={<>The type size for the room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
+		<Field label="Venue" desc="Where it is seen." find="venue room projector hall conference huddle laptop phone tablet social scale" help={<>The type size for where the deck is seen. A 16:9 deck is sized for a room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A square, portrait or story deck is read in a hand, so it defaults to Phone, and its steps are set for its shape. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
 			<CatalogSelect
 				ariaLabel="Choose deck venue"
 				className="w-full"
 				value={deckVenue ?? AUTO_VALUE}
 				onValueChange={(v) => setDeckVenue(v === AUTO_VALUE ? null : (v as VenueName))}
-				groups={withAutoHead([{ options: VENUES.map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: 'Designed size' })}
+				groups={withAutoHead([{ options: venueOptionsFor(deckFamily).map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: deckFamily === 'wide' ? 'Designed size' : `Phone · ${venueOption('phone', deckFamily)?.scale}x` })}
 			/>
 		</Field>
 	);
@@ -6208,11 +6220,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" className="w-full" {...autoField(activeClaim(claim).name, 'framed', setClaim, [{ options: catalogOptions(CLAIMS) }])} />
 					</Field>
-					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
-						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
+					<Field label="Align up and down" desc="Where content sits between the title and the floor." find="align vertical top middle bottom spread fill cards rows center" help={<><strong>Auto</strong> lets each layout choose. Written as <code>align: bottom</code>; a slide overrides it with <code>_class: align-top</code>.</>}>
+						<CatalogSelect ariaLabel="Choose vertical alignment" value={deckAlign.v?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('v')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_VERTICAL, glyphs('alignV')) }], { label: "Layout's own" }, { title: 'Each layout decides (no up-and-down word in align:).' })} />
 					</Field>
-					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
+					<Field label="Align side to side" desc="Where content sits between the edges." find="align horizontal left center right full" help={<><strong>Auto</strong> lets each layout choose. <code>align: center</code> alone centers both ways; a slide overrides it with <code>_class: align-right</code>.</>}>
+						<CatalogSelect ariaLabel="Choose horizontal alignment" value={deckAlign.h?.name ?? AUTO_VALUE} onValueChange={setAlignAxis('h')} className="w-full" groups={withAutoHead([{ options: catalogOptions(ALIGN_HORIZONTAL, glyphs('alignH')) }], { label: "Layout's own" }, { title: 'Each layout decides (no side-to-side word in align:).' })} />
+					</Field>
+					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose measure pack" help={<><strong>Measure and split</strong> (the default) measures each slide: one that fits stays one page, and one that overflows splits into as many items a page as fit. It never changes the type size — a venue is a fixed setting. <strong>Split by count</strong> splits by a set number of items a page, without measuring. <strong>Split by count and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'pack', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>

@@ -838,6 +838,8 @@ function sanitizeOnce(html: string): string {
 	}
 	return safe;
 }
+/** The measured-split module once a `fit: pack` slide has loaded it (lazy; never loaded for other decks). */
+let measuredSplitModule: typeof import('../lib/measured-split') | null = null;
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
@@ -1877,7 +1879,49 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				} else if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					// `firstSlide` is the shown slide's RENDERED number: after a split panes slide it is
 					// one past the source index, and the run's stamps must read as the PDF does.
-					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: renderedBase + 1 });
+					const splitOpts = { firstSlide: renderedBase + 1 };
+					const slideSource = opts.slideMarkdown;
+					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
+					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
+					// measure, plan and verify the CLI runs, in a hidden frame built as this one is, with the
+					// §11 memory so a slide does not re-split as the author types. Only a slide the
+					// structural split cuts can need it; the module loads on the first such slide. A failed
+					// load, or a frame that cannot be measured, keeps today's split.
+					// A slide that does not take the measured split calls off the host's pending pause
+					// measurement for the slide shown before it (once the lazy module has loaded).
+					if (!r.changed) measuredSplitModule?.cancelPendingMeasure(host);
+					if (r.changed) {
+						const ms = await import('../lib/measured-split').catch((e) => {
+							console.warn('lattice: the measured split could not load, so this slide keeps the structural split', e);
+							return null;
+						});
+						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						if (ms) measuredSplitModule = ms;
+						if (ms) {
+							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
+							// Decline, reuse, redraw while typing, or measure: measured-split.ts `previewPlan` (§17), lazy.
+							// The layout tag: stepping to another page of the same slide re-renders it, and the plan made
+							// for this exact text, box, mode and stylesheets (by HASH, as `memoKey` keys them, so an edit
+							// that keeps a sheet's length still measures again) and rendered number is reused.
+							const measured = await ms.previewPlan({
+								host,
+								key,
+								source: slideSource,
+								layoutTag: `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(out.css)}|${hashString(extraCss ?? '')}|${splitOpts.firstSlide}`,
+								// The whole slide as rendered now: a pause measurement runs after this render has narrowed
+								// `out.html` to the one page it shows.
+								html: out.html,
+								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
+								verdictConfig: PG.fitVerdictConfig?.(),
+								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
+								width: out.width || DEFAULT_W,
+								height: out.height || DEFAULT_H,
+								alive: () => !disposed && host.isConnected,
+							});
+							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+							if (measured) r = measured;
+						}
+					}
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);

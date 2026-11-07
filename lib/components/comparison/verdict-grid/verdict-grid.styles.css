@@ -28,11 +28,11 @@ section.verdict-grid > .cell-stage > ul {
    * crowded line just gets taller.
    * THIS USED TO STRETCH, which made a card holding one line of text as tall as the row and
    * left ~35% of it empty (#1979). This component now DECLARES its composition in its
-   * manifest (`cards`), the engine resolves it against the deck's `cards:` register and any
-   * per-slide `_class: cards-*`, and stamps the answer as `data-cards`. This declaration
+   * manifest (`align`), the engine resolves it against the deck's `align:` register and any
+   * per-slide `_class: cards-*`, and stamps the answer as `data-align`. This declaration
    * just reads the result — it carries no default of its own.
-   * lib/core/resolve-cards.js; the note's §10. */
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align);
+   * lib/core/resolve-align.js; the note's §10. */
+  display:flex; flex-wrap:wrap; align-content: var(--align-v);
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
 }
 section.verdict-grid > .cell-stage > ul > li {
@@ -98,7 +98,7 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
 /* The CODA arm that used to sit here is gone — `verdict-grid.manifest.json` declares
  * `"cards": { "default": "center", "withCoda": "stretch" }` and the engine resolves it,
- * stamping `data-cards`. lib/core/resolve-cards.js; the note's §10. */
+ * stamping `data-align`. lib/core/resolve-align.js; the note's §10. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }

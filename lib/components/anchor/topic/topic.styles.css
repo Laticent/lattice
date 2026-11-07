@@ -475,3 +475,26 @@ section.topic:not(:has(> ul.tile-track)) {
   background-image: none;
   padding-bottom: calc(var(--sp-xl) - var(--_bar-b, 0px));
 }
+
+/* ── NARROW ROOM (the text-room rule, base.elements.css) ─────────────────────
+   The pinned eyebrow is absolute, so the section's top padding reserves it ONE line. Under ~47
+   characters a line its tracked capitals wrap ("SECTION 02 · UNIT / ECONOMICS" at square and
+   story at hall), and on a `fact` slide the second line printed over the topic name
+   (followups.d/2962-p5-…). In flow, shifted up by the same `--sp-xl` it was pinned at, it draws
+   where it did, and the name now starts below it. The section's top padding still reserves the
+   pinned eyebrow its line, so the name drops by the eyebrow's whole height (one line, or two when
+   it wraps), on every `fact` slide under ~47 characters a line; checked on the rendered pages at
+   square, portrait and story at hall. The eyebrow still holds its position as the content below
+   grows. `fact` only: the default topic's name already clears a two-line eyebrow,
+   and in flow the extra height pushed a nine-topic slide's claim into its track at portrait@hall
+   (measured: a new clip). */
+@container lattice (width < 23em) {
+  section.topic.fact > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
+    position: relative;
+    top: calc(-1 * var(--sp-xl));
+    inset-inline: auto;
+  }
+}
+/* The `fact` claim keeps `--fs-h1` at every box: venue is the only thing that changes a text
+   size (owner ruling 2026-11-05, fit-everywhere-model.md §18). It used to step down to `--fs-h2`
+   under ~35 characters a line, which the tall venues' smaller step (x1.22 at hall) made unneeded. */

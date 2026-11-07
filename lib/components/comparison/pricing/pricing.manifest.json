@@ -2,9 +2,9 @@
   "$schema": "../../manifest.schema.json",
   "name": "pricing",
   "inlineRun": { "depths": [1, 2], "slots": [".lat-state", "em", "strong"] },
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "adapt": {
     "mode": "reflow",

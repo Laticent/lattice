@@ -2,7 +2,7 @@
 marp: true
 theme: cuoio
 paginate: true
-header: "Lattice · cards register"
+header: "Lattice · align register"
 ---
 
 <!-- _class: title silent -->
@@ -56,7 +56,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: list-steps cards-stretch -->
+<!-- _class: list-steps align-fill -->
 
 ## One slide can still ask for the old stretch.
 
@@ -117,7 +117,7 @@ list-steps, compare-prose and cards-stack horizontal join the register.
 
 ---
 
-<!-- _class: cards-stack horizontal cards-top -->
+<!-- _class: cards-stack horizontal align-top -->
 
 ## A per-slide override pins the row to the top.
 

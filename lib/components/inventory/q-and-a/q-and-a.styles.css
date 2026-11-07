@@ -329,10 +329,10 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: row;   /* override the base column stream — the quadrant tiles in rows */
   flex-wrap: wrap;
-  /* The rows sit where the `cards:` register puts them (#2317); the manifest declares
+  /* The rows sit where the `align:` register puts them (#2317); the manifest declares
    * `stretch`, the full quadrant this always was. The cells' own sizing and the cross
-   * below follow `--cards-grow`. */
-  align-content: var(--cards-align);
+   * below follow `--align-grow`. */
+  align-content: var(--align-v);
   gap: var(--sp-xl) var(--sp-2xl);
   position: relative;
 }
@@ -340,7 +340,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) {
  * there is no quadrant — the middle of the list is no longer between the rows — so the
  * cross draws only under `stretch`. */
 section.q-and-a.grid > .cell-stage > :is(ul, ol)::before,
-section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { opacity: var(--cards-grow); }
+section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { opacity: var(--align-grow); }
 section.q-and-a.grid > .cell-stage > :is(ul, ol)::before {
   content: "";
   position: absolute;
@@ -367,8 +367,8 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) > li {
   /* Exactly half the list under `stretch` (min and max meet), its own content otherwise —
    * the matrix-2x2 recipe. */
   height: auto;
-  min-height: calc(var(--cards-grow) * (50% - var(--sp-xl) / 2));
-  max-height: calc(50% - var(--sp-xl) / 2 + (1 - var(--cards-grow)) * 10000px);
+  min-height: calc(var(--align-grow) * (50% - var(--sp-xl) / 2));
+  max-height: calc(50% - var(--sp-xl) / 2 + (1 - var(--align-grow)) * 10000px);
   /* a COLUMN, so the ledger's index column becomes a numeral sitting directly over its
    * own question — it was an absolutely-positioned mark in a gutter the quadrant cell
    * never uses, stranded up to 42px above the question it belongs to. */
@@ -411,7 +411,7 @@ section.q-and-a:is(.rail, .grid) > .cell-stage > :is(ul, ol):not(:has(> li > str
   justify-content: flex-start;
   width: auto;
   height: auto;
-  /* …and the quadrant cell's `cards:` half-height pin (the grid rule above). */
+  /* …and the quadrant cell's `align:` half-height pin (the grid rule above). */
   min-height: 0;
   max-height: none;
   padding-left: var(--sp-xs);
@@ -483,12 +483,12 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
   display: flex;
   flex-direction: column;
-  justify-content: var(--cards-align);
+  justify-content: var(--align-v);
   align-items: stretch;
   gap: var(--sp-lg);
 }
 /* release the quadrant cell sizing — natural-height pairs in the single column. */
-section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--align-grow); }
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
 section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
 /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
@@ -516,10 +516,10 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
  * (its cross rules go), and in the rail the answer drops under its question. */
 @container lat-cards (width < 28em) {
   section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) {
-    display: flex; flex-direction: column; justify-content: var(--cards-align); align-items: stretch;
+    display: flex; flex-direction: column; justify-content: var(--align-v); align-items: stretch;
     gap: var(--sp-lg); --lat-narrow: 1;
   }
-  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--cards-grow); }
+  section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held) > li { width: auto; height: auto; min-height: 0; max-height: none; flex-grow: var(--align-grow); }
   section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::before,
   section.q-and-a.q-and-a.grid > .cell-stage > :is(ul, ol):not(.lat-reflow-held)::after { display: none; }
   section.q-and-a.q-and-a.rail > .cell-stage > :is(ul, ol):not(.lat-reflow-held) { --lat-narrow: 1; }

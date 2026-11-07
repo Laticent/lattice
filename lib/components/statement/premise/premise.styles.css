@@ -384,3 +384,15 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(2) {
   text-align: left;
 }
+
+/* ── NARROW ROOM (the text-room rule, base.elements.css) ─────────────────────
+   Under ~47 characters a line, the row's three tracks (ordinal, label, gloss) left the gloss
+   about eight characters a line at story@hall ("Recall / facts, / syntax, / rules.") and ten at
+   portrait@laptop ("Recognizes / recurring / situations."). The ordinal and the label
+   share the first line and the gloss takes the row's full width under them. The family block
+   above stays on `data-family`: it styles `section.premise` itself, and a container query cannot
+   style its own container. */
+@container lattice (width < 23em) {
+  section.premise > ol > li { grid-template-columns: auto minmax(0, 1fr); }
+  section.premise > ol > li > ul { grid-column: 1 / -1; }
+}

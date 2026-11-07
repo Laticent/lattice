@@ -171,6 +171,17 @@ section :where(pre).lat-code:is([data-indent="4"], [data-indent="tab"]) { tab-si
  * so it does not read as a new line of code. With numbers it hangs under its own text, not under
  * the number column. */
 section :where(pre).lat-code-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* On a phone or tablet every block wraps, as if it said `wrap` (owner, 2026-11-06): a cut line has no
+ * scrollbar on a page and no venue that reads it at a larger size. Handheld is a square, tall or strip
+ * slide with no room venue (base.modifiers.css: the phone is those shapes' default, `venue-tablet`
+ * the other); the shape is the box the slide renders at, which the render cannot know, so this is CSS.
+ * A 16:9 slide, and a narrow one set for a room, keep the line whole and lint's column budget.
+ * A plain block is one text run with no line spans, so its continuation hangs by `each-line hanging`:
+ * every line the author wrote starts where it was written, and only a wrapped continuation moves two
+ * columns in (measured in Chromium 153; the export is Chromium). A block with line spans (numbers,
+ * focus, marks, diff) takes the `wrap` rule below, the same as one that asked for it. */
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code code { white-space: pre-wrap; overflow-wrap: anywhere; text-indent: 2ch hanging each-line; }
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code .ln,
 section :where(pre).lat-code-wrap .ln {
   display: inline-block;
   box-sizing: border-box;
@@ -178,6 +189,7 @@ section :where(pre).lat-code-wrap .ln {
   padding-inline-start: 2ch;
   text-indent: -2ch;
 }
+section:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall) :where(pre).lat-code.lat-code-numbers .ln,
 section :where(pre).lat-code-wrap.lat-code-numbers .ln {
   padding-inline-start: calc(var(--ln-digits) + 1.5ch);
   text-indent: calc(-1 * (var(--ln-digits) + 1.5ch));

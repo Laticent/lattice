@@ -9,5 +9,7 @@
  * (engineering/decisions/2026-10-27-fluid-layout-library.md §8).
  */
 
+export type { Packer, PackInput } from './pack.js';
+export { badness, FILL_BAND, fills, pack } from './pack.js';
 export { fitsCap, MAX_PAGES, ONE_PER_PAGE, paginates, planSlide, rescueRuns } from './plan.js';
 export type { Family, Move, Run, SeamReading, SlideFacts, WholeReason } from './types.js';

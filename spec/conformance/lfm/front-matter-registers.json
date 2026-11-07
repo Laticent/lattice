@@ -712,40 +712,102 @@
    }
   },
   {
-   "name": "cards: center",
-   "source": "---\ncards: center\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "align: top",
+   "source": "---\nalign: top\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cards: stretch",
-   "source": "---\ncards: stretch\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "align: middle",
+   "source": "---\nalign: middle\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cards: top",
-   "source": "---\ncards: top\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "align: bottom",
+   "source": "---\nalign: bottom\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cards: spread",
-   "source": "---\ncards: spread\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "align: spread",
+   "source": "---\nalign: spread\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
   },
   {
-   "name": "cards: (unknown)",
-   "source": "---\ncards: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "align: fill",
+   "source": "---\nalign: fill\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: left",
+   "source": "---\nalign: left\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: center",
+   "source": "---\nalign: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: right",
+   "source": "---\nalign: right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: full",
+   "source": "---\nalign: full\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: bottom right",
+   "source": "---\nalign: bottom right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: left top",
+   "source": "---\nalign: left top\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "align: (unknown)",
+   "source": "---\nalign: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-cards",
+      "rule": "unknown-align",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "align: (two up-and-down words)",
+   "source": "---\nalign: top bottom\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-align",
       "severity": "warning",
       "slide": 0
      }

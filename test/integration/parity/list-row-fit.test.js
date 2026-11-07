@@ -9,10 +9,12 @@
  *  - a row that wraps must keep its text inside its box on a FULL wide slide. The old
  *    equal-share bands pushed a wrapped row's second line out of its pill, and an `auto`
  *    floor did it again, because a grid clamps an automatic minimum to a fixed maximum;
- *  - a member ALONE on a split page must fill the page. The split-page fill rule
- *    (base.modifiers.css § Split BODY pages) grows a row with `flex` and `align-content:
- *    stretch`, neither of which reaches a capped track, and every list at square/tall/strip
- *    splits one member per page — so each page showed a pill atop an empty stage;
+ *  - a member ALONE on a split page sits centered at its own height. Until 2026-10-30 it had to
+ *    FILL the page (09-01 §12); the carousel template (2026-10-28-fit-everywhere-model.md §14)
+ *    then started every content page at the top, and the owner ruled on 2026-11-04 that a
+ *    content page follows the slide's `cards:` setting and centers when none is set (§16). The
+ *    row must still be sized from its content: taller than one line box when it wraps, and
+ *    never cut short;
  *  - `stretch` fills the stage, and `center` does not.
  *
  * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §12.
@@ -71,7 +73,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-stretch -->
+<!-- _class: list align-fill -->
 
 ## Stretch fills.
 
@@ -81,7 +83,7 @@ const WIDE = deck('', `
 
 ---
 
-<!-- _class: list cards-center -->
+<!-- _class: list align-middle -->
 
 ## Center does not.
 
@@ -89,7 +91,9 @@ const WIDE = deck('', `
 - Two.
 - Three.
 `);
-const PORTRAIT = deck('size: portrait\n', `
+// `fit: heal` (the COUNT-based split, one member a page): measuring is the default
+// (lib/core/resolve-guards.js fitPacks) and keeps this short list whole; this case needs a lone member.
+const PORTRAIT = deck('size: portrait\nfit: heal\n', `
 <!-- _class: list -->
 
 ## A portrait list splits one row per page.
@@ -112,7 +116,11 @@ function measure() {
       for (const r of range.getClientRects()) spill = Math.max(spill, box.top - r.top, r.bottom - box.bottom);
       return { h: box.height, spill };
     });
-    return { stage: s.querySelector('.cell-stage').clientHeight, split: s.classList.contains('lat-split-native'), rows };
+    const stage = s.querySelector('.cell-stage');
+    const first = ul.children[0];
+    const lead = first ? first.getBoundingClientRect().top - stage.getBoundingClientRect().top : 0;
+    const clipped = first ? first.scrollHeight > first.clientHeight + 1 : false;
+    return { stage: stage.clientHeight, split: s.classList.contains('lat-split-native'), lead, clipped, rows };
   });
 }
 
@@ -148,15 +156,21 @@ describe('list rows are sized from their content (rendered)', () => {
 
   test('stretch fills the stage and center does not', () => {
     const fill = (s) => (s.rows.reduce((a, r) => a + r.h, 0)) / s.stage;
-    assert.ok(fill(wide[2]) > 0.85, `cards-stretch rows fill ${Math.round(fill(wide[2]) * 100)}% of the stage`);
-    assert.ok(fill(wide[3]) < 0.6, `cards-center rows fill ${Math.round(fill(wide[3]) * 100)}% of the stage`);
+    assert.ok(fill(wide[2]) > 0.85, `align-fill rows fill ${Math.round(fill(wide[2]) * 100)}% of the stage`);
+    assert.ok(fill(wide[3]) < 0.6, `align-middle rows fill ${Math.round(fill(wide[3]) * 100)}% of the stage`);
   });
 
-  test('a member alone on a split page fills the page', () => {
+  test('a member alone on a split page sits centered, at its own height', () => {
     const lone = portrait.filter((s) => s.split && s.rows.length === 1);
     assert.ok(lone.length > 0, 'the portrait list must split to one member per page for this test to mean anything');
     for (const s of lone) {
-      assert.ok(s.rows[0].h / s.stage > 0.6, `a lone member is ${Math.round(s.rows[0].h)}px on a ${s.stage}px stage`);
+      // Centered (the owner's default for a split page, 2026-11-04): the space above the member
+      // matches the space below it. Stretched, it would fill the stage; at the top, it would ride
+      // high over an empty page.
+      const below = s.stage - s.lead - s.rows[0].h;
+      assert.ok(Math.abs(s.lead - below) <= s.stage * 0.05, `a lone member sits ${Math.round(s.lead)}px from the top and ${Math.round(below)}px from the bottom of a ${s.stage}px stage`);
+      assert.ok(s.rows[0].h / s.stage < 0.6, `a lone member is stretched to ${Math.round(s.rows[0].h)}px of ${s.stage}px`);
+      assert.ok(s.rows[0].spill <= 1 && !s.clipped, 'a lone member keeps its text inside its box');
     }
   });
 });

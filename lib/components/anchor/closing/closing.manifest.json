@@ -2,7 +2,7 @@
   "$schema": "../../manifest.schema.json",
   "name": "closing",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "heading",
       "subtitle",
@@ -113,7 +113,7 @@
     },
     {
       "variant": "index",
-      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence."
+      "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence. On a square, tall or strip slide its rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square."
     },
     {
       "variant": "spectrum",

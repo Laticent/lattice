@@ -44,6 +44,9 @@ const { render } = require('../../../lib/engine');
 const NO_FAMILY_REFLOW = Object.freeze({
   theorem: 'the card rhythm was re-tuned for the stage at EVERY size (--sp-xs vertical, was --sp-sm), '
     + 'which is 71px on the committed portrait sample against a 26px shortfall — a tall box needs nothing further',
+  decompose: 'the engine reflows it, not the stylesheet: lib/plugins/math/shared/tex-linebreak.js breaks the lead '
+    + 'factorization at its = and between its matrices on every shape but 16:9, so it keeps 2.1em on two lines; measured '
+    + 'fitting at portrait, square, story and mobile (2026-11-06), where the 1.55em CSS step it replaced shrank the type',
 });
 
 test('every math variant keeps a FAMILY reflow, or declares why it needs none', () => {
@@ -74,8 +77,29 @@ test('every math variant keeps a FAMILY reflow, or declares why it needs none', 
   // that never needed one. Found by a red team reading the matcher. `square` counts too:
   // `feature` measures 242px over there, so a variant may legitimately reflow at square
   // and not at tall, but a rule that keys ONLY `wide` is not a reflow.
-  const formFamily = selectors.filter((sel) => sel.includes('.cell-stage')
-    && /\[data-family=["'](tall|strip|square)["']\]/.test(sel));
+  // …OR KEY TEXT ROOM. A rule inside `@container lattice (width < Nem)` (the text-room rule,
+  // lib/base/base.elements.css) reflows the same boxes by the characters a line holds, and is
+  // where `decompose`'s family rule moved on 2026-10-29. Splitting on `}` reads an at-rule's
+  // prelude as the selector, so the nested rules are collected from the blocks themselves.
+  const textRoom = [];
+  for (const m of positive.matchAll(/@container\s+lattice\s*\(\s*width\s*<\s*[\d.]+em\s*\)\s*\{/g)) {
+    let depth = 1;
+    let i = m.index + m[0].length;
+    const start = i;
+    for (; i < positive.length && depth; i++) {
+      if (positive[i] === '{') depth++;
+      else if (positive[i] === '}') depth--;
+    }
+    for (const block of positive.slice(start, i - 1).split('}')) {
+      if (!block.includes('{')) continue;
+      const sel = block.slice(0, block.indexOf('{'));
+      textRoom.push(sel.slice(sel.lastIndexOf('*/') + 2));
+    }
+  }
+  const formFamily = [
+    ...selectors.filter((sel) => /\[data-family=["'](tall|strip|square)["']\]/.test(sel)),
+    ...textRoom.filter((sel) => sel.includes('section.math')),
+  ].filter((sel) => sel.includes('.cell-stage'));
 
   // WHICH VARIANT DOES A SELECTOR ACTUALLY DECLARE? Not "every variant token it
   // mentions" — `decompose` is authored as the COMPOUND `math matrix decompose`, so its

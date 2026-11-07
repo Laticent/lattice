@@ -1358,6 +1358,43 @@ section.venue-huddle     { --fs-scale: 1.15; --qr-min: 0.12; }
 section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; --venue-chrome-cut: 0.85; --qr-min: 0.16; }
 section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; --venue-chrome-cut: 0.85; --qr-min: 0.22; }
 
+/* THE SHAPE DECIDES THE STEP (owner ruling 2026-11-05; fit-everywhere-model.md §18). The rooms
+ * above are measured for a 16:9 deck on a projected screen. A square post or a story is mostly
+ * seen in a hand, so `venue: phone` and `venue: tablet` name that, and `phone` is the DEFAULT on a
+ * square, tall or strip deck: the unstamped section takes it here, off its own `data-family`, so
+ * the default follows the box a slide renders at. `venue: laptop` stamps `venue-laptop` and opts
+ * out. One table, VENUE_SCALE_BY_FAMILY in lib/core/resolve-venue.js, pinned to these lines by
+ * test/unit/parsing/resolve-venue.test.js:
+ *  - the HANDHELD LADDER (owner, 2026-11-06: "our font size ladder for phone and tablet are not
+ *    readable. we need to curate these font sizes better"). On the device, in points (a 393pt
+ *    phone, an 820 x 1180pt tablet), body text reads at about 17pt, the body-compact role at 15pt
+ *    and meta at 13pt, on every shape. Before this, meta read at about 11pt on a tall or strip
+ *    slide, Apple's floor. One step cannot place every rung, because the shapes hold meta at
+ *    different fractions of body (square 0.73, tall 0.64), so each handheld venue keeps its step and
+ *    sets the meta, compact and chrome lifts the rooms already use. Measured per shape at x1
+ *    (.scratch/charts/typepoints.js) and solved for the targets:
+ *      square  phone x1.5 (body 16.5pt, the measured hall rung kept so every budget stays exact)
+ *              meta lift 1.08, compact 1.06, chrome 1.05; tablet x0.75, lifts 1.04 / 1.03 / 1.03
+ *      tall    phone x1, tablet x0.6     meta lift 1.2, compact 1.03, chrome 1.15
+ *      strip   phone x1, tablet x0.72    meta lift 1.2, compact 1.03, chrome 1.15
+ *    The larger targets (19 / 17 / 15pt) were built and measured first: across the galleries at the
+ *    phone venue they clipped 90 to 236 more slides per shape even under `fit: pack`, slides that
+ *    cannot split, so the owner chose these;
+ *  - tall / strip rooms rise x1.1 / x1.17 / x1.22, because x1.5 on a tall box left under 35
+ *    characters a line;
+ *  - wide: phone and tablet are the designed size (a 16:9 deck is not read in a hand).
+ * The family part sits in :where(), so each rule weighs what `section.scale-l` weighs, and the
+ * `scale-*` rungs declared after them still win, as they do over the rooms. Venue is the ONLY
+ * thing that changes a text size: no rule elsewhere steps a role up or down for a narrow box. */
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --fs-scale: 1.5; --venue-meta-lift: 1.08; --venue-compact-lift: 1.06; --venue-chrome-cut: 1.05; }
+section:where([data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; --venue-meta-lift: 1.04; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.03; }
+section.venue-huddle:where([data-family="tall"], [data-family="strip"])     { --fs-scale: 1.1; }
+section.venue-conference:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.17; }
+section.venue-hall:where([data-family="tall"], [data-family="strip"])       { --fs-scale: 1.22; }
+section.venue-tablet:where([data-family="tall"])  { --fs-scale: 0.6; --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+section.venue-tablet:where([data-family="strip"]) { --fs-scale: 0.72; --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }
 section.scale-2xl { --fs-scale: 1.5;  }
@@ -3114,6 +3151,21 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
+/* TIGHT ROOM (the text-room rule, base.elements.css): as a flex sibling the arrow takes its
+   own column, so a lead-in that wraps wraps in the box beside it, and at portrait@hall "What
+   each jurisdiction requires" set three short lines. Inline, the arrow follows the last word
+   and the text keeps the frame's full width. The 0.4em the flex gap gave is folded into the
+   mark's own box, right-anchored, so nothing sits outside a box (HARD RULE #20). Its SIZE does not
+   change here: venue is the only thing that sizes type (§18). It used to step down to the body
+   size, which the tall venues' smaller step (x1.22 at hall) made unnecessary. */
+@container lattice (width < 17em) {
+  .split-cover-lead { display: block; }
+  .split-cover-lead::after {
+    display: inline-block; vertical-align: -0.12em; width: 1.4em;
+    -webkit-mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+            mask: var(--shape-arrow-right) no-repeat right center / 1em 1em;
+  }
+}
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
    different "where am I" signals (sub-sequence progress vs. deck position), so they get
@@ -3329,6 +3381,17 @@ section.lat-split-cover .split-feat-sub {
 section.lat-split-cover .split-feat-lede {
   font-size: var(--fs-body); line-height: var(--lh-relaxed); opacity: 0.92; max-width: 26em;
 }
+/* LIFTED — a cover that ran into its footer moved its subtitle and lede here, to the top of the
+   run's first body page (lib/core/cover-lift.js, owner 2026-11-06). On the page they read as the
+   slide's own subtitle and lede, at body size so they introduce the members rather than outrank
+   them: the subtitle italic and secondary, the lede body text, and a step of air below both. */
+section[data-split-role="body"] > :is(.cell-stage > .split-lifted, .split-lifted) { display: flex; flex-direction: column; gap: var(--sp-xs); padding-block-end: var(--sp-sm); }
+section[data-split-role="body"] .split-lifted .split-feat-sub {
+  font-size: var(--fs-body); font-style: italic; line-height: var(--lh-snug); color: var(--text-secondary);
+}
+section[data-split-role="body"] .split-lifted .split-feat-lede {
+  font-size: var(--fs-body); line-height: var(--lh-relaxed); color: var(--text-body);
+}
 /* PRINT — the accent flood becomes the bookends' light framed panel. In the print band
    `--accent` remaps to ink (#1A1A1A, "accent is text-bearing → ink, not hue") and
    `--on-accent` to #FFFFFF, so the rule above would paint a full page of near-black toner
@@ -3372,6 +3435,40 @@ section.lat-split-cover.split-cover-table .split-feat-h::after {
   background: var(--spectrum-structure);
 }
 
+/* ── The CAROUSEL: content pages carry the content and nothing else ────────────────
+   The owner's ruling for a split run (followups.d/2962-p6-carousel-template.md): the title and
+   eyebrow appear on the COVER only; a content page carries no running header, no repeated
+   heading or "(cont.)", no pointer pill and no rail or page number; the ending page carries the
+   key insight or below-note, again without the title. A split run is read as one swipe, so the
+   cover's lead-in arrow is its one navigation cue. Measured on the first carousel render, the
+   repeated title took up to half of a portrait page and words hid under the pointer pill.
+   Keyed on the role stamp every split page carries (split-envelope.js `withRole`), so it reaches
+   the shared envelope's pages and the read-across strategies' alike, and never an unsplit slide.
+   A split happens only on square, tall and strip boxes (`paginates` in @laticent/fluido), so a
+   16:9 deck is untouched. The elements stay in the markup and conservation holds: the heading
+   is on the cover once. The attribute is doubled to clear the Form cells' own display rules. */
+/* Which page elements are repetition and which are content. The masthead's HEADING half
+   (`.masthead-lede`) and the read-across runhead (`.split-runhead`, carousel.js) repeat the
+   cover's title; compare-code's runhead is the code block's own label, which is content, so it
+   stays. The masthead BAY stays when it holds a tile: a deck's `meta:` line (a date, an owner, a
+   "Confidential" marking) docks there and the cover does not carry it, so hiding the whole
+   masthead dropped it from every page of the run. The pointer pill and the k-of-N rail sit in the
+   stage, in the footer cell, or straight under the section when there is no footer cell (a
+   read-across page has no `.cell-stage`; `paginate: false` leaves no footer cell for the rail),
+   so each takes both arms. */
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > :is(header, .cell-footer, .lat-split-rail),
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead:not(:has(> .masthead-bay > *)),
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-masthead > .masthead-lede,
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role]:not(.compare-code-split) .split-runhead,
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role] > .cell-stage > .lat-split-rel {
+  display: none;
+}
+/* The pill's own placement rules (below) reach (0,4,1) and come later in the file, so the
+   direct-child arm carries the role stamp four times to clear them. */
+section:is([data-split-role="body"], [data-split-role="closing"])[data-split-role][data-split-role][data-split-role][data-split-role] > .lat-split-rel {
+  display: none;
+}
+
 /* ── Split BODY pages — a member looks the same on every page of the run ──────────
    A collection normally DISTRIBUTES its members to fill the bounded stage: checklist
    spreads its rows (`checklist.styles.css` — "rows distribute to fill the bounded
@@ -3394,6 +3491,42 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) {
   flex: 0 0 auto;
   justify-content: flex-start;
   align-content: flex-start;
+}
+/* …and WHERE that group sits on the page is the slide's `align:` setting (owner, 2026-11-04 and
+   2026-11-06): in the middle by default (`centerUnchosenCards`, lib/core/auto-split.js, stamps
+   `middle` where the author chose nothing), under the title for `align: top`, on the floor for
+   `align: bottom`, paced for `align: spread`, and filling the page for `align: fill`, whose
+   members then grow. A page holding one card, or a short last page, no longer rides high over an
+   empty page. A layout that declares no `align` default (a checklist, list-steps, an agenda)
+   reads the same words from its `align-*` class. Members keep their natural height in every
+   case but `fill`. */
+section.form.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage {
+  justify-content: var(--split-place, safe center);
+}
+section.lat-split-native[data-split-role="body"]:is([data-align="top"], :not([data-align]):is(.align-top, .align-fill)),
+section.lat-split-native[data-split-role="body"][data-align-coda="top"]:has(> .cell-coda) {
+  --split-place: flex-start;
+}
+section.lat-split-native[data-split-role="body"]:is([data-align="bottom"], :not([data-align]).align-bottom),
+section.lat-split-native[data-split-role="body"][data-align-coda="bottom"]:has(> .cell-coda) {
+  --split-place: safe flex-end;
+}
+section.lat-split-native[data-split-role="body"]:is([data-align="spread"], :not([data-align]).align-spread),
+section.lat-split-native[data-split-role="body"][data-align-coda="spread"]:has(> .cell-coda) {
+  --split-place: space-evenly;
+}
+/* ONE PLACEMENT PER RUN (owner, 2026-11-06). Centered page by page, a page holding three members
+   began lower than one holding five, and the content jumped as the reader flipped. The run pass
+   (lib/core/run-placement.js, run by the export and the runtime) measures every body page, takes
+   the run's tallest, and writes the top that places it as `--run-pad`; every page starts there.
+   Without a script (a plain .html), each page keeps its own centering above. */
+section.form.lat-split-native.lat-split-native[data-split-role="body"][data-run-offset] > .cell-stage {
+  justify-content: flex-start;
+  padding-block-start: var(--run-pad, 0px);
+}
+section.form.lat-split-native.lat-split-native[data-split-role="body"][data-align="fill"] > .cell-stage > :is(ul, ol) {
+  flex: 1 1 auto;
+  align-content: stretch;
 }
 section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li {
   flex-grow: 0;
@@ -3465,10 +3598,10 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
        one item among many that are not there.
      · so it floats — a small grey run adrift in a page-tall box.
 
-   The fix is to stop treating it as a list item: drop the marker, reclaim its indent, and
-   set it one step up at `--fs-emphasis` — the same rung the insight page already uses for
-   the same reason (a page holding ONE thing sets that thing up). Palette-blind, and the
-   size comes from the 12-token scale rather than a literal (HARD RULE #4).
+   The fix is to stop treating it as a list item: drop the marker and reclaim its indent.
+   It keeps the body size: it used to step up to `--fs-emphasis`, until the owner ruled that
+   venue is the only thing that changes a text size (2026-11-05, fit-everywhere-model.md §18),
+   so a lone member now reads at the same size as the same member beside its siblings.
 
    SCOPED TO A *BARE* MEMBER, which is the whole subtlety. A HEAVY member — a card carrying
    a title and a body clause (HARD RULE #5's nested `- Title` / `  - body`) — already fills
@@ -3508,7 +3641,6 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   padding-inline-start: 0;
 }
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
-  font-size: var(--fs-emphasis);
   line-height: var(--lh-snug);
   text-wrap: pretty;
 }
@@ -3531,6 +3663,37 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
    page whose table holds exactly one row. */
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage:has(> table > tbody > tr:only-child) {
   justify-content: center;
+}
+
+/* ── …AND ON A CAROUSEL CONTENT PAGE, THE AUTHOR'S CARD ALIGNMENT ─────────────────────────
+   A content page places its members as the slide's `align:` setting says, and centers them when
+   the author chose nothing (`centerUnchosenCards`, lib/core/auto-split.js; owner, 2026-11-04):
+   a top start left one card, or a short last page, riding high over an empty page. The carousel
+   template had forced that top start on every content page (2026-10-30); it is gone, so the
+   stage keeps the alignment the component and the author give it. The member still keeps its
+   natural height (below), rather than stretching to the page. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage > :is(ul, ol):has(> li:only-child) {
+  flex: 0 0 auto;
+  align-content: flex-start;
+  /* A GRID collection (list) sizes its row to `minmax(min-content, --list-row-max)`, and the
+     lone member lifts that ceiling: unbounded by the stage, the row grew to 10,148px and its text
+     was drawn off the page. Content height here; a flex collection ignores the property. */
+  grid-auto-rows: auto;
+}
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native[data-split-role="body"] > .cell-stage > :is(ul, ol) > li:only-child {
+  /* No GROW (in a column collection it would stretch the member down the page) but a full-width
+     basis that may SHRINK: in a row collection (a cards-grid tile) `flex: 0 0 auto` held the card
+     at its max-content width and ran its text off the page at every narrow box. */
+  flex: 0 1 auto;
+  width: 100%;
+  box-sizing: border-box;
+  /* …but never below its content. A member that clips its own overflow (a matrix-2x2 quadrant
+     is `overflow: hidden`) has an automatic minimum height of 0, so the shrink cut a quadrant to
+     its title and dropped its body. */
+  min-height: max-content;
+  /* In a GRID collection (kpi tiles) the width above fills one track; alone on the page the
+     member spans them all. A flex collection ignores it. */
+  grid-column: 1 / -1;
 }
 
 /* ── Split COVER chrome — readable on the accent field ─────────────────────────────

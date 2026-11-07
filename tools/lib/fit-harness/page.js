@@ -5,95 +5,18 @@
  *
  * The fit oracle is the export's own: `probeSectionOverflow`, then `probeContentClipped` when a
  * box clips (lib/core/overflow-probe.js), with the export's selectors and tolerance. A page
- * "fits" exactly when the export would not report it.
+ * "fits" exactly when the export would not report it. The verdict itself is
+ * `lib/core/fit-measure.js`, which the export's measured split uses too.
  *
  * engineering/decisions/2026-10-28-fit-everywhere-model.md §4.
  */
 
 /* eslint-disable no-undef */
 function install(cfg) {
-  const probeSectionOverflow = new Function(`return (${cfg.probeSrc})`)();
-  const probeContentClipped = new Function(`return (${cfg.ccSrc})`)();
+  const { fits, shown, CHROME } = new Function(`return (${cfg.verdictSrc})`)()(cfg);
   const deckSlideSections = new Function(`return (${cfg.slidesSrc})`)();
-  // Chrome: never content, so never counted as content lost or as ink. The page number sits
-  // outside `.cell-footer` on some frames (split-panel, title, closing), and the split's own
-  // running head is chrome the same way the fit arms' is.
-  const CHROME = 'section > header,.cell-footer,.lat-pagination,.marker-rail,.slide-edge,.fixme-tab,[aria-hidden="true"],.fit-runhead,.split-runhead,.lat-cont,.lat-split-label,footer';
   const HEADS = '.cell-masthead,.fit-runhead,.split-runhead';
-  const shown = (el) => { for (let x = el; x; x = x.parentElement) if (getComputedStyle(x).display === 'none') return false; return true; };
   const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
-
-  /** Does the page fit, by the export's oracle? `px` is the vertical excess when it does not;
-   *  `chrome` says the only cut is in chrome (the probe's own `chromeOnly`: the footer band, a
-   *  split-panel's header or footer). `forSplit` treats a chrome-only cut as fitting: splitting
-   *  cannot fix chrome, so it must not drive a split decision. The report still records it. */
-  function fits(s, forSplit = false) {
-    const p = probeSectionOverflow(s, cfg.clipSel, cfg.tol, cfg.ignoreSel);
-    if (p.over) return { ok: false, px: Math.round(p.scrollH - p.clientH), chrome: false };
-    // Inside the frame is not the same as readable: a four-column card grid at a story box keeps
-    // every word on the slide at five characters a line (§12). The hard rule is "readable", so a
-    // page with crammed or clipped prose does not fit. Checked before the chrome-only exit below:
-    // a slide whose only cut is its footer line must still be readable.
-    if (p.clipSuspect) {
-      const c = probeContentClipped(s, cfg.ignoreSel, cfg.tol, cfg.bearerSel);
-      if (c.cut) {
-        if (c.chromeOnly && !readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
-        if (forSplit && c.chromeOnly) return { ok: true, px: 0, chrome: false };
-        return { ok: false, px: 1, first: c.first, chrome: !!c.chromeOnly };
-      }
-    }
-    if (!readable(s)) return { ok: false, px: 0, chrome: false, unreadable: true };
-    return { ok: true, px: 0, chrome: false };
-  }
-
-  /** Readable prose, the harness's third hard rule (2026-10-28-fit-everywhere-model.md §12):
-   *  no body-size text cut off by an ancestor that hides its overflow, and no body-size prose of
-   *  24+ characters set at fewer than 12 characters a line over three or more lines. Labels drawn
-   *  inside a chart, a figure, a collage or a QR card, display type, and captions are left out:
-   *  they are a drawing's or a title's own measure. Tuned on two hand-labeled samples (§12). */
-  const NOT_PROSE = 'svg, canvas, math, .katex, [class*="chart-"], figure, figcaption, [class*="collage"], [class*="qr"]';
-  function readable(s) {
-    const body = parseFloat(getComputedStyle(s).fontSize) || 16;
-    const w = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
-    const drawn = [];
-    let n;
-    while ((n = w.nextNode())) {
-      const el = n.parentElement;
-      if (!el || !n.textContent.trim() || el.closest(CHROME) || el.closest(NOT_PROSE) || !shown(el)) continue;
-      const r = document.createRange();
-      r.selectNodeContents(n);
-      const rects = [...r.getClientRects()].filter((x) => x.width > 1);
-      for (const x of rects) if (x.width > 2 && x.height > 2) drawn.push({ x, n });
-      for (let a = el; a && a !== s.parentElement; a = a.parentElement) {
-        const acs = getComputedStyle(a);
-        if (!/hidden|clip/.test(acs.overflowX) || acs.textOverflow === 'ellipsis') continue;
-        const box = a.getBoundingClientRect();
-        if (rects.some((x) => x.right > box.right + 2 || x.left < box.left - 2)) return false;
-      }
-      // Measure each text run against its OWN lines: a card's short bold title on its own line
-      // must not drag its body's average down (that flagged readable list-steps cards).
-      const fs = parseFloat(getComputedStyle(el).fontSize);
-      if (fs > body * 1.6 || fs < body * 0.85) continue;
-      const text = n.textContent.replace(/\s+/g, ' ').trim();
-      if (text.length < 24) continue;
-      const lines = new Set(rects.map((x) => Math.round(x.top))).size;
-      if (lines > 2 && text.length / lines < 12) return false;
-    }
-    // Text drawn over other text reads as garbage however long its lines are: redline's split NEW
-    // column at story/hall (§12). Two line boxes of DIFFERENT runs overlap when they share more
-    // than 4px across and over half the shorter one's height; adjacent lines touch, never share.
-    for (let i = 0; i < drawn.length; i++) {
-      for (let j = i + 1; j < drawn.length; j++) {
-        if (drawn[i].n === drawn[j].n) continue;
-        const a = drawn[i].x;
-        const b = drawn[j].x;
-        const across = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (across > 4 && down > Math.min(a.height, b.height) * 0.5) return false;
-      }
-    }
-    return true;
-  }
 
   /** The content's natural height as a share of the content cell: the cell sized to its content
    *  for one read, then restored. An invisible spacer was tried first and is wrong for layouts that
@@ -184,8 +107,10 @@ function install(cfg) {
   /** The share of the content area the page's ink spans, top of content to the footer line. */
   function fill(s) {
     const sr = s.getBoundingClientRect();
+    // A hidden footer (a carousel body page hides its chrome) has no line to stop at: its rect reads
+    // top 0, which made every such page measure 0% full.
     const foot = s.querySelector('.cell-footer');
-    const limit = foot ? foot.getBoundingClientRect().top : sr.bottom;
+    const limit = !foot ? sr.bottom : shown(foot) ? foot.getBoundingClientRect().top : sr.bottom - parseFloat(getComputedStyle(s).paddingBottom || '0');
     const head = [...s.querySelectorAll(HEADS)].filter(shown).pop();
     const top0 = head && shown(head) ? head.getBoundingClientRect().bottom : sr.top;
     let top = Infinity;

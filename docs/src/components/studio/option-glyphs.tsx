@@ -13,6 +13,7 @@ import {
 	GraduationCap,
 	Heading2,
 	Laptop,
+	Layers,
 	Link2,
 	type LucideIcon,
 	MousePointer2,
@@ -26,6 +27,7 @@ import {
 	ScanText,
 	Scissors,
 	SeparatorHorizontal,
+	Smartphone,
 	Square,
 	SquareArrowDown,
 	SquareArrowDownLeft,
@@ -38,6 +40,7 @@ import {
 	SquareMousePointer,
 	SquareRoundCorner,
 	StretchHorizontal,
+	Tablet,
 	Target,
 	TextAlignCenter,
 	TextAlignEnd,
@@ -137,12 +140,20 @@ const GLYPHS = {
 	edge: EDGE,
 	/** `headline:` and the card tag's text alignment. */
 	align: ALIGN,
-	/** `cards:` — where a row of cards puts spare height. */
-	cardRows: {
-		center: { icon: AlignVerticalJustifyCenter },
-		stretch: { icon: StretchHorizontal },
+	/** `align:`, up and down. */
+	alignV: {
 		top: { icon: AlignVerticalJustifyStart },
+		middle: { icon: AlignVerticalJustifyCenter },
+		bottom: { icon: PanelBottom },
 		spread: { icon: AlignVerticalSpaceBetween },
+		fill: { icon: StretchHorizontal },
+	},
+	/** `align:`, side to side. */
+	alignH: {
+		left: ALIGN.left,
+		center: ALIGN.center,
+		right: ALIGN.right,
+		full: { icon: StretchHorizontal },
 	},
 	corners: {
 		square: { icon: Square },
@@ -153,6 +164,7 @@ const GLYPHS = {
 		report: { icon: Flag },
 		heal: { icon: Wrench },
 		trim: { icon: Scissors },
+		pack: { icon: Layers },
 	},
 	/** Chart motion speed — a level, drawn as a meter. */
 	speed: {
@@ -209,6 +221,8 @@ const GLYPHS = {
 		huddle: { icon: Tv },
 		conference: { icon: Presentation },
 		hall: { icon: Theater },
+		phone: { icon: Smartphone },
+		tablet: { icon: Tablet },
 	},
 	delivery: {
 		restrained: gesture([34, 46, 34, 46], AC),

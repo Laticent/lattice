@@ -3115,7 +3115,13 @@ function subjectClasses(selector) {
 }
 
 const TYPE_ROLE_TOKEN = /^--(fs-[a-z0-9-]+|venue-meta-lift|venue-compact-lift)$/;
-const RUNG_RULE = /^section\.(venue|scale)-[a-z0-9]+$/;
+// A rung is `section.venue-*` / `section.scale-*`, and (handheld venues, fit-everywhere-model.md §18)
+// a venue rung narrowed to shape families, `section.venue-x:where([data-family="…"], …)`, or a
+// family's DEFAULT venue, `section:where([data-family="…"]):not(.venue-…, …)`, which applies only
+// where the slide names no venue. The family part is in :where() so it adds no weight; nothing
+// else may follow it, so a rung cannot smuggle in a component or a modifier.
+const FAMILY_WHERE = String.raw`:where\(\[data-family="[a-z]+"\](?:,\s*\[data-family="[a-z]+"\])*\)`;
+const RUNG_RULE = new RegExp(String.raw`^section(?:\.(?:venue|scale)-[a-z0-9]+(?:${FAMILY_WHERE})?|${FAMILY_WHERE}:not\(\.venue-[a-z0-9]+(?:,\s*\.venue-[a-z0-9]+)*\))$`);
 const isPseudoElement = (sel) => /::?(before|after|marker|placeholder)\b/.test(sel);
 
 /** The type-size context the gate reads: component names, each component's own variant
@@ -3742,6 +3748,17 @@ const CANONICAL_LAYER_ORDER = [
 // So the pairing is a gate, not a comment: any engine CSS selector naming a
 // `.katex*` class must carry its `mjx-container` counterpart.
 const SANCTIONED_KATEX_ONLY = [
+  {
+    file: 'lib/components/math/math/math.styles.css',
+    selector: 'section.math:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .katex-display > .katex',
+    why:
+      'KaTeX-only by design. It lifts KaTeX\'s own `white-space: nowrap` on display math so an equation '
+      + 'wraps at the slide\'s real width off 16:9, at the safe points `breakableTex` leaves (owner, '
+      + '2026-11-06). The wrap is between KaTeX\'s inline `.base` groups; marp-core\'s MathJax emits one '
+      + 'SVG per equation, which no white-space rule can break, so a mjx- half would match a box with '
+      + 'nothing to wrap. The display SIZE is paired: `--math-display` reaches both through every '
+      + 'variant\'s `:is(.katex-display > .katex, mjx-container[display="true"] > svg)` rule.',
+  },
   {
     file: 'lib/components/math/math/math.styles.css',
     selector: 'section.math.form.compare > .cell-stage .katex .katex-mathml',
@@ -5215,6 +5232,13 @@ function checkAdaptDeclarations(manifests, errors) {
   // the whole square tier was silently inert. Matching the attribute (not the
   // at-rule) is what keeps this gate seeing real reflow.
   const FAMILY_REFLOW = /\[data-family\s*=/;
+  // The TEXT-ROOM rule (lib/base/base.elements.css, beside `container-name: lattice`): a width
+  // query on the slide in `em` of its body size, which reflows by the characters a line holds.
+  // It is not the retired aspect-ratio query: a width in `em` is exactly the content-box
+  // measure #1218 found unsuitable for SHAPE and is the right one for TEXT. A component that
+  // moved its family rules onto it still ships per-box layouts, so it counts as CSS reflow
+  // (engineering/decisions/2026-10-28-fit-everywhere-model.md §13).
+  const TEXT_ROOM_REFLOW = /@container\s+lattice\s*\(\s*width\s*</;
   // The shared chart-frame CSS carries a family reflow rule that restructures
   // `.chart-body` on tall boxes for EVERY chart-frame member — so a chart's reflow
   // can live there, not in its own styles.css. The anti-drift rule must see it, or a
@@ -5245,14 +5269,15 @@ function checkAdaptDeclarations(manifests, errors) {
     const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
     let css = cssPath ? stripComments(fs.readFileSync(cssPath, 'utf8')) : '';
     if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
-    const hasContainerReflow = FAMILY_REFLOW.test(css);
+    const hasContainerReflow = FAMILY_REFLOW.test(css) || TEXT_ROOM_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
 
     if (hasContainerReflow && mode !== 'reflow') {
       errors.push(
         `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`[data-family=…]\` ` +
-        `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
+        `or a text-room \`@container lattice (width < …)\` rule (box reflow) — must be "reflow". ` +
+        `Fix the manifest or remove the rule.`,
       );
     }
     // …AND THE OTHER DIRECTION. The check above only ever caught CSS-without-a-
@@ -5316,8 +5341,8 @@ function checkAdaptDeclarations(manifests, errors) {
     const paneReflow = m.hosts === 'panes';
     if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow && !paneReflow) {
       errors.push(
-        `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
-        `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
+        `${m.name}: declares adapt.mode "reflow" but ships NONE of the reflow mechanisms — ` +
+        `no \`[data-family=…]\`/\`[data-orientation=…]\`/text-room \`@container lattice (width < …)\` CSS, no orientation-branching ` +
         `*.transform.js, no mermaid reorient, no carousel \`split.strategy\` reshape. ` +
         `It has one composition and paints it in every ` +
         `box, while the manifest tells authoring agents it adapts. Either ship the reflow, or ` +

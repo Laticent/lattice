@@ -11,6 +11,7 @@
 
 import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
+import { mayWantMeasuredSplit } from './fit-pack-wanted';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
@@ -92,6 +93,8 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 
 	/** True once both irreducible globals are present (engine bundle + bridge). */
 	let backstopArmed = false;
+	// The measured split's memory (§11), carried from one render of this Playground's deck to the next.
+	let fitMemory: Record<string, { split: boolean; sizes?: number[] }> | null = null;
 	const BACKSTOP_MS = 4000;
 
 	function ready(): boolean {
@@ -193,7 +196,7 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			// preview showed the whole slide squeezed onto one tall page instead. The PREVIEW opts in
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
-			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			let html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
 			// The slides are rendered; now the styles they need. A scan that brings in a module the base
 			// lacks re-registers the base, and the engine recomposes the sheet so it has the
 			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
@@ -213,6 +216,36 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 			if (styles && !backstopArmed) {
 				backstopArmed = true;
 				setTimeout(() => void themes.backstop(), BACKSTOP_MS);
+			}
+			// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16), once the sheet is complete:
+			// the CLI's measure, plan and verify, in a hidden frame built and sanitized exactly as the filmstrip's
+			// own (the page's `measureDoc`, sanitizeSlideHtml), with the §11 memory so an edit does not re-split the deck.
+			// Loaded only for a deck that asks for it; a failed load or an unmeasurable frame keeps today's split.
+			// A fresh deck (a load, an example, a reset) starts with no memory: decisions belong to one deck.
+			if (fresh) fitMemory = null;
+			if (PGref.splitForPreview && html !== out.html && mayWantMeasuredSplit(source)) {
+				const [ms, sz] = await Promise.all([import('./measured-split'), import('./sanitize-slide-html.js')]).catch(() => [null, null]);
+				const measureDoc = DPref.measureDoc;
+				if (ms && sz && measureDoc && ms.measuredSplitWanted(source)) {
+					const measured = await ms
+						.measuredSplitInFrame({
+							html: out.html,
+							split: (h, plan) => (PGref.splitForPreview as NonNullable<typeof PGref.splitForPreview>)(h, source, geom.w, geom.h, { plan }),
+							verdictConfig: PGref.fitVerdictConfig?.(),
+							buildDoc: (h) => measureDoc({ html: sz.sanitizeSlideHtml(h), css: out.css, mode: deckMode, geom, runtimeUrl, ...(assets.dagreUrl ? { dagreUrl: assets.dagreUrl } : {}), ...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}), previewFonts: true, gap: 16 }),
+							width: geom.w,
+							height: geom.h,
+							memory: fitMemory,
+						})
+						.catch((e) => {
+							console.warn('lattice: the measured split failed, so this deck keeps the structural split', e);
+							return null;
+						});
+					if (measured) {
+						html = measured.html;
+						fitMemory = measured.memory;
+					}
+				}
 			}
 			// Which authored slide and part each page of this render is: built once per render, and only when
 			// asked (rendered-index.ts). The focus sync asks after every render, so the outline is parsed a second

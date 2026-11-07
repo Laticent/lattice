@@ -133,6 +133,7 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol >
      outside gap. The 1.4em arrow stays put at the left, the extra width is the gap to the
      title — fully measurable, nothing sits outside the box. */
   content: ""; width: calc(1.4em + var(--sp-2xs)); height: 1.4em; align-self: center;
+  flex-shrink: 0; /* a narrow row crushed the arrow to a sliver beside a wrapping title */
   background-color: var(--accent);
   -webkit-mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
   mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
@@ -229,14 +230,14 @@ section.agenda.rail.progress-6 ol > li:nth-child(6)::before {
 /* ── cards ───────────────────────────────────────────────────────────────
  * Each section a boxed row; active card fills with the accent wash. */
 section.agenda.cards ol { gap: var(--sp-sm); }
-/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the boxed rows, so the
+/* ── `align:` register (#2317) ── the stage is a COLUMN that centers the boxed rows, so the
  * register reads there as `justify-content`: the manifest's `center` is what it always did
  * (plain `center`, as before — unlike inventory and citation-card, agenda never used `safe`),
  * `top` seats the rows under the headline rule, and under `stretch` the list and its rows grow
- * (`--cards-grow`). */
-section.agenda.cards > .cell-stage { justify-content: var(--cards-align); }
-section.agenda.cards > .cell-stage > ol { flex-grow: var(--cards-grow); }
-section.agenda.cards > .cell-stage > ol > li { flex-grow: var(--cards-grow); }
+ * (`--align-grow`). */
+section.agenda.cards > .cell-stage { justify-content: var(--align-v); }
+section.agenda.cards > .cell-stage > ol { flex-grow: var(--align-grow); }
+section.agenda.cards > .cell-stage > ol > li { flex-grow: var(--align-grow); }
 section.agenda.cards ol > li {
   /* flex mirror of `grid-template-columns:auto 1fr` (number marker | title). */
   display: flex; column-gap: var(--sp-md); align-items: baseline;
@@ -320,4 +321,30 @@ section.agenda.checks.progress-6 ol > li:nth-child(6)::after {
    rather than moving them apart. Only ever matches a member alone on its page. */
 section.agenda.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
   align-items: center;
+}
+
+/* ── TIGHT ROOM (the text-room rule, base.elements.css) ──────────────────────
+   Under ~35 characters a line (portrait or story at conference and hall), the ledger, `cards`,
+   `circles` and `checks` keep their row: with the ordinal beside the title and the page
+   reference at the right edge, the title still reads at every box the harness measures (two
+   lines of about twenty characters at story@hall). An earlier form set the ordinal above the
+   title and the page reference below it, so the same agenda changed shape between square and
+   portrait for no gain (owner, 2026-11-04; fit-everywhere-model.md §17). Only `rail` stacks. */
+@container lattice (width < 17em) {
+  /* The current stop's indent (`--sp-xl`, past the other ordinals) left its bold title three
+     words a line beside the arrow at story@hall; the arrow and the weight already mark it. */
+  section.agenda.agenda.agenda.agenda.agenda.agenda.agenda.agenda[class*="progress-"]:not(.circles):not(.rail):not(.cards):not(.checks) ol > li {
+    padding-inline-start: 0;
+  }
+  /* `rail` stacks too. A smaller ring in its row (2.2em to 1.6em, gap halved) was measured
+     first and still set "This variant / swaps the / marker" at story@hall: the gutter costs a
+     fifth of a 14em frame whatever the ring's size. Stacked, the ring heads its title and the
+     journey line goes, since it would run through the text under each ring. */
+  section.agenda.rail ol::before { content: none; }
+  section.agenda.agenda.agenda.agenda.agenda.agenda.rail ol > li {
+    flex-direction: column; align-items: flex-start; row-gap: var(--sp-2xs); padding-inline-start: 0;
+  }
+  section.agenda.lat-split-native.lat-split-native.lat-split-native.rail > .cell-stage > ol > li:only-child {
+    align-items: flex-start; justify-content: center;
+  }
 }

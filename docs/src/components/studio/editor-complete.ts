@@ -4,6 +4,7 @@ import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
+import { ALIGN_HORIZONTAL, ALIGN_VERTICAL } from './align-catalog';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
 import { STUDIO_LANGUAGES } from './studio-language';
@@ -72,6 +73,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
 	'marks': MARKS_AXES,
+	align: [ALIGN_VERTICAL.map((e) => e.name), ALIGN_HORIZONTAL.map((e) => e.name)],
 };
 
 /** The words still worth offering after `written` on an axis-register line. Exported for a test. */

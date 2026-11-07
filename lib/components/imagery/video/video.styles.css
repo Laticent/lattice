@@ -350,43 +350,49 @@ section.video.gallery.qr .video-qr-hint { font-size: var(--fs-meta); }
  * hero — `adapt.priority` lists `video` above `body`) and the copy runs beneath
  * it at full width. Square keeps the row: at 972px the poster is ~447px with
  * ~500px left for the copy, which reads fine and uses the width a square box
- * has. */
-section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--sp-md);
-}
-section.video:where([data-family="tall"], [data-family="strip"]) .video-poster {
-  max-width: 100%;
-}
-/* Stacked, the aside runs under the poster at the column's width, so its `13rem`
- * side-column cap no longer applies. At `portrait` one word of a caption ("walkthrough",
- * 220px) was wider than the cap and spilled past both edges of the card. */
-section.video:where([data-family="tall"], [data-family="strip"]) .video-aside {
-  max-width: none;
-}
-/* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
- * needs the same stack — and the lead loses its side-column width cap. */
-section.video.companion:where([data-family="tall"], [data-family="strip"]) .video-card {
-  flex-direction: column;
-  align-items: stretch;
-}
-/* In the stage cell the stacked column carries everything the section used to
- * spread across its band and body: eyebrow, title, lead, poster, code and caption.
- * The side-by-side `--sp-xl` channel between claim and clip has no side to sit
- * beside once they stack, so the stack takes the `--sp-sm` step. The `companion`
- * selector is repeated because `section.video.companion .video-card` outranks the
- * `:where()` form. Measured at `portrait`: `companion qr` ran 1221px in a 1172px
- * stage at `--sp-xl`, and the default composition 1180px at `--sp-md`. */
-section.video:where([data-family="tall"], [data-family="strip"]) .video-card,
-section.video.companion:where([data-family="tall"], [data-family="strip"]) .video-card {
-  gap: var(--sp-sm);
-}
-/* …and the QR column inside it, whose `--sp-lg` gap and hairline padding outrank
- * the tall-family embed rule above. */
-section.video.companion.qr:where([data-family="tall"], [data-family="strip"]) .video-embed {
-  gap: var(--sp-sm);
-}
-section.video.companion.qr:where([data-family="tall"], [data-family="strip"]) .video-aside {
-  padding-top: var(--sp-sm);
+ * has.
+ * Keyed on TEXT ROOM, the NARROW threshold (base.elements.css), since 2026-10-29: it keyed
+ * on the tall and strip families before. Every tall box measures under 23em, so they stack
+ * as before; square@hall (21.4em, the room of a portrait box at laptop) now stacks too,
+ * where its row set the caption ten characters a line, and square at laptop keeps the row. */
+@container lattice (width < 23em) {
+  section.video .video-embed {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-md);
+  }
+  section.video .video-poster {
+    max-width: 100%;
+  }
+  /* Stacked, the aside runs under the poster at the column's width, so its `13rem`
+   * side-column cap no longer applies. At `portrait` one word of a caption ("walkthrough",
+   * 220px) was wider than the cap and spilled past both edges of the card. */
+  section.video .video-aside {
+    max-width: none;
+  }
+  /* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
+   * needs the same stack — and the lead loses its side-column width cap. */
+  section.video.companion .video-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* In the stage cell the stacked column carries everything the section used to
+   * spread across its band and body: eyebrow, title, lead, poster, code and caption.
+   * The side-by-side `--sp-xl` channel between claim and clip has no side to sit
+   * beside once they stack, so the stack takes the `--sp-sm` step. The `companion`
+   * selector is repeated because `section.video.companion .video-card` outranks the
+   * `:where()` form. Measured at `portrait`: `companion qr` ran 1221px in a 1172px
+   * stage at `--sp-xl`, and the default composition 1180px at `--sp-md`. */
+  section.video .video-card,
+  section.video.companion .video-card {
+    gap: var(--sp-sm);
+  }
+  /* …and the QR column inside it, whose `--sp-lg` gap and hairline padding outrank
+   * the tall-family embed rule above. */
+  section.video.companion.qr .video-embed {
+    gap: var(--sp-sm);
+  }
+  section.video.companion.qr .video-aside {
+    padding-top: var(--sp-sm);
+  }
 }

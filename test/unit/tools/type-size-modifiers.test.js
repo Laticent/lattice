@@ -28,6 +28,14 @@ test('arm A: a role token belongs to the tokens files and the venue / scale rung
   assert.equal(offenses('section.cards-stack { --venue-meta-lift: 1.2; }').length, 1);
   assert.equal(offenses('section.venue-hall { --fs-scale: 1.5; --venue-meta-lift: 1.3; }').length, 0);
   assert.equal(offenses('section.scale-xl { --fs-scale: 1.3; }').length, 0);
+  // Handheld venues (fit-everywhere-model.md §18): a venue rung narrowed to shape families, and a
+  // family's default venue where the slide names none, are rungs too.
+  assert.equal(offenses('section.venue-hall:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.22; }').length, 0);
+  assert.equal(offenses('section:where([data-family="square"]):not(.venue-laptop, .venue-hall) { --fs-scale: 1.5; }').length, 0);
+  // ...and nothing may ride along: a component, a modifier, or a family default with no venue exclusion.
+  assert.equal(offenses('section.venue-hall:where([data-family="tall"]).compact { --fs-scale: 1.22; }').length, 1);
+  assert.equal(offenses('section.cards-stack:where([data-family="tall"]) { --fs-scale: 1.22; }').length, 1);
+  assert.equal(offenses('section:where([data-family="square"]) { --fs-scale: 1.5; }').length, 1);
   assert.equal(offenses(':root { --fs-body: 1.67cqi; }', 'lib/base/base.tokens.css').length, 0);
   assert.equal(offenses('section.compact { --fs-body: 1px; }', 'lib/base/base.tokens.css').length, 1,
     'a tokens file is exempt only for its class-free root rules');

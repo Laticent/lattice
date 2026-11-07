@@ -46,6 +46,7 @@ const chains = require('./lib/fit-harness/chains');
 const { spawn } = require('node:child_process');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
+const { FIT_VERDICT_SRC } = require('../lib/core/fit-measure');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, FRAME_TOLERANCE } = require('../lib/core/overflow-probe');
 const { DECK_SLIDES_SRC } = require('../lib/core/deck-slides');
 const { createEngine } = require('../lib/engine');
@@ -84,6 +85,9 @@ const REARM = argv.includes('--rearm');
 const RATCHET = flag('ratchet', '');
 const BLESS = flag('bless', '');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
+// --fit-packs: the MEASURED split's packers to bake off (2026-10-28-fit-everywhere-model.md §16).
+// Each renders through the real CLI with `--fit-pack <name>` and scores as the arm `measured-<name>`.
+const FIT_PACKS = flag('fit-packs', '').split(',').filter((x) => ['greedy', 'balanced', 'knuth-plass'].includes(x));
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
   { name: 'fit-balanced', policy: { pack: 'balanced' } },
@@ -183,6 +187,7 @@ async function main() {
       jobs.push({ key, args: ['lattice.js', deck, path.join(OUT, 'html', `${key}-A.html`)] });
       jobs.push({ key, args: ['tools/lib/fit-harness/render-whole.js', deck, path.join(OUT, 'html', `${key}-W.html`)] });
       if (size !== 'hd') for (const k of PACKS) jobs.push({ key, args: ['tools/lib/fit-harness/render-packed.js', String(k), deck, path.join(OUT, 'html', `${key}-P${k}.html`)] });
+      for (const fp of FIT_PACKS) jobs.push({ key, args: ['lattice.js', deck, path.join(OUT, 'html', `${key}-M${fp}.html`), '--fit-pack', fp] });
     }
   }
   const problems = [];
@@ -202,7 +207,7 @@ async function main() {
   // Components whose manifest excludes `compact`: the clip rescue never applies to them.
   // Every component, the plugins' kinds included (`loadAll`).
   const noCompact = require('../lib/components').loadAll().filter((m) => (m.excludes || []).includes('compact')).map((m) => m.name);
-  const cfg = { noCompact, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
+  const cfg = { noCompact, verdictSrc: FIT_VERDICT_SRC, probeSrc: PROBE_SRC, ccSrc: CONTENT_CLIPPED_SRC, slidesSrc: DECK_SLIDES_SRC, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, tol: FRAME_TOLERANCE };
   const open = async (file) => {
     const p = await browser.newPage();
     await p.setViewport({ width: 1400, height: 2400 });
@@ -288,6 +293,12 @@ async function main() {
         const per = await splitArm(P, `packed-${k}`);
         if (per) arms[`packed-${k}`] = per;
       }
+    }
+    for (const fp of FIT_PACKS) {
+      const M = path.join(OUT, 'html', `${key}-M${fp}.html`);
+      if (!fs.existsSync(M)) { problems.push(`missing render: ${key} M${fp}`); continue; }
+      const per = await splitArm(M, `measured-${fp}`);
+      if (per) arms[`measured-${fp}`] = per;
     }
     for (const arm of FIT_ARMS) {
       const p = await open(W);
@@ -586,7 +597,7 @@ function applyRatchet(rows) {
 
 async function rearm() {
   const file = path.join(OUT, 'results.jsonl');
-  const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`)]);
+  const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`), ...FIT_PACKS.map((k) => `measured-${k}`)]);
   const rows = readRows(file).filter((r) => RENDERED.has(r.arm));
   addComputedArms(rows);
   writeRows(file, rows);

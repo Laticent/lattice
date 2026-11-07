@@ -50,6 +50,26 @@
       "deck": "examples/autosplit-coverage.md",
       "by": "#2151 (rendered at size: portrait, indaco, read page by page)",
       "note": "ENROLLED BY OWNER'S CALL, REVERSING THE 2026-07-22 ATOMIC RESOLUTION, and the cost is accepted rather than denied. That resolution is still half true: an unadorned slice shows 2 of 4 cells with no axis structure, which is the #1193 defect class. What was checked on the render is the half that answers it -- each page leads with the quadrant's own label, `High impact / Low effort.`, which IS its position on both axes, and carries an `Option 1 of 4` rail from `capacity.relationship: comparison`. So a reader on page 2 of 5 is told where this cell sits and how many there are. The page is THIN (one cell in a page-tall box, content low-centred) and that is recorded, not claimed away. It is still a better read than the 4 of 7 gallery pages that clipped at portrait, where the reader saw part of the grid and was told nothing."
+    },
+    "progress": {
+      "deck": "lib/plugins/chart-family/kinds/progress/progress.gallery.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; and with fit: pack)",
+      "note": "Each overflowing slide opens on a cover carrying the lead-in \"Where each one stands\", then the bars on body pages that share one baseline: 5 bars split 3 + 2 and the eight-bar stress slide 4 + 4 without a plan; under fit: pack the measured plan puts 5 on one page and the stress slide 5 + 3. No page holds a lone bar, and every page passes the fit verdict."
+    },
+    "timeline-list": {
+      "deck": "lib/plugins/chart-family/kinds/timeline-list/timeline-list.gallery.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; and with fit: pack)",
+      "note": "On every shape but 16:9 the spine is vertical. Each overflowing slide opens on a cover carrying the lead-in \"Where the line starts\", then milestones in date order on body pages, each page with its own rail through its own dots: the four-milestone slides split as a cover and one page under fit: pack, the six-milestone stress slide 3 + 3. At square laptop and portrait tablet the row stays horizontal and the stress slide splits 3 + 3. No page holds a lone milestone, and every chart page passes the fit verdict; the gallery's closing See-also list still overflows at phone, which is not this component."
+    },
+    "citation-card": {
+      "deck": "examples/passage-split.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; the component gallery at square, portrait and story under the fit harness)",
+      "note": "A card that overflows opens on a cover with its heading; the cite and the quote take the first body page, and the gloss list moves to the next page (both items together when the plan fits them, one a page when not). A three-sentence-plus quote continues on a second page at a sentence break, its cite repeated above it. Every word lands on exactly one page. A card that fits stays one page. The gallery stress slide (the longest quotable block) still rings by design."
+    },
+    "quote": {
+      "deck": "examples/passage-split.md",
+      "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; the component gallery at square, portrait and story under the fit harness)",
+      "note": "A seven-sentence quote at square splits into pages at sentence breaks, each page a whole quote card with its marks, and the attribution rides the last page. A one-sentence quote has nowhere to break and stays whole (the gallery stress slide rings by design). Quote has no masthead, so its run opens on the first quote page rather than a cover."
     }
   },
   "components": {
@@ -153,13 +173,13 @@
       "relationship": null
     },
     "citation-card": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "passage",
+      "reshape": "paginator",
+      "coverClass": "citation-card-cover",
       "perPage": null,
       "relationship": null
     },
@@ -593,14 +613,14 @@
       "relationship": "comparison"
     },
     "progress": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "enrolled": true,
+      "strategy": "progress-rows",
+      "reshape": "paginator",
+      "coverClass": "progress-cover",
+      "perPage": 4,
       "relationship": null
     },
     "q-and-a": {
@@ -626,13 +646,13 @@
       "relationship": null
     },
     "quote": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "passage",
+      "reshape": "paginator",
+      "coverClass": "quote-cover",
       "perPage": null,
       "relationship": null
     },
@@ -824,14 +844,14 @@
       "relationship": null
     },
     "timeline-list": {
-      "treatment": "atomic",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "enrolled": true,
+      "strategy": "timeline-items",
+      "reshape": "paginator",
+      "coverClass": "timeline-list-cover",
+      "perPage": 4,
       "relationship": null
     },
     "title": {

@@ -142,16 +142,18 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blo
  * Stage centers [card grid + pull-quote]; the grid sizes to its rows so the quote
  * stays inside the bounded stage (see ledger note on dropping `flex:1`). */
 section.inventory.cards > .cell-stage { display: flex; flex-direction: column; justify-content: safe center; }
-/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the card grid and its pull-quote, so the
+/* ── `align:` register (#2317) ── the stage is a COLUMN that centers the card grid and its pull-quote, so the
  * register reads there as `justify-content`: the manifest's `center` is what it always did,
  * `top` seats it under the headline rule, and under `stretch` the list and its rows grow
- * (`--cards-grow`). `safe center`, as `list` does, so an overfull slide overflows DOWNWARD,
+ * (`--align-grow`). `safe center`, as `list` does, so an overfull slide overflows DOWNWARD,
  * where the overflow probe sees it; the coda arm wins when a coda is present. */
-section.inventory.cards > .cell-stage { justify-content: var(--cards-align); }
-section.inventory.cards[data-cards="center"] > .cell-stage { justify-content: safe center; }
-section.inventory.cards[data-cards-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--cards-align); }
-section.inventory.cards[data-cards-coda="center"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
-section.inventory.cards > .cell-stage > ul { flex-grow: var(--cards-grow); }
+section.inventory.cards > .cell-stage { justify-content: var(--align-v); }
+section.inventory.cards[data-align="middle"] > .cell-stage { justify-content: safe center; }
+section.inventory.cards[data-align="bottom"] > .cell-stage { justify-content: safe flex-end; }
+section.inventory.cards[data-align-coda]:has(> .cell-coda) > .cell-stage { justify-content: var(--align-v); }
+section.inventory.cards[data-align-coda="middle"]:has(> .cell-coda) > .cell-stage { justify-content: safe center; }
+section.inventory.cards[data-align-coda="bottom"]:has(> .cell-coda) > .cell-stage { justify-content: safe flex-end; }
+section.inventory.cards > .cell-stage > ul { flex-grow: var(--align-grow); }
 section.inventory.cards > .cell-stage > ul {
   /* The card gutter is `--sp-md`, the same as every other card grid (decision, pricing,
    * statute-stack, matrix-2x2). It was `--sp-xs` everywhere, a third of that, which read as
@@ -372,15 +374,15 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
  * new implicit column beside the last. Here it flows by row, the dot moves to the left of
  * its title, and the connector drops from each dot to the next. The dot, its gutter and the
  * connector all derive from `--inv-dot`, as the horizontal run's do. */
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
   padding: var(--sp-xs) 0 0;
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
   padding: 0 0 0 calc(var(--inv-dot) + var(--sp-sm));
   min-height: var(--inv-dot);
 }
-section.inventory.timeline[data-family="tall"] > .cell-stage > ul > li::after {
+section.inventory.timeline:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li::after {
   top: var(--inv-dot); bottom: calc(-1 * var(--sp-md));
   left: calc(var(--inv-dot) / 2 - 1px); right: auto;
   width: 2px; height: auto;
@@ -507,13 +509,14 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
 
 /* ── Width reflow (lib/base/base.card-reflow.css). `cards` tiles two to a row and `timeline`
  * one column per entry, at any width, so a narrow box squeezed both. Below 24em of the content
- * area the cards go one to a row; below 36em the timeline runs down the page, the form a tall
+ * area the cards go one to a row; below 34em, the shared text room a full-width 16:9 slide never
+ * reaches at any venue (35.9em at hall), a timeline in a narrow pane runs down the page, the form a tall
  * deck gets. (`editorial` grids the content area itself, which a query on that area cannot
  * change; it keeps its family rule.) */
 @container lat-cards (width < 24em) {
   section.inventory.inventory.cards > .cell-stage > ul:not(.inv-rows):not(.lat-reflow-held) { grid-template-columns: 1fr; --lat-narrow: 1; }
 }
-@container lat-cards (width < 36em) {
+@container lat-cards (width < 34em) {
   section.inventory.inventory.timeline > .cell-stage > ul:not(.lat-reflow-held) {
     grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); gap: var(--sp-md);
     padding: var(--sp-xs) 0 0; --lat-narrow: 1;
@@ -526,3 +529,18 @@ section.inventory.timeline.lat-split-native > .cell-stage > blockquote {
     inset-inline-start: calc(var(--inv-dot) / 2 - 1px); inset-inline-end: auto; width: 2px; height: auto;
   }
 }
+
+/* ── TEXT ROOM (the text-room rule, base.elements.css) ───────────────────────
+   TIGHT, under ~35 characters a line: the ordinal hangs in a gutter 1.2 times `--fs-h3` wide,
+   and at story@hall it left a row's body eleven characters a line ("Each signal / scored on /
+   confidence, …"). The gutter goes and the ordinal runs in before the title (or, on a row
+   with no title, before the text), so the body takes the row's full width. */
+@container lattice (width < 17em) {
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li { padding-inline-start: 0; }
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li > strong:first-child::before,
+  section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li:not(:has(> strong:first-child))::before {
+    position: static; display: inline-block; width: auto; padding-inline-end: var(--inv-ord-gap);
+  }
+}
+/* NARROW: `cards` goes to one column under 24em in the width-reflow block above, on every deck
+   shape (2026-10-28-fit-everywhere-model.md §17; its own 23em rule was retired into it). */

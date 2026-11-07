@@ -50,6 +50,12 @@ S-shaped, with asymptotes at 0 and 1.
 | `--fluid`, plain `--html` | the plot, drawn by the export page's own copy of the host; the library is inlined into the page, so a copy opened elsewhere draws too |
 | Export to Marp | a code block showing the config (no Marp tool runs Lattice's plugins) |
 
+**On a small slide the plot scales with its labels.** The axis numbers take the slide's `--fs-meta`,
+which reads larger on a phone or tablet. When they are larger for the plot's width than on a 16:9
+slide, the hydrate draws the plot that much smaller, lets its viewBox scale it back to the box and
+asks for fewer ticks, so the numbers stay whole and apart. A config with its own `width` or `height`
+is drawn at that size, unscaled.
+
 ## Failure behavior
 
 - **The config is not JSON, or function-plot rejects it:** the slide shows
