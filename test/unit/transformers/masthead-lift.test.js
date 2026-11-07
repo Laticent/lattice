@@ -104,6 +104,20 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(out, /<div class="cell-stage"><p>Body\.<\/p><\/div><div class="cell-footer"><footer>Confidential<\/footer><\/div>$/);
   });
 
+  test('a long whitespace run does not make the footer split quadratic', () => {
+    // `/(\s*<footer[^>]*>[\s\S]*?<\/footer>\s*)$/` tried `\s*` from every space of a run: 128 KB of spaces in a
+    // code block took 6.5 s (flagged by #3059). The backtracking is inside one regex exec, which scanWork cannot see
+    // (test/helpers/work-count.js), so this stays a hang guard.
+    for (const tail of ['', '<footer>F</footer>']) {
+      const inner = `<h2>T</h2><pre><code>${' '.repeat(512_000)}x</code></pre>${tail}`;
+      const t = performance.now();
+      const out = kernel.transformMastheadSection(inner, 'form');
+      const ms = performance.now() - t;
+      assert.equal(out.includes('<div class="cell-footer"><footer>F</footer></div>'), tail !== '');
+      assert.ok(ms < 5000, `took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard on regex backtracking scanWork cannot count — a few ms here, 107 s on the old pattern
+    }
+  });
+
   test('pagination becomes a real .lat-pagination span in the footer cell', () => {
     const inner = '<h2>T</h2><p>Body.</p><footer>Confidential</footer>';
     const out = kernel.transformMastheadSection(inner, 'form', '7');
