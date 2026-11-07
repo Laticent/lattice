@@ -27,7 +27,10 @@ export function ensureKatexProvider(url: string): Promise<void> {
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS, matching ensureEngine's bound.
+		let t: ReturnType<typeof setInterval> | undefined;
 		const fail = (msg: string) => {
+			// Stop polling too: a failed load used to leave the interval reading `window` for ~10s after the reject.
+			clearInterval(t);
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
@@ -51,7 +54,7 @@ export function ensureKatexProvider(url: string): Promise<void> {
 		}
 
 		if (finish()) return;
-		const t = setInterval(() => {
+		t = setInterval(() => {
 			if (finish()) {
 				clearInterval(t);
 				return;
