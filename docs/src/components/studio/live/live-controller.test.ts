@@ -57,7 +57,15 @@ async function settle(...ctls: Ctl[]) {
 	}
 }
 const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
-	for (let i = 0; i < 100 && !ok(); i++) await settle(...ctls);
+	// The host defers two sends on purpose: a newcomer's welcome a beat (400 ms) after admission, and a `since` answer held
+	// to the end of its 2 s rate window. A poll made while one of them is still pending does not count against the budget,
+	// so the budget measures the code's own delivery, not whether 100 polls outlast a timer on this runner (docs-build
+	// 39552138611, 39698243903: the polls ran out first on a loaded runner).
+	for (let polls = 0; polls < 100 && !ok(); ) {
+		const waiting = ctls.some((c) => c.hasDeferred());
+		await settle(...ctls);
+		if (!waiting) polls++;
+	}
 	expect(ok()).toBe(true);
 };
 
@@ -791,7 +799,9 @@ describe('LiveController: the session look', () => {
 	it('a member that missed the tip gets the look with the lines it asks for', async () => {
 		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
 		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
-		await until(() => lookOf(g) !== null, h, g);
+		// Past the host's welcome too: its tip carries the look, and landing after the look is forgotten below it would
+		// pass this test without the `since` answer carrying anything (it did, before the wait).
+		await until(() => lookOf(g) !== null && !h.hasDeferred(), h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: forget the look, then ask the host for lines as a returning member does.
 		(g as any).look = null;
 		// biome-ignore lint/suspicious/noExplicitAny: as above.

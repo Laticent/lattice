@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { BlockParser, type BlockState, F_HIDDEN, KIND, STRIDE, T_AUX, T_FLAGS, T_KIND, T_L0, T_L1, T_LEVEL } from './index.js';
 
@@ -5,6 +6,10 @@ import { BlockParser, type BlockState, F_HIDDEN, KIND, STRIDE, T_AUX, T_FLAGS, T
 // repo root (test/unit/core/deck-model.test.js), where markdown-it is a dependency; this package has none.
 
 const parser = new BlockParser();
+// The root's work counter (test/helpers/work-count.js), CommonJS.
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
 
 /** The tape as `type level l0-l1` lines, for readable expectations. */
 function shape(src: string, p = parser): string[] {
@@ -141,6 +146,7 @@ describe('bounds: every rule grows about 10x for 10x input', () => {
 	const HOSTILE: Record<string, (n: number) => string> = {
 		'unclosed fences': (n) => '```\n'.repeat(n),
 		'unclosed comments': (n) => '<!--\n\n'.repeat(n),
+		'unclosed comments in list items': (n) => '- <!-- open\n'.repeat(n),
 		'quote lines': (n) => '> > > x\n'.repeat(n),
 		'nested lists': (n) => Array.from({ length: n }, (_, i) => `${' '.repeat(2 * (i % 40))}- x`).join('\n'),
 		'reference brackets': (n) => '[a\n'.repeat(n),
@@ -153,22 +159,20 @@ describe('bounds: every rule grows about 10x for 10x input', () => {
 		'unclosed html blocks': (n) => '<div>\nx\n'.repeat(n),
 		'slide breaks': (n) => 'a\n\n---\n\n'.repeat(n),
 	};
-	const best = (src: string) => {
-		let t = Number.POSITIVE_INFINITY;
-		for (let k = 0; k < 5; k++) {
-			const a = performance.now();
-			parser.parse(src);
-			t = Math.min(t, performance.now() - a);
-		}
-		return t;
+	// COUNTED, not timed (HARD RULE #32). A ratio of two stopwatch readings failed CI at 31.79 (docs-build 127415542179,
+	// "quote lines") when a stall landed in the large parse. `charReads` totals the characters every string search, regex,
+	// charCodeAt and slice touches, the same work the stopwatch stood for, and it is the same number on any runner.
+	const work = (src: string) => charReads(() => parser.parse(src));
+	const cost = (src: string) => {
+		const w = work(src);
+		return w.reads + w.scanned;
 	};
 	for (const [name, make] of Object.entries(HOSTILE)) {
 		it(name, () => {
-			best(make(2000)); // warm the JIT
-			const small = best(make(4000));
-			const large = best(make(40000));
-			// Linear is ~10x; quadratic would be ~100x. 30 leaves room for a noisy runner.
-			expect(large / Math.max(small, 0.05)).toBeLessThan(30);
+			const small = cost(make(4000));
+			const large = cost(make(40000));
+			// Linear is ~10x; quadratic would be ~100x.
+			expect(large / small).toBeLessThan(30);
 		});
 	}
 });
