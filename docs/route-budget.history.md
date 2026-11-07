@@ -6,6 +6,19 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-06 — engine ceiling raised to 766.0 KB on four routes, by hand, for PR 2988
+
+Owner OK 2026-11-06 in the PR 2988 session: "766.0KB, engine only", chosen over a #3068-style reset to measured + ~10% and over giving about 6 KB back by lazy-loading the measured split and passage code. An earlier OK for 763.3 KB was set from a run against an older `main` and was too low; this replaces it. The Studio eager and lint-core raises first asked for here are left to #3068, which resets those budgets with room.
+
+Measured locally on 2026-11-06 with `docs/scripts/check-route-budget.mjs` `measure`: `main` at 8ba6b6b reads engineJsGz 774,889 B (756.7 KB); PR 2988 at caf6867 merged onto it reads 782,966 B (764.6 KB), as CI's preview did. PR 2988 adds 8,077 B to the engine every content page loads: the handheld venue resolver, the `align:` register, the measured split in the browser, cover lift and run placement, and the passage split (`lib/core/passage-sentences.js`, the `passage` strategy, the passage arm of `measureFit`). The ceiling on studio, playground, home and components rises from 760.8 KB (779,016 B) to 766.0 KB (784,384 B), 1,418 B over the measurement. getting-started's engine has room and is unchanged. Soft targets are unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| playground | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| home | engineJsGz | 707731 | 707731 | +0 | 784384 |
+| components | engineJsGz | 707731 | 707731 | +0 | 784384 |
+
 ### 2026-11-06 — measured on the built tree at eaba4e51
 
 The perf overlay's panel loads only once the overlay is switched on (PerfOverlayPanel.tsx), so every route stops downloading about 6KB gz it never showed
