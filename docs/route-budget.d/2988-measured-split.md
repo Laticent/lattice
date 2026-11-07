@@ -1,4 +1,4 @@
-studio: +1219
+studio: +1260
 playground: +360
 home: +500
 The measured split (`fit: pack`, engineering/decisions/2026-10-28-fit-everywhere-model.md §16, §17) runs on
@@ -24,3 +24,7 @@ pickers and their catalog (`src/components/studio/align-catalog.ts`); the measur
 orchestration moved into the lazy module (`previewPlan`) to make room. CI on 9b29219 measured +1219 B gz
 on studio (+408 venue.ts, +307 single-slide-render, +306 the chunk that carries the align catalog, +166
 StudioIsland, +16 DeckPreview).
+Merged onto `main` at 8ba6b6b, CI on 9083917 measured +1229 B gz on studio (+408 venue.ts, +306
+logo-finish, the chunk that now carries the align catalog, +306 single-slide-render, +177
+StudioIsland, +16 DeckPreview): `main`'s own chunk changes moved 10 B into this PR's count. Declared
++1260 for gzip variation.
