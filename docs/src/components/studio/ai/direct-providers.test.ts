@@ -2,7 +2,8 @@
 // the adapter routing the cloud tier to the provider the author chose. Every request is mocked.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetOpenRouterKeyForTests, openRouterKeySettled, readActiveProvider, readProviderKey, writeActiveProvider, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { readChatSelection, selectChat } from '../../../lib/model-selection.js';
+import { __resetOpenRouterKeyForTests, openRouterKeySettled, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
 import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
 
@@ -236,21 +237,22 @@ describe('the transports', () => {
 });
 
 describe('the adapter routes the cloud tier to the chosen provider', () => {
-	it('saveProviderKey makes the provider active; removing it returns to OpenRouter', async () => {
+	it('saveProviderKey selects the provider; removing the key leaves the selection reading needs-key', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
-		const m = createArchitectModel({ explicitTierWins: true });
+		const m = createArchitectModel({});
 		expect(m.availability().provider).toBe('openrouter');
 		expect(m.availability().openRouterReady).toBe(false);
 		m.saveProviderKey('anthropic', 'sk-ant-test-key-0000000000');
 		await openRouterKeySettled();
-		expect(readActiveProvider()).toBe('anthropic');
+		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'anthropic' });
 		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: true, generation: 'openrouter' });
 		expect(m.openRouterKeySettingsUrl()).toMatch(/console\.anthropic\.com/);
 		expect(m.providersWithKeys()).toEqual(['anthropic']);
 		m.removeProviderKey('anthropic');
 		await openRouterKeySettled();
 		expect(readProviderKey('anthropic')).toBeNull();
-		expect(m.availability().provider).toBe('openrouter');
+		// Never substituted: the selection stays Anthropic and says it needs a key.
+		expect(m.availability()).toMatchObject({ provider: 'anthropic', generation: 'floor', readiness: { state: 'needs-key', provider: 'anthropic' } });
 	});
 
 	it('the stored direct key is sealed, never in clear', async () => {
@@ -270,7 +272,6 @@ describe('the adapter routes the cloud tier to the chosen provider', () => {
 		m.disconnectAllProviders();
 		await openRouterKeySettled();
 		expect(m.providersWithKeys()).toEqual([]);
-		expect(readActiveProvider()).toBe('openrouter');
 	});
 });
 
@@ -306,12 +307,12 @@ describe('red-team and checker findings (BYOK phase 2)', () => {
 		const m = createArchitectModel({});
 		m.saveProviderKey('openrouter', 'sk-or-v1-test');
 		await openRouterKeySettled();
-		writeActiveProvider('anthropic'); // chosen, but no key readable yet
-		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false });
+		selectChat({ provider: 'anthropic' }); // chosen, but no key readable yet
+		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false, generation: 'floor' });
 	});
 
-	it('a stored provider name that is not a provider reads as OpenRouter', () => {
+	it('a stored provider name that is not a provider migrates as OpenRouter', () => {
 		localStorage.setItem('lattice-db-provider', 'constructor');
-		expect(readActiveProvider()).toBe('openrouter');
+		expect(readChatSelection().provider).toBe('openrouter');
 	});
 });

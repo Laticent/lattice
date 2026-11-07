@@ -5,7 +5,8 @@
  * CI — no browser API, no WebGPU, no HuggingFace CDN. So this suite proves the
  * parts that MUST be correct regardless of backend:
  *
- *   - the ladder floors when no model is present (the offline guarantee),
+ *   - the adapter floors when no model is present (the offline guarantee),
+ *   - the stored chat selection decides who answers (no readiness ladder),
  *   - complete() never throws and honors `fallback` / `json` validation,
  *   - a MockBackend exercises the model-on path (streaming + JSON),
  *   - the model-off switch forces the floor,
@@ -187,31 +188,44 @@ describe('retrieval (cosine ranking)', () => {
   });
 });
 
-describe('generation ladder — universal Transformers.js tier', () => {
-  const readyBackend = (name, reply) => ({ name, ready: () => true, async complete() { return reply; } });
+// The chat SELECTION decides who answers — never a readiness ladder (model spine,
+// engineering/decisions/2026-11-07-studio-model-spine.md). In Node the selection lives in
+// memory; each test starts from a fresh one.
+describe('chat selection — who answers', () => {
+  const readyBackend = (name, reply) => ({ name, ready: () => true, getModel: () => 'm', async complete() { return reply; } });
+  async function fresh() {
+    const loaded = await load();
+    const sel = await import('../../../docs/src/lib/model-selection.js');
+    sel.__resetSelectionForTests();
+    return { ...loaded, sel };
+  }
 
-  test('falls back to the universal tier when no Prompt API and it is loaded', async () => {
-    const { model } = await load();
+  test('the selected universal tier answers when it is loaded', async () => {
+    const { model, sel } = await fresh();
+    sel.selectChat({ provider: 'universal' });
     const m = model.createArchitectModel({ getSettings: () => ({}) });
     m.__setUniversal(readyBackend('transformers', 'FROM UNIVERSAL'));
-    m.__setPromptAvailability('unavailable');
+    m.__setPromptAvailability('available'); // ready too, but not selected
     const out = await m.complete({ messages: [], fallback: 'DET' });
     assert.equal(out, 'FROM UNIVERSAL');
     assert.equal(m.availability().generation, 'transformers');
     assert.equal(m.availability().universalReady, true);
   });
 
-  test('prefers the built-in Prompt API over the universal tier when both are ready', async () => {
-    const { model } = await load();
+  test('the selected built-in Prompt API answers; a ready universal tier does not stand in', async () => {
+    const { model, sel } = await fresh();
+    sel.selectChat({ provider: 'prompt-api' });
     const m = model.createArchitectModel({ getSettings: () => ({}) });
     m.__setUniversal(readyBackend('transformers', 'U'));
+    m.__setPromptAvailability('unavailable');
+    assert.equal(m.availability().generation, 'floor');
+    assert.equal(m.availability().readiness.state, 'unavailable');
     m.__setPromptAvailability('available');
-    // Prompt API is free + instant (no download), so it wins in auto mode.
     assert.equal(m.availability().generation, 'prompt-api');
   });
 
   test('Puter is fully removed — no adapter surface, no tier, no cloud chooser', async () => {
-    const { model } = await load();
+    const { model } = await fresh();
     const m = model.createArchitectModel({ getSettings: () => ({}) });
     // the adapter no longer exposes any Puter affordance or the dual-cloud chooser
     assert.equal(typeof m.connectPuter, 'undefined');
@@ -223,8 +237,8 @@ describe('generation ladder — universal Transformers.js tier', () => {
     assert.ok(!('cloud' in a), 'no active-cloud field in availability');
   });
 
-  test('connected OpenRouter outranks every local tier', async () => {
-    const { model } = await load();
+  test('a selected OpenRouter answers while local tiers are ready', async () => {
+    const { model } = await fresh();
     const m = model.createArchitectModel({ getSettings: () => ({}) });
     m.__setUniversal(readyBackend('transformers', 'U'));
     m.__setPromptAvailability('available');
@@ -235,7 +249,7 @@ describe('generation ladder — universal Transformers.js tier', () => {
   });
 
   test('the model-off switch still forces the floor over connected OpenRouter', async () => {
-    const { model } = await load();
+    const { model } = await fresh();
     const m = model.createArchitectModel({ getSettings: () => ({ modelEnabled: false }) });
     m.__setOpenRouter(readyBackend('openrouter', 'OR'));
     assert.equal(m.availability().generation, 'floor');
@@ -243,7 +257,8 @@ describe('generation ladder — universal Transformers.js tier', () => {
   });
 
   test('the model-off switch still forces the floor over a ready universal tier', async () => {
-    const { model } = await load();
+    const { model, sel } = await fresh();
+    sel.selectChat({ provider: 'universal' });
     const m = model.createArchitectModel({ getSettings: () => ({ modelEnabled: false }) });
     m.__setUniversal(readyBackend('transformers', 'U'));
     assert.equal(m.availability().generation, 'floor');

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { frontMatterBlock, getFrontMatter } from '../../lib/front-matter';
-import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
 import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
@@ -213,6 +213,21 @@ function CompactedDivider({ info }: { info: NonNullable<ChatMessage['compacted']
 }
 
 type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: string };
+
+const PROVIDER_LABEL: Record<string, string> = { openrouter: 'OpenRouter', openai: 'OpenAI', gemini: 'Gemini', anthropic: 'Anthropic' };
+/** The notice for a turn the selected model could not answer. It names the selection's state and never a substitute. */
+export function offlineNotice(r?: ChatReadiness): string {
+	switch (r?.state) {
+		case 'warming':
+			return r.source === 'device' ? 'Your on-device model is still loading. Send again in a moment.' : 'Your API key is still opening. Send again in a moment.';
+		case 'needs-key':
+			return `Connect a model in Workspace → AI: your chat model (${PROVIDER_LABEL[r.provider] ?? r.provider}) needs a key, or pick another model.`;
+		case 'unavailable':
+			return 'Your on-device model is not loaded in this browser. Load it in Workspace → AI, or pick another model.';
+		default:
+			return 'Connect a model in Workspace → AI and I can answer and edit your deck.';
+	}
+}
 
 // A FAILURE NOTICE HAS TO OUTLIVE THE PANEL, NOT JUST THE RENDER.
 //
@@ -552,7 +567,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			};
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, mode: sendMode, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
-				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
+				raiseTurnNotice(sendDeckId, turnSeq, 'offline', offlineNotice(out.readiness));
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are

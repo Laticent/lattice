@@ -4,7 +4,7 @@
 // Its own module, imported only by ApiKeyPanel (inside the lazily loaded Workspace sheet), so the
 // Studio's first load does not carry it (docs/route-budget.json).
 
-import { architectModel, type CloudProvider, setStudioTier } from './architect';
+import { architectModel, type CloudProvider } from './architect';
 import { guessProvider, KEY_PROVIDER_INFO } from './key-providers';
 
 export { guessProvider, KEY_PROVIDER_INFO };
@@ -13,8 +13,8 @@ export { guessProvider, KEY_PROVIDER_INFO };
  * Save a key the author PASTED for `provider`. The key is checked with the provider first
  * (OpenRouter's /auth/key; the direct providers' free /models listing), so a typo or a revoked
  * key is refused here instead of failing on the first paid request. On success it is stored
- * sealed through lib/openrouter-key.js, that provider becomes the cloud tier, and Cloud becomes
- * the active tier.
+ * sealed through lib/openrouter-key.js and that provider's chat model becomes the selection
+ * (owner decision 3: the author's last pick for it, else its default).
  */
 export async function saveProviderKey(provider: CloudProvider, raw: string): Promise<{ ok: true } | { ok: false; note: string }> {
 	const info = KEY_PROVIDER_INFO[provider];
@@ -39,10 +39,6 @@ export async function saveProviderKey(provider: CloudProvider, raw: string): Pro
 	if (status === 200) {
 		if (m.saveProviderKey) m.saveProviderKey(provider, key);
 		else m.restoreOpenRouter?.(key);
-		// Saving a key is choosing Cloud: an on-device tier the author picked earlier would
-		// otherwise keep generating (the Studio's explicitTierWins), behind a toast that says
-		// Cloud is active.
-		await setStudioTier('auto');
 		return { ok: true };
 	}
 	if (status === 401 || status === 403) return { ok: false, note: `${info.label} rejected this key. Check it, or create a new one at ${info.keysHost}.` };
@@ -64,7 +60,7 @@ export async function disconnectAllProviders(): Promise<void> {
 	else m?.disconnectOpenRouter?.();
 }
 
-/** Remove one provider's key; the cloud tier returns to OpenRouter if it was the active one. */
+/** Remove one provider's key. A selection that used it stays and reads "needs a key". */
 export async function removeProviderKey(provider: CloudProvider): Promise<void> {
 	const m = await architectModel();
 	if (provider === 'openrouter') m?.disconnectOpenRouter?.();
@@ -77,9 +73,8 @@ export async function providersWithKeys(): Promise<CloudProvider[]> {
 	return m?.providersWithKeys?.() ?? [];
 }
 
-/** Run the cloud tier on a provider that already holds a key. */
+/** Select the chat model of a provider that already holds a key. */
 export async function switchProvider(provider: CloudProvider): Promise<void> {
 	const m = await architectModel();
 	m?.switchProvider?.(provider);
-	await setStudioTier('auto');
 }

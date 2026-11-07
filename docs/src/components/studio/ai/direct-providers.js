@@ -23,6 +23,7 @@
 //
 // Keys are read and written only through lib/openrouter-key.js (§3), sealed at rest (§9).
 
+import { chatModelFor, selectChat } from '../../../lib/model-selection.js';
 import { noteProviderStatus, providerKeyRejected, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { readCachingEnabled } from './spend.js';
 
@@ -54,20 +55,6 @@ export const PROVIDERS = Object.freeze({
 const ANTHROPIC_VERSION = '2023-06-01';
 // Anthropic requires a max_tokens; this is the ceiling when the caller sets none.
 const ANTHROPIC_DEFAULT_MAX = 8192;
-const MODEL_LS = (p) => `lattice-db-${p}-model`;
-
-function readLS(k) {
-	try {
-		return localStorage.getItem(k);
-	} catch {
-		return null;
-	}
-}
-function writeLS(k, v) {
-	try {
-		v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
-	} catch {}
-}
 
 /** The request headers `provider` needs for `key`. */
 export function providerHeaders(provider, key) {
@@ -308,10 +295,11 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			return providerKeyRejected(provider);
 		},
 		getModel() {
-			return readLS(MODEL_LS(provider)) || (models ? pickDefaultModel(models, provider) : null) || '';
+			// The chat selection's model for this provider (lib/model-selection.js), else the derived default.
+			return chatModelFor(provider) || (models ? pickDefaultModel(models, provider) : null) || '';
 		},
 		setModel(id) {
-			writeLS(MODEL_LS(provider), id || null);
+			selectChat({ provider, model: id || '' });
 		},
 		keySettingsUrl() {
 			return P.billingUrl;
@@ -403,7 +391,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			if (!key) throw new Error(`${P.label} not connected`);
 			// A per-call override is an OpenRouter catalog id (`vendor/model`, e.g. the Library's photo
 			// model). It names nothing on this provider, so the author's model here answers instead.
-			let model = opts.model && !opts.model.includes('/') ? opts.model : this.getModel();
+			let model = opts.model && !opts.model.includes('/') ? opts.model : opts.pinnedModel || this.getModel();
 			if (!model) {
 				await this.listModels().catch(() => {});
 				model = this.getModel();

@@ -1,0 +1,4 @@
+- Studio: the chat model is now one stored selection that survives a reload. The model you pick (cloud, a direct key, or on-device) answers every turn; if it cannot answer yet, the chat says why (still opening, needs a key, not loaded) instead of quietly using another model.
+- Studio: a chat turn runs on one model from start to finish, and the reply, its cost and the model chip name the model that actually answered, even if you switch models mid-reply.
+- Studio: saving an API key makes that provider's chat model active straight away (your last pick for it, or its default). Removing a key no longer moves you to another provider.
+- Studio: another open tab follows a model change made in this one.

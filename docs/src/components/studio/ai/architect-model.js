@@ -18,7 +18,8 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, readActiveProvider, readOpenRouterKey, readProviderKey, writeActiveProvider, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { CHAT_CLOUD_PROVIDERS, chatModelFor, readChatSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
+import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
 import { directBackend } from './direct-providers.js';
 
 // Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.
@@ -55,7 +56,6 @@ const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
 // A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
 const CATALOG_FETCH_TIMEOUT_MS = 15000;
 // The author's OpenRouter key is read and written ONLY through lib/openrouter-key.js.
-const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
 const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-cached /models catalog
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
@@ -82,6 +82,8 @@ const WEBLLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 // invented numbers and ignored instructions. Desktops reach for the built-in
 // Prompt API or the WebLLM tier for stronger answers.
 const UNIVERSAL_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
+// The on-device chat models by selection provider, for the readouts (the chip, the Workspace).
+const DEVICE_MODEL_IDS = { webllm: WEBLLM_MODEL, universal: UNIVERSAL_MODEL, 'prompt-api': 'prompt-api' };
 // Decoding for the small model: greedy loops on a tiny model, so penalize
 // repetition and forbid repeating any 3-gram. Verified in Node to stop the
 // degenerate loops the phone showed. Short generations (it's slow per token).
@@ -267,12 +269,14 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     ready() { return !!readOpenRouterKey(); },
     hasPendingAuth() { return !!readLS(OR_VERIFIER_LS); },
     keyInvalid() { return openRouterKeyRejected(); },
-    getModel() { return readLS(OR_MODEL_LS) || defaultModel; },
+    // The model comes from the chat selection (lib/model-selection.js): the selected one when
+    // OpenRouter is the selected provider, else the author's last OpenRouter pick, else the default.
+    getModel() { return chatModelFor('openrouter') || defaultModel; },
     // Where the user sets a HARD, server-enforced per-key spend limit. We can't set
     // it from the browser PKCE flow (the redirect can't carry a limit, and the
     // code-creation endpoint is session-bound), so we deep-link them to it.
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
-    setModel(id) { writeLS(OR_MODEL_LS, id || null); },
+    setModel(id) { selectChat({ provider: 'openrouter', model: id || '' }); },
     keySnapshot() { return readOpenRouterKey(); }, // for the Disconnect Undo (restore without re-OAuth)
     restore(key) { setKey(key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
@@ -338,13 +342,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // The current model's display name (catalog `name`, e.g. "DeepSeek: R1"), for the
     // reply attribution heading. Falls back to the raw id before the catalog loads.
     modelName() {
-      const id = readLS(OR_MODEL_LS) || defaultModel;
+      const id = this.getModel();
       return catalogCache?.find((m) => m.id === id)?.name || id;
     },
     // The active model's per-MILLION price pair, for the pre-send estimate + display.
     // Null until the catalog has loaded (listModels) — callers degrade gracefully.
     modelPrice(forId) {
-      const id = forId || readLS(OR_MODEL_LS) || defaultModel;
+      const id = forId || this.getModel();
       let m = catalogCache?.find((x) => x.id === id);
       // A `~vendor/name-latest` alias is not itself listed: price it at its family's dearest member, so a spending cap errs on the
       // safe side.
@@ -452,7 +456,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(list);
       return list;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, reasoningEffort }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, pinnedModel, onModel, reasoningEffort }) {
       const key = readOpenRouterKey();
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -473,7 +477,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // message so each round reads the previous rounds from cache; see withCachedTail.
       // `model` lets ONE call run on a different model than the chat's (the Library's photo description uses the image model
       // the author picked); `reasoningEffort` asks a reasoning-capable model to think harder. Neither is set by any other caller.
-      const modelId = modelOverride || this.getModel();
+      const modelId = modelOverride || pinnedModel || this.getModel();
       const cached = cacheOn ? withCachedSystem(messages, modelId, cacheTtl) : messages;
       const body = { model: modelId, messages: cacheOn && cacheTail ? withCachedTail(cached, modelId) : cached, stream: !!onToken, usage: { include: true } };
       if (reasoningEffort) body.reasoning = { effort: reasoningEffort };
@@ -522,6 +526,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
           this.invalidateCatalog();
           res = await send(defaultModel);
+          // The default answered, not the stored pick: say so, so the reply and its cost are
+          // credited to the model that actually answered (model spine §pin).
+          if (res.ok) onModel?.(defaultModel);
         }
         if (!res.ok) {
           noteStatus(res.status, key);
@@ -873,17 +880,13 @@ export function extractJson(text) {
 
 // ── The adapter ───────────────────────────────────────────────────────────────
 
-/** @param {{ getSettings?: () => Record<string, unknown>, explicitTierWins?: boolean, defaultModel?: string, defaultMaxTokens?: number }} [opts] */
-export function createArchitectModel({ getSettings, explicitTierWins = false, defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0 } = {}) {
+/** @param {{ getSettings?: () => Record<string, unknown>, defaultModel?: string, defaultMaxTokens?: number }} [opts] */
+export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0 } = {}) {
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const modelOn = () => settings().modelEnabled !== false; // default on; one switch off
-  // Tier-precedence policy. Default (false): the connected cloud always wins over a
-  // local tier — the Drawing Board relies on this (it has no "back to cloud" control,
-  // so a loaded local model must stay dormant under a connection). When true (the
-  // Studio): a DELIBERATE on-device pick (tierPref set by the user) outranks the
-  // cloud, so "connected" and "active" are decoupled — the user runs on-device while
-  // staying connected, and one tap (tierPref→'auto') resumes the cloud. See
-  // engineering/decisions/2026-06-29-studio-tier-precedence.md.
+  // Who answers is the author's stored selection, never a readiness ladder: see `resolve` below
+  // and engineering/decisions/2026-11-07-studio-model-spine.md (which supersedes the
+  // 2026-06-29 tier-precedence policy and its `explicitTierWins` flag).
 
   let injected = null; // test hook — a MockBackend
   const prompt = promptApiBackend();
@@ -893,64 +896,88 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   // use. Each prices its usage from OpenRouter's public catalog (direct-providers.js).
   const directs = {};
   const directFor = (p) => (directs[p] ||= directBackend(p, { catalog: () => openrouter.listModels(), catalogNow: () => openrouter.catalogSnapshot?.() ?? null, defaultMaxTokens }));
-  // THE CLOUD TIER: OpenRouter unless the author chose a direct provider AND it holds a key.
-  // Everything above this adapter asks `cloud()`, never a provider by name.
-  // A chosen direct provider stays the cloud tier even while its sealed key is being re-opened
-  // (readProviderKey answers null then): falling back to OpenRouter in that window would bill
-  // the wrong account (red team, BYOK phase 2). It reads not-ready instead, for that moment.
-  // Removing the active direct key sets the provider back to OpenRouter (removeProviderKey).
-  const cloud = () => {
-    const p = readActiveProvider();
-    return p !== 'openrouter' ? directFor(p) : openrouter;
+  // THE CHAT SELECTION decides who answers (lib/model-selection.js): one stored record, read on
+  // every call, never a readiness ladder. `cloud()` is the selected cloud provider's backend (or
+  // the author's last cloud provider while an on-device model is selected, for the cloud-only
+  // readouts such as spend). A chosen direct provider whose sealed key is still opening reads
+  // `warming`, never OpenRouter: that would bill the wrong account (BYOK phase 2).
+  const lastCloudProvider = () => {
+    const s = readChatSelection();
+    if (s.source === 'cloud') return s.provider;
+    return CHAT_CLOUD_PROVIDERS.find((p) => s.last[p]) ?? 'openrouter';
   };
+  const backendFor = (p) => (p === 'openrouter' ? openrouter : directFor(p));
+  const cloud = () => backendFor(lastCloudProvider());
   // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
   // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
-  if (readOpenRouterKey()) openrouter.listModels().catch(() => {});
+  // A direct provider is priced from the same public catalog, so it is fetched for any stored key.
+  if (readOpenRouterKey() || KEY_PROVIDERS.some((p) => p !== 'openrouter' && readProviderKey(p))) openrouter.listModels().catch(() => {});
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)
-  let tierPref = 'auto'; // 'auto' | 'prompt-api' | 'webllm' | 'universal' | 'floor'
+  // The model-off floor switch (Workspace "AI off", tests). The only in-memory tier state left.
+  let floorForced = false;
+  // On-device downloads in flight, so a selected-but-loading model reads `warming`.
+  const loading = { webllm: false, universal: false };
+  // Another tab changed the selection or a key: re-announce here so this tab's UI follows.
+  if (hasWindow) {
+    watchSelectionStorage();
+    try { window.addEventListener('storage', (e) => { if (isOpenRouterKeyEvent(e)) emitChange(); }); } catch {}
+  }
 
   async function refreshAvailability() {
     promptAvail = await detectPromptApi();
     return promptAvail;
   }
 
-  // Pick the active generation backend by readiness + preference. The model-off
-  // switch wins over everything (incl. an injected test backend) — that's the
-  // offline guarantee and the test hook for forcing the floor.
+  // Resolve the SELECTION. Returns the selected backend and its readiness; never another one.
+  //   ready      — it can answer now
+  //   warming    — it will be ready without the author doing anything (a key opening, a
+  //                download in progress, the built-in model's availability not probed yet)
+  //   needs-key  — a cloud provider with no key, or a rejected one
+  //   unavailable— an on-device model that is not downloaded / not supported here
+  function resolve() {
+    const sel = readChatSelection();
+    if (sel.source === 'device') {
+      if (sel.provider === 'webllm') return { sel, backend: webllm, state: webllm.ready() ? 'ready' : loading.webllm ? 'warming' : 'unavailable' };
+      if (sel.provider === 'universal') return { sel, backend: universal, state: universal.ready() ? 'ready' : loading.universal ? 'warming' : 'unavailable' };
+      const state = promptAvail === 'available' ? 'ready' : promptAvail === 'unknown' ? 'warming' : 'unavailable';
+      return { sel, backend: prompt, state };
+    }
+    const backend = backendFor(sel.provider);
+    // A rejected key still answers (and fails visibly with the provider's own error); the
+    // Workspace shows it as rejected. Only a key that is not open yet, or none, stops the call.
+    const state = backend.ready() ? 'ready' : providerKeyState(sel.provider) === 'opening' ? 'warming' : 'needs-key';
+    return { sel, backend, state };
+  }
+
+  // The backend that answers a call: the resolved selection when ready, else the floor (which
+  // answers nothing). The model-off switch wins over everything (incl. an injected test backend)
+  // — that's the offline guarantee and the test hook for forcing the floor.
   function pickBackend() {
-    if (!modelOn() || tierPref === 'floor') return floorBackend;
+    if (!modelOn() || floorForced) return floorBackend;
     if (injected) return injected;
-    // A deliberate on-device selection that is actually ready (the user picked this
-    // tier — not the 'auto' default).
-    const explicit =
-      (tierPref === 'webllm' && webllm.ready() && webllm) ||
-      (tierPref === 'universal' && universal.ready() && universal) ||
-      (tierPref === 'prompt-api' && promptAvail === 'available' && prompt) ||
-      null;
-    // Studio policy (explicitTierWins): an explicit on-device pick outranks the
-    // connected cloud — the user chose to run local while staying connected.
-    if (explicitTierWins && explicit) return explicit;
-    // The connected OpenRouter cloud (Converse) is otherwise the best backend and is
-    // the default active tier whenever connected.
-    if (cloud().ready()) return cloud();
-    // No cloud: an explicit pick applies, then the auto ladder — WebLLM (advanced,
-    // explicitly summoned) → built-in Prompt API (free, instant) → Transformers.js
-    // universal (loaded WASM) → floor.
-    if (explicit) return explicit;
-    if (webllm.ready()) return webllm;
-    if (promptAvail === 'available') return prompt;
-    if (universal.ready()) return universal;
-    return floorBackend;
+    const r = resolve();
+    return r.state === 'ready' ? r.backend : floorBackend;
+  }
+
+  /** The readiness of the selection, for the UI and the chat's "not ready" notice. */
+  function readiness() {
+    if (!modelOn() || floorForced) return { state: 'off', source: 'cloud', provider: 'openrouter', model: '' };
+    if (injected) return { state: 'ready', source: 'cloud', provider: 'openrouter', model: '' };
+    const { sel, backend, state } = resolve();
+    const model = sel.source === 'cloud' ? backend.getModel() : (DEVICE_MODEL_IDS[sel.provider] ?? '');
+    return { state, source: sel.source, provider: sel.provider, model };
   }
 
   async function complete(opts) {
     const { json, fallback } = opts;
-    const backend = pickBackend();
+    // A pinned call (one chat turn, see `pin`) runs on the backend + model fixed at its start,
+    // whatever the selection says now.
+    const backend = opts.__pin ? opts.__pin.backend : pickBackend();
     if (backend === floorBackend) return floorBackend.complete(opts);
     try {
-      const out = await backend.complete(opts);
+      const out = await backend.complete(opts.__pin ? { ...opts, pinnedModel: opts.__pin.model } : opts);
       if (!json) return (out && String(out).trim()) || fallback || '';
       const parsed = extractJson(out);
       return parsed ?? (fallback ?? {}); // validate-or-floor
@@ -1017,6 +1044,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     availability() {
       return {
         generation: pickBackend().name,
+        readiness: readiness(),
         promptApi: promptAvail,
         webgpu: detectWebGPU(),
         webllmReady: webllm.ready(),
@@ -1028,7 +1056,46 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
         modelOn: modelOn(),
       };
     },
-    setTier(name) { tierPref = name; emitChange(); },
+    /**
+     * Fix the backend and model for ONE unit of work (a chat turn): the returned model answers
+     * every round on them, and its readouts (model id, name, price) name them, whatever the
+     * selection becomes meanwhile. Cost and the chip are credited to the model that answered.
+     */
+    async pin() {
+      // The built-in model's availability is a probe, not a stored fact: settle it before pinning.
+      if (promptAvail === 'unknown' && readChatSelection().provider === 'prompt-api') await refreshAvailability().catch(() => {});
+      const backend = pickBackend();
+      // A real cloud backend names its model; an injected test backend reads the adapter's.
+      const isCloud = backend.name === 'openrouter';
+      let modelId = !isCloud ? '' : typeof backend.getModel === 'function' ? backend.getModel() : (this.openRouterModel?.() ?? '');
+      // A direct provider with no stored pick derives its default from its list: load it now, so
+      // the whole turn runs on (and is credited to) one concrete model.
+      if (isCloud && !modelId && backend.listModels) { await backend.listModels().catch(() => {}); modelId = backend.getModel(); }
+      const pinned = { backend, model: modelId };
+      const snapshot = this.availability();
+      const priceOf = (id) => (!isCloud ? null : backend.modelPrice ? backend.modelPrice(id) : (this.openRouterModelPrice?.(id) ?? null));
+      return {
+        ...this,
+        availability: () => snapshot,
+        complete: (opts) => this.complete({ ...opts, __pin: pinned, onModel: (id) => { pinned.model = id; opts?.onModel?.(id); } }),
+        openRouterModel: () => pinned.model,
+        openRouterModelName: () => {
+          if (!isCloud || !backend.listModels) return pinned.model;
+          return backend.modelName?.call({ ...backend, getModel: () => pinned.model }) ?? pinned.model;
+        },
+        openRouterModelPrice: (id) => priceOf(id || pinned.model),
+      };
+    },
+    /**
+     * The tier verbs, now selections: 'auto' = the author's cloud provider (its last pick);
+     * 'prompt-api' | 'webllm' | 'universal' = that on-device model; 'floor' = the model-off switch.
+     */
+    setTier(name) {
+      if (name === 'floor') { floorForced = true; emitChange(); return; }
+      floorForced = false;
+      if (name === 'auto') selectChat({ provider: lastCloudProvider() });
+      else selectChat({ provider: name });
+    },
     // OpenRouter cloud tier — one-click OAuth (PKCE), the user's own account.
     // beginOpenRouterAuth() returns the URL to redirect to; the page navigates
     // there. On return (?code=) the page calls resumeOpenRouterAuth(code), which
@@ -1053,7 +1120,8 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     checkOpenRouterKey(key) { return openrouter.checkKey(key); },
     listOpenRouterModels() { return cloud().listModels(); },
     openRouterModel() { return cloud().getModel(); },
-    setOpenRouterModel(id) { cloud().setModel(id); emitChange(); },
+    // Selecting a model selects its provider too (one record): it is active immediately.
+    setOpenRouterModel(id, provider = lastCloudProvider()) { backendFor(provider).setModel(id); },
     openRouterModelName() { return cloud().modelName(); },
     openRouterAccount() { return cloud().accountInfo(); },
     openRouterCredits() { return cloud().creditsInfo(); }, // the account wallet (balance)
@@ -1073,41 +1141,48 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     activeProvider() { return cloud().provider ?? 'openrouter'; },
     /** Check a pasted direct-provider key against its free `/models` listing: the HTTP status, 0 when unreachable. */
     checkProviderKey(provider, key) { return provider === 'openrouter' ? openrouter.checkKey(key) : directFor(provider).checkKey(key); },
-    /** Store a direct-provider key and make that provider the cloud tier. */
+    /**
+     * Store a key. Owner decision 3 ("when something is set you use it"): saving a key makes that
+     * provider's chat model active at once — the author's last pick for it, else its default.
+     */
     saveProviderKey(provider, key) {
-      if (provider === 'openrouter') { openrouter.restore(key); writeActiveProvider('openrouter'); }
-      else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); writeActiveProvider(provider); directFor(provider).listModels().catch(() => {}); }
-      emitChange();
+      if (provider === 'openrouter') openrouter.restore(key);
+      else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); directFor(provider).listModels().catch(() => {}); }
+      floorForced = false;
+      selectChat({ provider });
     },
-    /** Remove a direct provider's key. If it was the active one, the cloud tier returns to OpenRouter. */
+    /** Remove a provider's key. The selection stays as chosen and reads `needs-key`: nothing substitutes another provider. */
     removeProviderKey(provider) {
       if (provider === 'openrouter') { openrouter.disconnect(); }
-      else { directFor(provider).disconnect(); if (readActiveProvider() === provider) writeActiveProvider('openrouter'); }
+      else { directFor(provider).disconnect(); }
       emitChange();
     },
     /** Remove every stored key (Privacy & Data → clear). */
     disconnectAllProviders() {
       openrouter.disconnect();
       for (const p of KEY_PROVIDERS) if (p !== 'openrouter') directFor(p).disconnect();
-      writeActiveProvider('openrouter');
       emitChange();
     },
     /** Which providers hold a key in this browser (the API key tab's list). */
     providersWithKeys() { return KEY_PROVIDERS.filter((p) => (p === 'openrouter' ? !!readOpenRouterKey() : !!readProviderKey(p))); },
-    /** Make a provider that already holds a key the cloud tier. */
-    switchProvider(provider) { writeActiveProvider(provider); emitChange(); },
+    /** Select a provider's chat model (its last pick, else its default). */
+    switchProvider(provider) { floorForced = false; selectChat({ provider }); },
     // WebLLM opt-in — the deliberate "summon the Architect" (~1GB, WebGPU) download.
     async summon(onProgress, signal) {
-      await webllm.load(onProgress, signal);
-      tierPref = 'webllm';
+      loading.webllm = true;
       emitChange();
+      try { await webllm.load(onProgress, signal); } finally { loading.webllm = false; }
+      // Downloading is choosing: the model the author fetched becomes the chat model.
+      selectChat({ provider: 'webllm' });
       return true;
     },
     // The universal Transformers.js tier — the no-WebGPU fallback (Safari/mobile).
     // ~350MB WASM model loaded on demand; once loaded it's used when there's no
     // Prompt API. Never throws to the caller's flow — caller surfaces progress.
     async loadUniversal(onProgress, signal) {
-      await universal.load(onProgress, signal);
+      loading.universal = true;
+      emitChange();
+      try { await universal.load(onProgress, signal); } finally { loading.universal = false; }
       emitChange();
       return true;
     },

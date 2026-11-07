@@ -1,6 +1,7 @@
 // chatComplete on the cloud tier, end to end through the real wiring (prompt, loop, tools,
 // fold, finalize) with a scripted backend standing in for OpenRouter. No network.
 import { afterEach, describe, expect, it } from 'vitest';
+import { selectChat } from '../../lib/model-selection.js';
 import { architectModel, chatComplete, requestFindingFix } from './architect';
 
 type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToolStart?: (n: string) => void; onToken?: (t: string) => void };
@@ -104,7 +105,7 @@ describe('the transport never swaps the model on a tools request', () => {
 	it('a "no endpoints" 404 on a tools request reaches the caller, with no retry on the default model', async () => {
 		const { createArchitectModel } = await import('./ai/architect-model.js');
 		localStorage.setItem('lattice-db-or-key', 'test-key');
-		localStorage.setItem('lattice-db-or-model', 'some/model-without-tool-choice');
+		selectChat({ provider: 'openrouter', model: 'some/model-without-tool-choice' });
 		const sent: string[] = [];
 		const realFetch = globalThis.fetch;
 		globalThis.fetch = (async (_url: string, init: { body: string }) => {
@@ -118,7 +119,7 @@ describe('the transport never swaps the model on a tools request', () => {
 		} finally {
 			globalThis.fetch = realFetch;
 			localStorage.removeItem('lattice-db-or-key');
-			localStorage.removeItem('lattice-db-or-model');
+			selectChat({ provider: 'openrouter', model: '' });
 		}
 	});
 });
@@ -313,7 +314,7 @@ describe('chatComplete — photos', () => {
 describe('requestFindingFix — the cache marker follows the vendor', () => {
 	const finding = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
 	const marked = (messages: { content: unknown }[]) => JSON.stringify(messages).includes('cache_control');
-	afterEach(() => localStorage.removeItem('lattice-db-or-model'));
+	afterEach(() => selectChat({ provider: 'openrouter', model: '' }));
 
 	// A Google marker made Gemini cost more on every model measured (or-cache.js), and the switch that could turn it off is
 	// disabled for Google, so the Coach's Fix must not send one either.
@@ -324,7 +325,7 @@ describe('requestFindingFix — the cache marker follows the vendor', () => {
 		['openai/gpt-5', false],
 	] as const) {
 		it(`${expected ? 'marks' : 'does not mark'} the static system part for ${modelId}`, async () => {
-			localStorage.setItem('lattice-db-or-model', modelId);
+			selectChat({ provider: 'openrouter', model: modelId });
 			let seen: { content: unknown }[] = [];
 			await withBackend(async (o) => {
 				seen = (o as unknown as { messages: { content: unknown }[] }).messages;

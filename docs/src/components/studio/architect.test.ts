@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readOpenRouterKey } from '@/lib/openrouter-key.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
+import { selectChat } from '../../lib/model-selection.js';
 import { saveOpenRouterKey } from './api-key';
 import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
@@ -678,7 +679,7 @@ describe('chat output ceiling vs. the priced expectation', () => {
 // using. This pins the fallback to the module default and to what the copy promises.
 describe('the Studio\'s default cloud model', () => {
 	it('falls back to the Sonnet ~latest alias — matching what the picker tells the author', async () => {
-		localStorage.removeItem('lattice-db-or-model'); // no deliberate pick
+		selectChat({ provider: 'openrouter', model: '' }); // no deliberate pick
 		const m = await architectModel();
 		expect(m?.openRouterModel()).toBe('~anthropic/claude-sonnet-latest');
 	});

@@ -34,9 +34,8 @@ const SLOT_NAMES = {
 };
 /** The providers a key can be stored for. OpenRouter is the default. */
 export const KEY_PROVIDERS = Object.freeze(Object.keys(SLOT_NAMES));
-// Which provider the cloud tier runs on. Not a secret, but kept here so every storage name the
-// key flow owns is in one file.
-const ACTIVE = 'lattice-db-provider';
+// Which provider the cloud tier runs on used to live here too (`lattice-db-provider`). It is now
+// part of the chat selection record (lib/model-selection.js), which migrates it once.
 const ENVELOPE = 'v1:';
 const DB = 'lattice-secrets';
 const STORE = 'keys';
@@ -316,7 +315,14 @@ function makeSlot(KEY, REJECTED) {
 		persisting = Promise.resolve();
 	}
 
-	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, settled: () => persisting };
+	/** 'ready' | 'opening' (a sealed key is stored but not open yet) | 'rejected' | 'none'. */
+	function state() {
+		const key = readKey();
+		if (key) return read(REJECTED) === '1' ? 'rejected' : 'ready';
+		return read(KEY) ? 'opening' : 'none';
+	}
+
+	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, state, settled: () => persisting };
 }
 
 const SLOTS = Object.fromEntries(Object.entries(SLOT_NAMES).map(([p, [k, r]]) => [p, makeSlot(k, r)]));
@@ -384,13 +390,12 @@ export function noteOpenRouterStatus(status, key) {
 }
 
 /**
- * Whether a `storage` event (another tab) changed the OpenRouter key, a direct provider's key
- * or the active provider. A cleared store (`key === null`) counts. The memory copy is dropped
+ * Whether a `storage` event (another tab) changed the OpenRouter key or a direct provider's key. A cleared store (`key === null`) counts. The memory copy is dropped
  * so the next read loads what the other tab wrote.
  */
 export function isOpenRouterKeyEvent(event) {
 	const k = event?.key;
-	const hit = k === null || k === ACTIVE || Object.values(SLOTS).some((s) => s.KEY === k);
+	const hit = k === null || Object.values(SLOTS).some((s) => s.KEY === k);
 	if (hit) wrapKey = null; // the other tab may have made the sealing key; read it afresh
 	return hit;
 }
@@ -422,15 +427,14 @@ export function noteProviderStatus(provider, status, key) {
 	return slot(provider).noteStatus(status, key);
 }
 
-/** The provider the cloud tier runs on: 'openrouter' (the default) or a direct provider. */
-export function readActiveProvider() {
-	const p = read(ACTIVE);
-	return p && Object.hasOwn(SLOT_NAMES, p) ? p : 'openrouter';
-}
-/** Choose the provider the cloud tier runs on. Announces `db-model-changed`. */
-export function writeActiveProvider(provider) {
-	write(ACTIVE, provider && provider !== 'openrouter' && Object.hasOwn(SLOT_NAMES, provider) ? provider : null);
-	announce();
+/**
+ * Where `provider`'s key stands: 'ready', 'opening' (a sealed key is stored and still being
+ * opened), 'rejected' (the provider answered 401) or 'none'. The model selection reads this to
+ * say warming / needs-key instead of substituting another provider
+ * (engineering/decisions/2026-11-07-studio-model-spine.md).
+ */
+export function providerKeyState(provider) {
+	return slot(provider).state();
 }
 
 /** Test seam: forget every memory copy, as a fresh page load would. */
