@@ -6,19 +6,74 @@
 // Every arm carries its control: the record is not vacuously equal because both sides drew nothing.
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const rows = require('../../../lib/core/chart-rows.js');
+// The bound, written out, not read from the module it guards: read from `rows.RAW_SCAN_BUDGET`, a raised budget raised
+// the bound with it and the scan tests passed on `Infinity`. A deliberate change to the budget changes this line too.
+const SCAN_BUDGET = 32000;
+test('the scan budget is the one the bounds below are written against', () => {
+  assert.equal(rows.RAW_SCAN_BUDGET, SCAN_BUDGET, 'lib/core/chart-rows.js changed its scan budget: change SCAN_BUDGET with it');
+});
 const { bridgeRecordsSource } = require('../../../lib/core/chart-source-bridge.js');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
+const { bootRuntime } = require('../../helpers/runtime-boot');
+const { scanWork } = require('../../helpers/work-count');
 
 const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
 const render = (src) => engine.render(src, {}).html;
+
+// ── work counts for the hostile-input arms (HARD RULE #32: counted, not timed) ──────────────────────────────────
+// What one more row, span or kid costs: the work at size `b` minus the work at size `a`, over `b - a`. A linear path
+// pays a constant per unit; one that rereads the row, the parent or the rest of the table pays for the whole of it.
+const perUnit = (count, run, a, b) => (count(() => run(b)) - count(() => run(a))) / (b - a);
+const charsRead = (fn) => scanWork(fn).scanned;
+/** `perUnit` for characters read and array elements visited at once, from one run per size. */
+function perUnitBoth(run, a, b) {
+  const both = (n) => {
+    let chars = 0;
+    const elements = elementsVisited(() => { chars = charsRead(() => run(n)); });
+    return [chars, elements];
+  };
+  const [x, y] = [both(a), both(b)];
+  return [(y[0] - x[0]) / (b - a), (y[1] - x[1]) / (b - a)];
+}
+/** Array elements visited by the search and iteration methods: what `scanWork` cannot see (an `indexOf` over kids). */
+function elementsVisited(fn) {
+  const P = Array.prototype;
+  const names = ['indexOf', 'lastIndexOf', 'includes', 'find', 'findIndex', 'some', 'every', 'filter', 'map', 'forEach', 'reduce'];
+  const orig = Object.fromEntries(names.map((n) => [n, P[n]]));
+  let visited = 0;
+  let depth = 0;
+  for (const n of names) {
+    P[n] = function (...args) {
+      if (!depth) visited += this.length;
+      depth++;
+      try { return orig[n].apply(this, args); } finally { depth--; }
+    };
+  }
+  try { fn(); } finally { Object.assign(P, orig); }
+  return visited;
+}
+/**
+ * Characters handed to chart-rows.js's tag-by-tag raw scan, the one pattern with a `{0,4000}` tag body. One `<`
+ * can cost that scan up to 4000 steps, so `rawBlockCounts` caps what it is pointed at: a block past
+ * RAW_SCAN_LIMIT, or past what is left of the slide's RAW_SCAN_BUDGET, is counted by tag names instead.
+ */
+function tagScanned(fn) {
+  const exec = RegExp.prototype.exec;
+  let read = 0;
+  RegExp.prototype.exec = function (s) {
+    if (this.lastIndex === 0 && this.source.includes('{0,4000}')) read += String(s).length;
+    return exec.call(this, s);
+  };
+  try { fn(); } finally { RegExp.prototype.exec = exec; }
+  return read;
+}
 
 /** [chart, old body, record body]: the same rows, written both ways. */
 const MATRIX = [
@@ -80,10 +135,7 @@ describe('runtime: the DOM mirror leaves the record to the chart', () => {
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom);
     return dom.window.document.querySelector('section').innerHTML;
   }
   for (const [chart, old, rec] of MATRIX) {
@@ -102,10 +154,7 @@ describe('runtime: a pill drawn earlier in the row does not change who owns the 
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom);
     return dom.window.document.querySelector('section').innerHTML;
   };
   test('a bold-wrapped value in the lead is a value to the runtime too, so a delta beside it stays a pill', async () => {
@@ -296,9 +345,10 @@ describe('the paths agree on the data row', () => {
 
   test('a comment cannot make the bridge quadratic', () => {
     const src = deck('bar', `- A \`{3}\`\n- B \`{4}\`\n\n<!-- ${'<a ""'.repeat(20000)}' -->`);
-    const t = Date.now();
-    render(src);
-    assert.ok(Date.now() - t < 1500, `rendered in ${Date.now() - t} ms`);
+    // Counted, not timed. The comment's `<a ""` openers, read as tags, cost the tag scan up to 4000 steps each; the
+    // scan's caps keep this 100 KB block from it (0 characters today; uncapped, it reads all 100,011).
+    const tags = tagScanned(() => render(src));
+    assert.ok(tags <= SCAN_BUDGET, `the tag scan read ${tags} characters`);
   });
 
   test('a grid chart owns the first table only, and not a quoted one', () => {
@@ -462,22 +512,31 @@ describe('the paths agree on the data row', () => {
   });
 
   test('a row of many spans stays linear in lint and in the pill pass', () => {
-    const src = deck('bar', `- R ${'`{1}` '.repeat(12000)}`);
-    const t = Date.now();
-    findings(src);
-    render(src);
-    assert.ok(Date.now() - t < 3000, `lint and render in ${Date.now() - t} ms`);
+    const src = (n) => deck('bar', `- R ${'`{1}` '.repeat(n)}`);
+    // Counted, not timed: what one more span costs, between 3,000 and 12,000 spans on one row. Today lint reads
+    // 1,717 characters per span and the render 4,327, and the render visits 64 array elements per span. A pill pass
+    // that finds each kid's index by searching the row visits ~1,500 per span at 1,200 spans, growing with the row.
+    const lint = perUnit(charsRead, (n) => findings(src(n)), 3000, 12000);
+    const [drawn, visited] = perUnitBoth((n) => render(src(n)), 3000, 12000);
+    assert.ok(lint <= 3500, `lint read ${lint} characters per span`);
+    assert.ok(drawn <= 8000, `the render read ${drawn} characters per span`);
+    assert.ok(visited <= 200, `the render visited ${visited} array elements per span`);
   });
 
   // Eighth round (2026-10-17): the third independent checker's confirmed defects.
   test('the runtime ownership check is linear in the spans of one row', () => {
     const { isOwnedRecordElement } = require('../../../lib/core/record-dom.js');
-    const n = 3000;
-    const dom = new JSDOM(`<section class="bar"><ul><li>A ${'<code>{1}</code> '.repeat(n)}</li></ul></section>`);
-    const codes = [...dom.window.document.querySelectorAll('code')];
-    const t = Date.now();
-    for (const c of codes) isOwnedRecordElement(c);
-    assert.ok(Date.now() - t < 1500, `${n} spans in ${Date.now() - t} ms`);
+    const all = (n) => {
+      const dom = new JSDOM(`<section class="bar"><ul><li>A ${'<code>{1}</code> '.repeat(n)}</li></ul></section>`);
+      const codes = [...dom.window.document.querySelectorAll('code')];
+      return () => { for (const c of codes) isOwnedRecordElement(c); };
+    };
+    // Counted, not timed: what one more span costs, between 750 and 3,000. Only the row's last span can be its
+    // record, so the rest answer before the lead is read: 67 characters per span. Reading the lead for every span
+    // costs 6,000 per span at 300 spans and grows with the row.
+    const [small, large] = [all(750), all(3000)];
+    const perSpan = (charsRead(large) - charsRead(small)) / (3000 - 750);
+    assert.ok(perSpan <= 200, `read ${perSpan} characters per span`);
   });
 
   test('a lead ends at a raw block in the DOM mirror, and a comment after the record is content, as in the pill pass', () => {
@@ -503,10 +562,14 @@ describe('the paths agree on the data row', () => {
   });
 
   test('rawBlockCounts stays bounded on a huge hostile raw block', () => {
-    const t = Date.now();
-    rows.rawBlockCounts(`<div>${'<a'.repeat(300000)}"${'x'.repeat(2000)}`);
-    rows.rawBlockCounts(`<a`.repeat(120000));
-    assert.ok(Date.now() - t < 1500, `${Date.now() - t} ms`);
+    // Counted, not timed. Each unclosed `<a` costs the tag scan up to 4000 steps, so a block past RAW_SCAN_LIMIT is
+    // counted by tag names instead: the tag scan reads none of these 842,006 characters (uncapped, ~8.5 s).
+    const huge = [`<div>${'<a'.repeat(300000)}"${'x'.repeat(2000)}`, `<a`.repeat(120000)];
+    const tags = tagScanned(() => { for (const html of huge) rows.rawBlockCounts(html); });
+    assert.equal(tags, 0, `the tag scan read ${tags} characters`);
+    // The control: a small block IS scanned tag by tag, so the count above is not blind to the scan.
+    const small = '<ul><li>x</li></ul>';
+    assert.equal(tagScanned(() => rows.rawBlockCounts(small)), small.length);
   });
 
   test('a record after an earlier pill is not claimed, so it is shown as on main and never as raw braces it did not stamp', () => {
@@ -534,10 +597,13 @@ describe('the paths agree on the data row', () => {
   // Eleventh round (2026-10-18): the sixth independent checker's confirmed defects.
   test('many large hostile raw blocks on a chart slide stay linear in the whole slide', () => {
     const block = `<div>${'<a'.repeat(9990)}</div>`;
-    const t = Date.now();
-    engine.render(deck('bar', `${Array(30).fill(block).join('\n\n')}\n\n- A \`1\``), {});
-    findings(deck('bar', `${Array(30).fill(block).join('\n\n')}\n\n- A \`1\``));
-    assert.ok(Date.now() - t < 2500, `render and lint in ${Date.now() - t} ms`);
+    const src = deck('bar', `${Array(30).fill(block).join('\n\n')}\n\n- A \`1\``);
+    // Counted, not timed. The per-block cap and the per-slide budget bound what the tag scan reads on the whole
+    // slide; with neither, it reads all 30 blocks (about 600,000 characters, each `<a` up to 4000 steps).
+    const drawn = tagScanned(() => engine.render(src, {}));
+    const linted = tagScanned(() => findings(src));
+    assert.ok(drawn <= SCAN_BUDGET, `the render's tag scan read ${drawn} characters`);
+    assert.ok(linted <= SCAN_BUDGET, `lint's tag scan read ${linted} characters`);
   });
 
   test('an author-written chart-frame class cannot leave a stamp or raw braces', () => {
@@ -564,10 +630,7 @@ describe('the paths agree on the data row', () => {
     const run = async (doc) => {
       const dom = new JSDOM(doc, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
       dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-      const el = dom.window.document.createElement('script');
-      el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-      dom.window.document.body.appendChild(el);
-      await new Promise((r) => setTimeout(r, 300));
+      await bootRuntime(dom);
       // Not the runtime's own source text: take the script elements out of the DOM, then read the markup.
       for (const script of dom.window.document.querySelectorAll('script')) script.remove();
       return dom.window.document.body.innerHTML;
@@ -582,12 +645,14 @@ describe('the paths agree on the data row', () => {
   test('raw HTML on a slide that is not a chart costs nothing: no scan, and a matrix-grid scan has a per-slide budget', () => {
     const block = `<div>${'<a '.repeat(2600)}</div>`;
     const plain = `---\nmarp: true\n---\n\n## Plain slide\n\n${Array(240).fill(block).join('\n\n')}\n`;
-    let t = Date.now();
-    engine.render(plain, {});
-    assert.ok(Date.now() - t < 1500, `a plain slide in ${Date.now() - t} ms`);
-    t = Date.now();
-    engine.render(deck('matrix-grid', `${Array(240).fill(block).join('\n\n')}\n\n| | A |\n|---|---|\n| r | \`{done}\` |`), {});
-    assert.ok(Date.now() - t < 2500, `a matrix-grid slide in ${Date.now() - t} ms`);
+    // Counted, not timed: the characters the tag scan reads. Each block (7,811 characters) is under RAW_SCAN_LIMIT, so
+    // only the per-slide budget stops 240 of them adding up (1.9 MB, each `<a` up to 4000 steps).
+    const onPlain = tagScanned(() => engine.render(plain, {}));
+    assert.equal(onPlain, 0, `a plain slide: the tag scan read ${onPlain} characters`);
+    const grid = deck('matrix-grid', `${Array(240).fill(block).join('\n\n')}\n\n| | A |\n|---|---|\n| r | \`{done}\` |`);
+    const onGrid = tagScanned(() => engine.render(grid, {}));
+    // Two passes place a matrix-grid's spans (the pill pass and the sole-cell pass), each with its own budget.
+    assert.ok(onGrid <= 2 * SCAN_BUDGET, `a matrix-grid slide: the tag scan read ${onGrid} characters`);
   });
 
   test('a hand-written chart-frame class in the browser shows the old-form list, never raw braces', async () => {
@@ -596,10 +661,7 @@ describe('the paths agree on the data row', () => {
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom);
     for (const script of dom.window.document.querySelectorAll('script')) script.remove();
     const html = dom.window.document.body.innerHTML;
     assert.doesNotMatch(html, /data-lat-record|\{4\}|\{3\}/);
@@ -639,13 +701,15 @@ describe('the paths agree on the data row', () => {
   test('ownership costs a row its own span, not its ancestors again: a parent of many pills over many children stays fast', () => {
     const { lintText } = require('../../../lib/authoring/lint.js');
     const pills = Array.from({ length: 400 }, (_, i) => `\`{NEW ${i}, tag, c3}\``).join(' ');
-    const kids = (v) => Array.from({ length: 400 }, (_, i) => `  - c${i} \`${v(i)}\``).join('\n');
+    const kids = (v, n) => Array.from({ length: n }, (_, i) => `  - c${i} \`${v(i)}\``).join('\n');
+    // Counted, not timed: what one more child costs, between 100 and 400 children under the same 8,293-character
+    // parent. Today a child costs lint at most 8,044 characters, the engine 4,474 and the narrator 1,270. Rereading
+    // the parent's 400 spans for each child cost 195,000 to 395,000 per child (8.6 s of lint).
     for (const [label, v] of [['no record', (i) => `${i}`], ['records', (i) => `{${i}}`]]) {
-      const src = `<!-- _class: bar -->\n\n## A\n\n- P ${pills}\n${kids(v)}\n`;
-      for (const [path, run, budget] of [['lint', () => lintText(src), 3000], ['engine', () => render(src), 800], ['narration', () => narrateChart(src), 600]]) {
-        const t = Date.now();
-        run();
-        assert.ok(Date.now() - t < budget, `${label}, ${path}: ${Date.now() - t} ms`);
+      const src = (n) => `<!-- _class: bar -->\n\n## A\n\n- P ${pills}\n${kids(v, n)}\n`;
+      for (const [path, run, bound] of [['lint', lintText, 12000], ['engine', render, 8000], ['narration', narrateChart, 4000]]) {
+        const perKid = perUnit(charsRead, (n) => run(src(n)), 100, 400);
+        assert.ok(perKid <= bound, `${label}, ${path}: read ${perKid} characters per child`);
       }
     }
   });
@@ -653,10 +717,11 @@ describe('the paths agree on the data row', () => {
   test('the pipe lint reads each table row once, however many delimiter-like rows the body has', () => {
     const { lintText } = require('../../../lib/authoring/lint.js');
     const row = `|${'-|'.repeat(20)}`;
-    const src = `<!-- _class: heatmap -->\n\n## A\n\n| a | b \`{> x}\` |\n${Array(4000).fill(row).join('\n')}\n`;
-    const t = Date.now();
-    lintText(src);
-    assert.ok(Date.now() - t < 2500, `${Date.now() - t} ms`);
+    const src = (n) => `<!-- _class: heatmap -->\n\n## A\n\n| a | b \`{> x}\` |\n${Array(n).fill(row).join('\n')}\n`;
+    // Counted, not timed: what one more row costs, between 1,000 and 4,000. Today 19,910 characters per row, for
+    // all of lint. A pipe lint that rescans the rest of the body from every delimiter-like row costs 125,000.
+    const perRow = perUnit(charsRead, (n) => lintText(src(n)), 1000, 4000);
+    assert.ok(perRow <= 30_000, `read ${perRow} characters per row`);
   });
 
   test('a badge record before the label and a value record: the chart reads neither, and lint says so', () => {
@@ -710,10 +775,7 @@ describe('the paths agree on the data row', () => {
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom);
     const cells = dom.window.document.querySelectorAll('tbody td');
     assert.equal(cells[1].querySelector('.cell'), null, 'the commented cell is not a state');
     assert.ok(cells[2].querySelector('.cell-filled'), 'control: the plain cell is');
@@ -783,16 +845,20 @@ describe('the paths agree on the data row', () => {
     const { performance } = require('node:perf_hooks');
     const timed = (fn) => { const t = performance.now(); const out = fn(); return { out, ms: performance.now() - t }; };
 
+    // Hang guards sized by F4 (HARD RULE #32): the defects below were regex backtracking, which no count can see, so
+    // each input is five to ten times the size the defect was measured at, where the old shape needs minutes, and each
+    // bound sits 30 times or more above today's cold cost (a stress run slowed lint about 25 times). #2746 squashed the defective drafts, so the old cost is the recorded one,
+    // grown with the square; no arm reproduced it.
     test('lint stays fast on a record-chart slide with a very long run of spaces and a `{>` heading', () => {
-      const src = deck('bar', `- North \`40\`\n${' '.repeat(60000)}\n`).replace('## A', '## A {>');
+      const src = deck('bar', `- North \`40\`\n${' '.repeat(600000)}\n`).replace('## A', '## A {>');
       const { ms } = timed(() => lintText(src));
-      assert.ok(ms < 800, `lint took ${Math.round(ms)} ms (it was 3.4 s)`);
+      assert.ok(ms < 10000, `lint took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 312 ms cold today; the old shape took 3.4 s at 60k, about 340 s here
     });
 
     test('the stamped-cell rewrite stays linear when raw HTML holds many `<td` with no `>`', () => {
-      const raw = `<div>${'<td'.repeat(40000)}</div>`;
+      const raw = `<div>${'<td'.repeat(200000)}</div>`;
       const { ms } = timed(() => render(deck('heatmap', `${raw}\n\n| | A |\n|---|---|\n| E | \`{1.5}\` |`)));
-      assert.ok(ms < 1500, `render took ${Math.round(ms)} ms (it was 4 s)`);
+      assert.ok(ms < 5000, `render took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 70 ms cold today; the old shape took 4 s at 40k, about 100 s here
     });
 
     test('hub-spoke: a bullet-character or list-kind switch starts a NEW list, so a pill there is still reported', () => {
@@ -806,9 +872,9 @@ describe('the paths agree on the data row', () => {
     });
 
     test('the table-delimiter test is fast on a line of spaces AFTER a pipe row (the trim matters)', () => {
-      const src = deck('bar', `| a | b |\n${' '.repeat(60000)}x\n`).replace('## A', '## A {>');
+      const src = deck('bar', `| a | b |\n${' '.repeat(600000)}x\n`).replace('## A', '## A {>');
       const { ms } = timed(() => lintText(src));
-      assert.ok(ms < 1000, `lint took ${Math.round(ms)} ms (it was 3.1 s)`);
+      assert.ok(ms < 10000, `lint took ${Math.round(ms)} ms`); // flaky-ok: hang guard — 221 ms cold today; the old shape took 3.1 s at 60k, about 300 s here
     });
 
     test('a BOM does not hide the front matter from the pipe lint either', () => {

@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 
 const { parseBracketList, tidy, unquote } = require('@laticent/segno/read');
 const { parseInlineSet } = require('../../../lib/core/label-set');
+const { charReads } = require('../../helpers/work-count');
 
 describe('axis forms — a positional list', () => {
   test('bare members need no quotes', () => {
@@ -157,12 +158,29 @@ describe('nothing backtracks', () => {
   // comma — took 10.9s at 3000 characters through an ambiguous regex. A single
   // left-to-right pass cannot have that failure mode, and the arm below is the
   // standing proof rather than a comment claiming it.
-  test('a 20k-character brace run resolves immediately', () => {
+  test('a 20k-character brace run resolves without a hang', () => {
     const evil = `[{${' '.repeat(20000)}}]`;
+    const real = String.prototype.charCodeAt;
+    let reads = 0;
+    String.prototype.charCodeAt = function (i) {
+      reads++;
+      return real.call(this, i);
+    };
     const t0 = process.hrtime.bigint();
-    assert.equal(parseBracketList(evil), null);
+    let out;
+    try {
+      out = parseBracketList(evil);
+    } finally {
+      String.prototype.charCodeAt = real;
+    }
     const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-    assert.ok(ms < 50, `expected well under 50ms, took ${ms.toFixed(1)}ms`);
+    assert.equal(out, null);
+    // Counted: the parser reads its input through `charCodeAt`, about once per character. A scan that restarts at
+    // every space reads ~n per character.
+    assert.ok(reads <= 3 * evil.length, `${reads} reads for ${evil.length} characters`);
+    // A hang guard, not a speed test (HARD RULE #32, F4): a read count cannot see a regex backtracking. An ambiguous
+    // `\s*(.*?)\s*,` over this run, the shape that bit label-set.js, is cubic: 2.7 s at 2k spaces, ~45 min here.
+    assert.ok(ms < 5000, `took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 1-2 ms, the old shape ~45 min at this size
   });
 
   // Two shapes: the brace run that bit `label-set.js`, and a mixed list that
@@ -212,34 +230,14 @@ describe('nothing backtracks', () => {
       );
     });
 
-    // The count above cannot see work that never reads a character — an
-    // array rescan, a `slice` per step. So the time is checked too, as the
-    // FASTEST of many short samples, the two sizes interleaved. Noise only ever
-    // adds time, so the minimum is the sample a busy runner could not inflate;
-    // interleaving puts both sizes under the same load, and a short sample is
-    // likelier to land in a quiet slice than a long one. One slow sample can no
-    // longer fail the arm, which is the failure #2421 hit.
-    test(`fastest-sample time stays linear in input length — ${name}`, () => {
-      const small = make(4000);
-      const large = make(16000);
-      const sample = (src) => {
-        const t0 = process.hrtime.bigint();
-        for (let i = 0; i < 4; i++) parseBracketList(src, { maxParts: 2 });
-        return Number(process.hrtime.bigint() - t0);
-      };
-      for (let i = 0; i < 5; i++) {
-        sample(small); // warm
-        sample(large);
-      }
-      let bestSmall = Infinity;
-      let bestLarge = Infinity;
-      for (let r = 0; r < 40; r++) {
-        bestSmall = Math.min(bestSmall, sample(small));
-        bestLarge = Math.min(bestLarge, sample(large));
-      }
-      const ratio = bestLarge / bestSmall;
-      // Linear is ~4x; quadratic is ~16x.
-      assert.ok(ratio < 8, `16k took ${ratio.toFixed(1)}x the 4k time — growth should be ~linear`);
+    // The count above cannot see work that never reads a character: an array rescan, a `slice` per step. A timing
+    // ratio checked that once (#2421) and still failed on a loaded runner; `charReads` counts both instead (#32).
+    test(`array scans and copies stay linear in input length — ${name}`, () => {
+      const perChar = (src) => charReads(() => parseBracketList(src, { maxParts: 2 })).reads / src.length;
+      const small = perChar(make(4000));
+      const large = perChar(make(16000));
+      assert.ok(large < 8, `${large.toFixed(2)} reads, copies and array steps per character at 16k`);
+      assert.ok(Math.abs(large - small) < 0.5, `drifted from ${small.toFixed(2)} at 4k to ${large.toFixed(2)} at 16k`);
     });
   }
 });

@@ -16,6 +16,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { commentCloser, replaceClosedComments, closedComments } = require(path.join(ROOT, 'lib/core/closed-comments'));
+const { scanWork } = require(path.join(ROOT, 'test/helpers/work-count'));
 
 // A small alphabet dense in the characters that decide a comment, so short strings hit
 // the edges: `<!-->`, `<!--->`, `--!>`, overlapping dashes, openers with no closer.
@@ -69,29 +70,36 @@ describe('unclosed comments stay linear through the whole render (HARD RULE #22)
   const latticeEngine = require(path.join(ROOT, 'lib/engine'));
   const engine = latticeEngine.createEngine();
 
-  test('each shape renders well under the quadratic cost', () => {
-    // Before, on one machine: ~17 s, ~148 s, ~8 s and ~17 s. After: ~0.4 s together. The bound
-    // sits between the two with room either side for a slow runner.
+  test('each shape renders in work linear in its length', () => {
+    // Before, on one machine: ~17 s, ~148 s, ~8 s and ~17 s. Counted, not timed (HARD RULE #32): each search the
+    // render makes covers some characters, and a rescan from every opener to the end of the text makes that total
+    // grow with the square. Today each render covers 70 to 116 times its length (the engine reads the source in many
+    // linear passes); without the html_inline guard the first and fourth shapes cover over 2,000 times theirs at
+    // a tenth of this size, and a closer search that restarts at every opener does the same to the second.
     const inputs = [
       'a <!--\n'.repeat(40000),              // 280 KB of `a <!--` lines — markdown-it html_inline
       `${'<!--'.repeat(62500)}\n`,           // one 250 KB line — scanTags, masthead, panes
       `${'<!-- '.repeat(50000)}\n-->\n`,     // openers, one closer at the end
       `${'a <!--\n'.repeat(40000)}---->`,      // a `-->` the comment arm cannot close on
     ];
-    const t = Date.now();
-    for (const src of inputs) engine.render(src);
-    assert.ok(Date.now() - t < 4000, `took ${Date.now() - t}ms`);
+    for (const src of inputs) {
+      const { scanned } = scanWork(() => engine.render(src));
+      assert.ok(scanned <= 200 * src.length, `${JSON.stringify(src.slice(0, 8))}…: ${scanned} chars scanned for ${src.length}`);
+    }
   });
 });
 
 describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #22)', () => {
   const { findSkeletonHtml } = require(path.join(ROOT, 'lib/layout/gate.js'));
 
-  test('findSkeletonHtml reads 280 KB of `a <!--` lines fast', () => {
-    // A skeleton is model output. Before, on one machine: 1.7 s; after: ~2 ms.
-    const t = Date.now();
-    findSkeletonHtml('a <!--\n'.repeat(40000));
-    assert.ok(Date.now() - t < 500, `took ${Date.now() - t}ms`);
+  test('findSkeletonHtml reads 4.2 MB of `a <!--` lines without hanging', () => {
+    // A skeleton is model output. The old `/<!--[\s\S]*?-->/g` tried every opener to the end of the text inside one
+    // match, so its cost grows with the square: 1.7 s at 280 KB. No count sees work inside one regex match, so this is a
+    // hang guard (F4 in engineering/decisions/2026-11-06-flaky-tests.md), sized so the old regex overruns it 14 times.
+    const t = performance.now();
+    assert.deepEqual(findSkeletonHtml('a <!--\n'.repeat(600000)), []);
+    const ms = performance.now() - t;
+    assert.ok(ms < 40000, `${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 37 ms, the old shape ~580 s at this size
   });
 });
 
@@ -99,10 +107,12 @@ describe('the boundary parser stays linear on unclosed comments (HARD RULE #22)'
   const { splitSourceToSections } = require(path.join(ROOT, 'lib/core/section-source-split.js'));
 
   test('splitSourceToSections — a full md.parse on the CLI export path — stays linear', () => {
-    // Three boundaryParser callers run the full `md.parse`. On markdown-it 14.1.1 with no guard,
-    // 273 KB of `a <!--` lines took 32.8 s here; with the guard, or on 14.3.3, well under a second.
-    const t = Date.now();
-    splitSourceToSections('a <!--\n'.repeat(40000));
-    assert.ok(Date.now() - t < 5000, `took ${Date.now() - t}ms`);
+    // This was a full `md.parse`: on markdown-it 14.1.1 with no guard, 273 KB of `a <!--` lines took 32.8 s. It
+    // now runs the deck model's own block pass (lib/core/deck-model.mjs), where `a <!--` never opens an HTML block,
+    // so no mutant of today's path reaches this input and the test is a sentinel: it reads 10 characters per
+    // character at 10,000 and at 40,000 lines. Counted, not timed (HARD RULE #32).
+    const src = 'a <!--\n'.repeat(40000);
+    const { scanned } = scanWork(() => splitSourceToSections(src));
+    assert.ok(scanned <= 30 * src.length, `${scanned} chars scanned for ${src.length}`);
   });
 });

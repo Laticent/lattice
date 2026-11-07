@@ -90,8 +90,36 @@ their cause in this PR, as the rule asks of the session that finds a flaky test:
   the editor's stale-pass guard removed, the test fails on the leaked finding (`{ total: 1, fixable: 1 }`).
 
 **A line that is right as it is says so:** `// flaky-ok: <why>` on the line. A deadline computed for a wait's timeout,
-the tick of a polling loop, and a timing that is logged and never asserted are the cases seen so far. The reason is
+the tick of a polling loop, and a timing that is logged and never asserted are the cases seen so far. So is a
+**hang guard sized by F4**, the one stopwatch the audit keeps, for a reason the next section gives. The reason is
 required; a bare `flaky-ok` still counts.
+
+**The tools the audit rewrites with** (first used on `test/unit/core`, 2026-11-06):
+- `test/helpers/runtime-boot.js`: `bootRuntime(dom)` runs `dist/lattice-runtime.js` in a jsdom window on a virtual
+  clock and returns when its timer queue is empty, a signal where the tests slept 300 to 1,000 ms. `virtualClock(win)`
+  is the same clock for any jsdom window. Nine of `test/unit/core`'s sleeps were this boot. Five of their seven files
+  passed with no wait at all, so those sleeps waited for nothing; the other two fail without `settle()`.
+- node:test's `mock.timers` (`setTimeout`, `setInterval`, `Date`) where the code under test reads Node's own timers: a
+  timeout bound is checked at 1 ms before and at the bound, which the old `elapsed >= 140 && < 500` window could not do.
+- `test/helpers/work-count.js`: `scanWork(fn)` totals the characters every string search and regex `exec` covered, so a
+  scan that restarts from every opener shows as about n / 2 per character where a linear one shows a small constant.
+  `charReads(fn)` counts what a hand-written walker does instead (`charCodeAt`, `codePointAt`, and the arrays an Array
+  search walks), for the CSS and HTML readers that never call a search. Each rewritten bound sits a few times above
+  the measured count, and each was shown failing on a copy of the module with the old shape put back.
+
+**Backtracking inside one regex has no count to read.** The audit tried V8's
+`--regexp-backtracks-before-fallback` with `--trace-experimental-regexp-engine`: the count rises about once per start
+position, so a linear pattern and a quadratic one on 40,000 characters both land between 30,000 and 100,000. A limit
+under the input's length "caught" every old pattern and flagged linear ones too (`CLAUSE_BREAK` in
+`lib/core/relationship.js`, 0.1 to 0.8 ms for 16 times the input). Release Node prints no bytecode trace. So a test
+guarding an ambiguous pattern (`\s*` either side of an optional piece) stays a timing, sized as F4 sizes a deadline:
+an input the old pattern needs a minute or more for, a bound at least 25 times today's cost and at least ten times
+under the old pattern's, and `// flaky-ok:` with both measurements on the line. Its mutation arm is the old pattern
+overrunning the bound on the test's own input.
+
+**The gate read a `flaky-ok` mark from the wrong line after a U+2028 or U+2029.** TypeScript counts both as line
+breaks and `text.split('\n')` does not, so in `test/unit/core/lattice-doc.test.js` every mark below a string holding
+one was read two lines off and ignored. `flakyTestHits` now cuts the line from TypeScript's own line starts.
 
 **Without git the gate refuses once** ("could not list the committed test files … do not edit the baseline to match").
 An empty listing would otherwise read as every entry stale, and following that advice would empty the baseline.

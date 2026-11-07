@@ -9027,8 +9027,13 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
   const ts = require('typescript');
   const kind = /\.tsx$/.test(rel) ? ts.ScriptKind.TSX : /\.[cm]?ts$/.test(rel) ? ts.ScriptKind.TS : /\.jsx$/.test(rel) ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
   const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, kind);
-  const lines = String(text).split('\n');
-  const okAt = (node) => FLAKY_OK.test(lines[sf.getLineAndCharacterOfPosition(node.getStart(sf)).line] || '');
+  // The `flaky-ok` line, cut from TypeScript's own line starts: it also breaks lines at U+2028 and U+2029, so a
+  // `split('\n')` index would read a line or two off after a string holding one, and ignore every mark below it.
+  const starts = sf.getLineStarts();
+  const okAt = (node) => {
+    const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+    return FLAKY_OK.test(sf.text.slice(starts[line], starts[line + 1] ?? sf.text.length));
+  };
   const each = (node, fn) => { fn(node); node.forEachChild((c) => each(c, fn)); };
   const calleeName = (call) => {
     const e = call.expression;

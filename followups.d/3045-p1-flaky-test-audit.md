@@ -27,6 +27,13 @@ how       — first the rest of `test/unit/core/class-directive-scan.test.js` ("
             mark a right one `// flaky-ok: <why>`, and lower the baseline. A rewritten timing test asserts on work done,
             with a failing arm that shows it still catches the bug it was written for (#3044's quadratic stand-in is
             the pattern).
+progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the baseline now holds 504 hits in 187 files),
+            with `test/benchmark/relationship-scaling.test.js` and the class-directive remainder. The tools are
+            `test/helpers/runtime-boot.js` (a virtual clock for the runtime-boot sleeps, which recur in 32 test files)
+            and `test/helpers/work-count.js` (`scanWork`, `charReads`); the decision note's §How the rule is held lists
+            what they cannot see. Next by weight: `docs/e2e` (66 in 34), then `test/integration/export` (57 in 25).
+            Seen red in #3059's `studio-smoke` on both CI attempts and green 5 of 5 locally:
+            `docs/e2e/collage-lightbox.spec.ts:211` (the zoom cursor still `zoom-in` 5 s after a wheel step).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

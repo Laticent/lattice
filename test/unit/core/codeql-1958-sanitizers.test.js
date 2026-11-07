@@ -51,13 +51,15 @@ test('a speaker-note detail decodes each entity once: an author\'s literal &lt; 
 });
 
 test('stripDebugAttrs is linear on a long whitespace run (it was quadratic)', () => {
-  const run = `<p${' '.repeat(200_000)}x>`;
+  // A hang guard, sized by F4 in engineering/decisions/2026-11-06-flaky-tests.md: nothing counts backtracking inside
+  // one regex, so the input is large enough that the old /\s+data-debug/ needs minutes, and the bound sits a thousand
+  // times above what the current pattern costs. Measured 2026-11-06: 4 ms now; the old pattern took 1.3 s on 40k
+  // spaces and grows with the square, about 5 minutes here.
+  const run = `<p${' '.repeat(600_000)}x>`;
   const t0 = process.hrtime.bigint();
   assert.equal(stripDebugAttrs(run), run);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  // The old /\s+data-debug/ took ~1.1 s on 60k spaces and grows with the square; 200k
-  // would be ~12 s. Linear is well under a millisecond; 250 ms leaves CI room.
-  assert.ok(ms < 250, `${ms.toFixed(1)} ms`);
+  assert.ok(ms < 5000, `${ms.toFixed(1)} ms`); // flaky-ok: hang guard — linear 4 ms, the old shape about 300 s at this size
 });
 
 test('stripDebugAttrs still strips every data-debug form with its leading whitespace', () => {

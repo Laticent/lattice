@@ -15,6 +15,7 @@ const { bodyModel } = require('../../../lib/core/deck-model.mjs');
 const { boundaryParser: md } = require('../../../lib/core/boundary-parser.mjs');
 const { readDirectiveComment } = require('../../../lib/core/comment-directive.mjs');
 const { DIRECTIVE_VOCAB } = require('../../../lib/core/meta-keys.mjs');
+const { scanWork } = require('../../helpers/work-count');
 
 const show = (d) => `${d.spot ? '_' : ''}${d.key}=${d.value}`;
 
@@ -155,10 +156,12 @@ describe('the red team\'s shapes', () => {
 });
 
 test('hostile input: many unclosed openers, each ended by its list item, stay linear', () => {
+  // Counted, not timed (HARD RULE #32): about 9 times the text today. Each unclosed opener looks for its `-->` only
+  // up to the next island; looking to the end of the deck instead, or the parser searching for `-->` afresh at every
+  // opener, covers about 1,000 times the text at a tenth of this size.
   const t = '- <!-- open\n'.repeat(20000);
-  const t0 = performance.now();
-  scanMetaSource(t);
-  assert.ok(performance.now() - t0 < 1500, 'the island read was not linear');
+  const { scanned } = scanWork(() => scanMetaSource(t));
+  assert.ok(scanned <= 30 * t.length, `the island read was not linear: ${scanned} chars for ${t.length}`);
 });
 
 test('a lint rule about a directive\'s effect skips a folded one: the engine never reads it', () => {

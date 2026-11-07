@@ -17,6 +17,11 @@ const { settleFonts } = require('../../../lib/core/font-settle');
 // A FontFaceSet-shaped fake: .forEach and .size, deliberately NO .length and
 // no numeric index access — Array.prototype methods called with .call() on
 // this object must fail to iterate it, exactly like the real DOM type.
+// The bounds below are timers, so these tests move a mocked clock across them instead of timing a real wait
+// (HARD RULE #32). `turn` lets the promise jobs the timer released run; `settledFlag` reads whether `p` has resolved.
+const turn = () => new Promise((r) => setImmediate(r));
+const settledFlag = (p) => { let done = false; p.then(() => { done = true; }); return () => done; };
+
 function fakeFontFaceSet(faces) {
   return {
     size: faces.length,
@@ -71,20 +76,24 @@ describe('settleFonts', () => {
     assert.equal(broken.loaded, true);
   });
 
-  test('an empty FontFaceSet resolves immediately, not stuck forever', async () => {
-    const set = fakeFontFaceSet([]);
-    const start = Date.now();
-    await settleFonts(set, 1000);
-    assert.ok(Date.now() - start < 500, 'should resolve well before the 1000ms timeout');
+  test('an empty FontFaceSet resolves immediately, not stuck forever', async (t) => {
+    // The clock is mocked and never moved, so only a settle that does not wait for its timeout can resolve (#32).
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const done = settledFlag(settleFonts(fakeFontFaceSet([]), 1000));
+    await turn();
+    assert.equal(done(), true, 'resolved without the 1000 ms timeout firing');
   });
 
-  test('a hung font load does not block past the timeout bound', async () => {
+  test('a hung font load does not block past the timeout bound', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
     const hung = { load: () => new Promise(() => {}) }; // never settles
-    const set = fakeFontFaceSet([hung]);
-    const start = Date.now();
-    await settleFonts(set, 150);
-    const elapsed = Date.now() - start;
-    assert.ok(elapsed >= 140 && elapsed < 500, `expected ~150ms timeout, got ${elapsed}ms`);
+    const done = settledFlag(settleFonts(fakeFontFaceSet([hung]), 150));
+    t.mock.timers.tick(149);
+    await turn();
+    assert.equal(done(), false, 'still waiting 1 ms before the bound');
+    t.mock.timers.tick(1);
+    await turn();
+    assert.equal(done(), true, 'resolved at the bound');
   });
 });
 
@@ -109,11 +118,16 @@ describe('settleLaidOutFonts (preview)', () => {
     assert.deepEqual(order, ['flush', 'ready']);
   });
 
-  test('resolves at its bound when ready never settles', async () => {
+  test('resolves at its bound when ready never settles', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
     const set = { forEach() {}, ready: new Promise(() => {}) };
-    const t = Date.now();
-    await settleLaidOutFonts(docWith(() => {}), set, 30);
-    assert.ok(Date.now() - t < 1000);
+    const done = settledFlag(settleLaidOutFonts(docWith(() => {}), set, 30));
+    t.mock.timers.tick(29);
+    await turn();
+    assert.equal(done(), false, 'still waiting 1 ms before the bound');
+    t.mock.timers.tick(1);
+    await turn();
+    assert.equal(done(), true, 'resolved at the bound');
   });
 
   test('a document with no layout still settles on ready', async () => {

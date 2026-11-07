@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const { lintText } = require('../../../lib/authoring/lint.js');
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## A\n\n${body}\n`;
 
@@ -161,10 +162,7 @@ describe('generated slides: the browser draws the record as it draws the old for
   const boot = async (sections) => {
     const dom = new JSDOM(`<!DOCTYPE html><html><body>${sections}</body></html>`, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
     dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = runtime;
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 300));
+    await bootRuntime(dom, { bundle: runtime });
     for (const script of dom.window.document.querySelectorAll('script')) script.remove();
     return [...dom.window.document.querySelectorAll('section')].map((sec) => sec.innerHTML);
   };

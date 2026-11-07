@@ -106,12 +106,16 @@ test('the sheet scanners stay linear on a stylesheet that carries megabytes of b
   };
   const [pseudo, tPseudo] = timed(() => camera.pseudoElementFamilies(css, () => 'Q'));
   assert.deepEqual(pseudo.families.map((f) => f.trim()), ['Icons', 'Q', 'Hand']);
-  assert.ok(tPseudo < 500, `pseudoElementFamilies took ${tPseudo} ms on a 3 MB sheet (a backtracking regex took 44 s on 300 KB)`);
+  // Hang guards sized by F4 (HARD RULE #32): the defect was a backtracking regex, which no count can see. Each scan
+  // takes 1 to 6 ms here today; the regex #2904 replaced took 44 s on a tenth of this sheet.
+  assert.ok(tPseudo < 5000, `pseudoElementFamilies took ${tPseudo} ms on a 3 MB sheet`); // flaky-ok: hang guard — 1.2 ms today; the old regex 44 s on 300 KB
   const [, tPrune] = timed(() => camera.onlyUsedFontFaces(css, new Set(['outfit'])));
   const [, tDup] = timed(() => camera.withoutDuplicateFaces(css, face('Outfit', 400)));
   const [, tOmit] = timed(() => camera.withoutFontFaces(css, ['Playfair Display']));
   const [, tRange] = timed(() => camera.unusedRangeFaceUrls(css, 'plain text'));
-  for (const [name, ms] of Object.entries({ onlyUsedFontFaces: tPrune, withoutDuplicateFaces: tDup, withoutFontFaces: tOmit, unusedRangeFaceUrls: tRange })) assert.ok(ms < 500, `${name} took ${ms} ms on a 3 MB sheet`);
+  for (const [name, ms] of Object.entries({ onlyUsedFontFaces: tPrune, withoutDuplicateFaces: tDup, withoutFontFaces: tOmit, unusedRangeFaceUrls: tRange })) {
+    assert.ok(ms < 5000, `${name} took ${ms} ms on a 3 MB sheet`); // flaky-ok: hang guard — 2 to 6 ms today, as above
+  }
 });
 
 test('the root rewrite re-points html, body and :root selectors and leaves CSS strings and comments as written', async () => {
