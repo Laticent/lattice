@@ -3,7 +3,9 @@
 //
 // The profile is the one in engineering/decisions/2026-10-22-studio-startup-regression.md § How it was
 // measured: Chromium, 390 px, touch, 4x CPU slowdown, 80 ms latency, 6 Mbit/s, a cold profile each run.
-// "First slide" is the first moment the preview frame holds a `.lattice` document.
+// "First slide" is the first moment the preview frame holds a `.lattice` document. "Visible" is when the reader can see it: the
+// frame also holds its reveal (opacity 1, or never hidden). They differ by the preview's font gate (lib/core/preview-font-gate.mjs),
+// which held the Studio's slide back about 1.5 s on this profile until 2026-11-07, so compare builds on "visible".
 //
 // Prefer HTTP/2 (`npm run preview:h2`, then URL=https://localhost:4430/studio/): `preview:e2e` is HTTP/1.1 and overstates request count.
 // Usage (from docs/, against a built dist being served, e.g. `npm run preview:e2e`):
@@ -11,6 +13,9 @@
 //   URL=http://localhost:4321/playground/ FRAME='iframe' node scripts/startup-bench.mjs
 //   PROFILE=desktop RUNS=5 node scripts/startup-bench.mjs
 //   JSON=1 ... prints one JSON line (median + every run) for a baseline file.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { chromium, firefox, webkit } from '@playwright/test';
 
 const RUNS = Number(process.env.RUNS || 5);
@@ -30,6 +35,13 @@ const PROFILES = {
 };
 const P = PROFILES[PROFILE];
 
+// serve-h2.mjs writes its certificate's SPKI hash beside the port. Trusting it (rather than ignoring the certificate error) keeps
+// Chromium's HTTP cache on, as production has it: under a certificate error nothing is cached, and a prefetch is fetched again by
+// the page that uses it (serve-h2.mjs, THE CERTIFICATE MUST BE TRUSTED).
+const H2_PORT = /^https:\/\/localhost:(\d+)\//.exec(URL)?.[1];
+const SPKI = process.env.H2_SPKI || (H2_PORT ? (() => { try { return fs.readFileSync(path.join(os.tmpdir(), `lattice-h2-spki-${H2_PORT}`), 'utf8').trim(); } catch { return ''; } })() : '');
+if (H2_PORT && ENGINE === 'chromium' && !SPKI) console.warn('startup-bench: no SPKI for this server; falling back to ignoring the certificate, which turns the HTTP cache off and overstates the load');
+
 const median = (xs) => {
 	const s = [...xs].sort((a, b) => a - b);
 	const m = s.length >> 1;
@@ -37,7 +49,7 @@ const median = (xs) => {
 };
 
 async function run(browser) {
-	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: ENGINE === 'firefox' ? undefined : P.isMobile, serviceWorkers: WARM ? 'allow' : 'block', ignoreHTTPSErrors: /^https:\/\/localhost/.test(URL) });
+	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: ENGINE === 'firefox' ? undefined : P.isMobile, serviceWorkers: WARM ? 'allow' : 'block', ignoreHTTPSErrors: /^https:\/\/localhost/.test(URL) && !(ENGINE === 'chromium' && SPKI) });
 	const page = await ctx.newPage();
 	const cdp = ENGINE === 'chromium' ? await ctx.newCDPSession(page) : null;
 	if (cdp) {
@@ -76,6 +88,20 @@ async function run(browser) {
 		}
 		await new Promise((r) => setTimeout(r, 25));
 	}
+	let visible = null;
+	while (first != null && Date.now() < deadline) {
+		const shown = await page
+			.evaluate((sel) => {
+				const f = document.querySelector(sel);
+				return !!f && (f.style.opacity === '' || f.style.opacity === '1');
+			}, FRAME)
+			.catch(() => false);
+		if (shown) {
+			visible = Date.now() - t0;
+			break;
+		}
+		await new Promise((r) => setTimeout(r, 25));
+	}
 	// AFTER=1: the 3 s after the slide, where deferred work lands: main-thread busy time and long tasks (>50 ms).
 	let afterBusy = null;
 	let longTasks = null;
@@ -90,12 +116,12 @@ async function run(browser) {
 		afterBusy = td(await cdp.send('Performance.getMetrics')) - td(m0);
 		longTasks = await page.evaluate(() => window.__lt);
 	}
-	const out = { firstSlide: first, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks };
+	const out = { firstSlide: first, visible, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks };
 	await ctx.close();
 	return out;
 }
 
-const browser = await { chromium, firefox, webkit }[ENGINE].launch(ENGINE === 'chromium' ? { executablePath: process.env.CHROME_PATH || undefined } : {});
+const browser = await { chromium, firefox, webkit }[ENGINE].launch(ENGINE === 'chromium' ? { executablePath: process.env.CHROME_PATH || undefined, args: SPKI ? [`--ignore-certificate-errors-spki-list=${SPKI}`] : [] } : {});
 const runs = [];
 for (let i = 0; i < RUNS; i++) runs.push(await run(browser));
 await browser.close();
@@ -111,6 +137,7 @@ const summary = {
 	firstSlideMinMs: ok.length ? Math.min(...ok.map((r) => r.firstSlide)) : null,
 	firstSlideMaxMs: ok.length ? Math.max(...ok.map((r) => r.firstSlide)) : null,
 	firstSlideMedianMs: ok.length ? Math.round(median(ok.map((r) => r.firstSlide))) : null,
+	visibleMedianMs: ok.some((r) => r.visible != null) ? Math.round(median(ok.filter((r) => r.visible != null).map((r) => r.visible))) : null,
 	requestsMedian: ok.length ? median(ok.map((r) => r.requestsAtSlide)) : null,
 	afterBusyMedianS: ok.some((r) => r.afterBusy != null) ? Number(median(ok.map((r) => r.afterBusy ?? 0)).toFixed(2)) : null,
 	longTasksMedianCount: ok.some((r) => r.longTasks) ? median(ok.map((r) => (r.longTasks ?? []).length)) : null,
@@ -122,6 +149,7 @@ if (process.env.JSON) console.log(JSON.stringify(summary));
 else {
 	console.log(`${PROFILE} ${URL}`);
 	console.log(`first slide  median ${summary.firstSlideMedianMs} ms  min ${summary.firstSlideMinMs}  max ${summary.firstSlideMaxMs}  (${runs.map((r) => r.firstSlide).join(', ')})`);
+	console.log(`visible      median ${summary.visibleMedianMs} ms  (${runs.map((r) => r.visible).join(', ')})`);
 	if (summary.afterBusyMedianS != null) console.log(`3 s after    ${summary.afterBusyMedianS} s busy, ${summary.longTasksMedianCount} long tasks (median), longest ${summary.longTaskMaxMs} ms`);
 	console.log(`requests     median ${summary.requestsMedian} (by the slide)`);
 	console.log(`main thread  median ${summary.busyMedianS} s busy by the slide (TaskDuration, throttled clock)`);
