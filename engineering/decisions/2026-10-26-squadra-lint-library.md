@@ -258,7 +258,7 @@ case in the core, the core is not generic yet.
    chunk of its own; Node loads it synchronously. Bundled statically, the driver put `lintCoreGz` at 130.7 KB in CI,
    past the 122.3 KB ceiling. Loaded on demand, `esm/lint.js` and its static imports grow by 425 bytes gzipped
    (125,034 to 125,459, measured on main and on the M1a head), declared in
-   `docs/route-budget.d/2966-squadra-fix-driver.md`. The driver entry carries the fix path alone (7.7 KB min+gzip
+   `2966-squadra-fix-driver` (folded into `docs/route-budget.history.md`). The driver entry carries the fix path alone (7.7 KB min+gzip
    against 14.3 KB for the whole library).
 5. **Performance targets.** Set from the M1a benchmark.
 6. **The `lint:deck --fix` title-slide bug.** Fixed in today's fixer by PR #2947, merged 2026-10-28. Squadra's shape

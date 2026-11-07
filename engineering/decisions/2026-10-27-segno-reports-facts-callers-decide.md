@@ -374,7 +374,7 @@ so it is switched on with no ceiling moved, which the owner confirmed (D9 A).
 - **Bytes.** Measured with `docs/scripts/measure-route-base.sh` against main and the branch's docs build:
   `_astro/remote-ref.js` grows by 2,701 gzip bytes on studio, playground and home as CI measures it (2,495 locally; the parser is 3,172 bytes
   minified and gzipped; the reader 1,810 against the old scanner's 1,374), declared in
-  `docs/route-budget.d/3002-segno-html-island.md`. Studio eagerJsGz measures 551.6 KB in CI against the
+  `3002-segno-html-island` (folded into `docs/route-budget.history.md`). Studio eagerJsGz measures 551.6 KB in CI against the
   554.5 KB (567,832-byte) ceiling. Playground and home stay under theirs.
 - **Browser fuzz.** `npm run fuzz:web-refs -- --seed 11` in Chromium 131, WebKit 26.0 and Firefox 142, run in
   resumable 3,000-input chunks (`--from`/`--count`), on the shipped scanner (`lib/` identical from 9498c3a to
@@ -429,7 +429,7 @@ consumers to three: export, linter and narrator.
   an exploration run (not committed), 28,453 of 90,000 soups (32%) were refused where parse5 found nothing, 23,617 of
   them for `unsure` and the rest for a diagram holding markup. Floods stay linear: 1 to 5 MB of diagram hosts or
   spans in 0.4 to 2.5 s, roughly in proportion to size. `_astro/remote-ref.js` grows by about 560 gzip bytes measured
-  locally (esbuild, minified), declared in `docs/route-budget.d/r4-gallery-gate-scan-html.md`; no ceiling moves.
+  locally (esbuild, minified), declared in `r4-gallery-gate-scan-html` (folded into `docs/route-budget.history.md`); no ceiling moves.
   That code is the gate's and it now loads on every route that loads `remote-ref.js`; moving it to a module of its
   own is blocked by the dev shim, which inlines only require-free siblings of `remote-ref.js`.
 - **Not done:** export (moved next, below), linter and narrator kept their own scans, one PR each (D8).
@@ -644,7 +644,7 @@ the shared readers. The census was a hand-kept list, though, and the review of t
   takes about 57 ms to the old one's 24 ms.
 - **Bytes.** `css-ref-reader.js` minified and gzipped goes from 1,348 to 1,501 bytes (+153): the CSS-whitespace
   fixes, the trim loop and the block-stack hook. Its chunk (`remote-ref`) is eager on the Studio, Playground and home
-  routes, all above their soft targets, so the growth is declared in `docs/route-budget.d/3024-r4-cli-export-css.md`.
+  routes, all above their soft targets, so the growth is declared in `3024-r4-cli-export-css` (folded into `docs/route-budget.history.md`).
   The first version kept the name check in the reader and cost those routes 380 bytes; it moved to
   `lib/core/css-image-set-block.js` (moved from lib/export/ in the security spine's P2), which only the Node export loads. The export's speech-projection bundle carries the narrator's copy of the reader and is regenerated with it.
   `html-player.js` runs in Node only. `tools/structure.js`'s single-consumer ceiling drops from 44
@@ -788,7 +788,7 @@ export, left the picture out and, for a local file, shipped its path.
   shapes.
 - **Bytes.** `css-ref-reader.js`, eager on the Studio, Playground and home routes, goes from 1,471 to 1,499 bytes
   minified and gzipped (+28) on its own, and +44 inside the built `remote-ref` chunk, which CI measures. It is declared in
-  `docs/route-budget.d/3024-p3-url-arg.md`.
+  `3024-p3-url-arg` (folded into `docs/route-budget.history.md`).
 
 
 ### R4: the four census readers (2026-11-04)

@@ -159,7 +159,7 @@ Choices worth knowing before changing any of it:
   chunks and cost +3.5KB. What works: the lazy modules import only their own files, and
   `architect.ts` hands over everything startup already holds (`chatAgentDeps()` →
   `init()`, `bindKernel()`). Measured +830–846 B against `main`, declared in
-  `docs/route-budget.d/2518-studio-chat-agent.md`. `FRONT_MATTER_KEYS` moved to
+  `2518-studio-chat-agent` (folded into `docs/route-budget.history.md`). `FRONT_MATTER_KEYS` moved to
   `front-matter-keys.ts` (re-exported by `editor-complete.ts`): a dynamic import of
   `editor-complete` from the agent re-split the Playground's `slide-context` (+212 B).
 
