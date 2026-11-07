@@ -1242,7 +1242,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
 			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
-			' data-lattice-live-media><head><meta charset="utf-8">' +
+			// `data-lattice-preview`: a person reads this frame, so the runtime settles only the faces its
+			// laid-out text uses and re-measures when a later one lands (lib/runtime/index.js
+			// `isPreviewFonts`). Without it the runtime force-loads every declared face (28 files, the
+			// emoji subsets among them), `fonts.ready` goes pending again, and the reveal below waits out
+			// its whole PREVIEW_FONT_GATE_MS backstop on a cold load: about 1.5 s on the phone profile.
+			' data-lattice-live-media data-lattice-preview><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
 			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked, scriptNonce: PREVIEW_SCRIPT_NONCE }) +
