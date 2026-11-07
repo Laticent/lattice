@@ -587,6 +587,11 @@ kernel would choose, and only then. Nothing is added to the export:
   enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
   tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
   SVG is named for assistive tech as the engine's post-pass names it.
+- **Print.** Print lays the page out at the paper's width but resizes nothing, so a chart redrawn for a
+  phone would print its tall drawing in a wide box. `beforeprint` puts every exported drawing back and
+  `afterprint` judges again, beside the pane stamps' own restore. Measured with a real `page.pdf()` at
+  390 × 844 on examples/panes.md: 200 × 180 on screen, the exported 245 × 123 and 472 × 72 in the print,
+  200 × 180 again after.
 
 Measured on the bar chart: one redraw is 0.13 ms in the kernel (the bar gallery's eight charts, 200
 rounds, Node), and a phone load redraws each chart once (eight body swaps for eight charts, counted from
