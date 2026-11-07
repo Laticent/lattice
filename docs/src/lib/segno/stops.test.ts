@@ -91,6 +91,27 @@ describe('stops', () => {
     expect(compile(needs).parse('!abzzc').ok).toBe(false);
     expect(load(needs).parse('!abzzc').ok).toBe(false);
   });
+  it('remembers an `until` search across parses of the same text, and forgets it when the text changes', () => {
+    // The HTML reader asks `cdata` once per `<![CDATA[`; each unterminated one searched to the end (found by #3059).
+    const sec: GrammarSpec = { start: 'top', stops: ['cdx', 'gt'], rules: { top: many(alt(node('gt', '>'), noneOf('>'))), cdata: node('cdx', until(']]>', { orEnd: true })), tag: seq('<', until('>', { orEnd: true })) } };
+    expect(generate(sec)).toContain('ux_');
+    const g = load(sec);
+    const c = compile(sec);
+    const same = (s: string, rule: string, from: number) => {
+      const want = c.parse(s, rule, from);
+      const got = g.parse(s, rule, from);
+      expect(got.ok, `${rule} ${JSON.stringify(s)} @${from}`).toBe(want.ok);
+      if (want.ok && got.ok) expect(got.tree?.end, `${rule} ${JSON.stringify(s)} @${from}`).toBe(want.end);
+    };
+    const a = '<![CDATA[ a ]] b ]]> c <![CDATA[ d ]]';
+    const b = '<![CDATA[ a ]]> b ]]> c'; // the same opening, a hit where `a` has none
+    // `a`, then `b` (the text changed), then a copy of `a` (another string, the same text), then `a` and `b` again.
+    for (const s of [a, b, [...a].join(''), a, b]) {
+      // Forward, then backward: a start before the remembered one must search again.
+      const forward = [...Array(s.length + 1).keys()];
+      for (const from of [...forward, ...forward.toReversed()]) for (const rule of ['cdata', 'tag', 'top']) same(s, rule, from);
+    }
+  });
   it('takes `from` only for a grammar with stops', () => {
     const plain: GrammarSpec = { start: 'top', rules: { top: many(noneOf('')) } };
     expect(() => compile(plain).parse('abcd', undefined, 2)).toThrow(/from is for a grammar with stops/);

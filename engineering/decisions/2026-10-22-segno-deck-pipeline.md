@@ -836,3 +836,13 @@ per keystroke (the Studio runs it about eight times). `parses/key`, same machine
 
 `baseline.json` is re-blessed with the wider scenario. The math row's extra 2 is the `$$` limit
 (followups.d/3042-p2-segno-math-decks-still-parse.md).
+
+## `until` searches are remembered across parses (2026-11-07)
+
+A halting grammar's parse starts at a caller's offset, so its caller reads the same text many times: the HTML
+reader asks `cdata` once per `<![CDATA[`. An `until` that missed searched to the end on every call, so an
+unterminated CDATA flood in foreign content was quadratic (about 15,000 characters searched per input character at
+420 KB; 11.6 s through R3 at 3.4 MB). Codegen now gives each `until` needle of a halting grammar `ux_<k>(from)`,
+with the same reuse rule as `nx_<code>`, and keeps it across parses while the input is the same text (compared by
+value, so a copy keeps it); a different text resets it. `nx_<code>` is unchanged and still resets per parse. A grammar
+without stops generates exactly as before. The same CDATA input now covers 2.6 times its length through R3.
