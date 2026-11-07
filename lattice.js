@@ -1498,7 +1498,10 @@ const CLI_THEMES = cliThemeStore(deckSheetLayout, paletteChain.map((n, i) => ({
 // `\r?\n` on both sides, and the value pattern tolerates the comment and the `.` that lint has
 // always allowed. Strictly a superset of what these matched before: no LF deck changes.
 const FRONT_MATTER_RE   = /^---\r?\n[\s\S]*?\r?\n---/;
-const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
+// TOP-LEVEL and LAST, as the engine reads `size:` (#2050 column 0; #3050 D1 last repeat wins; `size :` counts).
+// Used through `sizeDirective`, which returns the `[whole, name]` pair the `.match` callers used to get.
+const SIZE_DIRECTIVE_RE = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)["']?[ \t]*(?:#.*)?$/gm;
+const sizeDirective = (text) => [...String(text || '').matchAll(SIZE_DIRECTIVE_RE)].pop() || null;
 
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
 // A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the hd
@@ -1517,7 +1520,7 @@ const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
-const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
+const explicitSize = (sizeDirective(_mdFm) || [])[1];
 if (explicitSize && !isRegisteredSize(explicitSize)) {
   console.error(`error: unknown size: ${explicitSize}`);
   console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
@@ -1968,7 +1971,7 @@ const bakeServices = {
   quiet: QUIET,
   print: WANT_PRINT,
   paletteUsesTexture: PALETTE_USES_TEXTURE,
-  orientation: orientationFor(resolveSize(((mdForBake.match(FRONT_MATTER_RE) || [''])[0].match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd')).name,
+  orientation: orientationFor(resolveSize((sizeDirective((mdForBake.match(FRONT_MATTER_RE) || [''])[0]) || [])[1] || 'hd')).name,
   paneOrientations: (src) => require('./lib/engine').paneOrientations(src),
   browser: { path: CHROME_EXEC, args: OFFLINE_ARGS },
   readToken: readScopeToken,
@@ -2173,7 +2176,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // scaffold bakes into `@page`. It reads the engine's size REGISTRY
 // (lib/core/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
 // (resolveSize required above, before the plugins' bakes.)
-const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
+const deckSizeName   = (sizeDirective(fm) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);

@@ -256,7 +256,9 @@ const HTML_OPEN_CLOSE_TAG = `^(?:${OPEN_TAG}|${CLOSE_TAG})`;
 // matches; the slot stays so the condition numbers (the tape's T_AUX, `1` for a comment) keep markdown-it's.
 const NEVER = /(?!)/;
 const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
-	[/^<(script|pre|style|textarea)(?=(\s|>|$))/i, /<\/(script|pre|style|textarea)>/i, true],
+	// The close admits whitespace before `>` (`</style >`), as lib/core/rawtext-close.mjs does for the
+	// engine's markdown-it: a legal end tag must not swallow the next slide separator (#2052).
+	[/^<(script|pre|style|textarea)(?=(\s|>|$))/i, /<\/(script|pre|style|textarea)[\t\n\f ]*>/i, true],
 	[NEVER, NEVER, true],
 	[/^<\?/, /\?>/, true],
 	[/^<![A-Za-z]/, />/, true],

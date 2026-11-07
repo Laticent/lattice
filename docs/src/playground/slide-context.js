@@ -174,7 +174,7 @@ export function slideBodyAfter(getLine, total, lineNo, { split = 'headings' } = 
 // when absent) — what slideBodyAfter needs to know where a slide ends.
 export function deckSplit(docText) {
 	const fm = String(docText || '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
-	const m = fm?.[1].match(/^split:[ \t]*["']?(\w+)/m);
+	const m = [...(fm?.[1] || '').matchAll(/^split[ \t]*:[ \t]*["']?(\w+)/gm)].pop(); // the last repeat wins (#3050, D1)
 	// Case-folded, as lib/core/resolve-split.js reads it.
 	return m ? m[1].toLowerCase() : 'headings';
 }

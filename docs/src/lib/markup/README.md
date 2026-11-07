@@ -20,6 +20,7 @@ lives, so the plugin and the engine agree without the plugin importing the engin
 | `splitSections(html)` · `unclosedSectionAt(html)` · `withClass(openTag, cls)` | Rendered slide HTML as ordered `gap` and `section` pieces, depth-aware; where an unclosed `<section>` starts; an open tag with its `class` replaced |
 | `mapSections(html, rewrite)` · `mapSectionHtml(html, rewrite)` · `readAttr(tag, name)` · `readClassAttr(tag)` | Visit each top-level section and rewrite it; read an attribute (`class` never matches `data-class`) |
 | `parseTopLevelLis(inner)` · `extractFirstList(html)` | A list's top-level `<li>` contents, depth-aware; the first `<ul>`/`<ol>` |
+| `tolerateRawtextClose(md)` · `RAWTEXT_CLOSE` | A markdown-it block rule, installed ahead of `html_block`, that ends a `<script>`/`<pre>`/`<style>`/`<textarea>` block on `</style >` (whitespace before `>`), as a browser does, so the block cannot swallow the next slide separator (#2052). Imports nothing; it is handed `md` |
 | `findMatchingClose(html, tag, from)` | The offset of the close tag that balances an open one |
 | `removeTags(s)` · `stripTags(s)` · `plainText(s)` | Tags off (to a fixed point); and `&nbsp;` folded and trimmed; and entities decoded. Not a security boundary |
 

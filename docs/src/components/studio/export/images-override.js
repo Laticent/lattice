@@ -46,7 +46,7 @@ export function deckPolicyOf(source) {
 /** The deck's own `size:`, read the way the command line reads it (quotes and a trailing comment stripped). */
 export function deckSizeOf(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return frontMatterKeyCore.frontMatterValue(fm, 'size') || '';
+	return frontMatterKeyCore.topLevelFrontMatterValue(fm, 'size') || '';
 }
 
 // The export canvas (lib/core/export-canvas.js): 'hd' (default) or '4k'. A 4K deck exports its PDF, PowerPoint and

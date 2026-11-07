@@ -384,3 +384,26 @@ without front matter. The PR's checker found a second cause on the same path: th
 bake wrote `---` between slides, and on a deck with no front matter whose body opens with `---`
 the first one closed a "front matter block" starting at line 0. The lint bake writes `***` now,
 which every reader of the baked text splits on and which can never close front matter.
+
+## Amendment (2026-11-06) — a RAWTEXT close with a space no longer eats the next separator
+
+`</style >` (whitespace before the `>`) is a legal end tag, but CommonMark's condition-1 HTML
+block ends only on the literal `</style>`. The block ran on, swallowed the next `---`, and two
+authored slides rendered as one (#2052). The merged slide also took the later slide's
+`_lens` tag, so a `--lens brief` export could ship a withheld slide's body.
+
+The fix is a deliberate divergence from the spec, scoped to the close tag:
+`tolerateRawtextClose` (`@laticent/markup`, `docs/src/lib/markup/rawtext-close.ts`, re-exported for core callers by `lib/core/rawtext-close.mjs`; a package because the docs site's Compose tokenizer imports it as well as the engine) installs a `rawtext_block` rule ahead of markdown-it's
+`html_block` that claims only `<script|pre|style|textarea` and ends on `</name[\t\n\f ]*>`:
+the whitespace the HTML tokenizer skips after an end tag's name, not JS `\s`, which also takes
+NBSP and U+2028 that a browser does not skip (a parser boundary the browser does not see is the
+same defect in the other direction). Every
+parser that decides a boundary takes the same rule: the engine (`buildMd`), the boundary
+parser (`createBoundaryParser`), and the Segno deck model, whose `HTML_SEQUENCES` row carries
+the same close regex. `test/unit/core/boundary-parser.test.js` pins the engine and boundary
+parser to the same rule list, and `test/unit/core/rawtext-close.test.js` pins all three to
+three slides for each of the four tags. An unclosed block still runs to the end of the
+document, as the spec says. Three more parsers walk the same blocks and take the rule so none
+disagrees with the render: the plugin fence reader (through the boundary parser), the live-author-HTML mask and the
+Compose raw-block tokenizer. `</style/>` and `</style x>` are also end tags to a browser and still
+run on here; nothing in the tree writes either.

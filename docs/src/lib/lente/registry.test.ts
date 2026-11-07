@@ -39,6 +39,17 @@ describe('parseLensRegistry', () => {
 		const reg = parseLensRegistry('lens-defaults: off\nlenses:\n  custom: { label: "Only me", base: none }', WORKSPACE);
 		expect(reg.lenses.map((l) => l.id).sort()).toEqual(['custom', 'full']);
 	});
+	it('a repeated key reads as its LAST top-level line, as Lattice reads front matter (#3050, D1)', () => {
+		// `lens-defaults:` was a union (any `off` line won); the last line decides now.
+		const kept = parseLensRegistry('lens-defaults: off\nlens-defaults: on\nlenses:\n  custom: { label: "Only me", base: none }', WORKSPACE);
+		expect(kept.lenses.map((l) => l.id)).toContain('evidence');
+		const off = parseLensRegistry('lens-defaults: on\nlens-defaults : off\nlenses:\n  custom: { label: "Only me", base: none }', WORKSPACE);
+		expect(off.lenses.map((l) => l.id).sort()).toEqual(['custom', 'full']);
+		// The last `lenses:` block is the registry; `lens-default:` reads its last line.
+		const two = parseLensRegistry('lenses:\n  a: { base: none }\nlens-default: a\nlenses:\n  b: { base: none }\nlens-default: b');
+		expect(two.lenses.map((l) => l.id).sort()).toEqual(['b', 'full']);
+		expect(two.default).toBe('b');
+	});
 	it('honors lens-default and falls back to full when it names nothing', () => {
 		expect(parseLensRegistry('lens-default: brief\nlenses:\n  brief: { base: none }').default).toBe('brief');
 		expect(parseLensRegistry('lens-default: ghost').default).toBe('full');

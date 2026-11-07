@@ -319,3 +319,54 @@ untouched renders differently.
   stamps, with the same collision the ban exists for. Extending the refusal there
   means injecting a vocabulary the pure kernel cannot read, which is a design
   question rather than a patch.
+
+## Amendment (2026-11-06) — the engine reads `class:` at column 0, so every reader does
+
+The table above read `class:` loosely because the engine did: `parseFrontMatter` trimmed each
+line and stamped a `class:` at any indentation. #2050 anchored the engine's reader at column 0
+(a nested `footer:` under `lenses:` printed the lens registry in every footer). The rule this
+note settled, **read the key the way the thing that acts on it reads it**, now gives column 0
+for both keys, and for every engine directive.
+
+The readers that mirrored the engine's loose read moved with it, through
+`topLevelFrontMatterValue`: the seven `class:` reads (`deckClassTokensFromFrontMatter`,
+`deckClassRefusalsFromFrontMatter`, `deckPrintBand`, `diagram-band`, both `diagram-look`
+reads, `lint-core`), `theme:` (`resolve-palette`, and `deckThemeName` in
+`docs/src/lib/deck-theme.ts`), `paginate:` (`lint-core`) and the three `logo:` reads (runtime
+and the markdown-it plugins). `test/unit/core/deck-class-register.test.js` still asserts the
+engine beside the band, now in the column-0 direction. No committed deck nests any of these
+keys, so no render in the tree changes.
+
+## Amendment (2026-11-06, D1) — a repeated key reads as its LAST line everywhere
+
+The last gap between reader and engine on this register was a repeat: the engine's
+`parseFrontMatter` overwrites as it reads and keeps the LAST `class:`, while
+`topLevelFrontMatterValue` returned the FIRST, so `class: kpi` / `class: dark` rendered dark
+while `deckClassTokensFromFrontMatter` refused `kpi`. A test pinned it as a KNOWN RESIDUAL.
+
+The owner ruled on #3050: **last key wins**, the least astonishing reading, and **the linter
+warns**. So `topLevelFrontMatterValue` takes the last top-level line and accepts `key :` (as the
+engine and YAML do), and so does the general `frontMatterValue` whenever the key appears at
+column 0 (it falls back to its old loose read only for a key that is nowhere top-level, so a
+read-only key nested by habit still reads). The export writer `withSanitizedDeckClass` collapses a repeated `class:`
+into one line carrying the LAST value (js-yaml, Marp's parser, also takes the last), and its
+`color-mode:` read takes the last too. The ad-hoc readers follow: `size:` in the CLI export
+(`lattice.js` `sizeDirective`), `slide-class-spans`, `glossary-auto` and the Studio
+(`slide-size.ts`, `studio.astro`); `paginate:` and `class:` in the Export-to-Marp scope and the
+runtime's Marp host; `theme:`, `lang:`, `debug:`, `logo:` and `style:`. The two readers that
+decide what to SHIP (`lib/layout/bridge.js`, the code-package door) read every top-level `class:`
+line, a safe superset. The linter's own value checks (`finish:`, `mode:`, `stamp:`, `backdrop:`, `tag:` and the rest)
+go through one helper, `lastFrontMatterMatch` (lib/core/front-matter-key.js), which picks the
+winning LINE first and tests only that line, so an unparseable last value reads as unparseable
+instead of letting a dead line stand in. Block keys follow the same rule: the narration reader's
+`blockLines` (`lexicon:`, `acronyms:`, `say:`), the `say:` renumberer and the Lente registry
+(`lenses:`, `lens-default:`, `lens-defaults:`) read the LAST block or line. The render-target keys
+(`fluid:`, `player:`, `present:`, `read:`) are the one deliberate exception, read as a union by
+`lib/core/render-target-keys.js`, and `duplicate-key` says so for them. An independent checker
+reviewed this slice in four rounds; each found readers the previous cut missed, and the last found
+only small edges, all fixed. A regex sweep cannot prove there is no other reader that collects a
+key some other way. An independent checker refuted the first cut of this, which moved only the
+engine-directive readers and left `frontMatterValue` on the first line: the new warning then told
+the author to delete the line that actually won. `lint:deck` reports each earlier line
+as `duplicate-key` (warning). No committed deck repeats a key, so no render, lint result or
+export byte in the tree changes; the 560-deck corpus HTML is identical before and after.

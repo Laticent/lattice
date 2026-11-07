@@ -6,6 +6,7 @@ export { findMatchingClose } from './close.js';
 export { splitCodeLines } from './code-lines.js';
 export { escapeAttr, escapeHtml } from './escape.js';
 export { extractFirstList, parseTopLevelLis } from './lists.js';
+export { RAWTEXT_CLOSE, tolerateRawtextClose } from './rawtext-close.js';
 export type { SectionRewrite } from './section-walk.js';
 export { mapSectionHtml, mapSections, readAttr, readClassAttr } from './section-walk.js';
 export type { SectionPiece } from './sections.js';
