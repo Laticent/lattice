@@ -124,6 +124,13 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
   // per stop, each cached (nx_<code>) so a later run that starts before the cached hit does not
   // search again. Anything else keeps the regular expression below.
   const natives = new Set<number>();
+  // Remembered `until` searches (a halting grammar only): one per needle, numbered in the order the
+  // generator meets them (ux_<k>). A halting parse starts at a caller's offset, so a caller reads
+  // the same text again and again (the HTML reader asks `cdata` once per `<![CDATA[`): an `until`
+  // that misses would search to the end of the text on every call, n searches of n characters
+  // (found by #3059). Its last answer is kept ACROSS parses of the same text and reused when the
+  // next search starts at or after where that one started and at or before its hit.
+  const untils = new Map<string, number>();
   const stopChars = (cs: CharSet): number[] | null => {
     const out = complement(cs);
     if (out.length < 2 || out.length > 6) return null;
@@ -306,7 +313,12 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
       case 'until': {
         const c = fresh();
         const miss = e.orEnd ? `${ind}  i = n;\n` : `${ind}  i = n;\n${ind}  return fail(${q(JSON.stringify(e.s))});\n`;
-        return `${ind}{\n${ind}  const ${c} = s.indexOf(${q(e.s)}, i);\n${ind}  if (${c} >= 0${halting ? ` && ${c} + ${e.s.length} <= n` : ''}) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
+        let search = `s.indexOf(${q(e.s)}, i)`;
+        if (halting) {
+          if (!untils.has(e.s)) untils.set(e.s, untils.size);
+          search = `ux_${untils.get(e.s)}(i)`;
+        }
+        return `${ind}{\n${ind}  const ${c} = ${search};\n${ind}  if (${c} >= 0${halting ? ` && ${c} + ${e.s.length} <= n` : ''}) i = ${c} + ${e.s.length};\n${ind}  else {\n${miss}${ind}  }\n${ind}}\n`;
       }
       case 'attempt': {
         const k = attemptFn(e);
@@ -393,6 +405,15 @@ function nx_${sc}(from: number): number {
   nf_${sc} = from;
   return (nv_${sc} = s.indexOf(${q(String.fromCharCode(sc))}, from));
 }`).join('\n');
+  const untilDecls = [...untils].map(([needle, k]) => `let uf_${k} = 0x7fffffff;
+let uv_${k} = -1;
+function ux_${k}(from: number): number {
+  if (uf_${k} <= from && (uv_${k} < 0 || uv_${k} >= from)) return uv_${k};
+  uf_${k} = from;
+  return (uv_${k} = s.indexOf(${q(needle)}, from));
+}`).join('\n');
+  // Kept while the text is the same (by value: a copy reads the same), forgotten when it changes.
+  const untilReset = untils.size ? `  if (input !== s) {\n${[...untils.values()].map((k) => `    uf_${k} = 0x7fffffff;\n`).join('')}  }\n` : '';
   const nativeReset = [...natives].sort((a, b) => a - b).map((sc) => `  nf_${sc} = 0x7fffffff;\n`).join('');
   // Roles (grammar.ts `node`) ride in a table beside KINDS, indexed by kind number: nothing on the
   // tape, nothing per node. A grammar with no role generates no table.
@@ -415,7 +436,7 @@ let depth = 0;
 let err: GenError | null = null;
 let buf = new Int32Array(256);
 let top = 0;
-${nativeDecls}
+${nativeDecls}${untilDecls ? `\n${untilDecls}` : ''}
 
 ${halting ? `// Set when a node of a stop kind closes. The input window is cut to that point (\`n = i\`), so every
 // loop and optional after it sees the end of input and the parse finishes without unwinding.
@@ -467,7 +488,7 @@ export function parse(input: string, rule = ${q(spec.start)}${halting ? ', from 
     if (!named) throw new Error('segno: no rule "' + rule + '"');
     start = named;
   }
-  s = input;
+${untilReset}  s = input;
   n = s.length;
 ${halting ? `  if (!(from >= 0 && from <= n && Number.isInteger(from))) throw new Error('segno: from must be a whole number from 0 to ' + n + ', not ' + from);
   i = from;

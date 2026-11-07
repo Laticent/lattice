@@ -204,24 +204,18 @@ describe('the R3 reader returns the hand-written scanner\'s tags, and the fixes 
 
   test('linear on hostile input, both readers', () => {
     // Counted, not timed (HARD RULE #32): the characters every string search and regex covers stay within 10 times
-    // the input (4.3 at most today). The e6c3a4a scanner searched for `-->` from every opener to the end; on these
-    // floods at a tenth of this size it covers 2,000 to 8,000 times the input, and took 29 s on the 400 KB one.
-    const hostile = ['<a '.repeat(100_000), '<!--'.repeat(50_000), '<!-- -'.repeat(50_000), '<!-- x -->'.repeat(40_000), '<!-- --!>'.repeat(40_000), '<style>'.repeat(30_000), `<a b="${'x'.repeat(500_000)}`, '</'.repeat(100_000)];
-    // KNOWN QUADRATIC, held only by a hang guard: an unterminated CDATA section in foreign content after a `>` makes
-    // the reader search for `]]>` to the end once per section (r_cdata in lib/core/html-ref.generated.js), about
-    // 15,000 times the input here. It stays fast only because a 3-character search runs at memory speed; 3.4 MB of
-    // it takes 9 s through R3.
-    const cdata = ['<svg><![CDATA['.repeat(30_000), '<svg><desc><![CDATA[>'.repeat(20_000)];
+    // the input (6.3 at most today, the CDATA flood through blockWebImages). The e6c3a4a scanner searched for `-->`
+    // from every opener to the end; on these floods at a tenth of this size it covers 2,000 to 8,000 times the input,
+    // and took 29 s on the 400 KB one.
+    const hostile = ['<a '.repeat(100_000), '<!--'.repeat(50_000), '<!-- -'.repeat(50_000), '<!-- x -->'.repeat(40_000), '<!-- --!>'.repeat(40_000), '<style>'.repeat(30_000), `<a b="${'x'.repeat(500_000)}`, '</'.repeat(100_000),
+      '<svg><![CDATA['.repeat(30_000), '<svg><desc><![CDATA[>'.repeat(20_000)];
+    // The last two: an unterminated CDATA section in foreign content after a `>` searched for `]]>` to the end once
+    // per section, about 15,000 times the input here and 9 s through R3 at 3.4 MB, until Segno's generator kept a
+    // halting grammar's `until` searches across parses of the same text (found by #3059).
     for (const [name, scan] of [['R3', scanHtml], ['blockWebImages', (h) => live.blockWebImages(h, [], { DOMParser: null })]]) {
       for (const html of hostile) {
         const { scanned } = scanWork(() => scan(html));
         assert.ok(scanned <= 10 * html.length, `${name}: ${JSON.stringify(html.slice(0, 20))}… scanned ${scanned} chars for ${html.length}`);
-      }
-      for (const html of cdata) {
-        const t = performance.now();
-        scan(html);
-        const ms = performance.now() - t;
-        assert.ok(ms < 10000, `${name}: ${JSON.stringify(html.slice(0, 20))}… took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard on a known quadratic — 0.3 s here, 9-18 s at 3.4 MB
       }
     }
   });
