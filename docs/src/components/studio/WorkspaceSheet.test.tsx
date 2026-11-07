@@ -80,6 +80,7 @@ const voiceAvailSpy = vi.hoisted(() =>
 vi.mock('./read-aloud', () => ({
 	voiceAvailability: vi.fn(async () => voiceAvailSpy()),
 	listTtsModels: vi.fn(async () => TTS_CATALOG),
+	normalizeVoiceSelection: vi.fn(async () => false),
 	ttsOrModel: vi.fn(async () => ''),
 	setTtsOrModel: vi.fn(),
 	ttsOrVoice: vi.fn(async () => ''),
@@ -337,17 +338,17 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeInTheDocument();
 	});
 
-	// A voice id stored under an older casing (Grok's "Eve" -> "eve") is SHOWN as the live
-	// roster's id, so the picker is never blank, but it is not written back: only the author's
-	// pick writes the voice selection (model spine).
-	it('shows a stale (pre-migration-casing) stored voice id as the live roster id, without writing it', async () => {
+	// A voice id stored under an older casing (Grok's "Eve" -> "eve") is shown as the live roster's
+	// id at once, and the panel asks for the stored id to be normalized (a correction, not a pick:
+	// see read-aloud.normalize-voice.test.ts), so storage, the UI and synthesis agree.
+	it('shows a stale (pre-migration-casing) stored voice id as the live roster id and normalizes storage', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		selectVoice({ provider: 'openrouter', model: 'x-ai/grok-voice-tts-1.0', voice: 'Eve' });
 		const { sheet } = openSheet();
 		const picker = await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		await waitFor(() => expect(picker).toHaveTextContent('Eve'));
-		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalled();
-		expect(readVoiceSelection().voice).toBe('Eve');
+		await waitFor(() => expect(readAloud.normalizeVoiceSelection).toHaveBeenCalledWith(TTS_CATALOG));
+		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalled(); // not a pick
 	});
 
 	it('cloud TTS voice is a model-specific dropdown (not free text) once a model is set', async () => {

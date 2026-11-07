@@ -435,9 +435,12 @@ that refuses one of our fields would pass the suite. A dispatch-only live smoke 
 (HARD RULE #24's sanctioned-workflow pattern) would catch that; it is a new CI workflow, so it is
 the owner's call.
 
-**Not in step 2.** The cloud voice stays on OpenRouter: OpenAI is the only direct provider with
-speech, and it needs its own transport in `voice-model.js`
-(`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
+**Not in step 2.** The cloud voice stays on OpenRouter. *Corrected 2026-11-07:* this note said
+OpenAI was the only direct provider with speech. That was wrong: the Gemini API has native
+text-to-speech (`gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`), and the model spine adds a
+direct Gemini voice (`2026-11-07-studio-model-spine.md`). OpenAI's speech models shut down on
+2027-01-06 and their named replacement does not serve `/v1/audio/speech`, so a direct OpenAI
+voice is a follow-up on a different transport (`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
 file-parser plugin for a reference PDF, the authoritative cost of an aborted turn, and the
 self-heal of a retired model id.
 

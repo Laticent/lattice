@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHAT_SELECTION_KEY, readChatSelection, selectChat } from '../../../lib/model-selection.js';
+import { CHAT_SELECTION_KEY, readChatSelection, readVoiceSelection, selectChat, selectVoice } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
 
@@ -152,5 +152,82 @@ describe('model spine — chat', () => {
 		await openRouterKeySettled();
 		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-pro' });
 		expect(m.availability()).toMatchObject({ generation: 'openrouter', readiness: { state: 'ready', provider: 'gemini', model: 'gemini-3.8-pro' } });
+	});
+});
+
+describe('model spine — on-device warm at boot', () => {
+	it('warms a selected on-device model whose weights are cached, with progress, and never fetches', async () => {
+		selectChat({ provider: 'universal' });
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		vi.stubGlobal('caches', {
+			keys: async () => ['transformers-cache'],
+			open: async () => ({ keys: async () => [{ url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/onnx/model.onnx' }] }),
+		});
+		let ready = false;
+		let finish: () => void = () => {};
+		const m = make() as Model & { __setUniversal: (b: unknown) => void };
+		m.__setUniversal({
+			name: 'transformers',
+			ready: () => ready,
+			load: (onProgress: (p: { progress: number }) => void) =>
+				new Promise<void>((res) => {
+					onProgress({ progress: 0.5 });
+					finish = () => {
+						ready = true;
+						res();
+					};
+				}),
+			complete: async () => 'local',
+		});
+		await vi.waitFor(() => expect(m.availability().readiness).toMatchObject({ state: 'warming', provider: 'universal', progress: 0.5, cached: true }));
+		finish();
+		await vi.waitFor(() => expect(m.availability().readiness.state).toBe('ready'));
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('leaves an uncached on-device model unavailable: no download', async () => {
+		selectChat({ provider: 'universal' });
+		vi.stubGlobal('caches', { keys: async () => [], open: async () => ({ keys: async () => [] }) });
+		const load = vi.fn();
+		const m = make() as Model & { __setUniversal: (b: unknown) => void };
+		m.__setUniversal({ name: 'transformers', ready: () => false, load, complete: async () => '' });
+		await vi.waitFor(() => expect(m.availability().readiness).toMatchObject({ state: 'unavailable', cached: false }));
+		expect(load).not.toHaveBeenCalled();
+	});
+});
+
+describe('model spine — saving a key and the voice (owner decision 3)', () => {
+	it('selects the provider’s voice when the current cloud voice has no key', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
+		selectVoice({ provider: 'openrouter', model: 'x-ai/grok', voice: 'eve' }); // no OpenRouter key
+		const m = make();
+		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		expect(readVoiceSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
+		expect(readChatSelection().provider).toBe('gemini');
+	});
+
+	it('leaves a working voice alone: on-device Kokoro, or a cloud voice whose key is there', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
+		selectVoice({ provider: 'kokoro', voice: 'af_heart' });
+		const m = make();
+		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		expect(readVoiceSelection().provider).toBe('kokoro');
+		selectVoice({ provider: 'openrouter' });
+		m.saveProviderKey('openrouter', 'sk-or-v1-test');
+		await openRouterKeySettled();
+		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		expect(readVoiceSelection().provider).toBe('openrouter');
+	});
+
+	it('a provider without a voice (Anthropic) never touches the voice', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
+		selectVoice({ provider: 'openrouter' });
+		make().saveProviderKey('anthropic', 'sk-ant-test-key-0000000000');
+		await openRouterKeySettled();
+		expect(readVoiceSelection().provider).toBe('openrouter');
 	});
 });

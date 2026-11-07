@@ -18,7 +18,7 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { CHAT_CLOUD_PROVIDERS, chatModelFor, readChatSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
+import { CHAT_CLOUD_PROVIDERS, chatModelFor, readChatSelection, readVoiceSelection, selectChat, selectVoice, VOICE_CLOUD_PROVIDERS, watchSelectionStorage } from '../../../lib/model-selection.js';
 import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
 import { directBackend } from './direct-providers.js';
 
@@ -149,6 +149,22 @@ function promptApiBackend() {
     },
     destroy() { try { session?.destroy?.(); } catch {} session = null; },
   };
+}
+
+/**
+ * Are these on-device weights already in Cache Storage? Reads the browser's caches only: no
+ * network request. The model spine warms a SELECTED on-device model at boot only when this is
+ * true, and never downloads ~1 GB unprompted (owner decision, 2026-11-07).
+ */
+export async function detectCachedWeights(modelId) {
+  try {
+    if (typeof caches === 'undefined') return false;
+    for (const cn of await caches.keys()) {
+      const cache = await caches.open(cn);
+      for (const req of await cache.keys()) if (req.url.includes(modelId)) return true;
+    }
+    return false;
+  } catch { return false; }
 }
 
 // WebLLM — opt-in, WebGPU, ~1GB download. Loaded from CDN only when summoned.
@@ -917,8 +933,32 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)
   // The model-off floor switch (Workspace "AI off", tests). The only in-memory tier state left.
   let floorForced = false;
-  // On-device downloads in flight, so a selected-but-loading model reads `warming`.
+  // On-device downloads in flight, so a selected-but-loading model reads `warming` (with its
+  // progress), and whether each model's weights are already cached in this browser.
   const loading = { webllm: false, universal: false };
+  const progress = { webllm: 0, universal: 0 };
+  const cached = { webllm: false, universal: false };
+  const deviceBackend = (p) => (p === 'webllm' ? webllm : universal);
+  // Warm the SELECTED on-device model when its weights are already cached (no download, no
+  // network check). Called at boot and when the author selects one. Not cached: it stays
+  // `unavailable` and the Workspace offers "Load (~size)".
+  async function warmSelected() {
+    const sel = readChatSelection();
+    const p = sel.provider;
+    if (p !== 'webllm' && p !== 'universal') return;
+    if (deviceBackend(p).ready() || loading[p]) return;
+    cached[p] = await detectCachedWeights(DEVICE_MODEL_IDS[p]);
+    emitChange();
+    const b = deviceBackend(p);
+    if (!cached[p] || b.ready() || readChatSelection().provider !== p || loading[p]) return;
+    loading[p] = true;
+    progress[p] = 0;
+    emitChange();
+    try {
+      await b.load((x) => { progress[p] = x?.progress || 0; emitChange(); });
+    } catch { /* stays unavailable; the Workspace offers Load */ }
+    finally { loading[p] = false; emitChange(); }
+  }
   // Another tab changed the selection or a key: re-announce here so this tab's UI follows.
   if (hasWindow) {
     watchSelectionStorage();
@@ -967,7 +1007,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     if (injected) return { state: 'ready', source: 'cloud', provider: 'openrouter', model: '' };
     const { sel, backend, state } = resolve();
     const model = sel.source === 'cloud' ? backend.getModel() : (DEVICE_MODEL_IDS[sel.provider] ?? '');
-    return { state, source: sel.source, provider: sel.provider, model };
+    const p = sel.provider;
+    const extra = p === 'webllm' || p === 'universal' ? { progress: loading[p] ? progress[p] : null, cached: cached[p] } : {};
+    return { state, source: sel.source, provider: sel.provider, model, ...extra };
   }
 
   async function complete(opts) {
@@ -1037,6 +1079,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     try { window.dispatchEvent(new Event('db-model-changed')); } catch {}
   };
 
+  // A selected on-device model whose weights are cached comes back by itself after a reload.
+  if (hasWindow) void warmSelected();
+
   return {
     complete,
     embed,
@@ -1094,7 +1139,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       if (name === 'floor') { floorForced = true; emitChange(); return; }
       floorForced = false;
       if (name === 'auto') selectChat({ provider: lastCloudProvider() });
-      else selectChat({ provider: name });
+      else { selectChat({ provider: name }); void warmSelected(); }
     },
     // OpenRouter cloud tier — one-click OAuth (PKCE), the user's own account.
     // beginOpenRouterAuth() returns the URL to redirect to; the page navigates
@@ -1150,6 +1195,14 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); directFor(provider).listModels().catch(() => {}); }
       floorForced = false;
       selectChat({ provider });
+      // Voice, only when it is stranded: if this provider speaks and the selected voice is a cloud
+      // voice whose key is missing or rejected, this provider's voice takes over. A working voice
+      // (another key, or on-device Kokoro) is left alone: chat and voice stay independent.
+      const v = readVoiceSelection();
+      if (VOICE_CLOUD_PROVIDERS.includes(provider) && v.source === 'cloud' && v.provider !== provider) {
+        const k = providerKeyState(v.provider);
+        if (k === 'none' || k === 'rejected') selectVoice({ provider });
+      }
     },
     /** Remove a provider's key. The selection stays as chosen and reads `needs-key`: nothing substitutes another provider. */
     removeProviderKey(provider) {
@@ -1171,7 +1224,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     async summon(onProgress, signal) {
       loading.webllm = true;
       emitChange();
-      try { await webllm.load(onProgress, signal); } finally { loading.webllm = false; }
+      try { await webllm.load((x) => { progress.webllm = x?.progress || 0; onProgress?.(x); emitChange(); }, signal); } finally { loading.webllm = false; }
       // Downloading is choosing: the model the author fetched becomes the chat model.
       selectChat({ provider: 'webllm' });
       return true;
@@ -1182,7 +1235,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     async loadUniversal(onProgress, signal) {
       loading.universal = true;
       emitChange();
-      try { await universal.load(onProgress, signal); } finally { loading.universal = false; }
+      try { await universal.load((x) => { progress.universal = x?.progress || 0; onProgress?.(x); emitChange(); }, signal); } finally { loading.universal = false; }
       emitChange();
       return true;
     },

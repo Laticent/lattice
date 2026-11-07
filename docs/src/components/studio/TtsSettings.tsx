@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import {
 	listTtsModels,
 	loadTtsKokoro,
+	normalizeVoiceSelection,
 	type OrVoiceModel,
 	previewTtsVoice,
 	setTtsKokoroVoice,
@@ -167,7 +168,11 @@ export function TtsSettings() {
 		if (models) return;
 		let live = true;
 		listTtsModels().then((l) => {
-			if (live) setModels(l);
+			if (!live) return;
+			setModels(l);
+			// Correct a stored voice id the live roster no longer lists, in storage, so this panel,
+			// the next read and synthesis all use the same valid id (a normalization, not a pick).
+			void normalizeVoiceSelection(l);
 		});
 		return () => {
 			live = false;
@@ -187,9 +192,9 @@ export function TtsSettings() {
 		[models],
 	);
 
-	// A stored voice id the live roster no longer lists (a catalog rename, a dropped voice) is
-	// SHOWN as the roster's default, but never written back: only the author's pick writes the
-	// selection (model spine). Picking a voice, or the model, stores it.
+	// A stored voice id the live roster no longer lists is corrected in storage by
+	// normalizeVoiceSelection (above); until that lands, show the corrected id so the picker is
+	// never blank.
 	const shownOrVoice = orModelVoices.length ? resolveVoice(orModelVoices, orVoice) : orVoice;
 	const shownKokoroVoice = kokoroVoices.length ? resolveVoice(kokoroVoices, kokoroVoice) : kokoroVoice;
 

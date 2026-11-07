@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHAT_SELECTION_KEY, chatModelFor, readChatSelection, readVoiceSelection, selectChat, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
+import { CHAT_SELECTION_KEY, chatModelFor, normalizeStoredVoice, readChatSelection, readVoiceSelection, selectChat, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
 
 // The model spine's store: one chat record and one voice record, read synchronously, migrated
 // once from the legacy keys (engineering/decisions/2026-11-07-studio-model-spine.md).
@@ -94,6 +94,26 @@ describe('voice selection', () => {
 		selectVoice({ provider: 'openrouter', model: 'a/tts', voice: 'v1' });
 		expect(selectVoice({ provider: 'openrouter', model: 'b/tts' }).voice).toBe('');
 		expect(selectVoice({ provider: 'openrouter', model: 'c/tts', voice: 'v9' }).voice).toBe('v9');
+	});
+});
+
+describe('voice normalization (not a pick)', () => {
+	it('rewrites a stale voice id for that provider + model without changing the selected provider', () => {
+		selectVoice({ provider: 'openrouter', model: 'x-ai/grok', voice: 'Eve' });
+		selectVoice({ provider: 'kokoro', voice: 'af_heart' }); // Kokoro is selected now
+		const spy = vi.fn();
+		window.addEventListener('db-voice-changed', spy);
+		expect(normalizeStoredVoice({ provider: 'openrouter', model: 'x-ai/grok', from: 'Eve', to: 'eve' })).toBe(true);
+		window.removeEventListener('db-voice-changed', spy);
+		expect(spy).toHaveBeenCalledTimes(1);
+		expect(readVoiceSelection()).toMatchObject({ provider: 'kokoro', voice: 'af_heart', last: { openrouter: { model: 'x-ai/grok', voice: 'eve' } } });
+	});
+
+	it('changes nothing for another model, or when the id is already right', () => {
+		selectVoice({ provider: 'openrouter', model: 'a/tts', voice: 'v1' });
+		expect(normalizeStoredVoice({ provider: 'openrouter', model: 'b/tts', from: 'v1', to: 'v2' })).toBe(false);
+		expect(normalizeStoredVoice({ provider: 'openrouter', model: 'a/tts', from: 'v1', to: 'v1' })).toBe(false);
+		expect(readVoiceSelection().voice).toBe('v1');
 	});
 });
 

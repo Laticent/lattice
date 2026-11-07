@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
-import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
+import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { loadOpenRouterKey, loadProviderKey, providerKeyState, readOpenRouterKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
@@ -8,7 +8,7 @@ import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { readyKeys } from '@/playground/narration-store.js';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { speechOnsetMs } from '../../../../lib/core/speech-pcm.mjs';
-import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
+import { cachedSampleUrl, KOKORO_MODEL_ID, resolveVoice, speedSupported, voicesForModel } from './tts-voice-catalog';
 
 // slideToSpeech is the shared base narration flattener — one source of truth in
 // lib/core/slide-speech.js (HARD RULE #1), bundled to the browser via
@@ -1129,7 +1129,7 @@ export function useReadAloud(
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
 		getVoice().then(async (voice) => {
-			if (voice) await voice.prepareSelectedVoice?.();
+			if (voice) await Promise.all([voice.prepareSelectedVoice?.(), normalizeVoiceSelection().catch(() => false)]);
 			if (ctl.signal.aborted) return;
 			if (!voice) {
 				// Voice model failed to load — the silent estimate still runs the
@@ -1523,6 +1523,34 @@ export async function listTtsCatalog(): Promise<TtsCatalog> {
  * not something introduced here, and fixing it means giving that panel a retry — its own
  * change.)
  */
+/**
+ * Correct a stored voice id the live roster no longer lists (a provider rename such as Grok's
+ * "Eve" -> "eve", a dropped voice, or an unset voice that would fall back to an id this model
+ * does not publish), so storage, the Workspace and synthesis all use the same, valid id. A
+ * NORMALIZATION write (lib/model-selection.js normalizeStoredVoice): it never changes which
+ * provider or model is selected. A catalog that cannot be reached changes nothing.
+ */
+export async function normalizeVoiceSelection(models?: OrVoiceModel[]): Promise<boolean> {
+	const list = models ?? (await listTtsModels());
+	if (!list.length) return false;
+	const sel = readVoiceSelection();
+	let changed = false;
+	const fix = (provider: string, storedModel: string, effectiveModel: string, stored: string, fallback: string) => {
+		const roster = voicesForModel(effectiveModel, list.find((m) => m.id === effectiveModel)?.voices ?? []);
+		if (!roster.length) return;
+		const current = stored || fallback;
+		if (roster.some((x) => x.id === current)) return;
+		changed = normalizeStoredVoice({ provider, model: storedModel, from: stored, to: resolveVoice(roster, current) }) || changed;
+	};
+	const or = sel.provider === 'openrouter' ? { model: sel.model, voice: sel.voice } : sel.last.openrouter;
+	// The cheapest-voice default picks its own valid voice (voice-model.js orVoice), so only a model
+	// the author chose, or the hosted-Kokoro default, is checked here.
+	if (or && (or.model || or.voice)) fix('openrouter', or.model, or.model || KOKORO_MODEL_ID, or.voice, or.model ? '' : 'af_heart');
+	const k = sel.provider === 'kokoro' ? { model: sel.model, voice: sel.voice } : sel.last.kokoro;
+	if (k?.voice) fix('kokoro', k.model, KOKORO_MODEL_ID, k.voice, 'af_heart');
+	return changed;
+}
+
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
 	try {
 		const m = await import('@/playground/voice-model.js');

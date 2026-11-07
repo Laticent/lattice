@@ -254,6 +254,10 @@ export type ChatReadiness = {
 	source: 'cloud' | 'device';
 	provider: string;
 	model: string;
+	/** On-device only: load progress 0–1 while warming, else null. */
+	progress?: number | null;
+	/** On-device only: the weights are already in this browser's Cache Storage. */
+	cached?: boolean;
 };
 
 /** The providers the cloud tier can run on (lifecycle note §7). OpenRouter is the default. */

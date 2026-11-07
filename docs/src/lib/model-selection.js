@@ -229,6 +229,34 @@ export function selectVoice({ provider, model, voice }) {
 	return rec;
 }
 
+/**
+ * NORMALIZE a stored voice id against the live roster: the one write that is not a pick.
+ * Like the migration, it corrects what is stored (a voice id the provider renamed or dropped)
+ * so storage, the UI and synthesis agree, and it never changes WHICH provider or model is
+ * selected. It rewrites `voice` wherever it is stored for `provider` + `model` (the selection
+ * itself and the per-provider memory). Returns true when it changed anything.
+ * @param {{ provider: string, model: string, from: string, to: string }} fix
+ */
+export function normalizeStoredVoice({ provider, model, from, to }) {
+	if (!to || from === to) return false;
+	const cur = readVoiceSelection();
+	let changed = false;
+	const rec = { ...cur, last: { ...cur.last } };
+	if (cur.provider === provider && cur.model === model && cur.voice === from) {
+		rec.voice = to;
+		changed = true;
+	}
+	const l = cur.last[provider];
+	if (l && l.model === model && l.voice === from) {
+		rec.last[provider] = { ...l, voice: to };
+		changed = true;
+	}
+	if (!changed) return false;
+	writeLS(VOICE_SELECTION_KEY, JSON.stringify(rec));
+	emit('db-voice-changed');
+	return true;
+}
+
 // ── Cross-tab sync ────────────────────────────────────────────────────────────────────────
 
 /**
