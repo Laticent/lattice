@@ -1,4 +1,4 @@
-studio: +40
-playground: +40
-home: +40
-`ensureKatexProvider` (docs/src/lib/ensure-katex.ts, which ships in the startup `video-overlay` chunk) now clears its poll when a load error rejects, instead of leaving it reading `window` for ~10 s. Declaring the handle before `fail` and clearing it there costs CI-measured +34 B gz on each of these routes; declared with a little room for gzip variation.
+studio: +100
+playground: +100
+home: +100
+`ensureKatexProvider` (docs/src/lib/ensure-katex.ts) and its twin `ensureEngine` (docs/src/lib/load-engine.ts), both in the startup bundle, now clear their poll when a load error rejects, instead of leaving it reading `window` for ~10 s. CI measured +34 B gz per route for the first; the second is the same three lines, so this declares room for both plus gzip variation.
