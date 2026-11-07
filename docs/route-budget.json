@@ -5,8 +5,8 @@
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": {
-        "soft": 504833,
-        "hard": 578072
+        "soft": 571778,
+        "hard": 628956
       },
       "htmlRaw": {
         "soft": 226628,
@@ -21,8 +21,8 @@
         "hard": 90460
       },
       "lintCoreGz": {
-        "soft": 112808,
-        "hard": 152705
+        "soft": 152151,
+        "hard": 167366
       },
       "chartKernelsGz": {
         "soft": 231477,
@@ -32,8 +32,8 @@
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": {
-        "soft": 362145,
-        "hard": 398360
+        "soft": 377244,
+        "hard": 414968
       },
       "htmlRaw": {
         "soft": 471849,
@@ -47,8 +47,8 @@
     "home": {
       "html": "index.html",
       "eagerJsGz": {
-        "soft": 264041,
-        "hard": 298064
+        "soft": 291531,
+        "hard": 320684
       },
       "htmlRaw": {
         "soft": 110840,
@@ -77,8 +77,8 @@
     "getting-started": {
       "html": "getting-started/index.html",
       "eagerJsGz": {
-        "soft": 142529,
-        "hard": 156782
+        "soft": 142643,
+        "hard": 156907
       },
       "htmlRaw": {
         "soft": 85352,
