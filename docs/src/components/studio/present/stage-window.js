@@ -335,7 +335,12 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// the Underpainting (lib/core/image-painting.js) rather than an empty panel.
 		// `data-lattice-chromeless`: the audience watches, nobody acts on the slide, so the runtime
 		// draws no reader chrome (a code block's copy buttons, lib/core/code-copy.mjs).
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless><head><meta charset="utf-8">' +
+		// `data-lattice-preview`: the runtime settles only the faces laid-out text uses
+		// (lib/runtime/index.js `isPreviewFonts`) instead of force-loading every declared face
+		// (28 files, the emoji subsets among them), which held the reveal below to its full font
+		// backstop. Every slide here is laid out (hidden by `visibility`, never `display:none`),
+		// so the faces of the slides ahead are still in flight before the audience reaches them.
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless data-lattice-preview><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +

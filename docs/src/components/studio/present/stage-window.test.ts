@@ -721,3 +721,16 @@ describe('stage-window — the document declares its language', () => {
 		expect(buildStageDoc({ ...base, lang: '"><<>>' })).toContain('<html lang="en"');
 	});
 });
+
+// The runtime settles fonts two ways (lib/runtime/index.js `isPreviewFonts`): a document marked
+// `data-lattice-preview` waits for the faces its laid-out text uses; anything else force-loads every
+// declared face, which re-pends `document.fonts.ready` and holds the Stage's reveal to the font gate's
+// full backstop (lib/core/preview-font-gate.mjs).
+describe('stage-window — the runtime settles only the faces the stage lays out', () => {
+	const base = { html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' };
+
+	it('marks the document as a preview, embedded and standalone', () => {
+		expect(buildStageDoc(base)).toMatch(/<html[^>]*\sdata-lattice-preview[\s>]/);
+		expect(buildStageDoc({ ...base, standalone: true })).toMatch(/<html[^>]*\sdata-lattice-preview[\s>]/);
+	});
+});
