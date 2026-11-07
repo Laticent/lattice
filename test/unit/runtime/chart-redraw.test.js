@@ -74,6 +74,29 @@ describe('chart-redraw: a bar chart is read back from its marks', () => {
     assert.equal(readBar(body), null, 'refused: a redraw would lose North and renumber the rest');
   });
 
+  test('two categories named alike, one undrawn, keep the exported drawing (a note would move bars)', () => {
+    const body = draw('<ul><li>North <code>3</code><ul><li>a</li></ul></li><li>North <code>--5</code><ul><li>b</li></ul></li><li>South <code>2</code><ul><li>c</li></ul></li></ul>');
+    assert.deepEqual([...body.querySelectorAll('rect[data-mark]')].map((m) => m.dataset.mark), ['0', '2'], 'the fixture leaves a gap at 1');
+    assert.equal(readBar(body), null);
+  });
+
+  test('a gap in the drawn bars keeps the exported drawing, even with no label to show it', () => {
+    const body = draw('<ul><li>A <code>1</code></li><li>B <code>2</code></li><li>C <code>3</code></li></ul>');
+    const second = body.querySelector('rect[data-mark="1"]');
+    second.remove();
+    for (const t of body.querySelectorAll('text[data-label="B"]')) t.remove(); // a label dropped for space
+    assert.equal(readBar(body), null);
+  });
+
+  test('a grouped chart with a note keeps the exported drawing: the note has no place to go back to', () => {
+    const body = draw('<ul><li>Americas<ul><li>Plan <code>3.2</code></li><li>Actual <code>3.9</code></li></ul></li><li>EMEA<ul><li>Plan <code>2.6</code></li><li>Actual <code>3.1</code></li></ul></li></ul>', 'bar grouped');
+    const tpl = body.ownerDocument.createElement('template');
+    tpl.className = 'chart-detail';
+    tpl.setAttribute('data-mark', '0');
+    body.append(tpl);
+    assert.equal(readBar(body), null);
+  });
+
   test('a series the key cannot name keeps the exported drawing', () => {
     const first = draw('<ul><li>A<ul><li>Plan <code>1</code></li><li>Actual <code>2</code></li></ul></li></ul>', 'bar grouped');
     for (const k of first.querySelectorAll('text.chart-key-label')) k.remove();

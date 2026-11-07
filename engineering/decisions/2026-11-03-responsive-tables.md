@@ -582,12 +582,23 @@ kernel would choose, and only then. Nothing is added to the export:
   reads, and a redraw dropped both (examples/callouts-bars.md, focus-chart-marks.md). Those charts are
   refused rather than redrawn without them. So is a category the export labeled but could not draw (a
   value that does not parse, `North --5`): it has a label and no bar, so a redraw would drop it and
-  renumber the rest (examples/chart-malformed-numbers.md).
+  renumber the rest (examples/chart-malformed-numbers.md). Two tests catch that, each covering what the
+  other misses (the red team's repros): the drawn bars must be numbered without a gap (the export can drop
+  an undrawn category's LABEL for space, leaving only the gap), and category labels are counted as
+  elements, not as distinct names (two categories named alike, one undrawn, read as one name, and a note
+  moved onto the wrong bar). A grouped chart with a note, and a key name the export shortened, keep the
+  exported drawing too: neither reads back whole.
+- **Red team (2026-11-07).** Hostile labels, values, series names and notes (entity-encoded and raw
+  `<img onerror>`, `</svg></template><tspan>`, quotes, backticks, fullwidth lookalikes, record syntax)
+  through export and a 390 × 844 redraw: no dialog, no `on*` attribute, no `javascript:` URL, the same set
+  of tag names before and after, and every label and value byte-identical. The sink held; the three
+  data-correctness breaks it found are the refusals above.
 - **Safety (HARD RULE #22).** Values read off the page are decoded strings, so each is escaped before it
   enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
   tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
   SVG is named for assistive tech as the engine's post-pass names it.
-- **Print.** Print lays the page out at the paper's width but resizes nothing, so a chart redrawn for a
+- **Print.** A browser that fires `beforeprint` and never `afterprint` would leave every redraw off, so
+  the print media query turning off ends the print as well. Print lays the page out at the paper's width but resizes nothing, so a chart redrawn for a
   phone would print its tall drawing in a wide box. `beforeprint` puts every exported drawing back and
   `afterprint` judges again, beside the pane stamps' own restore. Measured with a real `page.pdf()` at
   390 × 844 on examples/panes.md: 200 × 180 on screen, the exported 245 × 123 and 472 × 72 in the print,
