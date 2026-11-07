@@ -83,6 +83,15 @@ describe('engine: a hidden slide is marked and takes no number', () => {
     assert.deepEqual([marker(s[0]), marker(s[2]), marker(s[4])], ['1 / 2', '', '2 / 2']);
     assert.deepEqual([stamp(s[0]), stamp(s[4])], ['01', '02'], 'the third divider is the second shown one');
     assert.deepEqual([topicEyebrow(s[1]), topicEyebrow(s[3]), topicEyebrow(s[5])], ['01 · Part 1', '01 · Part 1', '02 · Part 3']);
+    assert.equal(stamp(s[2]), '', 'a hidden numbered divider carries no number (it would read 01 again)');
+  });
+
+  test('a hidden divider does not split the topic track: its topics stay in the shown section', () => {
+    const TOPIC = (n) => `<!-- _class: topic -->\n\n## ${n}\n\nBody.`;
+    const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), TOPIC('Alpha'), DIVIDER(2), TOPIC('Bravo'), TOPIC('Charlie'),
+      hide(DIVIDER(3)), TOPIC('Delta'), TOPIC('Echo')], RAIL_ON), 'lattice').html);
+    const track = (html) => [...html.matchAll(/<li[^>]*>([^<]*)</g)].map((m) => m[1]);
+    for (const k of [3, 4, 6, 7]) assert.deepEqual(track(s[k]), ['Bravo', 'Charlie', 'Delta', 'Echo'], `slide ${k + 1}`);
   });
 });
 

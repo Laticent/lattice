@@ -41,7 +41,7 @@ that is plainly a different kind of surface (a full bleed, which drops the page 
 |---|---|---|
 | Title, and slides before the first divider | Nothing | Nothing to locate yet; lighting nothing would look broken. |
 | Agenda whose item count equals the deck's section count | Each item ends with the rail as it will look in that section | The legend, met before the first divider. A mismatched count draws nothing: the items are something else. |
-| Divider (plain, light, numbered) | Its own marker: `2 / 4` and the marks, larger, this section lit, directly above the name | Where the marks are taught, beside the section name. Frame content, not chrome, and zero tall in the column: a full-height row clipped a full divider (`divider qr` on a tall canvas at conference), and the top band holds the deck's `header:` text. |
+| Divider (plain, light, numbered) | Its own marker: `2 / 4` and the marks, larger, this section lit, directly above the name | Where the marks are taught, beside the section name. Frame content, not chrome, and a real row of the divider's block: the top band holds the deck's `header:` text, and a zero-tall row painted above its place drew over that header on a tall block with no fit gate noticing. A full divider now reports its overflow instead. |
 | Topic | Its own track; an empty eyebrow becomes `02 · <divider heading>` (figures, no language; only where the rail would draw) | One scale per slide; the eyebrow ties the topic's track to the deck's sections. |
 | Content slide inside a section | The footer rail | The rail's one job. |
 | Full-bleed sovereign layouts, closing | Nothing | They drop the page number too. |

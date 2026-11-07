@@ -1442,10 +1442,11 @@ rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: 
   slides before the first divider carry no rail.
 - **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
   marks, larger, this section lit, directly above the eyebrow and the section name: left-aligned with
-  the name on a plain or numbered divider, centered on a `divider light`. It takes none of the
-  divider's room (a `divider qr` with a marker caps its code at 20% of the slide width on a narrow
-  canvas, still over the venue's scan floor). That is where a reader learns what the footer marks
-  mean.
+  the name on a plain or numbered divider, centered on a `divider light`. It is a real row of the
+  divider's block, so it takes its line of the slide's room (at `venue: conference` and `hall` a
+  `divider qr` with a marker caps its code at 20% of the slide width, still over the venue's scan
+  floor). A hidden divider draws no marker and no numeral. That is where a reader learns what the
+  footer marks mean.
 - **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
   rail as it will look in that section. A different count draws nothing.
 - **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
