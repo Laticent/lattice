@@ -14,7 +14,7 @@ why now   — PR #2640 added a same-origin `blob:` UUID allowance for `<img>` an
             shared `lib/core/sanitize-slide-html.mjs`, so Library photos survive the preview
             sanitizer. Every docs surface imports that module, so the home page and the Playground
             carry about 250 bytes gz of it with no Library to use it; the declaration is
-            `docs/route-budget.d/2640-library-media.md`. Both routes are already over their soft
+            `2640-library-media` (folded into `docs/route-budget.history.md`). Both routes are already over their soft
             target.
 where     — `lib/core/sanitize-slide-html.mjs` (`createSlideSanitizer`, `isOwnObjectUrlSrc`) and the
             docs binding `docs/src/lib/sanitize-slide-html.js`.
