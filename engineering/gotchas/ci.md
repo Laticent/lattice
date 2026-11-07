@@ -700,6 +700,44 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** a jsdom window with `pretendToBeVisual` that runs the runtime and is closed
   after the runtime's observer is live.
 - **Removable when:** jsdom clears its animation-frame interval on `close()`.
+- **Not only an escaped error:** a test process that dies prints the same line. An out-of-heap
+  crash (`FATAL ERROR: … JavaScript heap out of memory`) and a `SIGKILL` both show as a bare
+  `'test failed'` under the dot reporter, which drops the child's stderr. Re-run with
+  `--test-reporter=spec` to see which.
+
+## A jsdom walk over many documents keeps them all, by two different holds
+
+- **Symptom:** a test that parses many documents in jsdom grows its live heap with every one,
+  though it keeps no reference to them. `test/unit/core/prose-binding.test.js` held ~2.0 GB live
+  after a full mark-compact by its last deck, and died as a bare `'test failed'` when its heap
+  limit was lower (`--max-old-space-size=1500` reproduces it in about a minute).
+- **Cause:** two holds, measured over the gate's first 150 decks (live heap after `gc()`):
+
+  | windows | between decks | live heap |
+  |---|---|---|
+  | one, for the whole walk | nothing / a `setImmediate` | 715 MB / 715 MB |
+  | one per deck, closed | nothing | 858 MB |
+  | one per deck, closed | a `setImmediate` | 98 MB |
+
+  **The first hold** is a listener leak in the selector engine. jsdom 29.1.1 gives each document a
+  `DOMSelector` from `@asamuzakjp/dom-selector` 7.1.1 the first time it is queried
+  (`querySelectorAll`, `matches`, `closest`). Its `Finder` constructor (`src/js/finder.js`,
+  `_registerEventListeners`) adds 9 capture listeners (focus, keyboard, mouse) to the shared
+  window. Nothing ever removes them, so the window holds every queried document. Measured on one
+  window with 300 large documents: parsing alone frees them all; querying each one adds 2,700
+  listeners and keeps 1,966 MB live; the same queries with `addEventListener` stubbed out free
+  them all again. Found together with the session fixing flaky tests on another machine, whose
+  heap snapshot showed the same 2.1 GB retained.
+
+  **The second hold:** a dropped window, closed or not, stays alive until the event loop takes a
+  macrotask turn (~0.9 MB each, with what it parsed). A microtask `await` is not a turn, and
+  node:test runs synchronous tests back to back without one. Why the window waits for a turn is
+  not pinned down: jsdom 29 makes no `WeakRef` on this path.
+- **Fix:** a window per unit of work, closed with it, and a macrotask turn after each:
+  `afterEach(() => new Promise((resolve) => setImmediate(resolve)))` when each unit is its own test.
+- **Triggered by:** hundreds of jsdom documents in one test file.
+- **Removable when:** dom-selector removes its listeners (or jsdom stops sharing the window) for
+  the first hold; jsdom frees a closed window at once for the second.
 
 ## The root-install jobs fail with `Cannot find module 'yjs'` (or `lib0`, `y-protocols`) from a Tavola adapter
 
