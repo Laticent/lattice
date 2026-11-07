@@ -1,0 +1,1 @@
+- On a phone, the `--fluid` viewer stacks a panes slide's panes, each at the full width, where it used to keep them side by side and leave a 30% pane about 92px wide. A text pane keeps its content height, a chart or picture takes the rest, and a narrow pane reads in its wide form while stacked. A tablet, a landscape phone and a desktop keep the panes side by side.

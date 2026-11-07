@@ -189,9 +189,54 @@ rotation or widening the holds equal a fresh load's at that size. A section nest
 scale (it once could: a small landscape box in the last slide stripped the portrait scale from a deck).
 test/integration/export/fluid-reflow-hold.test.js pins all three on the real export; it fails on `main`.
 
-The held table still clips in that repro, as it does in table form on `main`: a 30% pane on a 390px
-phone is about 5em wide, and the fluid view keeps panes side by side where the mobile canvas splits them
-into slides. That is a fluid-view limit this change does not reach (`followups.d/3021-p13-fluid-panes-stack-on-a-phone.md`).
+**On a phone the fluid view stacks a slide's panes** (third change, closing `followups.d/3021-p13`). The
+held table still clipped in that repro: a 30% pane on a 390px phone is about 92px (5em), because the
+fluid view kept panes side by side where a paged tall deck splits them into one slide per pane
+(lib/core/panes.js `installPaneSplit`). The fluid view cannot re-form slides after the render, so
+lib/base/base.fluid-view.css stacks them, each at the full width, behind two gates: the box is tall (the
+runtime's `data-orientation` stamp, the boxes the engine would split, cleared when the box turns wide
+again) and the screen is at most 40em (640px) wide. Measured on every deck with panes (twelve examples
+and two stress decks), the rules below are what it took for no slide to gain a "Content clipped" tag
+at 390 × 844, 360 × 640 or 820 × 1180:
+
+- **Phones only.** A portrait tablet stacked too in the first cut, and lost a slide `main` lays out
+  cleanly: a 35% pane at 820px is about 258px, enough for a line chart side by side, but stacked, a
+  two-per-row stats pane (717px) and the chart could not both fit a 792px stage, and the chart got 11px.
+  So a tablet keeps the side-by-side form, and its clip tags are `main`'s, slide for slide.
+- **Height follows content, not the ratio.** The ratio was written for width. Split over a phone's
+  height, `ratio-30-70` gave a three-row table 167px (clipped) under a short paragraph holding 427px.
+  A stacked pane starts at its content's height and the panes share the spare by the ratio. That needs
+  the pane to stop containing its block size, so in this form it is an `inline-size` container: its
+  width still sets every inline container unit, and a block-axis unit resolves against the slide
+  (chart bodies are their own size containers, so their `cqh` units are unaffected).
+- **What fills takes the spare, and gives way first.** Beside a chart body or a picture, a text pane
+  keeps its content height exactly, neither growing nor shrinking, and the filler takes what is left.
+  Shared by the ratio, a text pane got 200px of dead space under three bullets; shrunk alongside a
+  filler that has a content height of its own (a Mermaid diagram drawn top-down, 577px), a list pane was
+  cut to 72px of its 138px.
+- **A picture fills; it does not size its pane.** A paragraph of only pictures (the engine's
+  `data-pane-figure`, or a collage's run split by `<br>`) starts at no height: a
+  photo's natural height at full width (418px of a 621px stage) had left the other pane 32px short. A
+  collage's run of photos (1155px) shares the box, each cropped to its share.
+- **A stacked pane is wide.** The engine stamps a narrow pane `data-family` from its authored box (a 35%
+  pane is `tall`), and a component rule keyed to it kept the narrow form at 351px. While stacked, the
+  runtime (lib/runtime/index.js `stampStackedPanes`, same two gates) sets those stamps aside, so the
+  pane reads in the wide form, and puts them back when the slide turns wide or the page prints (print
+  lays the page out at the paper's width, where the stack is off, but resizes nothing). Taking the SLIDE's `tall`
+  stamp instead was tried and refused: a tall form assumes it owns the whole stage, and a stacked stats
+  pane went to 806px. One wide rule needed a stacked arm: progress sizes its label column at 18.75% of
+  the slide, 67px on a phone, so stacked it takes up to 40% of the pane.
+- **The spine sits between the panes.** pane.css places it from the ratio, which no longer says where
+  the first pane ends, so here it is a flex item ordered between them.
+
+Measured on those fourteen decks: "Content clipped" slides go from 4 to 0 at 390 × 844 and from 11 to 0
+at 360 × 640, and stay at `main`'s 16, the same slides, at 820 × 1180, in Chromium, WebKit and Firefox
+alike. The narrowest pane on responsive-tables slide 2 goes from 92 × 622px to 351 × 264px. test/integration/export/fluid-reflow-hold.test.js pins it on the
+real export: a phone stacks and clears the pane stamp, landscape and a portrait tablet keep the panes
+side by side with the stamp restored; the hold test now uses a five-column, 14-row table, which still
+switches to cards at a phone's full width and overflows as cards. A chart drawn for a wide box still
+reads small in a stacked pane, and a diagram drawn for a narrow one stays top-down: both are drawings
+made at render time, the chart narrow form of `followups.d/3021-p9-chart-narrow-forms.md`.
 
 **No continuous host exists yet.** The Studio's Read · Article view projects the deck to prose
 (`lp-*` markup), not to slides, so it never meets a slide layout. The Frame Lab stays the only host
@@ -293,6 +338,23 @@ narrow pane and a phone deck read the same: verdict-grid, pricing, statute-stack
 compare-prose, q-and-a, inventory and kpi reuse it. Two take something else on purpose: stats goes two
 to a row at the number's own size (its tall form enlarges the numbers, and a narrow box is no reason to
 change type), and kpi takes only the layout half of its tall form for the same reason.
+
+**Stacked verdict cards follow the `cards:` register** (third change, closing `followups.d/3031-p1`).
+verdict-grid's three one-column rules (portrait orientation, the tall/strip family, the width rule) gave
+every card `flex: 1`, so the stack always filled: in a 35% pane on 16:9, center, stretch and top all
+filled 93% of the list with identical 135px cards. They now take matrix-2x2's form: `justify-content:
+var(--cards-align)`, `flex: var(--cards-grow) 0 var(--cards-basis)`, `min-height: min-content`, and
+`nowrap`, so a stack that does not fit overflows where the fit check and the export's warning see it.
+Measured after: center leaves 32px above and below, top leaves 63px below, stretch fills 93%.
+Stretch needed a second fix. lib/forms/cell/pane/pane.css stamps a pane's register itself (a pane is not
+a section) and set only `--cards-align` and `--cards-grow`; with `--cards-basis` unset the new `flex`
+was invalid and fell back to `0 1 auto`, so no pane's cards could stretch (matrix-2x2's narrow form had
+the same gap). The pane rules now set all four tokens, as base.tokens.css does for a section.
+A portrait PAGE does not change: verdict-grid splits one option per portrait page, and the split run's
+lone-member rule (base.modifiers.css) makes that card fill the page on purpose. Rendered on this
+change and on `main` (verdict-grid and matrix-2x2 galleries and every deck with panes, at hd, portrait
+and mobile): 0 of 965 slide images differ. examples/stacked-verdict-register.md shows the four
+registers in a narrow pane.
 
 **cards-grid's column count is one variable now**, `--cards-cols`, with `--cards-last` for a last card
 alone on its row. That fixed a real bug on the way: the tall/strip single-column rule was (0,3,3) and
@@ -472,23 +534,95 @@ and the reason decides what the narrow form has to be.
 - **The gap is a box that changes AFTER the render.** The fluid view on a phone, a resizing live
   preview and a continuous host all receive a drawing made for the authored box. CSS cannot redraw an
   SVG: the label sizes, tick counts and the key's position are baked into the drawing.
-- **So the narrow form is a second drawing, and that is a decision, not a step.** The candidate the
-  analysis favors: the engine draws each chart twice, the second at a narrow view (about 110 × 200
-  chart units, a phone's width at slide type size), and puts the second in a `<template>`, which is
-  inert: no layout, no accessibility tree, no duplicate ids, invisible to text extraction. The runtime
-  swaps it in when the chart body falls below a width and back when it widens; a PDF never swaps.
-  What it costs: about twice the chart markup in every HTML export (an exported-bytes change, which
-  the Quality Bar routes to the owner), twice the chart render time (a bench run, HARD RULE #19), and
-  a post-sanitize markup swap inside the frame, which HARD RULE #22's fourth guard has to admit. What
-  it buys: every kind gets a narrow form from its existing view-following geometry, with per-kind
-  work only where that geometry is not enough (risk-matrix's key goes below the grid; quadrant's
-  corner labels). The alternative, a runtime that carries the chart kernels and redraws, costs the
-  runtime bundle the whole chart family.
-- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
+- **The owner's call (2026-11-06, on #3060): redraw on demand, from the chart's own marks.** A second
+  drawing per chart in every export was refused: it duplicates markup to save a redraw. So is storing the
+  source beside the chart. What made a redraw cheap was a measurement, not an estimate: the runtime the
+  export inlines already contains the whole chart family (bundling lib/transformers/chart-family.js on top
+  of lib/runtime/index.js adds 47 bytes), so the "runtime carries the chart family, about 3× larger" cost
+  in the first analysis was wrong. See §"Charts redraw on demand" below.
+- **Shipped here: the continuous-host collapse.**- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
   quadrant, word-cloud, piechart, hub-spoke), and size containment lends the box no height. In a
   continuous host the slide grows to its content, so the body collapsed to 0 and the chart vanished
   (every quadrant, radar and pie chart in the Frame Lab, at every width). In a continuous host their
   body now takes a 16:10 box from its width. No paged host sets the attribute, so no export changes.
+
+## Charts redraw on demand
+
+lib/runtime/chart-redraw.js redraws a chart in the `--fluid` viewer when its box changes the drawing the
+kernel would choose, and only then. Nothing is added to the export:
+
+- **The source comes back from the chart's own marks.** A bar records its category and value on each mark
+  (`data-label`, `data-value`), its series by hue in key order (`text.chart-key-label`), and each note
+  as the `<template class="chart-detail">` beside it. A per-kind READER rebuilds the source list from
+  those; a kind with no reader keeps its exported drawing. Single series is "every category has one
+  mark", not "one hue": a diverging chart paints by sign.
+- **When: only the facts that change the kernel's drawing.** The slide's orientation and aspect (the
+  stamps the runtime writes from the slide's box) and, for a pane, whether it is stacked. Nothing the
+  chart drew feeds in. The first cut keyed on the chart body's measured size, which follows the SVG just
+  drawn, so each redraw changed the key and drew again: a grouped chart walked its viewBox from 494 to
+  8814 units and settled at 1px text, and single charts redrew about 100 times on a phone before settling
+  (the checker's repro). The fluid boot snapshots each chart before any box changes: its exported nodes (in
+  memory, a WeakMap, never in the page) and that key. The geometry pass (`patchSectionGeometry`) asks
+  after every resize; the same key does nothing, the exported key puts the exported nodes back, any
+  other redraws, once. So a 16:9 desktop's first paint is the export's own drawing; a desktop of another
+  aspect (16:10 is stamped `data-aspect=1.60`) gets the kernel's drawing for that aspect, as the engine would
+  draw it for a 16:10 deck.
+- **What it draws at: the engine's kernel, on a canvas from WIDTHS only.** `transformChartSection`, with a
+  canvas in slide chart units (lib/engine/index.js `paneView`'s formula). A whole-slide chart in a
+  landscape box takes the engine's own path, no canvas; in a tall or square box, and in a stacked pane,
+  the canvas is the chart's width in units at the view's shape (320 × 300 portrait); a side-by-side pane,
+  a size container, gives its own box. The unit is the stage's width only: a fluid stage's height follows
+  its content, and on the first pass before layout it was near zero, which drew a 1220-unit canvas at 3px.
+  The unit includes the slide's type scale (`--canvas-scale`, 2.29 on a 390px phone), so labels print at the
+  slide's size, not 8px beside 17px text. The canvas is at least 200 units wide (a four-category chart at
+  the full type size broke "Licen ses" mid-word at 140), and one that would shorten a name the export
+  printed in full is widened in steps, the kernel's own rule (`wouldShortenALabel`).
+- **What a reader cannot carry keeps the exported drawing.** A callout (`@callout`, drawn as the legend
+  layer's target and text) and a `_focus` (`lat-focus` / `lat-recede` marks) are not on the marks a reader
+  reads, and a redraw dropped both (examples/callouts-bars.md, focus-chart-marks.md). Those charts are
+  refused rather than redrawn without them. So is a category the export labeled but could not draw (a
+  value that does not parse, `North --5`): it has a label and no bar, so a redraw would drop it and
+  renumber the rest (examples/chart-malformed-numbers.md). Two tests catch that, each covering what the
+  other misses (the red team's repros): the drawn bars must be numbered without a gap (the export can drop
+  an undrawn category's LABEL for space, leaving only the gap), and category labels are counted as
+  elements, not as distinct names (two categories named alike, one undrawn, read as one name, and a note
+  moved onto the wrong bar). A grouped chart with a note, and a key name the export shortened, keep the
+  exported drawing too: neither reads back whole.
+- **Red team (2026-11-07).** Hostile labels, values, series names and notes (entity-encoded and raw
+  `<img onerror>`, `</svg></template><tspan>`, quotes, backticks, fullwidth lookalikes, record syntax)
+  through export and a 390 × 844 redraw: no dialog, no `on*` attribute, no `javascript:` URL, the same set
+  of tag names before and after, and every label and value byte-identical. The sink held; the three
+  data-correctness breaks it found are the refusals above.
+- **Safety (HARD RULE #22).** Values read off the page are decoded strings, so each is escaped before it
+  enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
+  tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
+  SVG is named for assistive tech as the engine's post-pass names it.
+- **Print.** A browser that fires `beforeprint` and never `afterprint` would leave every redraw off, so
+  the print media query turning off ends the print as well. Print lays the page out at the paper's width but resizes nothing, so a chart redrawn for a
+  phone would print its tall drawing in a wide box. `beforeprint` puts every exported drawing back and
+  `afterprint` judges again, beside the pane stamps' own restore. Measured with a real `page.pdf()` at
+  390 × 844 on examples/panes.md: 200 × 180 on screen, the exported 245 × 123 and 472 × 72 in the print,
+  200 × 180 again after.
+
+Measured on the bar chart: one redraw is 0.13 ms in the kernel (the bar gallery's eight charts, 200
+rounds, Node), and a phone load redraws each chart once (eight body swaps for eight charts, counted from
+boot). The inlined runtime grows by 4.6 KB minified (1.6 KB gzipped) across this branch's two runtime
+changes (the pane stamps and the redraw); no chart adds a byte. At 390 × 844 the smallest label of every
+chart in the bar gallery is 16 to 19px (text box height), the grouped chart's included, and the
+examples/panes.md bar panes' 16px, where the export printed 7px; examples/chart-european-numbers.md and
+examples/marks.md redraw the same way; the callout, focus and malformed-number charts keep their exported
+drawings; a 16:9 desktop shows the export's own drawing on every one; rotating back restores it byte for byte.
+test/unit/runtime/chart-redraw.test.js pins the round trips, a forged label and the refusals;
+test/integration/export/fluid-chart-redraw.test.js pins the real export: nothing redraws on the desktop,
+one redraw per chart on a phone, the focused chart kept, and the byte-for-byte restore (it fails on the
+first cut and with the redraw off).
+
+**Bar is the first reader.** The read-back survey (2026-11-06, every chart gallery): bullet, ep-curve,
+funnel, heatmap, line, map, piechart, slope, stacked-bar, tower, waterfall, hub-spoke, journey,
+matrix-grid and roadmap carry their whole source on their marks; histogram, gantt, scatter, quadrant,
+risk-matrix, radar and word-cloud keep part of it only in geometry or the `<desc>` prose; kanban, progress
+and timeline-list never change with the box; flowchart and state-chart redraw from their stored model
+through their own browser layout.
 
 ## What comes next
 
