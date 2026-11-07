@@ -1094,6 +1094,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   //     browser that cannot load the model does not retry on every read, and a read never
   //     overrides the author's Cancel. An explicit download from Settings still works.
   let kokoroLoading = null;
+  let kokoroPct = 0; // the shared load's progress, 0–100
   let kokoroCtl = null;
   const kokoroProgress = new Set();
   let backgroundLoadOff = false;
@@ -1102,11 +1103,16 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     if (onProgress) kokoroProgress.add(onProgress);
     if (!kokoroLoading) {
       kokoroCtl = new AbortController();
-      const fanOut = (p) => { for (const fn of kokoroProgress) { try { fn(p); } catch {} } };
+      const fanOut = (p) => {
+        // Kept for the surfaces that show the selected voice warming (Present's voice pill).
+        const pct = Math.round((p?.progress || 0) * 100);
+        if (pct !== kokoroPct) { kokoroPct = pct; emitChange(); }
+        for (const fn of kokoroProgress) { try { fn(p); } catch {} }
+      };
       kokoroLoading = kokoro.load(fanOut, kokoroCtl.signal, background ? { mainThread: false } : undefined)
         .then(() => { kokoroCachedFlag = true; emitChange(); return true; })
         .catch((e) => { backgroundLoadOff = true; throw e; })
-        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroProgress.clear(); });
+        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroPct = 0; kokoroProgress.clear(); emitChange(); });
     }
     const ctl = kokoroCtl;
     if (signal) {
@@ -1795,7 +1801,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     availability() {
       return {
         rung: pickRung().name,
-        readiness: selection ? (() => { const r = resolveVoice(); return { state: r.state, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
+        readiness: selection ? (() => { const r = resolveVoice(); return { progress: r.state === 'warming' && r.sel.provider === 'kokoro' ? kokoroPct / 100 : null, state: r.state, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
         openRouterReady: openrouter.ready(),
         geminiReady: !!cloudRungs.gemini?.ready(),
         kokoroReady: kokoro.ready(),

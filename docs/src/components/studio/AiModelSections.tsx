@@ -110,7 +110,7 @@ function SelectionCard({
 					data-testid={`${testId}-state`}
 					data-state={state}
 					onClick={scrollToProviders}
-					className="w-[92px] shrink-0 text-right font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--fail)] underline-offset-2 hover:underline"
+					className="w-[92px] shrink-0 text-left font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--fail)] underline-offset-2 hover:underline"
 				>
 					{alert ? 'Key rejected' : 'Add a key'}
 				</button>
@@ -118,7 +118,7 @@ function SelectionCard({
 				<span
 					data-testid={`${testId}-state`}
 					data-state={state ?? 'pending'}
-					className={cn('w-[92px] shrink-0 text-right font-mono text-[10px] font-bold uppercase tracking-wider', blocked ? 'text-[var(--fail)]' : 'text-[var(--accent)]')}
+					className={cn('w-[92px] shrink-0 text-left font-mono text-[10px] font-bold uppercase tracking-wider', blocked ? 'text-[var(--fail)]' : 'text-[var(--accent)]')}
 				>
 					{readinessLabel(state, progress)}
 				</span>

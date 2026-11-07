@@ -44,7 +44,7 @@ import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { narrationCanSynthesize, narrationLatencyKey, narrationReadiness, narrationStage, prefetchFrontOf, sentenceHash, setRoomClipSource, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { narrationCanSynthesize, narrationLatencyKey, narrationReadiness, narrationStage, prefetchFrontOf, sentenceHash, setRoomClipSource, slideToSpeech, spokenSentencesPerSlide, useReadAloud, useSelectedVoiceLabel, warmNarrationWindow } from './read-aloud';
 import { sizeFromSource, sizeRatio } from './slide-size';
 import { deckVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 
@@ -1687,7 +1687,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			readerRef.current.play();
 		}
 	}, [advanceFrom]);
-	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'room' ? 'Presenter' : reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
+	// The pill names the SELECTED voice (model spine) — the one this read speaks in, or is waiting
+	// for: "Loading voice… n%" while it warms, then its name. The room's voice is the presenter's.
+	const selectedVoice = useSelectedVoiceLabel();
+	const rungLabel = reader.rung === 'room' ? 'Presenter' : selectedVoice.loading ? (selectedVoice.label as string) : reader.rung && reader.rung !== 'silent' ? (selectedVoice.label ?? 'Voice') : 'Captions';
 
 
 	// REAL rehearsal plan — the deterministic planner the Drawing Board ships

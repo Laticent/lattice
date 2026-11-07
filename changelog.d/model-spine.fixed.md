@@ -10,3 +10,6 @@
 - Studio: Spend and standing instructions follow the chat model you selected, not the tab you happen to be looking at. Narration settings (pace, fetch ahead, audio quality, keep on device, cheapest voice) moved from General to Voice model → More narration settings.
 - Studio: Workspace → AI no longer jumps when it opens: the loading frame has the real layout, and readiness changes in place.
 - Studio: a selected on-device chat model whose files are already in this browser loads by itself after a reload, with its progress shown; one that is not downloaded says so and offers to load it, and never downloads without asking.
+- Studio: the chat's model chip now names the model that will answer, on-device included, with an icon for where it runs, and links to "Models & keys…". Without a key it says "Add a key or choose on-device". Picking a model in the chip changes the same global chat model as Workspace → AI.
+- Present: the voice button names the voice that is speaking ("Heart · on-device", "Eve · OpenRouter") instead of a fixed "Aria", and shows "Loading voice… n%" while your selected voice loads, then starts reading.
+- Studio: one model-name format everywhere a model is named (Workspace, the chip, the pickers, Present).

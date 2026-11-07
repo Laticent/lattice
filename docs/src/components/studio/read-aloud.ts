@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
+import { voiceDisplayName } from '@/lib/model-name';
 import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
@@ -283,6 +284,8 @@ export type VoiceReadiness = {
 	provider: string;
 	model: string;
 	voice: string;
+	/** While an on-device voice loads: 0–1. */
+	progress?: number | null;
 };
 
 export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
@@ -1460,6 +1463,40 @@ export async function narrationLatencyKey(): Promise<string> {
 	} catch {
 		return '';
 	}
+}
+
+/**
+ * The SELECTED voice as Present's voice pill names it, live: "Heart · on-device", "Eve · OpenRouter",
+ * or "Loading voice… 42%" while the selected voice warms (a read waits for it, visibly). Null until
+ * the voice module answers, and when the selection cannot speak (captions only).
+ */
+export function useSelectedVoiceLabel(): { label: string | null; loading: boolean } {
+	const [out, setOut] = React.useState<{ label: string | null; loading: boolean }>({ label: null, loading: false });
+	React.useEffect(() => {
+		let live = true;
+		let seq = 0;
+		const read = () => {
+			const mine = ++seq;
+			voiceAvailability().then((a) => {
+				if (!live || mine !== seq) return;
+				const r = a.readiness;
+				if (!r) return setOut({ label: null, loading: false });
+				if (r.state === 'warming') return setOut({ label: `Loading voice…${r.progress != null ? ` ${Math.round(r.progress * 100)}%` : ''}`, loading: true });
+				if (r.state !== 'ready') return setOut({ label: null, loading: false });
+				const where = r.provider === 'kokoro' ? 'on-device' : r.provider === 'gemini' ? 'Gemini' : 'OpenRouter';
+				setOut({ label: `${voiceDisplayName(r.voice)} · ${where}`, loading: false });
+			});
+		};
+		read();
+		window.addEventListener('db-voice-changed', read);
+		window.addEventListener('db-model-changed', read);
+		return () => {
+			live = false;
+			window.removeEventListener('db-voice-changed', read);
+			window.removeEventListener('db-model-changed', read);
+		};
+	}, []);
+	return out;
 }
 
 /** Live voice status — which rung is active, what's ready/cached/supported. */

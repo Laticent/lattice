@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ChatCost, readableModelId } from './ChatCost';
+import { ChatCost, chipLabel, readableModelId } from './ChatCost';
 
 // The chat header: one chip that names the model and opens the picker, and one session figure.
 
@@ -58,7 +58,23 @@ describe('readableModelId', () => {
 	it('turns an id into a name without the catalog', () => {
 		expect(readableModelId('~anthropic/claude-sonnet-latest')).toBe('Claude Sonnet (latest)');
 		expect(readableModelId('google/gemini-3-flash')).toBe('Gemini 3 Flash');
-		expect(readableModelId('openai/gpt-5.1:free')).toBe('Gpt 5.1 Free');
+		expect(readableModelId('openai/gpt-5.1:free')).toBe('GPT 5.1 Free');
 		expect(readableModelId(null)).toBe('Choose a model');
+	});
+});
+
+// The chip names the SELECTED model — on-device included — or what the selection is waiting for.
+describe('chipLabel (model spine)', () => {
+	const base = { modelName: null, modelId: null, provider: 'openrouter' } as unknown as Parameters<typeof chipLabel>[0];
+	it('names an on-device selection by its model', () => {
+		expect(chipLabel({ ...base, readiness: { state: 'ready', source: 'device', provider: 'prompt-api', model: 'prompt-api' } })).toBe('Browser built-in model');
+	});
+	it('says what a selection without a key needs', () => {
+		expect(chipLabel({ ...base, readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: '' } })).toBe('Add a key or choose on-device');
+	});
+	it('names a cloud selection by the catalog name when known, else from its id', () => {
+		const r = { state: 'ready', source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash' } as const;
+		expect(chipLabel({ ...base, readiness: r })).toBe('Gemini 3.8 Flash');
+		expect(chipLabel({ ...base, readiness: r }, { id: 'gemini-3.8-flash', name: 'Google: Gemini 3.8 Flash' })).toBe('Gemini 3.8 Flash');
 	});
 });

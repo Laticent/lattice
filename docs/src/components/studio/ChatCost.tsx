@@ -1,8 +1,8 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Cloud, Cpu, KeyRound, Settings2 } from 'lucide-react';
 import * as React from 'react';
-import { shortName } from '@/components/studio/ai/or-catalog.js';
 import { readLedger } from '@/components/studio/ai/spend.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { modelDisplayName, nameFromId } from '@/lib/model-name';
 import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
 import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
@@ -38,7 +38,7 @@ import type { ChatMessage, ChatUsage } from './studio-store';
 // moved INTO the dropdown, where it has room to say which end is a question and which an
 // edit — the dropdown is also where you are when the price should change your choice.
 
-export function ChatCost({ source, grounding, docs, primed, explicitCache = true, deckId, messages, compact, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; deckId?: string; messages?: ChatMessage[]; compact?: CompactControls; className?: string }) {
+export function ChatCost({ source, grounding, docs, primed, explicitCache = true, deckId, messages, compact, className, onManageModels }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; deckId?: string; messages?: ChatMessage[]; compact?: CompactControls; className?: string; /** Open Workspace › AI (the chip's "Models & keys…"). */ onManageModels?: () => void }) {
 	const [spend, setSpend] = React.useState(() => architectSpend());
 	const [pulse, setPulse] = React.useState(0);
 	const status = useArchitectStatus(pulse);
@@ -76,12 +76,13 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount, explicitCache) : null), [cloud, grounding, primed, explicitCache, docs, source, status.price, agentReady, libraryCount]);
 	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
-	if (!cloud) return null;
 	const last = withCurrentWindow(lastUsage(messages), status.price?.contextLength);
+	// The chip is shown for EVERY selection — on-device and not-yet-ready included — because it
+	// names who will answer. Spend metrics are a cloud matter, so they follow a ready cloud model.
 	return (
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
-			<ModelChip status={status} turnEst={turnEst} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} />
-			<MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} messages={messages} price={status.price} compact={compact} />
+			<ModelChip status={status} turnEst={cloud ? turnEst : null} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} onManageModels={onManageModels} />
+			{cloud ? <MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} messages={messages} price={status.price} compact={compact} /> : null}
 		</span>
 	);
 }
@@ -285,19 +286,18 @@ function ContextRing({ fill, level: l }: { fill: number; level: string }) {
 	);
 }
 
-/** A model's name from its id alone — the catalog loads only when the dropdown first opens, and
- *  the chip is on screen before that. `~anthropic/claude-sonnet-latest` reads "Claude Sonnet
- *  (latest)", never the raw alias. */
+/** A model's name from its id alone (lib/model-name.ts — the one formatter). Kept as an export for its callers. */
 export function readableModelId(id: string | null | undefined): string {
-	if (!id) return 'Choose a model';
-	const slug = id.replace(/^~/, '').split('/').pop() ?? id;
-	const latest = /-latest$/.test(slug);
-	const words = slug
-		.replace(/-latest$/, '')
-		.split(/[-_:]/)
-		.filter(Boolean)
-		.map((w) => (/^\d/.test(w) ? w : w[0].toUpperCase() + w.slice(1)));
-	return `${words.join(' ')}${latest ? ' (latest)' : ''}`;
+	return id ? nameFromId(id) : 'Choose a model';
+}
+
+/** What the chip says: the SELECTED model by its friendly name, or what it is waiting for. */
+export function chipLabel(status: ReturnType<typeof useArchitectStatus>, current?: { id: string; name?: string } | null): string {
+	const r = status.readiness;
+	if (r?.state === 'needs-key') return 'Add a key or choose on-device';
+	const provider = r?.provider ?? status.provider ?? 'openrouter';
+	if (r?.source === 'device') return modelDisplayName({ provider });
+	return modelDisplayName({ id: current?.id ?? (r?.model || status.modelId), name: current?.name ?? status.modelName, provider });
 }
 
 type Spend = ReturnType<typeof architectSpend>;
@@ -305,7 +305,7 @@ type TurnEst = { question: number; edit: number } | null;
 
 /** The model's name with a dropdown: the cost of a turn on THIS model, the session against its
  *  cap, and the same picker the Workspace sheet has. The catalog loads when it first opens. */
-function ModelChip({ status, turnEst, usd, spend, onRefresh }: { status: ReturnType<typeof useArchitectStatus>; turnEst: TurnEst; usd: (n: number) => string; spend: Spend; onRefresh: () => void }) {
+function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: { status: ReturnType<typeof useArchitectStatus>; turnEst: TurnEst; usd: (n: number) => string; spend: Spend; onRefresh: () => void; onManageModels?: () => void }) {
 	const [open, setOpen] = React.useState(false);
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const catalog = useModelCatalog(status, { enabled: open, onPicked: () => {
@@ -321,14 +321,22 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh }: { status: ReturnT
 	React.useEffect(() => {
 		if (loaded) onRefresh();
 	}, [loaded]);
-	const name = catalog.current ? shortName(catalog.current) : readableModelId(status.modelName ?? status.modelId);
+	const name = chipLabel(status, catalog.current);
+	const r = status.readiness;
+	const device = r?.source === 'device';
+	const Glyph = device ? Cpu : (r?.provider ?? status.provider ?? 'openrouter') !== 'openrouter' ? KeyRound : Cloud;
+	const pending = r && r.state !== 'ready';
+	const cloudReady = !device && status.openRouterReady;
 	const over = spend.status.level === 'over';
 	const warn = spend.status.level === 'warn';
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<button type="button" aria-label={`Model: ${name}. Change model`} className="flex min-w-0 max-w-[10.5rem] items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-left hover:border-[var(--accent)] data-[state=open]:border-[var(--accent)]">
-					<span className="truncate font-semibold text-foreground">{name}</span>
+					<Glyph aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+					<span data-testid="chat-model-chip-name" className={cn('truncate font-semibold', pending ? 'text-muted-foreground' : 'text-foreground')}>
+						{name}
+					</span>
 					<ChevronDown className="size-3 shrink-0 text-muted-foreground" />
 				</button>
 			</PopoverTrigger>
@@ -367,7 +375,19 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh }: { status: ReturnT
 					)}
 					<span className="text-[10.5px] leading-snug text-muted-foreground">Estimates for the selected model; the spend tally records the exact cost.</span>
 				</div>
-				<ModelList catalog={catalog} searchRef={searchRef} maxHeight={260} />
+				{cloudReady ? <ModelList catalog={catalog} searchRef={searchRef} maxHeight={260} /> : null}
+				{onManageModels ? (
+					<button
+						type="button"
+						onClick={() => {
+							setOpen(false);
+							onManageModels();
+						}}
+						className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-[var(--accent)]"
+					>
+						<Settings2 className="size-3.5" /> Models &amp; keys…
+					</button>
+				) : null}
 			</PopoverContent>
 		</Popover>
 	);

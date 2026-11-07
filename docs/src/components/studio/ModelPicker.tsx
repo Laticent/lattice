@@ -9,6 +9,7 @@ import {
 	rowTitle,
 	shortName,
 } from '@/components/studio/ai/or-catalog.js';
+import { modelDisplayName } from '@/lib/model-name';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
@@ -162,7 +163,7 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const catalog = useModelCatalog(status, { onPicked: () => setOpen(false) });
 	const { current, selectedId } = catalog;
-	const summaryName = current ? shortName(current) : (selectedId ?? 'Choose a model');
+	const summaryName = modelDisplayName({ id: current?.id ?? selectedId, name: current?.name });
 	const summaryMeta = current ? metaLabel(current) : '';
 	const provider = status.provider ?? 'openrouter';
 	const label = KEY_PROVIDER_INFO[provider].label;
