@@ -3,10 +3,11 @@
  * tracked deck. Beside the chart binding gate in one file, the pair peaked at 6.7 GB and a CI runner
  * killed it (#2441).
  *
- * A jsdom window keeps every document its DOMParser makes while it lives, so one window for the
- * whole corpus held ~2.0 GB live by the last deck, half a default heap; under a 1.5 GB limit the
- * file dies out of heap, which the dot reporter prints as a bare 'test failed' (#3059's followup).
- * Each deck gets its own window, closed when its test ends, and its own test, so a failure names
+ * A jsdom window keeps every document it parsed and then queried: dom-selector's Finder adds 9
+ * listeners per document to the window and never removes them. One window for the whole corpus
+ * held ~2.0 GB live by the last deck, half a default heap; under a 1.5 GB limit the file dies out
+ * of heap, which the dot reporter prints as a bare 'test failed' (#3059's followup). Each deck
+ * gets its own window, closed when its test ends, and its own test, so a failure names
  * its deck (engineering/gotchas/ci.md, "A jsdom walk over many documents keeps them all").
  */
 const { test, before, afterEach } = require('node:test');
