@@ -109,7 +109,11 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	const generation = model.availability().generation;
 	// A description must be accurate, so the cloud tier only: the floor and the tiny on-device model do not look at pictures.
 	if (generation !== 'openrouter') return { status: 'offline' };
-	const { model: imageModel, look } = imageSettings();
+	const { model: pickedImageModel, look } = imageSettings();
+	// The image-model pick is an OpenRouter id. On a direct OpenAI / Anthropic / Gemini key the
+	// author's own model on that provider reads the photo instead (lifecycle note §7).
+	const direct = (model.activeProvider?.() ?? 'openrouter') !== 'openrouter';
+	const imageModel = direct ? model.openRouterModel() : pickedImageModel;
 	let sees = false;
 	try {
 		sees = modelSees(await model.listOpenRouterModels(), imageModel);

@@ -4,20 +4,18 @@
  *
  * `/<!--[\s\S]*?-->/` (alone or as an alternation arm) and markdown-it's `html_inline`
  * comment arm rescan to the end of the text from every opener that never closes. Before
- * lib/core/closed-comments.js and lib/core/html-inline-guard.mjs, on one machine: one
- * 250 KB line of `<!--` took 148 s to render and 89 s to lint; 280 KB of `a <!--` lines
- * 17 s to render. Each fuzz arm below compares against the regex or the unguarded parser,
- * so a faster wrong answer fails here rather than in a deck.
+ * lib/core/closed-comments.js and markdown-it 14.3.3, on one machine: one 250 KB line of
+ * `<!--` took 148 s to render and 89 s to lint; 280 KB of `a <!--` lines 17 s to render. Each
+ * fuzz arm below compares against the regex it replaced, so a faster wrong answer fails here
+ * rather than in a deck.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { commentCloser, replaceClosedComments, closedComments } = require(path.join(ROOT, 'lib/core/closed-comments'));
-const { guardHtmlInline } = require(path.join(ROOT, 'lib/core/html-inline-guard.mjs'));
 
 // A small alphabet dense in the characters that decide a comment, so short strings hit
 // the edges: `<!-->`, `<!--->`, `--!>`, overlapping dashes, openers with no closer.
@@ -61,36 +59,11 @@ describe('closed-comments — the regex answers, in one pass', () => {
   });
 });
 
-describe('html-inline-guard — markdown-it gives the same tokens, without the rescan', () => {
-  const plain = new MarkdownIt('commonmark', { html: true, breaks: true });
-  const guarded = new MarkdownIt('commonmark', { html: true, breaks: true });
-  guardHtmlInline(guarded);
-
-  test('rendered HTML is identical to the unguarded parser across a fuzz corpus', () => {
-    for (const s of corpus(20000, 16, 13)) {
-      assert.equal(guarded.render(s), plain.render(s), JSON.stringify(s));
-    }
-  });
-
-  test('a dash-heavy corpus — where a `-->` exists but the comment arm cannot land on it — also matches', () => {
-    // `---->` holds a `-->` the arm's tokens cannot reach. A guard that only asked "is there
-    // a `-->`?" was defeated by it (the render went back to 17 s); these pin the exact answer.
-    const dashy = ['<!--', '-', '--', '--->', '---->', '-->', '>', 'a', '\n', '<!-->', '<!--->', '!'];
-    let s0 = 17;
-    const rnd = (n) => { s0 = (s0 * 1103515245 + 12345) % 2147483648; return s0 % n; };
-    for (let k = 0; k < 30000; k++) {
-      let s = '';
-      const len = rnd(12);
-      for (let i = 0; i < len; i++) s += dashy[rnd(dashy.length)];
-      assert.equal(guarded.render(s), plain.render(s), JSON.stringify(s));
-    }
-  });
-
-  test('a link label (the rule\'s silent mode) is unaffected', () => {
-    const src = '[a <!-- b](x) and [c <!-- d -->](y) <!-- tail';
-    assert.equal(guarded.render(src), plain.render(src));
-  });
-});
+// The html_inline guard (lib/core/html-inline-guard.mjs) retired on 2026-11-06: markdown-it 14.3.3
+// scans an inline comment with one `indexOf` and stops looking after the first unclosed one
+// (GHSA-vfgh-jcmw-g37q), so upstream is linear on the shapes below and the guard, which mimicked
+// 14.1's comment regex, had started to disagree with it. The linear-time arms below stay: they are
+// what would catch a markdown-it that regressed.
 
 describe('unclosed comments stay linear through the whole render (HARD RULE #22)', () => {
   const latticeEngine = require(path.join(ROOT, 'lib/engine'));
@@ -122,12 +95,12 @@ describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #2
   });
 });
 
-describe('the boundary parser keeps the html_inline guard (HARD RULE #22)', () => {
+describe('the boundary parser stays linear on unclosed comments (HARD RULE #22)', () => {
   const { splitSourceToSections } = require(path.join(ROOT, 'lib/core/section-source-split.js'));
 
   test('splitSourceToSections — a full md.parse on the CLI export path — stays linear', () => {
-    // Three boundaryParser callers run the full `md.parse`. Without the guard, 273 KB of
-    // `a <!--` lines took 32.8 s here; with it, ~0.7 s.
+    // Three boundaryParser callers run the full `md.parse`. On markdown-it 14.1.1 with no guard,
+    // 273 KB of `a <!--` lines took 32.8 s here; with the guard, or on 14.3.3, well under a second.
     const t = Date.now();
     splitSourceToSections('a <!--\n'.repeat(40000));
     assert.ok(Date.now() - t < 5000, `took ${Date.now() - t}ms`);

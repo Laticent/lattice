@@ -106,6 +106,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Its whole write set is docs/src/lib/tavola/dist/, covered by docs/.gitignore's `dist/`.
   'build-tavola-lib.js',
   'build-read-along-core.js',
+  // Its write set is dist/THIRD-PARTY-LICENSES.txt, under the ignored dist/.
+  'build-third-party-licenses.js',
   'build-marp-kit.js',
   'build-agent-kit.mjs',
   'build-dist-readme.js',
@@ -141,6 +143,7 @@ const EXPECTED_PR_OWNED = new Set([
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
+  'skill-index.js', // design/skills/index.json + README table + .claude/skills/lattice-*
   'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
   'build-marks-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css
   // Measured 2026-09-27: writes exactly lib/plugins/grammar.generated.mjs and

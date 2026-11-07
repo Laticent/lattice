@@ -47,5 +47,7 @@ test('a Studio Marp export carries the deck’s sample pictures and names them i
 	expect(md, 'no `sample:` reference is left for Marp to miss').not.toContain('sample:');
 	expect(md).toContain('![](assets/portrait-ada.svg)');
 	// Twice: once in Marp's front matter, once in the baked block the runtime reads.
-	expect(md.match(/logo: assets\/logo-acme-mark\.svg/g)?.length).toBe(2);
+	// ONE copy: since #3023 the bundle keeps Lattice's deck-wide keys only in the settings block under the front
+	// matter (lib/export/marp-bundle.js), where it once carried a second, baked copy that went stale on edit.
+	expect(md.match(/logo: assets\/logo-acme-mark\.svg/g)?.length).toBe(1);
 });

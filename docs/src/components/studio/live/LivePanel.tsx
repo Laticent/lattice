@@ -769,6 +769,11 @@ function StartCard({ actions, defaultName }: { actions: LiveActions; defaultName
 				Edit this deck together, live. Share a link; people knock, you let them in, and everyone sees the same deck, carets and slide.
 				<span className="mt-1.5 block">Up to 4 people. Edits go browser to browser.</span>
 			</div>
+			{/* Who sees an IP address (followups.d/2547-p2-live-privacy-note.md). A direct connection
+			    hands each browser the other's address, and the knock connects before the host admits. */}
+			<p className="text-[11px] leading-relaxed text-muted-foreground" data-live-privacy-note>
+				Browsers connect directly, so anyone who uses your link sees your IP address, even before you let them in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your deck.
+			</p>
 			<label htmlFor="live-start-name" className="text-[11.5px] font-semibold text-foreground">Your name</label>
 			<Input
 				id="live-start-name"

@@ -25,3 +25,10 @@ source: https://github.com/Laticent/lattice/pull/2688
        verify    — tier 0 gates for the Biome fixes; tier 1 checker for sharp/svgo, because
                    they touch image and SVG output.
 ```
+
+2026-11-06: the security half landed by hand (`npm audit fix` at the root and in docs/,
+non-major only). `npm audit --omit=dev` at the root went from 19 (1 critical, 18 high) to 11
+high, and in docs/ from 16 (1 critical, 11 high) to 4. Every one left needs a major: the
+puppeteer 23 → 25 chain (basic-ftp, chromium-bidi, extract-zip, get-uri, proxy-agents, zod),
+image-size under pptxgenjs (2466-p2-image-size-under-pptxgenjs.md), sharp 0.35 and esbuild 0.28
+in docs/. Those, Biome and svgo are what is left of this item.

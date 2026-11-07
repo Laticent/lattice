@@ -1,0 +1,196 @@
+// The perf overlay's PANEL: the metric collection (web vitals / runtime / render) and the readout. PerfOverlay.tsx loads
+// it only once the overlay is switched on, so a page view with the overlay off downloads none of it.
+
+import * as React from 'react';
+import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
+import { Sep } from '@/components/diagnostics/Sep';
+import { latestRenderSample, onRenderSample, type RenderSample } from '@/lib/render-metrics';
+import { setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
+import { type MetricDatum, MetricDetail } from './MetricDetail';
+import { type MetricMeta, RENDER, RUNTIME, rateMetric, VITALS } from './perf-metrics';
+
+// ── Web Vitals: registered ONCE per page at module scope ──────────────────────
+// web-vitals exposes no unsubscribe, and its one-shot metrics (LCP/FCP/TTFB) only
+// fire at load — so registering inside the mounted overlay would (a) never tear
+// down, (b) re-register a fresh observer set on every toggle-off→on, and (c) show
+// those one-shots blank after a re-enable. Registering once here, caching values,
+// and letting the mounted overlay subscribe + seed from the cache fixes all three.
+let vitalsStarted = false;
+const vitalsCache: Record<string, number> = {};
+const vitalsSubs = new Set<(cache: Record<string, number>) => void>();
+function startVitals() {
+	if (vitalsStarted) return;
+	vitalsStarted = true;
+	import('web-vitals')
+		.then(({ onLCP, onCLS, onINP, onFCP, onTTFB }) => {
+			const opts = { reportAllChanges: true };
+			const sink = (m: { name: string; value: number }) => {
+				vitalsCache[m.name] = m.value;
+				for (const fn of vitalsSubs) fn(vitalsCache);
+			};
+			onLCP(sink, opts);
+			onCLS(sink, opts);
+			onINP(sink, opts);
+			onFCP(sink, opts);
+			onTTFB(sink, opts);
+		})
+		.catch(() => {});
+}
+
+const hasMem = () => typeof performance !== 'undefined' && !!(performance as unknown as { memory?: unknown }).memory;
+const hasLongTasks = () => {
+	try {
+		return PerformanceObserver.supportedEntryTypes.includes('longtask');
+	} catch {
+		return false;
+	}
+};
+
+// The mounted overlay — all measurement loops live here, so they exist ONLY
+// while the panel is shown (mount = start, unmount = full teardown).
+export default function Overlay() {
+	const memSupported = React.useMemo(hasMem, []);
+	const ltSupported = React.useMemo(hasLongTasks, []);
+
+	const [vitals, setVitals] = React.useState<Record<string, number>>(() => ({ ...vitalsCache }));
+	const [runtime, setRuntime] = React.useState<{ FPS?: number; fpsFrac?: number; MEM?: number; memFrac?: number; CPU?: number }>({});
+	const [sample, setSample] = React.useState<RenderSample | null>(() => latestRenderSample());
+
+	// ── WEB VITALS: start the once-per-page collector (lazy) and subscribe. Seeds
+	// from the cache so one-shot metrics survive a toggle-off→on. ──
+	React.useEffect(() => {
+		startVitals();
+		const fn = (cache: Record<string, number>) => setVitals({ ...cache });
+		vitalsSubs.add(fn);
+		setVitals({ ...vitalsCache });
+		return () => {
+			vitalsSubs.delete(fn);
+		};
+	}, []);
+
+	// ── RUNTIME: FPS (rAF, sampled 1/sec), MEM (1/sec), CPU≈ (Long Tasks, 1/sec) ──
+	React.useEffect(() => {
+		let rafId = 0;
+		let frames = 0;
+		let last = performance.now();
+		let maxFps = 0; // the display's serviced-rAF ceiling (30Hz panel / throttle / 60Hz), learned live
+		const tick = (t: number) => {
+			frames++;
+			if (t - last >= 1000) {
+				const fps = Math.round((frames * 1000) / (t - last));
+				frames = 0;
+				last = t;
+				maxFps = Math.max(maxFps, fps);
+				// fpsFrac = current / ceiling, so FPS is rated against THIS device's ceiling
+				// (perf-metrics FPS.rate) — a steady 30 on a 30Hz/throttled panel reads healthy.
+				setRuntime((r) => ({ ...r, FPS: fps, fpsFrac: maxFps ? fps / maxFps : undefined }));
+			}
+			rafId = requestAnimationFrame(tick);
+		};
+		rafId = requestAnimationFrame(tick);
+
+		let memTimer = 0;
+		if (memSupported) {
+			const mem = () => (performance as unknown as { memory: { usedJSHeapSize: number; jsHeapSizeLimit: number } }).memory;
+			const sampleMem = () => {
+				const m = mem();
+				setRuntime((r) => ({ ...r, MEM: Math.round(m.usedJSHeapSize / 1048576), memFrac: m.usedJSHeapSize / m.jsHeapSizeLimit }));
+			};
+			sampleMem();
+			memTimer = window.setInterval(sampleMem, 1000);
+		}
+
+		let cpuTimer = 0;
+		let ltObserver: PerformanceObserver | null = null;
+		let blockedMs = 0;
+		if (ltSupported) {
+			try {
+				ltObserver = new PerformanceObserver((list) => {
+					for (const e of list.getEntries()) blockedMs += e.duration;
+				});
+				// No `buffered` — replaying long tasks from before the overlay opened
+				// would inflate the first CPU≈ sample past the real current load.
+				ltObserver.observe({ type: 'longtask' });
+			} catch {}
+			cpuTimer = window.setInterval(() => {
+				const pct = Math.min(100, Math.round((blockedMs / 1000) * 100));
+				blockedMs = 0;
+				setRuntime((r) => ({ ...r, CPU: pct }));
+			}, 1000);
+		}
+
+		return () => {
+			cancelAnimationFrame(rafId);
+			if (memTimer) clearInterval(memTimer);
+			if (cpuTimer) clearInterval(cpuTimer);
+			if (ltObserver) {
+				try {
+					ltObserver.disconnect();
+				} catch {}
+			}
+		};
+	}, [memSupported, ltSupported]);
+
+	// ── RENDER: live per-render samples from the pipeline ──
+	React.useEffect(() => {
+		const off = onRenderSample((s: RenderSample) => setSample(s));
+		return () => {
+			off();
+		};
+	}, []);
+
+	// Build the {value, rating, raw} a row needs from current state.
+	const datumFor = React.useCallback(
+		(m: MetricMeta): MetricDatum => {
+			if (m.group === 'vitals') {
+				const value = vitals[m.key] ?? null;
+				return { value, rating: value == null ? null : rateMetric(m, value) };
+			}
+			if (m.group === 'runtime') {
+				const value = (runtime as Record<string, number | undefined>)[m.key] ?? null;
+				const frac = m.key === 'MEM' ? runtime.memFrac : m.key === 'FPS' ? runtime.fpsFrac : undefined;
+				return { value, rating: value == null ? null : rateMetric(m, value, frac), extra: frac };
+			}
+			const asRec = sample as unknown as Record<string, number> | null;
+			const value = asRec ? (asRec[m.key] ?? null) : null;
+			const rawRec = sample?.raw as unknown as Record<string, number> | undefined;
+			const raw = rawRec ? (rawRec[m.key] ?? null) : null;
+			// The RENDER row drills into the engine's per-stage breakdown (item 1).
+			const breakdown = m.key === 'engineMs' ? sample?.stats : undefined;
+			// FRAME/TOTAL are rated + labeled by the live render regime (patch vs rebuild),
+			// so a full rebuild isn't judged against a single-frame budget it can't meet.
+			const regime = m.regimeBands ? sample?.writePath : undefined;
+			return { value, rating: value == null ? null : rateMetric(m, value, regime), raw, breakdown, regime };
+		},
+		[vitals, runtime, sample],
+	);
+
+	const runtimeRows = RUNTIME.filter((m) => (m.key === 'MEM' ? memSupported : m.key === 'CPU' ? ltSupported : true));
+
+	return (
+		<DiagnosticPanel
+			posKey="lattice-perf-overlay-pos"
+			label="performance · live"
+			onClose={() => setPerfOverlayEnabled(false)}
+			closeLabel="Hide performance overlay"
+			id="lattice-perf-overlay"
+			panelClassName="min-w-[168px] font-mono"
+		>
+			<Group rows={VITALS} datumFor={datumFor} />
+			<Sep label="runtime" />
+			<Group rows={runtimeRows} datumFor={datumFor} />
+			<Sep label="render" />
+			<Group rows={RENDER} datumFor={datumFor} />
+		</DiagnosticPanel>
+	);
+}
+
+function Group({ rows, datumFor }: { rows: MetricMeta[]; datumFor: (m: MetricMeta) => MetricDatum }) {
+	return (
+		<>
+			{rows.map((m) => (
+				<MetricDetail key={m.key} meta={m} datum={datumFor(m)} />
+			))}
+		</>
+	);
+}

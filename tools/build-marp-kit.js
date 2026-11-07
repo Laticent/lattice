@@ -325,7 +325,7 @@ nothing on our side had ever rendered it. The reference render was made with
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |
 | \`.vscode/extensions.json\` | Makes VS Code offer to install Marp for VS Code. |
-| \`NOTICE.md\` · \`LICENSE\` | The terms these files come under. Worth two minutes. |
+| \`NOTICE.md\` · \`LICENSE\` · \`THIRD-PARTY-LICENSES.txt\` | The terms these files come under, and the full third-party license texts. Worth two minutes. |
 
 ## Three things that will bite you
 
@@ -431,68 +431,10 @@ function buildKit() {
   // The exception NOTICE.md reasons about, so a recipient can check the claim
   // rather than take it on trust.
   out.set('LICENSE-EXCEPTIONS', fs.readFileSync(path.join(ROOT, 'LICENSE-EXCEPTIONS')));
-  // MIT and OFL both require their TEXT to travel with the files, not merely a
-  // mention. The first cut shipped an attribution table and called it done.
-  out.set('THIRD-PARTY-LICENSES.txt', thirdPartyLicenses());
+  // THIRD-PARTY-LICENSES.txt arrives through STATIC_ASSETS above, the same file the
+  // Export-to-Marp bundle carries (lib/export/third-party-licenses.js, #1354). MIT and
+  // OFL both require their TEXT to travel with the files, not merely a mention.
   return out;
-}
-
-/**
- * `THIRD-PARTY-LICENSES.txt` — the verbatim texts, concatenated.
- *
- * MIT: "this permission notice shall be included in all copies". OFL 1.1: the
- * license must accompany the fonts. Thirty-eight redistributed third-party files
- * were shipped with neither; `NOTICE.md`'s attribution table names the licenses,
- * which is necessary and not sufficient.
- */
-function thirdPartyLicenses() {
-  const read = (f) => fs.readFileSync(path.join(ROOT, 'assets', 'licenses', f), 'utf8').trimEnd();
-  const rule = '='.repeat(78);
-  return [
-    'THIRD-PARTY LICENSES',
-    '',
-    'The Lattice engine itself is AGPL-3.0-only — see LICENSE and NOTICE.md.',
-    'The components below are third party, redistributed unmodified, and governed',
-    'by their own terms reproduced here in full.',
-    '',
-    rule,
-    'Mermaid — mermaid-v11-min.js',
-    rule,
-    '',
-    read('MIT-mermaid.txt'),
-    '',
-    rule,
-    'KaTeX — the fonts/KaTeX_*.woff2 faces',
-    rule,
-    '',
-    read('MIT-katex.txt'),
-    '',
-    rule,
-    'dagre-d3-es — the state-chart layout engine, shipped as lattice-dagre-min.js',
-    rule,
-    '',
-    read('MIT-dagre-d3-es.txt'),
-    '',
-    rule,
-    'Tabler Icons — the icon drawings, shipped as lattice-plugin-icons.js',
-    rule,
-    '',
-    read('MIT-tabler-icons.txt'),
-    '',
-    rule,
-    'Lodash — the subset dagre-d3-es pulls in, bundled into the same file',
-    rule,
-    '',
-    read('MIT-lodash-es.txt'),
-    '',
-    rule,
-    'Outfit · Playfair Display · JetBrains Mono · Caveat · Shantell Sans',
-    'The remaining fonts/ faces. Per-family copyright lines are in NOTICE.md.',
-    rule,
-    '',
-    read('OFL-1.1.txt'),
-    '',
-  ].join('\n');
 }
 
 function readCommitted() {

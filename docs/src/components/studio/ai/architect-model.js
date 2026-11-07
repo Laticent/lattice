@@ -18,6 +18,12 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
+import { KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, readActiveProvider, readOpenRouterKey, readProviderKey, writeActiveProvider, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { directBackend } from './direct-providers.js';
+
+// Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.
+export { loadOpenRouterKey, loadProviderKey } from '../../../lib/openrouter-key.js';
+
 import { withCachedSystem, withCachedTail } from './or-cache.js';
 import { readCachingEnabled } from './spend.js';
 
@@ -48,7 +54,7 @@ const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // 
 const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
 // A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
 const CATALOG_FETCH_TIMEOUT_MS = 15000;
-const OR_KEY_LS = 'lattice-db-or-key'; // the user's OpenRouter API key (persists)
+// The author's OpenRouter key is read and written ONLY through lib/openrouter-key.js.
 const OR_MODEL_LS = 'lattice-db-or-model'; // chosen model id
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
 const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-cached /models catalog
@@ -248,26 +254,36 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   let catalogCache = readCachedCatalog(); // id→{name,…} catalog; seeded from the TTL localStorage cache so price/name survive a reload
   let catalogInflight = null; // the one catalog fetch in progress: concurrent callers (chat, picker, alias lookup) share it instead of each fetching
   let catalogGen = 0; // bumped when the cache is invalidated: a fetch that started before must not write its stale answer back
+  // Every write of the key goes through lib/openrouter-key.js, so a fresh key (or none)
+  // always clears the "rejected" mark the previous key earned.
+  const setKey = (key) => writeOpenRouterKey(key);
+  // OpenRouter's answer about the key a request carried: a 401 marks it rejected (revoked,
+  // deleted or expired), a 2xx clears an earlier mark, and an answer about a key that is no
+  // longer stored is ignored (lib/openrouter-key.js). The key itself stays, so the author sees
+  // "rejected · Reconnect" rather than a silent fall to "not connected".
+  const noteStatus = (status, key) => noteOpenRouterStatus(status, key);
   return {
     name: 'openrouter',
-    ready() { return !!readLS(OR_KEY_LS); },
+    ready() { return !!readOpenRouterKey(); },
     hasPendingAuth() { return !!readLS(OR_VERIFIER_LS); },
+    keyInvalid() { return openRouterKeyRejected(); },
     getModel() { return readLS(OR_MODEL_LS) || defaultModel; },
     // Where the user sets a HARD, server-enforced per-key spend limit. We can't set
     // it from the browser PKCE flow (the redirect can't carry a limit, and the
     // code-creation endpoint is session-bound), so we deep-link them to it.
     keySettingsUrl() { return OPENROUTER_KEYS_SETTINGS_URL; },
     setModel(id) { writeLS(OR_MODEL_LS, id || null); },
-    keySnapshot() { return readLS(OR_KEY_LS); }, // for the Disconnect Undo (restore without re-OAuth)
-    restore(key) { writeLS(OR_KEY_LS, key || null); if (key) this.listModels().catch(() => {}); },
+    keySnapshot() { return readOpenRouterKey(); }, // for the Disconnect Undo (restore without re-OAuth)
+    restore(key) { setKey(key || null); if (key) this.listModels().catch(() => {}); },
     // This key's account readout: usage (always) + limit/remaining (when a per-key
     // limit is set). Best-effort, client-side, the user's own key — null on failure
     // so the UI just hides the strip. Pay-as-you-go keys report a null limit.
     async accountInfo() {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) return null;
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        noteStatus(res.status, key);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
         return {
@@ -284,9 +300,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // Best-effort: the docs note a management key, but a normal user key reads it in
     // practice; null on any failure so the UI just falls back to the per-key figures.
     async creditsInfo() {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) return null;
       try {
+        // Not tapped for the rejected mark: OpenRouter documents /credits as needing a
+        // management key, so a refusal here does not prove the key is dead.
         const res = await fetch(OPENROUTER_CREDITS_URL, { headers: { Authorization: 'Bearer ' + key } });
         if (!res.ok) return null;
         const d = (await res.json()).data || {};
@@ -302,7 +320,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // for a moment after the request ends; retry a few times with backoff. Best-effort:
     // null on any failure, so the estimate simply stands (never a fabricated correction).
     async generationCost(id) {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key || !id) return null;
       for (let attempt = 0; attempt < 4; attempt++) {
         try {
@@ -338,7 +356,16 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // `contextLength` only for a listed model: an alias's dearest family member may have a different window, so it stays null there.
       return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null, contextLength: m.id === id ? m.contextLength ?? null : null } : null;
     },
-    disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
+    disconnect() { setKey(null); writeLS(OR_VERIFIER_LS, null); },
+    clearPendingAuth() { writeLS(OR_VERIFIER_LS, null); }, // drop a dead PKCE verifier; the key, if any, stays
+    // A PASTED key, checked before it is stored: the status /auth/key answers for it (0 when
+    // the request never reached OpenRouter). Read-only and free; nothing is written here.
+    async checkKey(key) {
+      try {
+        const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        return res.status;
+      } catch { return 0; }
+    },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
     // caller navigates there; OpenRouter returns to callbackUrl with ?code=.
     async beginAuth(callbackUrl) {
@@ -363,7 +390,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!res.ok) throw new Error('OpenRouter auth failed (' + res.status + ')');
       const j = await res.json();
       if (!j.key) throw new Error('OpenRouter returned no key');
-      writeLS(OR_KEY_LS, j.key);
+      setKey(j.key);
       writeLS(OR_VERIFIER_LS, null);
       // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).
       this.listModels().catch(() => {});
@@ -372,6 +399,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
     // The model catalog with pricing normalized to per-MILLION tokens (the API
     // gives per-token USD strings). Public endpoint; the key is not required.
     // Forget the catalog (memo and stored copy): the next listModels() refetches, and a fetch already out cannot write its answer back.
+    catalogSnapshot() { return catalogCache; }, // the priced list, for the direct providers' estimates (null before it loads)
     invalidateCatalog() {
       catalogCache = null;
       catalogGen++;
@@ -425,7 +453,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       return list;
     },
     async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, reasoningEffort }) {
-      const key = readLS(OR_KEY_LS);
+      const key = readOpenRouterKey();
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
       // (USD) rides back in the response — the source of the per-Lattice spend tally.
@@ -496,10 +524,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           res = await send(defaultModel);
         }
         if (!res.ok) {
+          noteStatus(res.status, key);
           const detail = res.bodyUsed ? errText : await res.text().catch(() => '');
           throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
         }
       }
+      noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
       // `finish_reason` is the transport's own account of WHY the reply stopped. Nothing
       // read it before, so a reply cut off at max_tokens ('length') was indistinguishable
       // from a finished one — and the edit parser downstream then salvaged a partial slide
@@ -859,9 +889,23 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   const prompt = promptApiBackend();
   const webllm = webllmBackend();
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
+  // The direct providers (OpenAI, Gemini, Anthropic) on the author's own key, made on first
+  // use. Each prices its usage from OpenRouter's public catalog (direct-providers.js).
+  const directs = {};
+  const directFor = (p) => (directs[p] ||= directBackend(p, { catalog: () => openrouter.listModels(), catalogNow: () => openrouter.catalogSnapshot?.() ?? null, defaultMaxTokens }));
+  // THE CLOUD TIER: OpenRouter unless the author chose a direct provider AND it holds a key.
+  // Everything above this adapter asks `cloud()`, never a provider by name.
+  // A chosen direct provider stays the cloud tier even while its sealed key is being re-opened
+  // (readProviderKey answers null then): falling back to OpenRouter in that window would bill
+  // the wrong account (red team, BYOK phase 2). It reads not-ready instead, for that moment.
+  // Removing the active direct key sets the provider back to OpenRouter (removeProviderKey).
+  const cloud = () => {
+    const p = readActiveProvider();
+    return p !== 'openrouter' ? directFor(p) : openrouter;
+  };
   // A connected user's price list is wanted before their first spend (the budget gate compares an estimate against the cap, and
   // with no price it lets the call through), so fetch it now rather than when something happens to ask. Cached for 24 h, public, best-effort.
-  if (readLS(OR_KEY_LS)) openrouter.listModels().catch(() => {});
+  if (readOpenRouterKey()) openrouter.listModels().catch(() => {});
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
   const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)
@@ -890,7 +934,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     if (explicitTierWins && explicit) return explicit;
     // The connected OpenRouter cloud (Converse) is otherwise the best backend and is
     // the default active tier whenever connected.
-    if (openrouter.ready()) return openrouter;
+    if (cloud().ready()) return cloud();
     // No cloud: an explicit pick applies, then the auto ladder — WebLLM (advanced,
     // explicitly summoned) → built-in Prompt API (free, instant) → Transformers.js
     // universal (loaded WASM) → floor.
@@ -922,6 +966,12 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       // floor reply from "the model said nothing", and it has a better fallback than the
       // floor: the one-shot chat, for a model that refuses `tools` outright.
       if (opts?.tools?.length) throw e;
+      // A caller that can NAME the failure opts in with `surfaceErrors`. The theme and
+      // component faculties do: flooring a 402 into an empty reply left them saying "no
+      // usable palette" or "no model connected" when the account was out of credits.
+      // Cloud only: describeModelError reads OpenRouter's statuses, and an on-device
+      // failure worded as "never reached OpenRouter" would mislead. Those still floor.
+      if (opts?.surfaceErrors && backend.name === 'openrouter') throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }
@@ -971,7 +1021,9 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
         webgpu: detectWebGPU(),
         webllmReady: webllm.ready(),
         universalReady: universal.ready(),
-        openRouterReady: openrouter.ready(),
+        openRouterReady: cloud().ready(),
+        openRouterKeyInvalid: !!cloud().keyInvalid?.(),
+        provider: cloud().provider ?? 'openrouter',
         embeddings: modelOn() && hasWindow,
         modelOn: modelOn(),
       };
@@ -984,19 +1036,30 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     hasPendingOpenRouterAuth() { return openrouter.hasPendingAuth(); },
     async beginOpenRouterAuth(callbackUrl) { return openrouter.beginAuth(callbackUrl); },
     async resumeOpenRouterAuth(code) {
-      await openrouter.completeAuth(code);
+      try {
+        await openrouter.completeAuth(code);
+      } catch (e) {
+        // A code and its verifier are good for ONE exchange. Once OpenRouter has ANSWERED
+        // and refused, the pair can never succeed, so drop the verifier and let the author
+        // start over. A network failure is different: the code was never spent, so the
+        // verifier stays and a reload can still finish the sign-in.
+        if (/auth failed|returned no key/.test(String(e?.message))) openrouter.clearPendingAuth();
+        throw e;
+      }
       emitChange();
       return true;
     },
-    listOpenRouterModels() { return openrouter.listModels(); },
-    openRouterModel() { return openrouter.getModel(); },
-    setOpenRouterModel(id) { openrouter.setModel(id); emitChange(); },
-    openRouterModelName() { return openrouter.modelName(); },
-    openRouterAccount() { return openrouter.accountInfo(); },
-    openRouterCredits() { return openrouter.creditsInfo(); }, // the account wallet (balance)
-    openRouterKeySettingsUrl() { return openrouter.keySettingsUrl(); }, // where to set a hard per-key cap
-    openRouterModelPrice(id) { return openrouter.modelPrice(id); }, // active model's per-M price (for estimates)
-    openRouterGenerationCost(id) { return openrouter.generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
+    clearPendingOpenRouterAuth() { openrouter.clearPendingAuth(); },
+    checkOpenRouterKey(key) { return openrouter.checkKey(key); },
+    listOpenRouterModels() { return cloud().listModels(); },
+    openRouterModel() { return cloud().getModel(); },
+    setOpenRouterModel(id) { cloud().setModel(id); emitChange(); },
+    openRouterModelName() { return cloud().modelName(); },
+    openRouterAccount() { return cloud().accountInfo(); },
+    openRouterCredits() { return cloud().creditsInfo(); }, // the account wallet (balance)
+    openRouterKeySettingsUrl() { return cloud().keySettingsUrl(); }, // where to set a hard per-key cap
+    openRouterModelPrice(id) { return cloud().modelPrice(id); }, // active model's per-M price (for estimates)
+    openRouterGenerationCost(id) { return cloud().generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
     // Snapshot/restore the stored key so the settings UI can offer an Undo on
     // Disconnect (mirroring the deck-deletion guardrail) without re-running OAuth.
     openRouterKeySnapshot() { return openrouter.keySnapshot(); },
@@ -1005,6 +1068,34 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     openRouterKey() { return openrouter.keySnapshot(); },
     restoreOpenRouter(key) { openrouter.restore(key); emitChange(); },
     disconnectOpenRouter() { openrouter.disconnect(); emitChange(); },
+    // ── Direct provider keys (§7 step 2) ──
+    /** The provider the cloud tier runs on now ('openrouter' unless a direct key is active). */
+    activeProvider() { return cloud().provider ?? 'openrouter'; },
+    /** Check a pasted direct-provider key against its free `/models` listing: the HTTP status, 0 when unreachable. */
+    checkProviderKey(provider, key) { return provider === 'openrouter' ? openrouter.checkKey(key) : directFor(provider).checkKey(key); },
+    /** Store a direct-provider key and make that provider the cloud tier. */
+    saveProviderKey(provider, key) {
+      if (provider === 'openrouter') { openrouter.restore(key); writeActiveProvider('openrouter'); }
+      else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); writeActiveProvider(provider); directFor(provider).listModels().catch(() => {}); }
+      emitChange();
+    },
+    /** Remove a direct provider's key. If it was the active one, the cloud tier returns to OpenRouter. */
+    removeProviderKey(provider) {
+      if (provider === 'openrouter') { openrouter.disconnect(); }
+      else { directFor(provider).disconnect(); if (readActiveProvider() === provider) writeActiveProvider('openrouter'); }
+      emitChange();
+    },
+    /** Remove every stored key (Privacy & Data → clear). */
+    disconnectAllProviders() {
+      openrouter.disconnect();
+      for (const p of KEY_PROVIDERS) if (p !== 'openrouter') directFor(p).disconnect();
+      writeActiveProvider('openrouter');
+      emitChange();
+    },
+    /** Which providers hold a key in this browser (the API key tab's list). */
+    providersWithKeys() { return KEY_PROVIDERS.filter((p) => (p === 'openrouter' ? !!readOpenRouterKey() : !!readProviderKey(p))); },
+    /** Make a provider that already holds a key the cloud tier. */
+    switchProvider(provider) { writeActiveProvider(provider); emitChange(); },
     // WebLLM opt-in — the deliberate "summon the Architect" (~1GB, WebGPU) download.
     async summon(onProgress, signal) {
       await webllm.load(onProgress, signal);

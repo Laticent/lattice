@@ -88,8 +88,8 @@ describe('commentBlocks: the directive editors read what the engine reads', () =
       assert.equal(m.readMetaField(src, 'class').present, false, JSON.stringify(src));
     }
   });
-  test('a comment its list item ends before `-->` is not one', () => {
-    assert.deepEqual(m.commentBlocks('- <!-- _class: kpi\n\n  -->\n'), []);
+  test('a comment in a list item that spans a blank line is one block (markdown-it 14.3)', () => {
+    assert.deepEqual(m.commentBlocks('- <!-- _class: kpi\n\n  -->\n').map((b) => b.body), [' _class: kpi\n\n  ']);
   });
   test('250 KB of unclosed openers stays fast', () => {
     const t = '<!-- '.repeat(50000);

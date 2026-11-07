@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
+import { readOpenRouterKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
 import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -36,8 +37,6 @@ export { slideToSpeech } from '@/playground/read-along-core.generated.js';
 // engineering/decisions/2026-06-14-read-aloud-kokoro.md). This replaced an older
 // sentence-block estimate that ignored the audio entirely (drifted + coarse).
 
-// The OpenRouter key the architect/voice ladder share (lattice-db-* namespace).
-const OR_KEY_LS = 'lattice-db-or-key';
 
 // How far (ms) to bias the word-highlight AHEAD of the heard voice — a lagging highlight is
 // the more noticeable sync error (asymmetric lip-sync tolerance; see the pace-model doc §5).
@@ -315,13 +314,7 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					// Board's (2026-07-09-studio-cloud-ondevice-config-split.md), so a
 					// voice/speed pick in one surface never silently changes the other.
 					keyPrefix: 'studio',
-					getOpenRouterKey: () => {
-						try {
-							return localStorage.getItem(OR_KEY_LS);
-						} catch {
-							return null;
-						}
-					},
+					getOpenRouterKey: readOpenRouterKey,
 				}),
 			)
 			.catch(() => null);

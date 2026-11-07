@@ -1,4 +1,4 @@
-import { expect, gotoStudio, openAddSlide, openInspector, railButtons, slideCount, test, toastText } from '../studio-fixture';
+import { addedNote, expect, gotoStudio, openAddSlide, openInspector, railButtons, slideCount, test, toastText } from '../studio-fixture';
 
 // Persona: a power user extending the system. Goal: fabricate an artifact, save
 // it, and USE it afterward — the saved thing must round-trip into authoring, not
@@ -38,7 +38,8 @@ test('a fabricated component saves and inserts into the deck as a new slide', as
 	await search.fill('callout');
 	await page.getByRole('button', { name: /^Insert callout/i }).first().click();
 
-	await expect(toastText(page)).toContainText('Inserted');
+	// The New slide door says what it added, in the door itself, not in a toast (2026-10-27-slide-structure-strip.md §5).
+	await expect(addedNote(page)).toContainText('Added after');
 	await expect(railButtons(page)).toHaveCount(n + 1);
 });
 

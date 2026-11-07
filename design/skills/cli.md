@@ -1,3 +1,10 @@
+---
+name: cli
+description: "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts."
+kind: operate
+studio: false
+---
+
 # Skill — Render, share and check a deck with the `lattice` CLI
 
 > Turn a finished `.md` deck into the artifact someone asked for — a PDF, a

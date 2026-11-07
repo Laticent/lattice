@@ -60,7 +60,7 @@ const FETCHES = {
   'a mermaid label spelled with named codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#colon;#sol;#sol;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'https&#58;&#x2f;&#x2F;evil.test/l.png\'>"]\n```\n',
   // TIGHT, so the page renders the fence as HTML-block text: only the source-fence scan sees it.
-  'a mermaid fence inside an HTML block (the CLI still draws it)': '<div>\n```mermaid\nflowchart LR\n  A@{ img: "https://evil.test/divimg.png", w: 50, h: 50 } --> B\n```\n</div>',
+  'a mermaid fence inside an HTML block (drawn by nothing since D2 slice 3; the gate over-reports it, the safe direction)': '<div>\n```mermaid\nflowchart LR\n  A@{ img: "https://evil.test/divimg.png", w: 50, h: 50 } --> B\n```\n</div>',
   'the same, with CRLF line endings': '<div>\r\n```mermaid\r\nflowchart LR\r\n  A@{ img: "https://evil.test/crlf.png", w: 50, h: 50 } --> B\r\n```\r\n</div>\r\n',
   'the same, with lone-CR line endings': '<div>\r```mermaid\rflowchart LR\r  A@{ img: "https://evil.test/cr.png", w: 50, h: 50 } --> B\r```\r</div>\r',
   'a tab inside a slashless scheme in a mermaid label': '```mermaid\nflowchart LR\n  A["<img src=\'ht\ttp:evil.test/tab.png\'>"]\n```\n',

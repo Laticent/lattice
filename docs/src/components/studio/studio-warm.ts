@@ -57,6 +57,9 @@ export function warmable(loader: () => Promise<unknown>): Warmable {
 // The venue clip notice (#2410) renders in a Suspense with no error boundary of its own, so a
 // failed load reaches the Studio-wide boundary. It is 1.7KB gz, so it warms even under Save-Data.
 const clipNoticeWarm = warmable(() => import('./ClipNotice'));
+// Hide Slide / Show Slide's edit code (StudioShell `opHide` loads it on the click): a few hundred bytes, warmed even
+// under Save-Data so the click still works offline.
+const hideOpsWarm = warmable(() => import('./hide-ops'));
 const composeWarm = warmable(() => import('./ComposeView'));
 const presentWarm = warmable(() => Promise.all([import('./PresentOverlay'), import('./narration-projection').then((m) => m.warmNarrationProjection())]));
 const readArticleWarm = warmable(() => Promise.all([import('./ReadArticle'), import('./article-projection').then((m) => m.warmArticleProjection())]));
@@ -87,5 +90,5 @@ export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fab
 	const surfaces = saveData
 		? []
 		: [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : []), ...(diagramLibs.length && diagramLibWarm ? [diagramLibWarm] : [])];
-	return warmPanels([clipNoticeWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
+	return warmPanels([clipNoticeWarm, hideOpsWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
 }

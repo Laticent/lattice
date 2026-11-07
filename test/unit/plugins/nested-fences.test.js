@@ -1,9 +1,15 @@
-// lib/plugins/mermaid/shared/nested-fences.js — the Mermaid fences the CLI's line walker leaves alone
-// (a quote, a list item four spaces in), found by asking the engine's own parser (followups.d/2739-p7).
+// Mermaid fences in a container (a quote, a list item) — found since D2 slice 3 by the ENGINE's parse that the bake
+// receives as `ctx.fences()` (lib/core/plugin-fences.mjs), not a Mermaid reader; these cases came from
+// followups.d/2739-p7 and pin the same behavior. The splice helpers stay in lib/plugins/mermaid/shared/nested-fences.js.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { matchNestedMermaidFences, reprefix } = require('../../../lib/plugins/mermaid/shared/nested-fences');
-const { matchMermaidFences } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
+const { reprefix } = require('../../../lib/plugins/mermaid/shared/nested-fences');
+const { fencesOfPlugin } = require('../../../lib/core/plugin-fences.mjs');
+
+// What the bake splices: every Mermaid fence the engine parses; "nested" ones are below the top level.
+const allFences = (md) => fencesOfPlugin('mermaid', md);
+const matchNestedMermaidFences = (md) => allFences(md).filter((f) => f.level > 0);
+const firstMermaidFenceBody = (md) => allFences(md)[0]?.body ?? null;
 
 const nested = (md) => matchNestedMermaidFences(md).map((f) => ({ prefix: f.prefix, body: f.body }));
 
@@ -28,9 +34,9 @@ test('an unclosed nested fence yields nothing', () => {
 	assert.deepEqual(nested('> ```mermaid\n> flowchart LR\n'), []);
 });
 
-test('a top-level fence is the flat walker\'s, never reported twice', () => {
+test('a top-level fence and a nested one are each reported once', () => {
 	const md = '```mermaid\nflowchart LR\n  A --> B\n```\n\n> ```mermaid\n> flowchart LR\n> ```\n';
-	assert.equal(matchMermaidFences(md).length, 1);
+	assert.equal(allFences(md).length, 2);
 	assert.equal(matchNestedMermaidFences(md).length, 1);
 });
 
@@ -55,7 +61,6 @@ test('a fence between two `$$` lines is math to the engine, so it is skipped', (
 });
 
 test('the narrator reads a nested fence too (firstMermaidFenceBody)', () => {
-	const { firstMermaidFenceBody } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
 	assert.match(firstMermaidFenceBody('> ```mermaid\n> flowchart LR\n>   A --> B\n> ```\n'), /^flowchart LR\n {2}A --> B/);
 	assert.match(firstMermaidFenceBody('10. Tenth\n\n    ```mermaid\n    flowchart LR\n      A --> B\n    ```\n'), /^flowchart LR/);
 	assert.equal(firstMermaidFenceBody('no fence here'), null);
@@ -63,7 +68,7 @@ test('the narrator reads a nested fence too (firstMermaidFenceBody)', () => {
 
 test('a fence indented two spaces under a bullet is reported with its indent, so its figure stays in the item (followups.d/2739-p11)', () => {
 	const md = '- First point:\n\n  ```mermaid\n  flowchart LR\n    A --> B\n  ```\n\n- Second point.\n';
-	assert.equal(matchMermaidFences(md).length, 1, 'the flat walker opens it too, at 0-3 spaces');
+	assert.equal(allFences(md).length, 1, 'reported once, inside its item');
 	assert.deepEqual(nested(md), [{ prefix: '  ', body: 'flowchart LR\n  A --> B\n' }]);
 });
 

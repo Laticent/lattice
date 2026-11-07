@@ -7556,6 +7556,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'tools/skill-index.js',
+    why: 'reads only the repo-committed `design/skills/*.md` files, which `.gitattributes` keeps LF, to '
+       + 'build the skill index. It still strips a BOM and folds CRLF before anchoring on `^---`, so a '
+       + 'skill saved on Windows fails loudly as "no front matter" only if the block is truly absent.',
+  },
+  {
     file: 'tools/check-html-ref-spans.mjs',
     why: 'folds CR to LF inside the attribute values it COMPARES, to undo what a spec parser\'s input stream '
        + 'does before tokenizing (parse5 builds `a\\nb` from `a\\rb`), so the platform-parser differential '

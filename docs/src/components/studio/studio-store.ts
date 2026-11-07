@@ -768,6 +768,13 @@ export type ChatMessage = {
 	videos?: ChatVideo[];
 	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
 	proposed?: ChatProposal[];
+	/** Assistant turn only: an act it queued for the author to confirm (structural copy of
+	 *  chat-actions.ts ChatAction, so the store does not import the AI modules). */
+	action?: { kind: 'create_deck'; title: string; markdown: string; outline: string[]; slides: number; errors: number; state?: 'done' | 'declined' };
+	/** Assistant turn only: Auto applied its edits (the card stays as a read-only record of them). */
+	autoApplied?: boolean;
+	/** Assistant turn only: why Auto left its edits for the author to apply. */
+	autoHeld?: string;
 	/** Whether that proposal has been applied. Only ever set when at least one edit
 	 *  actually changed the deck — a fully-refused run leaves it unset, so the log can't
 	 *  show a green tick over a deck that never moved. */
@@ -1075,6 +1082,21 @@ export function loadPickerView(): PickerView {
 }
 export function savePickerView(view: PickerView): void {
 	write(PICKER_VIEW_LS, view);
+}
+
+// ── The chat's mode (Talk / Review / Auto) ─────────────────────────────────
+// One choice for the workspace, not per deck: it says how much the author lets the chat do, and
+// that does not change when they open another deck. Furniture like the picker view, so it stays out
+// of the backup. Named `chatmode`, not `chat-mode`: `lattice-studio-chat-` is the per-deck history
+// prefix, and `clearAllDecks` would sweep a key under it. Anything unknown reads as Review.
+const CHAT_MODE_LS = 'lattice-studio-chatmode';
+export type StoredChatMode = 'talk' | 'review' | 'auto';
+export function loadChatMode(): StoredChatMode {
+	const v = read<string>(CHAT_MODE_LS);
+	return v === 'talk' || v === 'auto' ? v : 'review';
+}
+export function saveChatMode(mode: StoredChatMode): void {
+	write(CHAT_MODE_LS, mode);
 }
 
 // ── The Inspector's settings view (deck + slide scopes share ONE choice) ────

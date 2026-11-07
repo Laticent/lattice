@@ -163,18 +163,85 @@ describe('the CLI page gets only what a deck uses', () => {
     assert.deepEqual(usedHydrators(createEngine().render('# no plot\n\n```json\n{}\n```\n').html), []);
     assert.equal(hydrateScript([]), '');
   });
-  test('a host-drawn plugin (the CLI capture page, lib/export/locked-figures.js) keeps its placeholders pending and runs nothing', () => {
+  // THE CLI CAPTURE PAGE draws a host-drawn plugin through the preview's path (lib/export/locked-figures.js,
+  // engineering/decisions/2026-11-06-plugin-patterns.md §4): the plugin's own hydrate builds the job, the page's draw host
+  // sends it out, and the library never runs in the page.
+  // Waits for the SIGNAL, not a duration (HARD RULE #32): the placeholder leaving `hydrating`, which the draw host's
+  // answer causes a few microtasks later. Bounded, so a draw that never answers fails the assertion after it.
+  const drawnOut = async (el) => {
+    for (let i = 0; i < 100 && state(el) === 'hydrating'; i++) await Promise.resolve();
+  };
+  const hostDrawnPage = (answer) => {
     const win = page(PLOT);
     const calls = fakeLibrary(win);
+    const jobs = [];
+    win.__latticeExportDrawHost = {
+      kinds: ['function-plot'],
+      draw(job, target) {
+        jobs.push(job);
+        if (answer === 'release') {
+          releaseFigure(target, (b) => Buffer.from(b, 'base64').toString('utf8'), true);
+          return Promise.resolve(null);
+        }
+        return Promise.resolve('<svg data-from="locked"></svg>');
+      },
+    };
     const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
     const src = hydrateScript(fp, { hostDrawn: ['function-plot'] });
-    // Its hydrate (the seeded-id draw) and its library's address are absent; only its name and `drawnByHost` remain.
-    assert.doesNotMatch(src, /Math\.imul\(seed|vendor\/function-plot\.js/, 'the capture page carries its hydrate or its library');
-    assert.match(src, /name: "function-plot", budgetMs: \d+, payload: null, drawnByHost: true/);
     win.eval(src.replace('var host = ', 'var host = window.__host = '));
+    return { win, calls, jobs, src };
+  };
+  test('a host-drawn plugin keeps its own hydrate, and its job goes through the page\'s draw host', async () => {
+    const { win, calls, jobs, src } = hostDrawnPage('draw');
+    assert.match(src, /Math\.imul\(seed/, 'the plugin builds its own job, as in a preview');
+    assert.doesNotMatch(src, /drawnByHost: true/, 'no stub entry');
     win.__host.run();
+    await drawnOut(placeholder(win));
     assert.equal(calls.length, 0, 'the library ran in the capture page');
-    assert.equal(state(placeholder(win)), 'pending', 'known, so not released with its source; left for the host to draw');
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].kind, 'function-plot');
+    assert.equal(jobs[0].index, 0);
+    assert.equal(placeholder(win).querySelector('svg').getAttribute('data-from'), 'locked');
+    assert.equal(state(placeholder(win)), 'rendered');
+  });
+  test('a draw host that cannot draw releases the figure showing its source, and writes nothing', async () => {
+    const { win } = hostDrawnPage('release');
+    win.__host.run();
+    await drawnOut(placeholder(win));
+    assert.equal(state(placeholder(win)), 'unavailable');
+    assert.ok(placeholder(win).hasAttribute('data-lattice-final'));
+    assert.equal(placeholder(win).querySelector('svg'), null);
+  });
+  test('a host-drawn plugin waits the export\'s budget, not its own preview budget; other plugins keep theirs (the red team, D2)', () => {
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    const src = hydrateScript(fp, { hostDrawn: ['function-plot'], hostDrawnBudgetMs: 85000 });
+    assert.match(src, /name: "function-plot", budgetMs: 85000,/);
+    assert.match(hydrateScript(fp, { hostDrawn: [] , hostDrawnBudgetMs: 85000 }), new RegExp(`budgetMs: ${fp[0].budgetMs},`));
+  });
+  test('a drawing that answers after the figure was released writes nothing over its source', async () => {
+    const win = page(PLOT);
+    fakeLibrary(win);
+    let answer;
+    win.__latticeExportDrawHost = { kinds: ['function-plot'], draw: () => new Promise((r) => { answer = r; }) };
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    win.eval(hydrateScript(fp, { hostDrawn: ['function-plot'] }).replace('var host = ', 'var host = window.__host = '));
+    win.__host.run();
+    // The settle barrier closes it (what the CLI's barrier does at its budget), then the locked page answers.
+    releaseFigure(placeholder(win), (b) => Buffer.from(b, 'base64').toString('utf8'), true);
+    answer('<svg data-from="late"></svg>');
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    assert.equal(placeholder(win).querySelector('svg'), null);
+    assert.equal(state(placeholder(win)), 'unavailable');
+  });
+  test('no draw host on the page: the figure is released showing its source, never drawn by a library it does not have', () => {
+    const win = page(PLOT);
+    const calls = fakeLibrary(win);
+    delete win.functionPlot;
+    const fp = HYDRATORS.filter((h) => h.name === 'function-plot');
+    win.eval(hydrateScript(fp, { hostDrawn: ['function-plot'] }).replace('var host = ', 'var host = window.__host = '));
+    win.__host.run();
+    assert.equal(calls.length, 0);
+    assert.equal(state(placeholder(win)), 'unavailable');
   });
   test('every hydrate the runtime bundles is self-contained, so its serialized copy is the same function', () => {
     for (const h of HYDRATORS) {

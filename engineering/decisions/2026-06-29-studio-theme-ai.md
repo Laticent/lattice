@@ -88,6 +88,16 @@ exactly (no regression for existing derivations). The chart-family spectrum
 - **Honesty contract, relocated.** "A failing pair is shown, never bypassed" now
   governs the *manual-override* path: if the user drags a well into a failing
   color, that pair turns red live. The AI's own output never ships a fail.
+- **A failed request names its cause (2026-11-06).** `generateTheme`, `generateComponent`
+  and `refineComponent` pass `surfaceErrors: true` to the model adapter, which otherwise
+  floors any failure into an empty reply. They return `{ status: 'failed', note }`, and
+  `note` comes from `describeModelError` (`docs/src/components/studio/model-error.ts`), the
+  same sentence the chat shows: a 401 says reconnect, a 402 says the account is out of
+  credits, a 429 says wait, and no network says the request never reached OpenRouter.
+  Before this, a 402 read as "the model returned no usable palette".
+  The finish and motion faculties (`generateFinish`, `generateDrawing`) do the same. Only
+  cloud failures are lifted: an on-device failure still floors, since the sentences read
+  OpenRouter's statuses.
 
 ## UI — the V4 Pro Inspector (chosen over four alternatives)
 

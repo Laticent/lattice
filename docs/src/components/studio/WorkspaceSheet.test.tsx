@@ -38,6 +38,7 @@ const connectedStatus: ArchitectStatus = {
 	webllmReady: false,
 	universalReady: false,
 	openRouterReady: true,
+	openRouterKeyInvalid: false,
 };
 
 const setModelSpy = vi.hoisted(() => vi.fn(async () => {}));
@@ -45,6 +46,11 @@ const setTierSpy = vi.hoisted(() => vi.fn(async () => {}));
 const loadUniversalSpy = vi.hoisted(() => vi.fn(async () => true));
 const statusSpy = vi.hoisted(() => vi.fn(() => connectedStatus));
 const spendSpy = vi.hoisted(() => vi.fn(() => ({ total: 0, session: 0.032, totalTokens: 0, sessionTokens: 9800, cap: 0, mode: 'alert', status: { level: 'ok', blocked: false, message: null } })));
+
+vi.mock('./api-key', () => {
+	const refuse = vi.fn(async () => ({ ok: false, note: 'OpenRouter rejected this key.' }));
+	return { saveOpenRouterKey: refuse, saveProviderKey: refuse, disconnectAllProviders: vi.fn(), removeProviderKey: vi.fn(), switchProvider: vi.fn() };
+});
 
 vi.mock('./architect', () => ({
 	useArchitectStatus: statusSpy,
@@ -143,6 +149,77 @@ describe('WorkspaceSheet — G6 model picker', () => {
 		await user.click(sheet.getByRole('tab', { name: 'Value' }));
 		await user.click(await sheet.findByText('R1'));
 		expect(setModelSpy).toHaveBeenCalledWith('deepseek/deepseek-r1');
+	});
+});
+
+describe('WorkspaceSheet — a rejected key', () => {
+	it('a 401-marked key replaces the connected row with "key rejected" and Reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterKeyInvalid: true });
+		try {
+			const { sheet } = openSheet();
+			const alert = await sheet.findByRole('alert');
+			expect(alert).toHaveTextContent('OpenRouter — key rejected');
+			expect(within(alert).getByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
+			expect(sheet.queryByText(/OpenRouter — active/)).toBeNull();
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('a rejected DIRECT key names its provider and offers Replace key, not an OAuth Reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'anthropic', openRouterKeyInvalid: true, wallet: null });
+		try {
+			const { user, sheet } = openSheet();
+			const alert = await sheet.findByRole('alert');
+			expect(alert).toHaveTextContent('Anthropic — key rejected');
+			expect(within(alert).queryByRole('button', { name: 'Reconnect' })).toBeNull();
+			await user.click(within(alert).getByRole('button', { name: 'Replace key' }));
+			// It opens the API key tab, where the key is replaced.
+			expect(sheet.getByRole('tab', { name: 'API key' })).toHaveAttribute('aria-selected', 'true');
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('Spend on a direct key: no balance, a billing link, and an estimate label', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'openai', wallet: null, price: null });
+		try {
+			const { sheet } = openSheet();
+			expect(await sheet.findByText('Balance not available for this provider')).toBeInTheDocument();
+			expect(sheet.getByRole('link', { name: /OpenAI billing/ })).toHaveAttribute('href', expect.stringMatching(/platform\.openai\.com/));
+			expect(sheet.getByText('This session · estimate')).toBeInTheDocument();
+			expect(sheet.getByText(/no price, so its calls are not counted/)).toBeInTheDocument();
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+});
+
+describe('WorkspaceSheet — the API key tab', () => {
+	it('with no key: a password field and Check & save; a refusal is shown, not stored', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterReady: false });
+		try {
+			const { user, sheet } = openSheet();
+			await user.click(sheet.getByRole('tab', { name: 'API key' }));
+			const field = sheet.getByLabelText('OpenRouter API key');
+			expect(field).toHaveAttribute('type', 'password');
+			await user.type(field, 'sk-or-v1-revoked');
+			await user.click(sheet.getByRole('button', { name: 'Check & save' }));
+			expect(await sheet.findByRole('alert')).toHaveTextContent('OpenRouter rejected this key.');
+		} finally {
+			statusSpy.mockReturnValue(connectedStatus);
+		}
+	});
+	it('with a key: only its last four characters, plus Replace and Remove', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		try {
+			const { user, sheet } = openSheet();
+			await user.click(sheet.getByRole('tab', { name: 'API key' }));
+			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
+			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
+			expect(sheet.getByRole('button', { name: 'Replace the OpenRouter key' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: 'Remove the OpenRouter key' })).toBeInTheDocument();
+		} finally {
+			localStorage.removeItem('lattice-db-or-key');
+		}
 	});
 });
 

@@ -69,6 +69,13 @@ one right-to-left pass, because the arm's tokens cannot land on every `-->` (`--
 and fails). The first cut only asked "is there a `-->`?" and the independent check defeated
 it with those five characters.
 
+**Retired 2026-11-06.** markdown-it 14.3.3 rewrote `html_inline`: a comment is found with one
+`indexOf`, and after the first unclosed one the rule stops looking (GHSA-vfgh-jcmw-g37q). The
+four shapes above render in 3–129 ms on plain markdown-it, and the guard, which mimicked 14.1's
+comment regex, now disagreed with upstream on inputs like `<!------>`. The file is gone; the
+linear-time arms in `test/unit/core/closed-comments.test.js` stay, so a markdown-it regression
+fails there.
+
 Every rewrite is fuzzed against the regex or the unguarded parser it replaced
 (`test/unit/core/closed-comments.test.js`), and three timing arms pin the linearity, each
 proved by reverting the fix it covers.

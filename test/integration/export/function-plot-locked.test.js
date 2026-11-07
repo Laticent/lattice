@@ -3,10 +3,11 @@
  * context of the export's own browser (one browser per export, the owner's speed rule of 2026-10-20), and the plain
  * `.html` keeps the library and its zoom (owner decisions 14 and 16; lib/export/locked-figures.js).
  *
- *   DRAW      `drawLocked` draws a plot as the in-page hydrate would (svg, viewBox) and reports a bad config as the
- *             in-page draw's error text.
- *   SANITIZE  what the locked page returns is sanitized as `WRITE` inserts it into a page (`SANITIZER`): a handler or a
- *             script in it is gone, a clean drawing lands whole, and no `DOMPurify` global is left behind.
+ *   DRAW      a locked page running the plugin's own draw-frame document (`openDrawPage`) draws a plot as the in-page
+ *             hydrate would (svg, viewBox) and reports a bad config as the in-page draw's error text.
+ *   SANITIZE  the capture page's draw host (`exportDrawHostScript`) sanitizes what comes back before the host writes it
+ *             (`SANITIZER`): a handler or a script is gone, a clean drawing lands whole, no `DOMPurify` global is left
+ *             behind, and a `release` answer leaves the figure showing its source.
  *   EXPORT    the real CLI: `--player` ships the plot baked, the kept `.html` beside the PDF still carries the library
  *             (decision 16), so only the capture page went without it, and the plots start no browser of their own.
  *
@@ -19,7 +20,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const puppeteer = require('puppeteer');
-const { drawLocked, SANITIZER, WRITE } = require('../../../lib/export/locked-figures.js');
+const { openDrawPage, SANITIZER, exportDrawHostScript, DRAW_FN } = require('../../../lib/export/locked-figures.js');
 const { launchSandboxBrowser } = require('../../../lib/core/code-sandbox.js');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -27,34 +28,51 @@ const CHROME = process.env.CHROME_PATH || undefined;
 const TIMEOUT = 300000;
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 
+const job = (config, extra = {}) => ({ kind: 'function-plot', configB64: b64(config), configText: config, width: 600, height: 300, index: 0, ...extra });
+
 test('DRAW: a plot comes back as the in-page draw makes it; a bad config as its error text', { timeout: TIMEOUT }, async () => {
-  const out = await drawLocked(puppeteer, [{ config: b64('{ "data": [{ "fn": "x^2" }] }'), w: 600, h: 300 }, { config: b64('{ not json'), w: 600, h: 300 }], { executablePath: CHROME });
-  assert.match(out[0].html, /^<svg class="function-plot"[^>]*width="600" height="300" viewBox="0 0 600 300"/);
-  assert.match(out[1].error, /^functionplot error: /);
-  // At the capture page's pixel density: d3's axis offsets its lines by half a pixel only at 1x, so a 2x raster export
-  // drawn at 1x came out a pixel off (the PNG of examples/plugin-system-phase-b.md, slide 2).
-  const at2 = await drawLocked(puppeteer, [{ config: b64('{ "data": [{ "fn": "x^2" }] }'), w: 600, h: 300 }], { executablePath: CHROME, deviceScaleFactor: 2 });
-  assert.match(out[0].html, /class="domain"[^>]*d="M0\.5,/);
-  assert.match(at2[0].html, /class="domain"[^>]*d="M0,/);
+  const browser = await launchSandboxBrowser(puppeteer, { headless: true, executablePath: CHROME, args: ['--no-sandbox'] });
+  try {
+    const locked = await openDrawPage(browser, 'function-plot');
+    const ok = await locked.draw(job('{ "data": [{ "fn": "x^2" }] }'));
+    const bad = await locked.draw(job('{ not json'));
+    assert.match(ok.out, /^<svg class="function-plot"[^>]*width="600" height="300" viewBox="0 0 600 300"/);
+    assert.match(bad.error, /^functionplot error: /);
+    // At the capture page's pixel density: d3's axis offsets its lines by half a pixel only at 1x, so a 2x raster export
+    // drawn at 1x came out a pixel off (the PNG of examples/plugin-system-phase-b.md, slide 2).
+    const at2 = await locked.draw(job('{ "data": [{ "fn": "x^2" }] }'), 2);
+    assert.match(ok.out, /class="domain"[^>]*d="M0\.5,/);
+    assert.match(at2.out, /class="domain"[^>]*d="M0,/);
+    await locked.close();
+  } finally {
+    await browser.close();
+  }
 });
 
-test('SANITIZE: WRITE sanitizes each drawing as it inserts it; a clean one lands whole', { timeout: TIMEOUT }, async () => {
+test('SANITIZE: the capture page sanitizes each drawing before the host writes it; a clean one lands whole', { timeout: TIMEOUT }, async () => {
   const browser = await launchSandboxBrowser(puppeteer, { headless: true, executablePath: CHROME, args: ['--no-sandbox'] });
   try {
     const page = await browser.newPage();
-    await page.setContent('<div data-lattice-hydrate="function-plot" data-lattice-settle="pending"></div><div data-lattice-hydrate="function-plot" data-lattice-settle="pending"></div>');
-    await assert.rejects(page.evaluate(WRITE, [{ html: '<svg></svg>' }]), /slide sanitizer is not in the capture page/);
+    await page.setContent('<div id="t" data-lattice-hydrate="function-plot" data-lattice-config="e30=" data-lattice-settle="hydrating"></div>');
+    const hostile = '<svg class="function-plot" onload="alert(1)"><script>alert(2)</script><path d="M0 0" onclick="x()"/><foreignObject><img src=x onerror=alert(3)></foreignObject></svg>';
+    const clean = '<svg class="function-plot" width="600" height="300"><g transform="translate(40,20)"><path d="M0.5,0.5H612.5" class="domain"></path></g></svg>';
+    await page.evaluate((fn, answers) => { let i = 0; window[fn] = async () => answers[i++]; }, DRAW_FN, [{ out: hostile }, { out: hostile }, { out: clean }, { release: true }]);
+    await page.evaluate(exportDrawHostScript(['function-plot']));
+    await assert.rejects(page.evaluate(() => window.__latticeExportDrawHost.draw({ kind: 'function-plot' })), /slide sanitizer is not in the capture page/);
     await page.evaluate(SANITIZER());
     await page.evaluate(SANITIZER()); // idempotent
-    const clean = '<svg class="function-plot" width="600" height="300"><g transform="translate(40,20)"><path d="M0.5,0.5H612.5" class="domain"></path></g></svg>';
-    await page.evaluate(WRITE, [{ html: '<svg class="function-plot" onload="alert(1)"><script>alert(2)</script><path d="M0 0" onclick="x()"/><foreignObject><img src=x onerror=alert(3)></foreignObject></svg>' }, { html: clean }]);
-    const [hostile, kept, globals] = await page.evaluate(() => {
-      const els = document.querySelectorAll('[data-lattice-hydrate]');
-      return [els[0].innerHTML, els[1].innerHTML, [typeof window.DOMPurify, typeof window.createSlideSanitizer, typeof window.__latticeSanitizeDrawing]];
+    const [cleaned, kept, released, globals] = await page.evaluate(async () => {
+      const host = window.__latticeExportDrawHost;
+      const a = await host.draw({ kind: 'function-plot' });
+      const b = await host.draw({ kind: 'function-plot' });
+      const t = document.getElementById('t');
+      const c = await host.draw({ kind: 'function-plot' }, t);
+      return [a, b, [c, t.getAttribute('data-lattice-settle'), t.hasAttribute('data-lattice-final')], [typeof window.DOMPurify, typeof window.createSlideSanitizer, typeof window.__latticeSanitizeDrawing]];
     });
-    assert.doesNotMatch(hostile, /onload|onclick|onerror|<script|alert/);
-    assert.match(hostile, /<svg class="function-plot"/);
+    assert.doesNotMatch(cleaned, /onload|onclick|onerror|<script|alert/);
+    assert.match(cleaned, /<svg class="function-plot"/);
     assert.equal(kept, clean);
+    assert.deepEqual(released, [null, 'unavailable', true], 'a release writes nothing and leaves the source showing');
     assert.deepEqual(globals, ['undefined', 'undefined', 'function']);
     // A page where something else defined the name first is refused, not trusted.
     const planted = await browser.newPage();

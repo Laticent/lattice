@@ -30,6 +30,7 @@
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
+import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
@@ -448,6 +449,8 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         }),
         signal,
       });
+      // A 401 here is the same dead key the Studio's Workspace reports (lib/openrouter-key.js).
+      noteOpenRouterStatus(res.status, key);
       if (!res.ok) {
         // Surface the API's reason (bad model slug, unknown voice, no credit) instead
         // of a silent fall-through — the only way to diagnose without the console.

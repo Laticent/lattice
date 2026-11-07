@@ -51,6 +51,7 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
+import { everySlideHidden } from '../../../../../lib/diagnostics/slice-equivalence-core.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
@@ -265,7 +266,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
+	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;
+	// Every slide hidden (after `glossary: auto` appends its shown slides): the bundle would render nothing, as every
+	// other export refuses to.
+	if (everySlideHidden(appendAutoGlossary(source))) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -332,7 +338,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			withSlideOnlySpotted(liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined)),
+			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components))))), undefined)),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
@@ -2752,6 +2758,36 @@ function dataUrlToBlob(dataUrl) {
 	const arr = new Uint8Array(bin.length);
 	for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
 	return new Blob([arr], { type: mime });
+}
+
+/**
+ * One rendered slide as a small JPEG data URL, for the Studio chat's `render_slide`: a look for the
+ * model, never an export. It reuses the export's capture (the same frame, fonts and fixups) so the
+ * model sees what an export would draw, and it changes nothing any export writes.
+ * `index` is the rendered section (0-based); `url` is null when the deck has no such section.
+ */
+export async function rasterizeSlidePreview(render, index, maxWidth = 768) {
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const section = sections[index];
+		if (!section) return { url: null, sections: sections.length };
+		const ratio = Math.min(1, maxWidth / slideGeom(section).w);
+		const url = await withCaptureFixups(
+			section,
+			async (_w, _h, pixelRatio) => {
+				const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, null, 'export');
+				return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 80 })], { type: 'image/jpeg' }));
+			},
+			ratio,
+			// JPEG has no alpha, so its corners are squared the way a JPEG export squares them
+			// (lib/core/corner-export-capability.mjs); 'png' would show the model corners export never draws.
+			'jpeg',
+		);
+		return { url, sections: sections.length };
+	} finally {
+		dispose();
+	}
 }
 
 // Export the chart on slide `activeIndex` (the cursor's slide — its index is read

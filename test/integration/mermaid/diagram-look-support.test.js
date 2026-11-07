@@ -61,7 +61,8 @@ const FAMILIES = {
 };
 
 /** Measured 2026-08-18 against Mermaid 11.14. Update WITH a re-measurement, never by hand. */
-const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement'];
+// Mermaid 11.17 added C4 (re-measured 2026-11-06, engineering/mermaid.md §5.3e).
+const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement', 'c4'];
 
 /**
  * What Mermaid calls each fixture back, so the table cannot be answered by the WRONG
@@ -71,7 +72,7 @@ const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requiremen
  * is the one reading that cannot be faked by editing the fixture.
  */
 const ROLE_DESCRIPTION = {
-  flowchart: 'flowchart-v2', state: 'stateDiagram', class: 'class', er: 'er',
+  flowchart: 'flowchart-v2', state: 'stateDiagram', class: 'classDiagram', er: 'er',
   mindmap: 'mindmap', requirement: 'requirement', sequence: 'sequence', gantt: 'gantt',
   pie: 'pie', journey: 'journey', timeline: 'timeline', quadrant: 'quadrantChart',
   gitGraph: 'gitGraph', sankey: 'sankey', xychart: 'xychart', c4: 'c4', block: 'block',
@@ -83,16 +84,16 @@ function roleOf(svg) {
   return ((svg || '').match(/aria-roledescription="([^"]*)"/) || [])[1] || null;
 }
 
-function render(withLook) {
+function render(withLook, definitions = Object.values(FAMILIES), themeVars = { fontSize: '14px' }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'look-'));
   try {
     const jobFile = path.join(dir, 'job.json');
     const outFile = path.join(dir, 'out.json');
     fs.writeFileSync(jobFile, JSON.stringify({ ...PAGE_JOB,
       pkgRoot: REPO, chromePath: CHROME, backgroundColor: 'transparent', outFile,
-      diagrams: Object.values(FAMILIES).map((definition) => ({
+      diagrams: definitions.map((definition) => ({
         definition,
-        config: engineInitConfig({ fontSize: '14px' }, withLook ? { look: 'handDrawn' } : {}),
+        config: engineInitConfig(themeVars, withLook ? { look: 'handDrawn' } : {}),
       })),
     }));
     try {
@@ -151,3 +152,35 @@ describe('which families honor look: handDrawn', { skip: skipWithoutChrome(CHROM
     }
   });
 });
+
+// Mermaid 11.17 moved C4 onto its node renderer, which writes box colors INLINE, so the palette
+// reaches C4 only through `c4Colors` (init-directive.js) and the relationship labels need the CSS
+// re-center in mermaid.styles.css. Both lean on Mermaid internals; this arm fails the day either
+// moves (red-team and inversion review of #3051).
+describe('C4 keeps the deck palette and still needs the label re-center', { skip: skipWithoutChrome(CHROME) }, () => {
+  const C4 = 'C4Context\n  Person(u, "User")\n  System(s, "Ledger")\n  Rel(u, s, "reads")';
+  const PALETTE = { fontSize: '14px', fillType0: '#ABCDEF', fillType1: '#FEDCBA', primaryBorderColor: '#123456' };
+  test('a C4 box carries the palette fill, not Mermaid\'s stock navy', () => {
+    const [r] = render(false, [C4], PALETTE);
+    assert.ok(r.ok, 'the C4 fixture renders');
+    assert.match(r.svg, /c4-person[\s\S]*?fill:#ABCDEF/i, 'the person box takes fillType0');
+    assert.match(r.svg, /c4-system[\s\S]*?fill:#FEDCBA/i, 'the system box takes fillType1');
+    assert.doesNotMatch(r.svg, /#08427B/i, 'no stock C4 navy survives');
+  });
+  test('Mermaid still places a relationship label past its line\'s midpoint (the CSS cancels that)', () => {
+    const [r] = render(false, [C4], PALETTE);
+    const m = r.svg.match(/<line x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)"[^>]*\/?>(?:<\/line>)?<text x="([\d.]+)"/);
+    assert.ok(m, 'a relationship is a <line> followed by its label <text>');
+    const mid = (Number(m[1]) + Number(m[2])) / 2;
+    assert.ok(Number(m[3]) - mid > 5, `label x ${m[3]} vs midpoint ${mid}: if Mermaid now centers C4 labels itself, drop the translate in mermaid.styles.css`);
+  });
+  test('Mermaid puts a [technology] line its font size plus 5px below the label (the CSS lifts it by exactly that)', () => {
+    const [r] = render(false, ['C4Context\n  Person(u, "User")\n  System(s, "Ledger")\n  Rel(u, s, "reads", "HTTPS")'], PALETTE);
+    assert.ok(r.ok, 'the C4 fixture with a technology renders');
+    const m = r.svg.match(/<line [^>]*\/?>(?:<\/line>)?<text [^>]*?y="([\d.]+)"[^>]*?font-size: ([\d.]+)px[^>]*>(?:<tspan[^>]*>)?reads(?:<\/tspan>)?<\/text><text [^>]*?y="([\d.]+)"[^>]*>(?:<tspan[^>]*>)?\[HTTPS\]/);
+    assert.ok(m, 'a relationship is a <line>, its label <text>, then its [technology] <text>');
+    const gap = Number(m[3]) - Number(m[1]);
+    assert.ok(Math.abs(gap - (Number(m[2]) + 5)) < 0.5, `technology line ${gap}px below its label at font size ${m[2]}: the "1.85em - 5px" lift in mermaid.styles.css assumes font size + 5`);
+  });
+});
+

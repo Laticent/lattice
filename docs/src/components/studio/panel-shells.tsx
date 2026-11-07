@@ -279,11 +279,18 @@ export const CHAT_COMPOSER_TEXT =
 export const CHAT_COMPOSER_BAR = 'flex items-center justify-between gap-2';
 
 /** The Chat's first-run card, shared with `ArchitectChat.tsx`: a deck with no chat yet opens on exactly this. */
-export function ChatEmptyCard({ aiReady }: { aiReady: boolean }) {
+/** What the card promises follows the chat mode, so it never describes a review step Auto skips. */
+const EMPTY_CARD_TAIL = {
+	talk: 'In Talk it reads and answers, and changes nothing.',
+	review: 'Proposed edits arrive as a diff you Apply or Discard.',
+	auto: 'In Auto its edits apply at once; undo from History.',
+} as const;
+
+export function ChatEmptyCard({ aiReady, mode = 'review' }: { aiReady: boolean; mode?: keyof typeof EMPTY_CARD_TAIL }) {
 	return (
 		<div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
 			<Sparkles className="mx-auto mb-1.5 size-4 text-[var(--accent)]" />
-			Ask the Architect to tighten a slide, reshape the deck, or answer a question. Proposed edits arrive as a diff you Apply or Discard.
+			Ask the Architect to tighten a slide, reshape the deck, or answer a question. {EMPTY_CARD_TAIL[mode]}
 			{!aiReady && <span className="mt-1.5 block text-[var(--text-muted)]">Connect a model in Workspace to start.</span>}
 		</div>
 	);

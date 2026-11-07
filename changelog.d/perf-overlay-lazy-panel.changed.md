@@ -1,0 +1,1 @@
+- Every docs page downloads about 6KB (gzip) less JavaScript: the performance overlay's panel now loads only when the overlay is switched on (the Studio's Workspace switch, or `?perf`).

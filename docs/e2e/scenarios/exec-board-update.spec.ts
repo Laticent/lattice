@@ -79,5 +79,5 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 	const download = page.waitForEvent('download', { timeout: 60_000 });
 	await shareExport(page, 'pdf');
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
-	await expect(toastText(page)).toContainText('PDF ready.');
+	await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
 });

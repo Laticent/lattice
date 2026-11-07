@@ -38,6 +38,7 @@ import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-
 import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
 import { isGeminiTtsModel } from '@/playground/tts-cost.js';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
 import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
@@ -392,7 +393,12 @@ function toBase64(bytes: Uint8Array): string {
 type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
 
 function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphasis?: readonly (EmphasisSpans | undefined)[]) {
-	const slides = splitSlides(stripFrontMatter(source));
+	// HIDDEN slides are not presented and not exported (engineering/decisions/2026-11-06-hidden-slides.md), so the bake
+	// resolves the SHOWN slides, the list Present narrates and the projection holds. `authored[i]` is shown slide i's
+	// place in the deck, the number front-matter `say:` is keyed by, as Present keys it (`setIndices`).
+	const every = splitSlides(stripFrontMatter(source));
+	const authored = every.map((_, i) => i).filter((i) => !slideSourceHidden(every[i]));
+	const slides = authored.map((i) => every[i]);
 	const fmSayMap = frontMatterSayMap(source);
 	const acronyms = acronymSpokenMap(source);
 	const lexicon = lexiconMap(source);
@@ -415,7 +421,7 @@ function resolveDeck(source: string, rawProjected?: readonly string[], rawEmphas
 	const texts = slides.map((md, i) =>
 		resolveNarration({
 			say: getInlineSay(md),
-			fmSay: fmSayMap.get(i + 1),
+			fmSay: fmSayMap.get(authored[i] + 1),
 			// NO NOTE RUNG — see narration-resolve.ts. What gets BAKED is what the deck says,
 			// not what its author planned to say over it.
 			chart: aligned ? null : narrateChartSafe(md, chartDeck), // already substituted into `aligned`

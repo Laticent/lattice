@@ -14,19 +14,15 @@
 
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { renderMarkdown } from '@/lib/render-engine';
+import fenceShaped from '../../../../../lib/core/fence-shaped-bodies.js';
+import { fencesOfPlugin } from '../../../../../lib/core/plugin-fences.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 const { remoteRefsInHtml, mermaidRemoteRefs, frontMatterRemoteRefs, frontMatterOf, isRemoteUrl, galleryRefusal } = remoteRef;
-// The Mermaid plugin's own fence matcher, asked through the host (its `fences` service). FAILS CLOSED: with the plugin not
-// here the gate cannot read the gallery's diagrams, so it refuses the gallery (2026-11-01-plugin-contract-hollywood.md §2a).
-type FenceService = (md: string) => { body: string }[];
-const mermaidFencesOf = (pg: { pluginService?: (p: string, n: string) => unknown }, md: string): { body: string }[] | null => {
-	const fences = (pg.pluginService ? pg.pluginService('mermaid', 'fences') : null) as FenceService | null;
-	return fences ? fences(md) : null;
-};
-const MERMAID_UNREADABLE = "policy:the Mermaid plugin is not available, so this gallery's diagrams cannot be checked";
-
+const { fenceShapedMermaidBodies } = fenceShaped;
+// Every Mermaid fence, as the ENGINE parses the gallery (lib/core/plugin-fences.mjs): the fences the export draws. The
+// reader is the engine's own parse, so it never comes back unreadable.
 /** The theme the check renders with. The markup, not the look, is what is read. */
 const CHECK_THEME = 'indaco';
 /** How long to wait for the engine, which the Studio loads on mount. */
@@ -58,8 +54,9 @@ export async function galleryRemoteRefs(source: string): Promise<string[]> {
 	const defined = pg.referenceTargets(md).filter((t) => isRemoteUrl(t));
 	// Every fence the CLI export would hand to Mermaid, read off the SOURCE: one inside an HTML
 	// block is plain text in the page yet is drawn once the deck is exported.
-	const found = mermaidFencesOf(pg, md);
-	const fenced = found ? found.flatMap((f) => mermaidRemoteRefs(f.body) as string[]) : [MERMAID_UNREADABLE];
+	// The engine's fences, and every fence-SHAPED block besides (an HTML block's, an unclosed one): a security gate
+	// over-reports (lib/core/fence-shaped-bodies.js).
+	const fenced = [...fencesOfPlugin('mermaid', md).map((f: { body: string }) => f.body), ...(fenceShapedMermaidBodies(md) as string[])].flatMap((b: string) => mermaidRemoteRefs(b) as string[]);
 	// Read it twice: alone, and AS INSERTED. Insert splices the gallery after a slide and a
 	// `---`, so its front matter stops being front matter and renders.
 	const inserted = (await renderMarkdown(pg, `# x\n\n---\n\n${md.trim()}\n`, CHECK_THEME, { assetUrls: {}, warmDraw: false })).html;

@@ -24,7 +24,7 @@ test('a right-click opens the slide’s menu, makes it current, and its action t
 	await railButtons(page).nth(2).click({ button: 'right' });
 	await expect(menu(page)).toBeVisible();
 	await expect(counter(page)).toHaveText('Slide 3 / 4');
-	await expect(menu(page).getByRole('menuitem')).toHaveText([/New slide after/, /New slide before/, /Duplicate/, /Move left/, /Move right/, /Delete/]);
+	await expect(menu(page).getByRole('menuitem')).toHaveText([/New Slide After/, /New Slide Before/, /Duplicate/, /Move Before/, /Move After/, /Hide Slide/, /Delete/]);
 	await item(page, 'duplicate').click();
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Charlie Charlie Delta');
 	await expect(stripNote(page)).toContainText('Slide duplicated');
@@ -35,9 +35,9 @@ test('@crosswidth the ⋯ beside the current slide opens it; a disabled item sta
 	// The caret sits at the deck's end, so slide 4 is current already, and a tap on it would open its menu.
 	await expect(counter(page)).toHaveText('Slide 4 / 4');
 	await page.locator('nav[aria-label="Slide navigator"]').getByRole('button', { name: 'Slide actions' }).click();
-	await expect(item(page, 'move-later')).toBeDisabled();
-	await expect(item(page, 'move-later')).toContainText('Already last');
-	await item(page, 'move-earlier').click();
+	await expect(item(page, 'move-after')).toBeDisabled();
+	await expect(item(page, 'move-after')).toContainText('Already last');
+	await item(page, 'move-before').click();
 	await expect.poll(() => order(page)).toBe('Alpha Bravo Delta Charlie');
 	await expect(counter(page)).toHaveText('Slide 3 / 4');
 });
@@ -86,7 +86,7 @@ test('the palette has every action of the menu (New slide after is its “New sl
 	await railButtons(page).nth(1).click();
 	await page.keyboard.press('ControlOrMeta+k');
 	const field = page.getByPlaceholder('Search or run a command…');
-	for (const label of ['New slide…', 'New slide before this one…', 'Duplicate slide', 'Move slide left', 'Move slide right', 'Delete slide']) {
+	for (const label of ['New slide…', 'New slide before this one…', 'Duplicate slide', 'Move slide before', 'Move slide after', 'Delete slide']) {
 		await field.fill(label);
 		await expect(page.getByRole('option', { name: label })).toBeVisible();
 	}
@@ -114,6 +114,9 @@ test('the arrows move inside the open menu, not along the strip; New slide after
 	await expect(item(page, 'new-before')).toBeFocused();
 	await expect(counter(page)).toHaveText('Slide 2 / 4');
 	await page.keyboard.press('ArrowUp');
+	// A key press is fire-and-forget: wait for the focus to land back on New slide after before Enter, or Enter can reach
+	// New slide before. Measured in this sandbox before this wait: 2 of 4 runs failed on main, 3 of 4 on this branch.
+	await expect(item(page, 'new-after')).toBeFocused();
 	await page.keyboard.press('Enter');
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 	await expect.poll(() => source(page)).toMatch(/^# Bravo[\s\S]*^## New slide[\s\S]*^# Charlie/m);

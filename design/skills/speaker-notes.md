@@ -1,3 +1,10 @@
+---
+name: speaker-notes
+description: "Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric."
+kind: make
+studio: true
+---
+
 # Skill — Create speaker notes, reviews, and `say:` lines
 
 > Write the three channels that travel *alongside* a slide — what the presenter

@@ -66,4 +66,19 @@ describe('ensureKatexProvider', () => {
 		injected?.dispatchEvent(new Event('error'));
 		await expect(p).rejects.toThrow(/failed to load/);
 	});
+
+	it('stops polling once a load error rejects it', async () => {
+		// A poll left running after the reject read `window` after the test environment had gone (an unhandled
+		// ReferenceError in CI). Count the timers instead of waiting on one (the flaky-tests note: assert on work done, never on time).
+		vi.useFakeTimers();
+		try {
+			const p = ensureKatexProvider('https://example.test/lattice-katex-broken-2.js');
+			const injected = document.querySelector<HTMLScriptElement>('script[data-lattice-katex-provider]');
+			injected?.dispatchEvent(new Event('error'));
+			await expect(p).rejects.toThrow(/failed to load/);
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

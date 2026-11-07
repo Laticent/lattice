@@ -194,3 +194,172 @@ Playground before and after.
 - The full list of decks whose export bytes move in slice 3; the corpus differential produces it.
 - Whether `lib/export/marp-bundle.js` and `marp-fidelity.js` scan source for fences: a grep matched them, unread.
 - The ~150-line estimate for Mermaid's hydrate shrinking is a reading of `mermaid.hydrate.js`, not a measured diff.
+
+## 9. Progress (one PR for all four slices, branch `claude/d2-deferred-figures-x06qzv`)
+
+**Slice 1 — the host's flicker protections (done).** `lib/plugins/figure-scope.mjs` holds the slide scope key (moved
+from Mermaid, handed to its pass as `ctx.scopeKey`); `lib/plugins/host-browser.mjs` `settleSwap` remembers and holds a
+deferred figure's drawing in the swap's microtask. Real Studio, function-plot slide, blank frames per 6 keystrokes: in
+the heading 16/19/15 → 0/0/0, in the plot's config 24/25 → 0/0/0. **Mermaid keeps its own cache and hold** (owner,
+2026-11-06): its cache carries replayable binders (tooltips, gantt links) that cloned nodes cannot, and a host
+"re-attach" hook would have one user. Details: `2026-09-05-diagram-fence-flash.md` §9. **The memory's palette rule:**
+a remembered drawing must take its colors from page CSS, because a restyle replays it without redrawing; a plugin that
+bakes a computed color into its drawing needs a palette signature in the memory key before it may use the memory
+(function-plot complies through `function-plot.styles.css`; found by the HARD RULE #25 inversion lens).
+
+**Slice 2 — the export draws through the preview's path (done).** §4 step 1 planned a manifest-driven version of
+`locked-figures.js`'s own read-draw-write loop. Building it found a shorter road: the preview's draw frame already runs a
+**per-plugin draw adapter** from the manifest (`lib/plugins/draw-frame-libraries.generated.mjs`, the frame kernel
+`lib/packages/draw-frame-core.mjs`), which is §3's `draw(job)` already built. So the CLI no longer has a figure loop:
+
+1. the capture page keeps each host-drawn plugin's real `hydrate` (`lib/plugins/hydrate-script.js` `hostDrawn`), so the
+   plugin builds its own draw job and calls `ctx.drawInto`, exactly as in the Studio;
+2. the page's draw host (`lib/export/locked-figures.js` `exportDrawHostScript`, installed before the page's scripts run)
+   sends the job through one exposed function to a **locked page that runs the plugin's own draw-frame document**
+   (`openDrawPage`: the same adapter, hash-pinned script policy and reply check as the preview; the library checked
+   against its pinned SHA-256), at the capture page's pixel ratio, remembered per job for re-navigations;
+3. the answer is sanitized in the capture page (`SANITIZER`, the slide sanitizer, as before) and written by the host's
+   one sanctioned sink (`drawInto`, HARD RULE #22). The old `WRITE` sink and its read loop are gone;
+4. which plugins this covers comes from the manifests (`hostDrawnKinds`: a `draw` section with an inlined library), not a
+   name in `lattice.js`. When the HOST fails (its locked page cannot open, or breaks while drawing) the figures export
+   showing their source with one warning, as before; when the PLUGIN fails (a bad config) its error text shows, as
+   before. The host's `drawInto` now writes only a string, so a draw host settles a released figure itself by answering
+   `null`. (The first cut released only on a failed open; a page that broke mid-draw baked `functionplot error: Protocol
+   error…` into the PDF with no warning. The maker-checker found it; test/unit/export/export-draw-host.test.js pins it.)
+
+**The maker-checker on all four slices** found no security or correctness defect blocking merge, and two regressions,
+both fixed: the crash path above, and a remembered drawing replayed at its OLD SIZE when a slide's box changed width
+without its scope changing (function-plot bakes `cfg.width || rect.width` into the SVG). The memory key now carries the
+placeholder's size, so a different box is a miss and the figure is drawn again
+(test/unit/plugins/figure-memory.test.js).
+
+**The adversarial trio (HARD RULE #25) on the shipped diff.** The red team found a third regression in slice 2: the
+figures of a kind queue on ONE locked page, and each carried the plugin's 4 s PREVIEW budget from the moment the page
+hydrated, so a slow plot, or a fast one queued behind it, exported as source where the pre-D2 export (drawing in Node,
+bounded by the 90 s render watchdog) drew it, sometimes with no warning. Fixed: a host-drawn figure's budget is the
+watchdog's again (`hostDrawnBudgetMs`, lib/plugins/hydrate-script.js; `HOST_DRAW_SETTLE_MS`, lattice.js), the settle
+barrier closes one that never draws and says so, and a drawing that answers after the barrier writes nothing. Also
+fixed: the preview frame's 8M-character limit applied to the export (a 300k-sample plot baked an error; the CLI's limit
+is now `CLI_MAX_DRAW_CHARS`), the pixel ratio the capture page passes is clamped and the draw memo bounded, and the
+figure memory's key carries the pixel ratio. The red team's decks now export byte-identical to `main` (80 plots; a
+300-term plot; four 400k-sample plots, 18,220,820 bytes on both), and a heavy plot ahead of a light one shows its own
+error while the light one draws, as on `main`. The inversion lens's findings are in the fence paragraphs below.
+
+**A checker on the trio's fixes** found the new warning named the wrong line under `--print` and `--size` (the CLI
+rewrites the front matter before the bake; `bakeDeck` now takes `authorSource`), gave a blank-line fix where it does not
+work (a `<pre>`, `<script>`, `<style>` or `<textarea>` block runs to its closing tag) and fired on an opener inside a
+comment or another fence; all three fixed, with tests. A figure's own timer now sits past the whole watchdog, so the
+barrier's counted warning always comes first. The known cost: a figure whose locked page never answers holds the
+barrier for the watchdog less 10 s (80 s by default), per barrier pass, where a preview budget would have closed it in
+4 s; that is the price of drawing the slow figures `main` drew, and `LATTICE_RENDER_WATCHDOG_MS` sets it.
+
+**Evidence: byte-identical exports.** Three function-plot decks (`examples/plugin-sandbox-tour.md`,
+`math-form-frame.md`, `plugin-system-phase-b.md`) exported to PDF, PNG and `--player` HTML before and after: 32 files,
+all identical. (A first comparison showed 4 bytes moved in one deck: a Mermaid gantt's `today` line, which moves with
+the clock between runs hours apart; old and new code exported back to back are identical.) A second run of the old code
+was identical too, so the comparison has teeth. Tests: test/integration/export/function-plot-locked.test.js (draw, 2x
+pixel ratio, sanitize, release, the real CLI), test/integration/export/draw-frame.test.js (the preview's frame and the
+CLI's locked page agree byte for byte), test/unit/plugins/hydrate-host.test.js (the capture page's job goes through the
+draw host and never a library in the page).
+
+**Slice 3 — Mermaid's export draws the fences the engine parses (done; `bake` not yet retired).** The host hands a bake
+its plugin's fences as the ENGINE parses the source (`ctx.fences()`, lib/core/plugin-fences.mjs: the engine's own block
+grammar, lib/core/boundary-parser.mjs). Mermaid's bake reads them instead of its line walker (`mermaid-fences.js`) and
+its second markdown-it pass (`nested-fences.js`, which imitated the math block by counting `$$` lines). What moves:
+a fence inside an HTML block or a `$$` block is no longer drawn (the engine reads HTML or math there, and the preview
+never drew it; the old export drew the `<div>` one, clipped), and a closed fence whose body holds `***` is drawn. Evidence:
+all 43 decks in the repo with a Mermaid fence exported to HTML before and after are identical once Mermaid's own random
+ids are masked (gitGraph's id-less merge commits and the architecture diagram's icon ids differ between two runs of the
+SAME code; shown on examples/cat-ink-tier.md); none of them holds a shape the two readers disagreed on.
+`examples/mermaid-engine-fences.md` shows the change, rendered dark and light for the owner's sign-off.
+
+**Slice 4 — every other reader of Mermaid fences reads the engine's parse (done).** `lib/core/plugin-fences.mjs`
+`fencesOfPlugin(name, source)` is the one fence reader: the engine's block grammar plus the manifest's fence names. The
+narrator (`lib/core/chart-narration.js`) and both gallery gates (`lib/cli/gallery-gate.js`, the Studio's
+`docs/src/components/studio/library/gallery-gate.ts`) call it directly; they are host code, so they need no service from
+the plugin. That left Mermaid's `fences` and `firstFenceBody` services with no caller, so they are gone, with
+`mermaid.services.js`, its manifest entry, the line walker `mermaid-fences.js` and its test. `nested-fences.js` keeps
+only the splice helpers the bake uses (`reprefix`, `blankLineAfter`). The fence-recognizer conformance table
+(test/unit/core/fence-recognizer-conformance.test.js) now holds the EXPORT's reader to the engine: it found that a
+tab-indented closer was being read as a closer (the engine counts the tab as four columns and runs the fence on), so the
+reader decides "closed" from the token itself, not the last line's text.
+
+**The gallery gates over-report on purpose.** They scan the engine's fences AND every fence-SHAPED block
+(`fenceShapedMermaidBodies`, lib/core/fence-shaped-bodies.js, a leaf of its own so no eager bundle carries it): one inside an HTML block, an unclosed one. Nothing draws those
+since slice 3, so their URLs are never fetched, but a security gate does not admit a gallery on a reader's word that a
+block is inert; a false alarm is the safe direction (test/unit/core/gallery-remote-refs.test.js keeps its HTML-block
+cases).
+
+**What "the export draws what the preview draws" covers, and what it does not.** The export draws every Mermaid fence
+the engine parses. Two shapes the PREVIEW still draws are not exported as diagrams, because the runtime finds figures by
+the class substring `code[class*="language-mermaid"]` and the engine's parse does not call them Mermaid fences: a
+` ```mermaid-x ` info string and a raw `<pre><code class="language-mermaid">` written as HTML. Both close when the bake
+retires and the export finds figures in the rendered page (followups.d/3052-p2-retire-mermaid-bake.md). The bytes slice 3
+moved, a fence folded into an HTML block, are no longer silent: `bakeDeck` warns with the line
+(`foldedFenceLines`, lib/core/plugin-fences.mjs), since a deck exported only from the CLI would otherwise lose a diagram
+without a word (HARD RULE #25 inversion lens). No committed deck but the demo holds one (4,227 Markdown files scanned).
+
+**`bake` is not retired.** Mermaid still inserts its pictures into the source before the engine renders. Retiring it
+means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that
+themes each diagram for its slide's band: that is a redesign of the export's diagram path, recorded with its reason
+(followups.d/3052-p2-retire-mermaid-bake.md). Owner decision 2 stands; Mermaid has not left `bake` yet.
+
+## 10. Retiring `bake`: what it supplies, and the slices left (2026-11-06, branch `claude/plugin-patterns-d2-ghtybq`)
+
+**The trace.** Every CLI output reads ONE variable the bake produced. `bakeDeck` returns `preGlossaryMd`
+(lattice.js `const { source: preGlossaryMd … } = bakeDeck(…)`); `rawMd = appendAutoGlossary(preGlossaryMd)`; the engine
+renders `rawMd` into `htmlDoc`, which becomes `cleanDocHtml`, is written to `outHtml` and is loaded as the capture page.
+
+| Output | Reads | Leans on, from the bake | Runtime on its page? |
+|---|---|---|---|
+| PDF, PNG raster, PPTX/ODP | the capture page | the spliced SVG: its slide's band (light, dark, or print under `--print`), sankey collapse, `labelDiagramSvg`'s name, unique `lattice-mmd-N` ids | no (the runtime script is stripped; the page gets the host's hydrate script and the draw host) |
+| image set | the capture page | the same; `--image-mode print` turns the print band on | no |
+| image set, cross-scheme look | `REBAKES` (`ctx.state.rebake`) and `.mermaid-svg[data-mmd-idx]` | the index the bake stamps, `bakedBand(idx)`, `render(idx, { band, palette })` re-drawing one figure from the definitions the bake kept | no (a scratch page) |
+| image set, standalone SVGs | `REBAKES`' `figure` + `indexAttr` | `.mermaid-svg > svg` and its index | no |
+| `--html` | `outHtml` | the baked SVG IS the shipped bytes, written before any page loads | no |
+| `--player`, `--read` | the flattened capture page | `[data-lattice-figure] > svg` (the bake's open tag), `state.motionTagger` run on each copy | no |
+| `--fluid` | `toFluidViewer(cleanDocHtml)` | the baked SVG in the shipped bytes | **yes**, the runtime is inlined |
+| Marp bundle | nothing: it ships Mermaid and the runtime, and draws at view time | none | yes, at view time |
+| narration, `.vtt`, speech, glossary | the chart narrator reads a fence-intact source on purpose; `acronymSpokenMap`, `lexiconMap` and the glossary read `rawMd`, which holds the baked SVG's text | — | — |
+
+Two facts the follow-up note had wrong, corrected here: **there is no light/dark SVG pair** (`.mmd-light`/`.mmd-dark`
+survived only in two stale comments in lattice.js, rewritten here; each fence is drawn ONCE, in its own slide's band, and no output recolors a diagram at
+view time), and the "extract standalone svgs" step belongs to the image set, not to PPTX.
+
+**What a post-render draw has to supply** (each already exists in the PREVIEW's pass, `mermaid.hydrate.js`, which
+requires the same `shared/` modules the bake does): the slide's band, look and hand face read from the live section;
+portrait and per-pane reorientation; id isolation, sankey collapse and the figure's name; the overlong-label refusal and
+the per-diagram fallback; the motion roles; and a finish before every capture (the settle barrier). What the pass does
+NOT supply, and the slices must: the bake's figure markup (`.mermaid-svg`, `data-lattice-figure`, `data-mmd-idx`), which
+the player, the image-set look and `tools/check-diagram-labels.js` read; a re-draw of one figure in another band from
+Node (the image-set look); and `--html`'s bytes, which today exist before any page draws.
+
+**The slices.**
+
+1. **The locked page opens a module-loaded frame (done, this branch).** `lib/export/locked-figures.js` `openDrawPage`
+   serves Mermaid's ESM graph from its own origin: only the files the registry's integrity map names, each checked
+   against its SHA-256 before it is served (and again by the browser, through the import map); the frame's `failed`
+   reply is a failed open at once; the frame takes the export's size limit (`CLI_MAX_DRAW_CHARS`), as the inline frame
+   does. Evidence: test/integration/export/draw-frame.test.js `MODULES` draws a flowchart in the CLI's module frame
+   byte-identical to the inline (UMD) frame the same test file builds; a checker drew 14 diagram types there, each
+   loading its own lazy chunk, and saw a chunk left off the map refused. Equality with the PREVIEW's own module frame
+   (draw-host.ts `esmDocument`, sandboxed, with font folders) is **UNVERIFIED**: no test builds that document. No export bytes move: `hostDrawnKinds` still excludes a
+   module-loaded kind, so Mermaid still draws through its bake.
+2. **A capture-page driver for Mermaid's pass.** A bundle of the pass and its draw shim (`mermaid.draw-shim.mjs`)
+   driven by a small boot/run loop, with `window.__latticeExportDrawHost` standing where the preview's
+   `parent.__latticeDrawHost` stands; the export host finishes a Mermaid answer with `mermaid.draw-host.mjs` `finish` and
+   the diagram sanitizer (`draw.output: "svg-diagram"`), not the slide sanitizer it uses for function-plot today. The
+   readers of the bake's markup move onto the pass's (`.mermaid` beside the source `<pre>`), or the pass stamps the
+   same marker; `check-diagram-labels.js` moves with them.
+3. **`--html` and `--fluid` write the drawn page**, serialized after the settle barrier, instead of `cleanDocHtml`
+   written before any page loads; `--fluid` decides whether its runtime ships drawn figures or draws live.
+4. **The image-set look re-draws through the same host**: Node builds the look's theme with `buildDiagramTheme` and sends
+   one job per figure to the locked page; `REBAKES` goes.
+5. **Delete `bake`** (`mermaid.bake.js`, `host-bake.js`, `BAKE_SERVICES`, the schema's `bake`, `render.exec.bake`),
+   with the 43-deck PDF differential run on `main` and the branch in one sandbox, the speech/glossary maps checked for
+   the SVG text that leaves `rawMd`, and the owner's dark and light sign-off (Quality Bar: export bytes). Tier 3: the
+   adversarial trio on the shipped diff.
+
+Slices 2 to 5 move export bytes together (the figure's markup and its drawing page change at once), so they are one
+reviewable unit with one sign-off; slice 1 is the part that can bank alone. `followups.d/3052-p2-retire-mermaid-bake.md`
+carries them.

@@ -585,6 +585,53 @@ browser loads carries neither spine reader** (only the lint bundle does). The CS
   readers is the 5.1 KB (and 1.9 KB) above, on a metric already over its soft target. Either is a budget decision for
   the owner, not a security fix.
 
+## The raster exports' reader pill, measured (2026-11-06)
+
+`followups.d/3036-p3-raster-export-reader-pill-missing.md` (deleted with this change) reported that the Studio's images
+and PowerPoint exports of a clipped slide lost the reader pill: `docs/e2e/studio-raster-export-marker.spec.ts` failed
+both arms on every engine. **The exports were right and the spec's oracle was wrong**, the second outcome the follow-up's
+"done when" offered.
+
+- **The pill is in both pictures.** Pulled out of the real export zips (Chromium, `desktop`), the clipped slide's
+  2560×1440 picture has the "Content clipped" capsule at its bottom center in both the images and the PowerPoint export.
+- **The spec read a row under it.** `section > .marker-rail` (`lib/base/base.modifiers.css`) stands one spectrum-bar
+  width above the slide's bottom edge, so `check:edge-shift` holds it still under every `spectrum-edge:`. On the
+  2560×1440 picture the center column is non-white on rows 1400–1431, and the oracle read row 1437 (`height - 3`), the
+  white strip under the bar. On the PDF arm's 50 dpi page the bar is about a pixel, so the same `height - 3` landed in
+  the pill, which is why PDF and Print passed.
+- **The fix is a resolution-free sample.** The bar and the capsule are both sized in frame units, so the oracle now
+  reads 98.2% of the height: row 1414 of 1440 and row 265 of 270 (the images thumbnail, pill 261–268). Each arm also
+  reads the same pixel on the slide that fits and asserts it is not the pill, so the check fails if the sample point
+  drifts off the capsule or the capsule paints everywhere.
+- **Measured.** Before: `--project=desktop`, 2 failed (images, PowerPoint), 3 passed. After: 25 passed across
+  `desktop`, `mobile`, `webkit-phone`, `webkit-tablet` and `gecko`.
+
+## The command palette's late row, fixed (2026-11-06)
+
+`followups.d/3033-p3-palette-misses-a-row-added-while-open.md` (deleted with this change) was deferred as blocked:
+the stale list reproduced only in the built Studio and the cause was not found. **The cause is cmdk 1.1.1's value
+fallback.**
+
+- **The mechanism.** cmdk's `useValue` takes an item's value from the first string among `[value, children, ref]`.
+  `CommandPalette.tsx` passed no `value`, and each row's children are `[<Icon />, label]`, so cmdk read the row's
+  `textContent`. A row that does not match the current search renders `null`, so a row that MOUNTS while a search is
+  typed has no text, scores 0 against the search and stays `null`. A retype rescored it against the same empty value.
+  Only a cleared search, which renders every row, gave it text, which is why reopening worked. Read in the real Studio:
+  with the toolbar's Fix all enabled, the open palette's DOM held one `[cmdk-item]`, the lesson row.
+- **The fix.** Every `CommandItem` in the Actions, Layout, Switch deck and Theme groups names its `value`, set to the
+  text cmdk read before, so scoring and `data-value` are unchanged. The Learn group keeps its rows mounted for the same
+  reason (its own comment) and now points here.
+- **The guard, without a race (HARD RULE #32).** `docs/e2e/studio-palette-late-row.spec.ts` holds the lint core
+  (`esm/lint.js`) at the network, types a deck whose only fixable finding is lint-core's card rule (the Studio's
+  fallback count cannot add the row), opens the palette, filters to "Fix all", asserts the row is absent, releases the
+  lint core and waits for the row with the palette still open. Before the fix: 5 failed, at the final wait, in
+  `desktop`, `mobile`, `gecko`, `webkit-tablet` and `webkit-phone`. After: 5 passed.
+- **The workaround it retires.** `editor-lint.spec.ts` `runFixAllFromPalette` opened, looked, closed and retried to dodge
+  this. It now opens once and waits (10 passed with the new spec across the same five projects).
+- **On the path, fixed here.** `command-palette.spec.ts` "the open search collapses the row into one menu" failed on
+  `main` too: `getByRole('menuitem', { name: 'Present' })` also matched the newer "Present tour" item. It now matches
+  exactly, and the spec passes on `desktop` and `tablet`.
+
 ## Decisions for the owner
 
 All answered by the owner on 2026-11-03.

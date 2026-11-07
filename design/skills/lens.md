@@ -1,3 +1,10 @@
+---
+name: lens
+description: "Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it."
+kind: make
+studio: true
+---
+
 # Skill — Create a lens
 
 > Define a reader lens (Lente): a saved, author-approved *subset* of one deck's

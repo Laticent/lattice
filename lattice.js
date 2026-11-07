@@ -1601,8 +1601,8 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
   // viewer; we collapse it now to whichever side matches what the deck is
   // declared as. Dark variants (e.g. cuoio-dark.css) declare
   // `color-scheme: dark` at :root; everything else is treated as light.
-  // `forceDark` collapses to the dark branch regardless — used by the
-  // dual-render path to bake a second, dark-scheme SVG for section.dark slides.
+  // `forceDark` collapses to the dark branch regardless — the palette a
+  // diagram on a section.dark slide is drawn from (PALETTE_VARS_DARK).
   const isDark = forceDark || /:root\s*\{[^}]*color-scheme\s*:\s*dark\b/.test(stripped);
   // Resolve every declaration against the RAW map with the recursive
   // evaluator. Order-independent, unlike the former "collapse light-dark,
@@ -1662,14 +1662,13 @@ function paletteTokenReader(paletteVars, hand = false) {
 // defaults — matches the real browser cascade where `@import 'lattice'`
 // at the top of every theme loads lattice.css first.
 const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
-// Dual-render dark set: the SAME palette resolved to its DARK branch. Mermaid
-// bakes themeVariables to literal hex at render time (in the light scheme), so
-// a single bake can't flip on a `section.dark` slide — the documented dark-mode
-// gap. We bake a second SVG with dark-resolved vars and toggle the two by
-// color-scheme in CSS (see mermaid.css `.mmd-light/.mmd-dark`). This makes dark
-// diagrams correct natively, including Mermaid's own color-math derivations.
-// Toggle off with LATTICE_MERMAID_SINGLE=1 to fall back to the single (light)
-// bake + the per-diagram CSS overrides.
+// The dark set: the SAME palette resolved to its DARK branch. Mermaid bakes
+// themeVariables to literal hex, so a diagram on a `section.dark` slide is drawn
+// ONCE, from these dark-resolved vars, in its own slide's band (no SVG pair and
+// no CSS toggle: that design is gone, and no output recolors a diagram at view
+// time; engineering/decisions/2026-11-06-plugin-patterns.md §10). This keeps
+// Mermaid's own color-math derivations right on dark slides.
+// LATTICE_MERMAID_SINGLE=1 draws dark slides from the light vars instead.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
 // Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
@@ -1700,8 +1699,7 @@ const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
 // kernel builds one palette per band the deck ACTUALLY uses, on first use.
 function paletteVarsForBand(band) {
   if (band === 'print') return PALETTE_VARS_PRINT;
-  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light bake — the
-  // documented fallback to the per-diagram CSS overrides. It has to live in the
+  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light palette. It has to live in the
   // READER, not at the call site, or the two ways of asking for a dark palette
   // (this preprocess pass and the image-set look re-bake) could answer differently.
   if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;
@@ -1978,7 +1976,7 @@ const bakeServices = {
   paletteReader: paletteTokenReader,
   fileConfine: DECK_CONFINE,
 };
-const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, ...PLUGIN_HOST });
+const { source: preGlossaryMd, contexts: BAKE_CONTEXTS } = bakeDeck(mdForBake, bakeServices, { strict: true, authorSource: mdRaw, ...PLUGIN_HOST });
 // Every bake's RE-BAKE HOOK (`ctx.state.rebake`, lib/plugins/host-bake.js) — what the image-set
 // cross-scheme look re-renders from, read without naming a plugin. Empty when no bake that
 // publishes one ran, and then the page carries none of their figures either.
@@ -2249,6 +2247,8 @@ const logoWallPack       = require('./lib/core/logo-wall-pack');
 // this replaced did not: a `<section` quoted inside a comment or a <style> moved
 // its depth counter, the walk found zero slides, and the export shipped a
 // one-page PDF with exit code 0.
+const { isHiddenSection } = require('./lib/core/hidden-slides.js');
+
 function topLevelSectionStrings(latticeHtml) {
   return splitSections(latticeHtml)
     .filter((p) => p.type === 'section')
@@ -2377,7 +2377,12 @@ function engineSlides(deckSource = rawMd) {
     }
   }
   const imageScrim = require('./lib/transformers/image-scrim');
-  return topLevelSectionStrings(html).map((sec, i) => {
+  // HIDDEN SLIDES leave every export here, at the one list every format reads (engineering/decisions/
+  // 2026-11-06-hidden-slides.md). Notes, alt text and the slide index are all read off THIS list, so they stay
+  // with their own slides; the engine has already numbered the shown slides 1..N without the hidden ones.
+  const all = topLevelSectionStrings(html);
+  const shown = all.filter((sec) => !isHiddenSection(sec));
+  const out = shown.map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
     // engine's basic-mode render doesn't: wrap half-canvas prose in
     // `.image-text`, and inject the contrast scrim for full/contain image
@@ -2406,6 +2411,13 @@ function engineSlides(deckSource = rawMd) {
     }
     return s;
   });
+  // The hidden sections, kept beside the list rather than in it: `--strip-notes` must find THEIR notes too, or a
+  // hidden slide's note rides into the shipped source (the checker's finding). Never exported.
+  out.hiddenSections = all.filter((sec) => isHiddenSection(sec));
+  // The authored position of each shown section among ALL sections, for anything keyed by slide number
+  // (front-matter `say:`), which counts hidden slides.
+  out.sectionIndex = all.map((sec, i) => (isHiddenSection(sec) ? -1 : i)).filter((i) => i >= 0);
+  return out;
 }
 
 // PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
@@ -2441,7 +2453,7 @@ const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
 // blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+const noteStripSet = STRIP_NOTES ? new Set([...slidesAsAuthored, ...(slidesAsAuthored.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
 // PASS 2 — A PRIVACY STRIP SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
 // of the authored source. Blanking the note copies after the fact left the comment's own
 // whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
@@ -2593,6 +2605,11 @@ function attachmentCut() {
   }));
 }
 const slides = STRIP_NOTES || STRIP_SAY ? strippedSlidesOrAuthored() : slidesAsAuthored;
+// EVERY SLIDE HIDDEN: there is nothing to export, and the writers below would ship an empty file with exit 0.
+if (!slides.length && slidesAsAuthored.hiddenSections?.length) {
+  console.error(`error: every slide in this deck is hidden (\`<!-- hide -->\`), so there is nothing to export. Show at least one slide.`);
+  process.exit(1);
+}
 const slideNotes = notesCore.extractSlideNotes(slides);
 // Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
@@ -2890,12 +2907,22 @@ const pluginHydrateScript = hasHydratedPlugins
 // THE CAPTURE PAGE DRAWS NO PLUGIN LIBRARY THE LOCKED PAGE CAN DRAW FOR IT (owner decisions 14 and 16; threat-model
 // note 2026-10-16 §6 rows 3 and 4). The `.html` file keeps function-plot's library and its zoom (decision 16). The page
 // every capture reads (PDF, PNG, PPTX, `--player`, `--read`) is served a copy without it: its placeholders wait, and
-// `awaitPluginFigures` draws them in the locked page (lib/export/locked-figures.js).
-const HOST_DRAWN = pagePlugins.filter((h) => h.name === 'function-plot').map((h) => h.name);
+// the CLI's draw host draws them in a locked page, through the path a preview uses (lib/export/locked-figures.js).
+// The plugins the CLI's draw host draws (lib/export/locked-figures.js): those whose manifest declares a draw frame with an
+// inlined library. From the registry, never by name (engineering/decisions/2026-11-06-plugin-patterns.md §4).
+const HOST_DRAWN = require('./lib/export/locked-figures.js').hostDrawnKinds(pagePlugins);
+// HOW LONG A HOST-DRAWN FIGURE MAY TAKE: as long as the render watchdog allows, as before D2, when the CLI drew these in
+// Node bounded only by the watchdog. A plugin's own budget is a preview's, per figure, and the figures here queue on one
+// locked page (the HARD RULE #25 red team: a slow plot exported as source). The settle barrier waits HOST_DRAW_SETTLE_MS
+// and warns for what it closes. Each figure's own timer starts at hydrate, which can be seconds before the barrier
+// starts (load, fonts, deferred media), so it is set past the whole WATCHDOG and can never close a figure first, in
+// silence (the checker on the trio's fixes). A figure that never draws costs one barrier, up to the watchdog less 10 s.
+// Read from the environment here, because RENDER_WATCHDOG_MS (below) is not yet defined when this runs.
+const HOST_DRAW_SETTLE_MS = Math.max(settleBudget(pagePlugins), (Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000) - 10000);
 const capturePageHydrateScript = HOST_DRAWN.length
   ? [
       ...pagePlugins.filter((h) => !HOST_DRAWN.includes(h.name)).map((h) => payloadScript(h, ENGINE_SCRIPT_OPEN)).filter(Boolean),
-      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN })}\n</script>`,
+      `${ENGINE_SCRIPT_OPEN}\n${hydrateScript(pagePlugins, { hostDrawn: HOST_DRAWN, hostDrawnBudgetMs: (Number(process.env.LATTICE_RENDER_WATCHDOG_MS) || 90000) + 5000 })}\n</script>`,
     ].join('\n')
   : '';
 /** The capture page's copy of a document written to `outHtml`: the same, with the host-drawn plugins' libraries out. */
@@ -3005,7 +3032,14 @@ const { parseFrontMatter: parseFm } = require('./lib/engine/directives');
 const { directives: deckFm, body: deckBody } = parseFm(rawMd);
 const cleanTitle = (t) => String(t == null ? '' : t).replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
 const deckLang = (String(deckFm.lang || '').match(/^[A-Za-z][\w-]*/) || ['en'])[0];
-const firstHeading = (deckBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+// The first heading of the first SHOWN slide: a hidden slide is in no export, so it names none (the second checker's
+// finding — a hidden title slide named the player's <title> and the PDF's metadata).
+const shownBody = (() => {
+  const { splitSlideChunks } = require('./lib/core/slide-boundaries.mjs');
+  const { slideSourceHidden } = require('./lib/diagnostics/slice-equivalence-core.mjs');
+  return splitSlideChunks(deckBody).chunks.filter((c) => !slideSourceHidden(c)).join('\n\n');
+})();
+const firstHeading = (shownBody.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
 const deckTitle =
   cleanTitle(deckFm.title) ||
   cleanTitle(firstHeading) ||
@@ -3441,11 +3475,12 @@ async function renderExport({ hardened }) {
 }
 
 async function renderBody(browser, g, closeBrowser) {
-  // function-plot's locked page and its sanitizer, made ready WHILE the capture page loads (lib/export/locked-figures.js
-  // `openPlotter`), so the draw below pays almost nothing for its setup. Settled into `{ plotter }` or `{ error }`, never
-  // left to reject unobserved.
-  const plotterReady = HOST_DRAWN.includes('function-plot')
-    ? require('./lib/export/locked-figures.js').openPlotter(browser).then((plotter) => ({ plotter }), (error) => ({ error }))
+  // THE CLI'S DRAW HOST: one locked page per host-drawn plugin, opened WHILE the capture page loads, so a figure's draw
+  // pays almost nothing for its setup (lib/export/locked-figures.js `openExportDrawHost`). A page that cannot open is
+  // reported once, and its figures export showing their source.
+  const lockedFigures = HOST_DRAWN.length ? require('./lib/export/locked-figures.js') : null;
+  const exportDrawHost = lockedFigures
+    ? lockedFigures.openExportDrawHost(browser, HOST_DRAWN, { warn: QUIET ? undefined : (m) => console.warn(`  ⚠ ${m}`) })
     : null;
   const page = await g(() => browser.newPage(), 'new page');
   // LOCAL FILES stay inside the deck. The page loads the deck's pictures as `file://` addresses, and Chromium
@@ -3492,6 +3527,13 @@ async function renderBody(browser, g, closeBrowser) {
   // race instead of finding a hole in the PDF. See lib/core/author-deferral-probe.js
   // and engineering/decisions/2026-08-16-render-format-cost-assessment.md §2a-ter.
   await g(() => page.evaluateOnNewDocument(INSTALL_AUTHOR_DEFERRAL_PROBE_SRC), 'install author-deferral probe');
+  // The capture page's draw host, ahead of the page's own scripts and on every re-navigation: the sanitizer the draws are
+  // written through, then `window.__latticeExportDrawHost`, whose draws reach the locked pages through one exposed function.
+  if (exportDrawHost) {
+    await g(() => page.exposeFunction(lockedFigures.DRAW_FN, (job, ratio) => exportDrawHost.call(job, ratio)), 'expose the draw host');
+    await g(() => page.evaluateOnNewDocument(lockedFigures.SANITIZER()), 'install the drawing sanitizer');
+    await g(() => page.evaluateOnNewDocument(lockedFigures.exportDrawHostScript(HOST_DRAWN)), 'install the draw host');
+  }
   // Set viewport to slide dimensions so section's own cqi properties (padding,
   // border-top) resolve against the correct ICB in screen mode.  Without this,
   // Puppeteer's default 800×600 viewport causes section's cqi fallback to
@@ -3597,47 +3639,13 @@ async function renderBody(browser, g, closeBrowser) {
   // TIMING: function-plot's inflater was synchronous and ran before `load`, so the navigation wait
   // covered it — true of that one library, and of nothing the plugin contract promises. A plugin
   // that stays pending past the budget is closed with its source shown, and said so.
-  // The figures the HOST draws (HOST_DRAWN): read from this page, drawn in a locked page in a fresh context of THIS
-  // browser (no second browser: one per export), sanitized, written back and settled, before the barrier below waits on
-  // what is left. Remembered by the page's whole list of plots, so a re-navigation that shows the same ones (auto-split,
-  // rails) draws them once.
-  const hostDrawnMemo = new Map();
-  const drawHostFigures = async (label) => {
-    if (!HOST_DRAWN.includes('function-plot')) return;
-    const fpLocked = require('./lib/export/locked-figures.js');
-    const plots = await g(() => page.evaluate(fpLocked.READ), `read function plots${label}`);
-    if (!plots.some((p) => p.pending)) return;
-    const deviceScaleFactor = await g(() => page.evaluate(() => window.devicePixelRatio), `read pixel ratio${label}`);
-    const key = JSON.stringify([deviceScaleFactor, plots.map(({ config, w, h }) => [config, w, h])]);
-    let drawn = hostDrawnMemo.get(key);
-    if (!drawn) {
-      try {
-        drawn = await g(async () => {
-          const ready = await plotterReady;
-          if (ready.error) throw ready.error;
-          return ready.plotter.draw(plots, { deviceScaleFactor });
-        }, `draw function plots${label}`);
-        hostDrawnMemo.set(key, drawn);
-      } catch (e) {
-        // Released at once with their source showing, as the in-page host releases a plot whose library is missing,
-        // rather than left for the barrier to close at the end of its budget (the checker).
-        if (!QUIET) console.warn(`  ⚠ function-plot: the locked page could not draw the plots (${String(e?.message ?? e).split('\n')[0]}) — they export showing their source.`);
-        const { releaseFigure } = require('./lib/plugins/host-browser.mjs');
-        const { fromBase64 } = require('./lib/core/base64-utf8');
-        await g(() => page.evaluate(`(() => { const releaseFigure = ${releaseFigure.toString()}; const fromBase64 = ${fromBase64.toString()};
-          for (const el of document.querySelectorAll('[data-lattice-hydrate="function-plot"][data-lattice-settle="pending"]:not([data-lattice-final])')) releaseFigure(el, fromBase64, true); })()`), `release function plots${label}`);
-        return;
-      }
-    }
-    await g(() => page.evaluate(fpLocked.SANITIZER()), `sanitizer for function plots${label}`);
-    await g(() => page.evaluate(fpLocked.WRITE, drawn), `write function plots${label}`);
-  };
   const awaitPluginFigures = async (label) => {
     if (!hasHydratedPlugins) return;
-    await drawHostFigures(label);
-    const closed = await g(() => page.evaluate(settleBarrierScript(settleBudget(pagePlugins))), `settle plugin figures${label}`);
+    // A host-drawn figure is drawing already, through the page's draw host (installed above); the barrier waits for it.
+    const budget = HOST_DRAWN.length ? HOST_DRAW_SETTLE_MS : settleBudget(pagePlugins);
+    const closed = await g(() => page.evaluate(settleBarrierScript(budget)), `settle plugin figures${label}`);
     if (closed && !QUIET) {
-      console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${settleBudget(pagePlugins)}ms — exported showing their source.`);
+      console.warn(`  ⚠ ${closed} plugin figure(s) did not draw within ${budget}ms — exported showing their source.`);
     }
   };
 
@@ -6597,7 +6605,12 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
       // bake never touches (and withoutFences-blank any fence anyway), so they're byte-identical
       // on this input; only narrateDiagram needs the fence. See
       // 2026-07-13-mermaid-diagram-narration.md §8 (Axis B1, trio-verified).
-      const blocks = splitSourceToSections(appendAutoGlossary(md));
+      // A HIDDEN slide is in the source but not in the export: keep only the shown slides' blocks, in order, so block i
+      // is exported section i (`engineSlides`' `sectionIndex`). Without this every deck with a hidden slide lost its
+      // chart narration (the counts differed) — the checker's finding.
+      const allBlocks = splitSourceToSections(appendAutoGlossary(md));
+      const shownAt = slides.sectionIndex;
+      const blocks = shownAt && slides.hiddenSections?.length && allBlocks.length === shownAt.length + slides.hiddenSections.length ? shownAt.map((k) => allBlocks[k]) : allBlocks;
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for
@@ -6650,16 +6663,21 @@ async function resolveReadAlong(slideCount, sayLines = [], script = []) {
   };
   let fmForMerge = fmSayMap;
   if (fmSayMap?.size) {
-    const origin = pageOrigin();
+    // `say:` is keyed by AUTHORED slide number, which counts hidden slides; the pages count only shown ones. Map each
+    // page's shown-slide number back through `sectionIndex` (identity when nothing is hidden).
+    const shownAt = slides.sectionIndex;
+    const origin = pageOrigin().map((n) => (shownAt && shownAt[n - 1] !== undefined ? shownAt[n - 1] + 1 : n));
     // Only rebuild when the split actually moved something; an unsplit deck keeps the
     // authored map byte-for-byte, so a deck that never paginates is unaffected.
-    if (origin.length && origin[origin.length - 1] !== origin.length) {
+    // ANY page whose authored slide is not its own position needs the remap. Testing only the LAST page missed a deck
+    // where a split adds exactly the pages hidden slides remove (the second checker's finding).
+    if (origin.some((a, i) => a !== i + 1)) {
       const remapped = new Map();
       origin.forEach((authored, i) => {
         if (fmSayMap.has(authored)) remapped.set(i + 1, fmSayMap.get(authored));
       });
       fmForMerge = remapped;
-      if (!QUIET) console.log(`Captions: front-matter say: map remapped across the split — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
+      if (!QUIET) console.log(`Captions: front-matter say: map remapped across split or hidden slides — ${remapped.size} page(s) keyed from ${fmSayMap.size} authored slide(s)`);
     }
   }
   // `--strip-say` blanks the author's say OVERRIDES (inline + front-matter), so those

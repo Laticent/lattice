@@ -75,7 +75,11 @@ export function ensureEngine(url: string): Promise<void> {
 		let attempts = 0;
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS — bound the poll so a script that
 		// loads but never sets the global can't spin forever.
+		let t: ReturnType<typeof setInterval> | undefined;
 		const fail = (msg: string) => {
+			// Stop polling too: a poll left running after a load error rejected outlived it by ~10 s, and on timing out
+			// deleted the loader of a later retry (the twin of ensure-katex.ts's leak, PR #3070).
+			clearInterval(t);
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
@@ -106,7 +110,7 @@ export function ensureEngine(url: string): Promise<void> {
 		}
 
 		if (finish()) return;
-		const t = setInterval(() => {
+		t = setInterval(() => {
 			if (finish()) {
 				clearInterval(t);
 				return;

@@ -4,7 +4,7 @@
 // never startup JavaScript. See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
-import { measureDeckFit } from './export/deck-export.js';
+import { measureDeckFit, rasterizeSlidePreview } from './export/deck-export.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /** `undrawn`: a diagram on the slide had not drawn when it was measured, so its fit is unknown.
@@ -37,6 +37,24 @@ export async function measureDraftFit(options: SingleSlideOptions, draft: string
 		return out ?? undefined;
 	} catch {
 		return undefined;
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/** One slide of a DRAFT as a small JPEG, rendered the way export draws it: the chat's `render_slide`.
+ *  `slide` is 1-based. Resolves null on a timeout or a failed render; `sections` is how many
+ *  slides the render drew (more than the source's when the deck splits slides). */
+export async function renderDraftSlide(options: SingleSlideOptions, draft: string, palette: string, mode: 'light' | 'dark', slide: number, extra?: ExtraTheme, extraCss?: string): Promise<{ url: string | null; sections: number } | null> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const late = new Promise<null>((res) => {
+		timer = setTimeout(() => res(null), DRAFT_FIT_TIMEOUT_MS);
+	});
+	try {
+		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss).then((r) => rasterizeSlidePreview(r, slide - 1) as Promise<{ url: string | null; sections: number }>);
+		return await Promise.race([run, late]);
+	} catch {
+		return null;
 	} finally {
 		clearTimeout(timer);
 	}

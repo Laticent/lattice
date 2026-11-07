@@ -41,13 +41,23 @@ async function writeDeck(page: import('@playwright/test').Page, md: string): Pro
 
 const isAuthorRed = ([r, g, b]: [number, number, number]) => r > 180 && g < 100 && b < 80;
 
-/** The bottom-center pixel: the reader pill ("Content clipped") is painted there, so a clipped slide is not white. A positive control: without it a deck that fits would pass the checks below for any reason. */
+/**
+ * A pixel inside the reader pill ("Content clipped"), at the slide's horizontal center. A positive control: without it a
+ * deck that fits would pass the ring checks for any reason; `the fitting slide has no pill` below is its negative twin.
+ *
+ * WHY A FRACTION OF THE HEIGHT, NOT A FIXED ROW (engineering/decisions/2026-11-03-security-findings-spine.md §The raster exports' reader pill). The pill's rail stands one spectrum-bar width above
+ * the slide's bottom edge (`section > .marker-rail` in lib/base/base.modifiers.css), and both the bar and the capsule are
+ * sized in frame units, so the pill scales with the picture. This oracle read `height - 3`: inside the pill on a 50 dpi
+ * PDF page, but on the 2560×1440 images and PowerPoint pictures the pill spans rows 1400–1431 and row 1437 is the white
+ * strip under the bar. 98.2% of the height is mid-capsule at every size measured: 1414 of 1440 (pill 1400–1431) and
+ * 265 of 270 (pill 261–268, the images thumbnail).
+ */
 async function bottomCenter(page: import('@playwright/test').Page, png: Buffer): Promise<[number, number, number]> {
 	return page.evaluate(async (b64) => {
 		const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
 		const ctx = (new OffscreenCanvas(bmp.width, bmp.height).getContext('2d')) as OffscreenCanvasRenderingContext2D;
 		ctx.drawImage(bmp, 0, 0);
-		const d = ctx.getImageData(Math.floor(bmp.width / 2), bmp.height - 3, 1, 1).data;
+		const d = ctx.getImageData(Math.floor(bmp.width / 2), Math.floor(bmp.height * 0.982), 1, 1).data;
 		return [d[0], d[1], d[2]] as [number, number, number];
 	}, png.toString('base64'));
 }
@@ -71,6 +81,8 @@ test('the Studio images export shows no authoring ring on a clipped slide @cross
 	const px = await leftEdge(page, Buffer.from(await zip.files[slide].async('uint8array')));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
 	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[slide].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
+	const fits = Object.keys(zip.files).filter((n) => /slides\/.*-01\.png$/.test(n))[0];
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[fits].async('uint8array')))), 'the fitting slide has no pill').toBe(false);
 });
 
 test('the Studio PowerPoint export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
@@ -81,6 +93,8 @@ test('the Studio PowerPoint export shows no authoring ring on a clipped slide @c
 	const px = await leftEdge(page, Buffer.from(await zip.files[media].async('uint8array')));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
 	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[media].async('uint8array')))), 'the clipped slide carries the reader pill').toBe(true);
+	const fits = Object.keys(zip.files).filter((n) => /^ppt\/media\/image-1-.*\.png$/.test(n))[0];
+	expect(isPill(await bottomCenter(page, Buffer.from(await zip.files[fits].async('uint8array')))), 'the fitting slide has no pill').toBe(false);
 });
 
 test('the Studio PDF export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
@@ -98,6 +112,11 @@ test('the Studio PDF export shows no authoring ring on a clipped slide @crosswid
 	const px = await leftEdge(page, fs.readFileSync(path.join(dir, png as string)));
 	expect(isAuthorRed(px), `left edge ${px} is the author ring`).toBe(false);
 	expect(isPill(await bottomCenter(page, fs.readFileSync(path.join(dir, png as string)))), 'the clipped slide carries the reader pill').toBe(true);
+	const fitsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-pdf-marker-'));
+	execFileSync('pdftoppm', ['-r', '50', '-f', '1', '-l', '1', '-png', file, path.join(fitsDir, 'page')]);
+	const fits = fs.readdirSync(fitsDir).find((n) => n.endsWith('.png'));
+	expect(fits, 'pdftoppm wrote page 1').toBeTruthy();
+	expect(isPill(await bottomCenter(page, fs.readFileSync(path.join(fitsDir, fits as string)))), 'the fitting slide has no pill').toBe(false);
 });
 
 // The Print panel builds its own sheet PDF from the same capture frame (PrintOptionsPanel.tsx), so it owes the same level.

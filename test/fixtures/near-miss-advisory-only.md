@@ -9,8 +9,10 @@ theme: indaco
  * FRAME_TOLERANCE (12) so no other warning line prints. The overshoot is EMPTY SPACE,
  * not text, which is deliberate — it keeps `probeContentClipped` at cut:false so the
  * `CONTENT CLIPPED` warning line stays silent too. What is left in the buffer is the
- * advisory and nothing else, which is the shape this fixture exists to produce. */
-section[data-lattice-slide="2"] .cell-stage > ul { min-height: 430px; }
+ * advisory and nothing else, which is the shape this fixture exists to produce.
+ * Slide 2 is found by its class, not `section[data-lattice-slide="2"]`: author raw HTML may not
+ * name that attribute (lib/core/reserved-attrs.mjs renames it, inside a <style> too). */
+section.near-miss-fixture .cell-stage > ul { min-height: 430px; }
 </style>
 
 <!-- _class: title silent -->
@@ -19,7 +21,7 @@ section[data-lattice-slide="2"] .cell-stage > ul { min-height: 430px; }
 
 ---
 
-<!-- _class: content -->
+<!-- _class: content near-miss-fixture -->
 
 ## One list, padded past its stage by empty space.
 

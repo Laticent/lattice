@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readOpenRouterKey } from '@/lib/openrouter-key.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { saveOpenRouterKey } from './api-key';
+import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -249,6 +251,23 @@ describe('cloudBudgetBlock — a picture on a model with its own image price', (
 			expect(await cloudBudgetBlock(modelAt(9), '', flatTokens, 0, pictureSurchargeUsd(price, [{ count: 5, tokens: 800 }]))).toMatch(/exceed your \$0\.02 cap/);
 			// A model with no image price is unchanged by the new argument.
 			expect(await cloudBudgetBlock(modelAt(null), '', flatTokens, 0, pictureSurchargeUsd({ promptPerM: 3, imagePerM: null }, [{ count: 5, tokens: 800 }]))).toBeNull();
+		} finally {
+			setBudget(null, 'alert');
+		}
+	});
+});
+
+describe('cloudBudgetBlock — a direct provider key with no price fails closed', () => {
+	// A direct key has no server-side cap and no per-call cost in its reply: an unpriced model would be
+	// recorded as $0 and never trip the cap (inversion pass on the direct keys, 2026-11-06).
+	const unpriced = (provider: string) => ({ activeProvider: () => provider, openRouterModelPrice: () => null, listOpenRouterModels: async () => [] }) as unknown as Parameters<typeof cloudBudgetBlock>[0];
+	it('refuses under a hard-stop cap on a direct key, and leaves OpenRouter and Warn mode as they were', async () => {
+		setBudget(5, 'stop');
+		try {
+			expect(await cloudBudgetBlock(unpriced('anthropic'), 'hello')).toMatch(/no price we can look up/);
+			expect(await cloudBudgetBlock(unpriced('openrouter'), 'hello')).toBeNull();
+			setBudget(5, 'alert');
+			expect(await cloudBudgetBlock(unpriced('anthropic'), 'hello')).toBeNull();
 		} finally {
 			setBudget(null, 'alert');
 		}
@@ -813,5 +832,217 @@ describe('applyProposedEditsChecked — blocks and slides are different units', 
 		const run = applyProposedEditsChecked(DECK, [prop({ action: 'insert', slide: 1, body: '## A\n\n---\n\n## B' }), prop({ action: 'replace', slide: 99, body: '## Ghost' })]);
 		expect(run.applied + run.refusals.length).toBe(2); // two blocks proposed, two accounted for
 		expect(run.slides).toBe(2);
+	});
+});
+
+// P1 of the Studio BYOK hardening: the theme and component faculties used to floor every
+// model failure into an empty reply, so a 402 (out of credits) read as "the model returned
+// no usable palette" or, through the catch, "No model connected". They now opt in to
+// `surfaceErrors` and name the cause with the chat's own `describeModelError`.
+describe('theme + component AI — a failed model call names its cause', () => {
+	// Named 'openrouter': surfaceErrors only lifts CLOUD failures (an on-device one still floors).
+	const throwing = (message: string, name = 'openrouter') => ({
+		name,
+		async complete() { throw new Error(message); },
+		async embed() { return null; },
+	});
+	async function withThrow(message: string, run: () => Promise<void>, name?: string) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(throwing(message, name));
+		try { await run(); } finally { m.__setBackend(null); }
+	}
+	const CASES: [string, string, RegExp][] = [
+		['401', 'OpenRouter error 401: {"error":{"message":"User not found.","code":401}}', /reconnect in Workspace/],
+		['402', 'OpenRouter error 402: {"error":{"message":"Insufficient credits","code":402}}', /out of credits/],
+		['429', 'OpenRouter error 429: {"error":{"message":"Rate limit exceeded","code":429}}', /rate-limiting/],
+		['offline', 'TypeError: Failed to fetch', /never reached OpenRouter/],
+	];
+	const current = {
+		name: 'card', description: 'A card.', function: 'inventory', form: 'panel', substance: 'structure', bucket: 'inventory',
+		tags: [], adapt: { mode: 'native' }, capacity: null, density: null, css: 'section.card {}', skeleton: '<!-- _class: card -->',
+	};
+	for (const [label, message, expected] of CASES) {
+		it(`a ${label} reaches generateTheme, generateComponent and refineComponent as its own sentence`, async () => {
+			await withThrow(message, async () => {
+				const theme = await generateTheme({}, 'deep navy');
+				const comp = await generateComponent('a grid of cards', []);
+				const refine = await refineComponent('bolder', current as never);
+				for (const out of [theme, comp, refine]) {
+					expect(out.status).toBe('failed');
+					if (out.status !== 'failed') return;
+					expect(out.note).toMatch(expected);
+					expect(out.note).not.toMatch(/No model connected/);
+				}
+			});
+		});
+	}
+	it('an on-device failure still floors — it is not worded as an OpenRouter error', async () => {
+		await withThrow(
+			'TypeError: Failed to fetch',
+			async () => {
+				const out = await generateTheme({}, 'deep navy');
+				expect(out.status).not.toBe('failed');
+			},
+			'webllm',
+		);
+	});
+	it('the four failures produce four different sentences', async () => {
+		const notes = new Set<string>();
+		for (const [, message] of CASES) {
+			await withThrow(message, async () => {
+				const out = await generateTheme({}, 'deep navy');
+				if (out.status === 'failed') notes.add(out.note.replace(/ \(OpenRouter said:.*$/, ''));
+			});
+		}
+		expect(notes.size).toBe(4);
+	});
+});
+
+// P2 of the Studio BYOK hardening: a failed OAuth return used to return `false`, which the
+// Studio treated exactly like "nothing to resume" — Connect appeared to do nothing, and the
+// dead PKCE verifier stayed behind to make every later load look like a pending sign-in.
+describe('resumePendingAuth — a failed OAuth return says so', () => {
+	const VERIFIER = 'lattice-db-or-verifier';
+	const KEY = 'lattice-db-or-key';
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		localStorage.removeItem(VERIFIER);
+		localStorage.removeItem(KEY);
+		history.replaceState(null, '', '/');
+	});
+	it('a 400 from the key exchange reports failed, clears the verifier and scrubs the code', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=dead-code&deck=d1');
+		vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":{"message":"Invalid code"}}', { status: 400 })));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		if (out.status === 'failed') expect(out.note).toMatch(/did not connect \(error 400\)/);
+		expect(localStorage.getItem(VERIFIER)).toBeNull();
+		expect(localStorage.getItem(KEY)).toBeNull();
+		expect(location.search).toBe('?deck=d1');
+	});
+	it('a cancelled sign-in (`?error=`) reports failed and clears the verifier', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?error=access_denied');
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		expect(localStorage.getItem(VERIFIER)).toBeNull();
+	});
+	it('a good exchange stores the key and reports connected', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=good');
+		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/keys') ? new Response('{"key":"sk-or-test"}', { status: 200 }) : new Response('{"data":[]}', { status: 200 }))));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('connected');
+		// Stored sealed (or, with no IndexedDB here, in memory only): read it through its module.
+		expect(readOpenRouterKey()).toBe('sk-or-test');
+		expect(localStorage.getItem(KEY)).not.toBe('sk-or-test');
+		localStorage.removeItem(KEY);
+	});
+	it('a network failure keeps the verifier and the code, so a reload can finish the sign-in', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=unspent');
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+		const out = await resumePendingAuth();
+		expect(out.status).toBe('failed');
+		if (out.status === 'failed') expect(out.retry).toBe('reload');
+		expect(localStorage.getItem(VERIFIER)).toBe('pkce-verifier');
+		expect(location.search).toBe('?code=unspent');
+	});
+	it('two concurrent calls (StrictMode double effect) exchange the code once', async () => {
+		localStorage.setItem(VERIFIER, 'pkce-verifier');
+		history.replaceState(null, '', '/studio/?code=once');
+		const fetchSpy = vi.fn(async (url: string) => (String(url).includes('/auth/keys') ? new Response('{"key":"sk-or-once"}', { status: 200 }) : new Response('{"data":[]}', { status: 200 })));
+		vi.stubGlobal('fetch', fetchSpy);
+		const [a, b] = await Promise.all([resumePendingAuth(), resumePendingAuth()]);
+		expect(a.status).toBe('connected');
+		expect(b.status).toBe('connected');
+		expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes('/auth/keys'))).toHaveLength(1);
+	});
+	it('no pending sign-in is a no-op', async () => {
+		history.replaceState(null, '', '/studio/?code=stray');
+		expect((await resumePendingAuth()).status).toBe('none');
+	});
+});
+
+// Found by the P6 live run (2026-11-06): `generateFinish` asks for `json: true`, the adapter hands
+// back the PARSED object, and `parseFinishReply` read only strings — so "[object Object]" never
+// parsed and every real cloud reply came back "no usable finish recipe". The finish unit tests fed
+// strings to a mocked model and could not see it. This drives the REAL adapter with a backend that
+// answers the way OpenRouter does: a JSON string.
+describe('generateFinish — a real JSON reply survives the adapter', () => {
+	const REPLY = '{"name":"blueprint-calm","wash":{"type":"corner-glow","intensity":8},"texture":{"type":"grid","intensity":5,"scale":24},"mark":{"type":"none","placement":"top-left"},"edge":{"type":"none","intensity":3}}';
+	async function withBackend(b: unknown, run: () => Promise<void>) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(b);
+		try { await run(); } finally { m.__setBackend(null); }
+	}
+	it('parses the recipe the adapter already parsed', async () => {
+		await withBackend({ name: 'mock', async complete() { return REPLY; }, async embed() { return null; } }, async () => {
+			const out = await generateFinish('a calm blueprint grid with a soft corner glow');
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.recipe.texture.type).toBe('grid');
+			expect(out.name).toBe('blueprint-calm');
+		});
+	});
+	it('a 402 names the empty wallet, like the theme and component faculties', async () => {
+		await withBackend({ name: 'openrouter', async complete() { throw new Error('OpenRouter error 402: {"error":{"message":"Insufficient credits"}}'); }, async embed() { return null; } }, async () => {
+			const out = await generateFinish('anything');
+			expect(out.status).toBe('failed');
+			if (out.status === 'failed') expect(out.note).toMatch(/out of credits/);
+		});
+	});
+});
+
+// Workspace → AI → API key: a PASTED OpenRouter key is checked with /auth/key before it is stored,
+// so a typo or a revoked key is refused at the door instead of on the first paid request.
+describe('saveOpenRouterKey — a pasted key is checked before it is stored', () => {
+	const KEY = 'lattice-db-or-key';
+	const REJECTED = 'lattice-db-or-key-invalid';
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		localStorage.removeItem(KEY);
+		localStorage.removeItem(REJECTED);
+	});
+	const answering = (status: number) => vi.fn(async (_url: string, _init?: RequestInit) => new Response(status === 200 ? '{"data":{}}' : '{}', { status }));
+	it('refuses a key that is not an OpenRouter key, without a request', async () => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		const out = await saveOpenRouterKey('sk-proj-openai-key');
+		expect(out.ok).toBe(false);
+		// An OpenAI-shaped key is named as one, so the author knows which tab it belongs on.
+		if (!out.ok) expect(out.note).toMatch(/looks like an OpenAI key/);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+	it('a 401 is refused, and a key already stored stays exactly as it was (Replace → refused)', async () => {
+		localStorage.setItem(KEY, 'sk-or-v1-working');
+		vi.stubGlobal('fetch', answering(401));
+		const out = await saveOpenRouterKey('sk-or-v1-revoked');
+		expect(out.ok).toBe(false);
+		if (!out.ok) expect(out.note).toMatch(/rejected this key/);
+		expect(localStorage.getItem(KEY)).toBe('sk-or-v1-working');
+	});
+	it('no network is refused with its own sentence', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+		const out = await saveOpenRouterKey('sk-or-v1-good');
+		expect(out.ok).toBe(false);
+		if (!out.ok) expect(out.note).toMatch(/Could not reach OpenRouter/);
+	});
+	it('a 200 stores the cleaned key, asked of /auth/key with that key, and clears a stale rejected mark', async () => {
+		localStorage.setItem(KEY, 'sk-or-v1-old');
+		localStorage.setItem(REJECTED, '1');
+		const fetchSpy = answering(200);
+		vi.stubGlobal('fetch', fetchSpy);
+		// A line break and a zero-width space, as a copy from a chat or a PDF can carry.
+		const out = await saveOpenRouterKey('  sk-or-v1-go\nod\u200B  ');
+		expect(out.ok).toBe(true);
+		expect(readOpenRouterKey()).toBe('sk-or-v1-good');
+		expect(localStorage.getItem(KEY)).not.toBe('sk-or-v1-good'); // never in clear
+		expect(localStorage.getItem(REJECTED)).toBeNull();
+		const check = fetchSpy.mock.calls.find(([url]) => String(url).includes('/auth/key'));
+		expect(check, 'the key was checked with /auth/key').toBeTruthy();
+		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe('Bearer sk-or-v1-good');
 	});
 });

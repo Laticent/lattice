@@ -1,4 +1,4 @@
-import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
+import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Keyboard, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
 	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
@@ -72,7 +72,7 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
-import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
+import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
@@ -90,7 +90,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
-import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
+import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, flatOfSlide, isHiddenAt, moveAt, moveToAt, renderedCount, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -165,7 +165,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -2972,12 +2972,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// content (title from the first heading) and load it.
 	const importInputRef = React.useRef<HTMLInputElement>(null);
 	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
-	// restored onto the NEW deck id so they travel with the file. Returns nothing;
-	// notifies on success.
-	function openImportedDeck(rawText: string, title: string, comments?: unknown, alreadyAsked = false) {
+	// restored onto the NEW deck id so they travel with the file. Returns the new deck's id,
+	// or null when nothing was created; notifies on success. `verb` names it in the toast (the
+	// chat's create_deck reuses this funnel, so it shares the same line-ending boundary).
+	function openImportedDeck(rawText: string, title: string, comments?: unknown, alreadyAsked = false, verb = 'Imported'): string | null {
 		// A live session is bound to this deck: leaving it ends (host) or leaves (guest) — ask first.
 		// `alreadyAsked`: the import funnel asked before it saved the file's photos, so it must not ask twice.
-		if (!alreadyAsked && !live.mayLeaveDeck()) return;
+		if (!alreadyAsked && !live.mayLeaveDeck()) return null;
 		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
 		// not in a caller. Deck source reaches this function from every format `deck-import.ts`
 		// reads — a plain `.md`, a `.lattice` zip's `deck.md`, a webpage envelope, the `.lattice`
@@ -2993,7 +2994,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// NOT normalize: it is model grounding context, never spliced into deck source and never
 		// exported.
 		const text = normalizeSourceText(rawText);
-		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
+		if (!text.trim()) { notify('That file was empty — nothing to import.'); return null; }
 		flushActiveDeck();
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
@@ -3006,7 +3007,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setSource(text, LOAD);
 		goToChunk(0, { after: text });
 		setView('compose');
-		notify(`Imported “${d.title}”.`);
+		notify(`${verb} “${d.title}”.`);
+		return d.id;
 	}
 	// THE ONE FUNNEL every imported file reaches (deck-import.ts says which files): the deck
 	// source, the comments a `.lattice` carries, and the saved packages it brought along.
@@ -3776,8 +3778,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
 	React.useEffect(() => {
-		resumePendingAuth().then((ok) => {
-			if (ok) notify('OpenRouter connected — the Architect can now edit your deck.');
+		resumePendingAuth().then((r) => {
+			if (r?.status === 'connected') notify('OpenRouter connected — the Architect can now edit your deck.');
+			// A failed return used to say nothing, so Connect looked like it did nothing.
+			else if (r?.status === 'failed')
+				notifyAction(r.note, {
+					label: r.retry === 'reload' ? 'Reload' : 'Try again',
+					onClick: () => {
+						if (r.retry === 'reload') location.reload();
+						else connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.'));
+					},
+				});
 		});
 	}, []);
 	// Storage durability — two quiet moves on boot. (1) Ask the browser to mark
@@ -5271,12 +5282,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const renderedSlides = deckIndex.units.reduce((n, u) => n + u.parts.length, 0);
 	const atFirstSlide = hereAt.unit <= 0 && hereAt.part <= 0;
 	const atLastSlide = hereAt.unit >= deckIndex.units.length - 1 && hereAt.part >= (deckIndex.units[hereAt.unit]?.parts.length ?? 1) - 1;
+	// The slide in view is hidden (`<!-- hide -->`): the palette offers Show slide in place of Hide slide.
+	const hereHidden = isHiddenAt(source, hereAt, deckIndex);
 	// Each op takes the slide it acts on: the current one, or the slide whose menu is open (fixed when it opened). It
 	// reads the LATEST text (`sourceRef`), never the rendered `source`, which can trail typing in flight: a click that
 	// fires no pointerdown (a tour's `el.click()`, a screen reader's activation) gets no catch-up.
+	// Hide slide / Show slide (2026-11-06-hidden-slides.md): one step of the undo history, like every strip op.
+	// The write half loads on the click (./hide-ops): it parses the slide, and the route's startup JavaScript is at its ceiling.
+	// The deck is read at the click: should it change while the code loads (a keystroke, a Live peer), `at` may no longer
+	// name the same block, so the click does nothing rather than hide the wrong slide.
+	const opHide = (at: SlideAt = hereAt) => {
+		const clicked = sourceRef.current;
+		void import('./hide-ops').then(
+			({ setHiddenAt }) => {
+				if (sourceRef.current !== clicked) { notify('The deck changed while Hide loaded. Try again.'); return; }
+				const hide = !isHiddenAt(clicked, at);
+				applyDeckOp(setHiddenAt(clicked, at, hide), hide
+					? { label: 'Hide slide', note: 'Slide hidden. Present and exports leave it out.', say: () => 'Slide hidden. Present and exports leave it out. Undo available.' }
+					: { label: 'Show slide', note: 'Slide shown.', say: () => 'Slide shown. Present and exports include it again.' });
+			},
+			() => notify('Hide and Show could not load. Check the connection, then try again.'),
+		);
+	};
 	const opDuplicate = (at: SlideAt = hereAt) => applyDeckOp(duplicateAt(sourceRef.current, at), { label: 'Duplicate slide', note: 'Slide duplicated.', say: (n, of) => `Duplicated. The copy is slide ${n} of ${of}. Undo available.` });
 	const opDelete = (at: SlideAt = hereAt) => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(sourceRef.current, at), { label: 'Delete slide', note: 'Slide deleted.', say: (n, of) => `Deleted. Now on slide ${n} of ${of}. Undo available.` }); };
-	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide left' : 'Move slide right', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
+	const opMove = (dir: -1 | 1, at: SlideAt = hereAt) => applyDeckOp(moveAt(sourceRef.current, at, dir), { label: dir < 0 ? 'Move slide before' : 'Move slide after', note: 'Slide moved.', say: (n, of) => `Moved to position ${n} of ${of}.` });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -5342,7 +5372,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		});
 	}, [stripEditable, hereAt.unit, hereAt.part]);
 	const flatOf = (at: SlideAt) => deckIndex.units.slice(0, at.unit).reduce((n, u) => n + u.parts.length, 0) + at.part;
-	const stripMenuState: StripMenuState | null = stripMenu ? { count: renderedSlides, at: flatOf(stripMenu.at), armed: deleteArmed && othersLive, name: deleteTargetName(hereTitle(stripMenu.at), 1) } : null;
+	const stripMenuState: StripMenuState | null = stripMenu ? { count: renderedSlides, at: flatOf(stripMenu.at), armed: deleteArmed && othersLive, name: deleteTargetName(hereTitle(stripMenu.at), 1), hidden: isHiddenAt(source, stripMenu.at, deckIndex) } : null;
 	const openStripMenu = (at: SlideAt, via: StripVia) => {
 		const i = viewChunksRef.current.indexOf(at.unit);
 		if (i < 0) return;
@@ -5370,8 +5400,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setStripMenu(null);
 		if (id === 'new-after' || id === 'new-before') opAddSlide(id === 'new-after' ? 'after' : 'before', at);
 		else if (id === 'duplicate') opDuplicate(at);
-		else if (id === 'move-earlier') opMove(-1, at);
-		else if (id === 'move-later') opMove(1, at);
+		else if (id === 'move-before') opMove(-1, at);
+		else if (id === 'move-after') opMove(1, at);
+		else if (id === 'hide') opHide(at);
 		else if (id === 'delete' && renderedSlides > 1) { setDeleteArmed(false); opDelete(at); }
 		return false;
 	};
@@ -5379,10 +5410,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const runStripShortcut = (id: StripShortcut, at: SlideAt): boolean => {
 		if (id === 'new-after' || id === 'new-before') { opAddSlide(id === 'new-after' ? 'after' : 'before', at); return false; }
 		if (id === 'duplicate') { opDuplicate(at); return true; }
-		if (id === 'move-earlier' || id === 'move-later') {
+		if (id === 'move-before' || id === 'move-after') {
 			const f = flatOf(at);
-			if (id === 'move-earlier' ? f <= 0 : f >= renderedSlides - 1) { say(id === 'move-earlier' ? 'Already the first slide.' : 'Already the last slide.'); return true; }
-			opMove(id === 'move-earlier' ? -1 : 1, at);
+			if (id === 'move-before' ? f <= 0 : f >= renderedSlides - 1) { say(id === 'move-before' ? 'Already the first slide.' : 'Already the last slide.'); return true; }
+			opMove(id === 'move-before' ? -1 : 1, at);
 			return true;
 		}
 		if (id !== 'delete') return false;
@@ -5537,6 +5568,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
+	// Auto's apply: the History checkpoint is written and CONFIRMED before the deck changes, because
+	// nobody reviewed this edit and that checkpoint is its only undo. If the save fails, or the author
+	// edited the deck while it was being written, nothing applies and the chat leaves its card.
+	const applyChatEditAuto = async (next: string): Promise<boolean> => {
+		const cur = sourceRef.current;
+		const id = deck.id;
+		const ok = await saveCheckpointDurably(id, cur, 'Before AI chat edit (Auto)', Date.now()).catch(() => false);
+		if (!ok || sourceRef.current !== cur || deckIdRef.current !== id) return false;
+		setCheckpoints(loadCheckpoints(id));
+		setSource(next, { label: 'AI chat edit (Auto)', origin: 'ai' });
+		noteAiEdit(cur, next);
+		return true;
+	};
 	const applyChatEdit = (next: string) => {
 		const cur = sourceRef.current;
 		setCheckpoints(saveCheckpoint(deck.id, cur, 'Before AI chat edit', Date.now()));
@@ -5932,9 +5976,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => ({ options: deckOptions, palette: preview.paletteOverride ?? palette, mode: (preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')) as 'light' | 'dark', extra: preview.extraTheme, extraCss: previewExtraCss }),
 		[deckOptions, preview, palette, mode, previewExtraCss],
 	);
+	// The author's place for the chat, read from the hub once per send (never subscribed, so a
+	// caret move re-renders nothing). The unit index is the authored slide, in deck order.
+	const readChatFocus = React.useCallback(() => {
+		const f = hub.get();
+		return f.unitIndex < 0 ? null : { slide: f.unitIndex + 1, line: f.line };
+	}, [hub]);
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
-		[scorecard, findings, components, diagramErrors, checkDraft, fitRender],
+		() => ({ scorecard, findings, catalog: components, check: checkDraft, fitRender, focus: readChatFocus, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors, checkDraft, fitRender, readChatFocus],
 	);
 	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
 	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
@@ -5953,7 +6003,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onAutoApply={applyChatEditAuto} liveSession={!!live.collab} onCreateDeck={(t, md) => openImportedDeck(md, t, undefined, false, 'Created')} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
 		</PanelLoader>
 	);
 
@@ -6912,7 +6962,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    is what was truncating to "Full de…" at 390px. Stacked variants, not two
 				    competing utilities: the container query keeps the narrow-PANE rule (a
 				    splitter dragged in), `min-[700px]` adds the tier rule (a phone). */}
-				<span className="hidden shrink-0 @[24rem]:min-[700px]:inline">Preview</span>
+				{/* While the slide in view is hidden, the label yields its room to the Hidden chip below unless the pane is wide:
+				    measured at 820px, the chip beside it truncated the lens pill to "F…". */}
+				<span className={cn('hidden shrink-0', hereHidden ? '@[34rem]:min-[700px]:inline' : '@[24rem]:min-[700px]:inline')}>Preview</span>
 				{/* View — the reader lens (shared LensPicker, also used in Present). It filters
 				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
 				    when the PANE is narrow (the pane is a size container above), so a tight
@@ -6922,6 +6974,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
+				{/* The slide in view is hidden (`<!-- hide -->`): say so where the author looks, and offer the way back. The chip IS
+				    Show slide, so the state and its undo are one control (2026-11-06-hidden-slides.md). */}
+				{hereHidden && stripEditable && (
+					<Tip label="Present and exports leave this slide out. Show it again.">
+						<button type="button" data-preview-hidden="" onClick={() => opHide()} className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 font-sans text-[12px] font-medium normal-case tracking-normal text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--accent)]">
+							<EyeOff className="size-3.5" aria-hidden />
+							{/* Icon-only on a narrow pane: the word would squeeze the lens picker (measured at 390px: "Full deck" truncated). */}
+							<span className="hidden @[32rem]:inline">Hidden</span>
+							<span className="sr-only">: this slide is hidden. Show it.</span>
+						</button>
+					</Tip>
+				)}
 				{/* Live: who else is looking at THIS slide (§5.3) — a change could land under you. */}
 				{(liveBySlide.get(activeFullIndex)?.length ?? 0) > 0 && (
 					<PanelLoader panel={liveCornerPanel} shell={() => null}>
@@ -7541,8 +7605,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			? ([
 					{ id: 'slide-new-before', group: 'actions', label: 'New slide before this one…', icon: Plus, run: () => opAddSlide('before') },
 					{ id: 'slide-duplicate', group: 'actions', label: 'Duplicate slide', icon: Copy, run: () => opDuplicate() },
-					...(!atFirstSlide ? [{ id: 'slide-move-earlier', group: 'actions', label: 'Move slide left', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
-					...(!atLastSlide ? [{ id: 'slide-move-later', group: 'actions', label: 'Move slide right', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					...(!atFirstSlide ? [{ id: 'slide-move-before', group: 'actions', label: 'Move slide before', icon: ArrowLeftToLine, run: () => opMove(-1) } satisfies StudioCommand] : []),
+					...(!atLastSlide ? [{ id: 'slide-move-after', group: 'actions', label: 'Move slide after', icon: ArrowRightToLine, run: () => opMove(1) } satisfies StudioCommand] : []),
+					hereHidden
+						? ({ id: 'slide-show', group: 'actions', label: 'Show slide', icon: Eye, keywords: ['unhide', 'include', 'skip'], run: () => opHide() } satisfies StudioCommand)
+						: ({ id: 'slide-hide', group: 'actions', label: 'Hide slide', icon: EyeOff, keywords: ['skip', 'exclude', 'leave out'], run: () => opHide() } satisfies StudioCommand),
 					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
 				] satisfies StudioCommand[])
 			: []),
@@ -8531,7 +8598,7 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 }
 // The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
-const STRIP_ICONS = { duplicate: Copy, 'move-earlier': ArrowLeftToLine, 'move-later': ArrowRightToLine, delete: Trash2 } as const;
+const STRIP_ICONS = { duplicate: Copy, 'move-before': ArrowLeftToLine, 'move-after': ArrowRightToLine, hide: EyeOff, delete: Trash2 } as const;
 const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);

@@ -97,9 +97,11 @@ describe('the host fence table leaves a code fence to the code renderer', () => 
 describe('the host\'s "uses mermaid" probe is a superset of the fence matcher the bake runs', () => {
   // A probe that misses a fence the matcher finds skips the deck's bake, and the export prints the
   // source the preview draws. Found by the HARD RULE #25 red team: a no-break space before the name.
-  test('every whitespace isMermaidInfo trims, and every opener shape, is found by both', async () => {
+  test('every whitespace an info string trims, and every opener shape, is found by both', async () => {
     const { usesPlugin } = await import('../../../lib/plugins/host-grammar.mjs');
-    const { matchMermaidFences } = require('../../../lib/plugins/mermaid/shared/mermaid-fences');
+    // The bake's fences are the engine's parse (`ctx.fences()`, lib/core/plugin-fences.mjs) since D2 slice 3.
+    const { fencesOfPlugin } = require('../../../lib/core/plugin-fences.mjs');
+    const matchMermaidFences = (src) => fencesOfPlugin('mermaid', src);
     const mermaid = PLUGINS.find((p) => p.name === 'mermaid');
     const gaps = [' ', '\t', '\u00a0', '\f', '\v', '\u3000', '\ufeff', '\u2002', '\u2009', '  '];
     const shapes = gaps.flatMap((ws) => [`\`\`\`${ws}mermaid\nflowchart LR\n  A --> B\n\`\`\`\n`, `~~~${ws}mermaid\nflowchart LR\n~~~\n`]);

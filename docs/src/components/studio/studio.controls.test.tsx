@@ -445,7 +445,7 @@ describe('Studio — every top-bar control responds', () => {
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
-		await stripAction(user, /^Move left/);
+		await stripAction(user, /^Move Before/);
 		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
 		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
 		await waitFor(() => expect(railCount()).toBe(start));
@@ -512,7 +512,7 @@ describe('Studio — every top-bar control responds', () => {
 		const start = railCount();
 		await stripAction(user, /^Duplicate/);
 		expect(railCount()).toBe(start + 1);
-		await stripAction(user, /^Move right/);
+		await stripAction(user, /^Move After/);
 		(document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement).focus();
 		await user.keyboard('{Control>}z{/Control}');
 		await user.keyboard('{Control>}z{/Control}');
@@ -537,7 +537,7 @@ describe('Studio — every top-bar control responds', () => {
 		await user.click(within(dialog).getByRole('button', { name: /Insert Blank/i }));
 		await waitFor(() => expect(firstHeading()).not.toBe(before));
 		expect(document.querySelector('[data-confirming]')?.textContent).toMatch(/Added before “/);
-		expect(screen.queryByRole('button', { name: 'Move before' })).toBeNull();
+		expect(screen.queryByRole('button', { name: /^Move before$/i })).toBeNull();
 	});
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {

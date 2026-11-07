@@ -788,11 +788,41 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code,
 :is(section, figure) svg:has(g[class*="system"]) tspan {
   fill: var(--cat-on-fill) !important;
 }
+/* Not inside a rough node: since Mermaid 11.17 a sketch C4 box is `g.rough-node`, whose
+ * unclassed paths are rough.js's hachure and outline, colored by the c4 config keys
+ * (init-directive.js `c4Colors`). This rule painted them --diagram-line and buried the labels. */
 :is(section, figure) svg:has(g[class*="person"]) line,
-:is(section, figure) svg:has(g[class*="person"]) path:not([class]),
+:is(section, figure) svg:has(g[class*="person"]) path:not([class]):not(g.rough-node path),
 :is(section, figure) svg:has(g[class*="system"]) line,
-:is(section, figure) svg:has(g[class*="system"]) path:not([class]) {
+:is(section, figure) svg:has(g[class*="system"]) path:not([class]):not(g.rough-node path) {
   stroke: var(--diagram-line) !important;
+}
+/* A C4 relationship label. Mermaid's drawRels puts it at the line's midpoint PLUS half the label's
+ * width and height (its text helper takes a top-left corner, but the text is centered on that
+ * point), so every label drifts toward the target box: into it on a vertical line, onto the
+ * arrowhead on a horizontal one. `translate(-50%, -50%)` against the text's own box puts it back
+ * on the midpoint, and -0.85em more lifts it just above the line. The <text> carries x/y and no
+ * transform attribute, so this is the only transform. A halo in the slide's own background masks
+ * whatever line still crosses the word, light or dark, since Mermaid gives it no background. */
+/* `+ text + text` is the relationship's optional [technology] line, which drawRels offsets the same
+ * way; without it the label moved and its technology line stayed 19px off to the side. */
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text,
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text + text {
+  transform-box: fill-box;
+  transform: translate(-50%, calc(-50% - 0.85em));
+  paint-order: stroke;
+  stroke: var(--bg) !important;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+/* drawRels puts the technology line its font size plus 5px BELOW the label, so the shared lift
+ * above leaves it on the line, struck through. With one present, the technology line rises by
+ * that gap into the label's slot and the label rises one line above it. */
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text:has(+ text) {
+  transform: translate(-50%, calc(-50% - 2.05em));
+}
+:is(section, figure) svg[aria-roledescription="c4"] :is(line, path) + text + text {
+  transform: translate(-50%, calc(-50% - 1.85em - 5px));
 }
 :is(section, figure) text.legendW, :is(section, figure) text.legendT, :is(section, figure) .legend text, :is(section, figure) .legend tspan {
   fill: var(--cat-on-fill) !important;

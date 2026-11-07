@@ -279,3 +279,27 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     ci.destroy();
   });
 });
+
+// A mark's data-label is TEXT. DOMPurify keeps data-* attributes verbatim, so a shared deck's
+// `data-label="<img onerror=…>"` reaches the vanilla popover unchanged, and that popover lives in
+// the PARENT document beside the author's OpenRouter key
+// (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §4). It must render as text.
+describe('createChartInteract — the vanilla popover treats a mark label as text', () => {
+  it('a hostile data-label / data-value is escaped, never parsed into elements', () => {
+    const { iframe } = buildFrame({ width: 200, height: 150 });
+    const mark = iframe.contentDocument?.querySelector('[data-mark="0"]') as Element;
+    mark.setAttribute('data-label', '<img src=x onerror="top.__chartLeak=1">');
+    mark.setAttribute('data-value', '<b>9</b>');
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    const ci = createChartInteract({ stage, getFrame: () => iframe, hoverAny: false }); // no onDetail
+    ci.onSlide(0);
+    ci.handleKey(new KeyboardEvent('keydown', { key: '1' }));
+    const pop = stage.querySelector('.db-pp-chartpop') as HTMLElement;
+    expect(pop.classList.contains('show')).toBe(true);
+    expect(pop.querySelector('img')).toBeNull();
+    expect(pop.querySelector('.db-pp-chartpop-v b')).toBeNull();
+    expect(pop.querySelector('.db-pp-chartpop-l')?.textContent).toBe('<img src=x onerror="top.__chartLeak=1">');
+    ci.destroy();
+  });
+});

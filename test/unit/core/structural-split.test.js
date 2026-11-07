@@ -184,3 +184,16 @@ test('the page cap holds on the run actually built: exactly 64 pages ship, 65 ri
   assert.equal(pages(deck(63, true)), 64, 'the closing page counts');
   assert.equal(pages(deck(64, true)), 1);
 });
+
+// A front-matter value lands in each section's open tag as ESCAPED attribute text. One that merely
+// MENTIONS `data-lattice-slide=` used to read as an existing stamp, so stampSlideNumbers skipped
+// every slide and the split lost its numbering (found by the red-team pass on #3051).
+test('a front-matter header that mentions data-lattice-slide= does not switch off slide numbering', () => {
+  const items = Array.from({ length: 30 }, (_, i) => `- Item ${i + 1}`).join('\n');
+  const md = `---\ntheme: indaco\nsize: 9:16\nheader: 'docs mention data-lattice-slide=1'\n---\n\n<!-- _class: agenda -->\n\n# A\n\n${items}\n`;
+  const out = engine.render(md, 'indaco', { preview: true });
+  const r = ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY });
+  const opens = r.html.match(/<section\b[^>]*>/g) || [];
+  assert.ok(opens.length > 1, 'the deck splits into pages');
+  assert.equal(opens.filter((t) => /\sdata-lattice-slide="\d+(?:\.\d+)?"/.test(t)).length, opens.length, 'every page carries its own number');
+});

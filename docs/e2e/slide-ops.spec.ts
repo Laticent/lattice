@@ -70,7 +70,7 @@ test('move slide later reorders the deck', async ({ page }) => {
 	const second = await railButtons(page).nth(1).getAttribute('aria-label');
 	expect(first).not.toBe(second);
 
-	await stripAction(page, 'move-later');
+	await stripAction(page, 'move-after');
 
 	// Slide 1 now carries what was slide 2's class, and vice-versa (labels are
 	// "Slide {n} — {class}"; compare just the class suffix).
@@ -82,7 +82,7 @@ test('move slide later reorders the deck', async ({ page }) => {
 test('move earlier is disabled on the first slide, and the menu says why', async ({ page }) => {
 	// Slide 1 is active on load → cannot move any earlier.
 	await page.locator('nav[aria-label="Slide navigator"]').getByRole('button', { name: 'Slide actions' }).click();
-	const earlier = page.locator('[data-strip-menu-content] [data-strip-action="move-earlier"]');
+	const earlier = page.locator('[data-strip-menu-content] [data-strip-action="move-before"]');
 	await expect(earlier).toBeDisabled();
 	await expect(earlier).toContainText('Already first');
 });
@@ -94,7 +94,7 @@ test('move slide later carries the say: narration with the slides', async ({ pag
 	await typeDeck(page, deck);
 	await expect(railButtons(page)).toHaveCount(3);
 	await railButtons(page).nth(0).click({ button: 'right' });
-	await page.locator('[data-strip-menu-content] [data-strip-action="move-later"]').click();
+	await page.locator('[data-strip-menu-content] [data-strip-action="move-after"]').click();
 	// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
 	const source = () => page.locator('.cm-content').first().evaluate((el) => (el as any).cmTile.root.view.state.doc.toString() as string);
 	await expect.poll(source).toMatch(/^# S1[\s\S]*^# S0/m);
@@ -115,12 +115,12 @@ test('ops act on one slide inside a heading-split block', async ({ page }) => {
 	const order = async () => [...(await source()).matchAll(/^#+ (\w+)/gm)].map((m) => m[1]).join(' ');
 
 	await railButtons(page).nth(1).click({ button: 'right' });
-	await page.locator('[data-strip-menu-content] [data-strip-action="move-later"]').click();
+	await page.locator('[data-strip-menu-content] [data-strip-action="move-after"]').click();
 	await expect.poll(order).toBe('Alpha Charlie Bravo');
 	await expect(railButtons(page)).toHaveCount(3);
 	// The focus went with Bravo, now the last slide, so it cannot move later.
 	await page.locator('nav[aria-label="Slide navigator"]').getByRole('button', { name: 'Slide actions' }).click();
-	await expect(page.locator('[data-strip-menu-content] [data-strip-action="move-later"]')).toBeDisabled();
+	await expect(page.locator('[data-strip-menu-content] [data-strip-action="move-after"]')).toBeDisabled();
 
 	await page.locator('[data-strip-menu-content] [data-strip-action="duplicate"]').click();
 	await expect.poll(order).toBe('Alpha Charlie Bravo Bravo');

@@ -56,3 +56,41 @@ test('code is escaped, so a fence that mentions the names is untouched text', ()
   assert.match(html, /data-split-role/, 'a fence shows the author what they typed');
   assert.doesNotMatch(html, /<div data-split-role/);
 });
+
+// Raw HTML could forge the slide index the engine stamps on each top-level <section>
+// (followups.d/2923-p8). The split, the rail and the Studio's page pick find slides by it.
+test('a quote carried across tokens cannot forge a data-lattice-slide on a top-level section', () => {
+  const body = `</section><section title="\n\n<span title='"data-lattice-slide=9 x'>y</span>`;
+  assert.doesNotMatch(neutralizeReservedAttrs(body), /data-lattice-slide/i);
+  const html = render(body);
+  assert.doesNotMatch(html, /data-lattice-slide=["']?9/, 'no author-chosen slide index survives');
+  for (const [, n] of html.matchAll(/<section\b[^>]*\bdata-lattice-slide="([^"]*)"/g)) {
+    assert.match(n, /^\d+$/, 'every stamped index is the engine\'s own');
+    assert.notEqual(n, '9');
+  }
+});
+
+test('data-lattice-slide is renamed in any case; other data-lattice- names authors write survive', () => {
+  assert.equal(neutralizeReservedAttrs('<i DATA-Lattice-Slide="2" data-lattice-motion="m1">'), '<i data-x-lattice-slide="2" data-lattice-motion="m1">');
+  assert.match(render('<svg data-lattice-motion="m1"></svg>'), /data-lattice-motion="m1"/);
+});
+
+// The rename runs inside comments too, so a speaker note that SAYS a reserved name renders renamed.
+// The note strip matches source comments against the rendered bodies, so it must rename the
+// source the same way, or the note survives a `--strip-notes` (or default player) export.
+test('a speaker note that names a reserved attribute is still stripped from the source', () => {
+  const notes = require('../../../lib/authoring/notes-core.js');
+  const src = '---\ntheme: indaco\n---\n\n# One\n\nBody\n\n<!-- Secret: check the data-lattice-slide index and data-split-role -->\n';
+  const html = engine.render(src, 'indaco', { preview: true }).html;
+  const bodies = notes.noteBodiesFromHtml(html);
+  assert.ok(bodies.length, 'the note renders as a note');
+  assert.doesNotMatch(notes.stripNotesFromSource(src, bodies), /Secret/);
+  assert.doesNotMatch(notes.stripChannelsFromSource(src, { noteBodies: bodies }), /Secret/);
+});
+
+test('only the exact data-lattice-slide name is reserved, not a longer name that starts with it', () => {
+  for (const s of ['<i data-lattice-slides="3">', '<i data-lattice-slide-bake="1">', '<i data-lattice-slide.x="1">']) {
+    assert.equal(neutralizeReservedAttrs(s), s, s);
+  }
+  assert.equal(neutralizeReservedAttrs('<i data-lattice-slide="2">'), '<i data-x-lattice-slide="2">');
+});
