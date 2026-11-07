@@ -564,7 +564,9 @@ kernel would choose, and only then. Nothing is added to the export:
   (the checker's repro). The fluid boot snapshots each chart before any box changes: its exported nodes (in
   memory, a WeakMap, never in the page) and that key. The geometry pass (`patchSectionGeometry`) asks
   after every resize; the same key does nothing, the exported key puts the exported nodes back, any
-  other redraws, once. So the desktop's first paint is the export's own drawing, not a redraw of it.
+  other redraws, once. So a 16:9 desktop's first paint is the export's own drawing; a desktop of another
+  aspect (16:10 is stamped `data-aspect=1.60`) gets the kernel's drawing for that aspect, as the engine would
+  draw it for a 16:10 deck.
 - **What it draws at: the engine's kernel, on a canvas from WIDTHS only.** `transformChartSection`, with a
   canvas in slide chart units (lib/engine/index.js `paneView`'s formula). A whole-slide chart in a
   landscape box takes the engine's own path, no canvas; in a tall or square box, and in a stacked pane,
@@ -578,7 +580,9 @@ kernel would choose, and only then. Nothing is added to the export:
 - **What a reader cannot carry keeps the exported drawing.** A callout (`@callout`, drawn as the legend
   layer's target and text) and a `_focus` (`lat-focus` / `lat-recede` marks) are not on the marks a reader
   reads, and a redraw dropped both (examples/callouts-bars.md, focus-chart-marks.md). Those charts are
-  refused rather than redrawn without them.
+  refused rather than redrawn without them. So is a category the export labeled but could not draw (a
+  value that does not parse, `North --5`): it has a label and no bar, so a redraw would drop it and
+  renumber the rest (examples/chart-malformed-numbers.md).
 - **Safety (HARD RULE #22).** Values read off the page are decoded strings, so each is escaped before it
   enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
   tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
@@ -590,8 +594,8 @@ boot). The inlined runtime grows by 4.6 KB minified (1.6 KB gzipped) across this
 changes (the pane stamps and the redraw); no chart adds a byte. At 390 × 844 the smallest label of every
 chart in the bar gallery is 16 to 19px (text box height), the grouped chart's included, and the
 examples/panes.md bar panes' 16px, where the export printed 7px; examples/chart-european-numbers.md and
-examples/marks.md redraw the same way; the callout and focus decks keep their exported drawings; the
-desktop shows the export's own drawing on every one; rotating back restores it byte for byte.
+examples/marks.md redraw the same way; the callout, focus and malformed-number charts keep their exported
+drawings; a 16:9 desktop shows the export's own drawing on every one; rotating back restores it byte for byte.
 test/unit/runtime/chart-redraw.test.js pins the round trips, a forged label and the refusals;
 test/integration/export/fluid-chart-redraw.test.js pins the real export: nothing redraws on the desktop,
 one redraw per chart on a phone, the focused chart kept, and the byte-for-byte restore (it fails on the

@@ -68,6 +68,12 @@ describe('chart-redraw: a bar chart is read back from its marks', () => {
     }
   });
 
+  test('a category labeled but not drawn (a value that does not parse) keeps the exported drawing', () => {
+    const body = draw('<ul><li>North <code>--5</code></li><li>South <code>3</code></li><li>East <code>4</code></li></ul>');
+    assert.equal(body.querySelectorAll('rect[data-mark]').length, 2, 'the fixture really drops North\'s bar');
+    assert.equal(readBar(body), null, 'refused: a redraw would lose North and renumber the rest');
+  });
+
   test('a series the key cannot name keeps the exported drawing', () => {
     const first = draw('<ul><li>A<ul><li>Plan <code>1</code></li><li>Actual <code>2</code></li></ul></li></ul>', 'bar grouped');
     for (const k of first.querySelectorAll('text.chart-key-label')) k.remove();
