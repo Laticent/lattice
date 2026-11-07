@@ -1226,10 +1226,11 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								)}
 							</AiSection>
 
-							{/* ── READ-ALOUD VOICE — cloud (OpenRouter TTS) or on-device (Kokoro), never both at once ── */}
+							{/* ── READ-ALOUD VOICE — the voice selection: cloud (OpenRouter TTS) or on-device (Kokoro) ── */}
 							<AiSection>
-								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
-								<TtsSettings tier={sideView} />
+								{/* The voice is its own selection, independent of the chat model above (model spine). */}
+								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice</GroupLabel>
+								<TtsSettings />
 							</AiSection>
 
 							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model

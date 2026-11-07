@@ -2,3 +2,5 @@
 - Studio: a chat turn runs on one model from start to finish, and the reply, its cost and the model chip name the model that actually answered, even if you switch models mid-reply.
 - Studio: saving an API key makes that provider's chat model active straight away (your last pick for it, or its default). Removing a key no longer moves you to another provider.
 - Studio: another open tab follows a model change made in this one.
+- Studio: the read-aloud voice is its own stored selection, independent of the chat model. Present reads in the voice you chose, on every read and after a reload: on-device Kokoro is no longer picked for you on desktop, and a cloud voice whose key is still opening waits for it instead of switching voices.
+- Studio: Workspace → AI → Read-aloud voice no longer changes when you look at the chat's On-device tab. Its Cloud / On-device switch chooses the voice engine, and a badge shows whether it is ready.

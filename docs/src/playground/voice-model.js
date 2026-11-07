@@ -728,7 +728,11 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // the shipped 20 s that took the file from 0.2 s to 86 s — a self-inflicted 86 s on every push
 // (HARD RULE #18, found by the independent checker). Production passes nothing and gets the
 // constants above.
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs } = {}) {
+// `selection` (the Studio): the voice is the author's STORED selection (lib/model-selection.js),
+// resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
+// Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
+// engineering/decisions/2026-11-07-studio-model-spine.md
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -739,8 +743,15 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // The cloud voice. When the cheapest-voice setting has moved the model off the default,
   // the stored voice may belong to another model (the default `af_heart` is a Kokoro id, and
   // any other model rejects it), so it falls back to a voice the picked model publishes.
+  // With a selection, the OpenRouter pick is the selection's (when OpenRouter is the selected
+  // voice provider) or the author's last OpenRouter pick; otherwise the legacy prefs.
+  const orPick = () => {
+    if (!selection) return { model: readLS(K.OR_TTS_MODEL) || '', voice: readLS(K.OR_VOICE) || '' };
+    const s = selection.read();
+    return s.provider === 'openrouter' ? { model: s.model, voice: s.voice } : (s.last.openrouter ?? { model: '', voice: '' });
+  };
   const orVoice = () => {
-    const stored = readLS(K.OR_VOICE);
+    const stored = orPick().voice;
     const m = orModel();
     if (!explicitOrModel() && m === cheapestModelId && m !== DEFAULT_OR_TTS_MODEL && cheapestVoices.length) {
       return stored && cheapestVoices.includes(stored) ? stored : cheapestVoices[0];
@@ -750,7 +761,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // A model the author PICKED is stored; the default never is. That difference is the whole
   // precedence rule: a stored pick always wins, over the cheapest-voice setting and over the
   // desktop on-device default alike.
-  const explicitOrModel = () => readLS(K.OR_TTS_MODEL) || '';
+  const explicitOrModel = () => orPick().model;
   // The cheapest-voice default, resolved from the live catalog the first time it is asked
   // for with the setting on. Until the catalog answers (or when it never does), orModel()
   // stays on DEFAULT_OR_TTS_MODEL — which is also the cheapest voice at the time of writing,
@@ -779,7 +790,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   if (cheapestVoiceEnabled()) cheapestModel();
   onNarrationPrefsChange(() => { if (cheapestVoiceEnabled()) cheapestModel(); });
   const orModel = () => explicitOrModel() || (cheapestVoiceEnabled() && cheapestModel()) || DEFAULT_OR_TTS_MODEL;
-  const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
+  const kokoroVoice = () => {
+    if (!selection) return readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
+    const s = selection.read();
+    return (s.provider === 'kokoro' ? s.voice : s.last.kokoro?.voice) || DEFAULT_KOKORO_VOICE;
+  };
   // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
   // own generate() option) — not a client-side playbackRate hack. 1 = default pace,
   // omitted from the wire request (see openRouterRung.synth / kokoroRung.synth).
@@ -793,6 +808,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   const allowSpeech = () => allowBrowserVoice === true || readLS(K.DEV_SPEECH) === '1' || settings().voiceDevSpeech === true;
 
   const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
+  // Direct-key voice rungs by selection provider (the Gemini adapter lands with the provider registry).
+  const cloudRungs = {};
   const kokoro = kokoroRung({ getVoice: kokoroVoice });
   let injected = null; // test hook
 
@@ -986,9 +1003,28 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // model is choosing the cloud voice, and an explicit pick always wins.
   const preferOnDevice = () => rungPref() === 'auto' && kokoroSupported() && !explicitOrModel();
 
+  // Resolve the SELECTION (Studio): the selected rung and its readiness, never another rung.
+  //   ready | warming (key opening, model loading) | needs-key | unavailable (not on this device / not loaded)
+  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable' }} */
+  function resolveVoice() {
+    const s = selection.read();
+    if (s.provider === 'kokoro') {
+      if (!kokoroSupported()) return { sel: s, rung: kokoro, state: 'unavailable' };
+      return { sel: s, rung: kokoro, state: kokoro.ready() ? 'ready' : kokoroLoading ? 'warming' : 'unavailable' };
+    }
+    const rung = s.provider === 'openrouter' ? openrouter : cloudRungs[s.provider];
+    if (!rung) return { sel: s, rung: silentRung, state: 'unavailable' };
+    if (rung.ready()) return { sel: s, rung, state: 'ready' };
+    return { sel: s, rung, state: selection.keyState(s.provider) === 'opening' ? 'warming' : 'needs-key' };
+  }
+
   function pickRung() {
-    if (rungPref() === 'off') return silentRung;
+    if (!selection && rungPref() === 'off') return silentRung;
     if (injected) return injected;
+    if (selection) {
+      const r = resolveVoice();
+      return r.state === 'ready' ? r.rung : silentRung;
+    }
     if (rungPref() === 'openrouter' && openrouter.ready()) return openrouter;
     if (rungPref() === 'kokoro' && kokoroSupported() && kokoro.ready()) return kokoro;
     // auto ladder: (desktop default) local → connected cloud → summoned local (desktop
@@ -1022,6 +1058,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     if (name === 'silent') return silentRung;
     if (name === 'speechSynthesis') return speechReady() ? { name: 'speechSynthesis' } : null;
     if (name === 'openrouter-tts') return openrouter.ready() ? openrouter : null;
+    for (const r of Object.values(cloudRungs)) if (r.name === name) return r.ready() ? r : null;
     if (name === 'kokoro') return kokoroSupported() && kokoro.ready() ? kokoro : null;
     return null;
   }
@@ -1212,7 +1249,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   async function synthOne({ text, voice, speed, rung: pinnedRung, signal } = {}) {
     // A caller that pinned a rung at the start of a read gets that rung for the whole read —
     // see rungByName for why re-deciding per sentence changes the LANGUAGE mid-deck.
-    const rung = (pinnedRung ? rungByName(pinnedRung) : null) ?? pickRung();
+    // Studio (selection): a pinned rung that stopped being ready goes silent for the rest of the
+    // read rather than switching to another voice; the next read resolves the selection again.
+    const rung = (pinnedRung ? rungByName(pinnedRung) : null) ?? (selection && pinnedRung ? silentRung : pickRung());
     const effSpeed = speed ?? speedPref();
     // Mirror each rung's own `voice || getVoice()` fallback EXACTLY (|| not ??) — see speak()'s
     // effVoiceFor note for why a `??` mirror would freeze a stale-voice cache key.
@@ -1636,6 +1675,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     availability() {
       return {
         rung: pickRung().name,
+        readiness: selection ? (() => { const r = resolveVoice(); return { state: r.state, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : r.sel.provider === 'openrouter' ? orModel() : r.sel.model, voice: r.sel.provider === 'kokoro' ? kokoroVoice() : r.sel.provider === 'openrouter' ? orVoice() : r.sel.voice }; })() : null,
         openRouterReady: openrouter.ready(),
         kokoroReady: kokoro.ready(),
         kokoroCached: kokoroCachedFlag, // on disk (may not be loaded into memory yet)
@@ -1654,8 +1694,23 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // captions-only floor with no key); the next read after it lands uses the local voice.
     // Never throws; resolves true when the local voice is (now) ready.
     summonDefaultVoice() {
+      if (selection) return this.prepareSelectedVoice();
       if (injected || backgroundLoadOff || !preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
       return loadKokoroOnce(undefined, undefined, { background: true }).catch(() => false);
+    },
+    // Studio: make the SELECTED voice ready before a read pins it — open its key, or load the
+    // selected on-device model (off the main thread). A read awaits this, so the voice it speaks
+    // is the selection, never whatever happened to be ready first. Resolves true when ready.
+    async prepareSelectedVoice() {
+      if (injected || !selection) return true;
+      const s = selection.read();
+      if (s.provider === 'kokoro') {
+        if (!kokoroSupported()) return false;
+        if (kokoro.ready()) return true;
+        return loadKokoroOnce(undefined, undefined, { background: true }).then(() => true, () => false);
+      }
+      if (selection.keyState(s.provider) === 'opening') await Promise.resolve(selection.openKey?.(s.provider)).catch(() => {});
+      return resolveVoice().state === 'ready';
     },
     preferOnDevice,
     explicitOrModel,
@@ -1666,10 +1721,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // the TTS settings panel, the Present voice indicator, a second open Workspace. Only
     // setRungPref did before, so changing the MODEL/voice/speed wrote to storage but
     // broadcast nothing, and other surfaces kept showing the stale pick until remount.
-    rungPref, setRungPref(name) { writeLS(K.RUNG, name || null); emitChange(); },
-    orVoice, setOrVoice(v) { writeLS(K.OR_VOICE, v || null); emitChange(); },
-    orModel, setOrModel(m) { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); },
-    kokoroVoice, setKokoroVoice(v) { writeLS(K.KOKORO_VOICE, v || null); emitChange(); },
+    // With a selection every setter IS a selection (it makes that voice active at once) and the
+    // store announces it; without one they write the legacy prefs.
+    rungPref,
+    setRungPref(name) {
+      if (selection) { if (name === 'openrouter' || name === 'kokoro') selection.select({ provider: name }); return; }
+      writeLS(K.RUNG, name || null); emitChange();
+    },
+    orVoice, setOrVoice(v) { if (selection) selection.select({ provider: 'openrouter', voice: v || '' }); else { writeLS(K.OR_VOICE, v || null); emitChange(); } },
+    orModel, setOrModel(m) { if (selection) selection.select({ provider: 'openrouter', model: m || '' }); else { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); } },
+    kokoroVoice, setKokoroVoice(v) { if (selection) selection.select({ provider: 'kokoro', voice: v || '' }); else { writeLS(K.KOKORO_VOICE, v || null); emitChange(); } },
+    /** Studio: select a voice outright (provider + optional model/voice). */
+    selectVoice(pick) { selection?.select(pick); },
     speedPref, setSpeed(n) { const v = Number(n); writeLS(K.SPEED, Number.isFinite(v) && v > 0 && v !== 1 ? String(v) : null); emitChange(); },
     webgpu: detectWebGPU(),
     // Test hooks (exercise the ladder + sequencing without real audio/models).

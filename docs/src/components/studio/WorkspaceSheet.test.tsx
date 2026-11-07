@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { notify as notifyModule } from '@/lib/notify';
 import type { ArchitectStatus } from './architect';
 import * as readAloud from './read-aloud';
@@ -96,6 +97,7 @@ const noop = () => {};
 
 afterEach(() => {
 	vi.clearAllMocks();
+	localStorage.removeItem('lattice-studio-voice-selection');
 	statusSpy.mockReturnValue(connectedStatus);
 	voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 });
@@ -316,38 +318,36 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		expect(sheet.queryByLabelText('Standing instructions')).not.toBeInTheDocument();
 	});
 
-	it('shows a Read-aloud voice section that relabels between cloud and on-device', async () => {
+	// Model spine: the voice is its own selection. LOOKING at the chat's On-device tab must not
+	// change the voice panel (the old `TtsSettings tier={sideView}` coupling).
+	it('keeps the Read-aloud voice independent of the chat tier view', async () => {
 		const { user, sheet } = openSheet();
-		expect(await sheet.findByText(/Read-aloud voice · cloud/)).toBeInTheDocument();
+		expect(await sheet.findByText('Read-aloud voice')).toBeInTheDocument();
+		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' })).toBeInTheDocument();
 		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
-		expect(await sheet.findByText(/Read-aloud voice · on-device/)).toBeInTheDocument();
+		expect(sheet.getByRole('combobox', { name: 'Cloud TTS voice' })).toBeInTheDocument();
+		expect(sheet.queryByRole('combobox', { name: 'On-device TTS voice' })).not.toBeInTheDocument();
+		expect(readVoiceSelection().provider).toBe('openrouter');
 	});
 
-	// Independent-checker finding: this redesign switched voice ids to match
-	// OpenRouter's own live casing (e.g. Grok's "Eve" -> "eve"), but nothing
-	// re-validated a voice id a user had already saved under the OLD casing —
-	// the picker would show blank/unset and "Play sample" would send the stale,
-	// wrong-case id straight to the live API (a real error for existing users on
-	// upgrade). The reconciliation effect in TtsSettings resolves + persists the
-	// corrected id once the live roster loads.
-	it('reconciles a stale (pre-migration-casing) stored voice id against the live roster, and persists the fix', async () => {
+	it('choosing the voice engine selects it, active at once', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
+		expect(readVoiceSelection()).toMatchObject({ source: 'device', provider: 'kokoro' });
+		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeInTheDocument();
+	});
+
+	// A voice id stored under an older casing (Grok's "Eve" -> "eve") is SHOWN as the live
+	// roster's id, so the picker is never blank, but it is not written back: only the author's
+	// pick writes the voice selection (model spine).
+	it('shows a stale (pre-migration-casing) stored voice id as the live roster id, without writing it', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		// *Once*, not a standing override: `vi.clearAllMocks()` (this file's afterEach)
-		// clears CALLS but not a `mockResolvedValue` IMPLEMENTATION, so a standing
-		// override here would leak into every later test in the file (each reads
-		// ttsOrModel/ttsOrVoice exactly once per TtsSettings mount) — silently
-		// swapping their default Kokoro model for Grok's, which doesn't support
-		// speed, and breaking any later test that expects the Speed slider to render.
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('x-ai/grok-voice-tts-1.0');
-		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('Eve'); // the old capitalized id — no longer in the live roster
+		selectVoice({ provider: 'openrouter', model: 'x-ai/grok-voice-tts-1.0', voice: 'Eve' });
 		const { sheet } = openSheet();
-		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
-		// The precise, unambiguous signal: the corrected LIVE (lowercase) id gets
-		// persisted. (The rendered label is "Eve" either way — prettyVoiceLabel
-		// title-cases 'eve' back to "Eve" — so label text can't distinguish
-		// "resolved to the real live id" from "still showing the stale one".)
-		await waitFor(() => expect(readAloud.setTtsOrVoice).toHaveBeenCalledWith('eve'));
-		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalledWith('Eve');
+		const picker = await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
+		await waitFor(() => expect(picker).toHaveTextContent('Eve'));
+		expect(readAloud.setTtsOrVoice).not.toHaveBeenCalled();
+		expect(readVoiceSelection().voice).toBe('Eve');
 	});
 
 	it('cloud TTS voice is a model-specific dropdown (not free text) once a model is set', async () => {
@@ -365,8 +365,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	// portals to document.body, so query it via `screen`, not the dialog scope.
 	it('the cloud voice combobox groups by language, badges gender, filters on search, and selects', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m');
-		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('af_heart');
+		selectVoice({ provider: 'openrouter', model: 'hexgrad/kokoro-82m' });
+		selectVoice({ provider: 'openrouter', voice: 'af_heart' });
 		vi.mocked(readAloud.listTtsModels).mockResolvedValueOnce([
 			// af_sky / am_onyx (US) and jf_alpha (JP) are NOT in kokoro's featuredVoices → real language groups.
 			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'af_sky', 'am_onyx', 'jf_alpha'] },
@@ -399,8 +399,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('the ▶ on a voice row auditions it WITHOUT selecting it or closing the list', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m');
-		vi.mocked(readAloud.ttsOrVoice).mockResolvedValueOnce('af_heart');
+		selectVoice({ provider: 'openrouter', model: 'hexgrad/kokoro-82m' });
+		selectVoice({ provider: 'openrouter', voice: 'af_heart' });
 		vi.mocked(readAloud.listTtsModels).mockResolvedValueOnce([
 			{ id: 'hexgrad/kokoro-82m', name: 'Kokoro 82M', promptPerM: 0.62, completionPerM: 0, voices: ['af_heart', 'am_onyx'] },
 		]);
@@ -427,7 +427,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	// CI untouched. See tts-voice-catalog.test.ts for speedSupported() itself.
 	it('renders NO speed slider — just a fixed-pace note — for a model that does not support speed', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('x-ai/grok-voice-tts-1.0'); // speedSupport:false
+		selectVoice({ provider: 'openrouter', model: 'x-ai/grok-voice-tts-1.0' }); // speedSupport:false
 		const { sheet } = openSheet();
 		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		expect(sheet.queryByRole('slider', { name: 'Speech speed' })).not.toBeInTheDocument();
@@ -436,7 +436,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('renders a real, enabled speed slider for a model that DOES support speed', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		vi.mocked(readAloud.ttsOrModel).mockResolvedValueOnce('hexgrad/kokoro-82m'); // speedSupport:true
+		selectVoice({ provider: 'openrouter', model: 'hexgrad/kokoro-82m' }); // speedSupport:true
 		const { sheet } = openSheet();
 		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeEnabled();
@@ -455,7 +455,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('disables the on-device TTS voice/speed/preview controls until the on-device voice is loaded', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
@@ -480,7 +480,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('enables the on-device TTS controls once Kokoro is ready', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'kokoro', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).not.toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).not.toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).not.toBeDisabled();

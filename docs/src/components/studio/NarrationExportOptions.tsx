@@ -160,7 +160,9 @@ export function NarrationExportOptions({
 				// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
 				// cannot know that before measuring, and a dead end is worse than a missing option.
 				setOnDevice(a.kokoroReady ? od : null);
-				setRehearsesOnDevice(a.rung === 'kokoro');
+				// The SELECTED voice, not whichever rung happens to be live: an author who chose Kokoro
+				// rehearses on it even before the first read has loaded it (model spine).
+				setRehearsesOnDevice(a.readiness ? a.readiness.provider === 'kokoro' : a.rung === 'kokoro');
 			});
 		read();
 		window.addEventListener('db-voice-changed', read);

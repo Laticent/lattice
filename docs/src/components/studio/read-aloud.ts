@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
-import { readOpenRouterKey } from '@/lib/openrouter-key.js';
+import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
+import { loadOpenRouterKey, loadProviderKey, providerKeyState, readOpenRouterKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
 import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -241,9 +242,11 @@ type VoiceModel = {
 	kokoroSupported: () => boolean;
 	probeKokoroCache: () => Promise<boolean>;
 	loadKokoro: (onProgress?: (p: VoiceLoadProgress) => void, signal?: AbortSignal) => Promise<boolean>;
-	/** Start the desktop default's (on-device Kokoro) download in the background when it applies.
-	 *  Called when a read begins; the read in progress keeps its current rung. Never rejects. */
-	summonDefaultVoice?: () => Promise<boolean>;
+	/** Make the SELECTED voice ready (open its key, load the selected on-device model) before a read
+	 *  pins it, so the read speaks the selection. Resolves true when ready. Never rejects. */
+	prepareSelectedVoice?: () => Promise<boolean>;
+	/** Select a voice outright; active at once. */
+	selectVoice?: (pick: { provider: string; model?: string; voice?: string }) => void;
 	/** Synthesize the fixed sample sentence for an EXPLICIT rung/voice/model (bypassing the auto ladder)
 	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
 	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
@@ -264,6 +267,17 @@ export type VoiceAvailability = {
 	kokoroSupported: boolean;
 	webgpu: boolean;
 	speechAllowed: boolean;
+	/** The Studio's voice SELECTION and whether it can speak now (lib/model-selection.js). Null outside the Studio. */
+	readiness?: VoiceReadiness | null;
+};
+
+/** The voice selection's readiness. It never names a substitute. */
+export type VoiceReadiness = {
+	state: 'ready' | 'warming' | 'needs-key' | 'unavailable';
+	source: 'cloud' | 'device';
+	provider: string;
+	model: string;
+	voice: string;
 };
 
 export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
@@ -293,7 +307,8 @@ function roomVoice(real: VoiceModel | null, src: RoomClipSource): VoiceModel {
 		latencyKey: () => 'room',
 		warm: none,
 		peekClip: undefined,
-		summonDefaultVoice: undefined,
+		prepareSelectedVoice: undefined,
+		selectVoice: undefined,
 		speakThis: none,
 		stop: none,
 		pause: none,
@@ -315,6 +330,14 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					// voice/speed pick in one surface never silently changes the other.
 					keyPrefix: 'studio',
 					getOpenRouterKey: readOpenRouterKey,
+					// The voice is the author's stored selection, resolved and never laddered
+					// (engineering/decisions/2026-11-07-studio-model-spine.md). Independent of chat.
+					selection: {
+						read: readVoiceSelection,
+						select: selectVoice,
+						keyState: providerKeyState,
+						openKey: (p: string) => (p === 'openrouter' ? loadOpenRouterKey() : loadProviderKey(p)),
+					},
 				}),
 			)
 			.catch(() => null);
@@ -1105,7 +1128,8 @@ export function useReadAloud(
 		// unrelated and unchanged — that gap was never the bug.
 
 		// Spoken audio in parallel once the voice model is ready (best-effort).
-		getVoice().then((voice) => {
+		getVoice().then(async (voice) => {
+			if (voice) await voice.prepareSelectedVoice?.();
 			if (ctl.signal.aborted) return;
 			if (!voice) {
 				// Voice model failed to load — the silent estimate still runs the
@@ -1118,9 +1142,8 @@ export function useReadAloud(
 				return;
 			}
 			voiceRef.current = voice;
-			// On desktop the default voice is on-device Kokoro; a read is what starts its download.
-			// Fire-and-forget: THIS read keeps the rung it resolves below, the next one moves over.
-			void voice.summonDefaultVoice?.();
+			// The selected voice was made ready above (prepareSelectedVoice): the rung resolved here
+			// is the selection, or silent if it cannot speak; never another voice.
 			let r: string;
 			try {
 				r = voice.rung();
