@@ -1169,9 +1169,14 @@ async function main() {
   // running it second puts the plain scalar keys ABOVE `style: |`. The other order would
   // leave them indented under nothing in particular, immediately after a block scalar —
   // where a parser reads them as more CSS, not as directives.
-  if (FRONT_MATTER.length) {
-    deck = deck.replace(/^---\n/, `---\n${FRONT_MATTER.join('\n')}\n`);
-  }
+  // THE SECTION RAIL STAYS OUT unless the caller asks for it. The sweep's deck is N copies of
+  // one component, so a divider sweep is a deck of N sections and would draw the deck's section
+  // marker on every step (progress.transform.js), a row of the divider's own block above the name.
+  // Deck-level wayfinding is not the component under test, and fixed marker ink once froze the ink
+  // union's edges so a `nowrap` heading running off the slide read as an INERT sweep
+  // (jank-sweep.test.js); `--front-matter 'progress-rail: on'` puts the marker back when it is.
+  const fm = FRONT_MATTER.some((e) => /^progress-rail\s*:/.test(e)) ? FRONT_MATTER : ['progress-rail: off', ...FRONT_MATTER];
+  deck = deck.replace(/^---\n/, `---\n${fm.join('\n')}\n`);
   const render = renderProbe(deck, `jank-${COMP}-${FAMILY}`, { format: 'html', palette: THEME, keep: true });
   let rows;
   try {

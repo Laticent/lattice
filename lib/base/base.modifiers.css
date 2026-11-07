@@ -3238,8 +3238,10 @@ section:has(> .lat-split-rail > .seg-count) { --_split-rail-w: 3.5em; }
    present the split rail parks LEFT of the reserved berth, and the three wayfinding marks read
    as one right-grouped cluster: [ split k-of-N ] [ section rail ] [ page number ]. The `claim-*`
    Frames that HIDE the section rail are excluded — a hidden rail reserves nothing, and the
-   split rail must not drift left to dodge a mark that isn't drawn. */
-section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress) {
+   split rail must not drift left to dodge a mark that isn't drawn.
+   A `progress-rail: center` or `edge` rail is not in that berth either, so it reserves nothing.
+   (lib/core/resolve-progress-rail.js) */
+section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):not(.progress-rail-center):not(.progress-rail-edge):has(.tile-progress) {
   --_split-rail-right: calc(var(--footer-pag-reserve, 4cqi) + var(--footer-center-w, 30cqi) + var(--_sec-1cqi, 1cqi) * 1.5);
 }
 /* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks

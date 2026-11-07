@@ -104,10 +104,13 @@ const EXPECTED = [
   // divider, so the `display: none` asserted on every stamped row below is doing work
   // rather than describing a deck that never had a header to begin with.
   { cls: 'divider', counter: null, header: 'block', footer: 'block' },
-  { cls: 'divider numbered', stamp: '01' },
+  // `02`, not `01`: EVERY divider advances the series, numbered or not (lib/core/section-index.js),
+  // so the plain control divider above is section 01 — the number the section rail lights and
+  // the divider's own marker prints (engineering/decisions/2026-11-06-section-rail-placement.md).
+  { cls: 'divider numbered', stamp: '02' },
   // `silent` settles into the four bands it turns off (lib/core/switches.mjs `settleSwitches`).
-  { cls: 'divider silent numbered no-header no-footer no-pagination no-progress', stamp: '02' },
-  { cls: 'divider light numbered', stamp: '03' },
+  { cls: 'divider silent numbered no-header no-footer no-pagination no-progress', stamp: '03' },
+  { cls: 'divider light numbered', stamp: '04' },
   { cls: 'closing numbered', counter: null },
   // `silent` WITHOUT `numbered`: proves the chrome assertions above are reading the
   // modifier and not just `silent`, which suppresses header and footer on its own.

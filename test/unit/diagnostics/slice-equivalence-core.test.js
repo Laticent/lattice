@@ -17,6 +17,14 @@ test.before(async () => {
 // position and hide the same two residuals, so re-ADDING an entry silently re-blinds a surface to
 // something that ships. That is the regression these pin.
 
+/** The section POSITION only; the deck length (`slides`) is pinned on its own test below. */
+const posOf = (p) => (p ? { index: p.index, total: p.total } : p);
+
+test('deckSectionFor hands over the deck length, which the section rail\'s slide floor reads', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# b\n\n---\n\n<!-- _class: divider -->\n# C\n\n---\n\n# d';
+  assert.equal(core.deckSectionFor(deck, 2).slides, 4);
+});
+
 test('splitSlides treats a `---` inside a fence as a rule, not a boundary', () => {
   const body = ['# One', '', '```', '---', '```', '', '---', '', '# Two'].join('\n');
   const slides = core.splitSlides(body);
@@ -220,10 +228,10 @@ test('deckSectionFor is undefined for a deck with no dividers — no rail to sup
 
 test('deckSectionFor counts dividers at or before the shown slide', () => {
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B\n\n---\n\n# b1';
-  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 0)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 1)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 2)), { index: 2, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 3)), { index: 2, total: 2 });
 });
 
 // THE DUPLICATE THIS PINS. `renderInto` asks for the deck's divider sections TWICE per render,
@@ -314,22 +322,22 @@ test('a code span that becomes a thematic break when blanked cannot shift the se
   ].join('\n');
   // Four caller slides: the two `---`x`` lines are NOT boundaries, so they sit inside slide 1.
   assert.equal(core.splitSlides(deck).length, 4, 'the fixture must have 4 raw chunks, or it proves nothing');
-  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 0)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 1)), { index: 1, total: 2 });
   // These two are the regression: they read slots 4 and 5 of a 6-slot blanked array and reported 1.
-  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
-  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 2)), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 3)), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
 });
 
 test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
   // `divider-lite` and `section-divider` are not `divider`; a substring match would count them.
   assert.equal(core.deckSectionFor('<!-- _class: divider-lite -->\n# A\n\n---\n\n# B', 1), undefined);
-  assert.deepEqual(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1), { index: 1, total: 1 });
+  assert.deepEqual(posOf(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1)), { index: 1, total: 1 });
 });
 
 test('supplyablePosition composes the three fields, or hands over nothing', () => {
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1';
-  assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1 } });
+  assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1, slides: 2 } });
   assert.equal(core.supplyablePosition(deck, undefined, 2), undefined);
   assert.equal(core.supplyablePosition(deck, -1, 2), undefined);
   assert.equal(core.supplyablePosition(deck, 1, 5), undefined, 'an untrusted count supplies nothing at all');

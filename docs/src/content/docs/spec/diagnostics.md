@@ -384,6 +384,7 @@ These come from `reviewText` in `lib/authoring/review-core.js`, which `lint:deck
 | `wall-of-text` | suggestion | — | A slide past the deck profile's word or bullet budget. |
 | `long-heading` | suggestion | — | A heading past its word budget. |
 | `divider-numbered-heading` | suggestion | — | A numbered divider heading long enough to run off the frame. |
+| `empty-section` | suggestion | — | A divider straight after another divider, so the section before it holds no slide and its mark on the section rail never lights. |
 | `density-overflow` | suggestion | — | An element run well past its word budget. |
 | `density-crowd` | suggestion | — | An element crowding its word budget. |
 | `verbose-<chrome slot>` | suggestion | — | A family: one ID per chrome slot whose name is one word (`verbose-eyebrow`, `verbose-subtitle`). The slot is past its word budget. |
