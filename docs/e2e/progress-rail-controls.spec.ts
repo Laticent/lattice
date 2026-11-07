@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CHROME, gotoStudio, openDeckSettingsAt, openSection, persistedSource, setEditorContent, waitForStudioPaint } from './studio-fixture';
+import { acceptCompletion, CHROME, gotoStudio, openDeckSettingsAt, openSection, persistedSource, setEditorContent, waitForStudioPaint, watchMenuOpen } from './studio-fixture';
 
 // Studio → Chrome → Section rail: Position and Style write ONE `progress-rail:` line
 // (lib/core/resolve-progress-rail.js), the toggle writes its `off` word, and the editor completes
@@ -12,7 +12,7 @@ for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
-	test(`@crosswidth Section rail controls write one progress-rail line at ${label} (${width}px)`, async ({ page }, testInfo) => {
+	test(`@crosswidth @webkit-tablet @gecko Section rail controls write one progress-rail line at ${label} (${width}px)`, async ({ page }, testInfo) => {
 		// Authored at desktop width, where the editor pane is mounted, then resized to the width under test.
 		await page.setViewportSize({ width: 1440, height: 900 });
 		await gotoStudio(page);
@@ -22,7 +22,12 @@ for (const [label, width, height] of [
 		await openDeckSettingsAt(page, width);
 		await openSection(page, CHROME.deckTab.chrome);
 
-		const source = async () => JSON.parse(await persistedSource(page)) as string;
+		// Empty until the Studio's first save, so wait for the deck itself before reading a negative.
+		const source = async () => {
+			const raw = await persistedSource(page);
+			return raw ? (JSON.parse(raw) as string) : '';
+		};
+		await expect.poll(() => source()).toContain('# Rail controls');
 		// The deck arrives with the OLD spelling, `class: no-progress`, which still reads as off.
 		const toggle = page.getByRole('switch', { name: 'Section rail' });
 		await expect(toggle).toHaveAttribute('aria-checked', 'false');
@@ -60,12 +65,13 @@ for (const [label, width, height] of [
 	});
 }
 
-test('the editor completes progress-rail: words, one per axis', async ({ page }) => {
+test('the editor completes progress-rail: words, one per axis @webkit-tablet @gecko', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await waitForStudioPaint(page);
 	// Typed, not inserted: completion activates on typing (`activateOnTyping`).
 	await setEditorContent(page, '---\ntitle: Rail\n---\n');
+	await watchMenuOpen(page);
 	await page.keyboard.press('ArrowUp');
 	await page.keyboard.press('ArrowUp');
 	await page.keyboard.press('End');
@@ -73,7 +79,7 @@ test('the editor completes progress-rail: words, one per axis', async ({ page })
 	const menu = page.locator('.cm-tooltip-autocomplete');
 	await expect(menu).toBeVisible();
 	await expect(menu.getByRole('option', { name: 'edge' })).toBeVisible();
-	await page.keyboard.press('Enter');
+	await acceptCompletion(page);
 	// After a placement word, the next offer leaves the placement axis out.
 	await page.keyboard.type(' ');
 	await page.keyboard.press('Control+Space');

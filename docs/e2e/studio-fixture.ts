@@ -1002,3 +1002,34 @@ export function checkpointLabels(page: Page): Promise<string[]> {
 
 export const test = base;
 export { expect };
+
+// ACCEPT THE MENU THE WAY CODEMIRROR WILL TAKE IT. `acceptCompletion` returns false, and leaves the key to
+// the next binding, in two windows: within `interactionDelay` (75 ms, CodeMirror's default, which the Studio
+// keeps) of the menu first opening, and while a source is still pending (the menu then carries
+// `cm-tooltip-autocomplete-disabled` but keeps its options and its `aria-selected`). The Enter then reaches
+// the Markdown keymap, which continues the list: `- te` became `- te` plus a new `- ` line, the failure four
+// unrelated PRs hit (followups.d/2649-p3), and progress-rail-controls.spec.ts hit it again. It happened
+// whenever the assertions before the Enter all passed on their first poll, which is a matter of when the
+// menu happened to appear. So the helper records
+// when the menu opened, from the page, and polls until it is older than the delay and enabled.
+const CM_INTERACTION_DELAY_MS = 75;
+
+export async function watchMenuOpen(page: Page) {
+	await page.evaluate(() => {
+		const w = window as unknown as { __cmMenuAt?: number };
+		w.__cmMenuAt = document.querySelector('.cm-tooltip-autocomplete') ? Date.now() : undefined;
+		new MutationObserver(() => {
+			const open = !!document.querySelector('.cm-tooltip-autocomplete');
+			if (open && w.__cmMenuAt === undefined) w.__cmMenuAt = Date.now();
+			if (!open) w.__cmMenuAt = undefined;
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+}
+
+export async function acceptCompletion(page: Page) {
+	await expect(page.locator('.cm-tooltip-autocomplete')).not.toHaveClass(/cm-tooltip-autocomplete-disabled/);
+	await expect
+		.poll(() => page.evaluate(() => Date.now() - ((window as unknown as { __cmMenuAt?: number }).__cmMenuAt ?? Date.now())))
+		.toBeGreaterThan(CM_INTERACTION_DELAY_MS + 25);
+	await page.keyboard.press('Enter');
+}
