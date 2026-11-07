@@ -5818,6 +5818,10 @@ const SANCTIONED_MARK_IDENTITY = [
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
+  // The fluid viewer's chart redraw READS a bar's label and value back off its exported marks (through
+  // `dataset`) and puts the kernel's redrawn marks, carrying the same two attributes, into the page. It
+  // authors no identity of its own: every one it places is the kernel's, rebuilt from the exported one.
+  ['runtime/chart-redraw.js', true, true],
 ];
 
 /**
@@ -6067,6 +6071,19 @@ const RUNTIME_MARKUP_EXTRA_FILES = [
   'lib/core/code-copy.mjs',
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
+  {
+    file: 'lib/runtime/chart-redraw.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the chart family\'s own kernel output (lib/transformers/chart-frame.js `transformChartSection`, the call the engine made ' +
+      'at export), parsed into a DETACHED <template> and moved into the chart body. Its input is a source list REBUILT from the exported ' +
+      'chart\'s marks: every value read off the page is a decoded string (an attribute via `dataset`, a key label\'s text), and each is ' +
+      'escaped (`esc`) before it enters the list, so a label such as `<img onerror>` reaches the kernel as text and leaves it as text. A ' +
+      'mark\'s note is never re-serialized: the exported <template class="chart-detail"> NODE is moved into the new drawing. Runs only in ' +
+      'the --fluid viewer, on charts it snapshotted at boot. Pinned by test/unit/runtime/chart-redraw.test.js "a forged label redraws as ' +
+      'text, not markup" (engineering/decisions/2026-11-03-responsive-tables.md §"Charts redraw on demand").',
+  },
   {
     file: 'docs/src/lib/trama/pipeline.ts',
     sink: 'svg.innerHTML',

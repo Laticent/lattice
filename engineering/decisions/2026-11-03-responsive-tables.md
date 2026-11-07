@@ -534,23 +534,63 @@ and the reason decides what the narrow form has to be.
 - **The gap is a box that changes AFTER the render.** The fluid view on a phone, a resizing live
   preview and a continuous host all receive a drawing made for the authored box. CSS cannot redraw an
   SVG: the label sizes, tick counts and the key's position are baked into the drawing.
-- **So the narrow form is a second drawing, and that is a decision, not a step.** The candidate the
-  analysis favors: the engine draws each chart twice, the second at a narrow view (about 110 × 200
-  chart units, a phone's width at slide type size), and puts the second in a `<template>`, which is
-  inert: no layout, no accessibility tree, no duplicate ids, invisible to text extraction. The runtime
-  swaps it in when the chart body falls below a width and back when it widens; a PDF never swaps.
-  What it costs: about twice the chart markup in every HTML export (an exported-bytes change, which
-  the Quality Bar routes to the owner), twice the chart render time (a bench run, HARD RULE #19), and
-  a post-sanitize markup swap inside the frame, which HARD RULE #22's fourth guard has to admit. What
-  it buys: every kind gets a narrow form from its existing view-following geometry, with per-kind
-  work only where that geometry is not enough (risk-matrix's key goes below the grid; quadrant's
-  corner labels). The alternative, a runtime that carries the chart kernels and redraws, costs the
-  runtime bundle the whole chart family.
-- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
+- **The owner's call (2026-11-06, on #3060): redraw on demand, from the chart's own marks.** A second
+  drawing per chart in every export was refused: it duplicates markup to save a redraw. So is storing the
+  source beside the chart. What made a redraw cheap was a measurement, not an estimate: the runtime the
+  export inlines already contains the whole chart family (bundling lib/transformers/chart-family.js on top
+  of lib/runtime/index.js adds 47 bytes), so the "runtime carries the chart family, about 3× larger" cost
+  in the first analysis was wrong. See §"Charts redraw on demand" below.
+- **Shipped here: the continuous-host collapse.**- **Shipped here: the continuous-host collapse.** Six kinds fill a size container (radar, map,
   quadrant, word-cloud, piechart, hub-spoke), and size containment lends the box no height. In a
   continuous host the slide grows to its content, so the body collapsed to 0 and the chart vanished
   (every quadrant, radar and pie chart in the Frame Lab, at every width). In a continuous host their
   body now takes a 16:10 box from its width. No paged host sets the attribute, so no export changes.
+
+## Charts redraw on demand
+
+lib/runtime/chart-redraw.js redraws a chart in the `--fluid` viewer when its box changes the drawing the
+kernel would choose, and only then. Nothing is added to the export:
+
+- **The source comes back from the chart's own marks.** A bar records its category and value on each mark
+  (`data-label`, `data-value`), its series by hue in key order (`text.chart-key-label`), and each note
+  as the `<template class="chart-detail">` beside it. A per-kind READER rebuilds the source list from
+  those; a kind with no reader keeps its exported drawing. Single series is "every category has one
+  mark", not "one hue": a diverging chart paints by sign.
+- **The drawing is the engine's.** `transformChartSection` with the box the chart has now: the slide's
+  orientation and aspect, and a canvas in slide chart units (lib/engine/index.js `paneView`), for a
+  whole-slide chart as well as a pane. The unit includes the slide's type scale (`--canvas-scale`, 2.29 on
+  a 390px phone): without it the redrawn labels were 8px beside 17px body text. The canvas is at least
+  200 units wide (a four-category chart at the full type size broke "Licenses" mid-word at 140), and a
+  canvas that would shorten a name the export printed in full is widened in steps, the kernel's own
+  rule (`wouldShortenALabel`): the gallery's "every unit named in full" slide stays in full.
+- **When.** The fluid boot snapshots each chart with a reader before any box changes: its exported nodes
+  (in memory, a WeakMap, never in the page) and the box they were drawn for. The geometry pass
+  (`patchSectionGeometry`) asks each chart for its box after every resize; a box that matches the last
+  drawing does nothing, the exported box puts the exported nodes back, any other box redraws. The canvas
+  is snapped to 20 units and the aspect to quarters, so a drag redraws when the drawing would change,
+  not on every pixel.
+- **Safety (HARD RULE #22).** Values read off the page are decoded strings, so each is escaped before it
+  enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
+  tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
+  SVG is named for assistive tech as the engine's post-pass names it.
+
+Measured on the bar chart: one redraw is 0.13 ms in the kernel (the bar gallery's eight charts, 200
+rounds, Node). The inlined runtime grows by 4.6 KB minified (1.6 KB gzipped) across this branch's two
+runtime changes (the pane stamps and the redraw); no chart adds a byte. On a 390px phone the
+examples/panes.md bar panes go from 7px labels on a 472 × 72 strip to 16 to 19px (text box height) on a 200 × 300 canvas;
+every chart in the bar gallery redraws (single, row, grouped, diverging, the eight-unit stress test,
+dark, compact, accent), and rotating back restores the exported drawing byte for byte.
+test/unit/runtime/chart-redraw.test.js pins the round trips and a forged label;
+test/integration/export/fluid-chart-redraw.test.js pins the real export (it fails with the redraw off).
+
+**Bar is the first reader.** The read-back survey (2026-11-06, every chart gallery): bullet, ep-curve,
+funnel, heatmap, line, map, piechart, slope, stacked-bar, tower, waterfall, hub-spoke, journey,
+matrix-grid and roadmap carry their whole source on their marks; histogram, gantt, scatter, quadrant,
+risk-matrix, radar and word-cloud keep part of it only in geometry or the `<desc>` prose; kanban, progress
+and timeline-list never change with the box; flowchart and state-chart redraw from their stored model
+through their own browser layout. The grouped bar's kernel sizes its own figure (chart and key), so its
+smallest label redraws at 11px where the others reach 13 to 16px: still far better than the export's
+8814-unit strip.
 
 ## What comes next
 
