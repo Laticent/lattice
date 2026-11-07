@@ -6,6 +6,18 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-07 — measured on the built tree at 433499cf
+
+Owner-approved reset (PR #3056): main's engine bundle sat 3,684 B gz under its ceiling and #3056's section rail (both render arms, the topic section eyebrow and the progress-rail register) adds 3,634 B, so a few dozen bytes past it once #3050 landed. The owner chose a tool reset of engineJsGz over a hand raise or trimming the feature. Soft targets reset to today's main; ceilings back to 10% above.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 707731 | 775332 | +67601 | 852865 |
+| playground | engineJsGz | 707731 | 775332 | +67601 | 852865 |
+| home | engineJsGz | 707731 | 775332 | +67601 | 852865 |
+| components | engineJsGz | 707731 | 775332 | +67601 | 852865 |
+| getting-started | engineJsGz | 288314 | 310700 | +22386 | 341770 |
+
 ### 2026-11-07 — measured on the built tree at dfd62dff
 
 Owner-approved reset (PR #3056): main sits within 0.8 KB (Studio eager JS) and 0.1 KB (lint core) of its ceilings, and #3056's section-rail Inspector pickers and progress-rail lint vocabulary (+~0.6 KB / +~0.2 KB gz, measured) cannot fit. Soft targets reset to today's main; ceilings back to 10% above.
