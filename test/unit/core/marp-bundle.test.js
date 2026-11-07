@@ -239,6 +239,15 @@ describe('marp-bundle spec', () => {
     assert.match(r, /\*\*Terminal → Run Task…\*\*/);
   });
 
+  test('readme says Marp for VS Code shows hidden slides, and never that every route matches', () => {
+    // The bundle drops hidden slides through marp.config.cjs, which Marp for VS Code never reads: its
+    // preview and its own Export Slide Deck... show them (engineering/decisions/2026-11-06-hidden-slides.md).
+    const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'] });
+    assert.match(r, /Marp for VS\s+Code does not read `marp\.config\.cjs`/);
+    assert.match(r, /export with a \*Marp:\* task/);
+    for (const line of r.split('\n').filter((l) => /same result/.test(l))) assert.match(line, /except/, line);
+  });
+
   test('readme gives the marp-cli route with the config, never --html', () => {
     const r = readme({ name: 'demo', palette: 'indaco', themes: ['lattice.css'] });
     for (const script of ['npm install', 'npm run pdf', 'npm run pptx', 'npm run html']) assert.match(r, new RegExp(script));
