@@ -4,7 +4,7 @@
  * The Playground's style loader (docs/src/lib/style-loader.ts) fetches an index and the modules a
  * document needs. A module counts as "needed" when any selector's tokens are present, and a dozen
  * generic selectors (`section`, `h1`, `p`, `svg`) are present in every deck, so 60 of the 187 modules (13 unconditional, 47 common)
- * are needed by 70% or more of the example decks. Fetching them after the first render costs a round
+ * were needed by 70% or more of the example decks (the threshold is 95% since 2026-11-06, below). Fetching them after the first render costs a round
  * trip and a request each; putting them in the FLOOR (what loads at start, in parallel with the engine
  * bundle) costs nothing in bytes, because most decks load them anyway. Measured over the 295 example
  * decks (2026-10-19, token index): the floor goes from 13 modules and 57 KB to 60 modules and 228 KB
@@ -27,8 +27,11 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const FILE = path.join(__dirname, 'style-needs-common.json');
-/** A module joins the floor when at least this share of the example decks needs it. */
-const THRESHOLD = 0.7;
+/** A module joins the floor when at least this share of the example decks needs it. 0.7 until 2026-11-06:
+ *  that list sat at both limits of its test (stale ids, and a 41% floor on regeneration), so every PR
+ *  that edited a listed module's CSS turned `unit` red. 0.95 regenerates to 44 modules, floor under 40%
+ *  (engineering/decisions/2026-10-18-on-demand-styles.md, "The common list's threshold"). */
+const THRESHOLD = 0.95;
 
 /** Share of the example decks that need each module, by the token scan over the CLI engine's HTML. */
 function measure() {

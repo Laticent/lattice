@@ -1109,7 +1109,7 @@ the note's block cost, items straight after a note) each have a test now that fa
 CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:route-budget`); no other
 route moves. The geometry is most of it. Given back first: the five compare-prose registers that
 measure the same are baked as one register's key, and the tag title stores no geometry. Declared in
-`docs/route-budget.d/2361-venue-lint-lines-2.md`.
+`2361-venue-lint-lines-2` (folded into `docs/route-budget.history.md`).
 
 **Still missed, by component, on the five decks** (at all three venues): split-panel 16,
 list-steps 10, compare-prose 6 (bloom's `axis` slide at every venue, which is not measured;
@@ -1257,7 +1257,7 @@ CI does (`docs/scripts/measure-route-base.sh`, then the docs build's `check:rout
 playground reads +1 B of gzip noise, as on #2548. Given back first: `mirror`, `watermark mirror` and
 `milestone lettered` are baked as their twins' keys, `vertical compact` stores only the frame field
 that differs (`calloutAt`), and the running-header reader is gone (about 790 B with its import of
-lib/engine/directives.js). Declared in `docs/route-budget.d/2361-venue-lint-steps-points.md`.
+lib/engine/directives.js). Declared in `2361-venue-lint-steps-points` (folded into `docs/route-budget.history.md`).
 
 **Still missed, by component, on the five decks** (at all three venues): split-panel 13 (`gallery.md`
 57 at conference and hall, a `watermark mirror` slide under a header, and 11 in the claim panel: `pullquote` 6, `metric` 2, two `proof` slides seven-steps 5 and 10 at conference whose

@@ -1,4 +1,0 @@
-studio: +700
-playground: +700
-home: +700
-The security spine S2 and P2 (PR 3033). The policy table, `lib/core/content-policy.js`, now holds the sets the scanner kept privately (`WEB_MEDIA`, `MEDIA_FETCH_ATTRS`, `URL_PAINT_ATTRS`, `SMIL`), the vendored-script list, `ACTIVE_STRIPPED_TAGS`, `isScriptUrl` and `isAddressString`, so the linter reads the renderer's own objects: +428 B on `_astro/sanitize-slide-html`, the chunk that carries the table. `remote-ref.js` builds its readers through the require-free factory in `lib/core/web-ref-readers.js` and exports `cssDeclSpans`, the CSS reader with the declaration channel that the code door reads: +244 B on `_astro/remote-ref`. 672 B measured by CI on f50991f; each line covers gzip variation. Keeping the sets private to the scanner would save the 428 B and leave the linter with a copy of them, which the S3 census now refuses.

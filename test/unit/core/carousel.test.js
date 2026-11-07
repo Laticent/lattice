@@ -191,6 +191,25 @@ describe('core: carousel — feature-cover (split-panel)', () => {
     assert.match(cover, /split-feat-lede">The quarter closed on plan.</);
   });
 
+  test('a point title with its own bold run emits BALANCED markup (followup 2953-p2)', () => {
+    // split-panel's transform wraps each label in a <strong>, so `- **6** again` arrives nested.
+    // A lazy regex read the title as `<strong>6`, and the unclosed <strong> swallowed every
+    // later slide in the browser.
+    const inner =
+      '<div class="panel-left"><h2>Three groups.</h2></div>' +
+      '<div class="panel-right"><ul><li><strong><strong>15</strong> first</strong><ul><li><strong>Stable</strong></li><li>Body one.</li></ul></li>' +
+      '<li><strong><strong>6</strong> again</strong><ul><li><strong>Themeable</strong></li><li>Body two.</li></ul></li></ul></div>';
+    const f = readFeature(inner);
+    assert.equal(f.points[1].title, '<strong>6</strong> again');
+    const parts = carouselize('<section data-lattice-slide="1" class="split-panel form">', inner, cvRecipe);
+    for (const p of parts) {
+      const opens = (p.match(/<strong\b/g) || []).length;
+      const closes = (p.match(/<\/strong>/g) || []).length;
+      assert.equal(opens, closes, `unbalanced <strong> in ${p}`);
+    }
+    assert.match(parts.join(''), /split-pt-t"><strong>6<\/strong> again<\/span>/);
+  });
+
   test('no points (or no panel-right) → null, left for the ring', () => {
     assert.equal(carouselize('<section class="split-panel">', '<div class="panel-left"><h2>x</h2></div>', cvRecipe), null);
   });

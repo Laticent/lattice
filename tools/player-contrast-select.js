@@ -48,7 +48,7 @@ function readGalleries(root = ROOT) {
 			const file = path.join(base, bucket.name, comp.name, `${comp.name}.gallery.md`);
 			if (!fs.existsSync(file)) continue;
 			const head = fs.readFileSync(file, 'utf8').split(/\r\n?|\n/).slice(0, 12).join('\n');
-			const theme = /^theme:\s*['"]?([\w-]+)/m.exec(head)?.[1] || 'indaco';
+			const theme = [...head.matchAll(/^theme[ \t]*:[ \t]*['"]?([\w-]+)/gm)].pop()?.[1] || 'indaco';
 			out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir: `lib/components/${bucket.name}/${comp.name}/`, theme });
 		}
 	}
@@ -57,7 +57,7 @@ function readGalleries(root = ROOT) {
 		const file = path.join(k.parent, k.name, `${k.name}.gallery.md`);
 		if (!fs.existsSync(file)) continue;
 		const head = fs.readFileSync(file, 'utf8').split(/\r\n?|\n/).slice(0, 12).join('\n');
-		const theme = /^theme:\s*['"]?([\w-]+)/m.exec(head)?.[1] || 'indaco';
+		const theme = [...head.matchAll(/^theme[ \t]*:[ \t]*['"]?([\w-]+)/gm)].pop()?.[1] || 'indaco';
 		const dir = `${path.relative(root, path.join(k.parent, k.name)).split(path.sep).join('/')}/`;
 		out.push({ file: path.relative(root, file).split(path.sep).join('/'), dir, theme });
 	}
@@ -117,7 +117,7 @@ function sampleExamples(root = ROOT, n = 40) {
 	const rest = [];
 	for (const f of decks) {
 		const h = head(f);
-		const theme = /^theme:\s*['"]?([\w-]+)/m.exec(h)?.[1] || 'indaco';
+		const theme = [...h.matchAll(/^theme[ \t]*:[ \t]*['"]?([\w-]+)/gm)].pop()?.[1] || 'indaco';
 		if (theme !== 'indaco' || /^(?:finish|mode):/m.test(h)) chosen.add(f);
 		else rest.push(f);
 	}

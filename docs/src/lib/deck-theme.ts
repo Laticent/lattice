@@ -39,9 +39,11 @@ function stripQuotes(v: string): string {
 }
 
 /** The deck's own `theme:` directive value, trimmed, or null when it declares none.
- *  Reads only the leading front-matter block (a deck-level global, like the engine). */
+ *  Reads only the leading front-matter block (a deck-level global, like the engine),
+ *  and only a TOP-LEVEL key: the engine's `parseFrontMatter` anchors at column 0 (#2050),
+ *  so a `theme:` nested under another block is not the deck's palette. */
 export function deckThemeName(source: string): string | null {
-	const m = /^\s*theme:\s*(.*)$/m.exec(frontMatterBody(source));
+	const m = lastLine(/^theme[ \t]*:[ \t]*(.*)$/gm, frontMatterBody(source));
 	if (!m) return null;
 	const v = stripQuotes(m[1]).trim();
 	return v || null;
@@ -51,7 +53,7 @@ export function deckThemeName(source: string): string | null {
  *  `class: dark` propagates a `.dark` (section-scoped `color-scheme:dark`) onto
  *  every slide — an explicit deck-dark pin. */
 export function deckClassTokens(source: string): string[] {
-	const m = CLASS_LINE.exec(frontMatterBody(source));
+	const m = lastLine(CLASS_LINE, frontMatterBody(source));
 	if (!m) return [];
 	return stripQuotes(m[1]).trim().split(/\s+/).filter(Boolean);
 }
@@ -64,8 +66,14 @@ export function deckClassTokens(source: string): string[] {
  *  Mirrors `topLevelFrontMatterValue` in lib/core/front-matter-key.js — which this
  *  module cannot import (Rollup will not read named exports off a CJS file outside
  *  the docs root), hence the mirrored spelling and this note. */
-const CLASS_LINE = /^class:[ \t]*(.*)$/m;
-const COLOR_MODE_LINE = /^color-mode:[ \t]*(.*)$/m;
+const CLASS_LINE = /^class[ \t]*:[ \t]*(.*)$/gm;
+const COLOR_MODE_LINE = /^color-mode[ \t]*:[ \t]*(.*)$/gm;
+
+/** The LAST matching line: a repeated key reads as its last value, as the engine and
+ *  `topLevelFrontMatterValue` read it (#3050, D1). `re` must carry the `g` and `m` flags. */
+function lastLine(re: RegExp, body: string): RegExpMatchArray | null {
+	return [...body.matchAll(re)].pop() ?? null;
+}
 
 /** The five first-class `color-mode:` values. `inherited` adopts the host (site) mode;
  *  `system` follows the OS; `print` renders the whole deck in the B&W-safe ink-on-white
@@ -76,7 +84,7 @@ export type ColorMode = 'light' | 'dark' | 'system' | 'inherited' | 'print';
 /** The deck's first-class `color-mode:` value (front matter), or null when it declares
  *  none. This SUPERSEDES the legacy `class: dark`/`class: light` color axis. */
 export function deckColorMode(source: string): ColorMode | null {
-	const m = COLOR_MODE_LINE.exec(frontMatterBody(source));
+	const m = lastLine(COLOR_MODE_LINE, frontMatterBody(source));
 	if (!m) return null;
 	const v = stripQuotes(m[1]).trim().toLowerCase();
 	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' || v === 'print' ? v : null;

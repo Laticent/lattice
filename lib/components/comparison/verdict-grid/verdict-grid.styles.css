@@ -82,13 +82,23 @@ section.verdict-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* ── Portrait / square reflow (social/mobile @sizes). Keyed on the deck-wide
  * data-orientation stamp (lib/engine/slides.js); landscape untouched. See
  * 2026-06-16-social-mobile-portrait-sizes.md (phase 3). */
+/* A STACKED GRID FOLLOWS THE `cards:` REGISTER, as the wide grid does (`align-content` above) and
+ * as matrix-2x2's stack does. Each card used to take `flex: 1`, so it always filled the stage:
+ * center, stretch and top all filled 93% of a narrow pane and 100% of a portrait page. Now a card
+ * grows only under `stretch` (equal shares from a zero `--cards-basis`) and otherwise sits at its
+ * content height, placed by `--cards-align` (the manifest asks for `center`). It never shrinks below
+ * its content (`min-height: min-content`), so a stack that does not fit overflows the stage, where
+ * the export's overflow warning and the fit check see it, instead of each card clipping its own
+ * text. `nowrap`: a column that may overflow must not wrap into a second column. The three stacked
+ * forms below (orientation, family, width) share these declarations, so a phone, a tall deck and a
+ * narrow pane read the same. */
 section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul {
-  flex-direction: column;
+  flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align);
 }
 section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
-  width: auto; flex: 1; min-height: 0;
+  width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content;
 }
-/* fill:center — with few cards the 1fr rows stretch tall; top-anchored content
+/* fill:center — under `stretch` a card is taller than its content; top-anchored content
  * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Center
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
@@ -100,9 +110,11 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
  * `"cards": { "default": "center", "withCoda": "stretch" }` and the engine resolves it,
  * stamping `data-cards`. lib/core/resolve-cards.js; the note's §10. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
-  flex-direction: column;
+  flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align);
 }
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: safe center; }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
+  width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content; justify-content: safe center;
+}
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
@@ -119,6 +131,10 @@ section.verdict-grid > .cell-stage {
  * aspect; this answers the box's width. Below 24em of the content area a card would be under
  * about 11.5em, so the grid goes to one column, the same form a tall deck gets. */
 @container lat-cards (width < 24em) {
-  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) { flex-direction: column; --lat-narrow: 1; }
-  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) > li { width: auto; flex: 1; min-height: 0; }
+  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) {
+    flex-direction: column; flex-wrap: nowrap; justify-content: var(--cards-align); --lat-narrow: 1;
+  }
+  section.verdict-grid.verdict-grid > .cell-stage > ul:not(.lat-reflow-held) > li {
+    width: auto; flex: var(--cards-grow) 0 var(--cards-basis); min-height: min-content; justify-content: safe center;
+  }
 }

@@ -196,19 +196,22 @@ describe('security spine S2: the linter warns on exactly what the renderer block
 describe('security spine S2: the front matter, read the way each consumer reads it', () => {
   const lintAddresses = (src) => [...new Set(core.lintTextWith(src, vocab).filter((f) => SECURITY_RULES.has(f.rule) && f.address).map((f) => f.address))].sort();
 
-  test('a directive the engine reads from an indented line, and the last of a repeated key', () => {
-    // lib/engine/directives.js `parseFrontMatter` trims each line, so an indented key is a directive, and the last wins.
+  test('a directive nested under another key is not read, and the last of a repeated key wins', () => {
+    // lib/engine/directives.js `parseFrontMatter` reads TOP-LEVEL keys only (#2050), and the last wins. It used to trim
+    // each line, so the nested pair below was the deck's; the lint reads through the same function, so both moved.
     const src = '---\nmarp: true\nbackgroundImage: url(https://fm-a.example/a.png)\nfoo:\n  backgroundImage: url(https://fm-b.example/b.png)\n  header: "![x](https://nested.example/h.png)"\n---\n\n# A\n';
     const { blocked } = blockWebImages(engine.render(src, 'indaco').html, [], { fonts: true, DOMParser: null });
     assert.deepEqual(lintAddresses(src), [...new Set(blocked.map((b) => b.url))].sort());
-    assert.deepEqual(lintAddresses(src), ['https://fm-b.example/b.png', 'https://nested.example/h.png']);
+    assert.deepEqual(lintAddresses(src), ['https://fm-a.example/a.png']);
   });
 
-  test('`style:` as the CLI export pastes it: the first, at any indentation, quoted or a block', () => {
+  test('`style:` as the CLI export pastes it: the LAST top-level one, quoted or a block', () => {
     const { readGlobalStyle } = require('../../../lib/core/front-matter-style.js');
+    // A repeated `style:` reads as its last line, as the engine keeps it (#3050, D1), so the earlier
+    // line's address is neither pasted nor linted.
+    assert.deepEqual(lintAddresses('---\nmarp: true\nstyle: "section{background:url(https://dead.example/a.png)}"\nstyle: "section{color:red}"\n---\n\n# A\n'), []);
     for (const fm of [
-      'style: "section{background:url(https://first.example/a.png)}"\nstyle: "section{color:red}"',
-      'foo:\n  style: "section{background:url(https://nested.example/n.png)}"',
+      'style: "section{color:red}"\nstyle: "section{background:url(https://last.example/a.png)}"',
       'style: |\n  section { background: url(https://block.example/b.png); }',
     ]) {
       const pasted = readGlobalStyle(fm);
@@ -216,6 +219,9 @@ describe('security spine S2: the front matter, read the way each consumer reads 
       assert.equal(linted.length, 1, fm);
       assert.ok(pasted.includes(linted[0]), `${fm}: the export pastes ${pasted}`);
     }
+    // A `style:` nested under another key is not the deck's (the engine reads top-level keys only, #2050): not pasted, not linted.
+    assert.equal(readGlobalStyle('foo:\n  style: "section{background:url(https://nested.example/n.png)}"'), '');
+    assert.deepEqual(lintAddresses('---\nmarp: true\nfoo:\n  style: "section{background:url(https://nested.example/n.png)}"\n---\n\n# A\n'), []);
     // An unquoted one-line `style:` is not pasted at all, and lint stays silent on it.
     assert.equal(readGlobalStyle('style: section{background:url(https://unq.example/u.png)}'), '');
     assert.deepEqual(lintAddresses('---\nmarp: true\nstyle: section{background:url(https://unq.example/u.png)}\n---\n\n# A\n'), []);

@@ -265,8 +265,9 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	// A directive inside a fenced code block is quoted text, not a class the engine applies.
 	const text = source.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-	const deckClass = fm && /^[ \t]*class[ \t]*:[ \t]*(.+?)[ \t]*$/im.exec(fm[1]);
-	if (deckClass) add(deckClass[1]);
+	// Every top-level `class:` line: the engine applies the LAST of a repeat (#3050, D1), and naming a package from a
+	// dead line too only widens the notice, where missing the live one hides it.
+	if (fm) for (const deckClass of fm[1].matchAll(/^class[ \t]*:[ \t]*(.+?)[ \t]*$/gim)) add(deckClass[1]);
 	// `pane:` too: a package in a pane runs through the same slot (the inversion lens found a pane
 	// slide whose note pointed at a notice that never came).
 	// `_class:` / `class:` go through the shared directive grammar; a `pane:` marker is pane grammar
