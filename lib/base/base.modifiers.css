@@ -3385,7 +3385,7 @@ section.lat-split-cover .split-feat-lede {
    run's first body page (lib/core/cover-lift.js, owner 2026-11-06). On the page they read as the
    slide's own subtitle and lede, at body size so they introduce the members rather than outrank
    them: the subtitle italic and secondary, the lede body text, and a step of air below both. */
-section[data-split-role="body"] > .cell-stage > .split-lifted { display: flex; flex-direction: column; gap: var(--sp-xs); padding-block-end: var(--sp-sm); }
+section[data-split-role="body"] > :is(.cell-stage > .split-lifted, .split-lifted) { display: flex; flex-direction: column; gap: var(--sp-xs); padding-block-end: var(--sp-sm); }
 section[data-split-role="body"] .split-lifted .split-feat-sub {
   font-size: var(--fs-body); font-style: italic; line-height: var(--lh-snug); color: var(--text-secondary);
 }

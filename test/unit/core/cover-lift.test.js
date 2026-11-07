@@ -68,3 +68,23 @@ test('a first page with no room keeps the text on the cover', () => {
   assert.equal(liftCoverText(doc), 0);
   assert.ok(doc.querySelector('[data-split-role="cover"] .split-feat-sub'));
 });
+
+test('a page built without a stage cell takes the text before its first content element', () => {
+  const dom = new JSDOM(`<body>
+    <section data-split-role="cover" data-lattice-slide="4">
+      <div class="split-feat-h">Title</div><div class="split-feat-lede">Lede</div>
+      <div class="cell-footer">F</div>
+    </section>
+    <section data-split-role="body" data-lattice-slide="4.2"><div class="split-runhead">Run</div><ul class="split-pts"><li>a</li></ul><div class="cell-footer">F</div></section>
+  </body>`);
+  const { document, HTMLElement } = dom.window;
+  const box = { 'split-feat-h': [0, 300], 'split-feat-lede': [300, 380], 'split-runhead': [0, 40], 'split-pts': [40, 200] };
+  HTMLElement.prototype.getBoundingClientRect = function rect() {
+    if (this.classList.contains('cell-footer')) return { top: 340, bottom: 380 };
+    const b = box[this.className];
+    return b ? { top: b[0], bottom: b[1] } : { top: 0, bottom: 0 };
+  };
+  assert.equal(liftCoverText(document), 1);
+  const page = document.querySelector('[data-lattice-slide="4.2"]');
+  assert.deepEqual([...page.children].map((e) => e.className), ['split-runhead', 'split-lifted', 'split-pts', 'cell-footer'], 'after the run head, before the points');
+});
