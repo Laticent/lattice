@@ -1797,6 +1797,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
         rung: pickRung().name,
         readiness: selection ? (() => { const r = resolveVoice(); return { state: r.state, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
         openRouterReady: openrouter.ready(),
+        geminiReady: !!cloudRungs.gemini?.ready(),
         kokoroReady: kokoro.ready(),
         kokoroCached: kokoroCachedFlag, // on disk (may not be loaded into memory yet)
         kokoroSupported: kokoroSupported(), // on-device is desktop-only

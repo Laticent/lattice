@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, Cpu, FileBox, Paperclip, RotateCcw, Sparkles, Unlock, Upload, Wallet } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload, Volume2, } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -113,30 +113,18 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 				</Inert>
 				{children ?? (
 					<>
-						{/* The AI tab, where the sheet opens. The headings and the tier switch's labels are
-						    fixed; which tier is active and what the account shows are not, so those are blocks. */}
+						{/* The AI tab, where the sheet opens, in the real tab's SHAPE: each section's heading and
+						    a card of the real card's fixed height (AiModelSections.tsx SelectionCard, 68px), so
+						    the sheet does not move when the real content arrives. */}
 						<Inert className="block">
-							<WorkspaceGroupLabel icon={<Sparkles />}>Model</WorkspaceGroupLabel>
-							<div className="flex gap-1 rounded-lg border border-border p-0.5">
-								{(
-									[
-										['Cloud', <Cloud key="c" className="size-3.5" />],
-										['On-device', <Cpu key="d" className="size-3.5" />],
-									] as const
-								).map(([label, icon]) => (
-									<span key={label} className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-muted-foreground">
-										{icon}
-										{label}
-									</span>
-								))}
-							</div>
-							<Block className="mt-1.5 mb-3" w="72%" h={14} />
-							<Block className="rounded-xl" h={42} />
-							<Block className="mt-2" w="96%" />
-							<Block className="mt-1.5" w="90%" />
-							<Block className="mt-1.5" w="50%" />
+							<WorkspaceGroupLabel icon={<Sparkles />}>Chat model</WorkspaceGroupLabel>
+							<Block className="rounded-xl" h={68} />
 							<WorkspaceAiSection>
-								<WorkspaceGroupLabel icon={<Wallet />}>Spend</WorkspaceGroupLabel>
+								<WorkspaceGroupLabel icon={<Volume2 />}>Voice model</WorkspaceGroupLabel>
+								<Block className="rounded-xl" h={68} />
+							</WorkspaceAiSection>
+							<WorkspaceAiSection>
+								<WorkspaceGroupLabel icon={<KeyRound />}>Providers &amp; keys</WorkspaceGroupLabel>
 								<Block className="rounded-xl" h={122} />
 							</WorkspaceAiSection>
 						</Inert>

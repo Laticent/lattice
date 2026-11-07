@@ -2,7 +2,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // DIRECT PROVIDER KEYS — OpenAI, Anthropic and Gemini beside OpenRouter (lifecycle note §7 step 2).
 //
-// For each provider: paste a key in Workspace → AI → API key, have it checked against that
+// For each provider: paste a key in Workspace → AI → Providers & keys, have it checked against that
 // provider's free model listing, then run four Studio AI faculties — Theme, Finish and Motion
 // succeed, Component meets a 402 — and prove every request went to the provider's own endpoint
 // with its own auth header, none to OpenRouter's chat endpoint, and the 402 names the provider.
@@ -148,7 +148,6 @@ for (const p of PROVIDERS) {
 		const seen = await mockAll(page, p);
 		await gotoStudio(page);
 		await openWorkspaceAi(page);
-		await page.getByRole('tab', { name: 'API key' }).click();
 
 		// Pick the provider; a key of the wrong shape is refused without a request.
 		await page.getByRole('group', { name: 'Key provider' }).getByRole('button', { name: p.label, exact: true }).click();
@@ -167,7 +166,8 @@ for (const p of PROVIDERS) {
 		await page.getByRole('button', { name: 'Check & save' }).click();
 		await expect(page.getByText(`${p.label} key …${p.key.slice(-4)}`)).toBeVisible();
 		await expect(page.getByText(p.key)).toHaveCount(0);
-		await expect(page.getByText(new RegExp(`edits run on ${p.label}, on your own key`))).toBeVisible();
+		// Owner decision 3: the saved key's chat model is the selection at once.
+		await expect(page.getByTestId('chat-model-card')).toContainText(`${p.label} · your own key`);
 		// Sealed at rest: the stored value is an envelope, never the key.
 		// The sealed write lands after the toast, so wait for it rather than read once.
 		const stored = () => page.evaluate((id) => localStorage.getItem(`lattice-db-${id}-key`), p.id);
@@ -175,7 +175,6 @@ for (const p of PROVIDERS) {
 		expect(await stored()).not.toContain(p.key);
 
 		// Spend: no balance a browser key can read, a billing link, and an estimate label.
-		await page.getByRole('tab', { name: 'Cloud' }).click();
 		await expect(page.getByText('Balance not available for this provider')).toBeVisible();
 		await expect(page.getByRole('link', { name: new RegExp(`${p.label} billing`) })).toBeVisible();
 		await expect(page.getByText('This session · estimate')).toBeVisible();
@@ -219,13 +218,13 @@ for (const p of PROVIDERS) {
 	});
 }
 
-test('a saved direct key and an OpenRouter key switch with "Use", and Remove returns to OpenRouter', async ({ page }) => {
+test('a saved direct key and an OpenRouter key switch with "Use"; removing another key leaves the selection alone', async ({ page }) => {
 	const p = PROVIDERS[0];
 	await mockAll(page, p);
 	await page.route('https://openrouter.ai/api/v1/auth/key', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' }));
 	await gotoStudio(page);
 	await openWorkspaceAi(page);
-	await page.getByRole('tab', { name: 'API key' }).click();
+	const card = page.getByTestId('chat-model-card');
 
 	await page.getByLabel('OpenRouter API key').fill('sk-or-v1-e2e-switch-key-0or0');
 	await page.getByRole('button', { name: 'Check & save' }).click();
@@ -234,13 +233,13 @@ test('a saved direct key and an OpenRouter key switch with "Use", and Remove ret
 	await page.getByRole('group', { name: 'Key provider' }).getByRole('button', { name: 'OpenAI', exact: true }).click();
 	await page.getByLabel('OpenAI API key').fill(p.key);
 	await page.getByRole('button', { name: 'Check & save' }).click();
-	await expect(page.getByText(/edits run on OpenAI/)).toBeVisible();
+	await expect(card).toContainText('OpenAI · your own key');
 
 	await page.getByRole('button', { name: 'Use', exact: true }).click();
-	await expect(page.getByText(/edits run on OpenRouter/)).toBeVisible();
+	await expect(card).toContainText('OpenRouter · your account');
 
 	await page.getByRole('button', { name: 'Remove the OpenAI key' }).click();
 	await expect(page.getByText(`OpenAI key …${p.key.slice(-4)}`)).toHaveCount(0);
 	await expect(page.getByText('OpenRouter key …0or0')).toBeVisible();
-	await expect(page.getByText(/edits run on OpenRouter/)).toBeVisible();
+	await expect(card).toContainText('OpenRouter · your account');
 });

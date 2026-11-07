@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -20,9 +20,9 @@ import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOve
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
-import { ApiKeyPanel } from './ApiKeyPanel';
-import { disconnectAllProviders, removeProviderKey } from './api-key';
-import { architectSpend, connectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
+import { ChatModelSection, ProvidersSection, VoiceModelSection } from './AiModelSections';
+import { disconnectAllProviders, } from './api-key';
+import { architectSpend, connectOpenRouter, setBudget, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';
@@ -32,8 +32,6 @@ import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } fro
 import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
-import { ModelPicker } from './ModelPicker';
-import { OnDeviceTier } from './OnDeviceTier';
 import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
@@ -54,7 +52,6 @@ import {
 	saveSettings,
 	truncateCodePoints,
 } from './studio-store';
-import { TtsSettings } from './TtsSettings';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
 import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
@@ -82,12 +79,6 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // the AI model, so they live as sections under AI rather than as sibling tabs.
 const TABS = WORKSPACE_TABS;
 type Tab = WorkspaceTab;
-// `apikey` is a way to CONNECT the cloud tier (a pasted OpenRouter key), not a third backend:
-// everything below the switch (spend, instructions, voice) treats it as cloud.
-type GenView = 'cloud' | 'ondevice' | 'apikey';
-
-const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
-
 // Was a hand-rolled mono-11px-uppercase row — one of four near-identical subhead
 // treatments across the drawers. Now a thin shim over `PanelSection`'s head so this
 // surface shares the one grammar; kept as a named component because ~20 call sites
@@ -298,8 +289,6 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors (OpenAI,
 	// Google, DeepSeek, x-ai) cache server-side whatever this says. Gate the control rather than lie about it.
 	const cacheUsable = ai.openRouterReady && orSupportsCache(ai.modelId ?? '');
-	const [genView, setGenView] = React.useState<GenView>('cloud');
-	const userPickedView = React.useRef(false);
 	const [instructions, setInstructions] = React.useState(loadInstructions);
 	// Separate, capped on-device standing instructions — a small local model loses
 	// the thread past a short brief, so it's its own field, not a truncation of the
@@ -497,21 +486,21 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		}
 	};
 
-	const cloudActive = ai.generation === 'openrouter';
-	// The cloud tier runs on OpenRouter unless the author saved a direct OpenAI, Gemini or
-	// Anthropic key and chose it (API key tab). A direct provider has no OAuth, no readable
-	// balance and no per-key cap, so the rows below that depend on those branch on `direct`.
+	// Spend and the standing instructions follow the ACTIVE chat selection (the stored record,
+	// painted on the first frame), never a view tab: browsing on-device models no longer tells
+	// an author on a paid cloud model that "on-device runs free".
+	const chatSource: 'cloud' | 'device' = ai.readiness?.source ?? 'cloud';
+	// The provider the chat selection runs on (or the author's last cloud provider while on-device).
+	// A direct provider has no OAuth, no readable balance and no per-key cap, so the rows below
+	// that depend on those branch on `direct`.
 	const provider = ai.provider ?? 'openrouter';
 	const direct = provider !== 'openrouter';
 	const providerLabel = KEY_PROVIDER_INFO[provider].label;
-	const onDeviceActive = ON_DEVICE_TIERS.has(ai.generation);
-	// Seed the visible pane from the ACTIVE tier — but only until the user picks a
-	// pane themselves, so a later status refresh can't yank them off their selection.
-	React.useEffect(() => {
-		if (userPickedView.current) return;
-		if (onDeviceActive) setGenView('ondevice');
-		else if (cloudActive) setGenView('cloud');
-	}, [cloudActive, onDeviceActive]);
+	// A key is stored for the cloud selection (known from storage on the first frame, before the
+	// sealed key has opened). The Spend rows render from this, so they do not pop in.
+	const keyed = ai.openRouterReady || (chatSource === 'cloud' && (ai.readiness?.state === 'ready' || ai.readiness?.state === 'warming'));
+	// The OpenRouter account read is in flight: the wallet card keeps its shape until it lands.
+	const walletPending = keyed && !direct && !ai.wallet && ai.usage == null;
 
 	const connect = async () => {
 		setConnecting(true);
@@ -522,28 +511,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			setConnecting(false);
 		}
 	};
-	const disconnect = async () => {
-		await removeProviderKey(provider);
-		notify(direct ? `${providerLabel} key removed — Cloud is back on OpenRouter if it is connected.` : 'OpenRouter disconnected.');
-	};
-	const pickCloud = async () => {
-		userPickedView.current = true;
-		setGenView('cloud');
-		if (ai.openRouterReady) {
-			await setStudioTier('auto'); // resume the connected cloud as the active tier
-			setPulse((p) => p + 1);
-			notify('Cloud is your active tier.');
-		}
-	};
-	const pickOnDevice = () => {
-		userPickedView.current = true;
-		setGenView('ondevice');
-	};
-	const pickApiKey = () => {
-		userPickedView.current = true;
-		setGenView('apikey');
-	};
-	const sideView: 'cloud' | 'ondevice' = genView === 'ondevice' ? 'ondevice' : 'cloud';
+
 
 
 	return (
@@ -652,69 +620,6 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								})}
 							</div>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
-							</div>
-
-							{/* ── PRESENT — how narrated delivery fetches and keeps its audio ──────── */}
-							<div className="mt-6">
-								<GroupLabel icon={<Volume2 className="size-3.5" />}>Narration in Present</GroupLabel>
-								<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
-								<div className="mb-2 rounded-xl border border-border bg-background px-3 py-2.5">
-									<label htmlFor="ws-pace" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Pace</label>
-									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How long Present holds on a new slide before it starts speaking. The slide appears first and the beat gives the room time to read it — the order every presentation coach prescribes. A <strong>divider</strong> slide opens a section and gets a longer beat, the way a chapter break does.</p>
-									<Select value={pace} onValueChange={(v) => { setPaceState(v); setPacePref(v); notify(`Pace: ${v}.`); }}>
-										<SelectTrigger id="ws-pace" className="w-full"><SelectValue /></SelectTrigger>
-										<SelectContent>
-											<SelectItem value="brisk">Brisk — 0.8s between slides, 1.6s between sections</SelectItem>
-											<SelectItem value="natural">Natural — 1.4s / 2.6s (recommended)</SelectItem>
-											<SelectItem value="deliberate">Deliberate — 2.2s / 4.0s</SelectItem>
-										</SelectContent>
-									</Select>
-									<p className="mt-1.5 text-[11px] text-muted-foreground">Deliberate suits a technical or non-native audience; Brisk suits a demo or a room that already knows the material.</p>
-								</div>
-								<div className="rounded-xl border border-border bg-background px-3 py-2.5">
-									<label htmlFor="ws-lookahead" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Fetch ahead</label>
-									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it. <strong>The whole deck</strong> fetches everything up front, so delivery never touches the network — worth it before a room that matters.</p>
-									<Select value={String(lookahead)} onValueChange={(v) => { setLookaheadState(v); setLookaheadPref(v === 'auto' || v === 'all' ? v : Number(v)); notify(v === 'auto' ? 'Fetch ahead: automatic.' : v === 'all' ? 'Fetch ahead: the whole deck — it will be ready to present offline.' : `Fetch ahead: ${v} slide${v === '1' ? '' : 's'}.`); }}>
-										<SelectTrigger id="ws-lookahead" className="w-full"><SelectValue /></SelectTrigger>
-										<SelectContent>
-											<SelectItem value="auto">Automatic (recommended)</SelectItem>
-											<SelectItem value="0">Off — only the current slide</SelectItem>
-											<SelectItem value="1">1 slide ahead</SelectItem>
-											<SelectItem value="2">2 slides ahead</SelectItem>
-											<SelectItem value="3">3 slides ahead</SelectItem>
-											<SelectItem value="4">4 slides ahead</SelectItem>
-											<SelectItem value="all">The whole deck</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
-									<label htmlFor="ws-narration-bitrate" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Audio quality</label>
-									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How much detail to keep in the audio of a deck you <strong>share</strong>. This is the single biggest lever on its size — a 300-sentence deck is about 22 MB at 64 kbps and 44 MB at 128. It applies when the file is built, so it never affects how narration sounds while you are reading here, and it only reaches the two voices that produce uncompressed audio (<strong>on-device</strong> and <strong>Gemini</strong>); every other voice arrives already compressed and is passed through untouched. Speech carries almost nothing above 8 kHz, so the higher settings mostly buy bytes rather than clarity.</p>
-									<Select value={String(narrationBitrateState)} onValueChange={(v) => { setNarrationBitrateState(Number(v)); setNarrationBitrate(Number(v)); notify(`Audio quality: ${v} kbps for shared decks. Reading here is unaffected.`); }}>
-										<SelectTrigger id="ws-narration-bitrate" className="w-full"><SelectValue /></SelectTrigger>
-										<SelectContent>
-											<SelectItem value="48">48 kbps — smallest file</SelectItem>
-											<SelectItem value="64">64 kbps — recommended</SelectItem>
-											<SelectItem value="96">96 kbps</SelectItem>
-											<SelectItem value="128">128 kbps — largest file</SelectItem>
-										</SelectContent>
-									</Select>
-									<p className="mt-1.5 text-[11px] text-muted-foreground">Applies to every export, including decks you rehearsed before changing it — nothing is re-synthesized and nothing is re-billed. Narration kept on this device is always stored exactly as the voice made it.</p>
-								</div>
-								<label htmlFor="ws-narration-cache" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-									<Switch id="ws-narration-cache" aria-label="Keep narration on this device" checked={narrationCache} onCheckedChange={(next) => { setNarrationCacheState(next); setNarrationCacheEnabled(next); notify(next ? 'Narration is kept on this device — a rehearsed deck presents instantly.' : 'Narration is no longer kept between sessions.'); }} />
-									<span className="min-w-0">
-										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Keep narration on this device</span>
-										<span className="block text-[11px] text-muted-foreground">Store spoken lines in this browser so a deck you've already rehearsed presents instantly, offline, and without paying to synthesize the same words again. Held under a size budget, oldest dropped first; see and clear it under Data → Narration audio.</span>
-									</span>
-								</label>
-								<label htmlFor="ws-cheapest-voice" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-									<Switch id="ws-cheapest-voice" aria-label="Always use the cheapest voice" checked={cheapestVoice} onCheckedChange={(next) => { setCheapestVoiceState(next); setCheapestVoiceEnabled(next); notify(next ? 'Cloud narration now uses the cheapest voice, unless you picked one yourself.' : 'Cloud narration is back on the default voice.'); }} />
-									<span className="min-w-0">
-										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Always use the cheapest voice</span>
-										<span className="block text-[11px] text-muted-foreground">Narrate with the lowest-cost paid cloud voice, counting what it charges for the audio it produces as well as the text you send. When two voices cost within 10% of each other, the better one wins. Free voices are skipped because their rate limits stall long decks. A voice model you pick yourself on the AI tab always wins over this.</span>
-									</span>
-								</label>
 							</div>
 
 							<div className="mt-6">
@@ -1035,85 +940,116 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 
 					{tab === 'AI' && (
 						<div>
-							{/* ── MODEL — the active-generation tier ─────────────────── */}
-							<GroupLabel icon={<Sparkles className="size-3.5" />}>Model</GroupLabel>
-							{/* The active-tier SWITCH — picking a side sets which tier generates. */}
-							<div className="flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Active generation tier">
-								{([['cloud', 'Cloud', <Cloud key="c" className="size-3.5" />, pickCloud], ['ondevice', 'On-device', <Cpu key="d" className="size-3.5" />, pickOnDevice], ['apikey', 'API key', <KeyRound key="k" className="size-3.5" />, pickApiKey]] as const).map(([key, label, icon, onPick]) => (
-									<button type="button" key={key} role="tab" aria-selected={genView === key} onClick={onPick} className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold', genView === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>{icon}{label}</button>
-								))}
-							</div>
-							<p className="mb-3 mt-1.5 px-0.5 text-[11px] text-muted-foreground">
-								<span className="font-semibold text-[var(--text-heading)]">{cloudActive ? 'Cloud is active' : onDeviceActive ? 'On-device is active' : 'No tier active yet'}</span>
-								{cloudActive ? (ai.openRouterKeyInvalid ? ` — but ${providerLabel} rejected the key, so requests fail until you ${direct ? 'replace it' : 'reconnect'}.` : ` — edits run on ${providerLabel}${direct ? ', on your own key' : ''}.`) : onDeviceActive ? ' — free & private on this device.' : ' — connect a cloud model or load one on-device.'}
-							</p>
-
-							{genView === 'apikey' ? (
-								<ApiKeyPanel status={ai} />
-							) : genView === 'cloud' ? (
-								ai.openRouterReady ? (
-									<div>
-										{ai.openRouterKeyInvalid ? (
-											// OpenRouter answered 401 for this key: it was revoked, deleted or expired.
-											// Every cloud request now fails, so say so here and offer the one fix.
-											<div role="alert" className="flex items-center gap-3 rounded-xl border border-[var(--fail)] px-3 py-2.5">
-												<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--fail)_12%,transparent)] text-[var(--fail)]"><Plug className="size-4" /></span>
-												<span className="min-w-0"><div className="text-[13px] font-semibold text-[var(--text-heading)]">{providerLabel} — key rejected</div><div className="text-[11px] text-muted-foreground">Revoked or expired. {direct ? 'Replace it under API key' : 'Reconnect'} to keep using Cloud.</div></span>
-												{direct ? (
-													<button type="button" onClick={pickApiKey} className="ml-auto shrink-0 rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground">Replace key</button>
-												) : (
-													<button type="button" onClick={connect} disabled={connecting} className="ml-auto shrink-0 rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground disabled:opacity-60">{connecting ? 'Opening…' : 'Reconnect'}</button>
-												)}
-											</div>
-										) : (
-											<div className={cn('flex items-center gap-3 rounded-xl border px-3 py-2.5', cloudActive ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-												<span className={cn('grid size-[30px] place-items-center rounded-lg', cloudActive ? 'bg-primary text-primary-foreground' : 'bg-[var(--accent-soft)] text-[var(--accent)]')}><Zap className="size-4" /></span>
-												<span><div className="text-[13px] font-semibold text-[var(--text-heading)]">{providerLabel} — {cloudActive ? 'active' : 'connected, dormant'}</div><div className="text-[11px] text-muted-foreground">{direct ? 'Your own key, saved in this browser' : ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : 'Connected'}</div></span>
-												<button type="button" onClick={disconnect} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Disconnect</button>
-											</div>
-										)}
-										<div className="mt-3"><ModelPicker status={ai} /></div>
-										{/* The photo-description model is an OpenRouter catalog pick; a direct key describes photos on its own model. */}
-										{!direct ? <div className="mt-4"><React.Suspense fallback={<div className="h-[88px]" aria-hidden />}><ImageModelSettings status={ai} /></React.Suspense></div> : null}
-										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground"><span className="text-[var(--accent)]">●</span> Metered per request · the deck text leaves your device.</p>
-									</div>
-								) : (
-									<div>
-										<button type="button" onClick={connect} disabled={connecting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60"><Plug className="size-4" />{connecting ? 'Opening OpenRouter…' : 'Connect OpenRouter (one click)'}</button>
-										<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Connecting uses your own OpenRouter account (one-click OAuth — no key to paste). You then pick from 500+ models, defaulting to the latest Claude Sonnet. Or switch to On-device to run free &amp; private with no account.</p>
-									</div>
-								)
-							) : (
-								<div>
-									<OnDeviceTier status={ai} />
-									{ai.openRouterReady && (
-										<div className="mt-2.5 flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
-											<span className="grid size-[30px] place-items-center rounded-lg bg-[color-mix(in_srgb,var(--text-muted)_12%,transparent)] text-muted-foreground"><Cloud className="size-4" /></span>
-											<span><div className="text-[13px] font-semibold text-muted-foreground">{providerLabel} — connected, dormant</div><div className="text-[11px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left · ` : ''}stays linked while you run on-device</div></span>
-											<button type="button" onClick={pickCloud} className="ml-auto rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">Use Cloud</button>
+							{/* ── CHAT MODEL — the one global chat selection (model spine). The chat chip
+							    writes the same selection; every AI faculty runs on it. ── */}
+							<GroupLabel icon={<Sparkles className="size-3.5" />}>Chat model</GroupLabel>
+							<ChatModelSection
+								status={ai}
+								cloudExtras={
+									!direct ? (
+										<div className="mt-4">
+											<React.Suspense fallback={<div className="h-[88px]" aria-hidden />}>
+												<ImageModelSettings status={ai} />
+											</React.Suspense>
 										</div>
-									)}
+									) : null
+								}
+							/>
+
+							{/* ── VOICE MODEL — the one voice selection, independent of chat. ── */}
+							<AiSection>
+								<GroupLabel icon={<Volume2 className="size-3.5" />}>Voice model</GroupLabel>
+								<VoiceModelSection
+									more={
+									<div>
+										<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
+										<div className="mb-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-pace" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Pace</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How long Present holds on a new slide before it starts speaking. The slide appears first and the beat gives the room time to read it — the order every presentation coach prescribes. A <strong>divider</strong> slide opens a section and gets a longer beat, the way a chapter break does.</p>
+									<Select value={pace} onValueChange={(v) => { setPaceState(v); setPacePref(v); notify(`Pace: ${v}.`); }}>
+										<SelectTrigger id="ws-pace" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="brisk">Brisk — 0.8s between slides, 1.6s between sections</SelectItem>
+											<SelectItem value="natural">Natural — 1.4s / 2.6s (recommended)</SelectItem>
+											<SelectItem value="deliberate">Deliberate — 2.2s / 4.0s</SelectItem>
+										</SelectContent>
+									</Select>
+									<p className="mt-1.5 text-[11px] text-muted-foreground">Deliberate suits a technical or non-native audience; Brisk suits a demo or a room that already knows the material.</p>
 								</div>
-							)}
+								<div className="rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-lookahead" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Fetch ahead</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it. <strong>The whole deck</strong> fetches everything up front, so delivery never touches the network — worth it before a room that matters.</p>
+									<Select value={String(lookahead)} onValueChange={(v) => { setLookaheadState(v); setLookaheadPref(v === 'auto' || v === 'all' ? v : Number(v)); notify(v === 'auto' ? 'Fetch ahead: automatic.' : v === 'all' ? 'Fetch ahead: the whole deck — it will be ready to present offline.' : `Fetch ahead: ${v} slide${v === '1' ? '' : 's'}.`); }}>
+										<SelectTrigger id="ws-lookahead" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="auto">Automatic (recommended)</SelectItem>
+											<SelectItem value="0">Off — only the current slide</SelectItem>
+											<SelectItem value="1">1 slide ahead</SelectItem>
+											<SelectItem value="2">2 slides ahead</SelectItem>
+											<SelectItem value="3">3 slides ahead</SelectItem>
+											<SelectItem value="4">4 slides ahead</SelectItem>
+											<SelectItem value="all">The whole deck</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-narration-bitrate" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Audio quality</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How much detail to keep in the audio of a deck you <strong>share</strong>. This is the single biggest lever on its size — a 300-sentence deck is about 22 MB at 64 kbps and 44 MB at 128. It applies when the file is built, so it never affects how narration sounds while you are reading here, and it only reaches the two voices that produce uncompressed audio (<strong>on-device</strong> and <strong>Gemini</strong>); every other voice arrives already compressed and is passed through untouched. Speech carries almost nothing above 8 kHz, so the higher settings mostly buy bytes rather than clarity.</p>
+									<Select value={String(narrationBitrateState)} onValueChange={(v) => { setNarrationBitrateState(Number(v)); setNarrationBitrate(Number(v)); notify(`Audio quality: ${v} kbps for shared decks. Reading here is unaffected.`); }}>
+										<SelectTrigger id="ws-narration-bitrate" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="48">48 kbps — smallest file</SelectItem>
+											<SelectItem value="64">64 kbps — recommended</SelectItem>
+											<SelectItem value="96">96 kbps</SelectItem>
+											<SelectItem value="128">128 kbps — largest file</SelectItem>
+										</SelectContent>
+									</Select>
+									<p className="mt-1.5 text-[11px] text-muted-foreground">Applies to every export, including decks you rehearsed before changing it — nothing is re-synthesized and nothing is re-billed. Narration kept on this device is always stored exactly as the voice made it.</p>
+								</div>
+								<label htmlFor="ws-narration-cache" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch id="ws-narration-cache" aria-label="Keep narration on this device" checked={narrationCache} onCheckedChange={(next) => { setNarrationCacheState(next); setNarrationCacheEnabled(next); notify(next ? 'Narration is kept on this device — a rehearsed deck presents instantly.' : 'Narration is no longer kept between sessions.'); }} />
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Keep narration on this device</span>
+										<span className="block text-[11px] text-muted-foreground">Store spoken lines in this browser so a deck you've already rehearsed presents instantly, offline, and without paying to synthesize the same words again. Held under a size budget, oldest dropped first; see and clear it under Data → Narration audio.</span>
+									</span>
+								</label>
+								<label htmlFor="ws-cheapest-voice" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch id="ws-cheapest-voice" aria-label="Always use the cheapest voice" checked={cheapestVoice} onCheckedChange={(next) => { setCheapestVoiceState(next); setCheapestVoiceEnabled(next); notify(next ? 'Cloud narration now uses the cheapest voice, unless you picked one yourself.' : 'Cloud narration is back on the default voice.'); }} />
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Always use the cheapest voice</span>
+										<span className="block text-[11px] text-muted-foreground">Narrate with the lowest-cost paid cloud voice, counting what it charges for the audio it produces as well as the text you send. When two voices cost within 10% of each other, the better one wins. Free voices are skipped because their rate limits stall long decks. A voice model you pick yourself on the AI tab always wins over this.</span>
+									</span>
+								</label>
+									</div>
+									}
+								/>
+							</AiSection>
+
+							{/* ── PROVIDERS & KEYS — one row per provider; saving a key selects its model. ── */}
+							<AiSection>
+								<GroupLabel icon={<KeyRound className="size-3.5" />}>Providers &amp; keys</GroupLabel>
+								<ProvidersSection status={ai} onConnect={connect} connecting={connecting} />
+							</AiSection>
 
 							{/* ── SPEND — a facet of the model, not its own tab. Cloud only — */}
 							{/* on-device is unconditionally free, so a cap/gauge don't apply. */}
-							{sideView === 'cloud' ? (
+							{chatSource === 'cloud' ? (
 							<AiSection>
 								<GroupLabel icon={<Wallet className="size-3.5" />}>Spend</GroupLabel>
 
 								{/* 1 · WALLET — the real account money (/credits). Authoritative. */}
-								{ai.wallet ? (
+								{ai.wallet || walletPending ? (
+									// While the account read is in flight the card keeps its final shape, with dashes.
 									<div className="rounded-2xl border border-border bg-[var(--accent-soft)] p-3.5">
-										<div className="flex items-baseline justify-between"><span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Wallet · OpenRouter</span><span className="text-[24px] font-extrabold text-[var(--text-heading)]">{fmtUSD(ai.wallet.balance)}</span></div>
-										<div className="flex items-baseline justify-between"><span className="text-[11px] text-muted-foreground">your real balance</span><span className="text-[11px] text-muted-foreground">left of {fmtUSD(ai.wallet.credits)}</span></div>
-										<div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]"><span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${pct(ai.wallet.usage, ai.wallet.credits)}%` }} /></div>
-										<div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{fmtUSD(ai.wallet.usage)} used all-time</div>
+										<div className="flex items-baseline justify-between"><span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Wallet · OpenRouter</span><span className="inline-block w-[6.5ch] text-left text-[24px] font-extrabold tabular-nums text-[var(--text-heading)]">{ai.wallet ? fmtUSD(ai.wallet.balance) : '—'}</span></div>
+										<div className="flex items-baseline justify-between"><span className="text-[11px] text-muted-foreground">your real balance</span><span className="inline-block w-[14ch] text-left text-[11px] tabular-nums text-muted-foreground">{ai.wallet ? `left of ${fmtUSD(ai.wallet.credits)}` : 'reading…'}</span></div>
+										<div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]"><span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${ai.wallet ? pct(ai.wallet.usage, ai.wallet.credits) : 0}%` }} /></div>
+										<div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{ai.wallet ? `${fmtUSD(ai.wallet.usage)} used all-time` : '—'}</div>
 									</div>
 								) : (
 									<div className="rounded-2xl border border-border bg-card p-3.5">
-										<p className="text-[13px] font-semibold text-[var(--text-heading)]">{direct && ai.openRouterReady ? 'Balance not available for this provider' : ai.openRouterReady ? 'Wallet balance unavailable' : 'No model connected'}</p>
-										{direct && ai.openRouterReady ? (
+										<p className="text-[13px] font-semibold text-[var(--text-heading)]">{direct && keyed ? 'Balance not available for this provider' : keyed ? 'Wallet balance unavailable' : 'No model connected'}</p>
+										{direct && keyed ? (
 											<p className="mt-1 text-[11px] text-muted-foreground">
 												{providerLabel} does not let a browser key read the account balance. The session figure below is an estimate from token counts.{' '}
 												<a href={KEY_PROVIDER_INFO[provider].billingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-[var(--accent)]">
@@ -1121,17 +1057,18 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 												</a>
 											</p>
 										) : (
-											<p className="mt-1 text-[11px] text-muted-foreground">{ai.openRouterReady ? "This key can't read your account balance." : 'Connect OpenRouter (Model section above) to see your real balance — or run On-device, free.'}</p>
+											<p className="mt-1 text-[11px] text-muted-foreground">{keyed ? "This key can't read your account balance." : 'Add a key in Providers & keys below to see your real balance — or run On-device, free.'}</p>
 										)}
 									</div>
 								)}
 
 								{/* 2 · THIS KEY — the per-key server-enforced cap (set in the OR dashboard). OpenRouter only. */}
-								{ai.openRouterReady && !direct && (
+								{keyed && !direct && (
 									<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
 										<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><KeyRound className="size-3.5" /></span>
-										<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This key · Lattice Studio</span>{ai.limit != null ? <span className="block text-[11px] text-muted-foreground">server-enforced{ai.limitReset ? ` · resets ${ai.limitReset}` : ''}</span> : <a href={ai.keySettingsUrl ?? '#'} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">Set a hard cap <ExternalLink className="size-3" /></a>}</span>
-										{ai.limit != null && <span className="text-right"><span className="block font-mono text-[12.5px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : '—'}</span><span className="block text-[11px] text-muted-foreground">of {fmtUSD(ai.limit)}</span></span>}
+										<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">This key · Lattice Studio</span>{ai.limit != null ? <span className="block text-[11px] text-muted-foreground">server-enforced{ai.limitReset ? ` · resets ${ai.limitReset}` : ''}</span> : <a href={ai.keySettingsUrl ?? '#'} target="_blank" rel="noreferrer" className="flex w-fit items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">Set a hard cap <ExternalLink className="size-3" /></a>}</span>
+										{/* Always laid out (hidden when there is no limit), so the account read never changes the row's height. */}
+										<span className={cn('text-right', ai.limit == null && 'invisible')} aria-hidden={ai.limit == null}><span className="block font-mono text-[12.5px] text-muted-foreground">{ai.remaining != null ? `${fmtUSD(ai.remaining)} left` : '—'}</span><span className="block text-[11px] text-muted-foreground">of {fmtUSD(ai.limit ?? 0)}</span></span>
 									</div>
 								)}
 
@@ -1167,13 +1104,12 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								</div>
 
 								{/* Active model price + cost levers. */}
-								{ai.openRouterReady && (
+								{keyed && (
 									<div className="mt-2 flex items-start gap-2.5 border-t border-border pt-2.5">
 										<span className="grid size-[26px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]"><Sparkles className="size-3.5" /></span>
 										<span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Active model{ai.modelName ? ` · ${ai.modelName}` : ''}</span><span className="block font-mono text-[11px] text-muted-foreground">{ai.price && ai.price.promptPerM != null ? `${fmtPrice(ai.price.promptPerM)}/M in · ${fmtPrice(ai.price.completionPerM)}/M out` : 'price loads with the catalog'}</span></span>
 									</div>
 								)}
-								<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Iterating a draft? <button type="button" onClick={pickOnDevice} className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline">Switch to On-device</button> — free &amp; private.</p>
 							</AiSection>
 							) : (
 							<AiSection>
@@ -1188,8 +1124,8 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 
 							{/* ── STANDING INSTRUCTIONS — separate cloud/on-device fields, not one shared+truncated field ── */}
 							<AiSection>
-								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions{genView === 'ondevice' ? ' · on-device' : ''}</GroupLabel>
-								{sideView === 'cloud' ? (
+								<GroupLabel icon={<MessageSquareText className="size-3.5" />}>Standing instructions{chatSource === 'device' ? ' · on-device' : ''}</GroupLabel>
+								{chatSource === 'cloud' ? (
 									<div>
 										<p className="mb-2 text-xs text-muted-foreground">A standing voice note, sent with every cloud generation. Leave blank for none.</p>
 										<textarea
@@ -1224,13 +1160,6 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 										<div className="mt-1 text-right font-mono text-[11px] text-muted-foreground">{odInstructions.length}/{ON_DEVICE_INSTRUCTIONS_MAX} chars · saved</div>
 									</div>
 								)}
-							</AiSection>
-
-							{/* ── READ-ALOUD VOICE — the voice selection: cloud (OpenRouter TTS) or on-device (Kokoro) ── */}
-							<AiSection>
-								{/* The voice is its own selection, independent of the chat model above (model spine). */}
-								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice</GroupLabel>
-								<TtsSettings />
 							</AiSection>
 
 							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model

@@ -79,7 +79,9 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	// Start the on-device load, then leave the Workspace while it runs.
 	await page.getByRole('button', { name: 'Workspace settings', exact: true }).first().click();
 	const ws = page.getByRole('dialog').last();
-	await ws.getByRole('tab', { name: 'On-device' }).click();
+	// The voice is its own selection (model spine): choose the on-device engine in Voice model.
+	await ws.getByTestId('voice-model-card').getByRole('button', { name: /Change/ }).click();
+	await ws.getByRole('group', { name: 'Voice engine' }).getByRole('radio', { name: 'On-device' }).click();
 	await ws.getByRole('button', { name: /Get ~80MB|^Load$/ }).click();
 	await ws.getByRole('button', { name: 'Download', exact: true }).click();
 	await page.keyboard.press('Escape');

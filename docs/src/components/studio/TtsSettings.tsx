@@ -6,6 +6,7 @@ import { Announce } from '@/lib/announce';
 import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
+import { GeminiVoicePanel } from './GeminiVoicePanel';
 import {
 	listTtsModels,
 	loadTtsKokoro,
@@ -96,11 +97,15 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 }
 
 /** The voice prefs as the stored selection holds them — read synchronously, so the first frame is final. */
+type Engine = 'cloud' | 'gemini' | 'ondevice';
+const ENGINE_PROVIDER: Record<Engine, string> = { cloud: 'openrouter', gemini: 'gemini', ondevice: 'kokoro' };
 function storedVoicePrefs() {
 	const s = readVoiceSelection();
 	const or = s.provider === 'openrouter' ? { model: s.model, voice: s.voice } : (s.last.openrouter ?? { model: '', voice: '' });
 	const kokoro = s.provider === 'kokoro' ? s.voice : (s.last.kokoro?.voice ?? '');
-	return { tier: (s.source === 'device' ? 'ondevice' : 'cloud') as 'cloud' | 'ondevice', orModel: or.model, orVoice: or.voice, kokoroVoice: kokoro || KOKORO_DEFAULT_VOICE };
+	const gem = s.provider === 'gemini' ? { model: s.model, voice: s.voice } : (s.last.gemini ?? { model: '', voice: '' });
+	const tier: Engine = s.provider === 'kokoro' ? 'ondevice' : s.provider === 'gemini' ? 'gemini' : 'cloud';
+	return { tier, orModel: or.model, orVoice: or.voice, kokoroVoice: kokoro || KOKORO_DEFAULT_VOICE, gemini: gem };
 }
 const KOKORO_DEFAULT_VOICE = 'af_heart';
 /** Until the voice module answers: nothing ready, nothing supported claimed — controls render in place, disabled. */
@@ -110,7 +115,8 @@ export function TtsSettings() {
 	const initial = React.useMemo(storedVoicePrefs, []);
 	const [avail, setAvail] = React.useState<VoiceAvailability>(PENDING_AVAIL);
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
-	const [tier, setTier] = React.useState<'cloud' | 'ondevice'>(initial.tier);
+	const [tier, setTier] = React.useState<Engine>(initial.tier);
+	const [gemini, setGemini] = React.useState(initial.gemini);
 	const [orModel, setOrModelState] = React.useState(initial.orModel);
 	const [orVoice, setOrVoiceState] = React.useState(initial.orVoice);
 	const [kokoroVoice, setKokoroVoiceState] = React.useState(initial.kokoroVoice);
@@ -130,6 +136,7 @@ export function TtsSettings() {
 		const sync = () => {
 			const p = storedVoicePrefs();
 			setTier(p.tier);
+			setGemini(p.gemini);
 			setOrModelState(p.orModel);
 			setOrVoiceState(p.orVoice);
 			setKokoroVoiceState(p.kokoroVoice);
@@ -291,9 +298,9 @@ export function TtsSettings() {
 	// Choosing the engine IS selecting it: the voice reads from it at once (no "selected but not
 	// active" state). The author's last pick on that engine comes back with it.
 	const chooseTier = (next: string) => {
-		if (next !== 'cloud' && next !== 'ondevice') return;
+		if (next !== 'cloud' && next !== 'gemini' && next !== 'ondevice') return;
 		setTier(next);
-		selectVoice({ provider: next === 'cloud' ? 'openrouter' : 'kokoro' });
+		selectVoice({ provider: ENGINE_PROVIDER[next] });
 	};
 	const r = avail.readiness;
 	const badge = !r ? null : r.state === 'ready' ? 'active' : r.state === 'warming' ? 'loading' : r.state === 'needs-key' ? 'needs a key' : 'not loaded';
@@ -307,8 +314,14 @@ export function TtsSettings() {
 				className="overflow-hidden rounded-md border border-border"
 			>
 				<ToggleGroupItem value="cloud" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-					Cloud
+					OpenRouter
 				</ToggleGroupItem>
+				{/* Gemini speaks only on a Gemini key: offered once one is saved (or while it is selected). */}
+				{avail.geminiReady || tier === 'gemini' ? (
+					<ToggleGroupItem value="gemini" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+						Gemini
+					</ToggleGroupItem>
+				) : null}
 				<ToggleGroupItem value="ondevice" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
 					On-device
 				</ToggleGroupItem>
@@ -319,6 +332,15 @@ export function TtsSettings() {
 			</span>
 		</div>
 	);
+
+	if (tier === 'gemini') {
+		return (
+			<div>
+				{header}
+				<GeminiVoicePanel model={gemini.model} voice={gemini.voice} ready={!!avail.geminiReady} />
+			</div>
+		);
+	}
 
 	if (tier === 'cloud') {
 		return (

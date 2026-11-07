@@ -14,6 +14,7 @@ import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor
 import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/lib/architect-knowledge.js';
 import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
 import { readChatSelection } from '../../lib/model-selection.js';
+import { providerKeyState } from '../../lib/openrouter-key.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -1956,7 +1957,11 @@ export type ArchitectStatus = {
 /** The stored chat selection as a readiness, before the model module has said whether it can answer. */
 function seedReadiness(): ChatReadiness {
 	const s = readChatSelection();
-	return { state: 'warming', source: s.source, provider: s.provider, model: s.model };
+	// What storage can already tell, synchronously: a cloud provider with no stored key needs one;
+	// a stored key is open or still opening. An on-device model's readiness needs the model module.
+	const k = s.source === 'cloud' ? providerKeyState(s.provider) : null;
+	const state: ChatReadiness['state'] = k === 'none' ? 'needs-key' : k === 'ready' || k === 'rejected' ? 'ready' : 'warming';
+	return { state, source: s.source, provider: s.provider, model: s.model };
 }
 /** The status a surface paints on its first frame: the stored selection, readiness pending. */
 function seedStatus(): ArchitectStatus {

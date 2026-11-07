@@ -6,3 +6,7 @@
 - Studio: Workspace → AI → Read-aloud voice no longer changes when you look at the chat's On-device tab. Its Cloud / On-device switch chooses the voice engine, and a badge shows whether it is ready.
 - Studio: a Gemini API key now drives read-aloud too. Gemini 3.8 Flash TTS and Flash-Lite TTS speak through your own Gemini key, with Gemini's live voice list, and never bill OpenRouter.
 - Studio: each provider's recommended models are listed first, matched against the provider's live model list, so a retired model drops out on its own and a new release in the same family shows up.
+- Studio: Workspace → AI is reorganized into Chat model, Voice model, and Providers & keys. Each model shows as a card with its name, where it runs, and whether it is ready; Change opens the choices in place, and choosing one makes it active at once. A missing key says "Add a key" right on the card.
+- Studio: Spend and standing instructions follow the chat model you selected, not the tab you happen to be looking at. Narration settings (pace, fetch ahead, audio quality, keep on device, cheapest voice) moved from General to Voice model → More narration settings.
+- Studio: Workspace → AI no longer jumps when it opens: the loading frame has the real layout, and readiness changes in place.
+- Studio: a selected on-device chat model whose files are already in this browser loads by itself after a reload, with its progress shown; one that is not downloaded says so and offers to load it, and never downloads without asking.

@@ -40,7 +40,9 @@ const connectedStatus: ArchitectStatus = {
 	universalReady: false,
 	openRouterReady: true,
 	openRouterKeyInvalid: false,
+	readiness: { state: 'ready', source: 'cloud', provider: 'openrouter', model: 'anthropic/claude-sonnet-4' },
 };
+const deviceReadiness = (provider: string, state: 'ready' | 'unavailable' | 'warming' = 'ready') => ({ state, source: 'device' as const, provider, model: provider });
 
 const setModelSpy = vi.hoisted(() => vi.fn(async () => {}));
 const setTierSpy = vi.hoisted(() => vi.fn(async () => {}));
@@ -110,9 +112,26 @@ function openSheet() {
 	return { user, sheet };
 }
 
+/** Open the Chat model chooser (the summary card's Change). */
+async function openChat(user: ReturnType<typeof userEvent.setup>, sheet: ReturnType<typeof within>) {
+	await user.click(within(await sheet.findByTestId('chat-model-card')).getByRole('button', { name: /Change/ }));
+}
+/** Open the Voice model chooser. */
+async function openVoice(user: ReturnType<typeof userEvent.setup>, sheet: ReturnType<typeof within>) {
+	await user.click(within(await sheet.findByTestId('voice-model-card')).getByRole('button', { name: /Change/ }));
+}
+/** Open the voice section's "More narration settings" (moved here from General). */
+async function openNarration(user: ReturnType<typeof userEvent.setup>, sheet: ReturnType<typeof within>) {
+	await user.click(await sheet.findByRole('button', { name: /More narration settings/ }));
+}
+
 describe('WorkspaceSheet — G6 model picker', () => {
-	it('shows the curated picker with the connected model summary', async () => {
-		const { sheet } = openSheet();
+	it('shows the Chat model card from the selection, and the curated picker inside Change', async () => {
+		const { user, sheet } = openSheet();
+		const card = await sheet.findByTestId('chat-model-card');
+		expect(within(card).getByTestId('chat-model-card-name')).toHaveTextContent('Claude Sonnet 4');
+		expect(within(card).getByTestId('chat-model-card-state')).toHaveTextContent('Active');
+		await openChat(user, sheet);
 		expect(await sheet.findByText('OpenRouter model')).toBeInTheDocument();
 		// The picker summary (a button) reads the active model + its meta line once
 		// the catalog loads — distinct from the active-tier card above it.
@@ -122,6 +141,7 @@ describe('WorkspaceSheet — G6 model picker', () => {
 
 	it('expands to search + the four lenses and vendor-grouped rows', async () => {
 		const { user, sheet } = openSheet();
+		await openChat(user, sheet);
 		await user.click(await sheet.findByRole('button', { name: /Claude Sonnet 4/ }));
 		expect(await sheet.findByPlaceholderText(/Search 500\+ models/)).toBeInTheDocument();
 		for (const lens of ['Featured', 'Value', 'Free', 'All']) {
@@ -138,6 +158,7 @@ describe('WorkspaceSheet — G6 model picker', () => {
 
 	it('Free lens shows only the $0 model; Value shows DeepSeek', async () => {
 		const { user, sheet } = openSheet();
+		await openChat(user, sheet);
 		await user.click(await sheet.findByRole('button', { name: /Claude Sonnet 4/ }));
 		await user.click(sheet.getByRole('tab', { name: 'Free' }));
 		expect(await sheet.findByText('Gemma (free)')).toBeInTheDocument();
@@ -148,6 +169,7 @@ describe('WorkspaceSheet — G6 model picker', () => {
 
 	it('selecting a model calls setStudioModel with its id', async () => {
 		const { user, sheet } = openSheet();
+		await openChat(user, sheet);
 		await user.click(await sheet.findByRole('button', { name: /Claude Sonnet 4/ }));
 		await user.click(sheet.getByRole('tab', { name: 'Value' }));
 		await user.click(await sheet.findByText('R1'));
@@ -156,28 +178,25 @@ describe('WorkspaceSheet — G6 model picker', () => {
 });
 
 describe('WorkspaceSheet — a rejected key', () => {
-	it('a 401-marked key replaces the connected row with "key rejected" and Reconnect', async () => {
+	it('a 401-marked key says so on the Chat model card and offers to sign in again', async () => {
 		statusSpy.mockReturnValue({ ...connectedStatus, openRouterKeyInvalid: true });
 		try {
 			const { sheet } = openSheet();
-			const alert = await sheet.findByRole('alert');
-			expect(alert).toHaveTextContent('OpenRouter — key rejected');
-			expect(within(alert).getByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
-			expect(sheet.queryByText(/OpenRouter — active/)).toBeNull();
+			const card = await sheet.findByTestId('chat-model-card');
+			expect(within(card).getByRole('alert')).toHaveTextContent('OpenRouter rejected the key');
+			expect(within(card).getByRole('button', { name: 'Key rejected' })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: /Sign in with OpenRouter|Reconnect OpenRouter/ })).toBeInTheDocument();
 		} finally {
 			statusSpy.mockReturnValue(connectedStatus);
 		}
 	});
-	it('a rejected DIRECT key names its provider and offers Replace key, not an OAuth Reconnect', async () => {
-		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'anthropic', openRouterKeyInvalid: true, wallet: null });
+	it('a rejected DIRECT key names its provider and points at replacing it, not an OAuth reconnect', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, provider: 'anthropic', openRouterKeyInvalid: true, wallet: null, readiness: { state: 'ready', source: 'cloud', provider: 'anthropic', model: 'claude-sonnet-5-5' } });
 		try {
-			const { user, sheet } = openSheet();
-			const alert = await sheet.findByRole('alert');
-			expect(alert).toHaveTextContent('Anthropic — key rejected');
-			expect(within(alert).queryByRole('button', { name: 'Reconnect' })).toBeNull();
-			await user.click(within(alert).getByRole('button', { name: 'Replace key' }));
-			// It opens the API key tab, where the key is replaced.
-			expect(sheet.getByRole('tab', { name: 'API key' })).toHaveAttribute('aria-selected', 'true');
+			const { sheet } = openSheet();
+			const card = await sheet.findByTestId('chat-model-card');
+			expect(within(card).getByRole('alert')).toHaveTextContent('Anthropic rejected the key (revoked or expired) — replace it below.');
+			expect(sheet.queryByRole('button', { name: /Reconnect/ })).toBeNull();
 		} finally {
 			statusSpy.mockReturnValue(connectedStatus);
 		}
@@ -196,12 +215,11 @@ describe('WorkspaceSheet — a rejected key', () => {
 	});
 });
 
-describe('WorkspaceSheet — the API key tab', () => {
+describe('WorkspaceSheet — Providers & keys', () => {
 	it('with no key: a password field and Check & save; a refusal is shown, not stored', async () => {
 		statusSpy.mockReturnValue({ ...connectedStatus, openRouterReady: false });
 		try {
 			const { user, sheet } = openSheet();
-			await user.click(sheet.getByRole('tab', { name: 'API key' }));
 			const field = sheet.getByLabelText('OpenRouter API key');
 			expect(field).toHaveAttribute('type', 'password');
 			await user.type(field, 'sk-or-v1-revoked');
@@ -214,8 +232,7 @@ describe('WorkspaceSheet — the API key tab', () => {
 	it('with a key: only its last four characters, plus Replace and Remove', async () => {
 		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
 		try {
-			const { user, sheet } = openSheet();
-			await user.click(sheet.getByRole('tab', { name: 'API key' }));
+			const { sheet } = openSheet();
 			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
 			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
 			expect(sheet.getByRole('button', { name: 'Replace the OpenRouter key' })).toBeInTheDocument();
@@ -226,40 +243,52 @@ describe('WorkspaceSheet — the API key tab', () => {
 	});
 });
 
-describe('WorkspaceSheet — G6 on-device tier', () => {
-	it('switches to the on-device ladder; loading the universal tier confirms then activates it', async () => {
+describe('WorkspaceSheet — on-device chat models', () => {
+	it('lists the on-device models under Change; loading the universal tier confirms, then selects it', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		await openChat(user, sheet);
+		await user.click(sheet.getByRole('radio', { name: /On-device/ }));
 		expect(await sheet.findByText('Browser built-in')).toBeInTheDocument();
 		expect(sheet.getByText('WebLLM')).toBeInTheDocument();
 		expect(sheet.getByText(/Universal/)).toBeInTheDocument();
-		// The cloud stays connected-but-dormant while the on-device pane is shown.
-		expect(sheet.getByText(/connected, dormant/)).toBeInTheDocument();
-		// A large download asks to confirm first (no silent ~350MB fetch), then loads
-		// AND activates the tier (Policy B — a pick truly switches the active tier).
+		// A large download asks to confirm first (no silent ~350MB fetch), then loads and selects it.
 		await user.click(sheet.getByRole('button', { name: /Get ~350MB/ }));
 		await user.click(await sheet.findByRole('button', { name: /Download ~350MB/ }));
 		expect(loadUniversalSpy).toHaveBeenCalled();
 		expect(setTierSpy).toHaveBeenCalledWith('universal');
 	});
 
-	it('the On-device button does not silently switch; "Use Cloud" resumes the cloud tier', async () => {
+	it('the Source switch only filters the list; it selects nothing', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
-		await user.click(await sheet.findByRole('button', { name: 'Use Cloud' }));
-		expect(setTierSpy).toHaveBeenCalledWith('auto');
+		await openChat(user, sheet);
+		await user.click(sheet.getByRole('radio', { name: /On-device/ }));
+		await user.click(sheet.getByRole('radio', { name: /Cloud/ }));
+		expect(setTierSpy).not.toHaveBeenCalled();
 	});
 
-	it('when an on-device tier is the ACTIVE generation, the badge + helper reflect it (not a "loaded" flag)', () => {
-		// generation is the normalized Studio value ('universal'); useArchitectStatus
-		// maps the backend's 'transformers' name to this before the UI ever sees it.
-		statusSpy.mockReturnValue({ ...connectedStatus, generation: 'universal', universalReady: true });
-		const { sheet } = openSheet();
-		// The active-tier helper agrees with the real active tier.
-		expect(sheet.getByText(/On-device is active/)).toBeInTheDocument();
-		// The Universal rung shows the live "active" badge + its running subtext.
+	it('a selected on-device model is the card, and its row says it is running', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, generation: 'universal', universalReady: true, readiness: deviceReadiness('universal') });
+		const { user, sheet } = openSheet();
+		const card = await sheet.findByTestId('chat-model-card');
+		expect(within(card).getByTestId('chat-model-card-name')).toHaveTextContent('Qwen2.5 0.5B (Universal)');
+		expect(within(card).getByText('On this device · free and private')).toBeInTheDocument();
+		await openChat(user, sheet);
 		expect(sheet.getByText('active')).toBeInTheDocument();
 		expect(sheet.getByText('Running on this device')).toBeInTheDocument();
+	});
+
+	it('a selected on-device model that is not loaded says so, and never claims to run', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, generation: 'floor', readiness: deviceReadiness('webllm', 'unavailable') });
+		const { sheet } = openSheet();
+		expect(within(await sheet.findByTestId('chat-model-card')).getByTestId('chat-model-card-state')).toHaveTextContent('Not loaded');
+	});
+
+	it('a new user with no key reads needs-key, actionable in place', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterReady: false, generation: 'floor', readiness: { state: 'needs-key', source: 'cloud', provider: 'openrouter', model: '' } });
+		const { sheet } = openSheet();
+		const card = await sheet.findByTestId('chat-model-card');
+		expect(within(card).getByText('Add a key or choose on-device')).toBeInTheDocument();
+		expect(within(card).getByRole('button', { name: 'Add a key' })).toBeInTheDocument();
 	});
 });
 
@@ -299,21 +328,22 @@ describe('WorkspaceSheet — spend (layered budget)', () => {
 });
 
 describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
-	it('Spend shows the layered budget under Cloud; a free note (no cap control) under On-device', async () => {
-		const { user, sheet } = openSheet();
-		expect(await sheet.findByText('Wallet · OpenRouter')).toBeInTheDocument();
-		expect(sheet.getByText('Your cap')).toBeInTheDocument();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+	it('Spend follows the ACTIVE chat selection: the layered budget on cloud, a free note on-device', async () => {
+		const first = openSheet();
+		expect(await first.sheet.findByText('Wallet · OpenRouter')).toBeInTheDocument();
+		expect(first.sheet.getByText('Your cap')).toBeInTheDocument();
+		// Browsing the on-device list changes nothing about money.
+		await openChat(first.user, first.sheet);
+		await first.user.click(first.sheet.getByRole('radio', { name: /On-device/ }));
+		expect(first.sheet.getByText('Wallet · OpenRouter')).toBeInTheDocument();
+	});
+
+	it('Spend and instructions switch to the on-device versions only when on-device is SELECTED', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, generation: 'universal', universalReady: true, readiness: deviceReadiness('universal') });
+		const { sheet } = openSheet();
 		expect(sheet.queryByText('Wallet · OpenRouter')).not.toBeInTheDocument();
 		expect(sheet.queryByText('Your cap')).not.toBeInTheDocument();
 		expect(sheet.getByText(/runs free/)).toBeInTheDocument();
-	});
-
-	it('Standing instructions splits into a cloud field and a separate, capped on-device field', async () => {
-		const { user, sheet } = openSheet();
-		expect(await sheet.findByLabelText('Standing instructions')).toBeInTheDocument();
-		expect(sheet.queryByLabelText('On-device standing instructions')).not.toBeInTheDocument();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
 		const odField = await sheet.findByLabelText('On-device standing instructions');
 		expect(odField).toHaveAttribute('maxlength', '300');
 		expect(sheet.queryByLabelText('Standing instructions')).not.toBeInTheDocument();
@@ -321,11 +351,13 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	// Model spine: the voice is its own selection. LOOKING at the chat's On-device tab must not
 	// change the voice panel (the old `TtsSettings tier={sideView}` coupling).
-	it('keeps the Read-aloud voice independent of the chat tier view', async () => {
+	it('keeps the Voice model independent of the chat chooser', async () => {
 		const { user, sheet } = openSheet();
-		expect(await sheet.findByText('Read-aloud voice')).toBeInTheDocument();
+		expect(await sheet.findByText('Voice model')).toBeInTheDocument();
+		await openVoice(user, sheet);
 		expect(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' })).toBeInTheDocument();
-		await user.click(sheet.getByRole('tab', { name: 'On-device' }));
+		await openChat(user, sheet);
+		await user.click(within(sheet.getByRole('group', { name: 'Chat model source' })).getByRole('radio', { name: /On-device/ }));
 		expect(sheet.getByRole('combobox', { name: 'Cloud TTS voice' })).toBeInTheDocument();
 		expect(sheet.queryByRole('combobox', { name: 'On-device TTS voice' })).not.toBeInTheDocument();
 		expect(readVoiceSelection().provider).toBe('openrouter');
@@ -333,7 +365,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('choosing the voice engine selects it, active at once', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
+		await openVoice(user, sheet);
+		await user.click(within(sheet.getByRole('group', { name: 'Voice engine' })).getByRole('radio', { name: 'On-device' }));
 		expect(readVoiceSelection()).toMatchObject({ source: 'device', provider: 'kokoro' });
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeInTheDocument();
 	});
@@ -344,7 +377,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('shows a stale (pre-migration-casing) stored voice id as the live roster id and normalizes storage', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		selectVoice({ provider: 'openrouter', model: 'x-ai/grok-voice-tts-1.0', voice: 'Eve' });
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		const picker = await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		await waitFor(() => expect(picker).toHaveTextContent('Eve'));
 		await waitFor(() => expect(readAloud.normalizeVoiceSelection).toHaveBeenCalledWith(TTS_CATALOG));
@@ -353,7 +387,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('cloud TTS voice is a model-specific dropdown (not free text) once a model is set', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		const picker = await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		expect(picker).toBeInTheDocument();
 		expect(sheet.queryByPlaceholderText('af_heart')).not.toBeInTheDocument(); // the old free-text field is gone
@@ -375,6 +410,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		const user = userEvent.setup();
 		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+		await openVoice(user, sheet);
 		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
 
 		// ★ Featured (Heart) on top, then real language groups (US English, Japanese).
@@ -408,6 +444,7 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 		const user = userEvent.setup();
 		render(<WorkspaceSheet open onOpenChange={noop} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
+		await openVoice(user, sheet);
 		await user.click(await sheet.findByRole('combobox', { name: 'Cloud TTS voice' }));
 		await screen.findByText('★ Featured');
 
@@ -429,7 +466,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('renders NO speed slider — just a fixed-pace note — for a model that does not support speed', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		selectVoice({ provider: 'openrouter', model: 'x-ai/grok-voice-tts-1.0' }); // speedSupport:false
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		expect(sheet.queryByRole('slider', { name: 'Speech speed' })).not.toBeInTheDocument();
 		expect(sheet.getByText(/doesn't support adjustable speed/i)).toBeInTheDocument();
@@ -438,7 +476,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('renders a real, enabled speed slider for a model that DOES support speed', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		selectVoice({ provider: 'openrouter', model: 'hexgrad/kokoro-82m' }); // speedSupport:true
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		await sheet.findByRole('combobox', { name: 'Cloud TTS voice' });
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeEnabled();
 		expect(sheet.queryByText(/doesn't support adjustable speed/i)).not.toBeInTheDocument();
@@ -446,7 +485,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('disables the cloud TTS model/voice/speed/preview controls until OpenRouter is connected', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		expect(await sheet.findByRole('button', { name: 'Cloud TTS model' })).toBeDisabled();
 		expect(sheet.getByRole('combobox', { name: 'Cloud TTS voice' })).toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
@@ -456,7 +496,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 
 	it('disables the on-device TTS voice/speed/preview controls until the on-device voice is loaded', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
+		await openVoice(user, sheet);
+		await user.click(within(sheet.getByRole('group', { name: 'Voice engine' })).getByRole('radio', { name: 'On-device' }));
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).toBeDisabled();
@@ -469,7 +510,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	// with the Model/Spend sections, which do re-render on the same event.
 	it('re-disables the cloud TTS controls live when OpenRouter disconnects mid-session (db-model-changed)', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
-		const { sheet } = openSheet();
+		const { user, sheet } = openSheet();
+		await openVoice(user, sheet);
 		expect(await sheet.findByRole('button', { name: 'Cloud TTS model' })).not.toBeDisabled();
 
 		voiceAvailSpy.mockReturnValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
@@ -481,7 +523,8 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	it('enables the on-device TTS controls once Kokoro is ready', async () => {
 		voiceAvailSpy.mockReturnValue({ rung: 'kokoro', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		const { user, sheet } = openSheet();
-		await user.click(await sheet.findByRole('radio', { name: 'On-device' }));
+		await openVoice(user, sheet);
+		await user.click(within(sheet.getByRole('group', { name: 'Voice engine' })).getByRole('radio', { name: 'On-device' }));
 		expect(await sheet.findByRole('combobox', { name: 'On-device TTS voice' })).not.toBeDisabled();
 		expect(sheet.getByRole('slider', { name: 'Speech speed' })).not.toBeDisabled();
 		expect(sheet.getByRole('button', { name: /Play sample/ })).not.toBeDisabled();
@@ -612,9 +655,10 @@ describe('WorkspaceSheet — settings rehomed from the retired Drawing Board pan
 // sheet showed "Off". The pure prefs module was already tested and already correct; the defect
 // lived in the one line between the widget and it, which is why only a real interaction catches it.
 describe('WorkspaceSheet — narration in Present', () => {
+	// Moved from General → Narration in Present to AI → Voice model → More narration settings.
 	async function openGeneral() {
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		await openNarration(user, sheet);
 		return { user, sheet };
 	}
 	// Radix Select renders its listbox in a portal, outside the dialog subtree.

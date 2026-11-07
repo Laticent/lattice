@@ -15,10 +15,9 @@ const hintFor = (p: CloudProvider) => (p === 'openrouter' ? openRouterKeyHint() 
  * Anthropic or Gemini key (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §7).
  *
  * Every key is checked with its provider before it is stored, never shown again (only its last
- * four characters), and lives in this browser, sealed, through lib/openrouter-key.js. One provider
- * runs the cloud tier at a time; a saved key for another can be switched to with "Use".
- * "API key" is a way to CONNECT the cloud tier, not a third backend, so spend, standing
- * instructions and the model picker under Cloud all follow the provider in use.
+ * four characters), and lives in this browser, sealed, through lib/openrouter-key.js. Saving a key
+ * selects that provider's chat model (owner decision 3, model spine); "Use" selects a provider
+ * whose key is already saved. Workspace › AI › Providers & keys.
  */
 export function ApiKeyPanel({ status }: { status: ArchitectStatus }) {
 	const [provider, setProvider] = React.useState<CloudProvider>(status.provider ?? 'openrouter');
@@ -31,7 +30,7 @@ export function ApiKeyPanel({ status }: { status: ArchitectStatus }) {
 	const hints = React.useMemo(() => Object.fromEntries(ORDER.map((p) => [p, hintFor(p)])) as Record<CloudProvider, string | null>, [status]);
 	const inputId = React.useId();
 	const info = KEY_PROVIDER_INFO[provider];
-	const active = status.openRouterReady ? (status.provider ?? 'openrouter') : null;
+	const active = status.readiness ? (status.readiness.source === 'cloud' ? status.readiness.provider : null) : status.openRouterReady ? (status.provider ?? 'openrouter') : null;
 	const saved = ORDER.filter((p) => hints[p]);
 	const showForm = !hints[provider] || replacing;
 
@@ -49,7 +48,7 @@ export function ApiKeyPanel({ status }: { status: ArchitectStatus }) {
 		if (out.ok) {
 			setValue('');
 			setReplacing(false);
-			notify(`${info.label} key saved — Cloud is active on ${info.label}.`);
+			notify(`${info.label} key saved — chat now runs on ${info.label}.`);
 		} else setError(out.note);
 	};
 	const remove = async (p: CloudProvider) => {
@@ -182,7 +181,7 @@ export function ApiKeyPanel({ status }: { status: ArchitectStatus }) {
 					) : null}
 				</div>
 			) : (
-				<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Pick a model and see spend under Cloud; a pasted key and a signed-in one work the same way.</p>
+				<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Choose its model under Chat model above; a pasted key and a signed-in one work the same way.</p>
 			)}
 		</div>
 	);

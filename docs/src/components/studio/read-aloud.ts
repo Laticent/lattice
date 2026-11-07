@@ -270,6 +270,8 @@ export type VoiceAvailability = {
 	kokoroSupported: boolean;
 	webgpu: boolean;
 	speechAllowed: boolean;
+	/** A Gemini key is open (the direct Gemini voice can speak). */
+	geminiReady?: boolean;
 	/** The Studio's voice SELECTION and whether it can speak now (lib/model-selection.js). Null outside the Studio. */
 	readiness?: VoiceReadiness | null;
 };

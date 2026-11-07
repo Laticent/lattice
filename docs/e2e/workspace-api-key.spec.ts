@@ -1,7 +1,7 @@
 import { storedOpenRouterKey, storedOpenRouterRaw } from './openrouter-key-helper';
 import { expect, gotoStudio, test } from './studio-fixture';
 
-// WORKSPACE → AI → API KEY: paste an OpenRouter key instead of the one-click sign-in.
+// WORKSPACE → AI → PROVIDERS & KEYS: paste an OpenRouter key instead of the one-click sign-in.
 //
 // The key is checked against OpenRouter's /auth/key before it is stored, then shown only by its
 // last four characters. MOCKED, NOT SPENT (HARD RULE #24): the route handler answers every
@@ -30,7 +30,6 @@ async function openApiKeyTab(page: Page) {
 		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
 	}
 	await page.getByRole('tab', { name: 'AI' }).click();
-	await page.getByRole('tab', { name: 'API key' }).click();
 }
 
 test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved and shown masked', async ({ page }) => {
@@ -66,7 +65,6 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
 	}
 	await page.getByRole('tab', { name: 'AI' }).click();
-	await page.getByRole('tab', { name: 'API key' }).click();
 	await expect(page.getByText(`OpenRouter key …${GOOD.slice(-4)}`)).toBeVisible();
 
 	// Remove clears it from this browser.
@@ -75,13 +73,12 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 	await expect.poll(() => storedOpenRouterRaw(page)).toBeNull();
 });
 
-// From the checker pass on this flow: a key saved while an ON-DEVICE tier was the author's pick
-// stayed behind it (the Studio lets an explicit on-device pick outrank the cloud) while the toast
-// said Cloud was active; and a key pasted with an invisible character made the request throw and
+// Owner decision 3 (model spine): saving a key makes that provider's chat model active at once, even
+// when an on-device model was selected. From the checker pass on this flow: a key pasted with an invisible character made the request throw and
 // read as "could not reach OpenRouter". The browser's built-in model is stubbed so an on-device
 // tier can be picked without a download. (A password <input> drops line breaks itself, so the
 // invisible-character case is a zero-width space plus padding.)
-test('@crosswidth @webkit-phone a key saved from an on-device tier makes Cloud active, cleaned of invisible characters', async ({ page }) => {
+test('@crosswidth @webkit-phone a key saved while on-device is selected makes its chat model active, cleaned of invisible characters', async ({ page }) => {
 	const CLEAN = 'sk-or-v1-e2e-clean-key-9b1d';
 	const seen: string[] = [];
 	// A working key is already stored, so Cloud would be active; the author then PICKS on-device,
@@ -108,14 +105,16 @@ test('@crosswidth @webkit-phone a key saved from an on-device tier makes Cloud a
 	});
 	await openApiKeyTab(page);
 
-	// Start on-device: the built-in model, picked explicitly.
-	await page.getByRole('tab', { name: 'On-device' }).click();
+	// Start on-device: the built-in model, selected from the Chat model chooser.
+	const card = page.getByTestId('chat-model-card');
+	await card.getByRole('button', { name: /Change/ }).click();
+	await page.getByRole('group', { name: 'Chat model source' }).getByRole('radio', { name: /On-device/ }).click();
 	const builtIn = page.locator('div.rounded-xl', { hasText: 'Browser built-in' });
 	await builtIn.getByRole('button', { name: 'Use' }).click();
-	await expect(page.getByText('On-device is active')).toBeVisible();
+	await expect(card.getByTestId('chat-model-card-name')).toHaveText('Browser built-in model');
+	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Active');
 
 	// Replace the key with one carrying a zero-width space and padding.
-	await page.getByRole('tab', { name: 'API key' }).click();
 	await page.getByRole('button', { name: 'Replace' }).click();
 	await page.getByLabel('OpenRouter API key').fill(`  ${CLEAN.slice(0, 10)}\u200B${CLEAN.slice(10)}  `);
 	await page.getByRole('button', { name: 'Check & save' }).click();
@@ -124,6 +123,8 @@ test('@crosswidth @webkit-phone a key saved from an on-device tier makes Cloud a
 	expect(seen, 'the check carried the cleaned key').toContain(`Bearer ${CLEAN}`);
 	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
 	expect(await storedOpenRouterKey(page)).toBe(CLEAN);
-	// And Cloud is what is active now, not the on-device pick.
-	await expect(page.getByText('Cloud is active', { exact: true })).toBeVisible();
+	// And OpenRouter's chat model is the selection now, not the on-device pick.
+	await expect(card).toContainText('OpenRouter · your account');
+	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Active');
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-chat-selection') || '{}'))).toMatchObject({ source: 'cloud', provider: 'openrouter' });
 });
