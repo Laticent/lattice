@@ -4,3 +4,5 @@
 - Studio: another open tab follows a model change made in this one.
 - Studio: the read-aloud voice is its own stored selection, independent of the chat model. Present reads in the voice you chose, on every read and after a reload: on-device Kokoro is no longer picked for you on desktop, and a cloud voice whose key is still opening waits for it instead of switching voices.
 - Studio: Workspace → AI → Read-aloud voice no longer changes when you look at the chat's On-device tab. Its Cloud / On-device switch chooses the voice engine, and a badge shows whether it is ready.
+- Studio: a Gemini API key now drives read-aloud too. Gemini 3.8 Flash TTS and Flash-Lite TTS speak through your own Gemini key, with Gemini's live voice list, and never bill OpenRouter.
+- Studio: each provider's recommended models are listed first, matched against the provider's live model list, so a retired model drops out on its own and a new release in the same family shows up.

@@ -115,3 +115,59 @@ describe('model spine — voice', () => {
 		expect(b.kokoroVoice()).toBe('if_sara');
 	});
 });
+
+describe('model spine — Gemini direct voice', () => {
+	const RIFF = btoa(String.fromCharCode(0x52, 0x49, 0x46, 0x46, 36, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20));
+
+	function geminiVoice(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>) {
+		return createVoiceModel({
+			getOpenRouterKey: () => 'sk-or-v1-test', // present, and must NOT be used
+			keyPrefix: 'studio',
+			fetchImpl,
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: (p: string) => (p === 'gemini' ? 'AIzaTestKey000000000000000' : 'sk-or-v1-test') },
+		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean; bytes: Blob | null; key: string; error?: string }> };
+	}
+
+	it('speaks through generateContent with AUDIO and the voice config, on the Gemini key only, and returns the WAV as is', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' });
+		const calls: { url: string; init?: RequestInit }[] = [];
+		const v = geminiVoice(async (url, init) => {
+			calls.push({ url, init });
+			return Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] });
+		});
+		expect(v.rung()).toBe('gemini-tts');
+		const out = await v.synthFor({ rung: 'gemini', text: 'Hello there.' });
+		expect(out.ok).toBe(true);
+		expect(out.bytes?.type).toBe('audio/wav');
+		expect(calls).toHaveLength(1);
+		expect(calls[0].url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent');
+		expect((calls[0].init?.headers as Record<string, string>)['x-goog-api-key']).toBe('AIzaTestKey000000000000000');
+		expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+			contents: [{ parts: [{ text: 'Hello there.' }] }],
+			generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } },
+		});
+		expect(calls.some((c) => c.url.includes('openrouter.ai'))).toBe(false);
+		expect(out.key).toContain('gemini-tts'); // its own cache identity, never an OpenRouter clip's
+	});
+
+	it('wraps headerless L16 PCM into WAV', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Puck' });
+		const pcm = btoa(String.fromCharCode(...new Array(64).fill(1)));
+		const v = geminiVoice(async () => Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: pcm } }] } }] }));
+		const out = await v.synthFor({ rung: 'gemini', text: 'Hi.' });
+		expect(out.ok).toBe(true);
+		const head = new Uint8Array(await (out.bytes as Blob).arrayBuffer()).slice(0, 4);
+		expect(String.fromCharCode(...head)).toBe('RIFF');
+	});
+
+	it('takes the curated default model from the live list before the first read', async () => {
+		selectVoice({ provider: 'gemini' });
+		const v = geminiVoice(async (url) => {
+			if (url.includes('/models?')) return Response.json({ models: [{ name: 'models/gemini-3.8-flash-tts' }, { name: 'models/gemini-2.5-flash-preview-tts' }, { name: 'models/gemini-3.8-flash' }] });
+			if (url.includes('/voices?')) return Response.json({ voices: [{ id: 'Kore' }, { id: 'Puck' }] });
+			return new Response('', { status: 500 });
+		});
+		await v.prepareSelectedVoice();
+		expect(v.availability().readiness).toMatchObject({ state: 'ready', provider: 'gemini', model: 'gemini-3.8-flash-tts' });
+	});
+});

@@ -18,7 +18,7 @@ why now   — the model spine gives voice its own provider axis (OpenRouter, Gem
             TTS must be implemented in a follow-up on whatever transport OpenAI supports then
             (the Realtime API, most likely), not on `/audio/speech`.
 where     — docs/src/playground/voice-model.js (a cloud rung in `cloudRungs`, beside Gemini);
-            docs/src/components/studio/ai/provider-registry.js (OpenAI's voice capability);
+            docs/src/lib/provider-registry.js (OpenAI's voice capability);
             the narration-store clip keys (a provider dimension).
 done when — with only an OpenAI key saved, choosing an OpenAI voice in Workspace → AI → Voice
             model speaks through OpenAI, and nothing bills OpenRouter.

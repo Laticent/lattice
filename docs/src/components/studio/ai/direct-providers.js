@@ -25,6 +25,7 @@
 
 import { chatModelFor, selectChat } from '../../../lib/model-selection.js';
 import { noteProviderStatus, providerKeyRejected, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { CURATED, curatedDefault } from '../../../lib/provider-registry.js';
 import { readCachingEnabled } from './spend.js';
 
 /** Per provider: where its bill is and how to reach it. How a key looks lives with the tab (api-key.ts). */
@@ -144,14 +145,16 @@ function compareVersions(a, b) {
 /**
  * The default model when the author has not picked one, from the provider's own list. Derived,
  * not hard-coded, because model ids move faster than this file would be edited. In order:
- *   1. the newest priced model at $10 or less per million output tokens, outside the side tiers
- *      (pro, mini, lite, preview, opus…), from the provider's everyday family when it has one there;
+ *   1. among priced models at $10 or less per million output tokens outside the side tiers (pro,
+ *      mini, lite, preview, opus…): the registry's curated family first (provider-registry.js),
+ *      then the provider's everyday family, then the newest;
  *   2. else the CHEAPEST priced model outside the side tiers, then the cheapest priced at all:
  *      a fallback never moves the author UP in price (inversion pass, 2026-11-06);
- *   3. else, with no prices at all, the newest model of the provider's everyday family
+ *   3. else, with no prices at all, the curated family, then the newest of the everyday family
  *      (Sonnet, Flash, GPT), then the first listed.
  */
 export function pickDefaultModel(models, provider) {
+	const families = CURATED.chat[provider];
 	const ok = models.filter((m) => m.promptPerM != null && m.completionPerM != null);
 	const main = ok.filter((m) => !SIDE_TIERS.test(m.id));
 	// "Newest" by creation date, then by the version in the id. Gemini's list carries NO dates, so
@@ -162,11 +165,14 @@ export function pickDefaultModel(models, provider) {
 	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || newer(a, b))[0];
 	const family = EVERYDAY[provider];
 	const affordable = main.filter((m) => m.completionPerM <= 10);
-	// The provider's everyday family first (Flash, GPT, Sonnet): the highest version in the list can be
-	// a model a plain key cannot use. `gemini-4-argon` sat above `gemini-3.8-flash` and answered 429
-	// "exceeded your current quota" on a key that lists it (live run, 2026-11-08, 3058-p1).
-	const pick = newest(affordable.filter((m) => family?.test(m.id))) ?? newest(affordable) ?? cheapest(main) ?? cheapest(ok);
-	if (pick) return pick.id;
+	// The registry's curated family is a PREFERENCE inside the price rule, never above it. Then the
+	// provider's everyday family (Flash, GPT, Sonnet): the highest version in the list can be a model a
+	// plain key cannot use. `gemini-4-argon` sat above `gemini-3.8-flash` and answered 429 "exceeded
+	// your current quota" on a key that lists it (live run, 2026-11-08, 3058-p1).
+	const pick = curatedDefault(affordable, families) ?? (newest(affordable.filter((m) => family?.test(m.id))) ?? newest(affordable) ?? cheapest(main) ?? cheapest(ok))?.id;
+	if (pick) return pick;
+	const curatedBare = curatedDefault(models.filter((m) => !SIDE_TIERS.test(m.id)), families);
+	if (curatedBare) return curatedBare;
 	return (family && newest(models.filter((m) => family.test(m.id) && !SIDE_TIERS.test(m.id)))?.id) ?? models[0]?.id ?? null;
 }
 

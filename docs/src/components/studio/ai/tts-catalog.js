@@ -18,11 +18,13 @@ import { fmtPrice, groupByVendor, inSet, isFreeModel, shortName, vendorOf } from
 export { fmtPrice, groupByVendor, isFreeModel, shortName, vendorOf };
 
 // The models we've fully vetted end-to-end: live-tested voices, cached samples
-// committed for a featured subset of each. Pinned exact ids (not family prefixes
-// like the chat picker's OR_FEATURED) — each is a single dated release, not an
-// evolving family, so there's no "next version" to prefix-match.
+// committed for a featured subset of each. Mostly exact ids (each a single dated release), plus
+// family prefixes where a family moves; `inSet` prefix-matches either against the LIVE catalog.
 export const TTS_FEATURED = [
 	'hexgrad/kokoro-82m',
+	// A family prefix (inSet prefix-matches): Gemini 3.8 Flash TTS and Flash-Lite TTS, whatever
+	// dated ids OpenRouter lists for them.
+	'google/gemini-3.8-flash',
 	'x-ai/grok-voice-tts-1.0',
 	'google/gemini-3.1-flash-tts-preview',
 	'canopylabs/orpheus-3b-0.1-ft',

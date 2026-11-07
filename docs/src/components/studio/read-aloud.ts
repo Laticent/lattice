@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
-import { loadOpenRouterKey, loadProviderKey, providerKeyState, readOpenRouterKey } from '@/lib/openrouter-key.js';
+import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
 import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
@@ -245,18 +245,21 @@ type VoiceModel = {
 	/** Make the SELECTED voice ready (open its key, load the selected on-device model) before a read
 	 *  pins it, so the read speaks the selection. Resolves true when ready. Never rejects. */
 	prepareSelectedVoice?: () => Promise<boolean>;
+	/** The voice / model a rung speaks in, by rung name — the same rule the cache keys use. */
+	voiceForRung?: (rungName: string) => string;
+	modelForRung?: (rungName: string) => string;
 	/** Select a voice outright; active at once. */
 	selectVoice?: (pick: { provider: string; model?: string; voice?: string }) => void;
 	/** Synthesize the fixed sample sentence for an EXPLICIT rung/voice/model (bypassing the auto ladder)
 	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
 	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
-	synthSample: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number; signal?: AbortSignal }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	synthSample: (o: { rung: VoiceTier; voice?: string; model?: string; speed?: number; signal?: AbortSignal }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
 	/** `synthSample`'s general form — ARBITRARY text in an EXPLICIT rung/voice/model, one attempt, no
 	 *  playback and no write-back to the prefs. What the webpage export bakes through. */
-	synthFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number; signal?: AbortSignal; timeoutMs?: number }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	synthFor: (o: { rung: VoiceTier; text: string; voice?: string; model?: string; speed?: number; signal?: AbortSignal; timeoutMs?: number }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
 	/** `clipKey`'s explicit-identity twin: the key a sentence WOULD live under for a named
 	 *  rung/model/voice/speed, from the same builder. */
-	clipKeyFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number }) => string;
+	clipKeyFor: (o: { rung: VoiceTier; text: string; voice?: string; model?: string; speed?: number }) => string;
 };
 
 export type VoiceAvailability = {
@@ -283,6 +286,10 @@ export type VoiceReadiness = {
 export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
 export type OrVoiceModel = { id: string; name: string; promptPerM: number | null; completionPerM: number | null; voices: string[] };
 let voicePromise: Promise<VoiceModel | null> | null = null;
+/** The rungs that synthesize bytes with measured onsets (a clocked voice). */
+const CLOCKED_RUNGS = new Set(['openrouter-tts', 'gemini-tts', 'kokoro']);
+/** The tier alias a voice selection names for the explicit-identity calls. */
+export type VoiceTier = 'openrouter' | 'gemini' | 'kokoro';
 
 /** Where a member's Present gets its audio while it follows a presentation with narration. */
 export type RoomClipSource = (spoken: string, signal?: AbortSignal) => Promise<Bytes | null>;
@@ -336,6 +343,8 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						read: readVoiceSelection,
 						select: selectVoice,
 						keyState: providerKeyState,
+						readKey: (p: string) => (p === 'openrouter' ? readOpenRouterKey() : readProviderKey(p)),
+						noteStatus: noteProviderStatus,
 						openKey: (p: string) => (p === 'openrouter' ? loadOpenRouterKey() : loadProviderKey(p)),
 					},
 				}),
@@ -382,7 +391,7 @@ export async function narrationCanSynthesize(): Promise<boolean> {
 	const v = await getRealVoice();
 	try {
 		const r = v?.rung();
-		return r === 'openrouter-tts' || r === 'kokoro';
+		return !!r && CLOCKED_RUNGS.has(r);
 	} catch {
 		return false;
 	}
@@ -899,7 +908,7 @@ export function useReadAloud(
 			// re-read the pref per sentence, so voice-B bytes could land in the stage's decoded cache
 			// under voice-A's key and replay for the rest of the session.
 			const effSpeed = voice.speedPref?.() ?? 1;
-			const effVoice = r === 'openrouter-tts' ? (voice.orVoice?.() ?? '') : r === 'kokoro' ? (voice.kokoroVoice?.() ?? '') : '';
+			const effVoice = voice.voiceForRung?.(r) ?? '';
 			// keyOf is CONTENT-COMPLETE (rung · model·voice · speed · sentence): the module-singleton
 			// stage's decoded-clip cache persists across plays and a key HIT skips the byte compare, so a
 			// bare-sentence key would replay a stale-voice clip after a voice/speed/model change.
@@ -1018,7 +1027,7 @@ export function useReadAloud(
 		} catch {
 			r = 'silent';
 		}
-		if (r !== 'openrouter-tts' && r !== 'kokoro' && r !== 'room') return false; // not a clocked voice — stay on the estimate
+		if (!CLOCKED_RUNGS.has(r) && r !== 'room') return false; // not a clocked voice — stay on the estimate
 		// A read that began on one voice resumes on whichever voice the room now calls for: a member's own key is
 		// never what a read in the room's voice resumes on, and the room's voice is never what a detached
 		// member's own read resumes on. (Play and unmute both come through here.)
@@ -1152,7 +1161,7 @@ export function useReadAloud(
 			}
 			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on the estimate
 			// (it speaks in parallel but reports no onsets).
-			const clocked = r === 'openrouter-tts' || r === 'kokoro' || r === 'room';
+			const clocked = CLOCKED_RUNGS.has(r) || r === 'room';
 			// Resolve the concrete model/voice behind the rung — a multi-model device trace self-labels
 			// which voice produced each slide, AND it keys per-voice pace calibration (so `k` is fit per
 			// model·voice). Resolved for ANY clocked voice REGARDLESS of mute (before the muted branch
@@ -1162,11 +1171,11 @@ export function useReadAloud(
 			if (clocked) {
 				try {
 					voiceLabelRef.current =
-						r === 'openrouter-tts'
-							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
-							: r === 'room'
-								? `room · ${roomRun}`
-								: `kokoro · ${voice.kokoroVoice?.() || '?'}`;
+						r === 'room'
+							? `room · ${roomRun}`
+							: r === 'kokoro'
+								? `kokoro · ${voice.kokoroVoice?.() || '?'}`
+								: `${voice.modelForRung?.(r) || '?'} · ${voice.voiceForRung?.(r) || '?'}`;
 				} catch {
 					voiceLabelRef.current = r;
 				}
@@ -1383,7 +1392,7 @@ export async function narrationReadiness(perSlide: string[][]): Promise<number[]
 	} catch {
 		return empty;
 	}
-	if (rung !== 'openrouter-tts' && rung !== 'kokoro') return empty; // no clocked voice → nothing to be ready
+	if (!CLOCKED_RUNGS.has(rung)) return empty; // no clocked voice → nothing to be ready
 	// The SAME key playback looks up, from the voice model's OWN builder. Reconstructing it
 	// here is the bug that made `auto` lookahead inert (#1352 review) — and the cache key is
 	// a JSON array, so a hand-built string would never match on a single sentence.
@@ -1551,6 +1560,20 @@ export async function normalizeVoiceSelection(models?: OrVoiceModel[]): Promise<
 	return changed;
 }
 
+/** The Gemini voice catalog on the author's own Gemini key: the live TTS models, curated as a
+ *  preference (provider-registry.js), and the live prebuilt voices. Empty without a key. */
+export async function geminiVoiceCatalog(): Promise<{ models: { id: string; name: string; curated: boolean }[]; voices: string[]; reachable: boolean }> {
+	const key = readProviderKey('gemini');
+	if (!key) return { models: [], voices: [], reachable: false };
+	try {
+		const [vm, reg] = await Promise.all([import('@/playground/voice-model.js'), import('@/lib/provider-registry.js')]);
+		const c = await vm.listGeminiVoiceCatalog(key);
+		return { ...c, models: reg.curate(c.models, reg.CURATED.voice.gemini) };
+	} catch {
+		return { models: [], voices: [], reachable: false };
+	}
+}
+
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
 	try {
 		const m = await import('@/playground/voice-model.js');
@@ -1587,7 +1610,7 @@ export type BakeVoice = {
 	/** Which tier the clips live under. `'openrouter'` is the default; `'kokoro'` is the
 	 *  on-device rung, and BOTH can synthesize at export time when their rung is ready — the
 	 *  on-device one for free. See `onDeviceBakeVoice` and `synthBakeClip`. */
-	rung?: 'openrouter' | 'kokoro';
+	rung?: VoiceTier;
 	model: string;
 	voice: string;
 	speed: number;
@@ -1770,7 +1793,7 @@ function playLocalSample(url: string): Promise<{ ok: boolean; error?: string }> 
  *  Speed-section redesign made the leak WORSE: it removed the slider (the one
  *  visible cue a stale non-default speed was even set) for exactly these models
  *  (Munger-inversion finding, 2026-07-11 — see the decision doc). */
-export async function previewTtsVoice(o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
+export async function previewTtsVoice(o: { rung: VoiceTier; voice?: string; model?: string; speed?: number }): Promise<{ ok: boolean; error?: string }> {
 	const model = o.rung === 'kokoro' ? KOKORO_MODEL_ID : o.model || '';
 	const speed = speedSupported(model) ? (o.speed ?? 1) : 1;
 	const cached = o.voice ? cachedSampleUrl(model, o.voice, speed) : null;
