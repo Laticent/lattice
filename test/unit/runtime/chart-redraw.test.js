@@ -59,6 +59,15 @@ describe('chart-redraw: a bar chart is read back from its marks', () => {
     assert.equal(second.querySelector('rect[data-mark]').dataset.label, forged, 'it is still the same label, as text');
   });
 
+  test('a chart with a focus or a callout keeps the exported drawing: the marks cannot carry them', () => {
+    for (const cls of ['lat-focus', 'lat-recede', 'legend-target', 'legend-text']) {
+      const body = draw('<ul><li>A <code>1</code></li><li>B <code>2</code></li></ul>');
+      const el = body.querySelector('rect[data-mark]');
+      el.setAttribute('class', `${el.getAttribute('class') || ''} ${cls}`);
+      assert.equal(readBar(body), null, `refused: ${cls}`);
+    }
+  });
+
   test('a series the key cannot name keeps the exported drawing', () => {
     const first = draw('<ul><li>A<ul><li>Plan <code>1</code></li><li>Actual <code>2</code></li></ul></li></ul>', 'bar grouped');
     for (const k of first.querySelectorAll('text.chart-key-label')) k.remove();

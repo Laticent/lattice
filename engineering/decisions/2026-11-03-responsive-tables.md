@@ -556,41 +556,53 @@ kernel would choose, and only then. Nothing is added to the export:
   as the `<template class="chart-detail">` beside it. A per-kind READER rebuilds the source list from
   those; a kind with no reader keeps its exported drawing. Single series is "every category has one
   mark", not "one hue": a diverging chart paints by sign.
-- **The drawing is the engine's.** `transformChartSection` with the box the chart has now: the slide's
-  orientation and aspect, and a canvas in slide chart units (lib/engine/index.js `paneView`), for a
-  whole-slide chart as well as a pane. The unit includes the slide's type scale (`--canvas-scale`, 2.29 on
-  a 390px phone): without it the redrawn labels were 8px beside 17px body text. The canvas is at least
-  200 units wide (a four-category chart at the full type size broke "Licenses" mid-word at 140), and a
-  canvas that would shorten a name the export printed in full is widened in steps, the kernel's own
-  rule (`wouldShortenALabel`): the gallery's "every unit named in full" slide stays in full.
-- **When.** The fluid boot snapshots each chart with a reader before any box changes: its exported nodes
-  (in memory, a WeakMap, never in the page) and the box they were drawn for. The geometry pass
-  (`patchSectionGeometry`) asks each chart for its box after every resize; a box that matches the last
-  drawing does nothing, the exported box puts the exported nodes back, any other box redraws. The canvas
-  is snapped to 20 units and the aspect to quarters, so a drag redraws when the drawing would change,
-  not on every pixel.
+- **When: only the facts that change the kernel's drawing.** The slide's orientation and aspect (the
+  stamps the runtime writes from the slide's box) and, for a pane, whether it is stacked. Nothing the
+  chart drew feeds in. The first cut keyed on the chart body's measured size, which follows the SVG just
+  drawn, so each redraw changed the key and drew again: a grouped chart walked its viewBox from 494 to
+  8814 units and settled at 1px text, and single charts redrew about 100 times on a phone before settling
+  (the checker's repro). The fluid boot snapshots each chart before any box changes: its exported nodes (in
+  memory, a WeakMap, never in the page) and that key. The geometry pass (`patchSectionGeometry`) asks
+  after every resize; the same key does nothing, the exported key puts the exported nodes back, any
+  other redraws, once. So the desktop's first paint is the export's own drawing, not a redraw of it.
+- **What it draws at: the engine's kernel, on a canvas from WIDTHS only.** `transformChartSection`, with a
+  canvas in slide chart units (lib/engine/index.js `paneView`'s formula). A whole-slide chart in a
+  landscape box takes the engine's own path, no canvas; in a tall or square box, and in a stacked pane,
+  the canvas is the chart's width in units at the view's shape (320 × 300 portrait); a side-by-side pane,
+  a size container, gives its own box. The unit is the stage's width only: a fluid stage's height follows
+  its content, and on the first pass before layout it was near zero, which drew a 1220-unit canvas at 3px.
+  The unit includes the slide's type scale (`--canvas-scale`, 2.29 on a 390px phone), so labels print at the
+  slide's size, not 8px beside 17px text. The canvas is at least 200 units wide (a four-category chart at
+  the full type size broke "Licen ses" mid-word at 140), and one that would shorten a name the export
+  printed in full is widened in steps, the kernel's own rule (`wouldShortenALabel`).
+- **What a reader cannot carry keeps the exported drawing.** A callout (`@callout`, drawn as the legend
+  layer's target and text) and a `_focus` (`lat-focus` / `lat-recede` marks) are not on the marks a reader
+  reads, and a redraw dropped both (examples/callouts-bars.md, focus-chart-marks.md). Those charts are
+  refused rather than redrawn without them.
 - **Safety (HARD RULE #22).** Values read off the page are decoded strings, so each is escaped before it
   enters the list; the kernel's output is parsed into a detached `<template>` (a sanctioned runtime sink,
   tools/check-ownership.js); a note is never re-serialized, its exported node is moved in. The redrawn
   SVG is named for assistive tech as the engine's post-pass names it.
 
 Measured on the bar chart: one redraw is 0.13 ms in the kernel (the bar gallery's eight charts, 200
-rounds, Node). The inlined runtime grows by 4.6 KB minified (1.6 KB gzipped) across this branch's two
-runtime changes (the pane stamps and the redraw); no chart adds a byte. On a 390px phone the
-examples/panes.md bar panes go from 7px labels on a 472 × 72 strip to 16 to 19px (text box height) on a 200 × 300 canvas;
-every chart in the bar gallery redraws (single, row, grouped, diverging, the eight-unit stress test,
-dark, compact, accent), and rotating back restores the exported drawing byte for byte.
-test/unit/runtime/chart-redraw.test.js pins the round trips and a forged label;
-test/integration/export/fluid-chart-redraw.test.js pins the real export (it fails with the redraw off).
+rounds, Node), and a phone load redraws each chart once (eight body swaps for eight charts, counted from
+boot). The inlined runtime grows by 4.6 KB minified (1.6 KB gzipped) across this branch's two runtime
+changes (the pane stamps and the redraw); no chart adds a byte. At 390 × 844 the smallest label of every
+chart in the bar gallery is 16 to 19px (text box height), the grouped chart's included, and the
+examples/panes.md bar panes' 16px, where the export printed 7px; examples/chart-european-numbers.md and
+examples/marks.md redraw the same way; the callout and focus decks keep their exported drawings; the
+desktop shows the export's own drawing on every one; rotating back restores it byte for byte.
+test/unit/runtime/chart-redraw.test.js pins the round trips, a forged label and the refusals;
+test/integration/export/fluid-chart-redraw.test.js pins the real export: nothing redraws on the desktop,
+one redraw per chart on a phone, the focused chart kept, and the byte-for-byte restore (it fails on the
+first cut and with the redraw off).
 
 **Bar is the first reader.** The read-back survey (2026-11-06, every chart gallery): bullet, ep-curve,
 funnel, heatmap, line, map, piechart, slope, stacked-bar, tower, waterfall, hub-spoke, journey,
 matrix-grid and roadmap carry their whole source on their marks; histogram, gantt, scatter, quadrant,
 risk-matrix, radar and word-cloud keep part of it only in geometry or the `<desc>` prose; kanban, progress
 and timeline-list never change with the box; flowchart and state-chart redraw from their stored model
-through their own browser layout. The grouped bar's kernel sizes its own figure (chart and key), so its
-smallest label redraws at 11px where the others reach 13 to 16px: still far better than the export's
-8814-unit strip.
+through their own browser layout.
 
 ## What comes next
 
