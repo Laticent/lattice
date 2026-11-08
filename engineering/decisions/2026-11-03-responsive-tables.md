@@ -751,6 +751,17 @@ orientation and no canvas), so there is nothing to redraw.
   keeps the wide form; it fails with the gate removed), and the checker's pane decks render byte-identical to
   `main` once the new attributes are stripped. The pane check before trust also compares the new source
   attributes now, so a word's weight or a band's range cannot drift in a pane unseen.
+- **No flash of the exported chart (the owner asked whether this was done without jank; it was not, yet).**
+  Measured on a phone that opens the export: first paint at 340-450ms showed the exported 16:9 drawings,
+  and the redraw swapped them in at 640-850ms. The runtime is inlined at the end of the body, so the
+  browser paints before it runs. The `--fluid` export's head script now marks a box that is not landscape
+  `data-lattice-charts-pending`; base.fluid-view.css hides chart bodies while it is set, and the runtime
+  clears it right after its first redraw pass, in the same task. Without script the mark is never set, and
+  a 3s backstop clears it if the runtime never boots. Sampled frame by frame at 390 x 844: no painted frame
+  shows a drawing that later changes (an export with the head script stripped shows one); a 1280 x 720
+  desktop is never held. The integration test pins both. The narrow threshold is one helper now
+  (cartesian.js `fluidNarrow`); the per-kind narrow forms are recorded for the redesign
+  (followups.d/3021-p15).
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

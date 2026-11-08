@@ -175,4 +175,41 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 		}
 		await page.close();
 	});
+
+	// NO FLASH (base.fluid-view.css § the charts-pending mark): a phone that OPENS the export paints the
+	// chart drawn for its box first, never the exported 16:9 drawing it then swaps out (it did, 200-400ms
+	// later, before the head script held the charts). Every painted frame is sampled; a frame that showed
+	// a chart whose drawing later changed is a flash. Without script the charts show as exported.
+	test('a phone that opens the export never paints the exported chart first', { timeout: TIMEOUT }, async () => {
+		// Its own export: a line chart, which redraws on a phone.
+		fs.writeFileSync(path.join(dir, 'flash.md'), '---\ntheme: indaco\n---\n\n## Services caught enterprise.\n\n<!-- _class: line -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n');
+		const out = path.join(dir, 'flash.html');
+		const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'flash.md'), out, '--quiet', '--fluid'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const page = await browser.newPage();
+		await page.setViewport({ width: 390, height: 844 });
+		await page.evaluateOnNewDocument(() => {
+			window.__frames = [];
+			const tick = () => {
+				const svg = document.querySelector('.chart-frame .chart-body svg');
+				if (svg) window.__frames.push([getComputedStyle(svg.closest('.chart-body')).visibility !== 'hidden', svg.getAttribute('viewBox')]);
+				if (window.__frames.length < 300) requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		});
+		await page.goto(pathToFileURL(out).href, { waitUntil: 'load' });
+		await page.waitForFunction(() => window.__frames.length > 30 && !document.documentElement.hasAttribute('data-lattice-charts-pending'));
+		const frames = await page.evaluate(() => window.__frames);
+		const final = frames[frames.length - 1][1];
+		assert.deepEqual(frames.filter(([shown, vb]) => shown && vb !== final), [], 'no painted frame showed the exported drawing');
+		await page.close();
+		const bare = await browser.newPage();
+		await bare.setJavaScriptEnabled(false);
+		await bare.setViewport({ width: 390, height: 844 });
+		await bare.goto(pathToFileURL(out).href, { waitUntil: 'load' });
+		assert.equal(await bare.evaluate(() => getComputedStyle(document.querySelector('.chart-body')).visibility), 'visible', 'without script the charts show');
+		await bare.close();
+	});
 });

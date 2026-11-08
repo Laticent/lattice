@@ -254,3 +254,15 @@
 }
 #lattice-fluid-toggle:hover,
 #lattice-fluid-toggle:focus-visible { opacity: 1; }
+
+/* NO FLASH OF THE EXPORTED CHART. On a phone the runtime redraws a chart for its box
+ * (lib/runtime/chart-redraw.js), but the runtime is inlined at the END of the body, so the
+ * browser painted the exported 16:9 drawing first and swapped it 200-400ms later (measured on
+ * the line, tower, quadrant and pie galleries at 390 x 844). The --fluid export's head script
+ * (lattice.js `toFluidViewer`) marks a box that is not landscape `data-lattice-charts-pending`;
+ * the runtime clears it right after its first redraw pass, in the same task, so the first chart
+ * a reader sees is the one drawn for the box. Without script the mark is never set; a runtime
+ * that never boots clears it after 3s (the head script's backstop). */
+:root[data-lattice-charts-pending] .chart-frame .chart-body {
+  visibility: hidden;
+}

@@ -3403,8 +3403,16 @@ function toFluidViewer(cleanHtml) {
   // JS is unchanged. (See HTML spec, script-data states.)
   const runtimeJs = fs.readFileSync(runtimePath, 'utf8')
     .replace(/<(?=!--|\/?script)/gi, '\\x3C');
+  // NO FLASH OF THE EXPORTED CHART (base.fluid-view.css § the charts-pending mark): on a box that is not
+  // landscape the runtime will redraw the charts, so hold them hidden until its first pass. The runtime is
+  // inlined at the end of the body and the browser paints before it runs; only the head acts early enough.
+  // No script, no mark: the charts show as exported.
+  const pendingCharts = `${ENGINE_SCRIPT_OPEN}(function(){var r=document.documentElement;`
+    + `if(innerWidth/innerHeight<1.5){r.setAttribute('data-lattice-charts-pending','');`
+    + `setTimeout(function(){r.removeAttribute('data-lattice-charts-pending')},3000);}})();</script>`;
   return cleanHtml
     .replace(/<html\b/i, '<html data-lattice-fluid-capable')
+    .replace(/<\/head>/i, () => `${pendingCharts}</head>`)
     // Function replacement (not a string) so `$&`/`$1`/`$$` inside the minified
     // runtime are inserted literally, not interpreted as replace patterns.
     .replace(/<\/body>/i, () => `${ENGINE_SCRIPT_OPEN}\n${runtimeJs}\n</script>\n</body>`);
