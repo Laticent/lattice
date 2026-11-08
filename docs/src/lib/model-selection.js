@@ -202,6 +202,9 @@ export function selectChat({ provider, model }) {
 	if (!isCloud && !CHAT_DEVICE_PROVIDERS.includes(provider)) throw new Error(`unknown chat provider ${provider}`);
 	const id = isCloud ? (model ?? cur.last[provider] ?? '') : '';
 	const last = { ...cur.last };
+	// Remember the model being LEFT too, so coming back to that provider finds it. A selection
+	// written another way (the legacy migration) has a model but no memory of it.
+	if (cur.source === 'cloud' && cur.model && !last[cur.provider]) last[cur.provider] = cur.model;
 	if (isCloud && id) last[provider] = id;
 	const rec = { v: VERSION, source: isCloud ? 'cloud' : 'device', provider, model: id, last };
 	writeLS(CHAT_SELECTION_KEY, JSON.stringify(rec));

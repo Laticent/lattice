@@ -43,6 +43,12 @@ describe('chat selection', () => {
 		expect(selectChat({ provider: 'anthropic' }).model).toBe('claude-opus-5');
 	});
 
+	it('remembers the model it switches AWAY from, even when the record held no memory of it', () => {
+		localStorage.setItem(CHAT_SELECTION_KEY, JSON.stringify({ v: 1, source: 'cloud', provider: 'openrouter', model: 'test/model', last: {} }));
+		selectChat({ provider: 'prompt-api' });
+		expect(selectChat({ provider: 'openrouter' }).model).toBe('test/model');
+	});
+
 	it('rejects a corrupt or future record rather than guessing', () => {
 		localStorage.setItem(CHAT_SELECTION_KEY, JSON.stringify({ v: 2, provider: 'gemini' }));
 		expect(readChatSelection().provider).toBe('openrouter');

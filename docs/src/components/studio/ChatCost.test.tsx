@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChatCost, chipLabel, readableModelId } from './ChatCost';
@@ -6,6 +6,8 @@ import { ChatCost, chipLabel, readableModelId } from './ChatCost';
 // The chat header: one chip that names the model and opens the picker, and one session figure.
 
 const setModel = vi.hoisted(() => vi.fn(async (_id: string) => {}));
+const switchProvider = vi.hoisted(() => vi.fn((_p: string) => {}));
+const setTier = vi.hoisted(() => vi.fn(async (_t: string) => {}));
 const MODELS = [
 	{ id: 'anthropic/claude-sonnet-5.5', name: 'Anthropic: Claude Sonnet 5.5', promptPerM: 3, completionPerM: 15, contextLength: 200000, vision: true },
 	{ id: 'google/gemini-3-flash', name: 'Google: Gemini 3 Flash', promptPerM: 0.3, completionPerM: 2.5, contextLength: 1000000, vision: true },
@@ -16,6 +18,8 @@ vi.mock('./architect', () => ({
 	agentTurnUsd: () => ({ question: 0.018, edit: 0.024 }),
 	listStudioModels: async () => MODELS,
 	setStudioModel: setModel,
+	setStudioTier: setTier,
+	architectModel: async () => ({ switchProvider }),
 }));
 vi.mock('@/lib/notify', () => ({ notify: () => {} }));
 
@@ -51,6 +55,29 @@ describe('ChatCost — the header chip', () => {
 		await user.click(await screen.findByRole('radio', { name: /Gemini 3 Flash/ }));
 		expect(setModel).toHaveBeenCalledWith('google/gemini-3-flash');
 		await waitFor(() => expect(screen.queryByLabelText('Search OpenRouter models')).toBeNull());
+	});
+});
+
+describe('ChatCost — the chip reaches every source (model spine)', () => {
+	afterEach(() => localStorage.clear());
+	it('lists each provider holding a key plus On-device; a provider pick selects it, an engine pick selects that engine', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		localStorage.setItem('lattice-db-gemini-key', 'AIzaPlainTestKey000000000a1b2');
+		const user = userEvent.setup();
+		render(<ChatCost source="# One" />);
+		await user.click(screen.getByRole('button', { name: /Change model/ }));
+		const sources = screen.getByRole('radiogroup', { name: 'Chat source' });
+		const names = [...sources.querySelectorAll('[role=radio]')].map((b) => b.textContent);
+		expect(names).toEqual(['OpenRouter', 'Gemini', 'On-device']);
+		await user.click(screen.getByRole('radio', { name: 'Gemini' }));
+		await waitFor(() => expect(switchProvider).toHaveBeenCalledWith('gemini'));
+		await user.click(screen.getByRole('radio', { name: 'On-device' }));
+		expect(screen.getByRole('radio', { name: 'On-device' })).toHaveAttribute('aria-checked', 'true');
+		expect(screen.getByRole('radio', { name: 'OpenRouter' })).toHaveAttribute('aria-checked', 'false');
+		// The engines replace the cloud catalog: one list at a time.
+		expect(screen.queryByLabelText('Search OpenRouter models')).toBeNull();
+		await user.click(within(screen.getByRole('radiogroup', { name: 'On-device model' })).getByRole('radio', { name: /Universal/ }));
+		expect(setTier).toHaveBeenCalledWith('universal');
 	});
 });
 

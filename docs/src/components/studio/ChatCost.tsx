@@ -2,9 +2,12 @@ import { ChevronDown, Cloud, Cpu, KeyRound, Settings2 } from 'lucide-react';
 import * as React from 'react';
 import { readLedger } from '@/components/studio/ai/spend.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { modelDisplayName, nameFromId } from '@/lib/model-name';
+import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
+import { providerLabel } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
-import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
+import { agentTurnUsd, architectModel, architectSpend, type ChatGrounding, type CloudProvider, setStudioTier, useArchitectStatus } from './architect';
 import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
 import { num } from './chat-trace';
 import { ModelList, useModelCatalog } from './ModelPicker';
@@ -303,6 +306,71 @@ export function chipLabel(status: ReturnType<typeof useArchitectStatus>, current
 type Spend = ReturnType<typeof architectSpend>;
 type TurnEst = { question: number; edit: number } | null;
 
+const KEYED_SOURCES: CloudProvider[] = ['openrouter', 'gemini', 'anthropic', 'openai'];
+const DEVICE_ENGINES: { tier: 'prompt-api' | 'webllm' | 'universal'; label: string }[] = [
+	{ tier: 'prompt-api', label: 'Browser built-in' },
+	{ tier: 'webllm', label: 'WebLLM' },
+	{ tier: 'universal', label: 'Universal' },
+];
+const pill = 'inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[11.5px] text-muted-foreground data-[state=checked]:border-[var(--accent)] data-[state=checked]:bg-[var(--accent-soft)] data-[state=checked]:font-semibold data-[state=checked]:text-[var(--text-heading)]';
+
+/**
+ * The chip's source switch. The chip sets the GLOBAL chat selection (owner decision 1), so it
+ * reaches every source the Workspace does: each provider holding a key, and On-device. Picking a
+ * provider selects it at once (its last model, else its default); On-device lists the three
+ * engines, and picking one selects it, loaded or not (a model that is not loaded reads so in the
+ * chip, and loads under Models & keys). Nothing here falls back to another source.
+ */
+function SourceSwitch({ status, showDevice, setShowDevice }: { status: ReturnType<typeof useArchitectStatus>; showDevice: boolean; setShowDevice: (on: boolean) => void }) {
+	const r = status.readiness;
+	const device = r?.source === 'device';
+	const provider = (device ? null : (r?.provider ?? status.provider ?? 'openrouter')) as CloudProvider | null;
+	// Re-read on every status change (a key saved or removed announces db-model-changed).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: status is the refresh trigger
+	const keyed = React.useMemo(() => KEYED_SOURCES.filter((p) => (p === 'openrouter' ? openRouterKeyHint() : providerKeyHint(p))), [status]);
+	const ready = (t: string) => (t === 'prompt-api' ? status.promptApi === 'available' : t === 'webllm' ? status.webllmReady : status.universalReady);
+	const pickCloud = async (p: CloudProvider) => {
+		setShowDevice(false);
+		const m = await architectModel();
+		m?.switchProvider?.(p);
+	};
+	return (
+		<div className="mb-3">
+			<RadioGroup
+				aria-label="Chat source"
+				value={showDevice ? 'device' : (provider ?? '')}
+				onValueChange={(v) => (v === 'device' ? setShowDevice(true) : pickCloud(v as CloudProvider))}
+				className="flex flex-wrap gap-1.5"
+			>
+				{keyed.map((p) => (
+					<RadioGroupItem key={p} value={p} className={pill}>
+						{p === 'openrouter' ? <Cloud aria-hidden className="size-3" /> : <KeyRound aria-hidden className="size-3" />}
+						{providerLabel(p)}
+					</RadioGroupItem>
+				))}
+				<RadioGroupItem value="device" className={pill}>
+					<Cpu aria-hidden className="size-3" />
+					On-device
+				</RadioGroupItem>
+			</RadioGroup>
+			{showDevice ? (
+				<RadioGroup aria-label="On-device model" value={device ? (r?.provider ?? '') : ''} onValueChange={(t) => setStudioTier(t)} className="mt-2 flex flex-col items-stretch gap-1">
+					{DEVICE_ENGINES.map((e) => (
+						<RadioGroupItem
+							key={e.tier}
+							value={e.tier}
+							className="flex items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5 text-left text-[12px] data-[state=checked]:border-[var(--accent)] data-[state=checked]:bg-[var(--accent-soft)]"
+						>
+							<span className="font-semibold text-foreground">{e.label}</span>
+							<span className="text-[11px] text-muted-foreground">{ready(e.tier) ? 'Ready' : e.tier === 'prompt-api' ? 'Not in this browser' : 'Not loaded'}</span>
+						</RadioGroupItem>
+					))}
+				</RadioGroup>
+			) : null}
+		</div>
+	);
+}
+
 /** The model's name with a dropdown: the cost of a turn on THIS model, the session against its
  *  cap, and the same picker the Workspace sheet has. The catalog loads when it first opens. */
 function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: { status: ReturnType<typeof useArchitectStatus>; turnEst: TurnEst; usd: (n: number) => string; spend: Spend; onRefresh: () => void; onManageModels?: () => void }) {
@@ -326,7 +394,11 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 	const device = r?.source === 'device';
 	const Glyph = device ? Cpu : (r?.provider ?? status.provider ?? 'openrouter') !== 'openrouter' ? KeyRound : Cloud;
 	const pending = r && r.state !== 'ready';
-	const cloudReady = !device && status.openRouterReady;
+	// Which list the popover shows: a cloud provider's catalog, or the on-device engines. It
+	// follows the selection, and the source switch can open the engines before one is picked.
+	const [showDevice, setShowDevice] = React.useState(device);
+	React.useEffect(() => setShowDevice(device), [device]);
+	const cloudReady = !device && !showDevice && status.openRouterReady;
 	const over = spend.status.level === 'over';
 	const warn = spend.status.level === 'warn';
 	return (
@@ -375,6 +447,7 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 					)}
 					<span className="text-[10.5px] leading-snug text-muted-foreground">Estimates for the selected model; the spend tally records the exact cost.</span>
 				</div>
+				<SourceSwitch status={status} showDevice={showDevice} setShowDevice={setShowDevice} />
 				{cloudReady ? <ModelList catalog={catalog} searchRef={searchRef} maxHeight={260} /> : null}
 				{onManageModels ? (
 					<button
