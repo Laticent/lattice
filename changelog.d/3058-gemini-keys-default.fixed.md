@@ -1,0 +1,2 @@
+- **Gemini keys that start with `AQ.` are accepted.** The Studio refused them as "not a Gemini key", although Gemini accepts them; it now takes `AIza…` and `AQ.…`.
+- **A direct Gemini key no longer defaults to a retired model.** Gemini's model list carries no dates, so the default fell to the first model listed, `gemini-2.5-flash`, which Gemini refuses to new users. The default is now the newest model of the provider's everyday family (Flash, GPT, Sonnet).
