@@ -29,8 +29,11 @@ export const KEY_PROVIDER_INFO: Record<CloudProvider, { label: string; shape: Re
 	},
 	gemini: {
 		label: 'Gemini',
-		shape: /^AIza[\x21-\x7e]{20,}$/,
-		shapeNote: 'That is not a Gemini key — they start with “AIza”.',
+		// Two shapes in the wild: the classic `AIza…` and Google's newer `AQ.…` keys. A live check
+		// on 2026-11-08 found an `AQ.` key accepted by the models list and by the OpenAI-compatible
+		// endpoint the Studio calls (Bearer); refusing it here turned away a working key (3058-p1).
+		shape: /^(?:AIza|AQ\.)[\x21-\x7e]{20,}$/,
+		shapeNote: 'That is not a Gemini key — they start with “AIza” or “AQ.”.',
 		placeholder: 'AIza…',
 		keysUrl: 'https://aistudio.google.com/apikey',
 		keysHost: 'aistudio.google.com/apikey',
@@ -51,7 +54,7 @@ export const KEY_PROVIDER_INFO: Record<CloudProvider, { label: string; shape: Re
 export function guessProvider(key: string): CloudProvider | null {
 	if (/^sk-or-/.test(key)) return 'openrouter';
 	if (/^sk-ant-/.test(key)) return 'anthropic';
-	if (/^AIza/.test(key)) return 'gemini';
+	if (/^(?:AIza|AQ\.)/.test(key)) return 'gemini';
 	if (/^sk-/.test(key)) return 'openai';
 	return null;
 }
