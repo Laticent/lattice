@@ -217,6 +217,34 @@ describe('PlaygroundApp — the mode toggle keeps view and pane in sync', () => 
 	});
 });
 
+// ── Unmount: a reveal still polling stops with the component ────────────────
+// `markLiveWhenSlidesVisible` polls the frame once per animation frame until the slides show (or REVEAL_CAP_MS runs
+// out), then goes live: it strips the bake flag off <html> and arms the shell teardown. A poll that outlived the
+// component went live AFTER unmount, so it stripped a flag the NEXT mount may own and armed a timer nothing cancels
+// (docs-build 128551177754: that timer fired setState once the test environment was gone, "window is not defined").
+describe('PlaygroundApp — unmount', () => {
+	it('a reveal still polling at unmount never goes live after it', async () => {
+		// Hold every frame callback so the test, not the clock, decides when a poll runs.
+		const queued: FrameRequestCallback[] = [];
+		vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => queued.push(cb));
+		vi.stubGlobal('cancelAnimationFrame', () => {});
+		await mountPlayground();
+		// The first render reaches the reveal, which polls a frame whose slides jsdom never shows.
+		await waitFor(() => expect(queued.length).toBeGreaterThan(0));
+		cleanup();
+		document.documentElement.setAttribute('data-pg-bake', 'next-mount');
+		// Past the reveal cap, so a poll that is still running goes live on its next frame.
+		const now = vi.spyOn(Date, 'now').mockReturnValue(Number.MAX_SAFE_INTEGER / 2);
+		try {
+			for (let i = 0; i < 1000 && queued.length > 0; i++) queued.shift()?.(0);
+			expect(document.documentElement.getAttribute('data-pg-bake')).toBe('next-mount');
+		} finally {
+			now.mockRestore();
+			document.documentElement.removeAttribute('data-pg-bake');
+		}
+	});
+});
+
 // ── Fuzz: random mode/gallery journeys never desync view and pane ────────────
 type Ctx = { user: ReturnType<typeof userEvent.setup> };
 

@@ -34,6 +34,22 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             what they cannot see. Next by weight: `docs/e2e` (66 in 34), then `test/integration/export` (57 in 25).
             Seen red in #3059's `studio-smoke` on both CI attempts and green 5 of 5 locally:
             `docs/e2e/collage-lightbox.spec.ts:211` (the zoom cursor still `zoom-in` 5 s after a wheel step).
+            2026-11-07: a CI census (30 days of runs) found 22 of 453 merge_group runs red from flakes, 13 of them in
+            `studio-smoke`, and 137 nightly e2e retry-passes. This branch fixes three CI-confirmed flakes: `radial`
+            (mtimes, F8), `live-controller.test.ts` `until()` (a poll budget racing two real product timers), and segno
+            `block.test.ts` "bounds" (a stopwatch ratio). The rest of the census, with each flake's root cause, status
+            and next step, is in this branch's PR body. collage-lightbox:211 is a product race in `StudioShell.tsx`
+            (the hover hit-test runs before the frame shows the new slide); a fix is in progress, not in this branch.
+            2026-11-08: a fourth, found red on that branch's own docs-build: `PlaygroundApp.test.tsx` threw "window is
+            not defined" after the run. The reveal's per-frame poll outlived unmount and went live afterwards, arming a
+            teardown timer nothing cancelled. The poll now stops once its frame leaves the page; a held-frame test is its arm.
+            Two e2e flakes FOUND while exercising that PR (retries 0, 4 busy loops on 4 cores), both pre-existing on `main`
+            644f177 and not fixed yet: `playground-tab-switch.spec.ts:211` (wide) on webkit-tablet, `frames.every(f =>
+            f.same)` false, i.e. the preview document was replaced during the Explore switch (branch 1 in 41, `main` 1 in
+            41). Lead: the spec marks the frame's window right after an edit while a full write from that edit may still be
+            in flight; confirm by recording whether the write that replaced it began before the mark. And
+            `playground-first-paint.spec.ts:990` on desktop (`main` 1 in 1 full run, branch 0 in 1): the poll at :1002
+            reads `.hasAttribute` on a null element.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

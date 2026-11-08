@@ -589,6 +589,22 @@ export class LiveController {
 	private prevSource: string;
 	private boundDeck: string | null = null;
 	private ticker: ReturnType<typeof setInterval> | null = null;
+	/** How many sends the host has deferred on purpose and not yet run: a newcomer's welcome a beat after admission, a
+	 *  `since` answer held to the end of its rate window. */
+	private deferred = 0;
+	/** Run `send` after `ms`, as setTimeout does, counted among the deferred sends until it has run. */
+	private later(send: () => void, ms: number): void {
+		this.deferred++;
+		setTimeout(() => {
+			this.deferred--;
+			send();
+		}, ms);
+	}
+	/** Whether a deferred send is still pending. Tests read it, so a poll made while the host waits on purpose is not
+	 *  counted as the code failing to deliver. */
+	hasDeferred(): boolean {
+		return this.deferred > 0;
+	}
 	/** Members whose link dropped and who have not come back, by name (a rejoin by token keeps it). */
 	private away = new Map<string, { name: string; color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
@@ -1133,7 +1149,7 @@ export class LiveController {
 							const to = m.id;
 							this.floorFrom.delete(to);
 							this.sinceAt.delete(to);
-							setTimeout(() => {
+							this.later(() => {
 								if (this.rt !== r) return;
 								// The records first: a look naming a shared theme is taken only once its record is here.
 								this.sendRecords(to);
@@ -2685,7 +2701,7 @@ export class LiveController {
 				if (wait > 0) {
 					if (!this.sinceLater.has(from)) {
 						this.sinceLater.add(from);
-						setTimeout(() => {
+						this.later(() => {
 							this.sinceLater.delete(from);
 							if (this.rt !== r || !r.session.getState().members.some((m) => m.id === from)) return;
 							this.sinceAt.set(from, Date.now());

@@ -618,6 +618,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}, SHELL_FADE_MS + 60);
 		};
 		const check = () => {
+			// A frame taken out of the page (the app unmounted) ends the poll: going live then would strip a bake flag the
+			// next mount may own and arm a teardown timer the unmount has already run past.
+			if (!frame.isConnected) return;
 			let ready = false;
 			try {
 				const win = frame.contentWindow;
