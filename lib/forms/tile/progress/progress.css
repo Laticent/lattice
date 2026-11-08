@@ -107,7 +107,8 @@ section.progress-rail-bar .agenda-rail { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3)
  * pushed a portrait ten-dot rail 22.8px past that berth. The page number's box grows leftward
  * instead — its digit stays put, because the band is packed right — and the author's footer words
  * are what yield the room, which is their rank in the band. Padding, not margin (HARD RULE #20). */
-section.form:not(.progress-rail-center):not(.progress-rail-edge) > .cell-footer > .tile-progress ~ .lat-pagination {
+/* `center` that fell back to `right` under a bottom-center logo (progress-center.css) keeps it too. */
+section.form:not(.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo))):not(.progress-rail-edge) > .cell-footer > .tile-progress ~ .lat-pagination {
   padding-inline-start: var(--sp-sm);
   border-inline-start: 1px solid var(--_rail-off);
 }

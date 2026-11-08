@@ -65,16 +65,23 @@ section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) 
    * flex row with `space-between` sent a lone page number to the left corner when the footer text
    * was off; named tracks place each item whatever is missing. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Five tracks, symmetric: an edge track as wide as a five-character page number (`123.4`; 0.7em a
+   * character of `--chrome-fs`, the number's own size, letter-spacing included) on BOTH sides, so
+   * `edge 1fr | rail | 1fr edge` still centers the rail exactly while the split counter (k-of-N)
+   * sits against the number in the fourth track, not against the rail, where two segmented bars
+   * read as one scale. The footer words span the first two tracks, so the edge track costs them
+   * nothing. */
+  grid-template-columns: var(--_pag-col) minmax(0, 1fr) auto minmax(0, 1fr) var(--_pag-col);
+  --_pag-col: calc(var(--chrome-fs) * 3.5);
   align-items: center;
   column-gap: var(--sp-md);
 }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > footer { grid-column: 1; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 3; grid-row: 1; justify-self: start; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 3; grid-row: 1; justify-self: end; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > footer { grid-column: 1 / 3; grid-row: 1; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 4; grid-row: 1; justify-self: end; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 5; grid-row: 1; justify-self: end; }
 /* The rail itself: a grid item in the middle track, not the absolute placement the default owns. */
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer > .tile-progress {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   position: static;
   inset: auto;

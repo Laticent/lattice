@@ -1462,8 +1462,11 @@ divider directly, because the first section then holds no slide and its mark nev
 
 **`center` costs footer width.** The rail never yields in the footer band, and the author's
 footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
-the center line, the footer words get the band's left half, up to the rail's own width; only a
-line longer than that ends in an ellipsis. The rail holds the exact center on every slide.
+the center line, the footer words get the band's left half, up to the rail's own width; a line
+longer than that ends in an ellipsis. The rail holds the exact center on every slide. On a wide
+canvas that half fits the gallery decks' longest footers; on a portrait or square canvas the type
+is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q3 board review`, at
+1080 × 1350). Use `right` there, or a very short footer.
 `right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
 
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
