@@ -26,7 +26,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ### Variant decision rule
 
 - **default (no modifier).** A contents page with optional page references — the plainest, most document-like agenda look.
-- **`circles`.** The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone, with no page references.
+- **`circles`.** The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone. Page references sit flush right, as on the ledger, without the dotted leader.
 - **`checks`.** The deck has forward momentum and past sections should visibly tick off as done, with an arrow marking the current one.
 
 ### Common mistakes

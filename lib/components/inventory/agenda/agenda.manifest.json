@@ -186,7 +186,7 @@
     },
     {
       "variant": "circles",
-      "useWhen": "The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone, with no page references."
+      "useWhen": "The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone. Page references sit flush right, as on the ledger, without the dotted leader."
     },
     {
       "variant": "checks",

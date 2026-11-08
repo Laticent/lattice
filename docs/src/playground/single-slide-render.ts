@@ -553,7 +553,14 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		fact: 'auto-filled agenda',
 		why: 'an agenda slide with no list is filled from the dividers across the whole deck, which a slice cannot see',
 		probes: [],
-		test: (deck) => deck.split(/^\s*---\s*$/m).some((chunk) => /<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk) && !/^\s*(?:\d+[.)]|[-*+])\s/m.test(chunk)),
+		// The list test runs on the chunk with fenced code and comments taken out, so a `- ` line in a speaker note or a
+		// code sample does not read as the agenda's list (it did, and the preview showed an empty agenda).
+		test: (deck) =>
+			deck.split(/^\s*---\s*$/m).some((chunk) => {
+				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
+				const prose = chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, '').replace(/<!--[\s\S]*?-->/g, '');
+				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
+			}),
 	},
 	{
 		fact: 'glossary: auto',
