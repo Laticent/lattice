@@ -3,6 +3,9 @@
   "name": "contact",
   "function": "statement",
   "bucket": "connect",
+  "cards": {
+    "default": "center"
+  },
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",

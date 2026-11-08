@@ -112,6 +112,7 @@
     },
     "contact": {
       "surfaces": [
+        "card-row",
         "card-surface"
       ],
       "inert": [
@@ -529,7 +530,9 @@
       ]
     },
     "wifi": {
-      "surfaces": [],
+      "surfaces": [
+        "card-row"
+      ],
       "inert": [
         "eyebrow",
         "heading",

@@ -1,0 +1,1 @@
+- **`contact` and `wifi` now follow the deck's card alignment.** Both used to sit at the top of the stage whatever `cards:` or `_class: cards-*` said. They now center by default, and `top`, `spread` and `stretch` apply. `wifi` also drops a stray 21px of browser margin under its fields that pushed the card off center.
