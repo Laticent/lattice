@@ -502,9 +502,6 @@
     "test/unit/export/html-player-inline-differential.test.js": {
       "clock-assert": 1
     },
-    "test/unit/export/html-player-inline-file-urls.test.js": {
-      "clock-assert": 2
-    },
     "test/unit/export/inline-url-media-differential.test.js": {
       "clock-assert": 1
     },

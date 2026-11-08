@@ -718,7 +718,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 						const job = {
 							run: async () => {
 								// The capture code is its own chunk: every pool host loads this file, and only the slide map captures.
-								const { captureSlot, slotShows } = await import('./pool-capture');
+								const { captureSlot, slotShows, SCROLLED } = await import('./pool-capture');
 								// Still this tile with these props, and the frame itself shows them: true before the capture and after it.
 								const same = () => {
 									const now = slotsRef.current[index];
@@ -732,7 +732,14 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 									}, 250);
 									return;
 								}
-								resolve(same() ? await captureSlot(slotEls.current.get(index), same) : null);
+								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => Date.now() - lastScroll.current >= CAPTURE_QUIET_MS) : null;
+								// The reader scrolled while the capture code loaded: back to the front of the queue, which waits
+								// for the scroller to be quiet again before it runs anything.
+								if (got === SCROLLED) {
+									captureQueue.current.unshift(job);
+									return;
+								}
+								resolve(got);
 							},
 							cancel: () => resolve(null),
 						};
