@@ -130,8 +130,9 @@ describe('suggestPhotoDescription — the budget gate prices the picture by the 
 	// $10/M and no output cost, so the whole estimate is the picture and the system prompt: a 512 px look is 2,000 tokens ($0.02) on a default
 	// model and 13,200 ($0.13) on GPT-4o mini. A $0.08 cap sits between them.
 	const PRICE = { promptPerM: 10, completionPerM: 0 };
-	const fakeModel = (complete: ReturnType<typeof vi.fn>) => ({
+	const fakeModel = (complete: ReturnType<typeof vi.fn>, imageModel = 'anthropic/claude-sonnet-5.5') => ({
 		availability: () => ({ generation: 'openrouter' }),
+		imageReader: () => ({ mode: 'same', provider: 'openrouter', model: imageModel, state: 'ready' }),
 		listOpenRouterModels: async () => ['anthropic/claude-sonnet-5.5', 'openai/gpt-4o-mini'].map((id) => ({ id, vision: true })),
 		openRouterModelPrice: () => PRICE,
 		complete,
@@ -142,7 +143,7 @@ describe('suggestPhotoDescription — the budget gate prices the picture by the 
 	});
 	const run = async (imageModel: string) => {
 		const complete = vi.fn(async () => ({ description: 'Two people at a bench', name: 'bench' }));
-		fake.model = fakeModel(complete);
+		fake.model = fakeModel(complete, imageModel);
 		saveSettings({ imageModel, imageLook: 'quick' });
 		setBudget(0.08, 'stop');
 		return { out: await suggestPhotoDescription('data:image/jpeg;base64,AAAA'), complete };
@@ -156,5 +157,46 @@ describe('suggestPhotoDescription — the budget gate prices the picture by the 
 		const { out, complete } = await run('openai/gpt-4o-mini');
 		expect(complete).not.toHaveBeenCalled();
 		expect(out).toMatchObject({ status: 'blocked' });
+	});
+});
+
+describe('suggestPhotoDescription — the image reader, not chat, reads the photo', () => {
+	afterEach(() => localStorage.clear());
+	const base = (reader: Record<string, string>, complete = vi.fn(async () => ({ description: 'A red bicycle', name: 'bike' }))) => ({
+		availability: () => ({ generation: 'openrouter' }),
+		imageReader: () => reader,
+		listOpenRouterModels: async () => [{ id: 'anthropic/claude-sonnet-5.5', vision: true }],
+		listModelsOn: async (p: string) => (p === 'gemini' ? [{ id: 'gemini-3.8-flash', vision: true }] : [{ id: 'anthropic/claude-sonnet-5.5', vision: true }]),
+		modelPriceOn: () => ({ promptPerM: 0.1, completionPerM: 0.4 }),
+		openRouterModelPrice: () => ({ promptPerM: 3, completionPerM: 15 }),
+		complete,
+	});
+	it('sends the photo on the reader’s own route and model while chat runs elsewhere', async () => {
+		const complete = vi.fn(async () => ({ description: 'A red bicycle', name: 'bike' }));
+		fake.model = base({ mode: 'own', provider: 'gemini', model: 'gemini-3.8-flash', state: 'ready' }, complete);
+		const out = await suggestPhotoDescription('data:image/jpeg;base64,AAAA');
+		expect(out.status).toBe('ok');
+		expect(complete).toHaveBeenCalledWith(expect.objectContaining({ route: 'gemini', model: 'gemini-3.8-flash' }));
+	});
+	it('reads nothing while the reader is not set or waits on its connection', async () => {
+		for (const state of ['unset', 'needs-key', 'warming']) {
+			const complete = vi.fn();
+			fake.model = base({ mode: 'same', provider: '', model: '', state }, complete);
+			expect((await suggestPhotoDescription('data:image/jpeg;base64,AAAA')).status).toBe('offline');
+			expect(complete).not.toHaveBeenCalled();
+		}
+	});
+	it('says the model cannot see when chat runs on this device, or the catalog says no', async () => {
+		fake.model = base({ mode: 'same', provider: 'webllm', model: '', state: 'no-vision' });
+		expect((await suggestPhotoDescription('data:image/jpeg;base64,AAAA')).status).toBe('novision');
+		const m = base({ mode: 'own', provider: 'gemini', model: 'gemini-3.8-flash', state: 'ready' });
+		m.listModelsOn = async () => [{ id: 'gemini-3.8-flash', vision: false }];
+		fake.model = m;
+		expect((await suggestPhotoDescription('data:image/jpeg;base64,AAAA')).status).toBe('novision');
+	});
+	it('tries a model the catalog does not know yet instead of refusing it on a guess', async () => {
+		const complete = vi.fn(async () => ({ description: 'A red bicycle', name: 'bike' }));
+		fake.model = base({ mode: 'own', provider: 'gemini', model: 'gemini-9-new', state: 'ready' }, complete);
+		expect((await suggestPhotoDescription('data:image/jpeg;base64,AAAA')).status).toBe('ok');
 	});
 });

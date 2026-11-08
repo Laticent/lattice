@@ -224,6 +224,10 @@ export function offlineNotice(r?: ChatReadiness): string {
 			return `Connect a model in Workspace → AI: your chat model (${PROVIDER_LABEL[r.provider] ?? r.provider}) needs a key, or pick another model.`;
 		case 'unavailable':
 			return 'Your on-device model is not loaded in this browser. Load it in Workspace → AI, or pick another model.';
+		case 'unset':
+			return 'Choose a chat model in Workspace → AI: connect OpenRouter or a key, or pick a free on-device model.';
+		case 'retired':
+			return `Your chat model was retired and ${PROVIDER_LABEL[r.provider] ?? r.provider} has no newer version of it. Choose another in Workspace → AI.`;
 		default:
 			return 'Connect a model in Workspace → AI and I can answer and edit your deck.';
 	}

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
+import { healSelections, readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
 import { createVoiceModel, listGeminiVoiceCatalog } from './voice-model.js';
 
 // The model spine, voice half: the Studio's voice is the stored VOICE selection, resolved and
@@ -184,6 +184,26 @@ describe('model spine — Gemini direct voice', () => {
 		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' });
 		expect(v.availability().readiness).toMatchObject({ state: 'ready', model: 'gemini-3.8-flash-tts' });
 		expect((await v.synthFor({ rung: 'gemini', text: 'Three.' })).ok).toBe(true);
+	});
+
+	it('a retired version heals to the newer one of its own family, keeps the voice, and never says "gone"', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Puck' });
+		const gone = vi.fn();
+		const v = createVoiceModel({
+			keyPrefix: 'studio',
+			onModelGone: gone,
+			fetchImpl: async (url: string) => {
+				if (url.includes('/models?')) return Response.json({ models: ['gemini-3.9-flash-lite-tts', 'gemini-4-flash-tts', 'gemini-3.8-flash'].map((id) => ({ name: `models/${id}` })) });
+				if (url.includes('/voices')) return Response.json({ voices: [] });
+				if (url.includes('3.8-flash-lite-tts:generateContent')) return Response.json({ error: { code: 404, message: 'models/gemini-3.8-flash-lite-tts is not found' } }, { status: 404 });
+				return Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] });
+			},
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => 'AIzaTestKey000000000000000', heal: healSelections },
+		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean }> };
+		expect((await v.synthFor({ rung: 'gemini', text: 'One.' })).ok).toBe(false);
+		await vi.waitFor(() => expect(readVoiceSelection()).toMatchObject({ provider: 'gemini', model: 'gemini-3.9-flash-lite-tts', voice: 'Puck' }));
+		expect(gone).not.toHaveBeenCalled();
+		expect((await v.synthFor({ rung: 'gemini', text: 'Two.' })).ok).toBe(true);
 	});
 
 	it('out of quota or billing: the model is not retired, the author is told once, and the next read tries again', async () => {

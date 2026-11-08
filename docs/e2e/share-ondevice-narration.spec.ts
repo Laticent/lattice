@@ -92,7 +92,7 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	// No key and no voice yet: nothing can speak, and the panel says so. The COPY, not just the
 	// disabled switch — the switch is also disabled while the availability read is in flight, so
 	// only this line proves the panel had settled on "no voice" before the load finishes.
-	await expect(page.getByText(/Connect a cloud voice in the Workspace, or summon the on-device voice/)).toBeVisible();
+	await expect(page.getByText(/Your voice model cannot speak right now/).first()).toBeVisible();
 	await expect(audio).toBeDisabled();
 
 	// The voice finishes loading with the panel still open.
@@ -102,7 +102,7 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	await audio.click();
 
 	const sheet = page.getByRole('dialog').last();
-	await expect(sheet.getByText(/Narrated by the on-device voice you rehearse with/)).toBeVisible();
+	await expect(sheet.getByText(/Narrated by your voice model, .* · This device/)).toBeVisible();
 	await expect(sheet.getByText(/free, on this device/)).toBeVisible();
 	await expect(sheet.getByText(/Connect OpenRouter/)).toHaveCount(0);
 	await expect(sheet.getByText(/bills the whole deck/)).toHaveCount(0);
@@ -128,6 +128,9 @@ test('a switch that is on can still be turned off after the cloud key disconnect
 	await context.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
+			// The voice model is OpenRouter: the export narrates on the voice selection, and with no
+			// pick a desktop starts on the free on-device voice (2026-11-08-studio-ai-routes-ux.md).
+			localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, source: 'cloud', provider: 'openrouter', model: '', voice: '', last: {} }));
 		} catch {
 			/* storage unavailable — the test then fails on the enabled check below */
 		}
@@ -145,7 +148,7 @@ test('a switch that is on can still be turned off after the cloud key disconnect
 		localStorage.removeItem('lattice-db-or-key');
 		window.dispatchEvent(new Event('db-model-changed'));
 	});
-	await expect(page.getByText(/Connect a cloud voice in the Workspace, or summon the on-device voice/)).toBeVisible();
+	await expect(page.getByText(/Your voice model cannot speak right now/).first()).toBeVisible();
 	await expect(audio, 'on, and still operable').toBeEnabled();
 	await audio.click();
 	await expect(audio).not.toBeChecked();

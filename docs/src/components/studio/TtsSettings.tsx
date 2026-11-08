@@ -303,7 +303,7 @@ export function TtsSettings() {
 		selectVoice({ provider: ENGINE_PROVIDER[next] });
 	};
 	const r = avail.readiness;
-	const badge = !r ? null : r.state === 'ready' ? 'active' : r.state === 'warming' ? 'loading' : r.state === 'needs-key' ? 'needs a key' : 'not loaded';
+	const badge = !r ? null : r.state === 'ready' ? 'ready' : r.state === 'warming' ? 'loading' : r.state === 'needs-key' ? 'needs a key' : r.state === 'unset' ? 'not set' : 'not loaded';
 	const header = (
 		<div className="mb-3 flex items-center gap-2">
 			<ToggleGroup

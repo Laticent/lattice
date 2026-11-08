@@ -395,7 +395,21 @@ export function readOpenRouterKey() {
  * in order. A new key, or none, always clears the rejected mark. Returns the write's promise.
  */
 export function writeOpenRouterKey(key) {
+	if (!key) write(OR_VIA, null);
 	return OR.writeKey(key);
+}
+
+// How OpenRouter was connected: 'oauth' (signed in) or 'key' (pasted), for the card's line
+// ("Signed in" vs "Key …ab12"). A key stored before this was recorded has no answer and reads as a
+// key. One OpenRouter connection either way (2026-11-08-studio-ai-routes-ux.md §2).
+const OR_VIA = 'lattice-db-or-via';
+/** Record how OpenRouter was connected. */
+export function writeOpenRouterVia(via) {
+	write(OR_VIA, via === 'oauth' || via === 'key' ? via : null);
+}
+/** How OpenRouter was connected: 'oauth', 'key', or null (no key, or an older key). */
+export function readOpenRouterVia() {
+	return OR.readKey() || read(OR.KEY) ? read(OR_VIA) : null;
 }
 
 /** A safe label for the stored key — its last four characters — or null. Never the key. */

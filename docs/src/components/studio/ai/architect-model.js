@@ -18,15 +18,17 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { CHAT_CLOUD_PROVIDERS, chatModelFor, readChatSelection, readVoiceSelection, selectChat, selectVoice, VOICE_CLOUD_PROVIDERS, watchSelectionStorage } from '../../../lib/model-selection.js';
-import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey } from '../../../lib/openrouter-key.js';
+import { CHAT_CLOUD_PROVIDERS, chatModelFor, clearOutOfCredit, fillFromConnections, healSelections, isRetired, isSet, markRetired, noteOutOfCredit, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
+import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
+import { classifyProviderError } from '../../../lib/provider-errors.js';
+import { familyOf, healTarget } from '../../../lib/provider-registry.js';
 import { directBackend } from './direct-providers.js';
 
 // Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.
 export { loadOpenRouterKey, loadProviderKey } from '../../../lib/openrouter-key.js';
 
 import { withCachedSystem, withCachedTail } from './or-cache.js';
-import { readCachingEnabled } from './spend.js';
+import { readCachingEnabled, setChatRouteReader } from './spend.js';
 
 // CDN entrypoints for the heavy, opt-in runtimes. Swap these for bundled
 // import()s if a future deployment needs self-hosted weights — the adapter
@@ -59,16 +61,6 @@ const CATALOG_FETCH_TIMEOUT_MS = 15000;
 const OR_VERIFIER_LS = 'lattice-db-or-verifier'; // transient PKCE verifier (deleted after exchange)
 const OR_CATALOG_LS = 'lattice-db-or-catalog'; // {fetchedAt, models} — TTL-cached /models catalog
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once a day
-// A retired/renamed model id fails with this signature — the trigger to self-heal
-// to the rot-proof latest alias (a pinned id the user stored can die under them).
-// NOT a dead model: "No endpoints found that support tool use" is a LIVE model that cannot
-// take the chat agent's tools. Self-healing it swapped the author's chosen model for the
-// default (a pricier one) without a word; it must instead reach the agent, which falls back
-// to the one-shot chat ON the author's model (2026-10-05-studio-chat-agent.md).
-export const isDeadModelError = (status, body) =>
-  (status === 400 || status === 404) &&
-  /not a valid model|no endpoints found|no allowed providers/i.test(String(body || '')) &&
-  !/support tool use|support tools?\b/i.test(String(body || ''));
 const EMBED_MODEL = 'Xenova/bge-small-en-v1.5';
 // Backstop for a warm embed worker that dies silently (no `onerror`) — resolve the
 // awaiting caller to null (→ lexical fallback) rather than hang the generate path.
@@ -472,7 +464,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(list);
       return list;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, pinnedModel, onModel, reasoningEffort }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, pinnedModel, onAnsweredBy, reasoningEffort }) {
       const key = readOpenRouterKey();
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -527,31 +519,17 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         'X-Title': 'Lattice Drawing Board',
       };
       const send = (modelId) => fetch(OPENROUTER_CHAT_URL, { method: 'POST', headers, body: JSON.stringify({ ...body, model: modelId }), signal });
-      let res = await send(body.model);
+      // A retired model is healed one level up, within its family and on this route only
+      // (architect-model `complete`, 2026-11-08-studio-ai-routes-ux.md rule 1): this transport
+      // never swaps the model on its own. It reports the id that ANSWERED, so a provider that
+      // reroutes a retired id silently is caught.
+      const res = await send(body.model);
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        // Self-heal: a retired/renamed model id (a stale stored pick can die under
-        // the user) → retry ONCE with the rot-proof latest alias, and drop the
-        // cached catalog so the picker refetches fresh next open.
-        // Never on a request that carries TOOLS. A "no endpoints" answer there is far more
-        // likely the model refusing tools (or a tool parameter) than a retired id, and
-        // swapping in the default model would move the author onto a pricier model without a
-        // word. The chat agent re-sends a tools refusal without tools on the author's own
-        // model; any other failure, a retired id included, it shows with its cause ("pick
-        // another model") instead of healing silently. Callers without tools still heal here.
-        if (isDeadModelError(res.status, errText) && body.model !== defaultModel && !body.tools) {
-          this.invalidateCatalog();
-          res = await send(defaultModel);
-          // The default answered, not the stored pick: say so, so the reply and its cost are
-          // credited to the model that actually answered (model spine §pin).
-          if (res.ok) onModel?.(defaultModel);
-        }
-        if (!res.ok) {
-          noteStatus(res.status, key);
-          const detail = res.bodyUsed ? errText : await res.text().catch(() => '');
-          throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
-        }
+        noteStatus(res.status, key);
+        const detail = await res.text().catch(() => '');
+        throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
       }
+      const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };
       noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
       // `finish_reason` is the transport's own account of WHY the reply stopped. Nothing
       // read it before, so a reply cut off at max_tokens ('length') was indistinguishable
@@ -560,6 +538,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const reportFinish = (r) => { if (onFinishReason && r) { try { onFinishReason(r); } catch {} } };
       if (!onToken || !res.body) {
         const data = await res.json();
+        answered(data.model);
         if (onUsage && data.usage) { try { onUsage(data.usage); } catch {} }
         reportFinish(data.choices?.[0]?.finish_reason || data.choices?.[0]?.native_finish_reason);
         reportTools(data.choices?.[0]?.message?.tool_calls);
@@ -602,6 +581,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             // The generation id (same across chunks) — surfaced once so the caller can
             // fetch the authoritative cost if this turn is later aborted (usage never arrives).
             if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
+            answered(obj.model);
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
             // A reasoning model streams its thinking beside the answer (`delta.reasoning`, or the
@@ -911,6 +891,8 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
   // The direct providers (OpenAI, Gemini, Anthropic) on the author's own key, made on first
   // use. Each prices its usage from OpenRouter's public catalog (direct-providers.js).
   const directs = {};
+  // Spend a caller does not attribute itself is the chat model's, on the chat route.
+  setChatRouteReader(() => { const s = readChatSelection(); return s.source === 'cloud' ? s.provider : ''; });
   const directFor = (p) => (directs[p] ||= directBackend(p, { catalog: () => openrouter.listModels(), catalogNow: () => openrouter.catalogSnapshot?.() ?? null, defaultMaxTokens }));
   // THE CHAT SELECTION decides who answers (lib/model-selection.js): one stored record, read on
   // every call, never a readiness ladder. `cloud()` is the selected cloud provider's backend (or
@@ -978,6 +960,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
   //   unavailable— an on-device model that is not downloaded / not supported here
   function resolve() {
     const sel = readChatSelection();
+    // Not set: nothing chosen yet (2026-11-08-studio-ai-routes-ux.md). Nothing answers, and nothing
+    // is guessed: the floor stands in so a call says "choose a chat model".
+    if (!isSet(sel)) return { sel, backend: floorBackend, state: 'unset' };
     if (sel.source === 'device') {
       if (sel.provider === 'webllm') return { sel, backend: webllm, state: webllm.ready() ? 'ready' : loading.webllm ? 'warming' : 'unavailable' };
       if (sel.provider === 'universal') return { sel, backend: universal, state: universal.ready() ? 'ready' : loading.universal ? 'warming' : 'unavailable' };
@@ -987,7 +972,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     const backend = backendFor(sel.provider);
     // A rejected key still answers (and fails visibly with the provider's own error); the
     // Workspace shows it as rejected. Only a key that is not open yet, or none, stops the call.
-    const state = backend.ready() ? 'ready' : providerKeyState(sel.provider) === 'opening' ? 'warming' : 'needs-key';
+    const state = backend.ready() ? (isRetired(sel.provider, backend.getModel?.()) ? 'retired' : 'ready') : providerKeyState(sel.provider) === 'opening' ? 'warming' : 'needs-key';
     return { sel, backend, state };
   }
 
@@ -1009,17 +994,85 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     const model = sel.source === 'cloud' ? backend.getModel() : (DEVICE_MODEL_IDS[sel.provider] ?? '');
     const p = sel.provider;
     const extra = p === 'webllm' || p === 'universal' ? { progress: loading[p] ? progress[p] : null, cached: cached[p] } : {};
-    return { state, source: sel.source, provider: sel.provider, model, ...extra };
+    // A Not-set selection reports as cloud with no provider: its readouts (spend, the card) are the
+    // cloud ones until something is chosen, and its state says 'unset'.
+    return { state, source: sel.source === 'none' ? 'cloud' : sel.source, provider: sel.provider, model, ...extra };
+  }
+
+  // VERSION HEALING (2026-11-08-studio-ai-routes-ux.md rule 1), one healer for every cloud
+  // route. A model the route answers as gone is checked against the route's LIVE list (a model
+  // still listed is not retired: "no endpoints" can mean a live model refusing a parameter). A
+  // retired one moves to the newest newer version of its own family on the same route, which is
+  // stored and announced, and the call runs once more on it; with nothing newer the selection
+  // reads "Model retired" and the error reaches the caller. Never another family, provider or route.
+  const TOOL_REFUSAL = /support tool use|support tools?\b|handle the requested parameters/i;
+  const errStatus = (e) => {
+    const m = String(e?.message || '').match(/ error (\d{3})(?::\s*([\s\S]*))?/);
+    return m ? { status: Number(m[1]), detail: m[2] || '' } : null;
+  };
+  async function healing(backend, route, asked, opts) {
+    const call = (model) => {
+      const o = model === asked ? opts : { ...opts, model };
+      const run = opts.__pin ? { ...o, pinnedModel: model } : o;
+      // A provider that answers with another model than the one asked (OpenRouter can reroute a
+      // retired id) is held to the same rule: a newer version of the same family is a heal,
+      // anything else stops the selection.
+      return backend.complete({ ...run, onAnsweredBy: (id) => { noteAnswered(route, model, id); run.onAnsweredBy?.(id); } });
+    };
+    try {
+      const out = await call(asked);
+      clearOutOfCredit(route);
+      return out;
+    } catch (e) {
+      const err = errStatus(e);
+      if (err && classifyProviderError(err.status, err.detail) === 'billing') noteOutOfCredit(route);
+      if (!asked || !err || classifyProviderError(err.status, err.detail) !== 'model-gone' || TOOL_REFUSAL.test(err.detail)) throw e;
+      let live = null;
+      try {
+        backend.invalidateCatalog?.();
+        live = await backend.listModels?.();
+      } catch {
+        live = null;
+      }
+      // No list to check against, or the model is still listed: not retired. The error stands.
+      if (!Array.isArray(live) || !live.length || live.some((m) => m.id === asked)) throw e;
+      const to = healTarget(asked, live);
+      if (!to) {
+        markRetired({ provider: route, model: asked });
+        throw e;
+      }
+      healSelections({ provider: route, from: asked, to });
+      opts.onModel?.(to);
+      return await call(to);
+    }
+  }
+  function noteAnswered(route, asked, answered) {
+    if (!answered || !asked || answered === asked || asked.startsWith('~') || asked.startsWith('openrouter/')) return;
+    const fa = familyOf(asked);
+    const fb = familyOf(answered);
+    if (fa && fb) {
+      if (fa.key !== fb.key) markRetired({ provider: route, model: asked, answeredBy: answered });
+      else if (healTarget(asked, [{ id: answered }]) === answered) healSelections({ provider: route, from: asked, to: answered });
+      return;
+    }
+    // Ids the table cannot place: a different vendor is a different provider, which is never a heal.
+    const vendor = (id) => (id.includes('/') ? id.split('/')[0] : '');
+    if (vendor(asked) && vendor(answered) && vendor(asked) !== vendor(answered)) markRetired({ provider: route, model: asked, answeredBy: answered });
   }
 
   async function complete(opts) {
     const { json, fallback } = opts;
     // A pinned call (one chat turn, see `pin`) runs on the backend + model fixed at its start,
     // whatever the selection says now.
-    const backend = opts.__pin ? opts.__pin.backend : pickBackend();
+    // A call on an explicit ROUTE (the image reader on its own provider: 2026-11-08-studio-ai-routes-ux.md
+    // §4.2) runs on that provider's backend for this call only, whatever the chat selection is.
+    const backend = opts.__pin ? opts.__pin.backend : opts.route ? (CHAT_CLOUD_PROVIDERS.includes(opts.route) ? backendFor(opts.route) : floorBackend) : pickBackend();
     if (backend === floorBackend) return floorBackend.complete(opts);
+    // The route and the model this call runs on, read the way the backends read them.
+    const route = backend.provider ?? 'openrouter';
+    const asked = (opts.model && (route === 'openrouter' || !opts.model.includes('/')) ? opts.model : opts.__pin?.model || backend.getModel?.()) || '';
     try {
-      const out = await backend.complete(opts.__pin ? { ...opts, pinnedModel: opts.__pin.model } : opts);
+      const out = await healing(backend, route, asked, opts);
       if (!json) return (out && String(out).trim()) || fallback || '';
       const parsed = extractJson(out);
       return parsed ?? (fallback ?? {}); // validate-or-floor
@@ -1161,6 +1214,10 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
         if (/auth failed|returned no key/.test(String(e?.message))) openrouter.clearPendingAuth();
         throw e;
       }
+      // Signing in connects OpenRouter; it fills only a Not-set selection (rule 1) and records
+      // how OpenRouter was connected, for the card ("Signed in" vs "Key …ab12").
+      writeOpenRouterVia('oauth');
+      fillFromConnections();
       emitChange();
       return true;
     },
@@ -1185,27 +1242,42 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     restoreOpenRouter(key) { openrouter.restore(key); emitChange(); },
     disconnectOpenRouter() { openrouter.disconnect(); emitChange(); },
     // ── Direct provider keys (§7 step 2) ──
+    /**
+     * The IMAGE READER as it stands (2026-11-08-studio-ai-routes-ux.md §2): same as chat (the
+     * default) or its own route and model. `state`: ready | warming | needs-key | unset (chat not
+     * set, under same-as-chat) | no-vision (same as chat, and chat runs on this device).
+     * @returns {{ mode: 'same' | 'own', provider: string, model: string, state: string }}
+     */
+    imageReader() {
+      const img = readImageSelection();
+      if (img.mode === 'own') {
+        const b = backendFor(img.provider);
+        const model = img.model || b.getModel?.() || '';
+        const state = b.ready() ? (isRetired(img.provider, model) ? 'retired' : 'ready') : providerKeyState(img.provider) === 'opening' ? 'warming' : 'needs-key';
+        return { mode: 'own', provider: img.provider, model, state };
+      }
+      const r = resolve();
+      if (r.state === 'unset') return { mode: 'same', provider: '', model: '', state: 'unset' };
+      if (r.sel.source === 'device') return { mode: 'same', provider: r.sel.provider, model: '', state: 'no-vision' };
+      return { mode: 'same', provider: r.sel.provider, model: r.backend.getModel?.() ?? '', state: r.state };
+    },
+    /** A route's model list and price (the image reader's route, which can differ from chat's). */
+    listModelsOn(provider) { return backendFor(provider).listModels(); },
+    modelPriceOn(provider, id) { return backendFor(provider).modelPrice?.(id) ?? null; },
     /** The provider the cloud tier runs on now ('openrouter' unless a direct key is active). */
     activeProvider() { return cloud().provider ?? 'openrouter'; },
     /** Check a pasted direct-provider key against its free `/models` listing: the HTTP status, 0 when unreachable. */
     checkProviderKey(provider, key) { return provider === 'openrouter' ? openrouter.checkKey(key) : directFor(provider).checkKey(key); },
     /**
-     * Store a key. Owner decision 3 ("when something is set you use it"): saving a key makes that
-     * provider's chat model active at once — the author's last pick for it, else its default.
+     * Store a key. Connecting adds models; it never changes a set selection. It fills only a
+     * selection that is Not set (2026-11-08-studio-ai-routes-ux.md rule 1), and returns what it
+     * filled so the caller can say so.
      */
     saveProviderKey(provider, key) {
-      if (provider === 'openrouter') openrouter.restore(key);
+      if (provider === 'openrouter') { openrouter.restore(key); writeOpenRouterVia('key'); }
       else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); directFor(provider).listModels().catch(() => {}); }
       floorForced = false;
-      selectChat({ provider });
-      // Voice, only when it is stranded: if this provider speaks and the selected voice is a cloud
-      // voice whose key is missing or rejected, this provider's voice takes over. A working voice
-      // (another key, or on-device Kokoro) is left alone: chat and voice stay independent.
-      const v = readVoiceSelection();
-      if (VOICE_CLOUD_PROVIDERS.includes(provider) && v.source === 'cloud' && v.provider !== provider) {
-        const k = providerKeyState(v.provider);
-        if (k === 'none' || k === 'rejected') selectVoice({ provider });
-      }
+      return fillFromConnections();
     },
     /** Remove a provider's key. The selection stays as chosen and reads `needs-key`: nothing substitutes another provider. */
     removeProviderKey(provider) {
@@ -1228,8 +1300,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       loading.webllm = true;
       emitChange();
       try { await webllm.load((x) => { progress.webllm = x?.progress || 0; onProgress?.(x); emitChange(); }, signal); } finally { loading.webllm = false; }
-      // Downloading is choosing: the model the author fetched becomes the chat model.
-      selectChat({ provider: 'webllm' });
+      // Downloading is not choosing (2026-11-08-studio-ai-routes-ux.md rule 5): the model is
+      // available now; the author picks it under Models in use.
+      emitChange();
       return true;
     },
     // The universal Transformers.js tier — the no-WebGPU fallback (Safari/mobile).

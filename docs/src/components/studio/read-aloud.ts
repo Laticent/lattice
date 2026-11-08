@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
-import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
+import { healSelections, normalizeStoredVoice, noteOutOfCredit, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
@@ -279,7 +279,7 @@ export type VoiceAvailability = {
 
 /** The voice selection's readiness. It never names a substitute. */
 export type VoiceReadiness = {
-	state: 'ready' | 'warming' | 'needs-key' | 'unavailable';
+	state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'unset' | 'retired';
 	/** Why it is unavailable: `model-gone` = the provider no longer serves the selected model. */
 	reason?: 'model-gone' | null;
 	source: 'cloud' | 'device';
@@ -353,6 +353,7 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						readKey: (p: string) => (p === 'openrouter' ? readOpenRouterKey() : readProviderKey(p)),
 						noteStatus: noteProviderStatus,
 						openKey: (p: string) => (p === 'openrouter' ? loadOpenRouterKey() : loadProviderKey(p)),
+						heal: healSelections,
 					},
 					// A provider retired (or stopped serving) the selected voice model: read-aloud
 					// goes silent and the author is told once, with where to choose another.
@@ -360,8 +361,10 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						voiceNotice(`${voiceProviderName(provider)} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, modelDisplayName({ id: model, provider })),
 					// Out of credit or quota: the key and model are fine, so nothing is switched off; this
 					// read is silent and the author is told once where to fix it.
-					onBilling: ({ provider }: { provider: string }) =>
-						voiceNotice(`${voiceProviderName(provider)} has no credit or quota left on this key, so read-aloud is silent. Add billing with ${voiceProviderName(provider)}, or pick another voice in Workspace › AI.`),
+					onBilling: ({ provider }: { provider: string }) => {
+						noteOutOfCredit(provider);
+						voiceNotice(`${voiceProviderName(provider)} has no credit or quota left on this key, so read-aloud is silent. Add billing with ${voiceProviderName(provider)}, or pick another voice in Workspace › AI.`);
+					},
 				}),
 			)
 			.catch(() => null);
@@ -1677,11 +1680,17 @@ export type BakeVoice = {
 	speed: number;
 };
 
-/** The export's DEFAULT narrator: the workspace's own cloud voice, so a deck ships sounding
- *  like the rehearsal unless the author says otherwise. */
+/** The export's narrator: the VOICE MODEL the author selected in Workspace › AI, on its own route
+ *  (2026-11-08-studio-ai-routes-ux.md §3). A deck ships sounding like the rehearsal; the export
+ *  has no narrator picker of its own. Kokoro on this device, a Gemini key, or OpenRouter. `model:
+ *  ''` lets the voice model fill in the route's default, the same identity read-aloud keys on. */
 export async function defaultBakeVoice(): Promise<BakeVoice> {
+	const sel = readVoiceSelection();
+	if (sel.provider === 'kokoro') return onDeviceBakeVoice();
 	const v = await getVoice();
-	return { rung: 'openrouter', model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed: v?.speedPref() ?? 1 };
+	const speed = v?.speedPref() ?? 1;
+	if (sel.provider === 'gemini') return { rung: 'gemini', model: sel.model, voice: sel.voice, speed };
+	return { rung: 'openrouter', model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed };
 }
 
 /**

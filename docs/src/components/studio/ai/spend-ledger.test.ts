@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { adjustSpend, dayKey, getSpendDeck, LEDGER_NO_DECK, readLedger, readSpend, recordSpend, SPEND_LEDGER_KEY, setSpendDeck } from './spend.js';
+import { adjustSpend, dayKey, getSpendDeck, LEDGER_NO_DECK, readLedger, readSpend, readSpendByUse, recordSpend, SPEND_LEDGER_KEY, setChatRouteReader, setSpendDeck } from './spend.js';
 
 // The spend ledger answers "this deck" and "today". It books the SAME charges as the session
 // and all-time tally, so the three can never disagree about what a call cost.
@@ -72,5 +72,24 @@ describe('spend ledger', () => {
 		setSpendDeck('d');
 		expect(() => recordSpend(0.1, 1)).not.toThrow();
 		expect(readLedger('d').deck).toBeCloseTo(0.1);
+	});
+});
+
+// Spend per selection (2026-11-08-studio-ai-routes-ux.md): chat and the image reader on their own routes.
+describe('spend by use', () => {
+	beforeEach(() => sessionStorage.clear());
+	it('books a call that names its use on its route, and every other call as chat on the chat route', () => {
+		setChatRouteReader(() => 'openrouter');
+		recordSpend(0.2, 100);
+		recordSpend(0.01, 100);
+		recordSpend(0.04, 50, undefined, { kind: 'image', route: 'gemini' });
+		recordSpend(0, 10, undefined, { kind: 'image', route: 'gemini' }); // a free call books nothing
+		const rows = readSpendByUse();
+		expect(rows).toHaveLength(2);
+		expect(rows[0]).toMatchObject({ kind: 'chat', route: 'openrouter' });
+		expect(rows[0].usd).toBeCloseTo(0.21, 9);
+		expect(rows[1]).toMatchObject({ kind: 'image', route: 'gemini' });
+		expect(rows[1].usd).toBeCloseTo(0.04, 9);
+		expect(readSpend().session).toBeCloseTo(0.25, 9); // the total is unchanged
 	});
 });

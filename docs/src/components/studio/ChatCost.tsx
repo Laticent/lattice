@@ -297,6 +297,8 @@ export function readableModelId(id: string | null | undefined): string {
 /** What the chip says: the SELECTED model by its friendly name, or what it is waiting for. */
 export function chipLabel(status: ReturnType<typeof useArchitectStatus>, current?: { id: string; name?: string } | null): string {
 	const r = status.readiness;
+	if (r?.state === 'unset') return 'Choose a chat model';
+	if (r?.state === 'retired') return 'Model retired · choose another';
 	if (r?.state === 'needs-key') return 'Add a key or choose on-device';
 	const provider = r?.provider ?? status.provider ?? 'openrouter';
 	if (r?.source === 'device') return modelDisplayName({ provider });

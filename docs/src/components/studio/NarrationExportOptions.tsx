@@ -19,22 +19,23 @@
 // how many are prepared, how many will be synthesized, roughly what it costs and how long.
 //
 // AND WHY THE VOICE MATTERS TO THAT NUMBER. Clips are keyed on rung, model, voice, speed
-// and text, so choosing a narrator other than the one the deck was rehearsed in means
-// NOTHING is cached and the whole deck is billed. That is a real and legitimate choice —
-// a board deck may want a different reader than the author's own working voice — so the
-// panel does not block it. It re-measures on every change and shows what it now costs.
+// and text, so a narrator other than the one the deck was rehearsed in means NOTHING is
+// cached and the whole deck is billed. The narrator is therefore the author's VOICE MODEL,
+// the one selection that feeds read-aloud, Present and this export alike
+// (engineering/decisions/2026-11-08-studio-ai-routes-ux.md §3). The panel has no picker of
+// its own: it names the voice, and a different reader is chosen in Workspace › AI, where the
+// rehearsal follows it. It re-measures whenever that selection changes.
 
 import { AudioLines, Captions, Loader2, MousePointer2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Announce } from '@/lib/announce';
+import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
 import { ttsCostPerMChars } from '@/playground/tts-cost.js';
 import { getFrontMatter } from '../../lib/front-matter';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES } from './narration-bake';
-import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
-import { TtsModelPicker } from './TtsModelPicker';
-import { resolveVoice, voiceLanguageMismatch, voicesForModel } from './tts-voice-catalog';
-import { VoicePicker } from './VoicePicker';
+import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, voiceAvailability } from './read-aloud';
+import { voiceLanguageMismatch } from './tts-voice-catalog';
 
 export type NarrationChoice = {
 	captions: boolean;
@@ -81,16 +82,10 @@ export function NarrationExportOptions({
 	const on = value.captions || value.audio;
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
 	// null = the catalog answer has not arrived yet; false = it never will.
+	// null = the catalog answer has not arrived yet; false = it never will (prices are unknown).
 	const [catalogReachable, setCatalogReachable] = React.useState<boolean | null>(null);
-	const [cloudReady, setCloudReady] = React.useState<boolean | null>(null);
-	// The on-device narrator identity, resolved once. Offered whenever the rung is usable —
-	// see `pickNarrator`; it is a first-class choice now, not a no-key fallback.
-	const [onDevice, setOnDevice] = React.useState<BakeVoice | null>(null);
-	/** The author rehearses on the on-device voice (the desktop default on `auto`), so their
-	 *  clips are cached under ITS identity — the export defaults to it rather than re-billing. */
-	const [rehearsesOnDevice, setRehearsesOnDevice] = React.useState(false);
-	/** The model id currently auditioning, so its row shows a spinner rather than nothing. */
-	const [auditioning, setAuditioning] = React.useState<string | null>(null);
+	/** Whether the selected voice model can synthesize now: null until the local check answers. */
+	const [narratorReady, setNarratorReady] = React.useState<boolean | null>(null);
 	const [measure, setMeasure] = React.useState<NarrationMeasure | null>(null);
 	const [measuring, setMeasuring] = React.useState(false);
 	const [measureError, setMeasureError] = React.useState<string | null>(null);
@@ -125,53 +120,30 @@ export function NarrationExportOptions({
 	const deckLang = React.useMemo(() => getFrontMatter(source, 'lang') || undefined, [source]);
 	const languageWarning = voiceLanguageMismatch(value.voice.model, value.voice.voice, deckLang);
 
-	// The workspace's own cloud voice is the default narrator, so a deck ships sounding like
-	// the rehearsal unless the author says otherwise.
+	// THE NARRATOR IS THE VOICE SELECTION, re-read whenever it changes: `value.voice` is the one
+	// identity the measure and the bake both read, and it is written from the selection here, so a
+	// change made in Workspace › AI while this panel is open re-measures before anything is baked.
 	//
-	// Read through a ref rather than through the dependency array, and that is the point
-	// rather than a lint dodge: this effect SEEDS a default exactly once. Depending on
-	// `value` would re-run it after every pick and overwrite the author's own choice with the
-	// workspace default a tick later — the data-loss race the Workspace's own TTS panel
-	// documents at `prefsLoaded`.
-	const seedRef = React.useRef({ value, onChange });
-	seedRef.current = { value, onChange };
+	// Availability is resolved SEPARATELY from the catalog: `listTtsCatalog` is a network fetch
+	// (for prices) that can hang on a slow link, and joined into one await it once held the
+	// audio switch enabled with nothing behind it. Availability is local and never waits on it.
+	// `kokoroReady`, NOT `kokoroReady || kokoroCached`: a model on disk but not loaded is a bake
+	// `synthBakeClip` refuses, so it must not read as ready.
+	const latest = React.useRef({ value, onChange });
+	latest.current = { value, onChange };
 	React.useEffect(() => {
 		let live = true;
-		// Resolved SEPARATELY, not as one Promise.all. `listTtsModels` is a network fetch to
-		// OpenRouter's public catalog; on a slow or blocked connection it can hang, and joined
-		// into one await it held `cloudReady` at null — which left the audio switch ENABLED with
-		// no key behind it, pointing at a bake that could only fail. Availability is local and
-		// must never wait on the network. Caught by driving the real panel, where it happened.
-		// RE-READ ON EVERY VOICE CHANGE, not once at mount. The Workspace does not cancel a
-		// Kokoro download when it closes, so an author can start the ~80 MB load and open this
-		// panel while it runs. A mount-time snapshot then said "no on-device voice" for the life
-		// of the panel: the audio switch stayed disabled after the voice finished loading, and the
-		// free, keyless path to a narrated export was unreachable until the author backed out and
-		// came in again. `loadKokoro` and every pref setter emit `db-voice-changed`; a key
-		// connecting or disconnecting emits `db-model-changed`. TtsSettings listens the same way.
 		const read = () =>
-			Promise.all([voiceAvailability(), onDeviceBakeVoice()]).then(([a, od]) => {
+			Promise.all([voiceAvailability(), defaultBakeVoice()]).then(([a, voice]) => {
 				if (!live) return;
-				setCloudReady(a.openRouterReady);
-				// `kokoroReady`, NOT `kokoroReady || kokoroCached`. "Cached" means the model is on disk
-				// but not loaded, and `synthBakeClip` refuses in that state — so offering the narrator
-				// there advertises "Free — no key, no request" and then terminally refuses the export.
-				// That is the same shape as the defect this picker was built to fix: an option the
-				// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
-				// cannot know that before measuring, and a dead end is worse than a missing option.
-				setOnDevice(a.kokoroReady ? od : null);
-				// The SELECTED voice, not whichever rung happens to be live: an author who chose Kokoro
-				// rehearses on it even before the first read has loaded it (model spine).
-				setRehearsesOnDevice(a.readiness ? a.readiness.provider === 'kokoro' : a.rung === 'kokoro');
+				setNarratorReady(voice.rung === 'kokoro' ? a.kokoroReady : a.readiness ? a.readiness.state === 'ready' : a.openRouterReady);
+				const { value: current, onChange: emit } = latest.current;
+				const was = current.voice;
+				if (was.rung !== voice.rung || was.model !== voice.model || was.voice !== voice.voice || was.speed !== voice.speed) emit({ ...current, voice });
 			});
 		read();
 		window.addEventListener('db-voice-changed', read);
 		window.addEventListener('db-model-changed', read);
-		defaultBakeVoice().then((v) => {
-			if (!live) return;
-			const { value: current, onChange: emit } = seedRef.current;
-			if (!current.voice.model && !current.voice.voice) emit({ ...current, voice: v });
-		});
 		listTtsCatalog().then((c) => {
 			if (!live) return;
 			setModels(c.models);
@@ -184,7 +156,6 @@ export function NarrationExportOptions({
 		};
 	}, []);
 
-	const voices = React.useMemo(() => voicesForModel(value.voice.model, models?.find((m) => m.id === value.voice.model)?.voices ?? []), [models, value.voice.model]);
 	// TTS models bill per input CHARACTER, published per million (voice-model.js's
 	// orPricePerM). A model the catalog has no price for quotes nothing at all.
 	// NULL for the on-device narrator, whatever the catalog says. The on-device identity
@@ -196,59 +167,18 @@ export function NarrationExportOptions({
 		// which is nearly its whole bill (tts-cost.js — $0.50/M listed, ~$18.50/M billed).
 		() => {
 			if (value.voice?.rung === 'kokoro') return null;
-			const m = models?.find((x) => x.id === value.voice.model);
+			// A Gemini key's model is priced from OpenRouter's listing of the same model, when it has one.
+			const id = value.voice?.rung === 'gemini' ? `google/${value.voice.model}` : value.voice.model;
+			const m = models?.find((x) => x.id === id);
 			return m ? ttsCostPerMChars(m) : null;
 		},
 		[models, value.voice.model, value.voice?.rung],
 	);
-	/** We never heard back — offline, firewalled, blackholed, or OpenRouter down. Taken from
-	 *  `listTtsCatalog`'s own answer rather than inferred from an empty array: a live catalog
-	 *  that genuinely lists no speech models is ALSO empty, and telling that author "couldn't
-	 *  reach the voice catalog" would be false in exactly the way this whole fix exists to
-	 *  prevent. `null` still means "in flight" and must not trigger the copy. */
 	const catalogUnreachable = catalogReachable === false;
-
-	// WHICH NARRATOR THIS EXPORT USES — an explicit choice, not a fallback.
-	//
-	// This used to be `cloudReady === false && !!onDevice`: the on-device rung was reachable
-	// ONLY by an author with no cloud key. So an author who had a key AND had rehearsed the
-	// whole deck on-device was measured against the CLOUD voice, quoted for 100% of a deck
-	// already on their disk, and told — by this panel — that they could "pick the voice you
-	// rehearsed in, to pay nothing". They could not. The pickers were fed the OpenRouter
-	// catalog only, and the on-device identity was unreachable from this branch. The panel gave
-	// advice the panel made impossible to take, and the consequence was money (#1462 item 2).
-	//
-	// THE NARRATOR IS READ FROM `value.voice`, NEVER FROM COMPONENT STATE. `value.voice` is the
-	// only thing `bakeNarration` ever sees, so any second place that decides "which narrator"
-	// is a source of truth that can disagree with the one that spends money — and the first
-	// version of this fix did exactly that. The pick lived in local state and fed only the
-	// pre-flight, so an author who turned audio on (defaulting to cloud) and then chose
-	// "This device" was measured against the device voice, told "nothing is billed", and then
-	// baked with the CLOUD voice: every sentence a cache miss, the whole deck synthesized and
-	// charged. Quoted $0, billed in full — the exact quote-vs-bill split this panel exists to
-	// close, reintroduced by the fix for it. Found by the adversarial trio before merge.
-	//
-	// So the pick WRITES the identity, and everything else reads it back. There is one value.
-	const canPickDevice = !!onDevice;
-	const useOnDevice = canPickDevice && value.voice?.rung === 'kokoro';
-	// `useOnDevice` also keys the BILL's copy: the bake runs this identity, so nothing it
-	// synthesizes is billed and no key is needed. "Publishes no price", "bills the whole deck" and
-	// "Connect OpenRouter" are false for it, and read as a refusal of the one path a keyless
-	// author has. It needs `onDevice` as well as the identity, deliberately: a device identity
-	// with the voice NOT loaded is a bake `synthBakeClip` refuses, so it must not read as free.
-	/** The cloud identity to restore when switching back — the author's model/voice choice must
-	 *  survive a detour through the on-device narrator. */
-	const cloudVoiceRef = React.useRef(value.voice);
-	if (value.voice?.rung !== 'kokoro') cloudVoiceRef.current = value.voice;
-	/** Turning audio on selects the on-device narrator in two cases: with no cloud key it is the
-	 *  only one that can produce anything, and when the author rehearses on it (the desktop
-	 *  default) the deck's clips already sit on disk under its identity — defaulting to cloud
-	 *  would quote and bill the whole deck again. */
-	const defaultsToDevice = canPickDevice && (cloudReady === false || rehearsesOnDevice);
-	const pickNarrator = (next: 'cloud' | 'device') => {
-		if (next === 'device' && onDevice) set({ voice: onDevice });
-		else if (next === 'cloud') set({ voice: cloudVoiceRef.current });
-	};
+	/** The bake runs on this device: nothing it synthesizes is billed and no key is needed. */
+	const useOnDevice = value.voice?.rung === 'kokoro' && narratorReady === true;
+	const route = value.voice?.rung === 'kokoro' ? 'This device' : value.voice?.rung === 'gemini' ? 'your Gemini key' : 'OpenRouter';
+	const narratorName = `${voiceDisplayName(value.voice?.voice)} · ${value.voice?.rung === 'kokoro' ? 'Kokoro' : modelDisplayName({ id: value.voice?.model, provider: value.voice?.rung === 'gemini' ? 'gemini' : 'openrouter' })} · ${route}`;
 	/** What the file is expected to gain: what the device already holds, plus what will be made. */
 	// The Guide adds its own code to the file whenever it rides along, so the bill counts it.
 	const guideBytes = value.guide !== false ? GUIDE_EXPORT_BYTES : 0;
@@ -309,7 +239,7 @@ export function NarrationExportOptions({
 	// when availability landed; a written identity does not, and nothing tells the author to
 	// toggle off and on again. So the switch waits for the answer. It is a local check, never a
 	// network one, so the wait is milliseconds.
-	const audioUnavailable = blocked || cloudReady === null || (cloudReady === false && !canPickDevice);
+	const audioUnavailable = blocked || narratorReady !== true;
 	// It gates turning audio ON, never turning it OFF. Availability is re-read while the panel is
 	// open, so it can drop under a switch that is already on: a key disconnecting with a cloud
 	// voice chosen made `audioUnavailable` true and disabled the switch in its checked state,
@@ -329,11 +259,7 @@ export function NarrationExportOptions({
 	const setAudio = (next: boolean) => {
 		if (next) {
 			captionsBeforeAudio.current = value.captions;
-			// Adopt the identity the pre-flight was actually measured against, so the bill the
-			// author read and the bake that runs can never be for different voices.
-			// With no cloud key the on-device narrator is the only one that can produce anything,
-			// so turning audio on selects it — and WRITES it, rather than merely displaying it.
-			set(defaultsToDevice && onDevice ? { audio: true, captions: true, voice: onDevice } : { audio: true, captions: true });
+			set({ audio: true, captions: true });
 		} else {
 			set({ audio: false, captions: captionsBeforeAudio.current });
 		}
@@ -377,8 +303,8 @@ export function NarrationExportOptions({
 									// (stripping notes no longer affects narration at all; see WebpageOptionsPanel).
 									// Rendering the prop means this line cannot go stale again.
 									blockedReason
-								: cloudReady === false && !canPickDevice
-									? 'Connect a cloud voice in the Workspace, or summon the on-device voice — either way the audio has to ship inside the file, because the recipient has no key of their own.'
+								: narratorReady === false
+									? 'Your voice model cannot speak right now. Set one in Workspace › AI (or download the on-device voice there): the audio ships inside the file, because the recipient has no key of their own.'
 									: fullyOnDevice
 										? 'Every sentence is already recorded on this device, so this ships with no cloud connection at all — nothing is synthesized and nothing is billed.'
 										: 'The deck speaks for itself — the voice ships inside the file, so it plays with no key and no network, on a machine with no Lattice.'}
@@ -425,108 +351,14 @@ export function NarrationExportOptions({
 
 					{value.audio && !!measure?.total && (
 						<>
-							{/* WHERE the voice comes from, before WHICH voice it is. Offered whenever both are
-							    available, because "the voice I rehearsed in" is a legitimate and often
-							    cheaper answer that this panel used to recommend and then withhold. */}
-							{canPickDevice && cloudReady !== false && (
-								<div className="space-y-2">
-									<div className="text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Narrator</div>
-									<div className="grid grid-cols-2 gap-2">
-										{(
-											[
-												{ id: 'device' as const, label: 'This device', hint: 'Free — no key, no request' },
-												{ id: 'cloud' as const, label: 'Cloud voice', hint: 'Billed per character' },
-											]
-										).map((opt) => {
-											const active = (opt.id === 'device') === useOnDevice;
-											return (
-												<button
-													key={opt.id}
-													type="button"
-													disabled={disabled}
-													aria-pressed={active}
-													onClick={() => pickNarrator(opt.id)}
-													className={`rounded-lg border px-3 py-2 text-left transition-colors ${active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]'}`}
-												>
-													<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">{opt.label}</span>
-													<span className="mt-0.5 block text-[11px] text-muted-foreground">{opt.hint}</span>
-												</button>
-											);
-										})}
-									</div>
-								</div>
-							)}
+							{/* THE NARRATOR, named: the author's voice model. It is chosen in Workspace › AI, where
+							    the rehearsal follows it, so the bill below is for the voice the deck was rehearsed in. */}
+							<p className="text-[11.5px] leading-snug text-muted-foreground">
+								Narrated by your voice model, <span className="font-semibold text-[var(--text-heading)]">{narratorName}</span>.
+								{useOnDevice ? ' Nothing leaves this machine and nothing is billed, whatever the deck still needs.' : ''} Change it in Workspace › AI.
+							</p>
 
-							{/* NAMED WHEREVER IT IS THE NARRATOR, not only beside the picker. With no key the
-							    picker is hidden and this line is the only place the panel says which voice
-							    will speak — without it the bill below read like a cloud quote. */}
-							{useOnDevice && (
-								<p className="text-[11px] leading-snug text-muted-foreground">
-									Narrated by the on-device voice you rehearse with —{' '}
-									<span className="font-mono text-[var(--text-heading)]">{value.voice.voice || 'the workspace default'}</span>. Nothing leaves this machine and nothing is billed, whatever the deck still needs.
-								</p>
-							)}
-
-							{/* The narrator. Two pickers rather than one because a voice belongs to a MODEL —
-							    OpenAI-style names only work on an OpenAI model, Kokoro has its own roster —
-							    and both are the Workspace's own widgets, not a second copy (HARD RULE #15). */}
-							<div className={`space-y-2 ${useOnDevice ? 'hidden' : ''}`}>
-								<div className="text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Voice</div>
-								<TtsModelPicker
-									models={models}
-									selectedId={value.voice.model}
-									playingId={auditioning}
-									disabled={disabled}
-									onPick={(m) => {
-										// A voice from the old model is meaningless on the new one, so resolve it
-										// against the new roster rather than carrying a name that will 400.
-										const next = voicesForModel(m.id, m.voices);
-										set({ voice: { ...value.voice, model: m.id, voice: resolveVoice(next, value.voice.voice) } });
-									}}
-									// Wired, not a stub. The row's play button is offered on the surface where the
-									// author is about to spend real money on a voice; offering to play it and then
-									// doing nothing is the worst possible answer here.
-									onPlay={(m) => {
-										setAuditioning(m.id);
-										previewTtsVoice({ rung: 'openrouter', model: m.id, voice: m.voices[0], speed: value.voice.speed }).finally(() => setAuditioning(null));
-									}}
-								/>
-								{/* CATALOG UNREACHABLE is a different thing from "this model has no voices", and
-								    the picker cannot tell them apart — it is handed a roster and an empty one
-								    looks the same either way. Offline, behind a firewall, or with OpenRouter
-								    down, the catalog answer never arrives, and the picker then
-								    said "This model hasn't published a voice list on OpenRouter yet", which
-								    blames the model for what the network did. Worse, it is false in the one
-								    way that matters here: the bake identity comes from the SAVED PREFS, not
-								    from the catalog, so a bake in this state succeeds in the author's own
-								    voice while the panel tells them it has none. Say what is actually true.
-								    Caught by driving the panel in a browser that could not reach the
-								    catalog — every automated assertion passed, because they checked the
-								    picker EXISTED rather than that it had anything in it. */}
-								{catalogUnreachable ? (
-									<p className="rounded-lg border border-border px-3 py-2 text-[11.5px] leading-snug text-muted-foreground">
-										Couldn't reach the voice catalog, so there is no list to choose from. This export will use your saved voice —{' '}
-										<span className="font-mono text-[var(--text-heading)]">{value.voice.voice || 'the workspace default'}</span> on{' '}
-										<span className="font-mono text-[var(--text-heading)]">{value.voice.model || 'the default model'}</span>.
-										{measure && measure.missing === 0
-											? ' Every sentence is already on this device, so the export needs no connection at all.'
-											: ' The sentences that still need recording DO need a connection, so this export may not complete until it is back.'}
-									</p>
-								) : (
-									<VoicePicker
-										label=""
-										ariaLabel="Narration voice"
-										modelId={value.voice.model}
-										voices={voices}
-										value={value.voice.voice}
-										disabled={disabled}
-										onPick={(v) => set({ voice: { ...value.voice, voice: v } })}
-									/>
-								)}
-							</div>
-
-							{/* The voice is the language control, so a mismatch is stated wherever the author can
-							    still change it — OUTSIDE the block above, which the on-device tier hides. */}
+							{/* The voice is the language control, so a mismatch is stated beside the narrator. */}
 							{languageWarning && (
 								<p role="status" className="text-[11.5px] leading-snug text-[var(--warn,#9a6a00)]">
 									{languageWarning}
@@ -558,7 +390,7 @@ export function NarrationExportOptions({
 										{measure.cached === 0 && !useOnDevice && (
 											<p className="pt-1 leading-snug text-muted-foreground">
 												Nothing on this device matches this voice — either the deck has not been rehearsed, or it was rehearsed in a different one. Clips are stored per voice, so this
-												export bills the whole deck. Rehearse in Present first, or pick the voice you rehearsed in, to pay nothing.
+												export bills the whole deck. Rehearse in Present first to pay nothing: Present speaks in this same voice.
 											</p>
 										)}
 									</>
@@ -650,10 +482,10 @@ export function NarrationExportOptions({
 						</div>
 					)}
 
-					{value.audio && cloudReady === false && !useOnDevice && (
+					{value.audio && narratorReady === false && (
 						<p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
 							<PlugZap className="size-3.5" />
-							Connect OpenRouter in the Workspace to synthesize the sentences this device has not prepared.
+							Your voice model cannot speak right now, so the sentences this device has not prepared cannot be made. Fix it in Workspace › AI.
 						</p>
 					)}
 				</div>

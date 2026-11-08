@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHAT_SELECTION_KEY, readChatSelection, readVoiceSelection, selectChat, selectVoice } from '../../../lib/model-selection.js';
+import { __resetSelectionForTests, CHAT_SELECTION_KEY, readChatSelection, readVoiceSelection, selectChat, selectVoice } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
 
@@ -150,6 +150,7 @@ describe('model spine — chat', () => {
 	});
 
 	it('another tab’s selection change reaches this tab: an event for the UI, the record for the next call', () => {
+		selectChat({ provider: 'openrouter' });
 		const m = make();
 		m.__setPromptAvailability('available');
 		m.__setOpenRouter(fakeOpenRouter([]));
@@ -165,15 +166,23 @@ describe('model spine — chat', () => {
 		expect(m.availability().generation).toBe('prompt-api');
 	});
 
-	it('saving a key makes that provider’s chat model active at once, restoring the last pick (owner decision 3)', async () => {
+	it('saving a key never changes a set chat model (connecting adds models; rule 1)', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
-		selectChat({ provider: 'gemini', model: 'gemini-3.8-pro' });
-		selectChat({ provider: 'prompt-api' }); // on-device now
+		selectChat({ provider: 'prompt-api' }); // the author picked on-device
 		const m = make();
 		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
 		await openRouterKeySettled();
-		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-pro' });
-		expect(m.availability()).toMatchObject({ generation: 'openrouter', readiness: { state: 'ready', provider: 'gemini', model: 'gemini-3.8-pro' } });
+		expect(readChatSelection()).toMatchObject({ source: 'device', provider: 'prompt-api' });
+	});
+
+	it('saving a key fills a Not-set chat model, and says what it filled', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
+		const m = make();
+		expect(m.availability().readiness).toMatchObject({ state: 'unset' });
+		const filled = m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		expect(filled).toContainEqual({ kind: 'chat', provider: 'gemini' });
+		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
 	});
 });
 
@@ -219,37 +228,118 @@ describe('model spine — on-device warm at boot', () => {
 	});
 });
 
-describe('model spine — saving a key and the voice (owner decision 3)', () => {
-	it('selects the provider’s voice when the current cloud voice has no key', async () => {
+describe('model spine — saving a key and the voice (rule 1)', () => {
+	// On a phone, so the voice migration leaves voice Not set and each fill is visible.
+	beforeEach(() => vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse') })));
+	it('fills a Not-set voice from a provider that speaks', async () => {
+		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
+		const m = make();
+		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
+		await openRouterKeySettled();
+		expect(readVoiceSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
+	});
+
+	it('never changes a set voice, even one whose key is missing (it reads needs its connection)', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		selectVoice({ provider: 'openrouter', model: 'x-ai/grok', voice: 'eve' }); // no OpenRouter key
 		const m = make();
 		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
 		await openRouterKeySettled();
-		expect(readVoiceSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
-		expect(readChatSelection().provider).toBe('gemini');
+		expect(readVoiceSelection()).toMatchObject({ provider: 'openrouter', voice: 'eve' });
 	});
 
-	it('leaves a working voice alone: on-device Kokoro, or a cloud voice whose key is there', async () => {
+	it('a provider without a voice (Anthropic) leaves a Not-set voice Not set', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
-		selectVoice({ provider: 'kokoro', voice: 'af_heart' });
-		const m = make();
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
-		await openRouterKeySettled();
-		expect(readVoiceSelection().provider).toBe('kokoro');
-		selectVoice({ provider: 'openrouter' });
-		m.saveProviderKey('openrouter', 'sk-or-v1-test');
-		await openRouterKeySettled();
-		m.saveProviderKey('gemini', 'AIzaTestKey000000000000000');
-		await openRouterKeySettled();
-		expect(readVoiceSelection().provider).toBe('openrouter');
-	});
-
-	it('a provider without a voice (Anthropic) never touches the voice', async () => {
-		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
-		selectVoice({ provider: 'openrouter' });
 		make().saveProviderKey('anthropic', 'sk-ant-test-key-0000000000');
 		await openRouterKeySettled();
-		expect(readVoiceSelection().provider).toBe('openrouter');
+		expect(readVoiceSelection().provider).toBe('');
+		expect(readChatSelection().provider).toBe('anthropic');
+	});
+});
+
+
+// Version healing (2026-11-08-studio-ai-routes-ux.md rule 1): within the family, on the same
+// route, announced; never another family, never backward, never on a guess.
+describe('model spine — a retired version heals within its family', () => {
+	/** A route that answers 404 for every model but the live ones, and lists `live`. */
+	function retiringRoute(calls: string[], live: string[], { answer }: { answer?: (id: string) => string } = {}) {
+		return {
+			name: 'openrouter',
+			provider: 'openrouter',
+			ready: () => true,
+			keyInvalid: () => false,
+			getModel: () => readChatSelection().model || '~anthropic/claude-sonnet-latest',
+			invalidateCatalog: vi.fn(),
+			listModels: async () => live.map((id) => ({ id })),
+			async complete(o: Opts & { model?: string; onAnsweredBy?: (id: string) => void }) {
+				const id = o.model || o.pinnedModel || this.getModel();
+				calls.push(id);
+				if (!live.includes(id)) throw new Error(`OpenRouter error 404: {"error":{"message":"No endpoints found for ${id}."}}`);
+				o.onAnsweredBy?.(answer ? answer(id) : id);
+				return `answered by ${id}`;
+			},
+		};
+	}
+	const events: { provider: string; model: string; to: string | null; kinds: string[]; answeredBy?: string }[] = [];
+	const onRetired = (e: Event) => events.push((e as CustomEvent).detail);
+	beforeEach(() => {
+		events.length = 0;
+		__resetSelectionForTests(); // the retired list lasts a page; each case is a fresh page
+		window.addEventListener('lattice:model-retired', onRetired);
+		return () => window.removeEventListener('lattice:model-retired', onRetired);
+	});
+
+	it('moves Sonnet 5 to the newest live Sonnet on the same route, stores it, and says so', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
+		const m = make();
+		const calls: string[] = [];
+		m.__setOpenRouter(retiringRoute(calls, ['anthropic/claude-sonnet-5.5', 'anthropic/claude-opus-6', 'openai/gpt-6.1']));
+		expect(await m.complete({ messages: [{ role: 'user', content: 'hi' }] })).toBe('answered by anthropic/claude-sonnet-5.5');
+		expect(calls).toEqual(['anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5.5']);
+		expect(readChatSelection()).toMatchObject({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
+		expect(events).toEqual([{ provider: 'openrouter', model: 'anthropic/claude-sonnet-5', to: 'anthropic/claude-sonnet-5.5', kinds: ['chat'] }]);
+	});
+
+	it('with nothing newer in the family, reads Model retired and never answers on Opus or GPT', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
+		const m = make();
+		const calls: string[] = [];
+		m.__setOpenRouter(retiringRoute(calls, ['anthropic/claude-sonnet-5', 'anthropic/claude-opus-6', 'openai/gpt-6.1']));
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }] });
+		expect(calls).toEqual(['anthropic/claude-sonnet-5.5']);
+		expect(readChatSelection().model).toBe('anthropic/claude-sonnet-5.5');
+		expect(m.availability().readiness.state).toBe('retired');
+		expect(events[0]).toMatchObject({ model: 'anthropic/claude-sonnet-5.5', to: null, kinds: ['chat'] });
+	});
+
+	it('does not call a model retired while the route still lists it (a refused parameter is not a retirement)', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
+		const m = make();
+		const calls: string[] = [];
+		const route = retiringRoute(calls, ['anthropic/claude-sonnet-5.5']);
+		route.listModels = async () => [{ id: 'anthropic/claude-sonnet-5' }, { id: 'anthropic/claude-sonnet-5.5' }];
+		m.__setOpenRouter(route);
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }] });
+		expect(calls).toEqual(['anthropic/claude-sonnet-5']);
+		expect(readChatSelection().model).toBe('anthropic/claude-sonnet-5');
+		expect(events).toEqual([]);
+	});
+
+	it('a silent reroute to another family stops the selection and names who answered', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
+		const m = make();
+		m.__setOpenRouter(retiringRoute([], ['anthropic/claude-sonnet-5'], { answer: () => 'openai/gpt-6.1' }));
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }] });
+		expect(events[0]).toMatchObject({ model: 'anthropic/claude-sonnet-5', to: null, answeredBy: 'openai/gpt-6.1' });
+		expect(m.availability().readiness.state).toBe('retired');
+	});
+
+	it('a silent reroute to a newer version of the same family is a heal', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
+		const m = make();
+		m.__setOpenRouter(retiringRoute([], ['anthropic/claude-sonnet-5'], { answer: () => 'anthropic/claude-sonnet-5.5' }));
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }] });
+		expect(readChatSelection().model).toBe('anthropic/claude-sonnet-5.5');
+		expect(events[0]).toMatchObject({ to: 'anthropic/claude-sonnet-5.5' });
 	});
 });

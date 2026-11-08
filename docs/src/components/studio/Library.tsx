@@ -738,13 +738,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			case 'ok':
 				return { text: r.text, ...(r.name ? { name: r.name } : {}) };
 			case 'offline':
-				return { note: 'Connect your OpenRouter account in Setup to get suggestions. Until then you can type them.' };
+				return { note: 'Set an image reader in Workspace › AI to get suggestions (it follows your chat model unless you chose one). Until then you can type them.' };
 			case 'novision':
-				return { note: "The image model you picked can't read images. Choose another in Workspace → Model → Image model, or type a description." };
+				return { note: "Your image reader can't read images. Choose another in Workspace › AI › Image reader, or type a description." };
 			case 'blocked':
 				return { note: r.note };
 			case 'short':
-				return { note: 'The image model ran out of room before it answered. Try Quick in Workspace → Model → Look closer, or pick another image model.' };
+				return { note: 'The image reader ran out of room before it answered. Try Quick under Image reader in Workspace › AI, or choose another image reader.' };
 			default:
 				return { note: 'No suggestion came back. Try again, or type one.' };
 		}

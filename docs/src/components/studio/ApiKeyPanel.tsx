@@ -1,10 +1,10 @@
 import { Cpu, KeyRound, Loader2, Sparkles } from 'lucide-react';
 import * as React from 'react';
-import { readVoiceSelection } from '@/lib/model-selection.js';
+import { outOfCreditAt, readImageSelection, readVoiceSelection } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
-import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
+import { openRouterKeyHint, providerKeyHint, readOpenRouterVia } from '@/lib/openrouter-key.js';
 import { cn } from '@/lib/utils';
-import { removeProviderKey, saveProviderKey, switchProvider } from './api-key';
+import { removeProviderKey, saveProviderKey } from './api-key';
 import type { ArchitectStatus, CloudProvider } from './architect';
 import { KEY_PROVIDER_INFO } from './key-providers';
 
@@ -15,38 +15,57 @@ const hintFor = (p: CloudProvider) => (p === 'openrouter' ? openRouterKeyHint() 
 
 const btn = 'rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] disabled:opacity-60';
 
-/** What a provider is in use for right now: chat, voice, both, or nothing. */
-function usageLine(chat: boolean, voice: boolean): string | null {
-	if (chat && voice) return 'in use for chat and voice';
-	if (chat) return 'in use for chat';
-	if (voice) return 'in use for voice';
-	return null;
+/** What each route can serve (2026-11-08-studio-ai-routes-ux.md §1): every chat model reads images. */
+const SERVES: Record<CloudProvider, string> = {
+	openrouter: 'Chat · Image reader · Voice',
+	gemini: 'Chat · Image reader · Voice',
+	anthropic: 'Chat · Image reader',
+	openai: 'Chat · Image reader',
+};
+
+/** What a route is in use for right now, from the three selections. */
+function usageLine(uses: string[]): string | null {
+	if (!uses.length) return null;
+	return `in use for ${uses.length === 1 ? uses[0] : `${uses.slice(0, -1).join(', ')} and ${uses.at(-1)}`}`;
 }
 
+const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 /**
- * Workspace › AI › Providers & keys: one row per provider (OpenRouter, Gemini, Anthropic, OpenAI,
- * On-device), each saying whether it holds a key and what it is in use for
- * (engineering/decisions/2026-11-07-studio-model-spine.md; key handling:
- * 2026-11-06-studio-byok-key-lifecycle.md §7).
+ * Workspace › AI › Connections: where the Studio can reach models
+ * (engineering/decisions/2026-11-08-studio-ai-routes-ux.md §1; key handling:
+ * 2026-11-06-studio-byok-key-lifecycle.md §7). OpenRouter first, one connection with two ways in
+ * (sign in, or paste a key); then the author's own provider keys; then this device. Each row says
+ * what the route can serve, whether it is connected, and what it is in use for.
  *
- * Every key is checked with its provider before it is stored, never shown again (only its last
- * four characters), and lives in this browser, sealed, through lib/openrouter-key.js. Saving a key
- * selects that provider's chat model (owner decision 3); "Use for chat" selects a provider whose
- * key is already saved. Removing a key leaves the selection in place, reading "needs a key".
+ * Connecting never chooses a model: it fills only a selection that is not set yet (rule 1), and a
+ * model is chosen under Models in use. Every key is checked with its provider before it is
+ * stored, never shown again (only its last four characters), and lives in this browser, sealed,
+ * through lib/openrouter-key.js. Removing a key leaves the selections in place, reading "needs
+ * its connection".
  */
 export function ApiKeyPanel({ status, onConnect, connecting = false }: { status: ArchitectStatus; onConnect?: () => void; connecting?: boolean }) {
 	// Re-read on every status change (a save, a remove, a rejection fires db-model-changed).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: status is the refresh trigger
 	const hints = React.useMemo(() => Object.fromEntries(ORDER.map((p) => [p, hintFor(p)])) as Record<CloudProvider, string | null>, [status]);
 	const [voiceProvider, setVoiceProvider] = React.useState(() => readVoiceSelection().provider);
+	const [image, setImage] = React.useState(readImageSelection);
 	React.useEffect(() => {
 		const sync = () => setVoiceProvider(readVoiceSelection().provider);
+		const syncImage = () => setImage(readImageSelection());
 		window.addEventListener('db-voice-changed', sync);
-		return () => window.removeEventListener('db-voice-changed', sync);
+		window.addEventListener('db-model-changed', syncImage);
+		return () => {
+			window.removeEventListener('db-voice-changed', sync);
+			window.removeEventListener('db-model-changed', syncImage);
+		};
 	}, []);
 	const r = status.readiness;
 	const chatProvider = r ? (r.source === 'cloud' ? r.provider : null) : status.openRouterReady ? (status.provider ?? 'openrouter') : null;
 	const chatOnDevice = r?.source === 'device';
+	const imageProvider = image.mode === 'own' ? image.provider : chatProvider;
+	const usesOf = (p: string) => [chatProvider === p && 'chat', imageProvider === p && (image.mode === 'own' ? 'the image reader' : 'the image reader (same as chat)'), voiceProvider === p && 'voice'].filter(Boolean) as string[];
+	const deviceUse = usageLine([chatOnDevice && 'chat', voiceProvider === 'kokoro' && 'voice'].filter(Boolean) as string[]);
 	// With no key anywhere, the default provider's field is open: the first-run path is one paste.
 	const none = ORDER.every((p) => !hints[p]);
 	// `undefined` = nobody chose: derived on every render, so a sealed key that opens after mount
@@ -62,9 +81,9 @@ export function ApiKeyPanel({ status, onConnect, connecting = false }: { status:
 					key={p}
 					provider={p}
 					hint={hints[p]}
-					inUse={usageLine(chatProvider === p, voiceProvider === p)}
-					chatActive={chatProvider === p}
+					inUse={usageLine(usesOf(p))}
 					rejected={chatProvider === p && !!status.openRouterKeyInvalid}
+					creditAt={outOfCreditAt(p)}
 					editing={open === p}
 					onEdit={(on) => setEditing(on ? p : null)}
 					onDone={() => setEditing(undefined)}
@@ -77,9 +96,9 @@ export function ApiKeyPanel({ status, onConnect, connecting = false }: { status:
 					<Cpu className="size-4" />
 				</span>
 				<span className="min-w-0 flex-1">
-					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">On-device</span>
+					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">This device</span>
 					<span className="block text-[11px] text-muted-foreground">
-						No key needed{usageLine(chatOnDevice, voiceProvider === 'kokoro') ? ` · ${usageLine(chatOnDevice, voiceProvider === 'kokoro')}` : ' · free and private, chosen under Chat model or Voice model'}
+					Chat · Voice — free and private, no key{deviceUse ? ` · ${deviceUse}` : '. A download makes a model available; choose it under Models in use.'}
 					</span>
 				</span>
 			</li>
@@ -91,8 +110,8 @@ function ProviderRow({
 	provider,
 	hint,
 	inUse,
-	chatActive,
 	rejected,
+	creditAt,
 	editing,
 	onEdit,
 	onDone,
@@ -102,8 +121,9 @@ function ProviderRow({
 	provider: CloudProvider;
 	hint: string | null;
 	inUse: string | null;
-	chatActive: boolean;
 	rejected: boolean;
+	/** When this route last answered "out of credit", on this page. */
+	creditAt: number | null;
 	editing: boolean;
 	onEdit: (on: boolean) => void;
 	onDone: () => void;
@@ -131,19 +151,20 @@ function ProviderRow({
 		setBusy(false);
 		if (out.ok) {
 			onDone();
-			notify(`${info.label} key saved — chat now runs on ${info.label}.`);
+			notify(`${info.label} key saved.`);
 		} else setError(out.note);
 	};
 	const remove = async () => {
 		onDone();
 		await removeProviderKey(provider);
-		notify(`${info.label} key removed from this browser.`);
+		notify(via === 'oauth' ? 'OpenRouter disconnected from this browser.' : `${info.label} key removed from this browser.`);
 	};
-	const use = async () => {
-		await switchProvider(provider);
-		notify(`Chat now runs on ${info.label}.`);
-	};
-	const line = rejected ? `Key ${hint} · rejected by ${info.label}, replace it` : hint ? `Key ${hint}${inUse ? ` · ${inUse}` : ' · saved in this browser'}` : 'No key';
+	// OpenRouter is one connection with two ways in; the row says which way it came in.
+	const via = provider === 'openrouter' && hint ? readOpenRouterVia() : null;
+	const how = via === 'oauth' ? 'Signed in' : `Key ${hint}`;
+	const state = rejected ? `${how} · rejected by ${info.label}, ${via === 'oauth' ? 'sign in again' : 'replace it'}` : creditAt != null && hint ? `${how} · out of credit at ${clock(creditAt)}` : hint ? `${how}${inUse ? ` · ${inUse}` : ' · not in use'}` : provider === 'openrouter' ? 'Not connected' : 'No key';
+	const line = `${SERVES[provider]} — ${state}`;
+	const warn = rejected || (creditAt != null && !!hint);
 
 	return (
 		<li data-testid={`provider-row-${provider}`} className={cn('rounded-xl border px-3 py-2.5', inUse && !rejected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
@@ -154,21 +175,23 @@ function ProviderRow({
 				</span>
 				<span className="min-w-[9rem] flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">{info.label}</span>
-					<span className={cn('block text-[11px]', rejected ? 'text-[var(--fail)]' : 'text-muted-foreground')}>{line}</span>
+					<span data-testid={`provider-row-${provider}-line`} className={cn('block text-[11px]', warn ? 'text-[var(--fail)]' : 'text-muted-foreground')}>{line}</span>
 				</span>
 				<span className="ml-auto flex shrink-0 gap-1.5">
 					{hint ? (
 						<>
-							{!chatActive ? (
-								<button type="button" onClick={use} className={btn}>
-									Use for chat
+							{creditAt != null ? (
+								<a href={info.billingUrl} target="_blank" rel="noopener noreferrer" aria-label={`Add billing for ${info.label}`} className={cn(btn, 'inline-flex items-center')}>
+									Add billing
+								</a>
+							) : null}
+							{via !== 'oauth' ? (
+								<button type="button" onClick={() => onEdit(!editing)} aria-expanded={editing} aria-label={`Replace the ${info.label} key`} className={btn}>
+									Replace
 								</button>
 							) : null}
-							<button type="button" onClick={() => onEdit(!editing)} aria-expanded={editing} aria-label={`Replace the ${info.label} key`} className={btn}>
-								Replace
-							</button>
-							<button type="button" onClick={remove} aria-label={`Remove the ${info.label} key`} className={btn}>
-								Remove
+							<button type="button" onClick={remove} aria-label={via === 'oauth' ? 'Disconnect OpenRouter' : `Remove the ${info.label} key`} className={btn}>
+								{via === 'oauth' ? 'Disconnect' : 'Remove'}
 							</button>
 						</>
 					) : (

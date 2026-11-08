@@ -2,7 +2,7 @@ import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, I
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
-import { readCachingEnabled, readDedupEnabled, writeCachingEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
+import { readCachingEnabled, readDedupEnabled, readSpendByUse, writeCachingEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
@@ -20,14 +20,13 @@ import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOve
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
-import { ChatModelSection, ProvidersSection, VoiceModelSection } from './AiModelSections';
+import { ChatModelSection, ImageReaderSection, ProvidersSection, UsedBy, VoiceModelSection } from './AiModelSections';
 import { disconnectAllProviders, } from './api-key';
 import { architectSpend, connectOpenRouter, setBudget, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';
 import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
-import { ImageModelSettings } from './ImageModelSettings';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { KEY_PROVIDER_INFO } from './key-providers';
@@ -312,6 +311,9 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
+	// Re-read with `spend`, which every recorded call refreshes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: spend is the refresh trigger
+	const spendByUse = React.useMemo(() => readSpendByUse(), [spend]);
 	// Backup & restore (General tab): the passive tier of the durability story —
 	// a last-backup line + storage readout that are simply always there.
 	const [backupAt, setBackupAt] = React.useState<number | null>(() => lastBackupAt());
@@ -939,28 +941,20 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 
 					{tab === 'AI' && (
 						<div>
-							{/* ── CHAT MODEL — the one global chat selection (model spine). The chat chip
-							    writes the same selection; every AI faculty runs on it. ── */}
-							<GroupLabel icon={<Sparkles className="size-3.5" />}>Chat model</GroupLabel>
-							<ChatModelSection
-								status={ai}
-								cloudExtras={
-									!direct ? (
-										// A static import: this sheet is itself lazy, so the picker still stays out of
-										// the Studio's first load, and the section paints at its full height at once
-										// (a Suspense placeholder here was shorter than the picker, and the Voice
-										// model section below jumped when it arrived).
-										<div className="mt-4">
-											<ImageModelSettings status={ai} />
-										</div>
-									) : null
-								}
-							/>
-
-							{/* ── VOICE MODEL — the one voice selection, independent of chat. ── */}
-							<AiSection>
-								<GroupLabel icon={<Volume2 className="size-3.5" />}>Voice model</GroupLabel>
+							{/* ── MODELS IN USE — the three selections, each naming its route and what uses it
+							    (2026-11-08-studio-ai-routes-ux.md). The chat chip writes the chat selection. ── */}
+							<GroupLabel icon={<Sparkles className="size-3.5" />}>Models in use</GroupLabel>
+							<p className="-mt-1 mb-3 text-[11px] leading-relaxed text-muted-foreground">What the Studio runs on. Change one, and every feature that uses it follows.</p>
+							<div className="mb-1 text-[12px] font-semibold text-[var(--text-heading)]">Chat model</div>
+							<ChatModelSection status={ai} />
+							<UsedBy>Chat, Refine, Theme, Finish, Drawing, Component, Coach fixes, slide alt text</UsedBy>
+							<div className="mb-1 mt-4 text-[12px] font-semibold text-[var(--text-heading)]">Image reader</div>
+							<ImageReaderSection status={ai} />
+							<UsedBy>Library photo descriptions</UsedBy>
+							<div className="mb-1 mt-4 text-[12px] font-semibold text-[var(--text-heading)]">Voice model</div>
+							<div>
 								<VoiceModelSection
+									usedBy="Present, Read aloud, Narrated export"
 									more={
 									<div>
 										<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
@@ -1024,11 +1018,13 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									</div>
 									}
 								/>
-							</AiSection>
+							</div>
 
-							{/* ── PROVIDERS & KEYS — one row per provider; saving a key selects its model. ── */}
+							{/* ── CONNECTIONS — where the Studio can reach models. Connecting fills only a
+							    selection that is not set; it never changes one that is. ── */}
 							<AiSection>
-								<GroupLabel icon={<KeyRound className="size-3.5" />}>Providers &amp; keys</GroupLabel>
+								<GroupLabel icon={<KeyRound className="size-3.5" />}>Connections</GroupLabel>
+								<p className="-mt-1 mb-3 text-[11px] leading-relaxed text-muted-foreground">Where the Studio can reach models. Connecting adds models; it changes what is in use only when nothing was set.</p>
 								<ProvidersSection status={ai} onConnect={connect} connecting={connecting} />
 							</AiSection>
 
@@ -1081,6 +1077,17 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 										{direct && ai.openRouterReady && !ai.price ? <span className="block text-[11px] text-[var(--fail)]">This model has no price, so its calls are not counted here. A hard-stop cap refuses them.</span> : null}</span>
 									<span className="font-mono text-[12.5px] text-muted-foreground">{fmtUSD(spend.session)}</span>
 								</div>
+								{/* Per selection: what each use spent on its route this session. */}
+								{spendByUse.length > 1 || spendByUse.some((u) => u.kind !== 'chat') ? (
+									<dl data-testid="spend-by-use" className="ml-[36px] mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 text-[11px]">
+										{spendByUse.map((u) => (
+											<React.Fragment key={`${u.kind}|${u.route}`}>
+												<dt className="truncate text-muted-foreground">{u.kind === 'image' ? 'Image reader' : 'Chat'} · {KEY_PROVIDER_INFO[u.route as keyof typeof KEY_PROVIDER_INFO]?.label ?? 'cloud'}</dt>
+												<dd className="text-right font-mono text-muted-foreground">{u.route && u.route !== 'openrouter' ? '≈ ' : ''}{fmtUSD(u.usd)}</dd>
+											</React.Fragment>
+										))}
+									</dl>
+								) : null}
 
 								{/* 4 · YOUR CAP — client defense-in-depth + the binding-constraint gauge. */}
 								<div className="mt-2 rounded-xl border border-border p-3">

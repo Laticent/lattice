@@ -251,7 +251,7 @@ export type ModelAvailability = {
 
 /** The chat selection's readiness. It never names a substitute: a selection that cannot answer says why. */
 export type ChatReadiness = {
-	state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'off';
+	state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'off' | 'unset' | 'retired';
 	source: 'cloud' | 'device';
 	provider: string;
 	model: string;
@@ -268,7 +268,7 @@ export type CloudProvider = 'openrouter' | 'openai' | 'gemini' | 'anthropic';
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; route?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -292,6 +292,11 @@ export type ArchitectModel = {
 	disconnectAllProviders?: () => void;
 	providersWithKeys?: () => CloudProvider[];
 	switchProvider?: (provider: CloudProvider) => void;
+	/** The image reader as it stands (2026-11-08-studio-ai-routes-ux.md §2): its own route and model, or the chat model's. */
+	imageReader?: () => { mode: 'same' | 'own'; provider: string; model: string; state: string };
+	/** One route's model list and price: the image reader's route can differ from chat's. */
+	listModelsOn?: (provider: string) => Promise<ORModel[]>;
+	modelPriceOn?: (provider: string, id: string) => ORPrice | null;
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
 	openRouterKeySettingsUrl: () => string;
@@ -1880,25 +1885,28 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0, priceModelId?: string): Promise<string | null> {
+export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0, priceModelId?: string, route?: string): Promise<string | null> {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		let price = model.openRouterModelPrice?.(priceModelId) ?? null;
+		// A call on its own route (the image reader) is priced on that route's catalog, not chat's.
+		const priceOf = () => (route && model.modelPriceOn && priceModelId ? model.modelPriceOn(route, priceModelId) : (model.openRouterModelPrice?.(priceModelId) ?? null));
+		let price = priceOf();
 		if (!price) {
 			// The price comes from the model catalog, which loads on demand; with none the cap has nothing to hold the call to. Wait for it, at most 4 s.
 			let timer: ReturnType<typeof setTimeout> | undefined;
-			await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
+			const load = route && model.listModelsOn ? model.listModelsOn(route) : model.listOpenRouterModels?.();
+			await Promise.race([Promise.resolve(load).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
 			clearTimeout(timer);
-			price = model.openRouterModelPrice?.(priceModelId) ?? null;
+			price = priceOf();
 		}
 		// FAIL CLOSED on a direct provider key (lifecycle note §7). OpenRouter reports each call's real
 		// cost and can cap the key on its server; a direct key has neither, so our estimate is the
 		// only limit, and a model we cannot price would be recorded as $0 and never trip the cap.
-		if (!price && (model.activeProvider?.() ?? 'openrouter') !== 'openrouter') {
+		if (!price && (route ?? model.activeProvider?.() ?? 'openrouter') !== 'openrouter') {
 			return 'This model has no price we can look up, so your hard-stop cap cannot hold it. Pick a priced model in Workspace → AI, or set the cap to Warn.';
 		}
 		const est = estimateUsd(promptText, price, maxOut, extraTokens, extraUsd);
@@ -1957,6 +1965,7 @@ export type ArchitectStatus = {
 /** The stored chat selection as a readiness, before the model module has said whether it can answer. */
 function seedReadiness(): ChatReadiness {
 	const s = readChatSelection();
+	if (!s.provider) return { state: 'unset', source: 'cloud', provider: '', model: '' };
 	// What storage can already tell, synchronously: a cloud provider with no stored key needs one;
 	// a stored key is open or still opening. An on-device model's readiness needs the model module.
 	const k = s.source === 'cloud' ? providerKeyState(s.provider) : null;
@@ -1967,7 +1976,7 @@ function seedReadiness(): ChatReadiness {
 function seedStatus(): ArchitectStatus {
 	if (typeof window === 'undefined') return FLOOR_STATUS;
 	const r = seedReadiness();
-	return { ...FLOOR_STATUS, readiness: r, modelId: r.model || null, provider: (r.source === 'cloud' ? r.provider : 'openrouter') as CloudProvider };
+	return { ...FLOOR_STATUS, readiness: r, modelId: r.model || null, provider: (r.source === 'cloud' && r.provider ? r.provider : 'openrouter') as CloudProvider };
 }
 
 const FLOOR_STATUS: ArchitectStatus = {
@@ -2097,6 +2106,17 @@ export async function listStudioModels(): Promise<ORModel[]> {
 	if (!m) return [];
 	try {
 		return await m.listOpenRouterModels();
+	} catch {
+		return [];
+	}
+}
+
+/** One route's model list (the image reader can sit on another route than chat), or [] when unavailable. */
+export async function listRouteModels(provider: string): Promise<ORModel[]> {
+	const m = await architectModel();
+	if (!m) return [];
+	try {
+		return await (m.listModelsOn ? m.listModelsOn(provider) : m.listOpenRouterModels());
 	} catch {
 		return [];
 	}

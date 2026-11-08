@@ -619,7 +619,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		// in place, and Providers & keys offers the one-click sign-in.
 		expect(sheet.getByText('Chat model')).toBeInTheDocument();
 		expect(sheet.getByText('Voice model')).toBeInTheDocument();
-		expect(within(await sheet.findByTestId('chat-model-card')).getByText('Add a key or choose on-device')).toBeInTheDocument();
+		expect(within(await sheet.findByTestId('chat-model-card')).getByText('Connect a provider or choose on-device')).toBeInTheDocument();
 		expect(sheet.getByRole('button', { name: /Sign in with OpenRouter/ })).toBeInTheDocument();
 		// The Spend section (same tab) shows real (zero) session spend, not a fabricated
 		// figure. With no model connected there's no authoritative account line — only the

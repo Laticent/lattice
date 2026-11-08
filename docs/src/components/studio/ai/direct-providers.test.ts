@@ -237,7 +237,7 @@ describe('the transports', () => {
 });
 
 describe('the adapter routes the cloud tier to the chosen provider', () => {
-	it('saveProviderKey selects the provider; removing the key leaves the selection reading needs-key', async () => {
+	it('saveProviderKey fills a Not-set selection with its provider; removing the key leaves the selection reading needs-key', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
 		const m = createArchitectModel({});
 		expect(m.availability().provider).toBe('openrouter');
@@ -311,8 +311,8 @@ describe('red-team and checker findings (BYOK phase 2)', () => {
 		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false, generation: 'floor' });
 	});
 
-	it('a stored provider name that is not a provider migrates as OpenRouter', () => {
+	it('a stored provider name that is not a provider is no pick: Not set without a key', () => {
 		localStorage.setItem('lattice-db-provider', 'constructor');
-		expect(readChatSelection().provider).toBe('openrouter');
+		expect(readChatSelection().provider).toBe('');
 	});
 });

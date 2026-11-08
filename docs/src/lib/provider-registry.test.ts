@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CURATED, curate, curatedDefault, PROVIDERS, providerLabel } from './provider-registry.js';
+import { CURATED, curate, curatedDefault, familyOf, healTarget, PROVIDERS, providerLabel, sameFamily } from './provider-registry.js';
 
 // Curation is a preference over the LIVE list: it orders and recommends, never pins.
 
@@ -52,5 +52,48 @@ describe('provider registry', () => {
 		];
 		expect(curatedDefault(live, CURATED.chat.gemini)).toBe('gemini-3.8-flash');
 		expect(curatedDefault([{ id: 'claude-opus-5', created: 3 }, { id: 'claude-sonnet-5-5-20260928', created: 2 }], CURATED.chat.anthropic)).toBe('claude-sonnet-5-5-20260928');
+	});
+});
+
+// Version healing (2026-11-08-studio-ai-routes-ux.md rule 1): a defined family table, never the curation.
+describe('familyOf — an explicit table, never a guess', () => {
+	it.each([
+		['anthropic/claude-sonnet-5.5', 'anthropic · claude · sonnet', [5, 5]],
+		['claude-sonnet-4-5-20250929', 'anthropic · claude · sonnet', [4, 5]],
+		['claude-3-5-sonnet-20241022', 'anthropic · claude · sonnet', [3, 5]],
+		['~anthropic/claude-sonnet-latest', 'anthropic · claude · sonnet', []],
+		['gemini-3.8-flash-lite-tts', 'google · gemini · flash-lite-tts', [3, 8]],
+		['gemini-2.5-flash-lite-preview-tts', 'google · gemini · flash-lite-tts', [2, 5]],
+		['gemini-3.1-flash-tts-preview', 'google · gemini · flash-tts', [3, 1]],
+		['gemini-2.5-flash-preview-05-20', 'google · gemini · flash', [2, 5]],
+		['google/gemini-3.8-pro-preview', 'google · gemini · pro', [3, 8]],
+		['gpt-6.1-mini', 'openai · gpt · mini', [6, 1]],
+		['gpt-5-nano-2025-08-07', 'openai · gpt · nano', [5]],
+		['openai/gpt-6.1', 'openai · gpt · base', [6, 1]],
+	])('places %s', (id, key, version) => {
+		expect(familyOf(id)).toMatchObject({ key, version });
+	});
+	it('keeps Flash and Flash Lite apart, which the curation patterns may not', () => {
+		expect(sameFamily('gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts')).toBe(false);
+		expect(sameFamily('anthropic/claude-sonnet-5', 'claude-sonnet-5-5-20261001')).toBe(true);
+	});
+	it.each(['openai/gpt-4o-mini-tts', 'hexgrad/kokoro-82m', 'gpt-6.1-terra', 'gemini-3.8-flash-ultra', 'mistral/mistral-large'])('cannot place %s, so it is never healed', (id) => {
+		expect(familyOf(id)).toBeNull();
+		expect(healTarget(id, [{ id: 'gpt-9' }, { id: 'gemini-9-flash' }])).toBeNull();
+	});
+});
+
+describe('healTarget — newer, same family, same route', () => {
+	it('moves Claude Sonnet 5 to the newest live Sonnet, never to Opus', () => {
+		const live = [{ id: 'anthropic/claude-sonnet-5.5' }, { id: 'anthropic/claude-opus-6' }, { id: 'anthropic/claude-sonnet-5.2' }];
+		expect(healTarget('anthropic/claude-sonnet-5', live)).toBe('anthropic/claude-sonnet-5.5');
+	});
+	it('prefers a GA build over a preview of the same version', () => {
+		const live = [{ id: 'gemini-3.9-flash-lite-tts-preview' }, { id: 'gemini-3.9-flash-lite-tts' }, { id: 'gemini-4-flash-tts' }];
+		expect(healTarget('gemini-3.8-flash-lite-tts', live)).toBe('gemini-3.9-flash-lite-tts');
+	});
+	it('never moves backward, and never across families: nothing newer reads as retired', () => {
+		expect(healTarget('anthropic/claude-sonnet-5.5', [{ id: 'anthropic/claude-sonnet-5' }, { id: 'anthropic/claude-opus-6' }])).toBeNull();
+		expect(healTarget('gemini-3.8-flash-tts', [{ id: 'gemini-3.9-flash-lite-tts' }])).toBeNull();
 	});
 });

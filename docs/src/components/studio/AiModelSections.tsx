@@ -4,17 +4,19 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
-import { readVoiceSelection } from '@/lib/model-selection.js';
+import { isRetired, readImageSelection, readVoiceSelection, selectImage } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
 import { providerLabel } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
 import { ApiKeyPanel } from './ApiKeyPanel';
 import { switchProvider } from './api-key';
-import type { ArchitectStatus, ChatReadiness, CloudProvider } from './architect';
-import { ModelPicker } from './ModelPicker';
+import { type ArchitectStatus, type ChatReadiness, type CloudProvider, listRouteModels } from './architect';
+import { IMAGE_LOOKS, type ImageLook, lookTokens } from './image-look';
+import { ModelList, ModelPicker, useModelCatalog } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { type VoiceAvailability, voiceAvailability } from './read-aloud';
+import { loadSettings, saveSettings } from './studio-store';
 import { TtsSettings } from './TtsSettings';
 
 // Workspace › AI, the model spine's three sections (engineering/decisions/2026-11-07-studio-model-spine.md):
@@ -38,11 +40,15 @@ type State = ChatReadiness['state'] | 'ready';
 export function readinessLabel(state: State | undefined, progress?: number | null): string {
 	switch (state) {
 		case 'ready':
-			return 'Active';
+			return 'Ready';
 		case 'warming':
 			return progress != null ? `Loading ${Math.round(progress * 100)}%` : 'Loading…';
 		case 'needs-key':
 			return 'Needs a key';
+		case 'unset':
+			return 'Not set';
+		case 'retired':
+			return 'Model retired';
 		case 'unavailable':
 			return 'Not loaded';
 		case 'off':
@@ -90,7 +96,7 @@ function SelectionCard({
 	alertBadge?: string;
 	open: boolean;
 }) {
-	const blocked = !!alert || state === 'needs-key' || state === 'unavailable';
+	const blocked = !!alert || state === 'needs-key' || state === 'unavailable' || state === 'retired';
 	// One grid, two arrangements, chosen by the CARD's width (a container query, so a narrow
 	// Workspace sheet on a wide screen behaves like a phone):
 	//   wide   glyph | name     | badge | Change        narrow   glyph | name ········· | ⌄
@@ -151,6 +157,11 @@ function SelectionCard({
 	);
 }
 
+/** The line under a selection card naming every feature that runs on it. */
+export function UsedBy({ children }: { children: React.ReactNode }) {
+	return <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Used by {children}</p>;
+}
+
 const KEYED: CloudProvider[] = ['openrouter', 'gemini', 'anthropic', 'openai'];
 const hasKey = (p: CloudProvider) => !!(p === 'openrouter' ? openRouterKeyHint() : providerKeyHint(p));
 
@@ -170,7 +181,11 @@ export function ChatModelSection({ status, cloudExtras }: { status: ArchitectSta
 	const provider = r?.provider ?? 'openrouter';
 	const name = modelDisplayName({ id: r?.model || status.modelId, name: source === 'cloud' ? status.modelName : null, provider });
 	const meta =
-		r?.state === 'needs-key'
+		r?.state === 'unset'
+			? 'Connect a provider or choose on-device'
+			: r?.state === 'retired'
+			? 'Retired with no newer version: choose another model'
+			: r?.state === 'needs-key'
 			? 'Add a key or choose on-device'
 			: source === 'device'
 				? 'On this device · free and private'
@@ -247,7 +262,7 @@ function storedVoiceCard(): { source: 'cloud' | 'device'; provider: string; mode
 }
 
 /** The Voice model section: the global voice selection, independent of chat. `more` = narration prefs. */
-export function VoiceModelSection({ more }: { more?: React.ReactNode }) {
+export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; usedBy?: string }) {
 	const [sel, setSel] = React.useState(storedVoiceCard);
 	const [avail, setAvail] = React.useState<VoiceAvailability | null>(null);
 	const [open, setOpen] = React.useState(false);
@@ -273,8 +288,8 @@ export function VoiceModelSection({ more }: { more?: React.ReactNode }) {
 	const r = avail?.readiness;
 	const model = r?.model || sel.model;
 	const voice = r?.voice || sel.voice;
-	const name = sel.provider === 'kokoro' ? `Kokoro · ${voiceDisplayName(voice)}` : `${modelDisplayName({ id: model, provider: sel.provider })} · ${voiceDisplayName(voice)}`;
-	const meta = r?.state === 'needs-key' ? 'Add a key or choose on-device' : sel.source === 'device' ? 'On this device · free and private' : `${providerLabel(sel.provider)} · ${sel.provider === 'openrouter' ? 'your account' : 'your own key'}`;
+	const name = !sel.provider ? 'No voice model yet' : sel.provider === 'kokoro' ? `Kokoro · ${voiceDisplayName(voice)}` : `${modelDisplayName({ id: model, provider: sel.provider })} · ${voiceDisplayName(voice)}`;
+	const meta = !sel.provider ? 'Connect OpenRouter or a Gemini key, or choose the free on-device voice' : r?.state === 'needs-key' ? 'Add a key or choose on-device' : sel.source === 'device' ? 'On this device · free and private' : `${providerLabel(sel.provider)} · ${sel.provider === 'openrouter' ? 'your account' : 'your own key'}`;
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
 			<SelectionCard
@@ -288,6 +303,7 @@ export function VoiceModelSection({ more }: { more?: React.ReactNode }) {
 				alertBadge="Model retired"
 				open={open}
 			/>
+			{usedBy ? <UsedBy>{usedBy}</UsedBy> : null}
 			<CollapsibleContent className="mt-3">
 				<TtsSettings />
 			</CollapsibleContent>
@@ -309,5 +325,132 @@ export function ProvidersSection({ status, onConnect, connecting }: { status: Ar
 		<div id={PROVIDERS_SECTION_ID} className="scroll-mt-4">
 			<ApiKeyPanel status={status} onConnect={onConnect} connecting={connecting} />
 		</div>
+	);
+}
+
+// ── Image reader (2026-11-08-studio-ai-routes-ux.md §2) ──────────────────────────────────────
+// Reads the author's pictures: Library photo descriptions. "Same as chat" (the default) follows
+// the chat model and says so; "a model of its own" sits on any connected route, listing only
+// models that read images. No on-device model reads pictures, so This device is never offered.
+
+const LOOKS = Object.keys(IMAGE_LOOKS) as ImageLook[];
+
+function useImageSelection() {
+	const [img, setImg] = React.useState(readImageSelection);
+	React.useEffect(() => {
+		const sync = () => setImg(readImageSelection());
+		window.addEventListener('db-model-changed', sync);
+		return () => window.removeEventListener('db-model-changed', sync);
+	}, []);
+	return img;
+}
+
+/** The Image reader card: same as chat, or its own route and model. */
+export function ImageReaderSection({ status }: { status: ArchitectStatus }) {
+	const img = useImageSelection();
+	const [open, setOpen] = React.useState(false);
+	const [look, setLook] = React.useState<ImageLook>(() => loadSettings().imageLook);
+	// Re-read on every status change (a key saved or removed announces db-model-changed).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: status is the refresh trigger
+	const withKeys = React.useMemo(() => KEYED.filter(hasKey), [status]);
+	const [route, setRoute] = React.useState<CloudProvider>(() => (img.mode === 'own' ? (img.provider as CloudProvider) : (withKeys[0] ?? 'openrouter')));
+	React.useEffect(() => {
+		if (!open && img.mode === 'own') setRoute(img.provider as CloudProvider);
+	}, [open, img]);
+	const catalog = useModelCatalog(status, {
+		provider: route,
+		load: () => listRouteModels(route),
+		enabled: open && withKeys.includes(route),
+		visionOnly: true,
+		label: 'Image reader',
+		currentId: img.mode === 'own' && img.provider === route ? img.model : null,
+		select: (m) => {
+			selectImage({ mode: 'own', provider: route, model: m.id });
+		},
+	});
+
+	const chat = status.readiness;
+	const chatName = modelDisplayName({ id: chat?.model || status.modelId, name: chat?.source === 'cloud' ? status.modelName : null, provider: chat?.provider ?? 'openrouter' });
+	const own = img.mode === 'own';
+	const ownState: ChatReadiness['state'] | undefined = !own ? undefined : !hasKey(img.provider as CloudProvider) ? 'needs-key' : isRetired(img.provider, img.model) ? 'retired' : 'ready';
+	const chatOnDevice = chat?.source === 'device';
+	const name = own ? modelDisplayName({ id: img.model, provider: img.provider }) : chat?.state === 'unset' ? 'Same as chat · not set' : `Same as chat · ${chatName}`;
+	const route0 = own ? img.provider : (chat?.provider ?? '');
+	const meta = own
+		? `${providerLabel(img.provider)} · reads Library photos`
+		: chatOnDevice
+			? ''
+			: route0
+				? `${providerLabel(route0)} · moves when chat changes`
+				: 'Set a chat model, or choose a model of its own';
+	return (
+		<Collapsible open={open} onOpenChange={setOpen}>
+			<SelectionCard
+				testId="image-reader-card"
+				source="cloud"
+				keyed={!!route0 && route0 !== 'openrouter'}
+				name={name}
+				meta={meta}
+				state={own ? ownState : chatOnDevice ? undefined : chat?.state}
+				alert={!own && chatOnDevice ? "The chat model runs on this device and can't read images. Choose an image reader." : null}
+				alertBadge="Can't read images"
+				open={open}
+			/>
+			<CollapsibleContent className="mt-3">
+				<RadioGroup
+					aria-label="Which model reads images"
+					value={img.mode}
+					onValueChange={(v) => {
+						if (v === 'same') {
+							selectImage({ mode: 'same' });
+							notify('The image reader now follows the chat model.');
+						} else if (withKeys.includes(route)) selectImage({ mode: 'own', provider: route });
+					}}
+					className="mb-3 flex-wrap gap-1.5"
+				>
+					<RadioGroupItem value="same" className="rounded-full border border-border px-3 py-1 text-[12px] text-muted-foreground data-[state=checked]:border-[var(--accent)] data-[state=checked]:bg-[var(--accent-soft)] data-[state=checked]:text-[var(--text-heading)]">
+						Same as chat model
+					</RadioGroupItem>
+					<RadioGroupItem value="own" disabled={!withKeys.length} className="rounded-full border border-border px-3 py-1 text-[12px] text-muted-foreground data-[state=checked]:border-[var(--accent)] data-[state=checked]:bg-[var(--accent-soft)] data-[state=checked]:text-[var(--text-heading)]">
+						A model of its own
+					</RadioGroupItem>
+				</RadioGroup>
+				{own ? (
+					<div>
+						{withKeys.length > 1 ? (
+							<RadioGroup aria-label="Where the image reader runs" value={route} onValueChange={(v) => setRoute(v as CloudProvider)} className="mb-3 flex-wrap gap-1.5">
+								{withKeys.map((p) => (
+									<RadioGroupItem key={p} value={p} className="rounded-full border border-border px-3 py-1 text-[12px] text-muted-foreground data-[state=checked]:border-[var(--accent)] data-[state=checked]:bg-[var(--accent-soft)] data-[state=checked]:text-[var(--text-heading)]">
+										{providerLabel(p)}
+									</RadioGroupItem>
+								))}
+							</RadioGroup>
+						) : null}
+						<ModelList catalog={catalog} />
+						<p className="mt-1.5 text-[11px] text-muted-foreground">Only models that read images are listed. A model the catalog does not know yet is tried, never refused on a guess. This device is not listed: no on-device model reads images.</p>
+					</div>
+				) : null}
+				<div className="mb-1 mt-3 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">How closely it looks</div>
+				<fieldset aria-label="How closely the image reader looks" className="m-0 flex min-w-0 gap-1 rounded-lg border border-border p-0.5">
+					{LOOKS.map((k) => (
+						<button
+							type="button"
+							key={k}
+							aria-pressed={look === k}
+							onClick={() => {
+								saveSettings({ imageLook: k });
+								setLook(k);
+							}}
+							className={cn('min-h-[36px] flex-1 rounded-md px-2 py-1.5 text-[12.5px] font-semibold', look === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-[var(--text-heading)]')}
+						>
+							{IMAGE_LOOKS[k].label}
+						</button>
+					))}
+				</fieldset>
+				<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+					{IMAGE_LOOKS[look].means} About {lookTokens(look).toLocaleString()} input tokens per photo. A photo is sent only when you press Suggest on it in the Library.
+				</p>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }

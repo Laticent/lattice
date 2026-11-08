@@ -88,6 +88,18 @@ export function modelSees(models: { id: string; vision?: boolean }[], id: string
 	return kin.length > 0 && kin.every((m) => m.vision);
 }
 
+/** Whether a model reads images: true / false from the catalog, or null when the catalog does not
+ *  know it (a model newer than the catalog). Null is tried, never refused on a guess (§2). */
+export function seesImages(models: { id: string; vision?: boolean }[], id: string): boolean | null {
+	if (!id) return null;
+	const exact = models.find((m) => m.id === id);
+	if (exact) return exact.vision === undefined ? null : !!exact.vision;
+	if (!id.startsWith('~')) return null;
+	const family = id.slice(1).replace(/-latest$/, '');
+	const kin = models.filter((m) => m.id.startsWith(family));
+	return kin.length ? kin.every((m) => m.vision) : null;
+}
+
 /** The photo-looking model and how closely it looks, as the author set them in Workspace. */
 export function imageSettings(): { model: string; look: ImageLook } {
 	const s = loadSettings();
@@ -106,27 +118,31 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	if (!thumbDataUrl.startsWith('data:image/')) return { status: 'nochange' };
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
-	const generation = model.availability().generation;
-	// A description must be accurate, so the cloud tier only: the floor and the tiny on-device model do not look at pictures.
-	if (generation !== 'openrouter') return { status: 'offline' };
-	const { model: pickedImageModel, look } = imageSettings();
-	// The image-model pick is an OpenRouter id. On a direct OpenAI / Anthropic / Gemini key the
-	// author's own model on that provider reads the photo instead (lifecycle note §7).
-	const direct = (model.activeProvider?.() ?? 'openrouter') !== 'openrouter';
-	const imageModel = direct ? model.openRouterModel() : pickedImageModel;
-	let sees = false;
+	// The IMAGE READER reads the photo (2026-11-08-studio-ai-routes-ux.md §2): the chat model by
+	// default, or a model of its own on its own route. A description must be accurate, so a reader
+	// that is not set, waits on its connection, or runs on this device (no on-device model sees
+	// pictures) reads the photo with nothing.
+	const reader = model.imageReader?.();
+	if (!reader || reader.state === 'unset' || reader.state === 'needs-key' || reader.state === 'warming' || reader.state === 'retired') return { status: 'offline' };
+	if (reader.state === 'no-vision') return { status: 'novision' };
+	const { look } = imageSettings();
+	const route = reader.provider;
+	const imageModel = reader.model;
+	const list = () => (model.listModelsOn ? model.listModelsOn(route) : model.listOpenRouterModels());
+	let models: { id: string; vision?: boolean }[] = [];
 	try {
-		sees = modelSees(await model.listOpenRouterModels(), imageModel);
+		models = await list();
 	} catch {
-		sees = false;
+		models = [];
 	}
-	if (!sees) return { status: 'novision' };
+	if (seesImages(models, imageModel) === false) return { status: 'novision' };
 	const how = IMAGE_LOOKS[look];
 	// The picture is priced by the model that reads it (picture-tokens.ts), not by Claude's edge^2 / 750 alone: a 512 px picture is 1,290 tokens on
 	// Gemini 2.5 and 8,500 on GPT-4o mini. The 1024 px look has no measured figure of its own, so it is charged the 1568 px one.
-	const cost = await resolvePictureTokens({ openRouterModel: () => imageModel, listOpenRouterModels: () => model.listOpenRouterModels() });
-	const { tokens, usd } = lookCharge(look, cost, model.openRouterModelPrice?.(imageModel) ?? null);
-	const blk = await cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, tokens, how.maxTokens, usd, imageModel);
+	const cost = await resolvePictureTokens({ openRouterModel: () => imageModel, listOpenRouterModels: list });
+	const price = model.modelPriceOn ? model.modelPriceOn(route, imageModel) : (model.openRouterModelPrice?.(imageModel) ?? null);
+	const { tokens, usd } = lookCharge(look, cost, price);
+	const blk = await cloudBudgetBlock(model, PHOTO_DESCRIBE_SYSTEM, tokens, how.maxTokens, usd, imageModel, route);
 	if (blk) return { status: 'blocked', note: blk };
 	let out: unknown = null;
 	let cutOff = false;
@@ -137,11 +153,12 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 			fallback: {} as unknown as string,
 			maxTokens: how.maxTokens,
 			model: imageModel,
+			route,
 			onFinishReason: (r: string) => {
 				cutOff = r === 'length';
 			},
 			...(how.effort ? { reasoningEffort: how.effort } : {}),
-			onUsage: (u: { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number }) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			onUsage: (u: { cost?: number; total_tokens?: number; prompt_tokens?: number; completion_tokens?: number }) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), undefined, { kind: 'image', route }),
 		});
 	} catch {
 		return { status: 'offline' };

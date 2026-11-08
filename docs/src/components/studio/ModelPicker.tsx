@@ -13,7 +13,7 @@ import { modelDisplayName } from '@/lib/model-name';
 import { notify } from '@/lib/notify';
 import { CURATED, curate } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
-import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
+import { type ArchitectStatus, type CloudProvider, listStudioModels, type ORModel, setStudioModel } from './architect';
 import { KEY_PROVIDER_INFO } from './key-providers';
 
 // A React port of the Drawing Board's model accordion (drawing-board-settings.js), reusing the
@@ -34,6 +34,10 @@ export function useModelCatalog(
 		visionOnly?: boolean;
 		/** What the confirmation calls the thing picked. */
 		label?: string;
+		/** The route to list, when it is not the chat's (the image reader's own route). */
+		provider?: CloudProvider;
+		/** Load that route's list. Required with `provider`. */
+		load?: () => Promise<ORModel[]>;
 	} = {},
 ) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
@@ -50,7 +54,10 @@ export function useModelCatalog(
 
 	// A different provider has a different list: drop the loaded one so the effect below fetches
 	// the new provider's (lifecycle note §7 step 2).
-	const provider = status.provider ?? 'openrouter';
+	const provider = opts.provider ?? status.provider ?? 'openrouter';
+	const ready = opts.load ? true : status.openRouterReady;
+	const loadRef = React.useRef(opts.load);
+	loadRef.current = opts.load;
 	const shownFor = React.useRef(provider);
 	React.useEffect(() => {
 		if (shownFor.current === provider) return;
@@ -63,9 +70,9 @@ export function useModelCatalog(
 	// floor/on-device tiers — keeps tests and offline use network-free).
 	React.useEffect(() => {
 		let live = true;
-		if (status.openRouterReady && !models && opts.enabled !== false) {
+		if (ready && !models && opts.enabled !== false) {
 			const forProvider = provider;
-			listStudioModels().then((l) => {
+			(loadRef.current ?? listStudioModels)().then((l) => {
 				// A list that answers after the provider changed belongs to the old provider.
 				if (live && shownFor.current === forProvider) setModels(l);
 			});
@@ -73,7 +80,7 @@ export function useModelCatalog(
 		return () => {
 			live = false;
 		};
-	}, [status.openRouterReady, models, opts.enabled, provider]);
+	}, [ready, models, opts.enabled, provider]);
 
 	// Reflect an external model change (e.g. another surface) in the summary.
 	React.useEffect(() => {
@@ -82,7 +89,8 @@ export function useModelCatalog(
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
 	const groups = React.useMemo(() => {
-		const usable = (models ?? []).filter((m) => !opts.visionOnly || m.vision);
+		// A model whose catalog does not say whether it reads images is listed: it is tried, never refused on a guess.
+		const usable = (models ?? []).filter((m) => !opts.visionOnly || m.vision !== false);
 		if (provider === 'openrouter') return groupByVendor(filterModels(usable, view, query));
 		// A direct provider's ids are bare (`gemini-3.8-flash`, no `vendor/`), so grouping by vendor made
 		// every model its own heading. Recommended = the newest model of each registry family; All adds

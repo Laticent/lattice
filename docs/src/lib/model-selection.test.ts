@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetSelectionForTests, CHAT_SELECTION_KEY, chatModelFor, normalizeStoredVoice, readChatSelection, readVoiceSelection, selectChat, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetSelectionForTests, CHAT_SELECTION_KEY, chatModelFor, fillUnset, isSet, normalizeStoredVoice, readChatSelection, readImageSelection, readVoiceSelection, selectChat, selectImage, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
 
 // The model spine's store: one chat record and one voice record, read synchronously, migrated
 // once from the legacy keys (engineering/decisions/2026-11-07-studio-model-spine.md).
@@ -10,8 +10,25 @@ beforeEach(() => {
 });
 
 describe('chat selection', () => {
-	it('defaults to OpenRouter with its curated default when nothing is stored', () => {
-		expect(readChatSelection()).toEqual({ v: 1, source: 'cloud', provider: 'openrouter', model: '', last: {} });
+	it('is Not set when nothing is stored and no key exists (main answered nothing either)', () => {
+		expect(readChatSelection()).toEqual({ v: 1, source: 'none', provider: '', model: '', last: {} });
+		expect(isSet(readChatSelection())).toBe(false);
+	});
+
+	// §4.1: the migration reproduces what main ran, row by row.
+	it('migration: an OpenRouter key and no pick is set to OpenRouter\'s default, as main ran', () => {
+		localStorage.setItem('lattice-db-or-key', 'v1:sealed');
+		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'openrouter', model: '' });
+	});
+
+	it('migration: a legacy provider whose key is gone stays that provider (reads needs its connection)', () => {
+		localStorage.setItem('lattice-db-provider', 'gemini');
+		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'gemini' });
+	});
+
+	it('migration: a direct key with no provider pick is Not set (main ran OpenRouter, which had no key)', () => {
+		localStorage.setItem('lattice-db-gemini-key', 'v1:sealed');
+		expect(isSet(readChatSelection())).toBe(false);
 	});
 
 	it('migrates the legacy provider and per-provider model keys once, then removes them', () => {
@@ -54,9 +71,9 @@ describe('chat selection', () => {
 
 	it('rejects a corrupt or future record rather than guessing', () => {
 		localStorage.setItem(CHAT_SELECTION_KEY, JSON.stringify({ v: 2, provider: 'gemini' }));
-		expect(readChatSelection().provider).toBe('openrouter');
+		expect(isSet(readChatSelection())).toBe(false);
 		localStorage.setItem(CHAT_SELECTION_KEY, '{nope');
-		expect(readChatSelection().provider).toBe('openrouter');
+		expect(isSet(readChatSelection())).toBe(false);
 	});
 
 	it('never re-migrates or overwrites a record it cannot read (a newer tab\'s v2)', () => {
@@ -64,8 +81,8 @@ describe('chat selection', () => {
 		localStorage.setItem(CHAT_SELECTION_KEY, future);
 		localStorage.setItem(VOICE_SELECTION_KEY, future);
 		localStorage.setItem('lattice-db-provider', 'gemini');
-		expect(readChatSelection().provider).toBe('openrouter');
-		expect(readVoiceSelection().provider).toBe('openrouter');
+		expect(isSet(readChatSelection())).toBe(false);
+		expect(isSet(readVoiceSelection())).toBe(false);
 		expect(localStorage.getItem(CHAT_SELECTION_KEY)).toBe(future);
 		expect(localStorage.getItem(VOICE_SELECTION_KEY)).toBe(future);
 		expect(localStorage.getItem('lattice-db-provider')).toBe('gemini');
@@ -132,6 +149,72 @@ describe('voice selection', () => {
 		selectVoice({ provider: 'openrouter', model: 'a/tts', voice: 'v1' });
 		expect(selectVoice({ provider: 'openrouter', model: 'b/tts' }).voice).toBe('');
 		expect(selectVoice({ provider: 'openrouter', model: 'c/tts', voice: 'v9' }).voice).toBe('v9');
+	});
+});
+
+describe('voice migration reproduces main\'s ladder (§4.1)', () => {
+	const coarse = (on: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: on && q.includes('coarse') }));
+	afterEach(() => vi.unstubAllGlobals());
+	it('no pick, on a desktop that can run Kokoro: Kokoro on this device, key or not (free, as main)', () => {
+		coarse(false);
+		localStorage.setItem('lattice-db-or-key', 'v1:sealed');
+		expect(readVoiceSelection()).toMatchObject({ source: 'device', provider: 'kokoro' });
+	});
+	it('no pick, on a phone, an OpenRouter key: OpenRouter\'s default voice', () => {
+		coarse(true);
+		localStorage.setItem('lattice-db-or-key', 'v1:sealed');
+		expect(readVoiceSelection()).toMatchObject({ source: 'cloud', provider: 'openrouter', model: '' });
+	});
+	it('no pick, on a phone, no key: Not set', () => {
+		coarse(true);
+		expect(isSet(readVoiceSelection())).toBe(false);
+	});
+	it('a stored OpenRouter voice pick stays, even on a desktop', () => {
+		coarse(false);
+		localStorage.setItem('lattice-studio-voice-or-model', 'hexgrad/kokoro-82m');
+		expect(readVoiceSelection()).toMatchObject({ provider: 'openrouter', model: 'hexgrad/kokoro-82m' });
+	});
+});
+
+describe('image reader', () => {
+	it('is same as chat by default, and migrates a non-default old image model as its own reader on OpenRouter', () => {
+		expect(readImageSelection()).toMatchObject({ mode: 'same' });
+		localStorage.clear();
+		__resetSelectionForTests();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ imageModel: 'openai/gpt-5' }));
+		expect(readImageSelection()).toMatchObject({ mode: 'own', provider: 'openrouter', model: 'openai/gpt-5' });
+	});
+	it('the old default is same as chat, and selectImage switches between same and own', () => {
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ imageModel: '~anthropic/claude-sonnet-latest' }));
+		expect(readImageSelection().mode).toBe('same');
+		selectImage({ mode: 'own', provider: 'gemini', model: 'gemini-3.8-flash' });
+		expect(readImageSelection()).toMatchObject({ mode: 'own', provider: 'gemini', model: 'gemini-3.8-flash' });
+		selectImage({ mode: 'same' });
+		expect(readImageSelection()).toMatchObject({ mode: 'same', last: { gemini: 'gemini-3.8-flash' } });
+	});
+});
+
+describe('fill (rule 1)', () => {
+	// On a phone the voice migration leaves voice Not set, so each fill is visible.
+	beforeEach(() => vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse') })));
+	afterEach(() => vi.unstubAllGlobals());
+	it('fills only Not-set selections, in the fixed order, and says what it filled', () => {
+		const filled = fillUnset({ connected: ['anthropic'], kokoro: false });
+		expect(filled).toEqual([{ kind: 'chat', provider: 'anthropic' }]);
+		expect(readChatSelection()).toMatchObject({ provider: 'anthropic' });
+		expect(isSet(readVoiceSelection())).toBe(false); // Anthropic cannot speak
+		// A later OpenRouter connection fills voice (still Not set) and leaves chat alone.
+		expect(fillUnset({ connected: ['anthropic', 'openrouter'], kokoro: false })).toEqual([{ kind: 'voice', provider: 'openrouter' }]);
+		expect(readChatSelection()).toMatchObject({ provider: 'anthropic' });
+	});
+	it('fills voice with Kokoro on a desktop before any connection, and never fills on-device chat', () => {
+		expect(fillUnset({ connected: [], kokoro: true })).toEqual([{ kind: 'voice', provider: 'kokoro' }]);
+		expect(isSet(readChatSelection())).toBe(false);
+	});
+	it('never touches a set selection, whatever its state', () => {
+		selectChat({ provider: 'gemini', model: 'gemini-3.8-flash' });
+		expect(fillUnset({ connected: ['openrouter'], kokoro: false })).toEqual([{ kind: 'voice', provider: 'openrouter' }]);
+		expect(readChatSelection()).toMatchObject({ provider: 'gemini', model: 'gemini-3.8-flash' });
 	});
 });
 

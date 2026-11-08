@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { notify as notifyModule } from '@/lib/notify';
 import type { ArchitectStatus } from './architect';
@@ -62,6 +62,7 @@ vi.mock('./architect', () => ({
 	disconnectOpenRouter: vi.fn(),
 	setBudget: vi.fn(),
 	listStudioModels: vi.fn(async () => CATALOG),
+	listRouteModels: vi.fn(async () => CATALOG),
 	currentStudioModel: vi.fn(async () => 'anthropic/claude-sonnet-4'),
 	setStudioModel: setModelSpy,
 	setStudioTier: setTierSpy,
@@ -98,6 +99,13 @@ vi.mock('./read-aloud', () => ({
 
 const noop = () => {};
 
+// These tests start from a voice on OpenRouter, the old default. Since the routes redesign a fresh
+// desktop migrates to Kokoro on this device (2026-11-08-studio-ai-routes-ux.md §4.1), so the record
+// is seeded rather than migrated.
+beforeEach(() => {
+	if (!localStorage.getItem('lattice-studio-voice-selection')) localStorage.setItem('lattice-studio-voice-selection', JSON.stringify({ v: 1, source: 'cloud', provider: 'openrouter', model: '', voice: '', last: {} }));
+});
+
 afterEach(() => {
 	vi.clearAllMocks();
 	localStorage.removeItem('lattice-studio-voice-selection');
@@ -130,7 +138,7 @@ describe('WorkspaceSheet — G6 model picker', () => {
 		const { user, sheet } = openSheet();
 		const card = await sheet.findByTestId('chat-model-card');
 		expect(within(card).getByTestId('chat-model-card-name')).toHaveTextContent('Claude Sonnet 4');
-		expect(within(card).getByTestId('chat-model-card-state')).toHaveTextContent('Active');
+		expect(within(card).getByTestId('chat-model-card-state')).toHaveTextContent('Ready');
 		await openChat(user, sheet);
 		expect(await sheet.findByText('OpenRouter model')).toBeInTheDocument();
 		// The picker summary (a button) reads the active model + its meta line once
@@ -250,7 +258,7 @@ describe('WorkspaceSheet — one row per provider', () => {
 			const { user, sheet } = openSheet();
 			for (const id of ['openrouter', 'gemini', 'anthropic', 'openai', 'device']) expect(sheet.getByTestId(`provider-row-${id}`)).toBeInTheDocument();
 			expect(sheet.getByTestId('provider-row-gemini')).toHaveTextContent('No key');
-			expect(sheet.getByTestId('provider-row-device')).toHaveTextContent('No key needed');
+			expect(sheet.getByTestId('provider-row-device')).toHaveTextContent('free and private, no key');
 			// A key is saved, so no field is open until one is asked for.
 			expect(sheet.queryByLabelText('Gemini API key')).toBeNull();
 			await user.click(sheet.getByRole('button', { name: 'Add a Gemini key' }));
@@ -725,5 +733,54 @@ describe('WorkspaceSheet — narration in Present', () => {
 		expect(sw).toHaveAttribute('aria-checked', 'true');
 		await user.click(sw);
 		expect(localStorage.getItem('lattice-present-narration-cache')).toBe('0');
+	});
+});
+
+// The Image reader (2026-11-08-studio-ai-routes-ux.md §2): same as chat by default, or a model of
+// its own on a connected route, listing only models that read images.
+describe('WorkspaceSheet — the image reader', () => {
+	afterEach(() => {
+		localStorage.removeItem('lattice-studio-image-selection');
+		localStorage.removeItem('lattice-db-or-key');
+	});
+
+	it('reads "Same as chat" with the chat model and what uses it', async () => {
+		const { sheet } = openSheet();
+		const card = await sheet.findByTestId('image-reader-card');
+		expect(within(card).getByTestId('image-reader-card-name')).toHaveTextContent('Same as chat · Claude Sonnet 4');
+		expect(within(card).getByTestId('image-reader-card-state')).toHaveTextContent('Ready');
+		expect(sheet.getByText(/Used by Library photo descriptions/)).toBeInTheDocument();
+	});
+
+	it('a model of its own lists only models that read images, and picking one stores it on that route', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		const { user, sheet } = openSheet();
+		await user.click(within(await sheet.findByTestId('image-reader-card')).getByRole('button', { name: /Change/ }));
+		await user.click(sheet.getByRole('radio', { name: 'A model of its own' }));
+		await user.click(await sheet.findByRole('tab', { name: 'All' }));
+		expect(await sheet.findByText('Gemma (free)')).toBeInTheDocument();
+		expect(sheet.queryByText('Claude 3.5 Haiku'), 'a model that cannot read images is not offered').toBeNull();
+		await user.click(sheet.getByText('Gemma (free)'));
+		expect(JSON.parse(localStorage.getItem('lattice-studio-image-selection') ?? '{}')).toMatchObject({ mode: 'own', provider: 'openrouter', model: 'google/gemma-free' });
+		expect(within(sheet.getByTestId('image-reader-card')).getByTestId('image-reader-card-name')).toHaveTextContent(/Gemma/);
+	});
+
+	it('says plainly when the chat model runs on this device and cannot read images', async () => {
+		statusSpy.mockReturnValue({ ...connectedStatus, generation: 'webllm', readiness: deviceReadiness('webllm') });
+		const { sheet } = openSheet();
+		const card = await sheet.findByTestId('image-reader-card');
+		expect(card).toHaveTextContent("can't read images");
+	});
+});
+
+describe('WorkspaceSheet — Connections', () => {
+	afterEach(() => localStorage.removeItem('lattice-db-or-key'));
+
+	it('each row says what the route serves and what it is in use for; no row chooses a model', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		const { sheet } = openSheet();
+		expect(await sheet.findByTestId('provider-row-openrouter-line')).toHaveTextContent('Chat · Image reader · Voice — Key …1a2b · in use for chat, the image reader (same as chat) and voice');
+		expect(sheet.getByTestId('provider-row-anthropic-line')).toHaveTextContent('Chat · Image reader — No key');
+		expect(sheet.queryByRole('button', { name: 'Use for chat' })).toBeNull();
 	});
 });

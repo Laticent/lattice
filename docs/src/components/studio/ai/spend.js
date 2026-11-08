@@ -51,7 +51,35 @@ const SPEND_SESSION_TOK_KEY = 'lattice-db-spend-session-tok';
 // and the guards keep these fs-free + crash-free off the browser.
 const addTo = (store, key, n) => { try { if (store) store.setItem(key, String((Number(store.getItem(key)) || 0) + n)); } catch {} };
 const readN = (store, key) => { try { return store ? Number(store.getItem(key)) || 0 : 0; } catch { return 0; } };
-export function recordSpend(cost, tokens = 0, deckId) {
+// Per SELECTION, this session (2026-11-08-studio-ai-routes-ux.md, Spend): what each use spent on
+// each route, so Workspace › AI can say "Chat · OpenRouter $0.21, Image reader · Gemini $0.04".
+// Keyed `<use>|<route>`; a caller that does not name its use is the chat model on its route.
+const SPEND_BY_USE_KEY = 'lattice-studio-spend-by-use';
+let currentChatRoute = () => '';
+/** The chat selection's route, for spend a caller does not attribute itself (set by architect-model). */
+export function setChatRouteReader(fn) { currentChatRoute = fn; }
+function bookUse(use, cost) {
+  const ss = globalThis.sessionStorage;
+  if (!ss || !(cost > 0)) return;
+  try {
+    const kind = use?.kind ?? 'chat';
+    const route = use?.route ?? currentChatRoute() ?? '';
+    const k = `${kind}|${route}`;
+    const all = JSON.parse(ss.getItem(SPEND_BY_USE_KEY) || '{}');
+    all[k] = (Number(all[k]) || 0) + cost;
+    ss.setItem(SPEND_BY_USE_KEY, JSON.stringify(all));
+  } catch {}
+}
+/** This session's spend per use and route: [{ kind: 'chat' | 'image', route, usd }], largest first. */
+export function readSpendByUse() {
+  try {
+    const all = JSON.parse(globalThis.sessionStorage?.getItem(SPEND_BY_USE_KEY) || '{}');
+    return Object.entries(all).map(([k, usd]) => { const [kind, route] = k.split('|'); return { kind, route, usd: Number(usd) || 0 }; }).filter((r) => r.usd > 0).sort((a, b) => b.usd - a.usd);
+  } catch { return []; }
+}
+
+/** @param {number} cost @param {number} [tokens] @param {string} [deckId] @param {{ kind: 'chat' | 'image', route: string }} [use] */
+export function recordSpend(cost, tokens = 0, deckId, use) {
   // Cost and tokens are recorded independently — a free model bills $0 but still
   // burns tokens, so the token tally must not be gated on a positive cost.
   const ls = globalThis.localStorage;
@@ -61,6 +89,7 @@ export function recordSpend(cost, tokens = 0, deckId) {
   const t = Number(tokens);
   if (Number.isFinite(t) && t > 0) { addTo(ls, SPEND_TOTAL_TOK_KEY, t); addTo(ss, SPEND_SESSION_TOK_KEY, t); }
   bookLedger(c > 0 ? c : 0, t > 0 ? t : 0, deckId);
+  if (Number.isFinite(c)) bookUse(use, c);
 }
 
 // A SIGNED correction to the running cost tally. Unlike recordSpend (which only ever

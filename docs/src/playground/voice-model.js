@@ -32,7 +32,7 @@ import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { classifyProviderError } from '../lib/provider-errors.js';
-import { CURATED, curatedDefault } from '../lib/provider-registry.js';
+import { CURATED, curatedDefault, healTarget } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
@@ -965,8 +965,25 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       const k = `${provider}:${model}`;
       if (goneModels.has(k)) return;
       goneModels.set(k, { provider, model, detail: String(detail || '') });
-      try { onModelGone?.({ provider, model }); } catch {}
       emitChange();
+      // VERSION HEALING (2026-11-08-studio-ai-routes-ux.md rule 1): a retired Gemini voice model
+      // moves to the newest NEWER version of its own family on the same key, which the selection
+      // stores and announces. Checked against the live list: a model still listed is not retired.
+      // With nothing newer, the author is told once and read-aloud stays silent.
+      const told = () => { try { onModelGone?.({ provider, model }); } catch {} };
+      if (provider !== 'gemini' || !selection?.heal) return told();
+      geminiListed = null; // ask Google again: the cached list predates the retirement
+      Promise.resolve(listGemini())
+        .then((c) => {
+          const live = c?.reachable ? c.models : null;
+          if (!live?.length || live.some((m) => m.id === model)) return told();
+          const to = healTarget(model, live);
+          if (!to) return told();
+          goneModels.delete(k);
+          selection.heal({ provider, from: model, to });
+          emitChange();
+        })
+        .catch(told);
     },
     // A billing or quota failure is told once per provider per page (a read retries each sentence).
     billing(provider) {
@@ -1206,9 +1223,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   // Resolve the SELECTION (Studio): the selected rung and its readiness, never another rung.
   //   ready | warming (key opening, model loading) | needs-key | unavailable (not on this device / not loaded)
-  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable', reason?: 'model-gone' }} */
+  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'unset', reason?: 'model-gone' }} */
   function resolveVoice() {
     const s = selection.read();
+    // Not set: nothing chosen yet; nothing speaks and nothing is guessed (captions).
+    if (!s.provider) return { sel: s, rung: silentRung, state: 'unset' };
     if (s.provider === 'kokoro') {
       if (!kokoroSupported()) return { sel: s, rung: kokoro, state: 'unavailable' };
       return { sel: s, rung: kokoro, state: kokoro.ready() ? 'ready' : kokoroLoading ? 'warming' : 'unavailable' };
