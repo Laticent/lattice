@@ -5838,6 +5838,9 @@ const SANCTIONED_MARK_IDENTITY = [
   // reader names the attributes only to read them; the marks the redraw puts into the page are the
   // kernel's, rebuilt from the exported ones, so no reader authors an identity of its own. (journey and
   // roadmap read their source from text and do not name either attribute.)
+  // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
+  // redrawn data with its exported data; it writes neither.
+  ['runtime/chart-redraw.js', true, true],
   ['runtime/chart-readers/bar.js', true, true],
   ['runtime/chart-readers/bullet.js', true, true],
   ['runtime/chart-readers/ep-curve.js', true, true],

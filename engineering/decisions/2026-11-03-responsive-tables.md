@@ -643,9 +643,18 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   screen-reader table the kernel puts in the body; bullet reads the printed target and checks the tick sits
   where that target would put it; hub-spoke picks each spoke's direction so that the kernel's own
   `describe()` reproduces the exported `<desc>`, and refuses unless the whole `<desc>` matches; ep-curve
-  infers an axis range from where the extremes sit and refuses any other position. Where a reader matches
-  the kernel's description wording ("past the six-series limit"), a change of wording makes it refuse,
-  which is the safe direction.
+  infers an axis range from where the extremes sit and refuses any other position.
+- **Wording is not a safe signal on its own; the check before trust is.** Some readers refuse on a phrase in
+  the kernel's `<desc>` ("past the six-series limit", "Not shown, past the grid"). A phrase that must be
+  PRESENT fails safe when reworded; one whose presence means REFUSE does not: reword it and the reader
+  accepts, and a redraw of a seven-series line drops the seventh (the inversion lens's repro). None of those
+  phrases occurs in a gallery, so the round-trip test cannot see it. So the redraw checks every list before
+  it uses one (lib/runtime/chart-redraw.js `verified`): it draws the list at the box the export drew for and
+  requires the exported drawing back, byte for byte for a whole-slide chart, and for a pane (whose export
+  canvas is not in the page) the same description and the same label and value on every mark; otherwise
+  the chart keeps its exported drawing. That is the unit test's oracle, run on every deck in the page, once
+  per chart. test/unit/runtime/chart-readers.test.js pins it on every gallery chart and on three lossy lists
+  (a dropped category, the seven-series line read as six, a pane value changed).
 - **A kernel can change the section's class list with the box.** On a portrait box roadmap adds `horizons`,
   and its card styles apply only under `section.roadmap.horizons`. The redraw applies exactly the kernel's
   class change to the host and undoes it when the exported drawing comes back (and for print); classes
@@ -659,7 +668,8 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   (base.fluid-view.css holds a slide's stage to its content's height, and size containment lends it none).
   In the fluid view their stage now takes what is left of the slide's height, as on a paged slide, and the
   chart fills it (chart-family.styles.css). A 16:10 box from the width, the continuous host's answer,
-  would be the whole viewport on a desktop.
+  would be the whole viewport on a desktop. Measured bodies: 540 to 717px at 390 × 844, 306 to 456px at 1280 × 720,
+  150 to 237px on a landscape phone (844 × 390), each from 0.
 - **Journey is held.** Its reader reads all nine gallery journeys back whole, but the kernel's portrait board
   clips in the fluid stage at 390px (labels overlap, the frame's "Content clipped"), which is worse than the
   small exported board. lib/runtime/chart-readers/index.js leaves it out; the round-trip test keeps it tested.
