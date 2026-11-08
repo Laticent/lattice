@@ -48,6 +48,20 @@ test('never more than `jobs` calls in flight, and the next item starts as one fi
   assert.deepEqual(r.left, []);
 });
 
+test('the running maximum in flight never passes `jobs`', async () => {
+  let live = 0;
+  let peak = 0;
+  const { calls, fn } = gated();
+  const tracked = (item) => { live++; peak = Math.max(peak, live); return fn(item).then(() => { live--; }); };
+  const run = pool([1, 2, 3, 4, 5, 6, 7], 3, tracked);
+  for (let k = 0; k < 7; k++) {
+    await tick();
+    calls[k].resolve();
+  }
+  await run;
+  assert.equal(peak, 3);
+});
+
 test('stop() ends new starts; calls in flight finish; the rest come back as left, in order', async () => {
   const { calls, fn } = gated();
   let stopped = false;

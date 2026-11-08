@@ -24,10 +24,10 @@
 //
 // GREEN = the committed golden still matches a fresh render (the author blessed
 // correctly). RED = unblessed drift — CSS/source changed but a deck's committed
-// PDF is stale. The nightly bless bot (tools/golden-bless.mjs) runs this gate and
-// re-blesses what drifted; pull requests no longer commit PDFs (goldens step 3).
-// `--bless` (delegating to build-galleries.js / build-bucket-galleries.js) is what
-// the bot calls, and works by hand for a local look.
+// PDF is stale. The nightly bless bot (tools/golden-bless.mjs) runs this gate with
+// `--jobs auto --promote`, which checks every golden and keeps the fresh render of what
+// drifted; pull requests no longer commit PDFs (goldens step 3). `--bless` (delegating to
+// build-galleries.js / build-bucket-galleries.js for galleries) is for a local look.
 //
 // Sibling render paths (HARD RULE 1): lattice.js (this gate's render,
 // via lib/engine) and dist/lattice-runtime.js (vscode preview / published HTML).
@@ -99,8 +99,8 @@ const OUT = join(ROOT, '.scratch', 'regression');
 // FUZZ = '3%' (≈ channel delta 8 / 255, the engine-parity threshold), now in lib/golden-render.mjs.
 // FAIL_FRACTION = 0.0005 (0.05% of the page, ≈ 260 px at 72dpi 960×540), now in lib/golden-render.mjs.
 // THE COROLLARY NOBODY HAD WRITTEN DOWN: a real, intended change SMALLER than the
-// floor leaves its goldens stale, and `--bless` will not promote them — the branch
-// below is `if (opts.bless && drifted.length)`, so a sub-floor render is produced and
+// floor leaves its goldens stale, and neither `--bless` nor `--promote` will promote them —
+// the branch below is `if (opts.promote && drifted.length)`, so a sub-floor render is produced and
 // discarded. There is no flag to force it, deliberately.
 //
 // That is not hypothetical. #1821 re-pointed one small mark (a hollow state ring) at a
@@ -550,7 +550,7 @@ async function main() {
   //     their goldens outright. Unchanged from before this scope existed. Once blessed
   //     there is nothing left to compare, so they drop out of the run below — otherwise
   //     `--bless` would re-render all 150 and then diff them against themselves.
-  //   · DECK GOLDENS fall THROUGH into the comparison with `bless: true`, so only the
+  //   · DECK GOLDENS fall THROUGH into the comparison with `promote: true`, so only the
   //     ones that actually drifted are rewritten. Blindly re-rendering the scope would
   //     rewrite every file blessed on a different machine — Skia's rasterization is not
   //     bit-identical across hosts — to land a handful of real changes.

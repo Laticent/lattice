@@ -234,3 +234,27 @@ describe('BLESS_DEADLINE_MS', () => {
     assert.equal(m.BLESS_DEADLINE_MS, 160 * 60 * 1000);
   });
 });
+
+describe('writtenProblems: what the promoting check wrote, against what it reported', () => {
+  const row = (golden, status) => ({ golden, status, pages: 1, worstFraction: 0, pageShapeChanged: false, drifted: [] });
+  test('a drifted golden the check wrote is clean', async () => {
+    await load();
+    assert.deepEqual(m.writtenProblems([row('a.pdf', 'DRIFT'), row('b.pdf', 'ok')], ['a.pdf']), { stray: [], unblessed: [], unchecked: [] });
+  });
+  test('a changed PDF no row reports as drifted is stray', async () => {
+    await load();
+    assert.deepEqual(m.writtenProblems([row('a.pdf', 'ok')], ['a.pdf', 'z.pdf']).stray, ['a.pdf', 'z.pdf']);
+  });
+  test('a drifted golden the check did not write is unblessed', async () => {
+    await load();
+    assert.deepEqual(m.writtenProblems([row('a.pdf', 'DRIFT')], []).unblessed, ['a.pdf']);
+  });
+  test('a golden the check could not judge is unchecked, so a night where every worker died is not quiet', async () => {
+    await load();
+    const rows = [row('a.pdf', 'RENDER_ERROR'), row('b.pdf', 'RENDER_ERROR'), row('n.pdf', 'NO_GOLDEN')];
+    const p = m.writtenProblems(rows, []);
+    assert.deepEqual(p.unchecked, ['a.pdf', 'b.pdf']);
+    // NO_GOLDEN belongs to the first-render step, not to this check.
+    assert.equal(p.unchecked.includes('n.pdf'), false);
+  });
+});

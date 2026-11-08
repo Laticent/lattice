@@ -36,6 +36,29 @@ export const MAX_GOLDENS = 10;
  */
 export const BLESS_DEADLINE_MS = 160 * 60 * 1000;
 
+/**
+ * What tonight's check wrote, held against what it reported. The check (`regression-gate.mjs
+ * --promote`) writes a drifted golden's fresh render in place, so after it:
+ *   - `stray`: a PDF that changed but no row reports as drifted. The tool broke its own contract,
+ *     so the tree is not trusted; golden-bless puts these back and exits 3 before the PR step.
+ *   - `unblessed`: a drifted golden whose PDF did not change.
+ *   - `unchecked`: a golden the check could not judge (RENDER_ERROR, or a worker that died, which
+ *     the gate reports as RENDER_ERROR). NO_GOLDEN is not here: the first-render step owns it.
+ * `unblessed` and `unchecked` turn the night red through failed.txt AFTER the PR is updated. Without
+ * that, a night where every check failed wrote nothing, read as quiet, and closed the bless PR.
+ * @param {ReturnType<typeof goldenRows>} rows
+ * @param {string[]} changed repo-relative PDFs the working tree changed or added
+ */
+export function writtenProblems(rows, changed) {
+  const drifted = new Set(rows.filter((r) => r.status === 'DRIFT').map((r) => r.golden));
+  const wrote = new Set(changed);
+  return {
+    stray: changed.filter((f) => !drifted.has(f)),
+    unblessed: [...drifted].filter((g) => !wrote.has(g)),
+    unchecked: rows.filter((r) => !['ok', 'DRIFT', 'NO_GOLDEN'].includes(r.status)).map((r) => r.golden),
+  };
+}
+
 export const BLESS_TITLE_PREFIX = 'chore(goldens): nightly bless of ';
 const BLESS_SUBJECT_RE = /^chore\(goldens\): nightly bless of ([0-9a-f]{12,40}) \(#\d+\)$/;
 const PR_NUMBER_RE = / \(#(\d+)\)$/;

@@ -42,6 +42,7 @@ import {
   seenFromPrs,
   verdict,
   verdictMarkdown,
+  writtenProblems,
 } from './lib/golden-bless-verdict.mjs';
 import { galleryName } from './lib/golden-render.mjs';
 
@@ -272,17 +273,14 @@ async function main() {
   // The tree was clean at the start, so every changed PDF is a drifted golden the check promoted.
   const blessProblems = [];
   const renderProblems = [];
-  const want = new Set(drifted.map((r) => r.golden));
-  const stray = changedPdfs().filter((f) => !want.has(f));
-  if (stray.length) {
-    undo(stray);
-    blessProblems.push(`the check changed ${stray.length} PDF(s) it did not report as drifted (${stray.slice(0, 3).join(', ')}); they were put back`);
+  const beforeUndo = writtenProblems(rows, changedPdfs());
+  if (beforeUndo.stray.length) {
+    undo(beforeUndo.stray);
+    blessProblems.push(`the check changed ${beforeUndo.stray.length} PDF(s) it did not report as drifted (${beforeUndo.stray.slice(0, 3).join(', ')}); they were put back`);
   }
-  const changedNow = new Set(changedPdfs());
-  const unblessed = drifted.filter((r) => !changedNow.has(r.golden));
-  if (unblessed.length) {
-    renderProblems.push(`${unblessed.length} drifted golden(s) were not re-blessed (${unblessed.slice(0, 3).map((r) => r.golden).join(', ')})`);
-  }
+  const { unblessed, unchecked } = writtenProblems(rows, changedPdfs());
+  if (unblessed.length) renderProblems.push(`${unblessed.length} drifted golden(s) were not re-blessed (${unblessed.slice(0, 3).join(', ')})`);
+  if (unchecked.length) renderProblems.push(`${unchecked.length} golden(s) could not be checked (${unchecked.slice(0, 3).join(', ')}); see check.json for each error`);
 
   // Step 3a. Goldens that do not exist yet: a deck or gallery merged without a PDF. Each source
   // renders in its own process, one per core, so a deck that will not render costs only its own
@@ -301,7 +299,7 @@ async function main() {
   const deferred = [];
   const waiting = firstRenders.left.flat();
   if (waiting.length) {
-    deferred.push(`${waiting.length} more golden(s) have no PDF yet; the next night renders them (no first render starts after minute ${BLESS_DEADLINE_MS / 60000} of the run)`);
+    deferred.push(`${waiting.length} more source(s) have no PDF yet; the next night renders them (no first render starts after minute ${BLESS_DEADLINE_MS / 60000} of the run)`);
   }
   // The generated showcase decks (examples/<id>-gallery.md, built from the component
   // manifests of their buckets). The pre-commit hook step 3 removed was their only writer,
