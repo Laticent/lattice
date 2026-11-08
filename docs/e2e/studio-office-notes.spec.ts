@@ -46,11 +46,11 @@ async function exportPptx(page: import('@playwright/test').Page, { strip }: { st
 	return hits;
 }
 
-test('an editable PowerPoint carries the speaker note in its notes pane by default', async ({ page }) => {
+test('@gecko @webkit-tablet an editable PowerPoint carries the speaker note in its notes pane by default', async ({ page }) => {
 	const hits = await exportPptx(page, { strip: false });
 	expect(hits.some((n) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(n)), `note found in: ${hits.join(', ')}`).toBe(true);
 });
 
-test('"Strip speaker notes" leaves the note out of every part of the PowerPoint file', async ({ page }) => {
+test('@gecko @webkit-tablet "Strip speaker notes" leaves the note out of every part of the PowerPoint file', async ({ page }) => {
 	expect(await exportPptx(page, { strip: true })).toEqual([]);
 });
