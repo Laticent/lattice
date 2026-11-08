@@ -136,7 +136,7 @@ section.divider {
    * (stage.css `.cell-footer`: the column, then the band's gap). So the mark a
    * reader learns here does not move on the next slide, and the corner stays the page number's,
    * empty unless a `divider with-pagination` draws one there. */
-  --_marker-end: calc(var(--frame-inset-r) + var(--footer-pag-col) + var(--sp-md));
+  --_marker-end: calc(var(--frame-inset-r) + var(--footer-pag-col) + var(--footer-gap));
 }
 section.divider > .divider-marker {
   --_mk: 1.25;
@@ -171,7 +171,7 @@ section.divider > .divider-marker {
  * `center` and `edge` placements of the marker, and the footer's share under `center`, live with
  * the rail's other placements (progress.css). */
 section.divider:has(> .divider-marker) > footer {
-  inset-inline-end: calc(var(--_marker-end) + var(--_marker-w) + var(--sp-md));
+  inset-inline-end: calc(var(--_marker-end) + var(--_marker-w) + var(--footer-gap));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

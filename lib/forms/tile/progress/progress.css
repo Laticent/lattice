@@ -163,5 +163,5 @@ section.divider.progress-rail-edge:has(> .divider-marker) > footer {
   overflow: visible;
 }
 section.divider.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)):has(> .divider-marker) > footer {
-  inset-inline-end: calc(50% + var(--_marker-w) / 2 + var(--sp-md));
+  inset-inline-end: calc(50% + var(--_marker-w) / 2 + var(--footer-gap));
 }

@@ -112,7 +112,7 @@ exists, and a missing page number left none.
 
 The band is now a grid of four columns (`stage.css` `.cell-footer`): the footer text (`minmax(0, 1fr)`,
 ends in an ellipsis), the split counter (`auto`, only on a split slide), the rail (`auto`), and the page
-number's column (`--footer-pag-col`, five characters of the chrome face),
+number's column (`--footer-pag-col`, six characters of the chrome face, `104.12`),
 reserved whether or not a number is drawn. The split counter sits before the rail so its appearance takes
 the footer's room, not the rail's place. `center` keeps its five symmetric columns and reads the same
 token. A divider's marker ends where the content rail ends, short of that column, so the mark a reader
@@ -120,9 +120,21 @@ learns on the divider does not move on the next slide. Measured on the HTML rend
 holds at one value on one-digit, two-digit and unnumbered slides, under `right` and `center` alike.
 
 The hairline that #3056 drew on the page number's start edge is gone, on the owner's call: it split
-`• ━ • • 8` while the number sat against the rail, and the reserved column now keeps at least three
-characters between them. Left at the column's edge, a gap away from a lone digit, it looked detached;
+`• ━ • • 8` while the number sat against the rail, and the reserved column now keeps the band's gap
+plus the column's own slack between them, about three characters for a one-digit number. Left at the column's edge, a gap away from a lone digit, it looked detached;
 moved next to the digits, it would move with them. Space does the job with nothing that moves.
+
+The band's column gap is `--footer-gap`, set in the band's own type (1.6 × `--chrome-fs`), not
+`--sp-md`: `compact` redefines the spacing scale, and a `compact` slide's rail sat 6 px (hd) to 24 px
+(portrait) off every other slide's. The divider's marker reads the same token. `footer-band.test.js`
+asserts the resolved columns (only the footer's flexes; the page column is one width) and that the
+rail's inset from the band's end is one number across a deck that includes an unnumbered page and a
+`compact` page.
+
+One thing the box alignment does not change: the page number's BOX shares every frame's berth, but on
+a content slide its digits sit about 5 px higher than on a title, divider or closing, because the
+in-band footer's box (1.6em) is taller than a sovereign frame's page-number line. That was so before
+this change too, and is recorded in `followups.d/` by the PR that shipped this note.
 
 The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
 column in from the edge on every slide, which is consistent, and saves a deck-level switch.

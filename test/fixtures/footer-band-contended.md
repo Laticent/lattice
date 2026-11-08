@@ -91,6 +91,24 @@ and a split page carries no band for this suite to measure.
 
 ---
 
+<!-- _class: content no-pagination -->
+
+## A railed body page with no page number.
+
+The band reserves the page number's column whether or not a number is drawn, so the rail on this
+page stands exactly where it stands on every numbered page (footer-band.test.js).
+
+---
+
+<!-- _class: content compact -->
+
+## A railed compact body page.
+
+`compact` redefines the spacing scale. The band's gaps are set in its own type instead, so the rail
+on this page stands exactly where it stands on every other page (footer-band.test.js).
+
+---
+
 <!-- _class: divider -->
 <!-- _header: '' -->
 

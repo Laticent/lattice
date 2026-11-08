@@ -3240,7 +3240,7 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):not(.progress-rail-
 }
 /* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks
    the section rail): de-absolute so the footer row lays the marks out in flow —
-   footer text · section rail · k-of-N · page number. Same rule shape as
+   footer text · k-of-N · section rail · page number, each in its own column of the band's grid. Same rule shape as
    `section.form > .cell-footer > .tile-progress` in the stage Cell. */
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
@@ -3274,7 +3274,6 @@ section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
   display: block;
-  flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;
