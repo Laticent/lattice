@@ -2,9 +2,6 @@
   "$schema": "../../manifest.schema.json",
   "name": "agenda",
   "inlineRun": { "depths": [1] },
-  "cards": {
-    "default": "center"
-  },
   "adapt": {
     "mode": "native",
     "priority": [
@@ -46,7 +43,7 @@
     "kickoff"
   ],
   "description": "Auto-numbered table of contents for the deck.",
-  "purpose": "Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.",
+  "purpose": "Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Leave the list out and it fills itself: one item per `divider` slide, named by its heading, and an agenda repeated inside a section marks that section with `progress-N`. Three styles, each with its own job — the default `ledger` (a contents page with optional page references), `circles` (a track of stops) and `checks` (done, here, ahead) — all compose with the `progress-N` 'you are here' modifier.",
   "variants": [
     "progress-1",
     "progress-2",
@@ -55,8 +52,6 @@
     "progress-5",
     "progress-6",
     "circles",
-    "rail",
-    "cards",
     "checks"
   ],
   "slots": {
@@ -73,7 +68,7 @@
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
   "anatomyBlock": "agenda",
-  "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n",
+  "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n",
   "stressDoc": {
     "summary": "Six stops — the hard ceiling.",
     "sample": "<!-- _class: agenda progress-4 -->\n\n## Six stops is the most one agenda holds.\n\n1. The opening stop states the meeting's one question `p.2`\n2. Sixteen words is the hard budget for a stop `p.6`\n3. Even at six, every line stays scannable `p.11`\n4. The current stop still reads at a glance `p.15`\n5. Late stops shorten as attention thins `p.19`\n6. Six is the stop sign `p.23`\n"
@@ -88,12 +83,16 @@
       "body": "Sweet spot is four. Past six sections the list crowds and the audience stops counting. Roll up or split the deck."
     },
     {
+      "title": "Let the dividers write it",
+      "body": "Write the agenda as a heading with no list and it fills itself: one numbered item per `divider` slide, named by the divider's heading (its closing period dropped), each with the page its section starts on. Placed inside a section, the same empty agenda also gets that section's `progress-N`. Front-matter `agenda:` sets the deck's style and turns the page numbers off (`agenda: circles no-pages`). Any list you write wins, so a hand-written agenda is never touched. With fewer than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`)."
+    },
+    {
       "title": "Reuse with progress variants",
       "body": "Drop the same agenda between sections with `progress-N` to show how far through the deck the room is. Lightweight wayfinding."
     },
     {
       "title": "Pick a style, optionally with page refs",
-      "body": "The default `ledger` reads as a contents page; add `circles`, `rail`, `cards`, or `checks` to change the structure. On `ledger`, end an item with an inline-code page ref — e.g. `` `p.15` `` — to print a right-aligned page number with a leader; omit it for just number + title."
+      "body": "The default `ledger` reads as a contents page; add `circles` or `checks` to change the marker. On `ledger`, end an item with an inline-code page ref — e.g. `` `p.15` `` — to print a right-aligned page number with a leader; omit it for just number + title."
     }
   ],
   "antiPatterns": [
@@ -132,52 +131,42 @@
     "progress-2": {
       "label": "progress-2",
       "summary": "Stop 2 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-2 -->\n\n## progress-2 marks stop 2 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-2 -->\n\n## progress-2 marks stop 2 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-3": {
       "label": "progress-3",
       "summary": "Stop 3 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-3 -->\n\n## progress-3 marks stop 3 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-3 -->\n\n## progress-3 marks stop 3 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-4": {
       "label": "progress-4",
       "summary": "Stop 4 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-4 -->\n\n## progress-4 marks stop 4 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-4 -->\n\n## progress-4 marks stop 4 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-5": {
       "label": "progress-5",
       "summary": "Stop 5 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-5 -->\n\n## progress-5 marks stop 5 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-5 -->\n\n## progress-5 marks stop 5 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-1": {
       "label": "progress-1",
       "summary": "Stop 1 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-1 -->\n\n## progress-1 marks stop 1 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-1 -->\n\n## progress-1 marks stop 1 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-6": {
       "label": "progress-6",
       "summary": "Stop 6 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-6 -->\n\n## progress-6 marks stop 6 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-6 -->\n\n## progress-6 marks stop 6 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as ledger, circles or checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "circles": {
       "label": "Style · circles",
       "summary": "Numbers become rings; current fills.",
-      "sample": "<!-- _class: agenda circles progress-3 -->\n\n## circles swaps the numbers for filled dots.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
-    },
-    "rail": {
-      "label": "Style · rail",
-      "summary": "Nodes on a vertical rail; active fills.",
-      "sample": "<!-- _class: agenda rail progress-3 -->\n\n## rail runs the progress down a side rail.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
-    },
-    "cards": {
-      "label": "Style · cards",
-      "summary": "Boxed stops; the current takes accent.",
-      "sample": "<!-- _class: agenda cards progress-3 -->\n\n## cards deals each stop its own card.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
+      "sample": "<!-- _class: agenda circles progress-3 -->\n\n## circles swaps the numbers for filled dots.\n\n1. The three marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     },
     "checks": {
       "label": "Style · checks",
       "summary": "Done gets a tick, current an arrow.",
-      "sample": "<!-- _class: agenda checks progress-3 -->\n\n## checks ticks the stops already behind you.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
+      "sample": "<!-- _class: agenda checks progress-3 -->\n\n## checks ticks the stops already behind you.\n\n1. The three marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     }
   },
   "commonMistakes": [
@@ -186,8 +175,8 @@
       "fix": "A page reference is a trailing `` `p.N` `` inline-code chip on the item line — text baked into the title itself doesn't get the right-aligned leader-dot treatment."
     },
     {
-      "mistake": "Assuming `progress-N` alone changes which marker style (circles/rail/cards/checks) is used.",
-      "fix": "`progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles`/`rail`/`cards`/`checks`."
+      "mistake": "Assuming `progress-N` alone changes which marker style (circles/checks) is used.",
+      "fix": "`progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles` or `checks`."
     }
   ],
   "variantDecisionRule": [
@@ -197,15 +186,7 @@
     },
     {
       "variant": "circles",
-      "useWhen": "Section markers should read as a track of dots rather than numbers — a more visual, less document-like tone."
-    },
-    {
-      "variant": "rail",
-      "useWhen": "The agenda should read as a vertical journey down a side rail rather than a flat numbered list."
-    },
-    {
-      "variant": "cards",
-      "useWhen": "Each section deserves its own boxed card, with the current one taking the accent — a punchier, more graphic agenda."
+      "useWhen": "The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone. Page references sit flush right, as on the ledger, without the dotted leader."
     },
     {
       "variant": "checks",

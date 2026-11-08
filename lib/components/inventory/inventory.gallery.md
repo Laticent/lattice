@@ -34,7 +34,7 @@ Inventory — parallel sets of related items.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 ---

@@ -1029,7 +1029,7 @@ shape:
 | **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `compare-code` (its pair of panels; both stay equal height), `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
 | **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
 | **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
-| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `agenda cards`, `citation-card` (default form), `contact` (its one card; `stretch` grows it to the stage) |
+| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `citation-card` (default form), `contact` (its one card; `stretch` grows it to the stage) |
 | **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
 | **One self-placed grid** | `align-content: var(--cards-align)` on a grid whose rows size to their content; with no card chrome, `stretch` reads like `center` | `wifi` (its QR, heading and fields) |
 
@@ -1043,7 +1043,7 @@ options, inside the panel); `split-panel` spreads its evidence list and stretche
 `capstone`; and `cards-grid`, `list`, `cards-stack` and `statute-stack` spread at the frames
 where they stack into one column, which is what they did before. A component stretches above a
 key-insight coda cell (`withCoda: stretch`) except those that already centered there on `main`
-(`team-profile`, `inventory`, `agenda`, `citation-card`, which declare no `withCoda`). The coda
+(`team-profile`, `inventory`, `citation-card`, which declare no `withCoda`). The coda
 arm only fires where a `.cell-coda` forms: `split-compare`, `split-panel`, `inventory` and
 `citation-card` keep their blockquote inside the stage, so their slides never have one. A row never shrinks below its text: a slide with more than the stage holds overflows
 where the overflow check reports it.
@@ -1469,6 +1469,39 @@ canvas that half fits the gallery decks' longest footers; on a portrait or squar
 is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q3 board review`, at
 1080 × 1350). Use `right` there, or a very short footer.
 `right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
+
+## The agenda — `agenda:`
+
+`agenda:` sets how the deck's agendas look, and whether an agenda the engine fills from the dividers shows
+page numbers. One line, up to one word per axis, the `progress-rail:` shape (`lib/core/resolve-agenda.js`),
+completed word by word in the Studio editor and set from the Deck Inspector (**Look → Agenda**).
+
+```yaml
+agenda: circles no-pages
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| style | `ledger` · `circles` · `checks` | Every agenda that names no style of its own draws in this one. `ledger` is a contents page, `circles` a track of stops, `checks` done, here and ahead. |
+| pages | `pages` · `no-pages` | Whether an agenda the engine FILLED shows each section's page number, flush right. |
+
+**An agenda with no list fills itself** (`lib/core/agenda-autofill.js`): one numbered item per shown
+`divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
+pages axis on, each item ends with the page its section starts on: the divider's place among the shown
+slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
+pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+on its agenda either.
+
+**An agenda you write is yours.** Its list and its page references are never changed. The style axis still
+reaches it, as a theme would; give the slide its own word to opt out. The setting is written onto each agenda's own
+`_class` line, so an agenda named by a running `<!-- class: agenda -->` (no underscore) is filled but takes neither
+the deck's style nor page numbers: a word written there would carry to every later slide.
+
+Per slide: `_class: agenda circles` or `agenda checks` sets one agenda's style, `agenda agenda-ledger`
+keeps the ledger in a deck that chose another, and `agenda-no-pages` drops one filled agenda's page
+numbers. Unlike the other axis registers, this one is applied to the agenda slides alone, at the source,
+rather than stamped on every slide: a deck-wide page-number word would reach the agendas an author wrote.
+The decision: `engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`.
 
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 

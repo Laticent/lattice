@@ -81,6 +81,7 @@ const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-s
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
+const { fillAutoAgenda } = require('../lib/core/agenda-autofill');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const { formatRefusedHtml } = require('../lib/export/marp-bundle-html');
 const {
@@ -365,7 +366,9 @@ function main(argv) {
   //    the emitted `.md` renders identically on any Marp tool and stays editable.
   //    Without the glossary bake the exported deck silently lost the generated
   //    Glossary slide while the slide before it still announced it (#1256).
-  const glossed = appendAutoGlossary(src);
+  //    An empty agenda's fill (lib/core/agenda-autofill.js) is baked too: Marp would draw the
+  //    heading and no list. It edits a slide in place, so it can run before or after the glossary.
+  const glossed = appendAutoGlossary(fillAutoAgenda(src));
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs

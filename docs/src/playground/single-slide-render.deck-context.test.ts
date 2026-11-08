@@ -355,6 +355,29 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
 	});
 
+	it('renders the DECK for an empty agenda — it fills from every divider, which a slice cannot see', async () => {
+		// lib/core/agenda-autofill.js: an agenda with a heading and no list lists the deck's divider headings.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _class: agenda -->\n\n## Agenda\n\n---\n\n<!-- _class: divider -->\n\n## One\n\n---\n\n<!-- _class: divider -->\n\n## Two';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('keeps the SLICE for a hand-written agenda, and an empty one whose only list line is in a note still takes the DECK', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const written = '<!-- _class: agenda -->\n\n## Agenda\n\n1. Mine\n2. Ours\n\n---\n\nbody';
+		let seen = recordRenders();
+		await r.renderInto(mountHost(), written, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
+		// A `- ` line inside a speaker note or a fence is not the agenda's list (the checker's miss, 2026-11-08).
+		const noted = '<!-- _class: agenda -->\n\n## Agenda\n\n<!--\n- remember to fill\n-->\n\n---\n\nbody';
+		seen = recordRenders();
+		await r.renderInto(mountHost(), noted, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(noted);
+	});
+
 	it('renders the SLICE for a divider deck — the SECTION position is supplied too', async () => {
 		// The rail and the watermark glyph both derived their section by walking every section,
 		// which is why a divider deck re-parsed in full on every keystroke (63ms on a 40-slide
@@ -518,6 +541,7 @@ describe('deck-derived fact registry', () => {
 	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
 		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
 			'ambiguous divider count',
+			'auto-filled agenda',
 			'glossary: auto',
 			'running-global directive',
 			'slide expander (1→N)',

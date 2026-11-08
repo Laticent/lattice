@@ -266,9 +266,11 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, fillAutoAgenda, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
 	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;
+	// The agenda fill (lib/core/agenda-autofill.js) is newer than some cached bundles, as `bakeHidden` once was.
+	const fillAutoAgendaOrSame = typeof fillAutoAgenda === 'function' ? fillAutoAgenda : (src) => src;
 	// Every slide hidden (after `glossary: auto` appends its shown slides): the bundle would render nothing, as every
 	// other export refuses to.
 	if (everySlideHidden(appendAutoGlossary(source))) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
@@ -338,7 +340,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components))))), undefined)),
+			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(fillAutoAgendaOrSame(embedComponentsInMarkdown(localized, components)))))), undefined)),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
