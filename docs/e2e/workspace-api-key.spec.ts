@@ -49,7 +49,7 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 	// A good one is stored and shown only by its last four characters.
 	await field.fill(GOOD);
 	await page.getByRole('button', { name: 'Check & save' }).click();
-	await expect(page.getByText('OpenRouter key …7f3c')).toBeVisible();
+	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …7f3c');
 	await expect(page.getByText(/e2e-good-key/)).toHaveCount(0);
 	// Sealed at rest: storage holds an envelope that does not contain the key, and it opens to it.
 	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
@@ -65,7 +65,7 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 		await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
 	}
 	await page.getByRole('tab', { name: 'AI' }).click();
-	await expect(page.getByText(`OpenRouter key …${GOOD.slice(-4)}`)).toBeVisible();
+	await expect(page.getByTestId('provider-row-openrouter')).toContainText(`Key …${GOOD.slice(-4)}`);
 
 	// Remove clears it from this browser.
 	await page.getByRole('button', { name: 'Remove' }).click();
@@ -119,7 +119,7 @@ test('@crosswidth @webkit-phone a key saved while on-device is selected makes it
 	await page.getByLabel('OpenRouter API key').fill(`  ${CLEAN.slice(0, 10)}\u200B${CLEAN.slice(10)}  `);
 	await page.getByRole('button', { name: 'Check & save' }).click();
 
-	await expect(page.getByText(`OpenRouter key …${CLEAN.slice(-4)}`)).toBeVisible();
+	await expect(page.getByTestId('provider-row-openrouter')).toContainText(`Key …${CLEAN.slice(-4)}`);
 	expect(seen, 'the check carried the cleaned key').toContain(`Bearer ${CLEAN}`);
 	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
 	expect(await storedOpenRouterKey(page)).toBe(CLEAN);

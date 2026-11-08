@@ -24,7 +24,7 @@ export async function saveProviderKey(provider: CloudProvider, raw: string): Pro
 	const key = raw.replace(/[\s​-‍⁠﻿]/g, '');
 	if (!key) return { ok: false, note: 'Paste a key first.' };
 	const looks = guessProvider(key);
-	if (looks && looks !== provider) return { ok: false, note: `That looks like ${/^[AEIOU]/.test(KEY_PROVIDER_INFO[looks].label) ? 'an' : 'a'} ${KEY_PROVIDER_INFO[looks].label} key — pick ${KEY_PROVIDER_INFO[looks].label} above.` };
+	if (looks && looks !== provider) return { ok: false, note: `That looks like ${/^[AEIOU]/.test(KEY_PROVIDER_INFO[looks].label) ? 'an' : 'a'} ${KEY_PROVIDER_INFO[looks].label} key — add it on the ${KEY_PROVIDER_INFO[looks].label} row.` };
 	if (!info.shape.test(key)) return { ok: false, note: info.shapeNote };
 	const m = await architectModel();
 	if (!m) return { ok: false, note: 'AI is unavailable in this environment.' };

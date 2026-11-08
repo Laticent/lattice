@@ -233,10 +233,29 @@ describe('WorkspaceSheet — Providers & keys', () => {
 		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
 		try {
 			const { sheet } = openSheet();
-			expect(sheet.getByText('OpenRouter key …1a2b')).toBeInTheDocument();
+			expect(sheet.getByTestId('provider-row-openrouter')).toHaveTextContent(/Key …1a2b/);
 			expect(sheet.queryByText(/abcdefgh/)).toBeNull();
 			expect(sheet.getByRole('button', { name: 'Replace the OpenRouter key' })).toBeInTheDocument();
 			expect(sheet.getByRole('button', { name: 'Remove the OpenRouter key' })).toBeInTheDocument();
+		} finally {
+			localStorage.removeItem('lattice-db-or-key');
+		}
+	});
+});
+
+describe('WorkspaceSheet — one row per provider', () => {
+	it('lists OpenRouter, Gemini, Anthropic, OpenAI and On-device, each with its key status; Add opens that row\'s field', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		try {
+			const { user, sheet } = openSheet();
+			for (const id of ['openrouter', 'gemini', 'anthropic', 'openai', 'device']) expect(sheet.getByTestId(`provider-row-${id}`)).toBeInTheDocument();
+			expect(sheet.getByTestId('provider-row-gemini')).toHaveTextContent('No key');
+			expect(sheet.getByTestId('provider-row-device')).toHaveTextContent('No key needed');
+			// A key is saved, so no field is open until one is asked for.
+			expect(sheet.queryByLabelText('Gemini API key')).toBeNull();
+			await user.click(sheet.getByRole('button', { name: 'Add a Gemini key' }));
+			expect(sheet.getByLabelText('Gemini API key')).toHaveAttribute('type', 'password');
+			expect(sheet.queryByLabelText('Anthropic API key')).toBeNull();
 		} finally {
 			localStorage.removeItem('lattice-db-or-key');
 		}

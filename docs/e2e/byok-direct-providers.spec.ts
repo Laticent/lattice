@@ -150,7 +150,7 @@ for (const p of PROVIDERS) {
 		await openWorkspaceAi(page);
 
 		// Pick the provider; a key of the wrong shape is refused without a request.
-		await page.getByRole('group', { name: 'Key provider' }).getByRole('button', { name: p.label, exact: true }).click();
+		await page.getByRole('button', { name: new RegExp(`^Add an? ${p.label} key$`) }).click();
 		const field = page.getByLabel(`${p.label} API key`);
 		await expect(field).toHaveAttribute('type', 'password');
 		await field.fill('sk-or-v1-not-this-provider');
@@ -164,7 +164,7 @@ for (const p of PROVIDERS) {
 
 		await field.fill(p.key);
 		await page.getByRole('button', { name: 'Check & save' }).click();
-		await expect(page.getByText(`${p.label} key …${p.key.slice(-4)}`)).toBeVisible();
+		await expect(page.getByTestId(`provider-row-${p.id}`)).toContainText(`Key …${p.key.slice(-4)}`);
 		await expect(page.getByText(p.key)).toHaveCount(0);
 		// Owner decision 3: the saved key's chat model is the selection at once.
 		await expect(page.getByTestId('chat-model-card')).toContainText(`${p.label} · your own key`);
@@ -228,18 +228,18 @@ test('a saved direct key and an OpenRouter key switch with "Use"; removing anoth
 
 	await page.getByLabel('OpenRouter API key').fill('sk-or-v1-e2e-switch-key-0or0');
 	await page.getByRole('button', { name: 'Check & save' }).click();
-	await expect(page.getByText('OpenRouter key …0or0')).toBeVisible();
+	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …0or0');
 
-	await page.getByRole('group', { name: 'Key provider' }).getByRole('button', { name: 'OpenAI', exact: true }).click();
+	await page.getByRole('button', { name: 'Add an OpenAI key' }).click();
 	await page.getByLabel('OpenAI API key').fill(p.key);
 	await page.getByRole('button', { name: 'Check & save' }).click();
 	await expect(card).toContainText('OpenAI · your own key');
 
-	await page.getByRole('button', { name: 'Use', exact: true }).click();
+	await page.getByTestId('provider-row-openrouter').getByRole('button', { name: 'Use for chat' }).click();
 	await expect(card).toContainText('OpenRouter · your account');
 
 	await page.getByRole('button', { name: 'Remove the OpenAI key' }).click();
-	await expect(page.getByText(`OpenAI key …${p.key.slice(-4)}`)).toHaveCount(0);
-	await expect(page.getByText('OpenRouter key …0or0')).toBeVisible();
+	await expect(page.getByTestId('provider-row-openai')).toContainText('No key');
+	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …0or0');
 	await expect(card).toContainText('OpenRouter · your account');
 });

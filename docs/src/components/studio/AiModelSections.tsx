@@ -1,4 +1,4 @@
-import { ChevronDown, Cloud, Cpu, KeyRound, Plug, Sparkles } from 'lucide-react';
+import { ChevronDown, Cloud, Cpu, KeyRound, Plug } from 'lucide-react';
 import * as React from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -88,47 +88,58 @@ function SelectionCard({
 	open: boolean;
 }) {
 	const blocked = !!alert || state === 'needs-key' || state === 'unavailable';
+	// One grid, two arrangements, chosen by the CARD's width (a container query, so a narrow
+	// Workspace sheet on a wide screen behaves like a phone):
+	//   wide   glyph | name     | badge | Change        narrow   glyph | name ········· | ⌄
+	//          glyph | meta     | badge | Change                 glyph | badge · meta   | ⌄
+	// On a phone the badge moves under the name instead of squeezing it, and Change becomes an
+	// icon. The badge keeps a fixed width in both, and the card a fixed height, so readiness
+	// changes in place and nothing moves (CLS 0).
+	const badgeClass = 'w-[88px] shrink-0 self-center text-left font-mono text-[10px] font-bold uppercase tracking-wider [grid-area:b] @[26rem]:w-[92px]';
 	return (
-		<div data-testid={testId} className={cn('flex h-[68px] items-center gap-3 rounded-xl border px-3', blocked ? 'border-border' : 'border-[var(--accent)] bg-[var(--accent-soft)]')}>
-			<SourceGlyph source={source} keyed={keyed} />
-			<span className="min-w-0 flex-1">
-				<span data-testid={`${testId}-name`} className="block truncate text-[13px] font-semibold text-[var(--text-heading)]">
+		<div className="@container">
+			<div
+				data-testid={testId}
+				className={cn(
+					'grid h-[68px] grid-cols-[30px_auto_minmax(0,1fr)_auto] content-center items-center gap-x-3 gap-y-0.5 rounded-xl border px-3',
+					"[grid-template-areas:'g_n_n_c''g_b_m_c'] @[26rem]:grid-cols-[30px_minmax(0,1fr)_auto_auto] @[26rem]:[grid-template-areas:'g_n_b_c''g_m_b_c']",
+					blocked ? 'border-border' : 'border-[var(--accent)] bg-[var(--accent-soft)]',
+				)}
+			>
+				<span className="[grid-area:g]">
+					<SourceGlyph source={source} keyed={keyed} />
+				</span>
+				<span data-testid={`${testId}-name`} className="min-w-0 truncate text-[13px] font-semibold text-[var(--text-heading)] [grid-area:n]">
 					{name}
 				</span>
 				{alert ? (
-					<span role="alert" className="block truncate text-[11px] text-[var(--fail)]">
+					<span role="alert" className="min-w-0 truncate text-[11px] text-[var(--fail)] [grid-area:m]">
 						{alert}
 					</span>
 				) : (
-					<span className="block truncate text-[11px] text-muted-foreground">{meta}</span>
+					<span className="min-w-0 truncate text-[11px] text-muted-foreground [grid-area:m]">{meta}</span>
 				)}
-			</span>
-			{/* Fixed width: readiness changes IN PLACE. A missing key is actionable right here. */}
-			{alert || state === 'needs-key' ? (
-				<button
-					type="button"
-					data-testid={`${testId}-state`}
-					data-state={state}
-					onClick={scrollToProviders}
-					className="w-[92px] shrink-0 text-left font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--fail)] underline-offset-2 hover:underline"
-				>
-					{alert ? 'Key rejected' : 'Add a key'}
-				</button>
-			) : (
-				<span
-					data-testid={`${testId}-state`}
-					data-state={state ?? 'pending'}
-					className={cn('w-[92px] shrink-0 text-left font-mono text-[10px] font-bold uppercase tracking-wider', blocked ? 'text-[var(--fail)]' : 'text-[var(--accent)]')}
-				>
-					{readinessLabel(state, progress)}
-				</span>
-			)}
-			<CollapsibleTrigger asChild>
-				<button type="button" aria-expanded={open} className="flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]">
-					Change
-					<ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
-				</button>
-			</CollapsibleTrigger>
+				{/* Readiness changes IN PLACE. A missing key is actionable right here. */}
+				{alert || state === 'needs-key' ? (
+					<button type="button" data-testid={`${testId}-state`} data-state={state} onClick={scrollToProviders} className={cn(badgeClass, 'text-[var(--fail)] underline-offset-2 hover:underline')}>
+						{alert ? 'Key rejected' : 'Add a key'}
+					</button>
+				) : (
+					<span data-testid={`${testId}-state`} data-state={state ?? 'pending'} className={cn(badgeClass, blocked ? 'text-[var(--fail)]' : 'text-[var(--accent)]')}>
+						{readinessLabel(state, progress)}
+					</span>
+				)}
+				<CollapsibleTrigger asChild>
+					<button
+						type="button"
+						aria-expanded={open}
+						className="flex shrink-0 items-center gap-1 self-center rounded-md border border-border bg-background px-1.5 py-1 text-[12px] font-semibold text-[var(--accent)] [grid-area:c] @[26rem]:px-2.5"
+					>
+						<span className="sr-only @[26rem]:not-sr-only">Change</span>
+						<ChevronDown aria-hidden className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+					</button>
+				</CollapsibleTrigger>
+			</div>
 		</div>
 	);
 }
@@ -207,7 +218,6 @@ export function ChatModelSection({ status, cloudExtras }: { status: ArchitectSta
 							</RadioGroup>
 						) : null}
 						{source === 'cloud' && status.openRouterReady ? <ModelPicker status={status} /> : null}
-						{source === 'cloud' && status.openRouterReady ? cloudExtras : null}
 						<button type="button" onClick={scrollToProviders} className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">
 							<Plug className="size-3" /> Add a provider key…
 						</button>
@@ -216,6 +226,9 @@ export function ChatModelSection({ status, cloudExtras }: { status: ArchitectSta
 					<OnDeviceTier status={status} />
 				)}
 			</CollapsibleContent>
+			{/* The image model is its own setting, not part of choosing the chat model, so it stays in
+			    view under the card rather than behind Change. */}
+			{source === 'cloud' && status.openRouterReady ? cloudExtras : null}
 		</Collapsible>
 	);
 }
@@ -273,22 +286,11 @@ export function VoiceModelSection({ more }: { more?: React.ReactNode }) {
 	);
 }
 
-/** Providers & keys: every key in one place, plus OpenRouter's one-click sign-in. */
+/** Providers & keys: one row per provider, each with its key status; OpenRouter's row carries the one-click sign-in. */
 export function ProvidersSection({ status, onConnect, connecting }: { status: ArchitectStatus; onConnect: () => void; connecting: boolean }) {
 	return (
 		<div id={PROVIDERS_SECTION_ID} className="scroll-mt-4">
-			{!hasKey('openrouter') || (status.openRouterKeyInvalid && (status.provider ?? 'openrouter') === 'openrouter') ? (
-				<button
-					type="button"
-					onClick={onConnect}
-					disabled={connecting}
-					className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] disabled:opacity-60"
-				>
-					<Sparkles className="size-3.5" />
-					{connecting ? 'Opening OpenRouter…' : hasKey('openrouter') ? 'Reconnect OpenRouter' : 'Sign in with OpenRouter (one click)'}
-				</button>
-			) : null}
-			<ApiKeyPanel status={status} />
+			<ApiKeyPanel status={status} onConnect={onConnect} connecting={connecting} />
 		</div>
 	);
 }
