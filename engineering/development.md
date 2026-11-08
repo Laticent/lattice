@@ -259,7 +259,9 @@ step before any test (`Install the pinned marp-cli`, cached on the lockfile); lo
 `npm ci --prefix test/fixtures/marp-cli --ignore-scripts` once. Before #3045 the suites fetched the
 range with `npx` inside the test, and a slow registry cancelled them 22 times in 30 days.
 `LATTICE_MARP_CLI=range` brings that route back on purpose, for a run that wants the newest
-release in the range; it needs the network and belongs off the per-PR path.
+release in the range; it needs the network, so it runs off the per-PR path: the integration
+nightly's "Export-to-Marp on the newest marp-cli in the range" arm runs the five files that way
+every night and files the rolling issue when a new release breaks the bundle.
 
 marp-cli runs with `CHROME_NO_SANDBOX=1` because it turns the Chromium sandbox off for root and
 inside a container but NOT for a plain non-root VM — which is exactly what a GitHub runner is, so

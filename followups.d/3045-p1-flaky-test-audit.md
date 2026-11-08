@@ -57,7 +57,8 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             export-confine stopwatches are counts; first-paint:990 polls a frame with no root as "loading" (40 in 100
             loaded runs threw before). NOT done: `playground-tab-switch.spec.ts:211` did not reproduce in 190 loaded
             webkit-tablet runs on `main` d1a4704 (instrumented with a write log), so nothing was changed there; the
-            regex work (recheck) is waiting on an owner decision, `followups.d/3045-p2-regex-recheck-gate.md`.
+            regex work (recheck) is waiting on an owner decision, `followups.d/3045-p2-regex-recheck-gate.md`. The
+            newest marp-cli in the range runs in the integration nightly (owner D2 on #3092).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

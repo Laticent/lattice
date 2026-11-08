@@ -97,6 +97,25 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # THE NEWEST marp-cli IN THE RANGE. Per-PR CI renders the Export-to-Marp bundle with an
+      # exact pin (test/fixtures/marp-cli, test/helpers/marp-cli.js), so no PR test reaches the
+      # registry. That leaves a new marp-cli 4.x release unseen until someone bumps the pin, while
+      # recipients of the bundle run the newest one in MARP_CLI_RANGE. This arm runs the same five
+      # files on that release (LATTICE_MARP_CLI=range, npx with install scripts off). A red night
+      # means: fix the bundle, then move the pin; or narrow the range (owner D2 on #3092).
+      - name: Export-to-Marp on the newest marp-cli in the range
+        id: marprange
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          echo '' >> "$REPORT"
+          echo '--- marp-cli range (LATTICE_MARP_CLI=range) ---' >> "$REPORT"
+          if LATTICE_MARP_CLI=range node --test test/integration/export/marp-*.test.js 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # The adaptive-family checks, both of which need the Chromium this job already
       # has and are too slow for per-PR CI (five full emulator sweeps each):
       #
@@ -622,7 +641,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.marprange.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -733,6 +752,7 @@ jobs:
         if: >-
           always() && github.ref == 'refs/heads/main'
           && steps.run.outcome == 'success' && steps.run.outputs.failed == 'false'
+          && steps.marprange.outcome == 'success' && steps.marprange.outputs.failed == 'false'
           && steps.families.outcome == 'success' && steps.families.outputs.failed == 'false'
           && steps.contrast.outcome == 'success' && steps.contrast.outputs.failed == 'false'
           && steps.examples.outcome == 'success' && steps.examples.outputs.failed == 'false'
