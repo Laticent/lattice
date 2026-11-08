@@ -22,11 +22,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   last blessed at and render it. If it clips there too, the baseline is incomplete
   and the honest fix is a full `--bless`. If it does not, you have a real regression
   and blessing would bury it.
-- **The guard against a repeat:** the baseline now records `decksSwept`, the number
-  of decks the blessing run covered, and `overflow:check` reports when today's corpus
-  is larger — `ⓘ the baseline was recorded against N decks; this sweep covered M`.
-  That is the one fact that distinguishes "clean" from "never looked at", and the
-  file could not previously carry it.
+- **The guard against a repeat:** a `--bless` now records `swept`, the NAME of every
+  deck the blessing run covered (#2060). A count (`decksSwept`, the first guard) could
+  say THAT some decks had no floor, never WHICH, and it missed
+  `examples/position-marks.md`, which clipped three pages from the commit that created
+  it and surfaced on the first night that measured it as a regression against "clean".
+  Now a deck outside `swept` has **NO FLOOR** and `overflow:check` fails on it by name,
+  clean or not: `✗ N deck(s) have NO FLOOR in the baseline`. A clean one needs only
+  `--bless <deck>`, which records just that deck's floor (a subset bless is safe now,
+  because a deck it leaves out is still named); a clipping one needs its slides fixed
+  first. The verdict is the pure
+  `judge()` in `tools/lib/overflow-corpus-ratchet.js`, unit-tested without a browser.
 - **What those seven actually clip, and why it was blessed rather than fixed:** the
   per-component gallery composes each variant's `<!-- _footer: -->` as
   `label · name variant — summary`, where `summary` is the variant's full
