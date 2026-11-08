@@ -5,7 +5,7 @@ recorded: 2026-11-08
 area: infra
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §How the rule is held
-deferred: blocked — the gate's shape is an owner decision: the brief expected about 13 regex copies, and recheck flags 561 literals in lib/**
+deferred: large — decided (owner D1 on #3092: B-then-A); a gate plus a 561-entry backlog is its own PR, cut after #3092 merges
 ---
 
 # Replace the regex hang guards with recheck, and decide the repo-wide gate's shape
@@ -27,7 +27,13 @@ how       — what a 2026-11-08 scan of `lib/**` found (TypeScript-parsed regex 
             runs a test's hostile input, collects the regexes executed, and asserts each is `safe` (the masthead path
             alone runs the shared tag tokenizer `<(\/?)([a-zA-Z][\w-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>`, which recheck
             flags, so (b) still means rewriting shared patterns); (c) keep the hang guards and close this.
-            Recommendation: (b) first on the guards that exist, then (a) once the rewrites have shrunk the table.
-done when — the hang guards are gone or each is a recheck assertion with a failing arm; the repo-wide shape is decided.
+            DECIDED 2026-11-08 (owner, D1 on #3092): B-then-A. First (a), the ratchet: a check-ownership rule over
+            every regex literal in lib/**, a committed verdict table keyed on source + flags so only new or changed
+            literals are checked, no timeout verdicts (deterministic recheck limits; an undecidable pattern carries a
+            written reason, like `flaky-ok`), and recheck installed in its own pinned folder like test/fixtures/marp-cli
+            so the root `npm ci` does not carry its 67 MB. Then (b) drains the table folder by folder, lint-core first,
+            and each drained pattern retires its wall-clock hang guard.
+done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
+            remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.
 verify    — maker-checker per rewritten shared pattern; npm test under load.
