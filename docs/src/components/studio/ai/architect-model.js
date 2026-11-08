@@ -1110,6 +1110,10 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       // The built-in model's availability is a probe, not a stored fact: settle it before pinning.
       if (promptAvail === 'unknown' && readChatSelection().provider === 'prompt-api') await refreshAvailability().catch(() => {});
       const backend = pickBackend();
+      // Read the readouts in the SAME tick as the pick: the catalog fetch below awaits, and a
+      // selection changed meanwhile must not make the snapshot describe a backend this turn
+      // does not run on (chatComplete branches on its `generation`).
+      const snapshot = this.availability();
       // A real cloud backend names its model; an injected test backend reads the adapter's.
       const isCloud = backend.name === 'openrouter';
       let modelId = !isCloud ? '' : typeof backend.getModel === 'function' ? backend.getModel() : (this.openRouterModel?.() ?? '');
@@ -1117,7 +1121,6 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       // the whole turn runs on (and is credited to) one concrete model.
       if (isCloud && !modelId && backend.listModels) { await backend.listModels().catch(() => {}); modelId = backend.getModel(); }
       const pinned = { backend, model: modelId };
-      const snapshot = this.availability();
       const priceOf = (id) => (!isCloud ? null : backend.modelPrice ? backend.modelPrice(id) : (this.openRouterModelPrice?.(id) ?? null));
       return {
         ...this,

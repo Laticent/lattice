@@ -18,12 +18,14 @@ why now   — `model-spine.spec.ts` › "the chip reaches every source" failed O
             has, so the one-off is worth chasing even though it did not recur.
 where     — docs/src/lib/openrouter-key.js: the two paths that write the key to null are
             `load()` on `unseal → { gone: true }` (no sealing key found in IndexedDB) and the
-            `writeKey` catch. Suspect: an `unseal` whose `sealingKey(false)` lookup reads IndexedDB
-            before the first `seal`'s `add` of the sealing key has committed (the spec seeds a
-            PLAINTEXT key, so the page seals it on boot), which reads as "gone" and deletes the key.
-done when — a deterministic test (hold the sealing key's `add` transaction open, then trigger a
-            load) either reproduces the delete and the fix makes `gone` require a committed
-            lookup, or proves the window cannot open; the e2e is run with --repeat-each 20 on
-            webkit-tablet and webkit-phone with no failure.
-evidence  — the unit test above; the repeat run's output.
+            `writeKey` catch. A suspected race (an `unseal` reading IndexedDB before the first
+            `seal`'s `add` committed) was REFUTED by an independent checker: in one document the
+            envelope reaches storage only after the add commits, a concurrent read joins the
+            running load, and a 20-round harness holding `generateKey` open never lost the key.
+            What is left: a second same-origin document, or WebKit's IndexedDB `get` of a stored
+            CryptoKey answering nothing after the memo reset.
+done when — the e2e is run with --repeat-each 20 on webkit-tablet and webkit-phone with a
+            storage-event and `localStorage.removeItem` trace on the key; a failing run names the
+            path that removed it, which is then fixed with a test.
+evidence  — the trace from the failing run; the fix's regression test.
 verify    — tier 1 checker.

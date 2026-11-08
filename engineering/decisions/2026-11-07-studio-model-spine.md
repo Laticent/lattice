@@ -184,6 +184,22 @@ the load, which failed and announced again: a loop that starved the page. A tran
 leaves the key "not known yet" (read as `warming`), announces only a change, and is retried at most
 once a second by a read.
 
+### Found by the independent review of the spine
+
+- **`pin()` read its snapshot after an await.** For a direct provider with no stored model,
+  `pin()` awaits the catalog to derive the default. The snapshot (`generation`, readiness) was
+  read after that await, so a switch during the fetch made the pinned turn report the NEW
+  selection while running the old backend, and `chatComplete` branches on that `generation`.
+  The snapshot is now read in the same tick as the pick.
+- **A pick made while storage refuses writes was lost.** `writeLS` kept a memory copy, but
+  `readLS` preferred what storage still held. Refused writes now win over storage on this page.
+- **An unreadable record was re-migrated.** A `v: 2` record from a newer tab (or an unknown
+  provider) failed to parse and was overwritten by a migration from legacy keys, usually the
+  default. A record that exists is now never migrated or overwritten; it reads as the default.
+- **A transient key-store failure was retried only by a read.** §8's fix stopped the announce
+  loop, but nothing retried on its own. The slot now retries with a backoff (1 s doubling to
+  30 s), one timer at most, and announces when the key opens.
+
 ## 9. Evidence
 
 - **Unit:** `lib/model-selection.test.ts` (migration once, reload, normalization, cross-tab

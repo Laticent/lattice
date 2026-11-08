@@ -238,4 +238,31 @@ describe('openrouter-key — encrypted at rest, under races and faults', () => {
 		expect(localStorage.getItem(KEY)).toBe(envelope); // …and did not delete it
 		expect(await loadOpenRouterKey()).toBe('sk-or-v1-GOOD-cccc'); // the next one does
 	});
+	it('after a transient failure the slot retries by itself and announces the key, with nobody reading it', async () => {
+		writeOpenRouterKey('sk-or-v1-GOOD-dddd');
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests();
+		const open = indexedDB.open.bind(indexedDB);
+		let fail = true;
+		vi.spyOn(indexedDB, 'open').mockImplementation((...a) => {
+			if (!fail) return open(...a);
+			const req = {} as IDBOpenDBRequest & { error: Error };
+			queueMicrotask(() => {
+				Object.assign(req, { error: new Error('UnknownError') });
+				req.onerror?.(new Event('error'));
+			});
+			return req;
+		});
+		const announced = new Promise<void>((resolve) => window.addEventListener('db-model-changed', () => resolve(), { once: true }));
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			expect(await loadOpenRouterKey()).toBeNull();
+			fail = false; // the store recovers; nothing reads the key
+			await vi.advanceTimersByTimeAsync(1000);
+		} finally {
+			vi.useRealTimers();
+		}
+		await announced;
+		expect(readOpenRouterKey()).toBe('sk-or-v1-GOOD-dddd');
+	});
 });

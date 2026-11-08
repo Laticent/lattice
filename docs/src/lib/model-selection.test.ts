@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHAT_SELECTION_KEY, chatModelFor, normalizeStoredVoice, readChatSelection, readVoiceSelection, selectChat, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
+import { __resetSelectionForTests, CHAT_SELECTION_KEY, chatModelFor, normalizeStoredVoice, readChatSelection, readVoiceSelection, selectChat, selectionEventKind, selectVoice, VOICE_SELECTION_KEY } from './model-selection.js';
 
 // The model spine's store: one chat record and one voice record, read synchronously, migrated
 // once from the legacy keys (engineering/decisions/2026-11-07-studio-model-spine.md).
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+	localStorage.clear();
+	__resetSelectionForTests();
+});
 
 describe('chat selection', () => {
 	it('defaults to OpenRouter with its curated default when nothing is stored', () => {
@@ -54,6 +57,35 @@ describe('chat selection', () => {
 		expect(readChatSelection().provider).toBe('openrouter');
 		localStorage.setItem(CHAT_SELECTION_KEY, '{nope');
 		expect(readChatSelection().provider).toBe('openrouter');
+	});
+
+	it('never re-migrates or overwrites a record it cannot read (a newer tab\'s v2)', () => {
+		const future = JSON.stringify({ v: 2, source: 'cloud', provider: 'mistral', model: 'm' });
+		localStorage.setItem(CHAT_SELECTION_KEY, future);
+		localStorage.setItem(VOICE_SELECTION_KEY, future);
+		localStorage.setItem('lattice-db-provider', 'gemini');
+		expect(readChatSelection().provider).toBe('openrouter');
+		expect(readVoiceSelection().provider).toBe('openrouter');
+		expect(localStorage.getItem(CHAT_SELECTION_KEY)).toBe(future);
+		expect(localStorage.getItem(VOICE_SELECTION_KEY)).toBe(future);
+		expect(localStorage.getItem('lattice-db-provider')).toBe('gemini');
+	});
+
+	it('a pick made while storage is full takes effect on this page', () => {
+		selectChat({ provider: 'openrouter', model: 'vendor/old' });
+		const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('full', 'QuotaExceededError');
+		});
+		try {
+			selectChat({ provider: 'anthropic', model: 'claude-opus-5' });
+			expect(readChatSelection()).toMatchObject({ provider: 'anthropic', model: 'claude-opus-5' });
+		} finally {
+			set.mockRestore();
+		}
+		// Once storage accepts writes again, the next pick is stored and read back as usual.
+		selectChat({ provider: 'gemini', model: 'gemini-3.8-flash' });
+		expect(JSON.parse(localStorage.getItem(CHAT_SELECTION_KEY) ?? '{}')).toMatchObject({ provider: 'gemini' });
+		expect(readChatSelection().provider).toBe('gemini');
 	});
 
 	it('announces db-model-changed on select', () => {

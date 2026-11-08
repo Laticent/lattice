@@ -181,6 +181,8 @@ function announce() {
 
 /** How soon a key whose open failed transiently is tried again by a read. */
 const TRANSIENT_RETRY_MS = 1000;
+/** The longest wait between the slot's OWN retries of a transient failure (it doubles from 1 s). */
+const TRANSIENT_RETRY_MAX_MS = 30_000;
 
 function makeSlot(KEY, REJECTED) {
 	let cached;
@@ -191,6 +193,10 @@ function makeSlot(KEY, REJECTED) {
 	let migrating = null;
 	let persisting = Promise.resolve();
 	let lastTransient = 0; // when an open last failed transiently (the store unreachable)
+	// The slot retries a transient failure by itself, backing off, so the key opens (and
+	// announces) once the store recovers even if nothing reads it meanwhile. One timer at most.
+	let retryTimer = null;
+	let retryDelay = TRANSIENT_RETRY_MS;
 
 	/** Re-seal a plaintext key left from before encryption, in place, when this browser can. Single-flight. */
 	function migrate(raw) {
@@ -242,7 +248,16 @@ function makeSlot(KEY, REJECTED) {
 				cachedRaw = transient ? undefined : read(KEY);
 			}
 			loading = null;
-			if (transient) lastTransient = Date.now();
+			if (transient) {
+				lastTransient = Date.now();
+				if (!retryTimer && typeof setTimeout === 'function') {
+					retryTimer = setTimeout(() => {
+						retryTimer = null;
+						load();
+					}, retryDelay);
+					retryDelay = Math.min(retryDelay * 2, TRANSIENT_RETRY_MAX_MS);
+				}
+			} else retryDelay = TRANSIENT_RETRY_MS;
 			// Announce a CHANGE only. A transient failure that leaves the key as unknown as before
 			// announced every time, and every listener re-read the key, which retried the open, which
 			// failed and announced again: a loop that starved the page while the store was unreachable.
@@ -325,6 +340,9 @@ function makeSlot(KEY, REJECTED) {
 		generation = 0;
 		persisting = Promise.resolve();
 		lastTransient = 0;
+		if (retryTimer) clearTimeout(retryTimer);
+		retryTimer = null;
+		retryDelay = TRANSIENT_RETRY_MS;
 	}
 
 	/** 'ready' | 'opening' (a sealed key is stored but not open yet) | 'rejected' | 'none'. */

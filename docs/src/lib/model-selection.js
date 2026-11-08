@@ -57,7 +57,12 @@ function storage() {
 		return null;
 	}
 }
+// Writes the browser REFUSED (storage full, or blocked mid-page). They win over what storage
+// still holds, so a pick made while storage is full takes effect on this page instead of the
+// old record silently answering every read.
+const refused = new Map();
 function readLS(k) {
+	if (refused.has(k)) return refused.get(k);
 	const ls = storage();
 	if (!ls) return memory.get(k) ?? null;
 	try {
@@ -74,8 +79,10 @@ function writeLS(k, v) {
 	try {
 		if (v == null) ls.removeItem(k);
 		else ls.setItem(k, v);
+		refused.delete(k);
 	} catch {
-		/* storage refused: the in-memory copy above holds for this page */
+		// Storage refused: the copy above holds for this page, and reads prefer it.
+		refused.set(k, v ?? null);
 	}
 }
 function emit(name) {
@@ -174,12 +181,18 @@ function migrateVoice() {
 
 /** The chat selection. Migrates the legacy keys on the first read; never null. */
 export function readChatSelection() {
-	return parse(CHAT_SELECTION_KEY, normalizeChat) ?? normalizeChat(migrateChat()) ?? { ...DEFAULT_CHAT, last: {} };
+	// A record that exists is never re-migrated or overwritten, even one this build cannot read
+	// (a newer version written by a newer tab, a provider this build does not know): it reads as
+	// the default here and stays in storage untouched.
+	if (readLS(CHAT_SELECTION_KEY)) return parse(CHAT_SELECTION_KEY, normalizeChat) ?? { ...DEFAULT_CHAT, last: {} };
+	return normalizeChat(migrateChat()) ?? { ...DEFAULT_CHAT, last: {} };
 }
 
 /** The voice selection. Migrates the legacy keys on the first read; never null. */
 export function readVoiceSelection() {
-	return parse(VOICE_SELECTION_KEY, normalizeVoice) ?? normalizeVoice(migrateVoice()) ?? { ...DEFAULT_VOICE, last: {} };
+	// As for chat: an existing record, readable or not, is never re-migrated or overwritten.
+	if (readLS(VOICE_SELECTION_KEY)) return parse(VOICE_SELECTION_KEY, normalizeVoice) ?? { ...DEFAULT_VOICE, last: {} };
+	return normalizeVoice(migrateVoice()) ?? { ...DEFAULT_VOICE, last: {} };
 }
 
 /** The model id this chat provider would run: the selection's when it is the selected provider, else the user's last pick ('' = curated default). */
@@ -292,6 +305,7 @@ export function watchSelectionStorage() {
 
 /** Test seam: forget the storage watch and the in-memory copy. */
 export function __resetSelectionForTests() {
+	refused.clear();
 	watching = false;
 	memory.clear();
 }

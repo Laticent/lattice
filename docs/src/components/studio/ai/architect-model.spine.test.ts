@@ -115,6 +115,28 @@ describe('model spine — chat', () => {
 		expect(m.availability().generation).toBe('prompt-api');
 	});
 
+	it('a switch while the turn loads its catalog does not change what the pinned turn reports', async () => {
+		const calls: string[] = [];
+		selectChat({ provider: 'openrouter' });
+		const m = make();
+		let derived = '';
+		m.__setOpenRouter({
+			...fakeOpenRouter(calls),
+			getModel: () => derived,
+			// The author picks the built-in model while the default is being derived from the list.
+			listModels: async () => {
+				selectChat({ provider: 'prompt-api' });
+				derived = 'vendor/default';
+				return [];
+			},
+		});
+		m.__setPromptAvailability('available');
+		const turn = await m.pin();
+		expect(turn.availability().generation).toBe('openrouter');
+		expect(turn.openRouterModel()).toBe('vendor/default');
+		expect(m.availability().generation).toBe('prompt-api');
+	});
+
 	it('the chip and the cost are credited to the model that answered', async () => {
 		const calls: string[] = [];
 		selectChat({ provider: 'openrouter', model: 'vendor/retired' });
