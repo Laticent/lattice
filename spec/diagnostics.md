@@ -111,6 +111,8 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `unknown-class` | warning | ✓ | A `_class` token that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
+| `agenda-empty` | warning | — | An `agenda` slide with no list, in a deck with fewer than two shown `divider` slides, so the engine has nothing to fill it from and it renders as a heading over an empty slide (`lib/core/agenda-autofill.js`). |
+| `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
 | `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on. |
 | `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
@@ -500,7 +502,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
-- **Unreleased.** §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
+- **Unreleased.** §3.1 adds `agenda-empty` and `agenda-retired-style`
+  (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
+  §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
   `legacy-directive-comment` (off by default).
 - **1.1 (2026-10-08).** The registry catches up with the reference

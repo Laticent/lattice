@@ -546,6 +546,16 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
 	},
 	{
+		// An agenda with a heading and no list fills itself from EVERY divider in the deck, and a
+		// reprise gains `progress-k` from its place among them (lib/core/agenda-autofill.js); a slice
+		// sees neither. The test is a superset on purpose: a deck it wrongly matches pays one
+		// whole-deck render, while a deck it missed would preview an empty agenda.
+		fact: 'auto-filled agenda',
+		why: 'an agenda slide with no list is filled from the dividers across the whole deck, which a slice cannot see',
+		probes: [],
+		test: (deck) => deck.split(/^\s*---\s*$/m).some((chunk) => /<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk) && !/^\s*(?:\d+[.)]|[-*+])\s/m.test(chunk)),
+	},
+	{
 		fact: 'glossary: auto',
 		why: 'appends a derived appendix slide built from terms across the whole deck, changing the slide count',
 		probes: [/^\s*glossary\s*:\s*auto\b/m],

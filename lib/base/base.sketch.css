@@ -777,17 +777,16 @@ section.sketch.checklist > .cell-stage > :is(ul, ol) {
 }
 
 /* ── agenda under the sketch finish ────────────────────────────────────────
- * The five agenda styles (ledger default + circles/rail/cards/checks) are
- * structured in agenda.styles.css. The finish (a) swaps the mark SHAPES to
- * hand-drawn — the bowed arrow, looser tick, wavy rail — by redefining the
- * --ag-* tokens; (b) sets the numerals in the hand display face; and (c)
- * wobbles the drawn geometry (rings, cards, boxes) + bends the active rule
- * and the rail into pen strokes. Color never changes here, so every palette
+ * The three agenda styles (ledger default + circles/checks) are structured
+ * in agenda.styles.css. The finish (a) swaps the mark SHAPES to hand-drawn —
+ * the bowed arrow and the looser tick — by redefining the --ag-* tokens;
+ * (b) sets the numerals in the hand display face; and (c) wobbles the drawn
+ * geometry (rings, boxes) + bends the active rule into a pen stroke. Color
+ * never changes here, so every palette
  * still colors it. */
 section.sketch.agenda {
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 Q9 8.5 16 9 M12.5 3 Q19 6 21.5 9 Q19 12 12.5 15' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --ag-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.4 8.6 Q4.6 11.2 5.8 12.8 Q8.8 6 13.6 2.2' fill='none' stroke='%23000' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  --ag-rail: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 140'%3E%3Cpath d='M3.5 0 Q1.3 12 3.7 23 Q5.7 35 3.2 47 Q1.4 58 3.6 70 Q5.6 82 3.3 94 Q1.3 105 3.7 117 Q5.5 128 3.5 140' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 /* Numerals in the hand display face (harmless on the markless ::before of
  * checks/active-ledger, which carry no text). */
@@ -798,18 +797,18 @@ section.sketch.agenda > .cell-stage > ol > li::before { font-family: var(--sketc
  * ledger only (:not the styled variants): checks reuses the active row's
  * ::after for its arrow at the same nth-child, so an unscoped rule would
  * overwrite that arrow with this horizontal wave strip. */
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 > ol > li:nth-child(6)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
+section.sketch.agenda:not(.circles):not(.checks).progress-1 > ol > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-1 > .cell-stage > ol > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2 > ol > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2 > .cell-stage > ol > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3 > ol > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3 > .cell-stage > ol > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4 > ol > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4 > .cell-stage > ol > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5 > ol > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5 > .cell-stage > ol > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6 > ol > li:nth-child(6)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6 > .cell-stage > ol > li:nth-child(6)::after {
   height: 7px;
   -webkit-mask: var(--sketch-wave) repeat-x center / 140px 7px;
   mask: var(--sketch-wave) repeat-x center / 140px 7px;
@@ -830,21 +829,21 @@ section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress
  * mark from a rule — it is dotted on purpose, it reads fine in the hand, and
  * roughening it into a solid stroke would erase the distinction the ledger
  * style is built on. */
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1),
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2),
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3),
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4),
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5),
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6) {
+section.sketch.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1),
+section.sketch.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2),
+section.sketch.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3),
+section.sketch.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4),
+section.sketch.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5),
+section.sketch.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6) {
   --rough-ink-stroke: var(--accent);
   --rough-ink-width: 3;
 }
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(1)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(2)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(3)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(4)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(5)::after,
-section.sketch.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(6)::after {
+section.sketch.agenda:not(.circles):not(.checks).progress-1:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(1)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-2:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(2)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-3:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(3)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-4:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(4)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-5:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(5)::after,
+section.sketch.agenda:not(.circles):not(.checks).progress-6:has(> svg[data-lattice-rough-ink]) ol > li:nth-child(6)::after {
   display: none;
 }
 
@@ -859,18 +858,6 @@ section.sketch.agenda.circles > ol > li:nth-child(odd)::before,
 section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(odd)::before { transform: rotate(-2deg); }
 section.sketch.agenda.circles > ol > li:nth-child(even)::before,
 section.sketch.agenda.circles > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(2deg); }
-
-/* cards — wobbled corners + offset ink, alternating tilt. */
-section.sketch.agenda.cards > ol > li,
-section.sketch.agenda.cards > .cell-stage > ol > li {
-  border-color: var(--sketch-ink);
-  border-radius: 255px 14px 235px 16px / 16px 235px 14px 255px;
-  box-shadow: 2px 3px 0 -1px color-mix(in srgb, var(--sketch-ink) 26%, transparent);
-}
-section.sketch.agenda.cards > ol > li:nth-child(odd),
-section.sketch.agenda.cards > .cell-stage > ol > li:nth-child(odd) { transform: rotate(-0.4deg); }
-section.sketch.agenda.cards > ol > li:nth-child(even),
-section.sketch.agenda.cards > .cell-stage > ol > li:nth-child(even) { transform: rotate(0.4deg); }
 
 /* checks — hand-drawn boxes. The "current" arrow lives inside a small filled
  * box; the bowed hand arrow muddies at that knockout scale, so checks keeps
@@ -888,15 +875,3 @@ section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(odd)::before { tr
 section.sketch.agenda.checks > ol > li:nth-child(even)::before,
 section.sketch.agenda.checks > .cell-stage > ol > li:nth-child(even)::before { transform: rotate(1.5deg); }
 
-/* rail — the journey line becomes a wavy pen stroke; nodes get hand corners. */
-section.sketch.agenda.rail > ol::before,
-section.sketch.agenda.rail > .cell-stage > ol::before {
-  width: 6px; background-color: var(--sketch-ink);
-  -webkit-mask: var(--ag-rail) repeat-y center / 6px 140px;
-  mask: var(--ag-rail) repeat-y center / 6px 140px;
-}
-section.sketch.agenda.rail > ol > li::before,
-section.sketch.agenda.rail > .cell-stage > ol > li::before {
-  border-color: var(--sketch-ink);
-  border-radius: 50% 47% 53% 49% / 49% 53% 47% 51%;
-}
