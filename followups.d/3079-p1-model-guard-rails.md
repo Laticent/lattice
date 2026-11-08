@@ -23,6 +23,9 @@ decided   — owner, 2026-11-08, on PR #3079:
                lists (OpenRouter's is public; Gemini, Anthropic and OpenAI need a repo secret each;
                listing is free, nothing spends) and opens an issue when one is gone. Each half
                skips itself while its secret is unset. Never OPEN_ROUTER_KEY (HARD RULE #24).
+               A BILLING or quota answer (classifyProviderError → 'billing') PASSES: the keys may
+               run without funds, and the check is about connections and model ids (owner,
+               2026-11-08: "billing failure should not fail the tests").
             3. CHAT gets the voice rule from #3079: a selected model that errors as gone turns chat
                off for that model with a notice; the silent self-heal to the latest-Sonnet alias in
                architect-model.js (`isDeadModelError`) is removed.

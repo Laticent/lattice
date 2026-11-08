@@ -144,6 +144,9 @@ describe('a failed request says why, instead of an empty reply', () => {
 		expect(isToolRefusal('OpenRouter error 401: User not found')).toBe(false);
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found for some/retired-model.')).toBe(false);
 		expect(describeModelError('OpenRouter error 401: User not found')).toMatch(/reconnect in Workspace/);
+		// Billing under other statuses: Anthropic 400, OpenAI 429. The key works; never "rejected" or "pick another model".
+		expect(describeModelError('Anthropic error 400: {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}')).toMatch(/Anthropic account is out of credits or quota — add billing in Anthropic's settings/);
+		expect(describeModelError('OpenAI error 429: {"error":{"message":"You exceeded your current quota, please check your plan and billing details.","code":"insufficient_quota"}}')).toMatch(/OpenAI account is out of credits or quota/);
 		expect(describeModelError('OpenRouter error 401: {"error":{"message":"User not found.","code":401}}')).toContain('(OpenRouter said: User not found.)');
 		expect(describeModelError('OpenRouter error 404: No endpoints found for x/y')).toMatch(/pick another model/);
 		expect(describeModelError('TypeError: Load failed')).toMatch(/never reached OpenRouter/);

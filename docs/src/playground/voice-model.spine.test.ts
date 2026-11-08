@@ -119,12 +119,13 @@ describe('model spine — voice', () => {
 describe('model spine — Gemini direct voice', () => {
 	const RIFF = btoa(String.fromCharCode(0x52, 0x49, 0x46, 0x46, 36, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20));
 
-	function geminiVoice(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>, onModelGone?: (g: { provider: string; model: string }) => void) {
+	function geminiVoice(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>, onModelGone?: (g: { provider: string; model: string }) => void, onBilling?: (b: { provider: string }) => void) {
 		return createVoiceModel({
 			getOpenRouterKey: () => 'sk-or-v1-test', // present, and must NOT be used
 			keyPrefix: 'studio',
 			fetchImpl,
 			onModelGone,
+			onBilling,
 			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: (p: string) => (p === 'gemini' ? 'AIzaTestKey000000000000000' : 'sk-or-v1-test') },
 		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean; bytes: Blob | null; key: string; error?: string }> };
 	}
@@ -185,6 +186,28 @@ describe('model spine — Gemini direct voice', () => {
 		expect((await v.synthFor({ rung: 'gemini', text: 'Three.' })).ok).toBe(true);
 	});
 
+	it('out of quota or billing: the model is not retired, the author is told once, and the next read tries again', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' });
+		const gone = vi.fn();
+		const billing = vi.fn();
+		let broke = true;
+		const v = geminiVoice(
+			async () =>
+				broke
+					? Response.json({ error: { code: 429, message: 'You exceeded your current quota, please check your plan and billing details.', status: 'RESOURCE_EXHAUSTED' } }, { status: 429 })
+					: Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] }),
+			gone,
+			billing,
+		);
+		expect((await v.synthFor({ rung: 'gemini', text: 'One.' })).ok).toBe(false);
+		expect((await v.synthFor({ rung: 'gemini', text: 'Two.' })).ok).toBe(false);
+		expect(billing).toHaveBeenCalledExactlyOnceWith({ provider: 'gemini' });
+		expect(gone).not.toHaveBeenCalled();
+		expect(v.availability().readiness).toMatchObject({ state: 'ready', provider: 'gemini' });
+		broke = false; // billing added: the same voice speaks again, nothing to re-select
+		expect((await v.synthFor({ rung: 'gemini', text: 'Three.' })).ok).toBe(true);
+	});
+
 	it('a bad key or a passing fault is not a gone model', async () => {
 		const { isModelGoneError } = await import('./voice-model.js');
 		expect(isModelGoneError(400, '{"error":{"message":"API key not valid","details":[{"reason":"API_KEY_INVALID"}]}}')).toBe(false);
@@ -195,6 +218,8 @@ describe('model spine — Gemini direct voice', () => {
 		expect(isModelGoneError(404, '')).toBe(true);
 		expect(isModelGoneError(400, 'Model gemini-x is deprecated')).toBe(true);
 		expect(isModelGoneError(400, 'No endpoints found for hexgrad/kokoro-82m')).toBe(true);
+		expect(isModelGoneError(400, '{"error":{"message":"User location is not supported for the API use.","status":"FAILED_PRECONDITION"}}')).toBe(false);
+		expect(isModelGoneError(402, 'Insufficient credits')).toBe(false);
 	});
 
 	it('reads every page of Gemini\'s voice list and offers the named, multilingual voices, not the locale personas', async () => {

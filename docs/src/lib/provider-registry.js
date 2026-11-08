@@ -72,19 +72,22 @@ function newestFirst(a, b) {
 /**
  * Order a LIVE list by the curation: curated matches first (in the curation's order, newest
  * first within a family), flagged `curated: true`, then every other live model as listed.
- * Never adds an id the live list does not have, and never drops one.
+ * Never adds an id the live list does not have, and never drops one. `perFamily` caps how many of
+ * each family are flagged (the pickers recommend the newest ONE per family, so a family's six
+ * older versions sit in All instead of crowding the short list).
  * @template {{ id: string, created?: number }} M
  * @param {M[]} live
  * @param {RegExp[] | undefined} families
+ * @param {{ perFamily?: number }} [opts]
  * @returns {(M & { curated: boolean })[]}
  */
-export function curate(live, families) {
+export function curate(live, families, { perFamily = Infinity } = {}) {
 	const list = live || [];
 	if (!families?.length) return list.map((m) => ({ ...m, curated: false }));
 	const seen = new Set();
 	const head = [];
 	for (const re of families) {
-		const hits = list.filter((m) => !seen.has(m.id) && re.test(m.id)).sort(newestFirst);
+		const hits = list.filter((m) => !seen.has(m.id) && re.test(m.id)).sort(newestFirst).slice(0, perFamily);
 		for (const m of hits) {
 			seen.add(m.id);
 			head.push({ ...m, curated: true });

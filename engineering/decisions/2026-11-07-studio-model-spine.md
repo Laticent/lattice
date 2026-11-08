@@ -139,6 +139,21 @@ pages, of which 30 are the named, multilingual voices (Achernar … Zephyr) and 
 locale-specific personas (`en-us-advisor-1`). The picker reads every page and offers the 30 named
 voices; the personas wait for a language filter (`followups.d/3079-p3-gemini-locale-voices.md`). Until the model list answers, the rung uses `gemini-3.8-flash-lite-tts`.
 
+**What a failed call means is one classifier** (`lib/provider-errors.js`, shared by the chat's error
+sentences and the voice rungs). Billing is read first because providers report it under statuses
+that mean other things: OpenRouter 402, OpenAI 429 `insufficient_quota`, Gemini 429
+`RESOURCE_EXHAUSTED` or 403 (billing off), Anthropic 400 "credit balance is too low". A billing
+failure means the key and the connection work: it never marks a key rejected or a model retired, the
+chat names it ("out of credits or quota — add billing…"), and read-aloud tells the author once per
+provider and stays silent for that read, then tries again on the next. A region refusal
+(`FAILED_PRECONDITION`, "location is not supported") is not a retired model either. A live check,
+and the owner's nightly check, count a billing answer as a working connection.
+
+**Pickers curate first.** Every model picker opens on a short curated list and keeps the whole live
+list one step away: OpenRouter's Featured (with Value, Free, All); a direct provider's Recommended
+(the registry's families, newest first) with All; search always looks through everything, and the
+selected model stays in view. The aim is a clear first choice without hiding anything.
+
 **A retired voice model turns read-aloud off; nothing stands in.** Providers retire TTS models with
 little notice. When a speech call answers 404, or 400 naming the model as not found, unsupported,
 deprecated or without endpoints (`isModelGoneError`; a bad key is not this), the voice model records

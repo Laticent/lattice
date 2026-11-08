@@ -4,8 +4,10 @@
 // message (`ai/architect-model.js`) and names the cause and the way out — a 402 says
 // the account is out of credits, never "no model connected".
 //
-// This module imports nothing, so the eager `architect.ts` can import it without
-// dragging the lazy chat agent into the Studio's startup chunk.
+// Its one import is the pure, dependency-free classifier `lib/provider-errors.js`, shared with the
+// voice rungs; `architect.ts` loads this module lazily.
+
+import { classifyProviderError } from '@/lib/provider-errors.js';
 
 /** The transport's failure shape, "<Provider> error <status>": group 1 the provider, group 2 the status. */
 export const MODEL_ERROR = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error (\d{3})/;
@@ -31,8 +33,11 @@ export function describeModelError(message: string): string {
 	const tail = detail ? ` (${who} said: ${detail})` : '';
 	// OpenRouter also uses 403 for input a moderated model flagged — reconnecting does not help.
 	if (status === 403 && /moderation|flagged/i.test(detail)) return `The selected model's moderation flagged this request — rephrase it, or pick another model in Workspace → AI.${tail}`;
+	// Billing first: providers report it as 402, 429 (OpenAI, Gemini quota), 403 (Gemini billing
+	// off) or 400 (Anthropic "credit balance is too low"). The key works; the account needs money.
+	if (classifyProviderError(status, detail || raw) === 'billing')
+		return `Your ${who} account is out of credits or quota — add ${direct ? `billing in ${who}'s settings` : 'credits at openrouter.ai'}, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 401 || status === 403) return direct ? `${who} rejected the key — replace it in Workspace → AI → API key.${tail}` : `OpenRouter rejected the connection — reconnect in Workspace → AI.${tail}`;
-	if (status === 402) return `Your ${who} account is out of credits — add credits ${direct ? `in ${who}'s billing settings` : 'at openrouter.ai'}, or switch to On-device in Workspace → AI.${tail}`;
 	if (status === 400 && /context length|maximum context|too many tokens/i.test(detail || raw)) return `The deck and its attachments are too long for this model — detach a reference document, or pick a model with a longer context in Workspace → AI.${tail}`;
 	// A model that cannot read video refuses a request that carries a clip.
 	if ((status === 400 || status === 404 || status === 422) && /video/i.test(detail || raw)) return `The selected model can't read video — pick one marked "video" in the model menu, or remove the clip and ask again.${tail}`;

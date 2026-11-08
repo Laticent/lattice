@@ -24,13 +24,14 @@
 // module under plain `node --test` (no Vite alias, no TS resolution), so this file
 // must not use the `@/…` alias or import a TypeScript module.
 
+import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
+import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
-import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
-import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
+import { classifyProviderError } from '../lib/provider-errors.js';
 import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
@@ -461,6 +462,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
           gone?.add('openrouter', model, detail);
           throw modelGoneError('openrouter', model, detail);
         }
+        if (classifyProviderError(res.status, detail) === 'billing') gone?.billing('openrouter');
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
       }
       if (wantsPcm) {
@@ -517,12 +519,11 @@ export function geminiSpeechBody(text, voice) {
  * Whether a failed speech call means the MODEL is gone (retired, renamed, not served to this key)
  * rather than a passing fault. Providers retire TTS models with little notice, so the Studio
  * must say so and stop, never retry every sentence or quietly use another model
- * (engineering/decisions/2026-11-07-studio-model-spine.md §6). A bad key is not a gone model.
+ * (engineering/decisions/2026-11-07-studio-model-spine.md §6). A bad key, a billing failure or a
+ * region refusal is not a gone model (lib/provider-errors.js).
  */
 export function isModelGoneError(status, detail = '') {
-  if (status === 401 || /API_KEY_INVALID/.test(detail)) return false;
-  if (status === 404) return true;
-  return status === 400 && /(not found|not supported|is not available|no longer (available|supported)|deprecated|unsupported model|invalid model|no endpoints found)/i.test(detail);
+  return classifyProviderError(status, detail) === 'model-gone';
 }
 
 /** An error that names a gone model, so callers can tell it from a passing fault. */
@@ -557,6 +558,8 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
         gone?.add('gemini', model, detail);
         throw modelGoneError('gemini', model, detail);
       }
+      // Out of quota or billing: the key and the model are fine. Say so once; this read goes silent.
+      if (!res.ok && classifyProviderError(status, detail) === 'billing') gone?.billing('gemini');
       if (!res.ok) throw new Error('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''));
       const json = await res.json();
       const part = (json?.candidates?.[0]?.content?.parts || []).find((p) => p?.inlineData?.data);
@@ -876,7 +879,7 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
 // Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
 // engineering/decisions/2026-11-07-studio-model-spine.md
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone } = {}) {
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -955,6 +958,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // `unavailable` with reason `model-gone`, the author is told once (`onModelGone`), and nothing
   // speaks in its place. Another model is unaffected; a reload asks the provider again.
   const goneModels = new Map();
+  const billingTold = new Set();
   const gone = {
     has: (provider, model) => goneModels.has(`${provider}:${model}`),
     add(provider, model, detail) {
@@ -963,6 +967,12 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       goneModels.set(k, { provider, model, detail: String(detail || '') });
       try { onModelGone?.({ provider, model }); } catch {}
       emitChange();
+    },
+    // A billing or quota failure is told once per provider per page (a read retries each sentence).
+    billing(provider) {
+      if (billingTold.has(provider)) return;
+      billingTold.add(provider);
+      try { onBilling?.({ provider }); } catch {}
     },
   };
   const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl, gone });

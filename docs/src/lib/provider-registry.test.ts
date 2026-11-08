@@ -30,6 +30,13 @@ describe('provider registry', () => {
 		expect(curatedDefault(chat, CURATED.chat.gemini)).toBe('gemini-3.5-flash');
 	});
 
+	it('perFamily keeps the newest of each family on the short list and the rest in the list', () => {
+		const live = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-pro'].map((id) => ({ id }));
+		const out = curate(live, CURATED.chat.gemini, { perFamily: 1 });
+		expect(out.filter((m) => m.curated).map((m) => m.id)).toEqual(['gemini-3.8-flash', 'gemini-3.1-pro-preview']);
+		expect(out).toHaveLength(live.length);
+	});
+
 	it('never curates a Gemini 2.5 id and never invents one the live list lacks', () => {
 		const live = [{ id: 'gemini-2.5-flash-preview-tts' }, { id: 'gemini-2.5-pro-preview-tts' }];
 		expect(curate(live, CURATED.voice.gemini).some((m) => m.curated)).toBe(false);

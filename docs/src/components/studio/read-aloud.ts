@@ -356,16 +356,12 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					},
 					// A provider retired (or stopped serving) the selected voice model: read-aloud
 					// goes silent and the author is told once, with where to choose another.
-					onModelGone: ({ provider, model }: { provider: string; model: string }) => {
-						const who = provider === 'gemini' ? 'Gemini' : 'OpenRouter';
-						// Raised as an event the Studio shell turns into a notice: importing the notice kernel
-						// here would split it into a chunk of its own on two routes (docs/route-budget.json).
-						window.dispatchEvent(
-							new CustomEvent(VOICE_MODEL_GONE_EVENT, {
-								detail: { message: `${who} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, description: modelDisplayName({ id: model, provider }) },
-							}),
-						);
-					},
+					onModelGone: ({ provider, model }: { provider: string; model: string }) =>
+						voiceNotice(`${voiceProviderName(provider)} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, modelDisplayName({ id: model, provider })),
+					// Out of credit or quota: the key and model are fine, so nothing is switched off; this
+					// read is silent and the author is told once where to fix it.
+					onBilling: ({ provider }: { provider: string }) =>
+						voiceNotice(`${voiceProviderName(provider)} has no credit or quota left on this key, so read-aloud is silent. Add billing with ${voiceProviderName(provider)}, or pick another voice in Workspace › AI.`),
 				}),
 			)
 			.catch(() => null);
@@ -1513,8 +1509,17 @@ export function useSelectedVoiceLabel(): { label: string | null; loading: boolea
 	return out;
 }
 
-/** Raised when a provider retired the selected voice model: `{ message, description }` for the one notice. */
-export const VOICE_MODEL_GONE_EVENT = 'lattice:voice-model-gone';
+/**
+ * Raised when the selected voice cannot speak for a reason the author must hear about (a retired
+ * model, no credit or quota): `{ message, description }` for one notice. An event the Studio
+ * shell turns into the notice, because importing the notice kernel here would split it into a
+ * chunk of its own on two routes (docs/route-budget.json).
+ */
+export const VOICE_NOTICE_EVENT = 'lattice:voice-notice';
+const voiceProviderName = (p: string) => (p === 'gemini' ? 'Gemini' : 'OpenRouter');
+function voiceNotice(message: string, description?: string) {
+	window.dispatchEvent(new CustomEvent(VOICE_NOTICE_EVENT, { detail: { message, description } }));
+}
 
 /** Live voice status — which rung is active, what's ready/cached/supported. */
 export async function voiceAvailability(): Promise<VoiceAvailability> {
@@ -1624,7 +1629,7 @@ export async function geminiVoiceCatalog(): Promise<{ models: { id: string; name
 	try {
 		const [vm, reg] = await Promise.all([import('@/playground/voice-model.js'), import('@/lib/provider-registry.js')]);
 		const c = await vm.listGeminiVoiceCatalog(key);
-		return { ...c, models: reg.curate(c.models, reg.CURATED.voice.gemini) };
+		return { ...c, models: reg.curate(c.models, reg.CURATED.voice.gemini, { perFamily: 1 }) };
 	} catch {
 		return { models: [], voices: [], reachable: false };
 	}

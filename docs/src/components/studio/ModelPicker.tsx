@@ -37,9 +37,10 @@ export function useModelCatalog(
 	} = {},
 ) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
-	// The Featured / Value / Free lenses match OpenRouter ids (`anthropic/claude-sonnet…`), so a
-	// direct provider's bare ids would show an empty list: it opens on All, with no lens row.
-	const [view, setView] = React.useState<string>((status.provider ?? 'openrouter') === 'openrouter' ? 'featured' : 'all');
+	// Both open on the curated lens: OpenRouter's Featured, a direct provider's Recommended (the
+	// registry's families). The whole live list is one tap (All) or one search away, so the author
+	// sees a short, clear list first and is never swamped (owner, 2026-11-08).
+	const [view, setView] = React.useState<string>('featured');
 	const [query, setQuery] = React.useState('');
 	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
 	// Each picker's radios are their own group: two lists sharing a name make the browser treat them as one, so an arrow key in one
@@ -55,7 +56,7 @@ export function useModelCatalog(
 		if (shownFor.current === provider) return;
 		shownFor.current = provider;
 		setModels(null);
-		setView(provider === 'openrouter' ? 'featured' : 'all');
+		setView('featured');
 	}, [provider]);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
@@ -81,18 +82,25 @@ export function useModelCatalog(
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
 	const groups = React.useMemo(() => {
-		const shown = filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query);
-		// OpenRouter ids are `vendor/model`, so they group by vendor. A direct provider's ids are bare
-		// (`gemini-3.8-flash`), which made every model its own heading: list them as two groups instead,
-		// the registry's recommended families first (newest first), then every other live model.
-		if (provider === 'openrouter') return groupByVendor(shown);
-		const ordered = curate(shown, CURATED.chat[provider as keyof typeof CURATED.chat]);
+		const usable = (models ?? []).filter((m) => !opts.visionOnly || m.vision);
+		if (provider === 'openrouter') return groupByVendor(filterModels(usable, view, query));
+		// A direct provider's ids are bare (`gemini-3.8-flash`, no `vendor/`), so grouping by vendor made
+		// every model its own heading. Recommended = the newest model of each registry family; All adds
+		// every other live model. A search always looks through all of them. The selected model stays
+		// in view even when it is not a recommended one.
+		const ordered = curate(filterModels(usable, 'all', query), CURATED.chat[provider as keyof typeof CURATED.chat], { perFamily: 1 });
+		const recommended = ordered.filter((m) => m.curated);
+		const rest = ordered.filter((m) => !m.curated);
 		const label = KEY_PROVIDER_INFO[provider].label;
+		if (view === 'featured' && !query.trim() && recommended.length) {
+			const chosen = rest.filter((m) => m.id === selectedId);
+			return [{ vendor: 'Recommended', models: recommended }, ...(chosen.length ? [{ vendor: 'Selected', models: chosen }] : [])];
+		}
 		return [
-			{ vendor: 'Recommended', models: ordered.filter((m) => m.curated) },
-			{ vendor: `All ${label} models`, models: ordered.filter((m) => !m.curated) },
+			{ vendor: 'Recommended', models: recommended },
+			{ vendor: `All ${label} models`, models: rest },
 		].filter((g) => g.models.length);
-	}, [models, view, query, opts.visionOnly, provider]);
+	}, [models, view, query, opts.visionOnly, provider, selectedId]);
 
 	const pick = async (m: ORModel) => {
 		setSelectedId(m.id);
@@ -102,6 +110,12 @@ export function useModelCatalog(
 	};
 	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName, provider };
 }
+
+/** A direct provider's two lenses: the registry's recommended families, or everything its key lists. */
+const DIRECT_VIEWS: [string, string][] = [
+	['featured', 'Recommended'],
+	['all', 'All'],
+];
 
 /** Search, the Featured/Value/Free/All lens, and the vendor-grouped priced list. */
 export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: ReturnType<typeof useModelCatalog>; searchRef?: React.Ref<HTMLInputElement>; maxHeight?: number }) {
@@ -119,9 +133,8 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 				aria-label={`Search ${providerLabel} models`}
 				className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)]"
 			/>
-			{direct ? null : (
 			<div className="mt-2 flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Model lens">
-				{OR_VIEWS.map(([key, label]) => (
+				{(direct ? DIRECT_VIEWS : OR_VIEWS).map(([key, label]) => (
 					<button
 						type="button"
 						key={key}
@@ -134,7 +147,6 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 					</button>
 				))}
 			</div>
-			)}
 
 			<div className="mt-2 overflow-y-auto" style={{ maxHeight }}>
 				{models === null ? (
