@@ -16,7 +16,18 @@ describe('provider registry', () => {
 		const live = [{ id: 'gemini-3.1-flash-tts-preview' }, { id: 'gemini-3.8-flash-tts' }, { id: 'gemini-2.5-flash-preview-tts' }, { id: 'gemini-3.8-flash-lite-tts' }];
 		const out = curate(live, CURATED.voice.gemini);
 		expect(out.map((m) => m.id)).toEqual(['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']);
-		expect(out.filter((m) => m.curated).map((m) => m.id)).toEqual(['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts']);
+		expect(out.filter((m) => m.curated).map((m) => m.id)).toEqual(['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview']);
+	});
+
+	it('recommends the newest Gemini TTS that is actually live, whatever its version', () => {
+		// What Google's Gemini-TTS docs list today: only 3.1 Flash TTS (a preview) from 3 up.
+		const today = [{ id: 'gemini-2.5-pro-tts' }, { id: 'gemini-2.5-flash-tts' }, { id: 'gemini-3.1-flash-tts-preview' }, { id: 'gemini-2.5-flash-lite-preview-tts' }];
+		expect(curatedDefault(today, CURATED.voice.gemini)).toBe('gemini-3.1-flash-tts-preview');
+		expect(curatedDefault([...today, { id: 'gemini-3.1-flash-lite-preview-tts' }], CURATED.voice.gemini)).toBe('gemini-3.1-flash-lite-preview-tts');
+		expect(curatedDefault([...today, { id: 'gemini-3.8-flash-tts' }, { id: 'gemini-3.8-flash-lite-tts' }], CURATED.voice.gemini)).toBe('gemini-3.8-flash-lite-tts');
+		// Chat: the newest Flash, a GA id before a preview of the same version, never a -lite.
+		const chat = ['gemini-2.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.5-flash-preview'].map((id) => ({ id }));
+		expect(curatedDefault(chat, CURATED.chat.gemini)).toBe('gemini-3.5-flash');
 	});
 
 	it('never curates a Gemini 2.5 id and never invents one the live list lacks', () => {

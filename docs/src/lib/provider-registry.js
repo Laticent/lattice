@@ -8,8 +8,8 @@
 // (the same rot-proofing `or-catalog.js`'s prefixes give OpenRouter). A live model the curation
 // does not name is still listed, after the curated ones.
 //
-// Gemini 2.5 ids are deliberately not curated: Google limits the 2.5 TTS models to accounts that
-// used them before. OpenAI voice is out of scope (followups.d/3048-p9-direct-openai-voice.md).
+// Gemini 2.5 ids are deliberately not curated (still listed, never recommended): the families below
+// start at 3. OpenAI voice is out of scope (followups.d/3048-p9-direct-openai-voice.md).
 // engineering/decisions/2026-11-07-studio-model-spine.md
 
 /**
@@ -39,18 +39,35 @@ export const providerLabel = (p) => PROVIDERS[p]?.label ?? '';
  * voice curation stay in `or-catalog.js` (`OR_FEATURED`) and `tts-catalog.js` (`TTS_FEATURED`),
  * which the pickers' lenses already use; they are referenced, not copied.
  */
+// Gemini families match ANY version from 3 up (`3.1`, `3.8`, a future `4`), newest version first,
+// so the recommendation follows whatever Google lists today instead of naming a release that may
+// not exist on a given account or API (an earlier draft pinned `3.8` and matched nothing where only
+// `gemini-3.1-flash-tts-preview` is live).
+const GEMINI_V3UP = String.raw`gemini-(?:[3-9]|\d{2,})(?:\.\d+)*`;
 export const CURATED = Object.freeze({
 	chat: Object.freeze({
-		gemini: [/^gemini-3\.8-flash(-\d{3,}|-latest)?$/, /^gemini-3\.8-pro(-\d{3,}|-latest|-preview)?$/],
+		gemini: [new RegExp(`^${GEMINI_V3UP}-flash(-\\d{3,}|-latest|-preview)?$`), new RegExp(`^${GEMINI_V3UP}-pro(-\\d{3,}|-latest|-preview)?$`)],
 		anthropic: [/^claude-sonnet-\d/, /^claude-opus-\d/, /^claude-haiku-\d/],
 		openai: [/^gpt-6(\.\d+)?(-[a-z]+)?$/, /^gpt-5(\.\d+)?$/],
 	}),
 	voice: Object.freeze({
-		gemini: [/^gemini-3\.8-flash-lite-tts$/, /^gemini-3\.8-flash-tts$/],
+		gemini: [new RegExp(`^${GEMINI_V3UP}-flash-lite-(?:preview-)?tts(-preview)?$`), new RegExp(`^${GEMINI_V3UP}-flash-tts(-preview)?$`)],
 	}),
 });
 
 const SIDE = /(^|-)(nano|mini|lite|image|audio|exp|experimental)(-|$)/i;
+
+/** The version in a model id (`gemini-3.1-…` → [3, 1]), or [] when it carries none. */
+const versionOf = (id) => (String(id).match(/^[a-z]+-(\d+(?:\.\d+)*)/)?.[1] ?? '').split('.').filter(Boolean).map(Number);
+/** Newest first: by `created` when the list has it, else by the version in the id, then a GA id before a preview. */
+function newestFirst(a, b) {
+	const byDate = (b.created ?? 0) - (a.created ?? 0);
+	if (byDate) return byDate;
+	const va = versionOf(a.id);
+	const vb = versionOf(b.id);
+	for (let i = 0; i < Math.max(va.length, vb.length); i++) if ((vb[i] ?? 0) !== (va[i] ?? 0)) return (vb[i] ?? 0) - (va[i] ?? 0);
+	return Number(/preview/.test(a.id)) - Number(/preview/.test(b.id));
+}
 
 /**
  * Order a LIVE list by the curation: curated matches first (in the curation's order, newest
@@ -67,7 +84,7 @@ export function curate(live, families) {
 	const seen = new Set();
 	const head = [];
 	for (const re of families) {
-		const hits = list.filter((m) => !seen.has(m.id) && re.test(m.id)).sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+		const hits = list.filter((m) => !seen.has(m.id) && re.test(m.id)).sort(newestFirst);
 		for (const m of hits) {
 			seen.add(m.id);
 			head.push({ ...m, curated: true });
@@ -86,7 +103,7 @@ export function curate(live, families) {
 export function curatedDefault(live, families) {
 	for (const re of families || []) {
 		const hits = (live || []).filter((m) => re.test(m.id) && (!SIDE.test(m.id) || SIDE.test(re.source)));
-		if (hits.length) return [...hits].sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0].id;
+		if (hits.length) return [...hits].sort(newestFirst)[0].id;
 	}
 	return null;
 }

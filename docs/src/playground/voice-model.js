@@ -486,8 +486,13 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
 // A chosen Gemini voice never bills OpenRouter: this rung only ever calls Google with the
 // Gemini key (engineering/decisions/2026-11-07-studio-model-spine.md).
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-/** The curated default Gemini voice model: Flash-Lite TTS is Google's recommendation for read-aloud. */
-export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
+/**
+ * The Gemini voice model used only until the live list answers (or when it cannot be read). The
+ * live list decides the real default (CURATED.voice.gemini: Flash-Lite TTS, then Flash TTS, newest
+ * version first). This is the id Google's own Gemini-TTS docs list, so a fallback request names a
+ * model that exists rather than one only some accounts have.
+ */
+export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.1-flash-tts-preview';
 
 function base64ToBytes(b64) {
   const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');

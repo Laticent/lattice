@@ -122,16 +122,23 @@ old pref ladder. They never read or write the Studio's selection records
 `docs/src/lib/provider-registry.js` is the one table of what each provider does (chat, voice, key,
 on-device) and its curated families. Curation is a preference over the provider's LIVE list
 (`curate`, `curatedDefault`): curated matches first, every live model kept, no pinned ids, so a
-retired id stops matching and a new release in the family is picked up. Gemini 2.5 ids are not
-curated. The direct chat default prefers the curated family inside the existing price rule (a
+retired id stops matching and a new release in the family is picked up. The Gemini families match
+any version from 3 up, newest version first (by `created` when the list has it, else by the version
+in the id, a GA id before a preview of the same version). The first draft pinned `3.8` in each
+pattern; Google's Gemini-TTS docs list `gemini-3.1-flash-tts-preview` as the only 3.x TTS model
+(owner screenshot, 2026-11-08), so on such an account nothing was recommended and the fallback
+named a model that was not there. Gemini 2.5 ids are listed but not curated. The direct chat default prefers the curated family inside the existing price rule (a
 fallback still never moves the author up in price).
 
 The direct Gemini voice (`gemini-tts` rung, `voice-model.js`) calls
 `models/<id>:generateContent` with `responseModalities: ['AUDIO']` and
-`speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, on the Gemini key only. The 3.8 models
-answer WAV with a RIFF header, returned as is; headerless L16 is wrapped. The model list comes from
-the live `/v1beta/models`, the voice roster from the live `/v1beta/voices` (never hand-typed), and
-its clips key under their own rung name, so they never collide with an OpenRouter clip.
+`speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, on the Gemini key only. A response
+with a RIFF header is returned as is; headerless L16 (the documented default) is wrapped into WAV. The
+model list comes from the live `/v1beta/models`. The voice roster is read from `/v1beta/voices`
+(never hand-typed), but Google documents no such list endpoint, so on a real key the roster may be
+empty and Gemini speaks in the model's default voice; how to offer a voice choice there is an open
+owner decision (PR #3079). Until the model list answers, the rung uses `gemini-3.1-flash-tts-preview`.
+Clips key under their own rung name, so they never collide with an OpenRouter clip.
 
 ## 7. Workspace › AI, the chip and Present
 
