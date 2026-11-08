@@ -38,9 +38,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
-/** The chart kinds' one move (#2997): a record under lib/components/chart/ whose gallery now lives in the plugin. */
-const movedChartKind = (from, to) => /^lib\/components\/chart\/[^/]+\//.test(from) && /^lib\/plugins\/chart-family\/kinds\/[^/]+\//.test(to) && from.split('/').pop() === to.split('/').pop();
-
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
 const componentsDir = join(repoRoot, 'lib', 'components');
@@ -66,6 +63,17 @@ function srcPdf(m, mode) {
 const outFile = (name, mode) => join(outDir, `${name}.${mode}.webp`);
 const SOURCES = join(here, 'showcase-sources.json');
 const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
+const rel = (file) => file.replace(`${repoRoot}/`, '');
+
+// A gallery PDF that is not there yet is WAITING FOR THE BLESS, not stale. Pull requests commit no
+// PDFs (engineering/decisions/2026-10-06-goldens-bot-blessed.md); the nightly bless renders a
+// missing gallery PDF first (tools/golden-bless.mjs sourcesMissingPdfs) and then re-runs this
+// script, which cuts the WebP from it. So a gallery that moved (the chart kinds into their plugin,
+// #2997), was renamed, or was newly flagged with a WebP cut locally keeps the WebP and record it
+// has until then. A gallery the bless cannot render is not hidden by this: the bless reports it
+// as a failed first render and the night goes red. What still fails here is a flagged component
+// with NO WebP or NO record, because then there is nothing to show.
+const waitingForBless = (pdf, rec, webp) => !existsSync(pdf) && Boolean(rec) && existsSync(webp);
 
 function check() {
 	const stale = [];
@@ -86,12 +94,8 @@ function check() {
 			const pdf = srcPdf(m, mode);
 			if (!rec) stale.push(`${key}: no source record`);
 			else if (rec.page !== page) stale.push(`${key}: showcase page changed (${rec.page} → ${page})`);
-			else if (!existsSync(pdf) && movedChartKind(rec.src, pdf.replace(`${repoRoot}/`, ''))) {
-				// The gallery MOVED (a chart kind into its plugin, #2997): pull requests commit no PDFs, so the PDF at its
-				// new home arrives with the next bless (engineering/decisions/2026-10-06-goldens-bot-blessed.md). The record
-				// still names the old home until this script regenerates it from the blessed PDF. Only that one move is
-				// excused: once the records name the new homes this branch matches nothing, and any other move fails.
-				process.stderr.write(`waiting: ${key}: the gallery moved (${rec.src} → ${pdf.replace(`${repoRoot}/`, '')}); its PDF arrives with the next bless.\n`);
+			else if (waitingForBless(pdf, rec, outFile(m.name, mode))) {
+				process.stderr.write(`waiting: ${key}: ${rel(pdf)} arrives with the next bless; the WebP from ${rec.src} stands until then.\n`);
 			} else if (!existsSync(pdf)) stale.push(`${key}: gallery PDF missing`);
 			else if (sha256(pdf) !== rec.srcSha256)
 				stale.push(`${key}: gallery PDF changed since the WebP was generated (drifted render)`);
@@ -124,10 +128,9 @@ async function build() {
 			const pdf = srcPdf(m, mode);
 			const key = `${m.name}.${mode}`;
 			const rec = prior[key];
-			// Same excuse check() grants (#2997): a moved chart kind whose PDF has not been blessed at its new
-			// home yet keeps its old WebP and old record, so --check stays green and the next build picks it up.
-			if (!existsSync(pdf) && rec && existsSync(outFile(m.name, mode)) && movedChartKind(rec.src, pdf.replace(`${repoRoot}/`, ''))) {
-				process.stderr.write(`waiting: ${key}: kept the WebP from ${rec.src}; ${pdf.replace(`${repoRoot}/`, '')} is not rendered yet.\n`);
+			// The same rule check() applies: keep the WebP and its record until the bless renders the PDF.
+			if (waitingForBless(pdf, rec, outFile(m.name, mode)) && rec.page === page) {
+				process.stderr.write(`waiting: ${key}: kept the WebP from ${rec.src}; ${rel(pdf)} arrives with the next bless.\n`);
 				sources[key] = rec;
 				waiting++;
 				continue;
@@ -149,7 +152,7 @@ async function build() {
 	}
 	rmSync(tmp, { recursive: true, force: true });
 	writeFileSync(SOURCES, `${JSON.stringify(sources, null, '\t')}\n`);
-	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/ + showcase-sources.json${waiting ? ` (${waiting} kept, waiting for a moved gallery's first bless)` : ''}.\n`);
+	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/ + showcase-sources.json${waiting ? ` (${waiting} kept, waiting for the bless to render their gallery PDF)` : ''}.\n`);
 }
 
 if (process.argv.includes('--check')) check();
