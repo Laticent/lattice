@@ -21,10 +21,10 @@ describe('stage-window — buildStageDoc', () => {
 		const doc = buildStageDoc({ html, width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', dagreUrl: '/dagre.js', standalone: true });
 		const nonce = /script-src 'nonce-([^']+)'/.exec(doc)?.[1];
 		expect(nonce, 'the policy names a nonce').toBeTruthy();
-		const scripts = doc.match(/<script\b[^>]*>/g) ?? [];
+		const scripts = doc.match(/<script\b[^>]*>/gi) ?? [];
 		expect(scripts.length).toBeGreaterThanOrEqual(5);
 		for (const tag of scripts) expect(tag, tag).toContain(`nonce="${nonce}"`);
-		for (const tag of doc.match(/<link rel="preload" as="script"[^>]*>/g) ?? []) expect(tag, tag).toContain(`nonce="${nonce}"`);
+		for (const tag of doc.match(/<link\b[^>]*\bas="script"[^>]*>/gi) ?? []) expect(tag, tag).toContain(`nonce="${nonce}"`);
 		// A script the sanitizer missed would carry no nonce: the deck's markup never sees it.
 		expect(buildStageDoc({ html: '<i>x</i>', width: 1, height: 1, bg: '#000', css: '', runtimeUrl: '/r.js' })).toContain(`'nonce-${nonce}'`);
 	});
