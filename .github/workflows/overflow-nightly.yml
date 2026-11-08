@@ -170,13 +170,16 @@ jobs:
       # mirror of the defect this discrimination exists to prevent.
       #
       # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js:186,206`
-      # exits 1 for `regressions.length || errors.length` — so a browser that cannot launch
+      # exits 1 for `regressions || errors || unfloored` — so a browser that cannot launch
       # fails all 279 renders and exits 1, indistinguishable by code from a deck that
       # genuinely clipped. Exit 2 is only the guard refusing to start (`:145`), a `--bless`
       # misuse, or an uncaught throw. So the classification reads the REPORT, which prints
       # unambiguous markers for each: `failed to render` per deck, and `clip MORE slides
       # than the baseline` for the finding. Render errors win when both are present — a
       # ratchet verdict computed over decks that did not render is not a verdict.
+      # `have NO FLOOR in the baseline` (#2060) is a finding too: a deck no bless ever swept,
+      # named by the baseline's `swept` list. Without it here, the first night after any new
+      # deck lands would file as `unknown` — an overflow finding titled as a setup error.
       - name: Overflow corpus sweep (report-only)
         id: sweep
         env:
@@ -195,7 +198,7 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
             if grep -q 'failed to render' "$REPORT"; then
               echo "kind=broken" >> "$GITHUB_OUTPUT"
-            elif grep -q 'clip MORE slides than the baseline' "$REPORT"; then
+            elif grep -q -e 'clip MORE slides than the baseline' -e 'have NO FLOOR in the baseline' "$REPORT"; then
               echo "kind=finding" >> "$GITHUB_OUTPUT"
             else
               echo "kind=unknown" >> "$GITHUB_OUTPUT"
@@ -250,6 +253,9 @@ jobs:
                 echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
                 echo "if the change is deliberate and the content is right — re-bless with"
                 echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+                echo ""
+                echo "If the report says a deck has NO FLOOR, no bless ever swept it: a clean one needs"
+                echo "only \`--bless\`; a clipping one needs its slides fixed first."
                 ;;
               broken)
                 echo "One or more decks FAILED TO RENDER on \`main@${{ github.sha }}\`, so the corpus"

@@ -56,3 +56,17 @@ test('bless records every swept deck by name, sorted, and only clipping decks in
 test('the cost line divides the sweep by its decks (work done, not a timing assertion)', () => {
   assert.equal(costLine({ decks: 500, seconds: 2000, jobs: 2 }), '⏱ sweep cost — 500 decks in 2000s at 2 workers: 4.00 s/deck');
 });
+
+test('every finding marker overflow-nightly.yml greps for is a line the tool prints', () => {
+  // The nightly classifies a failing run by grepping the report (kind=finding vs unknown). A reworded
+  // console line would silently turn real findings into "could not run" issues, so pin the pair.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..', '..', '..');
+  const wf = fs.readFileSync(path.join(root, '.github/workflows/overflow-nightly.yml'), 'utf8');
+  const tool = fs.readFileSync(path.join(root, 'tools/check-overflow-corpus.js'), 'utf8');
+  const line = wf.split('\n').find((l) => l.includes('kind=finding') === false && /elif grep -q .*REPORT/.test(l));
+  const markers = [...line.matchAll(/-e '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(markers, ['clip MORE slides than the baseline', 'have NO FLOOR in the baseline']);
+  for (const m of markers) assert.ok(tool.includes(m), `tool never prints "${m}"`);
+});
