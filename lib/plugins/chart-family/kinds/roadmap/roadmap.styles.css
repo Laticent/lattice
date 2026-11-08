@@ -943,3 +943,40 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 :is(section.roadmap, figure.roadmap).milestones tbody td:not(:first-child) {
   background:color-mix(in srgb, var(--bg-alt) 45%, transparent);
 }
+
+/* ── A PHONE: calmer phase cards (the --fluid viewer, a screen at most 40em wide) ──────────────
+ * The fluid viewer redraws a roadmap for a phone as its `horizons` cards (lib/runtime/chart-redraw.js),
+ * and the portrait cards above were built for a split page: two columns of items under uppercase
+ * mono workstream eyebrows, a rule beside every item, and a phase pill sized to a 1080-wide page. At
+ * 390px that read busy (the owner's look, 2026-11-08). Here each card is one column, each item one
+ * line: the workstream name in plain text in a fixed column, the item beside it; no rule beside it;
+ * a phase pill the size of the phase title. Only the fluid viewer on a phone reaches it, so no export
+ * changes. engineering/decisions/2026-11-03-responsive-tables.md §"The whole-source kinds". */
+@media (max-width: 40em) {
+  section.roadmap.horizons:where(:root[data-lattice-view="fluid"] *) .horizon-rows {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    align-content: normal;
+    gap: var(--sp-2xs);
+  }
+  section.roadmap.horizons:where(:root[data-lattice-view="fluid"] *) .horizon-rows > li {
+    display: grid;
+    grid-template-columns: minmax(0, 6em) minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: var(--sp-sm);
+    padding-left: 0;
+    border-left: 0;
+  }
+  section.roadmap.horizons:where(:root[data-lattice-view="fluid"] *) .row-label {
+    font-family: var(--font-body);
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  section.roadmap.horizons:where(:root[data-lattice-view="fluid"] *) .horizon-head > .lat-pill {
+    /* Not floored at --chart-text-min: in the fluid view that resolves to 25px, above the 17px title. */
+    --lat-pill-size: calc(var(--fs-body) * 0.8);
+  }
+}

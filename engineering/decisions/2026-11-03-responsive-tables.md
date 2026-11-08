@@ -703,6 +703,13 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   shared key's flowing band, `fitLabels`). A crowded tower whose heading rows would not fit keeps the side
   column. A whole slide is 320 wide in either orientation, so no whole-slide export moves (landscape and
   portrait gallery renders byte-identical to `main`).
+- **Roadmap's phone cards are calmer (the owner's look, 2026-11-08).** The portrait `horizons` cards were
+  built for a split 1080-wide page: two item columns under uppercase mono workstream eyebrows, a rule beside
+  every item, a phase pill at the chart's text floor (25px in the fluid view, beside a 17px title). In the
+  fluid viewer on a phone (a screen at most 40em wide) each card is one column, each item one line with its
+  workstream name in plain text beside it, no rule, and a pill sized from the title. Roadmap stays off the
+  shared table cards on purpose (§"The block layouts copy no markup": it is a cross-tab), and no export
+  changes (roadmap.styles.css, the last block).
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

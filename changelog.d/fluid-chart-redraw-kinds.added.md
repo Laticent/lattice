@@ -2,3 +2,4 @@
 - In the `--fluid` viewer, radar, map, quadrant, word-cloud, pie and hub-spoke charts drew 0px tall at every width, so they did not show at all. They now fill the rest of the slide, as on a paged slide.
 - A chart redrawn for a phone prints every label the export printed: no value is dropped and no name is shortened to fit. A chart that cannot fit them all keeps its exported drawing.
 - A tower in a narrow box (a phone, a narrow pane) prints each layer's name and size above its band instead of in a side column, so the bars take the full width, and its key wraps in centered rows at the chart's label size.
+- On a phone in the `--fluid` viewer, a roadmap's phase cards are calmer: one line per item with the workstream name beside it, no rule beside each item, and a phase date the size of the phase title.
