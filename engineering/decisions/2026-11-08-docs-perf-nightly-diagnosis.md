@@ -133,6 +133,12 @@ deck, a user deck and a `?lesson=` URL show the bar. Screenshots of shell agains
 caption in the same place. `studio-shell-parity` and `studio-instant-shell` pass, apart from two slide-box-width cases
 that fail the same way on `main` (`followups.d/2959-p4-instant-shell-slide-box-width.md`).
 
+**The nightly itself, dispatched on the PR branch** (run 42490597756, Chrome 157 on the CI runner, base = `main` about
+24 h earlier): the compare reported no regression and filed nothing. Mobile /studio/ LCP went from 14,218 ms (base) to
+6,424 ms (head), TBT from 1,882 to 1,665 ms, and score from 0.40 to 0.41. Mobile /playground/ went from 0.47 to 0.49,
+both under the floor, and filed nothing. The artifact held 71 files, 17.5 MB: 15 desktop and 25 mobile reports for
+head, 15 and 15 for base (the base still ran its own 3-run config), and `perf-report.md`.
+
 ## 5. Compared with the 2026-09-22 build (from the handoff, 10 runs)
 
 | | 09-22 build `37fa5a30` | head |
@@ -151,6 +157,7 @@ Their gains are inferred, not measured.
 
 - `startup-bench` on head against the 09-22 build.
 - Long tasks attributed to chunks from a real trace.
+- Chrome 157 locally (the nightly run above used it in CI).
 - A like-for-like CDN comparison. The PR's Cloudflare preview was measured against production (`lattice.style`, GitHub
   Pages, no fix), 3 runs each, alternated. The two hosts differ (Brotli, caching), so only the direction counts:
   LCP median 9.8 s on production against 5.2 s on the preview, score 0.44 against 0.49. Every production run took the
