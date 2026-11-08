@@ -1,9 +1,14 @@
 - **An empty agenda fills itself from the deck's dividers.** Write an `agenda` slide with a
   heading and no list, and it lists one item per `divider` slide, named by the divider's heading.
-  The same empty agenda placed inside a section also gets that section's `progress-N`. A list you
-  write always wins. A hidden divider and a divider inside a code fence do not count. With fewer
-  than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`). It works
+  Each filled item ends with the page its section starts on, and the same empty agenda placed inside a
+  section also gets that section's `progress-N`. A list you write always wins. A hidden divider and a
+  divider inside a code fence do not count. With fewer than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`). It works
   in the CLI, the Studio and Export to Marp.
+- **A deck-wide `agenda:` setting.** One line, up to one word per axis: the style (`ledger`, `circles`,
+  `checks`) and whether filled agendas show page numbers (`pages`, `no-pages`), for example
+  `agenda: circles no-pages`. The default is the ledger with page numbers. The editor completes it,
+  the Deck Inspector sets it (Look → Agenda), and `lint:deck` flags an unknown word. An agenda you write
+  keeps its own list and page numbers.
 - **Breaking:** the agenda's `rail` and `cards` styles are retired. The agenda keeps three styles:
   the default `ledger`, `circles` and `checks`. A slide that still names `rail` or `cards` renders as
   the ledger, and `lint:deck` warns (`agenda-retired-style`) with a one-click fix: `rail` becomes

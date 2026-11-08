@@ -84,7 +84,7 @@
     },
     {
       "title": "Let the dividers write it",
-      "body": "Write the agenda as a heading with no list and it fills itself: one numbered item per `divider` slide, named by the divider's heading (its closing period dropped). Placed inside a section, the same empty agenda also gets that section's `progress-N`. Any list you write wins, so a hand-written agenda is never touched. With fewer than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`)."
+      "body": "Write the agenda as a heading with no list and it fills itself: one numbered item per `divider` slide, named by the divider's heading (its closing period dropped), each with the page its section starts on. Placed inside a section, the same empty agenda also gets that section's `progress-N`. Front-matter `agenda:` sets the deck's style and turns the page numbers off (`agenda: circles no-pages`). Any list you write wins, so a hand-written agenda is never touched. With fewer than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`)."
     },
     {
       "title": "Reuse with progress variants",

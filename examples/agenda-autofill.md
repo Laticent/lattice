@@ -36,7 +36,8 @@ Leave the list out, and the deck's dividers fill it in.
 ## The agenda you just saw has no list in its source.
 
 - The slide says `agenda` and a heading, and nothing else
-- The engine lists each `divider` heading in deck order, without the closing period
+- The engine lists each `divider` heading in deck order, with the page it starts on
+- Front matter `agenda: circles no-pages` sets the style and drops the numbers
 - Write any list of your own and it wins, untouched
 
 ---

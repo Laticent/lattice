@@ -72,6 +72,7 @@ import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
+import { type AgendaAxis, agendaLabel, agendaOptions, agendaValue, parseAgenda } from './agenda';
 import { applyDeckEdit, connectOpenRouter, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
@@ -2557,6 +2558,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
 			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity) || null), 'chart-finish', null),
 		);
+	// Agenda (`agenda:`) — the deck's agenda style, and whether a FILLED agenda shows page numbers
+	// (lib/core/resolve-agenda.js). One line, two axes; auto on both removes the key.
+	const agendaWordsNow = parseAgenda(getFrontMatter(source, 'agenda') || '');
+	const setAgendaWord = (axis: AgendaAxis, v: string) =>
+		settingsWrite('Agenda', (s) => {
+			const next = { ...parseAgenda(getFrontMatter(s, 'agenda') || ''), [axis]: v === AUTO_VALUE ? undefined : v };
+			return writeFrontMatterLine(s, 'agenda', agendaValue(next) || null);
+		});
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
@@ -6200,6 +6209,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: marks-*</code>.</>}>
 					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeMarks(marks).name, DEFAULT_MARKS, setMarks, [{ options: catalogOptions(MARKS_FINISHES) }])} />
 				</Field>
+				{/* The deck `agenda:` register — ONE line, two axes, so two rows (the Card tags pattern). */}
+				<SubGroup label="Agenda">
+					{(['style', 'pages'] as const).map((axis) => {
+						const meta = {
+							style: { label: 'Style', desc: 'How every agenda in the deck looks.', find: 'agenda contents ledger circles checks toc', help: <>The ledger reads as a contents page, circles as a track of stops, and checks as done, here and ahead. One slide keeps its own with <code>_class: agenda circles</code>, or <code>agenda-ledger</code> to stay on the ledger.</> },
+							pages: { label: 'Page numbers', desc: 'On agendas filled from the dividers.', find: 'agenda page numbers references contents', help: <>An agenda with a heading and no list fills itself from the deck&apos;s dividers, each item with the page its section starts on. An agenda you write yourself is never changed.</> },
+						}[axis];
+						return (
+							<Field key={axis} label={meta.label} desc={meta.desc} find={meta.find} help={meta.help}>
+								<CatalogSelect
+									ariaLabel={`Choose agenda ${axis === 'style' ? 'style' : 'page numbers'}`}
+									value={agendaWordsNow[axis] && agendaOptions(axis).includes(agendaWordsNow[axis] as string) ? (agendaWordsNow[axis] as string) : AUTO_VALUE}
+									onValueChange={(v) => setAgendaWord(axis, v)}
+									className="w-full"
+									groups={withAutoHead([{ options: agendaOptions(axis).map((w) => ({ value: w, label: agendaLabel(w) })) }], { label: agendaLabel(axis === 'style' ? 'ledger' : 'pages') })}
+								/>
+							</Field>
+						);
+					})}
+				</SubGroup>
 				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
 				    (the Backdrop pattern). Auto on every axis removes the key. */}
 				<SubGroup label="Card tags">

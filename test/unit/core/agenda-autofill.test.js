@@ -45,13 +45,13 @@ test('no agenda, or fewer than two dividers: nothing changes', () => {
 test('a reprise inside section k gains progress-k; one before the first divider gains none', () => {
   const src = deck(slide('agenda', '## Up next.'), DIVIDERS[0], slide('agenda', '## Where we are.'), DIVIDERS[2]);
   const out = fillAutoAgenda(src);
-  assert.match(out, /<!-- _class: agenda -->\n\n## Up next\./);
-  assert.match(out, /<!-- _class: agenda progress-1 -->\n\n## Where we are\./);
+  assert.match(out, /<!-- _class: agenda agenda-pages -->\n\n## Up next\./);
+  assert.match(out, /<!-- _class: agenda progress-1 agenda-pages -->\n\n## Where we are\./);
 });
 
 test('an author\'s own progress-N is kept', () => {
   const src = deck(DIVIDERS[0], slide('agenda progress-2', '## Where we are.'), DIVIDERS[2]);
-  assert.match(fillAutoAgenda(src), /<!-- _class: agenda progress-2 -->/);
+  assert.match(fillAutoAgenda(src), /<!-- _class: agenda progress-2 agenda-pages -->/);
 });
 
 test('a hidden divider opens no section, and a divider in a code fence is code', () => {
@@ -75,12 +75,12 @@ test('a running global `class: agenda` is filled but never given progress (it wo
 
 test('a quoted directive keeps its class: the progress token goes inside the quotes', () => {
   const src = deck(DIVIDERS[0], slide('"agenda"', '## Where we are.'), DIVIDERS[2]);
-  assert.match(fillAutoAgenda(src), /<!-- _class: "agenda progress-1" -->/);
+  assert.match(fillAutoAgenda(src), /<!-- _class: "agenda progress-1 agenda-pages" -->/);
 });
 
 test('a directive spread over several lines still gains its progress', () => {
   const src = deck(DIVIDERS[0], '<!--\n_class: agenda\n-->\n\n## Where we are.', DIVIDERS[2]);
-  assert.match(fillAutoAgenda(src), /<!--\n_class: agenda progress-1\n-->/);
+  assert.match(fillAutoAgenda(src), /<!--\n_class: agenda progress-1 agenda-pages\n-->/);
 });
 
 test('a divider heading that starts with a block marker stays one item of text', () => {
@@ -112,7 +112,8 @@ test('the Q3 board fixture: emptying its agenda and filling it reproduces the ha
   const emptied = src.replace(/(<!-- _class: agenda -->[\s\S]*?\n)((?:\d+\. .*\n)+)/, '$1');
   assert.notEqual(emptied, src);
   const squash = (s) => s.replace(/\n{2,}/g, '\n\n').trim();
-  assert.equal(squash(fillAutoAgenda(emptied)), squash(src));
+  // The filled agenda also carries the page-number marker; the hand-written one did not.
+  assert.equal(squash(fillAutoAgenda(emptied)).replace(' agenda-pages -->', ' -->'), squash(src));
 });
 
 test('the engine renders the filled list, so every surface the engine draws shows it', () => {
@@ -154,4 +155,51 @@ test('the lint plan and the kernel agree on every empty agenda and the section c
     const lint = agendaLintPlan(src).map((p) => ({ slide: p.slide, fills: p.sections >= 2 }));
     assert.deepEqual(lint, kernel, src.slice(0, 200));
   }
+});
+
+// ── The deck `agenda:` register (lib/core/resolve-agenda.js) ─────────────────────────────────────
+const withAgenda = (line, ...slides) => deck(...slides).replace('theme: indaco', `theme: indaco\n${line}`);
+
+test('agenda: circles styles every agenda that names no style, an authored one included, and leaves its list alone', () => {
+  const src = withAgenda('agenda: circles', slide('agenda', '## Written.\n\n1. Mine\n2. Ours'), slide('agenda', '## Filled.'), ...DIVIDERS);
+  const out = fillAutoAgenda(src);
+  assert.match(out, /<!-- _class: agenda circles -->\n\n## Written\.\n\n1\. Mine\n2\. Ours/);
+  assert.match(out, /<!-- _class: agenda circles agenda-pages -->\n\n## Filled\./);
+});
+
+test('a slide\'s own style wins over the deck\'s; agenda-ledger keeps the ledger; agenda-checks reads as checks', () => {
+  const src = withAgenda('agenda: circles', slide('agenda checks', '## A.\n\n1. x'), slide('agenda agenda-ledger', '## B.\n\n1. x'), slide('agenda agenda-checks', '## C.\n\n1. x'), ...DIVIDERS);
+  const out = fillAutoAgenda(src);
+  assert.match(out, /<!-- _class: agenda checks -->\n\n## A\./);
+  assert.match(out, /<!-- _class: agenda agenda-ledger -->\n\n## B\./);
+  assert.match(out, /<!-- _class: agenda agenda-checks checks -->\n\n## C\./);
+});
+
+test('agenda: no-pages fills the list without the page-number marker; a slide can say either way', () => {
+  const off = fillAutoAgenda(withAgenda('agenda: no-pages', slide('agenda', '## A.'), ...DIVIDERS));
+  assert.match(off, /<!-- _class: agenda -->\n\n## A\.\n\n1\./);
+  const slideOff = fillAutoAgenda(deck(slide('agenda agenda-no-pages', '## A.'), ...DIVIDERS));
+  assert.doesNotMatch(slideOff, /agenda-pages/);
+  const slideOn = fillAutoAgenda(withAgenda('agenda: no-pages', slide('agenda agenda-pages', '## A.'), ...DIVIDERS));
+  assert.match(slideOn, /<!-- _class: agenda agenda-pages -->/);
+});
+
+test('an authored agenda never gets the page-number marker, whatever the deck says', () => {
+  const src = withAgenda('agenda: ledger pages', slide('agenda', '## A.\n\n1. Mine'), ...DIVIDERS);
+  assert.equal(fillAutoAgenda(src), src);
+});
+
+test('the engine prints each filled item\'s page: the slide its divider is, counting only shown slides', () => {
+  const src = deck('# Title', slide('agenda', '## A.'), DIVIDERS[0], '<!-- hide -->\n\nCut', DIVIDERS[1], DIVIDERS[2]);
+  const { html } = createEngine().render(src, 'indaco');
+  const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
+  // Title 1, agenda 2, divider 3, the hidden slide not counted, list 4, divider 5.
+  assert.deepEqual([...agenda.matchAll(/<code class="agenda-page">([^<]*)<\/code>/g)].map((m) => m[1]), ['p.3', 'p.5']);
+});
+
+test('no page numbers where the deck has none (`paginate: false`), and none on an authored agenda', () => {
+  const off = deck(slide('agenda', '## A.'), ...DIVIDERS).replace('theme: indaco', 'theme: indaco\npaginate: false');
+  assert.doesNotMatch(createEngine().render(off, 'indaco').html, /class="agenda-page"/);
+  const written = deck(slide('agenda', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
+  assert.doesNotMatch(createEngine().render(written, 'indaco').html, /class="agenda-page"/);
 });

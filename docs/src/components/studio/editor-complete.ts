@@ -4,6 +4,7 @@ import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
+import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { PROGRESS_RAIL_AXIS_ORDER, progressRailWords } from './progress-rail';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
@@ -73,6 +74,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
 	'progress-rail': PROGRESS_RAIL_AXIS_ORDER.map(progressRailWords),
+	agenda: AGENDA_AXIS_ORDER.map(agendaWords),
 	'marks': MARKS_AXES,
 };
 

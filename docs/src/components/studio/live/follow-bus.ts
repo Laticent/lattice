@@ -16,7 +16,7 @@ import * as React from 'react';
  * when a row is added without joining this list, so a new row either rings for a follower or is left out on purpose.
  */
 export const FOCUS_ROWS = [
-	'accent', 'acronyms', 'ai-writes-in', 'auto-glossary', 'backdrop',
+	'accent', 'acronyms', 'agenda', 'ai-writes-in', 'auto-glossary', 'backdrop',
 	'backdrop-mask', 'backdrop-strength', 'bar-placement', 'brand-bar', 'canvas', 'card-lift',
 	'card-rail', 'card-rail-placement', 'card-rows', 'card-tags', 'marks', 'claim',
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',

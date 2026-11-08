@@ -4,7 +4,8 @@ summary: >
   An agenda slide with a heading and no list fills itself from the deck's divider headings, and one placed inside
   section k gains `progress-k`. It fills a slide the author placed rather than generating one like `glossary: auto`,
   so no slide moves. A hand-written list always wins. The agenda keeps three styles (ledger, circles, checks); `rail`
-  and `cards` are retired, render as the ledger, and lint names the fix. Page references are not filled.
+  and `cards` are retired, render as the ledger, and lint names the fix. A filled agenda prints each section's page,
+  read at render time; a deck-wide `agenda:` register sets the style and turns those page numbers off.
 ---
 
 # The agenda: three styles, and an empty agenda fills itself
@@ -113,12 +114,43 @@ lint core may not touch that parser instance (`tools/build-playground.js` `asser
 two to the same answer over every committed deck that names an agenda, plus the hidden-divider, fenced-divider and
 trailing-note cases.
 
+## Follow-up decision: page numbers, and the `agenda:` register
+
+The owner asked, after the first pass, for the page numbers to be filled too, and for one front-matter key that
+sets the agenda's style and whether page numbers show, with autocomplete and an Inspector row; default ledger
+with page numbers. Picked from the options: ONE key, `agenda: <style> <pages>` (the `progress-rail:` shape),
+over two keys; the same PR; and `no-pages` reaches only FILLED agendas ("if somebody actually authors the
+agenda slide that should be sacred").
+
+**Page numbers are read at render time, not computed from the source.** The first pass ruled them out because
+the source cannot know the rendered numbering. The rendered deck can, and it turned out to be exact:
+
+- every shown slide's number is its place among the shown slides (a hidden slide is not counted), and a divider
+  is counted although it draws no number of its own;
+- an automatic split numbers its extra pages `4.2`, `4.3` and never moves a later slide
+  (`lib/core/auto-split.js` `repaginate`), so a divider's number is stable however the slides before it split.
+
+`withAgendaPagesHtml` / `agendaPagesDom` (`lib/forms/tile/progress/progress.transform.js`, both adapters, beside
+the agenda legend) count the shown sections, check the count against every number the engine stamped, and print
+`<code class="agenda-page">p.N</code>` on each item, the trailing page reference every style already draws flush
+right. They FAIL CLOSED: a disagreement with a stamped number (a document holding part of a deck), a deck with no
+page numbers (`paginate: false`), or a list that is not one item per section prints nothing. Checked on the demo
+deck: dividers on pages 3, 5, 7 and 9, the footer numbers around them 2, 6 and 8.
+
+**Which agendas get them.** The fill kernel writes `agenda-pages` onto a slide it filled, unless the deck or the
+slide said `no-pages`, and the render pass prints numbers on exactly those slides. So an authored agenda never
+gets one, as ruled.
+
+**Why the register is applied at the source, not stamped.** Every other axis register stamps `<key>-<word>` on
+every slide (`lib/core/register-factory.js`). This one does not join `AXIS_REGISTERS`: a deck-wide
+`agenda-pages` would reach the authored agendas, and the agenda's styles are the bare `circles` / `checks` words a
+slide already writes. The kernel resolves `agenda:` per agenda slide and writes the answer on that slide's own
+`_class`: the deck's style on any agenda that names none (`agenda-ledger` opts out), and the page marker on filled
+ones. The factory still supplies the words, so the linter (`unknown-agenda`), the editor's completion and the
+Inspector (`docs/src/components/studio/agenda.ts`, pinned to the kernel by its test) read one vocabulary.
+
 ## Not done, and why
 
-- **Page references are not filled.** A page number is a fact about the RENDERED deck: an auto-split, a
-  `split: headings` deck, a hidden slide or a glossary changes it, and none of those is visible at the source level
-  where the fill runs. A wrong `p.12` on a boardroom contents page is worse than none. Filling them would mean a second,
-  render-level pass on both the HTML and DOM paths. Authors who want them write the list, which still wins.
 - **A `split: headings` deck is not filled.** Its slides are cut at render time from `##` headings, so the source has
   no `---` for the fill to read sections from; the agenda renders empty and `agenda-empty` does not fire, because the
   linter reads the same source. It fails safe (nothing wrong is drawn), and such a deck is better served by a written

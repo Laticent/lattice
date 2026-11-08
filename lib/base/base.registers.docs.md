@@ -1470,6 +1470,37 @@ is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q
 1080 × 1350). Use `right` there, or a very short footer.
 `right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
 
+## The agenda — `agenda:`
+
+`agenda:` sets how the deck's agendas look, and whether an agenda the engine fills from the dividers shows
+page numbers. One line, up to one word per axis, the `progress-rail:` shape (`lib/core/resolve-agenda.js`),
+completed word by word in the Studio editor and set from the Deck Inspector (**Look → Agenda**).
+
+```yaml
+agenda: circles no-pages
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| style | `ledger` · `circles` · `checks` | Every agenda that names no style of its own draws in this one. `ledger` is a contents page, `circles` a track of stops, `checks` done, here and ahead. |
+| pages | `pages` · `no-pages` | Whether an agenda the engine FILLED shows each section's page number, flush right. |
+
+**An agenda with no list fills itself** (`lib/core/agenda-autofill.js`): one numbered item per shown
+`divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
+pages axis on, each item ends with the page its section starts on: the divider's place among the shown
+slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
+pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+on its agenda either.
+
+**An agenda you write is yours.** Its list and its page references are never changed. The style axis still
+reaches it, as a theme would; give the slide its own word to opt out.
+
+Per slide: `_class: agenda circles` or `agenda checks` sets one agenda's style, `agenda agenda-ledger`
+keeps the ledger in a deck that chose another, and `agenda-no-pages` drops one filled agenda's page
+numbers. Unlike the other axis registers, this one is applied to the agenda slides alone, at the source,
+rather than stamped on every slide: a deck-wide page-number word would reach the agendas an author wrote.
+The decision: `engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`.
+
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 
 `delivery:` sets how the **Guide** behaves while narration plays: in the Studio's Present, in a
