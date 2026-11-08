@@ -1,6 +1,6 @@
 ---
 origin: 3021
-priority: P10
+priority: P13
 recorded: 2026-11-08
 area: chart
 severity: low
