@@ -40,7 +40,7 @@ const REFUSED = {
   'tower': [],
   'stacked-bar': [],
   'waterfall': [],
-  'bullet': ['slide 5: hand-written Band zones carry no value, and a 0% bar cannot prove its printed target'],
+  'bullet': [],
   'heatmap': [],
   'funnel': [],
   'piechart': [],
@@ -160,18 +160,19 @@ describe('chart redraw: the check before trust refuses a list that is not the au
     withDocument(() => assert.equal(verified(rec(), six, 'line', body.cloneNode(true), false), false));
   });
 
-  // The red team's repros (2026-11-08): each reader reads a list that is not the author's; the check refuses.
+  // The red team's repros (2026-11-08). Each reader once read a list that was not the author's and the check
+  // refused it; read from the source attributes on the marks, each now reads the author's own list.
   for (const [what, cls, md] of [
     ['a tornado (grouped diverging bars: hue is the sign, not the series)', 'bar diverging row', '- Price\n  - Downside `-12`\n  - Upside `9`\n- Volume\n  - Downside `-7`\n  - Upside `8`\n'],
     ['a slope whose trailing entities have one reading each', 'slope', '- North\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel\n  - 2023 `22%`\n- South\n  - 2026 `3%`\n'],
     ['a grouped bar with a missing value (categories would reorder)', 'bar row', '- Q1\n  - Plan `4`\n  - Actual `3`\n- Q2\n  - Actual `5`\n- Q3\n  - Plan `2`\n'],
   ]) {
-    test(`${what} keeps its exported drawing`, () => {
+    test(`${what} is read back whole and passes the check`, () => {
       const body = exported(md, cls);
       const kind = cls.split(' ')[0];
       const list = READERS[kind](body.cloneNode(true));
-      if (!list) return; // the reader refused on its own: also the exported drawing
-      withDocument(() => assert.equal(verified(rec(), list, cls, body.cloneNode(true), false), false));
+      assert.ok(list, 'read back');
+      withDocument(() => assert.equal(verified(rec(), list, cls, body.cloneNode(true), false), true));
     });
   }
 

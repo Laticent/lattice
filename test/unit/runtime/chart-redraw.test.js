@@ -97,9 +97,9 @@ describe('chart-redraw: a bar chart is read back from its marks', () => {
     assert.equal(readBar(body), null);
   });
 
-  test('a series the key cannot name keeps the exported drawing', () => {
+  test('a series its marks cannot name keeps the exported drawing', () => {
     const first = draw('<ul><li>A<ul><li>Plan <code>1</code></li><li>Actual <code>2</code></li></ul></li></ul>', 'bar grouped');
-    for (const k of first.querySelectorAll('text.chart-key-label')) k.remove();
+    for (const m of first.querySelectorAll('rect[data-series-name]')) m.removeAttribute('data-series-name');
     assert.equal(readBar(first), null);
   });
 });

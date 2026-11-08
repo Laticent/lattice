@@ -7,3 +7,5 @@
 - Quadrant, risk-matrix, scatter, histogram, radar, gantt and word-cloud charts redraw for a phone too: each now records its values on its marks as new attributes (the drawing is unchanged), and on a phone a quadrant draws a narrower plane so its labels print at the slide's size.
 - On a phone in the `--fluid` viewer a risk matrix puts its key under the grid, so the grid takes the full width, and a word cloud's size key prints at the slide's label size.
 - A phone opening a `--fluid` export no longer flashes the shrunk exported chart before its redraw: charts are held until their first redraw, and show as exported without script.
+- Every chart kind records its source (series names, axis lines, layers, bands, groups and the like, as written) as attributes on its marks, so the `--fluid` viewer reads a chart back from its marks alone; the drawing is unchanged.
+- In the `--fluid` viewer chart labels follow the slide's text size at every width, instead of the chart's width alone (at 1024 x 768 they printed nearly as large as the slide's heading).

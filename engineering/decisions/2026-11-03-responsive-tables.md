@@ -664,9 +664,7 @@ orientation and no canvas), so there is nothing to redraw.
   test. What the check cannot see was fixed in the readers: a line's middle category that no dot names and
   the axis did not print, and a heatmap row or column with no values, were named from the screen-reader
   table, whose text went through a tag stripper (`Feb <b>x</b> tail` printed `Feb x tail`); the heatmap now
-  reads the painted label. The line keeps reading its table: refusing cost every long monthly line its
-  redraw (no dots past about fifteen points, the checker's measure), so a middle name that looks like markup
-  can print stripped on a phone until the export's stripper is fixed (followups.d/3021-p13). The redraw copies the exported drawing into an INERT
+  reads the painted label. The line reader later stopped reading its table at all (it reads `data-raw`, below). The redraw copies the exported drawing into an INERT
   document before reading it: a copy in the live page loaded an author's raw `<img>` again and re-ran its
   handler on every rotation (18 times after five, now once, at load). A refusal puts the exported drawing
   back rather than leaving another box's redraw on screen, and is remembered for that box. And a PANE keeps its exported drawing when the kernel
@@ -762,6 +760,33 @@ orientation and no canvas), so there is nothing to redraw.
   desktop is never held. The integration test pins both. The narrow threshold is one helper now
   (cartesian.js `fluidNarrow`); the per-kind narrow forms are recorded for the redesign
   (followups.d/3021-p15).
+- **Every kind's source is on its marks; no reader parses prose (the owner, 2026-11-08: "chart axis and labels
+  should have attributes in the svg").** Bar was the model: each bar carries `data-label` / `data-value`. But
+  bar read a grouped chart's series names off the painted key, ep-curve its axis titles off painted text, and
+  line, slope, tower, stacked-bar, bullet, heatmap, hub-spoke, histogram, radar and map read the `<desc>`
+  sentence, the screen-reader table or painted labels (hub-spoke re-ran the kernel's `describe()` to recover
+  spoke directions). Each kernel now records what its reader inferred, as written: `data-series-name` on a
+  bar or share, `data-axis` (an axis line), `data-x-axis` / `data-y-axis` (histogram's titles), line's and
+  slope's `data-raw` tables and `data-dropped` (what the kernel dropped: a series past the cap, a mixed-depth
+  row), tower's `data-layer` / `data-layer-size` / `data-members`, stacked-bar's `data-rows`, bullet's
+  `data-target` / `data-floor` / `data-bands`, heatmap's `data-cols` / `data-rows` / notes / bands / cuts,
+  hub-spoke's `data-group` / `data-dir`, radar's `data-name` / `data-index`, map's `data-unmatched-names`.
+  Every reader now reads attributes and marks only (a grep for `desc`, the screen-reader table, `textOf` or
+  `textContent` in lib/runtime/chart-readers finds comments only, roadmap and journey aside, whose marks are
+  text). Three red-team repros the check used to refuse now read back whole (the tornado, a slope with
+  one-reading entities, a grouped bar with a hole), bullet's hand-written bands and heatmap's named-unused
+  bands redraw, line's stripped-name limit is gone, the ep-curve structure exception and hub-spoke's move of
+  `describe` into lib/core are undone. Stripped of the attributes this branch adds, all 145 decks that use a
+  chart kind render byte-identical to `main`, landscape and portrait.
+- **Labels follow the slide's type (the owner: "the bar labels should be responsive").** Measured on the bar
+  gallery, the redraw's labels tracked the chart's WIDTH: at 1024 x 768 they printed nearly as large as the
+  slide's heading (28px beside 30px), at 820 x 1180 at 60% of it. A whole-slide chart's canvas now comes from
+  the slide's body text (`UNIT_PER_BODY_PX`, the export's own ratio: 3.6px a unit beside a 21.38px body at
+  1280 x 720), in every orientation, and its size joins the redraw key (it follows the slide's width and
+  type, never the chart's drawing, so it cannot loop). Labels print at 1.26x the body text in every
+  landscape box (1280, 1440, 1024 and 1180 wide measured) and 0.78x in every portrait box (820, 600, 390: the
+  200-unit floor that keeps words whole holds them there); at the export's own size the canvas is 320 x 180
+  and the exported drawing stays, byte for byte.
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.
