@@ -7,8 +7,7 @@ its migration in `lib/model-selection.js`, per-use spend booking in `spend.js`, 
 and the shared Models in use / Connections labels in `panel-shells.tsx` (shared with the loading frame so the sheet
 does not move). Version healing (`lib/model-family.js`) and the retired / out-of-credit registry
 (`lib/model-retired.js`) were split OFF the boot path for this budget: a first build put them there at +7.7 KB.
-Measured on 2026-11-08 against `main` 234538b8 with `measure-route-base.sh`: +4,913 bytes raw, about +5,350 once the
-files `main` changed since this branch forked are set aside (`tts-voice-catalog` +2,125, `openrouter-key` +2,100,
-`architect` +521, `StudioIsland` +228, `radio-group` +207, `spend` +207, `panel-shells` +146, `images` -268).
+Measured on 2026-11-08 after rebasing onto `main` 234538b8, with `measure-route-base.sh` and the gate: +5,711 bytes
+(`tts-voice-catalog` +2,125, `openrouter-key` +2,100, `StudioIsland` +596, `architect` +521, `images` -268, the rest small).
 Declared with a little room for gzip variation.
 
