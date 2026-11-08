@@ -112,12 +112,17 @@ exists, and a missing page number left none.
 
 The band is now a grid of four columns (`stage.css` `.cell-footer`): the footer text (`minmax(0, 1fr)`,
 ends in an ellipsis), the split counter (`auto`, only on a split slide), the rail (`auto`), and the page
-number's column (`--footer-pag-col`, five characters of the chrome face, plus the separator's room),
+number's column (`--footer-pag-col`, five characters of the chrome face),
 reserved whether or not a number is drawn. The split counter sits before the rail so its appearance takes
 the footer's room, not the rail's place. `center` keeps its five symmetric columns and reads the same
 token. A divider's marker ends where the content rail ends, short of that column, so the mark a reader
 learns on the divider does not move on the next slide. Measured on the HTML render: the rail's right edge
 holds at one value on one-digit, two-digit and unnumbered slides, under `right` and `center` alike.
+
+The hairline that #3056 drew on the page number's start edge is gone, on the owner's call: it split
+`• ━ • • 8` while the number sat against the rail, and the reserved column now keeps at least three
+characters between them. Left at the column's edge, a gap away from a lone digit, it looked detached;
+moved next to the digits, it would move with them. Space does the job with nothing that moves.
 
 The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
 column in from the edge on every slide, which is consistent, and saves a deck-level switch.

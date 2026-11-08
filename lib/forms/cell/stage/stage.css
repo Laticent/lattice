@@ -234,7 +234,7 @@ section.form > .cell-footer {
    * 2026-11-08). Empty columns still hold their gap, a constant, so nothing moves. `center`
    * re-slices this into five symmetric columns (progress-center.css). */
   display: grid;
-  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] calc(var(--footer-pag-col) + var(--sp-sm) + 1px);
+  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] var(--footer-pag-col);
   /* ONE ROW, the in-flow footer's own box tall (`> footer` below: 1.6em of the chrome face). Fixed, so
    * no item can grow the band: aligned on the baseline, an item whose box hangs lower than the
    * footer's (the split counter's, the rail's) made the row taller on the slides that carry it, and
@@ -335,8 +335,7 @@ section.form.silent:not(.with-footer) > .cell-footer > footer {
 /* The page number as a real element — mono, --fs-meta, vertically centered with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
-  /* Fills its column, the number set at the column's end: the separator on its start edge
-   * (progress.css) then stands at the column's fixed edge, not beside the digits. */
+  /* Fills its column, the number set at the column's end, so the digits keep the band's right edge. */
   grid-column: pag;
   grid-row: 1;
   text-align: end;

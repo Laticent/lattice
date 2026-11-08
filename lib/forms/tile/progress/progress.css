@@ -114,20 +114,12 @@ section.divider.progress-rail-edge .divider-marker.bar-auto .dot.on {
 section.progress-rail-bar .agenda-rail { gap: calc(var(--_sec-1cqi, 1cqi) * 0.3); }
 
 /* ── SEPARATION FROM THE PAGE NUMBER ─────────────────────────────────────────────
- * Beside the page number, `• ━ • • 8` read as five stops, the number the fifth. A hairline opens
- * the page number, so the band reads `• ━ • • | 8`: a scale, then a page. Only where the rail sits
- * beside the number — docked in the footer Cell ahead of it, not centered, not on the edge.
- *
- * ON THE NUMBER, NOT THE RAIL. The rail's width is measured against the berth reserved for it
- * (`--footer-center-w`, stage.css; footer-band.test.js), and a hairline drawn as part of the rail
- * pushed a portrait ten-dot rail 22.8px past that berth. The page number's box grows leftward
- * instead — its digit stays put, because the band is packed right — and the author's footer words
- * are what yield the room, which is their rank in the band. Padding, not margin (HARD RULE #20). */
-/* `center` that fell back to `right` under a bottom-center logo (progress-center.css) keeps it too. */
-section.form:not(.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo))):not(.progress-rail-edge) > .cell-footer > .tile-progress ~ .lat-pagination {
-  padding-inline-start: var(--sp-sm);
-  border-inline-start: 1px solid var(--_rail-off);
-}
+ * Space, not a line. `• ━ • • 8` read as five stops while the number sat against the rail, and a
+ * hairline on the number's start edge split them. The band now reserves the number's own column
+ * (stage.css `.cell-footer`), at least three characters between the last mark and the digits, so the
+ * number reads as a page, and the hairline, left at the column's edge a gap away from a lone digit,
+ * only looked detached. Removed on the owner's call, 2026-11-08
+ * (engineering/decisions/2026-11-08-anchor-chrome.md § The page-number column). */
 
 /* ── THE DIVIDER'S MARKER, PLACED WHERE THE RAIL WILL BE ──────────────────────────────
  * divider.styles.css docks the marker bottom-right, where `right` puts the rail. The other two

@@ -1422,7 +1422,7 @@ progress-rail: edge bar
 
 | Axis | Words (default first) | What it does |
 |---|---|---|
-| placement | `right` · `center` · `edge` | `right` sits beside the page number, which a hairline sets apart. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| placement | `right` · `center` · `edge` | `right` sits beside the page number's column, a fixed width the band reserves on every slide, so the rail never moves. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
 | style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. Past eight sections the rail draws as a bar unless the deck names `dots`. |
 | show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
 
