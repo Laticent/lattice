@@ -48,12 +48,10 @@ section.form .tile-progress {
 section.form > .tile-progress { block-size: var(--footer-h, auto); }
 /* IN THE FOOTER CELL the rail is a ROW ITEM, not a positioned box: one cap of the footer's own type
  * tall, its marks centered in it, standing on the baseline the footer text and the page number share
- * (stage.css `.cell-footer`). So every mark centers on the figures' middle, measured within 0.5px at
- * 200 dpi. It sits where it parked before: last before the page number, the row's `gap` apart. The
+ * (stage.css `.cell-footer`, which places it in its `rail` column, against the page number's fixed
+ * column). So every mark centers on the figures' middle, within a device pixel measured at 2x. The
  * font is set here only so `1cap` is the footer's cap; the marks are sized in slide units. */
 section.form > .cell-footer > .tile-progress {
-  position: static;
-  inset: auto;
   block-size: 1cap;
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
@@ -85,7 +83,7 @@ section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) 
    * read as one scale. The footer words span the first two tracks, so the edge track costs them
    * nothing. */
   grid-template-columns: var(--_pag-col) minmax(0, 1fr) auto minmax(0, 1fr) var(--_pag-col);
-  --_pag-col: calc(var(--chrome-fs) * 3.5);
+  --_pag-col: var(--footer-pag-col);
   /* One baseline, as the flex band (stage.css `.cell-footer`): the rail is one cap tall and stands on it. */
   align-items: baseline;
   column-gap: var(--sp-md);

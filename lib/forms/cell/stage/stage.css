@@ -224,15 +224,29 @@ section.form > .cell-footer {
   left: var(--frame-inset-l);
   right: var(--frame-inset-r);
   bottom: var(--frame-inset-b);   /* hug — mirrors `section header { top: --frame-inset-y }` */
-  display: flex;
+  /* FOUR COLUMNS, each child in its own: the footer text (takes what is left, ends in an ellipsis),
+   * the split counter (`part 2 of 3`, only on a split slide), the section rail, and the page number's
+   * column, a fixed width reserved whether or not a number is drawn. The rail is placed against that
+   * column and never against the number, so it holds still across 9 → 10 and on a slide that drops
+   * its number; the split counter sits BEFORE the rail for the same reason, taking only the footer's
+   * room. A flex row could reserve only for an element that exists, and a missing number left none:
+   * the rail moved 10px at two digits and 50px on a slide with no number (measured on main,
+   * 2026-11-08). Empty columns still hold their gap, a constant, so nothing moves. `center`
+   * re-slices this into five symmetric columns (progress-center.css). */
+  display: grid;
+  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] calc(var(--footer-pag-col) + var(--sp-sm) + 1px);
+  /* ONE ROW, the in-flow footer's own box tall (`> footer` below: 1.6em of the chrome face). Fixed, so
+   * no item can grow the band: aligned on the baseline, an item whose box hangs lower than the
+   * footer's (the split counter's, the rail's) made the row taller on the slides that carry it, and
+   * the band jumped 48 → 54px between slides (footer-band.test.js). */
+  grid-template-rows: calc(var(--chrome-fs) * 1.6);
   /* ONE LINE: the footer text and the page number share a BASELINE, and the rail (a box one cap tall,
    * its marks centered in it, progress-center.css) stands on that baseline, so every mark centers on
    * the figures' middle. `center` aligned the items' line BOXES, which carry room below the baseline
    * the figures never use: the footer's capitals, the page number and the marks centered 2px apart
    * each at 200 dpi (owner's review, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md). */
   align-items: baseline;
-  justify-content: flex-end;      /* wayfinding group (rail · page no.) sits right */
-  gap: var(--sp-md);
+  column-gap: var(--sp-md);
 }
 /* Universal modifier (#527 family) — lift the footer band off the bottom edge into
  * the frame (so the bottom inset mirrors the top by a full band height) instead of
@@ -274,7 +288,6 @@ section.form > .cell-footer > footer {
    * CONTAINER, so the text clipped mid-word with no ellipsis. Vertical centering is the
    * band's own `align-items: center` now that this is a real flex ITEM. */
   display: block;
-  flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
   /* `overflow: hidden` is what makes the ellipsis possible — and it is also a HORIZONTAL clip
@@ -304,6 +317,8 @@ section.form > .cell-footer > footer {
   height: 1.6em;
   overflow: hidden;
   text-overflow: ellipsis;
+  grid-column: footer;
+  grid-row: 1;
 }
 /* `no-footer` / `silent` drop the running footer text on a Form deck. The base
  * variant rule `section.no-footer > footer` is a DIRECT-CHILD selector, so it
@@ -320,13 +335,23 @@ section.form.silent:not(.with-footer) > .cell-footer > footer {
 /* The page number as a real element — mono, --fs-meta, vertically centered with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
+  /* Fills its column, the number set at the column's end: the separator on its start edge
+   * (progress.css) then stands at the column's fixed edge, not beside the digits. */
+  grid-column: pag;
+  grid-row: 1;
+  text-align: end;
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
-  /* The footer's own type (base.modifiers.css `section footer`): weight, tracking and line height, so the
-   * band's three texts (footer, page number, a divider's rail count) read as one line of one face. */
+  /* The footer's own type (base.modifiers.css `section footer`): weight and tracking, so the band's
+   * three texts (footer, page number, a divider's rail count) read as one line of one face. And the
+   * in-band footer's own BOX (`> footer` above: 1.45 line height in a 1.6em box): the band aligns on
+   * the baseline, so two boxes of one shape put the number's digits on the footer's line AND its box
+   * bottom on the band's edge, the berth every other frame's number keeps
+   * (pagination-one-mark.test.js). A `line-height: 1` box rode 5px up the band. */
   font-weight: 500;
   letter-spacing: 0.06em;
-  line-height: 1;
+  line-height: 1.45;
+  height: 1.6em;
   color: var(--marp-slide-footer-color, var(--text-muted));
   white-space: nowrap;
   pointer-events: none;
@@ -362,7 +387,8 @@ section.form > .cell-footer > .lat-pagination {
 section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
-  flex: 0 0 auto;
+  grid-column: rail;
+  grid-row: 1;
   /* `none`. The progress-center Cell caps the rail at `--footer-center-w` for its ABSOLUTE
    * placement, where the reserve is the only thing keeping it off the page number. In flow the rail
    * is `flex: 0 0 auto`, so its content size IS its box and a clamp can only ever be too small —
@@ -394,9 +420,9 @@ section.form > .cell-footer > .tile-progress {
  * claimed to be redundant, and is not to be removed on the argument that it is. */
 .tile-progress .dot,
 .lat-split-rail .seg { flex: 0 0 auto; }
-/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width. */
-section.form > .cell-footer > .lat-pagination,
-section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
+/* The split counter's column: before the rail, so a split slide's counter takes the footer's room and
+ * never the rail's place (`.cell-footer` above). The page number's column is set with its type. */
+section.form > .cell-footer > .lat-split-rail { grid-column: split; grid-row: 1; }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched).
  *

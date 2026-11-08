@@ -121,7 +121,8 @@ describe('footer band — a contended band keeps every mark legible', () => {
           textOverflow: cs.textOverflow,
           whiteSpace: cs.whiteSpace,
           maxWidth: cs.maxWidth,
-          flexGrow: cs.flexGrow,
+          bandDisplay: getComputedStyle(cell).display,
+          footerColumn: cs.gridColumnStart,
           lineHeight: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2,
           footer: box(footer),
           footerClientW: footer.clientWidth,
@@ -144,8 +145,13 @@ describe('footer band — a contended band keeps every mark legible', () => {
           // width from the footer. This is the assertion that makes the export regression
           // structurally impossible rather than merely absent today.
           others: [...cell.children].filter((k) => k !== footer).map((k) => {
-            const kcs = getComputedStyle(k);
-            return { cls: k.className || k.tagName, grow: kcs.flexGrow, shrink: kcs.flexShrink, width: k.getBoundingClientRect().width };
+            const width = k.getBoundingClientRect().width;
+            // Its own content width, read by letting it size to its content for one measurement.
+            const prev = k.style.width;
+            k.style.width = 'max-content';
+            const natural = k.getBoundingClientRect().width;
+            k.style.width = prev;
+            return { cls: k.className || k.tagName, pag: k.classList.contains('lat-pagination'), width, natural };
           }),
           // The dots' own shape — an `on` dot is a pill, an off dot a circle, and a squeezed
           // row used to flatten both into indistinguishable slivers.
@@ -191,20 +197,28 @@ describe('footer band — a contended band keeps every mark legible', () => {
   test('the footer is the row\'s ONLY flexible item', () => {
     // THE central invariant, and the one that would have caught the reverted attempt. A second
     // item that can grow or shrink turns the row into a negotiation between two strings, and
-    // flexbox resolves that by shrinking BOTH — which is how a confidentiality footer lost
+    // a two-string negotiation truncates both — which is how a confidentiality footer lost
     // "any person not named on the distribution schedule" from the exported PDF while the
-    // section label it was competing with truncated too. Every wayfinding mark is `flex: 0 0 auto`
-    // and bounded by construction; the author's words take the remainder.
+    // section label it was competing with truncated too. The band is a GRID since 2026-11-08
+    // (stage.css `.cell-footer`, engineering/decisions/2026-11-08-anchor-chrome.md), so the rule
+    // lives in its columns: the footer's is the only flexible one (`minmax(0, 1fr)`), every
+    // wayfinding mark is exactly its content wide (an `auto` column), and the page number's column
+    // is a fixed reserve, the same width on every slide whatever its digits.
+    const pagWidths = new Set();
     for (const b of bands) {
-      assert.equal(b.flexGrow, '1', `p${b.page}: the footer must absorb the row's free space`);
+      assert.equal(b.bandDisplay, 'grid', `p${b.page}: the footer band is a grid`);
+      assert.equal(b.footerColumn, 'footer', `p${b.page}: the footer sits in the band's flexible column`);
       for (const o of b.others) {
-        assert.equal(o.grow, '0',
-          `p${b.page}: \`${o.cls}\` can GROW (flex-grow: ${o.grow}) — it will take width the author's footer needs`);
-        assert.equal(o.shrink, '0',
-          `p${b.page}: \`${o.cls}\` can SHRINK (flex-shrink: ${o.shrink}) — so it is negotiating for width, `
-          + 'and flexbox resolves a two-string negotiation by truncating both');
+        if (o.pag) {
+          pagWidths.add(o.width.toFixed(2));
+          continue;
+        }
+        assert.ok(Math.abs(o.width - o.natural) < 0.5,
+          `p${b.page}: \`${o.cls}\` is ${o.width.toFixed(1)}px in a ${o.natural.toFixed(1)}px content box — `
+          + 'a mark that grows takes width the footer needs; one that shrinks is negotiating for it');
       }
     }
+    assert.ok(pagWidths.size <= 1, `the page number's column changed width across pages: ${[...pagWidths].join(', ')}`);
   });
 
   test('the section rail carries NO label — rank 4 of the order', () => {

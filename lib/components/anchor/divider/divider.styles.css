@@ -132,13 +132,12 @@ section.divider {
   /* The marker's berth in the bottom band, which the footer leaves it. The footer rail's own berth
    * (`--footer-center-w`, stage.css) at the marker's scale: ten marks and the count at `--_mk`. */
   --_marker-w: calc(var(--_sec-1cqi, 1cqi) * 34);
-  /* Where the marker's row ends: the frame's edge, since a divider carries no page number. */
-  --_marker-end: var(--frame-inset-r);
+  /* Where the marker's row ends: on the content rail's own line, short of the page number's column
+   * (stage.css `.cell-footer`: the column, its separator allowance, then the band's gap). So the mark a
+   * reader learns here does not move on the next slide, and the corner stays the page number's,
+   * empty unless a `divider with-pagination` draws one there. */
+  --_marker-end: calc(var(--frame-inset-r) + var(--footer-pag-col) + var(--sp-sm) + 1px + var(--sp-md));
 }
-/* `divider with-pagination` brings the page number back (lib/core/pagination.js), and it owns the
- * corner: the marker ends where the footer would, short of the number, as the content rail parks
- * beside it. Without this the number drew inside the marker (the checker's probe, 2026-11-08). */
-section.divider.with-pagination { --_marker-end: calc(var(--frame-page-reserve) - var(--_bar-r, 0px)); }
 section.divider > .divider-marker {
   --_mk: 1.25;
   position: absolute;

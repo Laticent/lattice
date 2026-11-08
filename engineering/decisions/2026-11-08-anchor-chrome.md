@@ -103,6 +103,25 @@ height 1), and they and the marks share one center line.
 - The marker yields where the rail does: hidden under a bottom-right logo, bottom-right instead of
   center under a bottom-center logo, and short of the page number on a `divider with-pagination`.
 
+## The page-number column
+
+The default `right` placement laid the footer band out as a flex row, so the rail sat against the page
+number and moved with it: about 10 px left when the count reached two digits, and 50 px right on a slide
+with no number (measured on `main`, 2026-11-08). A flex row can only reserve space for an element that
+exists, and a missing page number left none.
+
+The band is now a grid of four columns (`stage.css` `.cell-footer`): the footer text (`minmax(0, 1fr)`,
+ends in an ellipsis), the split counter (`auto`, only on a split slide), the rail (`auto`), and the page
+number's column (`--footer-pag-col`, five characters of the chrome face, plus the separator's room),
+reserved whether or not a number is drawn. The split counter sits before the rail so its appearance takes
+the footer's room, not the rail's place. `center` keeps its five symmetric columns and reads the same
+token. A divider's marker ends where the content rail ends, short of that column, so the mark a reader
+learns on the divider does not move on the next slide. Measured on the HTML render: the rail's right edge
+holds at one value on one-digit, two-digit and unnumbered slides, under `right` and `center` alike.
+
+The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
+column in from the edge on every slide, which is consistent, and saves a deck-level switch.
+
 ## Title and agenda
 
 - **The title is an anchor**: it drops header and page number and draws no rail (no section has started).
