@@ -142,6 +142,7 @@ import type { Fix } from './photo-verdict';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
+import { type ProgressRailAxis, parseProgressRail, progressRailLabel, progressRailOptions, progressRailValue } from './progress-rail';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
@@ -2390,11 +2391,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// is the common case: the field then shows its placeholder (the heading-derived name) so
 	// the control reads as "this is what the deck is called, blank follows the cover".
 	const deckNameOverride = (getFrontMatter(source, 'title') ?? '').trim() ? (getFrontMatter(source, 'title') ?? '') : '';
-	// The section-progress rail has no native Marp directive (unlike header/footer/
-	// paginate), so it is governed deck-wide by the `no-progress` class token
-	// propagated to every slide (deckClassPropagate). ON is the default; the toggle
-	// stamps / clears `no-progress`.
-	const deckRail = !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
+	// The section rail is ONE front-matter line, `progress-rail:` (lib/core/resolve-progress-rail.js):
+	// placement, style and show. `off` stamps the register's own `progress-rail-off`; a deck that still
+	// says `class: no-progress` (how this toggle used to write it) reads as OFF too, and
+	// the toggle clears that old spelling whichever way it is flipped.
+	const railWords = parseProgressRail(getFrontMatter(source, 'progress-rail') || '');
+	const deckRail = railWords.show !== 'off' && !(getFrontMatter(source, 'class') || '').split(/\s+/).includes('no-progress');
+	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
+	const writeRail = (s: string, patch: Partial<Record<ProgressRailAxis, string | undefined>>) => {
+		const next = { ...parseProgressRail(getFrontMatter(s, 'progress-rail') || ''), ...patch };
+		return writeFrontMatterLine(s, 'progress-rail', progressRailValue(next) || null);
+	};
+	const setRailWord = (axis: ProgressRailAxis, v: string) =>
+		settingsWrite('Section rail', (s) => writeRail(s, { [axis]: v === AUTO_VALUE ? undefined : v }));
 	// The DECK's own color mode — a deck-wide `class: dark` / `class: light` pin (the
 	// same `dark`/`light` canvas tokens the per-slide `_class:` uses). 'auto' = no pin,
 	// so the deck follows the website light/dark (the topbar Sun/Moon). Light/Dark are
@@ -2853,9 +2862,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// lexicon; the block-object serializer preserves definitions.
 	const acronyms = React.useMemo(() => acronymEntries(fm), [fm]);
 	const setAcronyms = (entries: [string, AcronymEntry][]) => settingsWrite('Acronyms', (s) => setFrontMatterAcronyms(s, entries));
-	// Rail ON → clear `no-progress`; rail OFF → stamp it (deck-wide, non-destructive
-	// to any other author classes).
-	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => (deckRail ? mergeClassTokens(s, 'no-progress') : removeClassTokens(s, 'no-progress')));
+	// Rail OFF → `progress-rail: … off`; ON → drop the word. Either way the legacy `class: no-progress`
+	// goes, so the deck says it in one place (non-destructive to any other author classes).
+	const toggleDeckRail = () => settingsWrite(deckRail ? 'Section rail off' : 'Section rail on', (s) => writeRail(removeClassTokens(s, 'no-progress'), { show: deckRail ? 'off' : undefined }));
 
 	function loadDeck(d: StudioDeck) {
 		if (d.id !== deck.id && !live.mayLeaveDeck()) return;
@@ -6228,7 +6237,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TextRow label="Header" desc="The line along the top. Blank hides it." find="running title chrome" help={<>A deck title or client name, repeated on every slide. Any slide can hide it on its own with <code>_class: no-header</code>.</>} value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
 				<TextRow label="Footer" desc="The line along the bottom. Blank hides it." find="running confidential chrome" help={<>A confidentiality or source line, repeated on every slide. Any slide can hide it on its own with <code>_class: no-footer</code>.</>} value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 				{pageNumbersField}
-				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				<Field label="Section rail" desc="Where you are, one mark per section." find="progress no-progress progress-rail" help={<>One mark per section, the current one lit; dividers show it larger. Drawn on its own from three sections and fifteen slides.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+				{deckRail && (
+					// A SCOPE for the same reason as the logo's: `Position` and `Style` do not say "rail".
+					<SettingsScope label="Section rail" keywords="progress dots bar progress-rail" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
+						{(['placement', 'style'] as const).map((axis) => {
+							const meta = {
+								placement: { label: 'Position', desc: railWords.placement === 'center' ? 'A long footer line shortens.' : railWords.placement === 'edge' ? 'Upright, mid-height.' : 'Beside the page number.', help: <>One slide can move its own with <code>_class: progress-rail-edge</code>.</> },
+								style: { label: 'Style', desc: railWords.style === 'bar' ? 'One segment per section.' : 'One dot per section.', help: <>The current section is lit in either.</> },
+							}[axis];
+							return (
+								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
+									<CatalogSelect
+										ariaLabel={`Choose section rail ${axis === 'placement' ? 'position' : 'style'}`}
+										value={railWords[axis] && progressRailOptions(axis).includes(railWords[axis] as string) ? (railWords[axis] as string) : AUTO_VALUE}
+										onValueChange={(v) => setRailWord(axis, v)}
+										className="w-full"
+										groups={withAutoHead(
+											[{ options: progressRailOptions(axis).map((w) => ({ value: w, label: progressRailLabel(w) })) }],
+											{ label: axis === 'placement' ? progressRailLabel('right') : progressRailLabel('dots') },
+										)}
+									/>
+								</Field>
+							);
+						})}
+					</SettingsScope>
+				)}
 				{logoField}
 				{/* The logo modifiers mean nothing without a logo, so they stay hidden
 				    until one is set — otherwise the tab opens with dead rows. */}

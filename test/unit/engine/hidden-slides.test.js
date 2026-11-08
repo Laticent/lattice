@@ -22,7 +22,12 @@ const sectionsOf = (html) => html.match(/<section[\s\S]*?<\/section>/g) || [];
 const attr = (s, name) => (s.match(new RegExp(`<section[^>]*\\s${name}="([^"]*)"`)) || [])[1];
 const rail = (html) => (html.match(/<div class="tile-progress"[\s\S]*?<\/div>/) || [''])[0];
 const glyph = (html) => (html.match(/class="tile-watermark[^"]*"[^>]*>([^<]*)</) || ['', ''])[1];
-const deckOf = (slides) => `---\ntheme: indaco\npaginate: true\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+const deckOf = (slides, fm = '') => `---\ntheme: indaco\npaginate: true\n${fm}---\n\n${slides.join('\n\n---\n\n')}\n`;
+// `progress-rail: on` draws the rail from two sections, so a six-slide fixture has one to compare.
+const RAIL_ON = 'progress-rail: on\n';
+const marker = (html) => (html.match(/<span class="divider-marker-count">([^<]*)</) || ['', ''])[1];
+const stamp = (html) => (html.match(/data-lat-section="([^"]*)"/) || ['', ''])[1];
+const topicEyebrow = (html) => (html.match(/<p data-derived="section"><code>([^<]*)</) || ['', ''])[1];
 
 const BODY = (n) => `<!-- _class: form watermark -->\n\n## Body ${n}.`;
 const DIVIDER = (n) => `<!-- _class: divider -->\n\n# Part ${n}`;
@@ -63,10 +68,30 @@ describe('engine: a hidden slide is marked and takes no number', () => {
   });
 
   test('a hidden divider opens no section: the rail and the glyph count shown dividers only', () => {
-    const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)]), 'lattice').html);
+    const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)], RAIL_ON), 'lattice').html);
     assert.equal(glyph(s[3]), '01', 'the slide after a hidden divider stays in the section before it');
     assert.equal(glyph(s[5]), '02');
+    assert.ok(rail(s[1]), 'the rail draws (progress-rail: on), so the comparison below is not two empty strings');
+    assert.equal((rail(s[5]).match(/<span/g) || []).length, 2, 'two shown sections, two marks');
     assert.equal((rail(s[5]).match(/<span/g) || []).length, (rail(s[1]).match(/<span/g) || []).length);
+  });
+
+  test('a hidden divider draws no marker and advances neither the numeral nor a topic eyebrow', () => {
+    const NUMBERED = (n) => `<!-- _class: divider numbered -->\n\n## Part ${n}`;
+    const TOPIC = '<!-- _class: topic -->\n\n## A topic\n\nBody.';
+    const s = sectionsOf(createEngine().render(deckOf([NUMBERED(1), TOPIC, hide(NUMBERED(2)), TOPIC, NUMBERED(3), TOPIC], RAIL_ON), 'lattice').html);
+    assert.deepEqual([marker(s[0]), marker(s[2]), marker(s[4])], ['1 / 2', '', '2 / 2']);
+    assert.deepEqual([stamp(s[0]), stamp(s[4])], ['01', '02'], 'the third divider is the second shown one');
+    assert.deepEqual([topicEyebrow(s[1]), topicEyebrow(s[3]), topicEyebrow(s[5])], ['01 · Part 1', '01 · Part 1', '02 · Part 3']);
+    assert.equal(stamp(s[2]), '', 'a hidden numbered divider carries no number (it would read 01 again)');
+  });
+
+  test('a hidden divider does not split the topic track: its topics stay in the shown section', () => {
+    const TOPIC = (n) => `<!-- _class: topic -->\n\n## ${n}\n\nBody.`;
+    const s = sectionsOf(createEngine().render(deckOf([DIVIDER(1), TOPIC('Alpha'), DIVIDER(2), TOPIC('Bravo'), TOPIC('Charlie'),
+      hide(DIVIDER(3)), TOPIC('Delta'), TOPIC('Echo')], RAIL_ON), 'lattice').html);
+    const track = (html) => [...html.matchAll(/<li[^>]*>([^<]*)</g)].map((m) => m[1]);
+    for (const k of [3, 4, 6, 7]) assert.deepEqual(track(s[k]), ['Bravo', 'Charlie', 'Delta', 'Echo'], `slide ${k + 1}`);
   });
 });
 
@@ -133,6 +158,7 @@ describe('slice path: the supplied position == the whole-deck render', () => {
     ['two hidden in a row, spot form', [BODY(1), hide(BODY(2), '<!-- _hide -->'), hide(BODY(3), '<!-- _hide: true -->'), BODY(4)]],
     ['explicitly shown', [BODY(1), hide(BODY(2), '<!-- _hide: false -->'), BODY(3)]],
     ['hidden divider', [DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)]],
+    ['hidden divider, rail on', [DIVIDER(1), BODY(1), hide(DIVIDER(2)), BODY(2), DIVIDER(3), BODY(3)], RAIL_ON],
   ];
 
   test('a `hide` shown inside code is not a directive, and the slice path still positions every slide', () => {
@@ -146,16 +172,16 @@ describe('slice path: the supplied position == the whole-deck render', () => {
     assert.deepEqual(core.supplyablePosition(deck, 1, slides.length), { offset: 1, total: 3, deckSection: undefined });
   });
 
-  for (const [label, slides] of cases) {
+  for (const [label, slides, fm = ''] of cases) {
     test(label, () => {
       const engine = createEngine();
-      const deck = deckOf(slides);
+      const deck = deckOf(slides, fm);
       const full = sectionsOf(engine.render(deck, 'lattice').html);
       assert.equal(full.length, slides.length);
       slides.forEach((slide, k) => {
         const page = core.supplyablePosition(deck, k, slides.length);
         assert.ok(page, `${label}: slide ${k + 1} got no supplyable position`);
-        const alone = sectionsOf(engine.render(deckOf([slide]), 'lattice', { page }).html)[0];
+        const alone = sectionsOf(engine.render(deckOf([slide], fm), 'lattice', { page }).html)[0];
         for (const a of ['data-lattice-hidden', 'data-lattice-pagination', 'data-lattice-pagination-total']) {
           assert.equal(attr(alone, a), attr(full[k], a), `${label}: ${a} differs on slide ${k + 1}`);
         }

@@ -63,7 +63,7 @@ export type RenderMarkdownOpts = {
 		/** Which divider-delimited section the slide sits in, and how many the deck has —
 		 *  what the progress rail and watermark glyph would otherwise recount by walking
 		 *  every section of the whole deck. */
-		deckSection?: { index: number; total: number };
+		deckSection?: { index: number; total: number; slides?: number };
 	};
 	/** The style-delivery mode (engineering/decisions/2026-09-24-one-style-delivery-spine.md
 	 *  §4). `'flat'` also returns `flatCss`, for a host that shows slide content outside any

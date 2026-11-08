@@ -425,12 +425,15 @@ section.topic.fact > h2 + p {
  * the engine appends a pagination span and the berth divs after the authored
  * content, so `:last-child` never matches and the basis falls through to the
  * default inline-code chip. */
-section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])) {
+/* `:not([data-derived])`: the section eyebrow topic-track.js derives (topic.docs.md, eyebrow) is a
+ * code-only paragraph too, and on a `fact` slide with no other paragraph it is also the last one. It
+ * is the eyebrow, never provenance. */
+section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) {
   padding: var(--sp-sm) 0 0 0;
   border-top: var(--_hair) solid var(--border);
   max-width: none;
 }
-section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])) > code {
+section.topic.fact > p:last-of-type:has(> code:only-child):not(:where([data-prose])):not(:where([data-derived])) > code {
   font-weight: 500;
   letter-spacing: 0.14em;
 }

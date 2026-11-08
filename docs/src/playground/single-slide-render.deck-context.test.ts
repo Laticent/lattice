@@ -367,7 +367,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const deck = '<!-- _class: divider -->\n\n# Part One\n\n---\n\nbody';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][1]).toBe('THE SLICE');
-		expect(mock.mock.calls[0][3]?.page?.deckSection).toEqual({ index: 1, total: 1 });
+		expect(mock.mock.calls[0][3]?.page?.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 
 	it('a SPOT pagination class also takes the slice path — same reasoning', async () => {
@@ -646,13 +646,13 @@ describe('supplied SECTION position (the progress rail)', () => {
 	const TWO_SECTIONS = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n<!-- _class: divider -->\n\n# Two\n\n---\n\nmore';
 
 	it('counts the dividers at or before the shown slide — where the walk would have arrived', async () => {
-		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toEqual({ index: 1, total: 2 });
-		expect((await pageSent(TWO_SECTIONS, 3, 4))?.deckSection).toEqual({ index: 2, total: 2 });
+		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toMatchObject({ index: 1, total: 2 });
+		expect((await pageSent(TWO_SECTIONS, 3, 4))?.deckSection).toMatchObject({ index: 2, total: 2 });
 	});
 
 	it('a slide BEFORE the first divider is in section 0 — no rail, as in the full deck', async () => {
 		const deck = 'intro\n\n---\n\n<!-- _class: divider -->\n\n# One\n\n---\n\nbody';
-		expect((await pageSent(deck, 0, 3))?.deckSection).toEqual({ index: 0, total: 1 });
+		expect((await pageSent(deck, 0, 3))?.deckSection).toMatchObject({ index: 0, total: 1 });
 	});
 
 	it('omits it entirely for a deck with no dividers', async () => {
@@ -706,7 +706,7 @@ describe('an ambiguous divider count falls back to the deck render', () => {
 	it('still takes the SLICE for an unambiguous divider deck — the optimization survives', async () => {
 		const out = await rendered(REAL);
 		expect(out.source).toBe('THE SLICE');
-		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
+		expect(out.page?.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 });
 
@@ -759,7 +759,7 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- _class: form -->\n\nbody';
 		const out = await sectionFor(deck, 2);
 		expect(out.source).toBe('THE SLICE'); // still the cheap path
-		expect(out.deckSection).toEqual({ index: 1, total: 1 });
+		expect(out.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 
 	it('counts the class value by TOKEN, as the tiles do — `divider-lite` is not a divider', async () => {
@@ -767,6 +767,6 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		// `divider-lite` and `section-divider`, so the counter disagreed with the consumer it
 		// stands in for.
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n<!-- _class: divider-lite -->\n\nbody\n\n---\n\n<!-- _class: form -->\n\ntail';
-		expect((await sectionFor(deck, 2)).deckSection).toEqual({ index: 1, total: 1 });
+		expect((await sectionFor(deck, 2)).deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 });

@@ -1409,6 +1409,66 @@ card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
 
+## The section rail — `progress-rail:`
+
+The section rail is the small row of marks that says which section of the deck a slide is in:
+one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
+to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
+
+```yaml
+progress-rail: edge bar
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| placement | `right` · `center` · `edge` | `right` sits beside the page number, which a hairline sets apart. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. Past eight sections the rail draws as a bar unless the deck names `dots`. |
+| show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
+
+Per slide, a word on one axis replaces the deck's word on that axis only:
+`<!-- _class: progress-rail-edge -->` moves one slide's rail and `progress-rail-on` brings it back on a
+deck that said `off`. The older switch still works beside the key: `no-progress` hides one slide's
+rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: off`, and a deck-wide
+`class: no-progress` reads as off in the Inspector.
+
+**When it draws, and where** (`lib/forms/tile/progress/progress.transform.js`; the reasoning is
+`engineering/decisions/2026-11-06-section-rail-placement.md`):
+
+- **Only in a deck with 3 or more sections and 15 or more slides**, by default. Two sections is
+  "first half, second half", which the page number already says, and a short deck is held in the head.
+  `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
+- **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
+  slides before the first divider carry no rail.
+- **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
+  marks, larger, this section lit, directly above the eyebrow and the section name: left-aligned with
+  the name on a plain or numbered divider, centered on a `divider light`. It is a real row of the
+  divider's block, so it takes its line of the slide's room (at `venue: conference` and `hall` a
+  `divider qr` with a marker caps its code at 20% of the slide width, still over the venue's scan
+  floor). A hidden divider draws no marker and no numeral. That is where a reader learns what the
+  footer marks mean.
+- **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
+  rail as it will look in that section. A different count draws nothing.
+- **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
+
+**The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
+the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
+`--accent` is not used because it merges into `--border` on onyx, concrete, a11y-base and
+a11y-achromatopsia (`topic.styles.css` § the lit item).
+
+**One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
+same number the rail lights. `npm run lint:deck` suggests `empty-section` when a divider follows a
+divider directly, because the first section then holds no slide and its mark never lights.
+
+**`center` costs footer width.** The rail never yields in the footer band, and the author's
+footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
+the center line, the footer words get the band's left half, up to the rail's own width; a line
+longer than that ends in an ellipsis. The rail holds the exact center on every slide. On a wide
+canvas that half fits the gallery decks' longest footers; on a portrait or square canvas the type
+is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q3 board review`, at
+1080 × 1350). Use `right` there, or a very short footer.
+`right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
+
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 
 `delivery:` sets how the **Guide** behaves while narration plays: in the Studio's Present, in a

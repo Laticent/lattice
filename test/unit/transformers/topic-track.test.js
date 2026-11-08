@@ -532,3 +532,37 @@ test('and both arms read every one of those shapes the same way', () => {
       topic('Beta') + topic('Gamma'));
   }
 });
+
+// ── THE DERIVED SECTION EYEBROW ────────────────────────────────────────────────
+// A topic slide with no eyebrow of its own names the section it sits in, counted the way the section
+// rail counts (every divider) and named by that divider's heading. The author's eyebrow always wins.
+test('topic-track: a topic with no eyebrow names its section; an authored eyebrow is kept', () => {
+  const { JSDOM } = require('jsdom');
+  const sec = (c, i) => `<section class="${c}" data-lattice-slide="x">${i}</section>`;
+  const html = sec('divider', '<h2>Market</h2>') + sec('content', '<h2>x</h2>')
+    + sec('divider light', '<h2>Unit economics</h2>')
+    + sec('topic', '<h2>Cost to win</h2><p>Claim</p>')
+    + sec('topic', '<p><code>Mine</code></p><h2>LTV</h2>')
+    + sec('topic fact', '<h2>Payback</h2>');
+  const eyebrows = (root) => [...root.querySelectorAll('section.topic')].map((s) => {
+    const p = s.querySelector(':scope > p[data-derived="section"]');
+    return p ? p.textContent : null;
+  });
+  const out = tt.applyToHtml(html);
+  const fromString = eyebrows(new JSDOM(`<body>${out}</body>`).window.document);
+  assert.deepStrictEqual(fromString, ['02 · Unit economics', null, '02 · Unit economics']);
+  assert.strictEqual(tt.applyToHtml(out), out, 'idempotent');
+  const d = new JSDOM(`<body>${html}</body>`).window.document;
+  tt.applyToDom(d);
+  assert.deepStrictEqual(eyebrows(d), fromString, 'the live-DOM arm agrees');
+  // No section around it (a gallery sample): nothing to name.
+  assert.doesNotMatch(tt.applyToHtml(sec('topic', '<h2>Alone</h2>')), /data-derived/);
+  // One section is not a scale, and the rail's off switches reach the eyebrow too.
+  assert.doesNotMatch(tt.applyToHtml(sec('divider', '<h2>Only</h2>') + sec('topic', '<h2>T</h2>')), /data-derived/);
+  assert.doesNotMatch(tt.applyToHtml(html.replaceAll('class="topic', 'class="progress-rail-off topic')), /data-derived/);
+  assert.doesNotMatch(tt.applyToHtml(html.replaceAll('class="topic', 'class="no-progress topic')), /data-derived/);
+  // A virtual filmstrip (the Playground) keeps the engine's eyebrow and never recounts its window.
+  const v = new JSDOM(`<body><div class="lattice" data-lv>${html}</div></body>`).window.document;
+  tt.applyToDom(v);
+  assert.equal(v.querySelector('p[data-derived]'), null);
+});

@@ -43,3 +43,21 @@ describe('section-index applyToDom', () => {
     assert.deepEqual([...doc.querySelectorAll('h2')].map((h) => h.getAttribute(SECTION_INDEX_ATTR)), [stampValue(1), stampValue(2)]);
   });
 });
+
+// A deck that mixes plain and numbered dividers: the numeral is the section's place in the deck,
+// the same number the section rail lights and the divider's marker prints, so EVERY divider
+// advances it. Counting only numbered ones printed `01` on the third section.
+describe('section-index — every divider advances the series', () => {
+  const { applyToHtml } = require('../../../lib/core/section-index');
+  const sec = (c, i) => `<section class="${c}" data-lattice-slide="x">${i}</section>`;
+  const html = sec('divider', '<h2>A</h2>') + sec('content', '<h2>x</h2>') + sec('divider light', '<h2>B</h2>')
+    + sec('divider numbered', '<h2>C</h2>');
+  test('both arms number the third section 03, and stamp only the numbered divider', () => {
+    const out = applyToHtml(html);
+    assert.equal((out.match(new RegExp(SECTION_INDEX_ATTR, 'g')) || []).length, 1);
+    assert.match(out, new RegExp(`<h2 ${SECTION_INDEX_ATTR}="03">C`));
+    const d = new JSDOM(`<body>${html}</body>`).window.document;
+    applyToDom(d);
+    assert.deepEqual([...d.querySelectorAll(`[${SECTION_INDEX_ATTR}]`)].map((h) => h.getAttribute(SECTION_INDEX_ATTR)), ['03']);
+  });
+});
