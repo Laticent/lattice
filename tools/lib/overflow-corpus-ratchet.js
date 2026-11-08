@@ -45,9 +45,41 @@ function blessed(rows) {
   };
 }
 
+/**
+ * A deck-subset bless (#2060): record or update the floors of just these decks in an existing
+ * baseline. Before `swept`, a partial record was the hole itself (a hand-edit that added one deck
+ * left seven others silently floorless), so `--bless` refused deck arguments. With `swept`, a deck
+ * the subset leaves out is still named as NO FLOOR, so recording a new deck no longer costs a full
+ * sweep. A legacy baseline (no `swept`) has nothing to merge into, so it returns null.
+ */
+function blessedSubset(base, rows) {
+  if (!Array.isArray(base.swept)) return null;
+  const swept = new Set(base.swept);
+  const decks = { ...(base.decks || {}) };
+  for (const r of rows) {
+    swept.add(r.deck);
+    if (r.pages.length) decks[r.deck] = r.pages;
+    else delete decks[r.deck];
+  }
+  const sorted = Object.fromEntries(Object.keys(decks).sort().map((k) => [k, decks[k]]));
+  return {
+    $comment: blessed([]).$comment,
+    totalSlides: Object.values(sorted).reduce((n, p) => n + p.length, 0),
+    decksSwept: swept.size,
+    swept: [...swept].sort(),
+    decks: sorted,
+  };
+}
+
+/** Names the baseline records that the corpus no longer holds (a deck deleted or renamed). */
+function staleNames(base, corpusDecks) {
+  const have = new Set(corpusDecks);
+  return [...new Set([...(base.swept || []), ...Object.keys(base.decks || {})])].filter((d) => !have.has(d)).sort();
+}
+
 /** One line for the nightly report: cost per deck, so a slowdown shows before the job ceiling does. */
 function costLine({ decks, seconds, jobs }) {
   return `⏱ sweep cost — ${decks} decks in ${Math.round(seconds)}s at ${jobs} workers: ${(seconds / Math.max(1, decks)).toFixed(2)} s/deck`;
 }
 
-module.exports = { judge, blessed, costLine };
+module.exports = { judge, blessed, blessedSubset, staleNames, costLine };

@@ -255,7 +255,7 @@ jobs:
                 echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
                 echo ""
                 echo "If the report says a deck has NO FLOOR, no bless ever swept it: a clean one needs"
-                echo "only \`--bless\`; a clipping one needs its slides fixed first."
+                echo "only \`--bless <deck>\`; a clipping one needs its slides fixed first."
                 ;;
               broken)
                 echo "One or more decks FAILED TO RENDER on \`main@${{ github.sha }}\`, so the corpus"

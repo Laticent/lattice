@@ -28,6 +28,7 @@
  *
  *   node tools/check-overflow-corpus.js               # check against the baseline
  *   node tools/check-overflow-corpus.js --bless       # re-record it (say why in the PR)
+ *   node tools/check-overflow-corpus.js --bless examples/new.md   # record just these decks' floors
  *   node tools/check-overflow-corpus.js --jobs 6      # parallelism (default min(4, cpus-2))
  *   node tools/check-overflow-corpus.js --json
  *   node tools/check-overflow-corpus.js examples/foo.md …   # just these decks
@@ -50,7 +51,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
-const { judge, blessed, costLine } = require('./lib/overflow-corpus-ratchet');
+const { judge, blessed, blessedSubset, staleNames, costLine } = require('./lib/overflow-corpus-ratchet');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -161,9 +162,13 @@ async function main() {
 
   // Deck arguments are normalized to the repo-relative POSIX names the baseline keys on, so
   // `./examples/foo.md` or an absolute path is judged against its floor, not read as NO FLOOR.
-  const decks = only.length
-    ? only.map((a) => path.relative(ROOT, path.resolve(a)).split(path.sep).join('/'))
-    : corpus();
+  // A relative argument resolves against the repo root first (so the tool works from any folder,
+  // as it always has), and against the current folder only when the root has no such file.
+  const toDeck = (a) => {
+    const abs = path.isAbsolute(a) || !fs.existsSync(path.resolve(ROOT, a)) ? path.resolve(a) : path.resolve(ROOT, a);
+    return path.relative(ROOT, abs).split(path.sep).join('/');
+  };
+  const decks = only.length ? only.map(toDeck) : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const t0 = performance.now();
   const rows = await pool(decks, jobs, probe);
@@ -176,11 +181,13 @@ async function main() {
   const base = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : { decks: {} };
   const errors = rows.filter((r) => r.error);
   if (bless) {
-    if (only.length) { console.error('✗ --bless re-records the WHOLE corpus; drop the deck arguments.'); process.exit(2); }
     if (errors.length) { console.error(`✗ refusing to bless: ${errors.length} deck(s) failed to render.`); for (const e of errors.slice(0, 5)) console.error(`  • ${e.deck}: ${e.error}`); process.exit(2); }
     // THE DECKS ARE RECORDED BY NAME (#2060), not only counted. A count could say THAT some decks had
     // no floor, never WHICH: fourteen sat unfloored and one of them was born clipping.
-    const next = blessed(rows);
+    // With deck arguments, only those decks' floors are recorded (blessedSubset), which a legacy
+    // baseline cannot take: it has no `swept` list to merge into.
+    const next = only.length ? blessedSubset(base, rows) : blessed(rows);
+    if (!next) { console.error('✗ the baseline lists no `swept` decks, so it cannot take a partial bless; run --bless with no deck arguments once.'); process.exit(2); }
     fs.writeFileSync(BASELINE, JSON.stringify(next, null, 2) + '\n');
     console.log(`✓ blessed — ${next.totalSlides} clipped slides across ${Object.keys(next.decks).length} decks of ${next.decksSwept} → ${path.relative(ROOT, BASELINE)}`);
     process.exit(0);
@@ -202,6 +209,12 @@ async function main() {
     console.error('  ⓘ the baseline lists no `swept` decks, so a deck missing from it reads as CLEAN and ' +
       'nothing can name the decks that have no floor. The next --bless writes the list.');
   }
+  // NAMES THE CORPUS NO LONGER HOLDS (a deck deleted or renamed) stay in the baseline until a bless
+  // prunes them. Informational only: a stale name hides nothing, it just costs nothing to drop.
+  if (!only.length) {
+    const stale = staleNames(base, decks);
+    if (stale.length) console.error(`  ⓘ the baseline names ${stale.length} deck(s) the corpus no longer holds (${stale.slice(0, 5).join(', ')}${stale.length > 5 ? ', …' : ''}); the next full --bless drops them.`);
+  }
   if (improvements.length) {
     console.log(`\n  ${improvements.length} deck(s) improved — bank them with --bless:`);
     for (const i of improvements.slice(0, 12)) console.log(`    ${i.deck}  (fixed p${i.gone.join(', p')})`);
@@ -211,14 +224,14 @@ async function main() {
     process.exit(0);
   }
   if (unfloored.length) {
-    // `have NO FLOOR` is a stable marker line. overflow-nightly.yml classifies a failing run by grepping
-    // for markers; until its grep names this one, an unfloored-only run files as `kind=unknown`.
+    // `have NO FLOOR in the baseline` is a marker: overflow-nightly.yml greps for this exact phrase to
+    // file the run as a finding, and test/unit/tools/overflow-corpus-ratchet.test.js pins the pair.
     console.error(`\n✗ ${unfloored.length} deck(s) have NO FLOOR in the baseline — no bless ever swept them, so the ratchet cannot vouch for them:\n`);
     for (const d of unfloored) {
       const r = rows.find((x) => x.deck === d);
       console.error(`  • ${d}  ${r.pages.length ? `clips p${r.pages.join(', p')}` : 'clean today'} (no floor)`);
     }
-    console.error('\nA clean one needs only a bless; a clipping one needs its slides fixed first.');
+    console.error('\nA clean one needs only `--bless <deck>`; a clipping one needs its slides fixed first.');
   }
   if (regressions.length) {
     console.error(`\n✗ ${regressions.length} deck(s) clip MORE slides than the baseline:\n`);
