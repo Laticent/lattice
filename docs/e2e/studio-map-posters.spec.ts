@@ -71,8 +71,11 @@ async function postersPastTheCap(page: Page) {
 	// A fast jump back to the top: the tiles there are past the live cap of 3, and were captured on the way down.
 	await scrollRail(page, 0);
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="poster"] img`).count(), { message: 'no tile past the live cap showed a poster' }).toBeGreaterThan(2);
-	// Every poster on screen is a decoded picture, not a broken or empty image.
-	expect(await page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>('[data-map-rail] button[data-tier="poster"] img')].every((i) => i.complete && i.naturalWidth > 0))).toBe(true);
+	// Every poster on screen is a decoded picture, not a broken or empty image. Polled, not read once: a poster that has
+	// just come on screen is still decoding (`complete` false), while a broken one never gets a width (#3045).
+	await expect
+		.poll(() => page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>('[data-map-rail] button[data-tier="poster"] img')].every((i) => i.complete && i.naturalWidth > 0)))
+		.toBe(true);
 	const live = await page.locator(`${RAIL} button[data-tier="live"]`).count();
 	expect(live).toBeLessThanOrEqual(3);
 
