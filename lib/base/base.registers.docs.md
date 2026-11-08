@@ -1462,9 +1462,9 @@ divider directly, because the first section then holds no slide and its mark nev
 
 **`center` costs footer width.** The rail never yields in the footer band, and the author's
 footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
-the center line, a long footer line ends in an ellipsis before the rail's reserved berth
-(`--footer-center-half`). `right` and `edge` do not pay this. With a bottom-center logo, the rail
-falls back to `right`.
+the center line, the footer words get the band's left half, up to the rail's own width; only a
+line longer than that ends in an ellipsis. The rail holds the exact center on every slide.
+`right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
 
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 

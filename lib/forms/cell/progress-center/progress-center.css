@@ -56,23 +56,29 @@ section.form > .tile-progress { block-size: var(--footer-h, auto); }
  * that berth (`logo-finish:`, base.modifiers.css), and the rail falls back to `right` rather than
  * drawing over the mark. */
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) {
-  /* A GRID, not the band's packed-right flex row. The rail leaves the row (it is centered on the
-   * Cell, below), and a flex row then has no way to say "words left, number right" that survives
-   * either one going missing: `space-between` sent a lone page number to the left corner when the
-   * footer text was off. Three tracks place each item by name instead — the words in a track that
-   * stops short of the rail's reserved berth (`--footer-center-half`, the full ten-dot reserve,
-   * since CSS cannot read the dot count), the number in the last. */
+  /* A GRID of three tracks, the rail IN the middle one: `1fr auto 1fr` keeps the outer tracks equal
+   * whatever they hold, so the rail sits on the band's exact center and holds still from slide to
+   * slide, and the words get everything left of the rail's TRUE width. An earlier cut centered an
+   * absolute rail and stopped the words short of the full ten-mark reserve (`--footer-center-w`, a
+   * third of the slide, since CSS cannot read the mark count): a four-section deck's footer was cut
+   * to an ellipsis it had room for, and the clip check flagged eleven slides of gallery-jargon. A
+   * flex row with `space-between` sent a lone page number to the left corner when the footer text
+   * was off; named tracks place each item whatever is missing. */
   display: grid;
-  grid-template-columns: minmax(0, calc(50% - var(--footer-center-half) - var(--sp-md))) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--sp-md);
 }
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > footer { grid-column: 1; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 2; justify-self: end; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 3; }
-/* The rail itself, centered on the Cell (the Cell is the positioned box). */
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 3; grid-row: 1; justify-self: start; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 3; grid-row: 1; justify-self: end; }
+/* The rail itself: a grid item in the middle track, not the absolute placement the default owns. */
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer > .tile-progress {
-  position: absolute;
-  inset: 0 auto 0 50%;
-  translate: -50% 0;
+  grid-column: 2;
+  grid-row: 1;
+  position: static;
+  inset: auto;
+  max-width: none;
 }
 /* A section-level rail (a frame with no footer Cell) centers on the slide the same way. */
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .tile-progress {

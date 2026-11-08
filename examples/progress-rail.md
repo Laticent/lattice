@@ -56,7 +56,7 @@ The section rail answers "which part", and the page number answers "how far".
 
 - `progress-rail: center` moves it to the middle of the footer band
 - The page number stays at the right edge
-- A long footer line ends in an ellipsis before the rail
+- The footer words keep the band's left half, and the rail holds the center on every slide
 
 ---
 
