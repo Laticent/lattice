@@ -185,3 +185,23 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   would trade the shift for invisible text, which is worse.
 - **See:** `lib/core/preview-font-gate.mjs`, `docs/e2e/preview-font-swap.spec.ts`,
   `engineering/jank.md`.
+
+## A font fetched ahead of time is downloaded again by the preview frame
+
+- **Symptom:** You warm a font into the cache from the page so the preview frame finds it later, and the frame's
+  font request still goes to the network. DevTools shows two requests for the same `.woff2`.
+- **Cause:** The browser reuses a cached response only for a request that matches it. A font load is always a CORS
+  request (mode `cors`, credentials `same-origin`). A `<link rel="preload" as="font">` without `crossorigin` is a
+  no-cors request, so the frame does not reuse it. The URL must also be the frame's own: `theme-fetch.ts` rewrites the
+  sheet's `url(fonts/<file>.woff2)` to `<themeBase>fonts/<file>.woff2`, and the shell's own font URLs are a different
+  address for the same files.
+- **Mitigation:** Use a plain `fetch(<themeBase>fonts/<file>.woff2)` from the page and read the body to the end. That
+  is what `docs/src/components/studio/studio-warm.ts` does after the first slide (#3076). Measured in Chromium against
+  a production-like HTTP/2 server: every font request the frame made after the warm-up came from the disk cache, and
+  the same edit before the warm-up went to the network. Check with the CDP `Network.responseReceived` event's
+  `fromDiskCache`, or with `transferSize` 0 in the frame's own resource timing. The service worker hides this
+  difference, so run the check with `serviceWorkers: 'block'`.
+- **Triggered by:** Any warm-up, prefetch or preload aimed at a resource that a srcdoc preview frame loads later.
+- **Removable when:** Never; this is how the HTTP cache matches requests.
+- **See:** `docs/src/components/studio/studio-warm.ts`,
+  `engineering/decisions/2026-09-26-studio-panel-lazy-loading.md` § Warming the fonts the first slide skipped.

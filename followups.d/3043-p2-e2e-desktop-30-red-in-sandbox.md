@@ -32,8 +32,8 @@ left      — each needs a decision, not a test edit:
               the current status mark (white ink on a status fill, status rim). A design-contract call.
             - playground-paint.spec.ts:230: the first-paint snapshot is 122,947 units against 122,880, a real 67-unit
               overrun; the budget is not loosened (HARD RULE #14).
-            - studio-warm-offline.spec.ts:80: the starter deck's only math is inside inline code, so the warm-up rightly
-              never fetches KaTeX; the test needs a deck with real math. (:132 is diagnosed below.)
+            - studio-warm-offline.spec.ts:80: FIXED in #3087. The starter deck's only math is inside inline code, so the
+              warm-up rightly never fetched KaTeX; the test now seeds a deck with real math. (:132 is diagnosed below.)
             - venue-fixed-size.spec.ts:104: a real defect, filed on its own (followups.d/*-new-slide-covers-clip-notice.md).
             - deck-register-gap.spec.ts:99: red only under full-suite load; 0 of 8 runs at 4 workers. Cause unknown.
             - measured 2026-11-06, each run alone (--workers=1), each red every time, with its first error, and EVERY ONE

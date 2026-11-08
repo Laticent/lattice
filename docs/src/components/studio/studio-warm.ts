@@ -1,3 +1,6 @@
+import emojiFacesCore from '../../../../lib/fonts/emoji-faces.js';
+import iconFacesCore from '../../../../lib/fonts/icon-faces.js';
+import textFacesCore from '../../../../lib/fonts/text-faces.js';
 import { drawnLibraryUrls } from '../../../../lib/plugins/drawn-library.mjs';
 import type { Warmable } from './lazy-panel';
 
@@ -24,6 +27,22 @@ import type { Warmable } from './lazy-panel';
 // browser that has shown a diagram or opened Fabricate, and never under Save-Data. Fetched, not run,
 // like KaTeX. A deck on screen with a diagram loads the bundle anyway (the diagram check), so what
 // this adds is a diagram met LATER: another deck opened offline, or Fabricate's Diagram specimen.
+//
+// The FONTS the preview frame has not loaded yet (#3076) go last. Since #3074 the frame waits only for the faces its
+// visible slide uses, so the first emoji, the first code block, `finish: sketch` or a new weight fetched its file on
+// that edit and the text swapped once from a fallback face. This puts every face the base sheet declares into the HTTP
+// cache instead, one file per queue step (so `warmPanels` yields to the idle scheduler between files), at low fetch
+// priority, after every warm-up above. The URLs are the frame's own: `theme-fetch.ts` rewrites the sheet's
+// `url(fonts/<file>.woff2)` to `<themeBase>fonts/<file>.woff2`, and a `fetch` from this page uses the same mode
+// (`cors`) and credentials (`same-origin`) as the srcdoc frame's font request, so the frame's later request is a cache
+// hit, measured with a real Chromium in #3076. A `<link rel=preload as=font>` without `crossorigin` is a no-cors
+// request, and the browser does not reuse it for a font load, which is the likely cause of the miss the #3074 spike saw.
+// KaTeX's faces are left out: the sheet carries them only once a deck has math, and
+// `ensureKatexFaces` loads them then. Never under Save-Data: it is about 2.7MB, 2.2MB of it the emoji slices.
+// Where the service worker controls the page (`docs/public/sw.js` serves `/playground/v/<hash>/` cache-first), these
+// fetches land in its Cache Storage instead, and the frame's request is answered from there: the 2.7MB is then kept on
+// the device until the next deploy renames the folder, and the fonts work offline. The worker's own network fetch on a
+// miss does not carry `priority: 'low'`; the one-at-a-time idle queue is what keeps it off the startup path.
 //
 // Not warmed: the voice model (`read-aloud.ts`). Neural read-aloud needs its weights too, which are
 // far larger, and without them the module offline does nothing the browser voice cannot.
@@ -65,6 +84,33 @@ const presentWarm = warmable(() => Promise.all([import('./PresentOverlay'), impo
 const readArticleWarm = warmable(() => Promise.all([import('./ReadArticle'), import('./article-projection').then((m) => m.warmArticleProjection())]));
 const fabricateWarm = warmable(() => Promise.all([import('./Fabricate'), import('./library/gallery-gate')]));
 let katexWarm: Warmable | null = null;
+let fontWarms: { base: string; queue: Warmable[] } | null = null;
+
+type FaceList = ReadonlyArray<{ file: string }>;
+/** Every face file the base sheet declares outside KaTeX, smallest-use-first: text, icons, then the emoji slices. */
+export const WARM_FONT_FILES: ReadonlyArray<string> = [
+	...(textFacesCore as { TEXT_FACES: FaceList }).TEXT_FACES,
+	...(iconFacesCore as { ICON_FACES: FaceList }).ICON_FACES,
+	...(emojiFacesCore as { EMOJI_SLICES: FaceList }).EMOJI_SLICES,
+].map((f) => f.file);
+
+/** One warmable per font file under `<themeBase>fonts/`, each fetched once at low priority and read to the end. */
+function fontWarmsFor(themeBase: string, after: Promise<unknown>, quiet: () => Promise<unknown>): Warmable[] {
+	if (fontWarms?.base === themeBase) return fontWarms.queue;
+	const queue = WARM_FONT_FILES.map((file) =>
+		warmable(async () => {
+			// Belt and braces over StudioShell's gate: no font request may compete with the first slide.
+			await after;
+			// And a quiet moment before EACH file: no input, no source edit (a tour's typing included) for 2 s.
+			await quiet();
+			const res = await fetch(`${themeBase}fonts/${file}.woff2`, { priority: 'low' } as RequestInit);
+			// Read the body, so the whole file lands in the cache rather than a cancelled stream.
+			await res.blob();
+		}),
+	);
+	fontWarms = { base: themeBase, queue };
+	return queue;
+}
 let diagramLibWarm: Warmable | null = null;
 
 export type WarmUpInputs = {
@@ -77,10 +123,17 @@ export type WarmUpInputs = {
 	diagramRuntimeUrl: string | null;
 	/** Whether Fabricate has been opened in this browser (`FABRICATE_USED_KEY`). */
 	fabricateUsed: boolean;
+	/** The page's `…/playground/v/<hash>/themes/` URL, under which the frame loads `fonts/<file>.woff2`; null skips the fonts. */
+	themeBase?: string | null;
+	/** Resolves once the first slide is on screen (`first-slide.ts` › firstSlideShown). Passed in, not imported: a
+	 *  static import of a startup module would split it into a chunk of its own (see the header). */
+	firstSlide?: Promise<unknown>;
+	/** Resolves at the next quiet moment (`first-slide.ts` › whenQuiet). Passed in for the same reason. */
+	quiet?: () => Promise<unknown>;
 };
 
 /** Start the warm-up. Returns a cancel function. */
-export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed }: WarmUpInputs): () => void {
+export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed, themeBase = null, firstSlide = Promise.resolve(), quiet = () => Promise.resolve() }: WarmUpInputs): () => void {
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
 	// Every runtime-drawn plugin's library (Mermaid's today), beside the runtime — the files the
@@ -90,5 +143,6 @@ export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fab
 	const surfaces = saveData
 		? []
 		: [composeWarm, presentWarm, readArticleWarm, ...(katexUrl && katexWarm ? [katexWarm] : []), ...(diagramLibs.length && diagramLibWarm ? [diagramLibWarm] : [])];
-	return warmPanels([clipNoticeWarm, hideOpsWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : [])]);
+	const fonts = !saveData && themeBase ? fontWarmsFor(themeBase, firstSlide, quiet) : [];
+	return warmPanels([clipNoticeWarm, hideOpsWarm, ...surfaces, ...(fabricateUsed ? [fabricateWarm] : []), ...fonts]);
 }

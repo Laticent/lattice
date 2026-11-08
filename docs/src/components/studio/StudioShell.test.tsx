@@ -85,6 +85,20 @@ const shareSpies = vi.hoisted(() => ({
 }));
 vi.mock('./share-export', () => shareSpies);
 
+// The quiet gate's source signal (#3076): a source change must count as activity, or a tour's typing (which sends no key
+// events) reads as idle and the font warm-up lands mid-tour. A pass-through spy, so every other test runs the real gate.
+const firstSlideSpies = vi.hoisted(() => ({ noteActivity: vi.fn() }));
+vi.mock('./first-slide', async (importOriginal) => {
+	const real = await importOriginal<typeof import('./first-slide')>();
+	return {
+		...real,
+		noteActivity: (...args: Parameters<typeof real.noteActivity>) => {
+			firstSlideSpies.noteActivity(...args);
+			real.noteActivity(...args);
+		},
+	};
+});
+
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
 const realMatchMedia = window.matchMedia;
@@ -713,6 +727,14 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('FY26 Product Strategy'));
 		expect(screen.getByRole('button', { name: /FY26 Product Strategy/ })).toBeInTheDocument();
+	});
+
+	it('counts a source change as activity for the quiet gate, which holds the font warm-up', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		const before = firstSlideSpies.noteActivity.mock.calls.length;
+		await user.click(await screen.findByText('FY26 Product Strategy'));
+		await waitFor(() => expect(firstSlideSpies.noteActivity.mock.calls.length).toBeGreaterThan(before));
 	});
 
 	it('shows a live, deck-reactive Architect scorecard', async () => {
