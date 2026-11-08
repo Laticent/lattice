@@ -998,8 +998,18 @@ test.describe('the newcomer bake', () => {
 		await page.locator('#pg-template-trigger').click();
 		await page.keyboard.type('agenda');
 		await page.keyboard.press('Enter');
+		// Mid-navigation the frame's new document has no root yet: that reads as "still loading", never as an answer. A bare
+		// `documentElement.hasAttribute` threw there (#3045), and coercing the missing root to false would pass before the
+		// write landed.
 		await expect
-			.poll(() => page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement.hasAttribute('data-pg-bake')), { timeout: 30_000 })
+			.poll(
+				() =>
+					page.evaluate(() => {
+						const root = (document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement;
+						return root ? root.hasAttribute('data-pg-bake') : 'loading';
+					}),
+				{ timeout: 30_000 },
+			)
 			.toBe(false);
 		expect(await page.evaluate(() => history.length), 'the write over the bake pushed a history entry').toBe(before);
 	});
@@ -1009,10 +1019,14 @@ test.describe('the newcomer bake', () => {
 		for (const q of ['?c=agenda', '?s=default', '?view=edit']) {
 			await page.goto(`/playground/${q}`, { waitUntil: 'domcontentloaded' });
 			await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+			// Read once the frame has a document with a root (see the poll above): a write may still be landing.
+			await expect
+				.poll(() => page.evaluate(() => !!(document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement), { timeout: 30_000 })
+				.toBe(true);
 			const got = await page.evaluate(() => ({
 				flags: (window as unknown as { __bakeFlags: unknown[] }).__bakeFlags.length,
 				src: document.getElementById('preview')?.getAttribute('src'),
-				baked: !!(document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement.hasAttribute('data-pg-bake'),
+				baked: !!(document.getElementById('preview') as HTMLIFrameElement).contentDocument?.documentElement?.hasAttribute('data-pg-bake'),
 			}));
 			expect(got, `${q} loaded the newcomer bake`).toEqual({ flags: 0, src: null, baked: false });
 		}

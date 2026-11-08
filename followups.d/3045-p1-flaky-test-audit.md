@@ -50,6 +50,14 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             in flight; confirm by recording whether the write that replaced it began before the mark. And
             `playground-first-paint.spec.ts:990` on desktop (`main` 1 in 1 full run, branch 0 in 1): the poll at :1002
             reads `.hasAttribute` on a null element.
+            2026-11-08 (second session, one PR): collage-lightbox:211 fixed in the product (StudioShell hit-tests only
+            once the frame shows the reader's slide; 2 in 40 loaded runs failed before, 0 in 100 after); the Marp suites
+            run a pinned, locked marp-cli (no network in a test); library-image-metadata:614 reads `aria-pressed`
+            instead of a toPass retry; the slide map's capture rechecks the scroll after its imports; the Windows
+            export-confine stopwatches are counts; first-paint:990 polls a frame with no root as "loading" (40 in 100
+            loaded runs threw before). NOT done: `playground-tab-switch.spec.ts:211` did not reproduce in 190 loaded
+            webkit-tablet runs on `main` d1a4704 (instrumented with a write log), so nothing was changed there; the
+            regex work (recheck) is waiting on an owner decision, `followups.d/3045-p2-regex-recheck-gate.md`.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
