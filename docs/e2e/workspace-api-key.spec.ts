@@ -73,12 +73,12 @@ test('@smoke @crosswidth @webkit-phone a pasted OpenRouter key is checked, saved
 	await expect.poll(() => storedOpenRouterRaw(page)).toBeNull();
 });
 
-// Owner decision 3 (model spine): saving a key makes that provider's chat model active at once, even
-// when an on-device model was selected. From the checker pass on this flow: a key pasted with an invisible character made the request throw and
+// Rule 1 of the routes redesign (2026-11-08-studio-ai-routes-ux.md): saving a key never changes a set
+// selection, so an on-device pick survives it. From the checker pass on this flow: a key pasted with an invisible character made the request throw and
 // read as "could not reach OpenRouter". The browser's built-in model is stubbed so an on-device
 // tier can be picked without a download. (A password <input> drops line breaks itself, so the
 // invisible-character case is a zero-width space plus padding.)
-test('@crosswidth @webkit-phone a key saved while on-device is selected makes its chat model active, cleaned of invisible characters', async ({ page }) => {
+test('@crosswidth @webkit-phone a key saved while on-device is selected is cleaned of invisible characters and leaves the on-device pick alone', async ({ page }) => {
 	const CLEAN = 'sk-or-v1-e2e-clean-key-9b1d';
 	const seen: string[] = [];
 	// A working key is already stored, so Cloud would be active; the author then PICKS on-device,
@@ -112,7 +112,7 @@ test('@crosswidth @webkit-phone a key saved while on-device is selected makes it
 	const builtIn = page.locator('div.rounded-xl', { hasText: 'Browser built-in' });
 	await builtIn.getByRole('button', { name: 'Use' }).click();
 	await expect(card.getByTestId('chat-model-card-name')).toHaveText('Browser built-in model');
-	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Active');
+	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Ready');
 
 	// Replace the key with one carrying a zero-width space and padding.
 	await page.getByRole('button', { name: 'Replace' }).click();
@@ -123,8 +123,9 @@ test('@crosswidth @webkit-phone a key saved while on-device is selected makes it
 	expect(seen, 'the check carried the cleaned key').toContain(`Bearer ${CLEAN}`);
 	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
 	expect(await storedOpenRouterKey(page)).toBe(CLEAN);
-	// And OpenRouter's chat model is the selection now, not the on-device pick.
-	await expect(card).toContainText('OpenRouter · your account');
-	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Active');
-	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-chat-selection') || '{}'))).toMatchObject({ source: 'cloud', provider: 'openrouter' });
+	// Connecting never changes a set selection (2026-11-08-studio-ai-routes-ux.md rule 1): the
+	// author's on-device pick stays the chat model, and the key waits under Connections.
+	await expect(card.getByTestId('chat-model-card-name')).toHaveText('Browser built-in model');
+	await expect(card.getByTestId('chat-model-card-state')).toHaveText('Ready');
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-chat-selection') || '{}'))).toMatchObject({ source: 'device', provider: 'prompt-api' });
 });

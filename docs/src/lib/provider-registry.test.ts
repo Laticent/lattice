@@ -92,6 +92,12 @@ describe('healTarget — newer, same family, same route', () => {
 		const live = [{ id: 'gemini-3.9-flash-lite-tts-preview' }, { id: 'gemini-3.9-flash-lite-tts' }, { id: 'gemini-4-flash-tts' }];
 		expect(healTarget('gemini-3.8-flash-lite-tts', live)).toBe('gemini-3.9-flash-lite-tts');
 	});
+	it('reads an Anthropic date stamp as a build, not a minor version', () => {
+		expect(familyOf('claude-sonnet-4-20250514')).toMatchObject({ version: [4] });
+		expect(healTarget('claude-sonnet-4-5-20250929', [{ id: 'claude-sonnet-4-20250514' }]), 'never backward').toBeNull();
+		expect(healTarget('claude-sonnet-4-20250514', [{ id: 'claude-sonnet-4-5-20250929' }])).toBe('claude-sonnet-4-5-20250929');
+		expect(healTarget('claude-3-7-sonnet-20250219', [{ id: 'claude-sonnet-4-20250514' }, { id: 'claude-sonnet-4-5-20250929' }])).toBe('claude-sonnet-4-5-20250929');
+	});
 	it('never moves backward, and never across families: nothing newer reads as retired', () => {
 		expect(healTarget('anthropic/claude-sonnet-5.5', [{ id: 'anthropic/claude-sonnet-5' }, { id: 'anthropic/claude-opus-6' }])).toBeNull();
 		expect(healTarget('gemini-3.8-flash-tts', [{ id: 'gemini-3.9-flash-lite-tts' }])).toBeNull();

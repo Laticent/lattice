@@ -15,6 +15,7 @@ import { type ArchitectStatus, type ChatReadiness, type CloudProvider, listRoute
 import { IMAGE_LOOKS, type ImageLook, lookTokens } from './image-look';
 import { ModelList, ModelPicker, useModelCatalog } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
+import { WorkspaceUsedBy } from './panel-shells';
 import { type VoiceAvailability, voiceAvailability } from './read-aloud';
 import { loadSettings, saveSettings } from './studio-store';
 import { TtsSettings } from './TtsSettings';
@@ -157,16 +158,11 @@ function SelectionCard({
 	);
 }
 
-/** The line under a selection card naming every feature that runs on it. */
-export function UsedBy({ children }: { children: React.ReactNode }) {
-	return <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Used by {children}</p>;
-}
-
 const KEYED: CloudProvider[] = ['openrouter', 'gemini', 'anthropic', 'openai'];
 const hasKey = (p: CloudProvider) => !!(p === 'openrouter' ? openRouterKeyHint() : providerKeyHint(p));
 
 /** The Chat model section: the global chat selection (owner decision 1). */
-export function ChatModelSection({ status, cloudExtras }: { status: ArchitectStatus; cloudExtras?: React.ReactNode }) {
+export function ChatModelSection({ status, usedBy }: { status: ArchitectStatus; usedBy?: string }) {
 	const r = status.readiness;
 	const source = r?.source ?? 'cloud';
 	const [open, setOpen] = React.useState(false);
@@ -209,6 +205,7 @@ export function ChatModelSection({ status, cloudExtras }: { status: ArchitectSta
 				alert={source === 'cloud' && status.openRouterKeyInvalid ? `${providerLabel(provider)} rejected the key (revoked or expired) — ${provider === 'openrouter' ? 'sign in again' : 'replace it'} below.` : null}
 				open={open}
 			/>
+			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}
 			<CollapsibleContent className="mt-3">
 				<ToggleGroup
 					type="single"
@@ -248,9 +245,6 @@ export function ChatModelSection({ status, cloudExtras }: { status: ArchitectSta
 					<OnDeviceTier status={status} />
 				)}
 			</CollapsibleContent>
-			{/* The image model is its own setting, not part of choosing the chat model, so it stays in
-			    view under the card rather than behind Change. */}
-			{source === 'cloud' && status.openRouterReady ? cloudExtras : null}
 		</Collapsible>
 	);
 }
@@ -303,7 +297,7 @@ export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; us
 				alertBadge="Model retired"
 				open={open}
 			/>
-			{usedBy ? <UsedBy>{usedBy}</UsedBy> : null}
+			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}
 			<CollapsibleContent className="mt-3">
 				<TtsSettings />
 			</CollapsibleContent>
@@ -346,7 +340,7 @@ function useImageSelection() {
 }
 
 /** The Image reader card: same as chat, or its own route and model. */
-export function ImageReaderSection({ status }: { status: ArchitectStatus }) {
+export function ImageReaderSection({ status, usedBy }: { status: ArchitectStatus; usedBy?: string }) {
 	const img = useImageSelection();
 	const [open, setOpen] = React.useState(false);
 	const [look, setLook] = React.useState<ImageLook>(() => loadSettings().imageLook);
@@ -374,14 +368,16 @@ export function ImageReaderSection({ status }: { status: ArchitectStatus }) {
 	const own = img.mode === 'own';
 	const ownState: ChatReadiness['state'] | undefined = !own ? undefined : !hasKey(img.provider as CloudProvider) ? 'needs-key' : isRetired(img.provider, img.model) ? 'retired' : 'ready';
 	const chatOnDevice = chat?.source === 'device';
-	const name = own ? modelDisplayName({ id: img.model, provider: img.provider }) : chat?.state === 'unset' ? 'Same as chat · not set' : `Same as chat · ${chatName}`;
+	// The catalog's own name when it is loaded ("GPT-5"), else the id made readable.
+	const ownName = catalog.current && catalog.current.id === img.model ? catalog.current.name : null;
+	const name = own ? modelDisplayName({ id: img.model, name: ownName, provider: img.provider }) : chat?.state === 'unset' ? 'Same as chat · not set' : `Same as chat · ${chatName}`;
 	const route0 = own ? img.provider : (chat?.provider ?? '');
 	const meta = own
-		? `${providerLabel(img.provider)} · reads Library photos`
+		? `${providerLabel(img.provider)} · its own model`
 		: chatOnDevice
 			? ''
 			: route0
-				? `${providerLabel(route0)} · moves when chat changes`
+				? `${providerLabel(route0)} · follows chat`
 				: 'Set a chat model, or choose a model of its own';
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
@@ -396,7 +392,8 @@ export function ImageReaderSection({ status }: { status: ArchitectStatus }) {
 				alertBadge="Can't read images"
 				open={open}
 			/>
-			<CollapsibleContent className="mt-3">
+			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}
+			<CollapsibleContent className="mt-3" data-image-reader="">
 				<RadioGroup
 					aria-label="Which model reads images"
 					value={img.mode}

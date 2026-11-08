@@ -120,7 +120,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko the chat and voice selecti
 	await page.reload();
 	const again = await openWorkspaceAi(page);
 	await expect(again.chat.getByTestId('chat-model-card-name')).toHaveText('Browser built-in model');
-	await expect(again.chat.getByTestId('chat-model-card-state')).toHaveText('Active');
+	await expect(again.chat.getByTestId('chat-model-card-state')).toHaveText('Ready');
 	await expect(again.voice.getByTestId('voice-model-card-name')).toHaveText(/^Kokoro/);
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ v: 1, source: 'device', provider: 'prompt-api' });
 	expect(await stored(page, 'lattice-studio-voice-selection')).toMatchObject({ v: 1, source: 'device', provider: 'kokoro' });
@@ -276,7 +276,7 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 	await shot(page, `present-voice-${page.viewportSize()?.width}`);
 });
 
-test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key selects its chat model, and its voice when the current voice has no key', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key fills a chat model that is not set, and never moves a voice that is', async ({ page }) => {
 	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
 	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) }, { promptApi: false });
 	await mockOpenRouter(page);
@@ -293,15 +293,18 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key select
 	});
 	await gotoStudio(page);
 	const ws = await openWorkspaceAi(page);
-	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Add a key');
+	// Nothing chosen yet: the chat model reads Not set (2026-11-08-studio-ai-routes-ux.md rule 1).
+	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Not set');
 	await page.getByRole('button', { name: 'Add a Gemini key' }).click();
 	await page.getByLabel('Gemini API key').fill(GEM);
 	await page.getByRole('button', { name: 'Check & save' }).click();
+	// The chat model was not set, so the key fills it, and the Studio says so.
 	await expect(ws.chat).toContainText('Gemini · your own key');
-	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Active');
-	// The OpenRouter voice had no key, so Gemini's voice was selected too.
-	expect(await stored(page, 'lattice-studio-voice-selection')).toMatchObject({ source: 'cloud', provider: 'gemini' });
-	await expect(ws.voice).toContainText('Gemini · your own key');
+	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Ready');
+	await expect(page.getByText(/Nothing was set, so chat \(and Image reader\) now run on your Gemini key/)).toBeVisible();
+	// The voice WAS set (on OpenRouter, with no key): connecting never moves a set selection.
+	expect(await stored(page, 'lattice-studio-voice-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', voice: 'af_bella' });
+	await expect(ws.voice).toContainText('Add a key or choose on-device');
 });
 
 test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off and says so, never another voice', async ({ page }) => {
@@ -406,8 +409,8 @@ for (const width of [1440, 820, 390]) {
 		const t0 = await page.evaluate(() => performance.now());
 		await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveAttribute('data-state', 'ready');
 		await expect(ws.voice.getByTestId('voice-model-card-state')).toHaveAttribute('data-state', 'ready');
-		// The image model sits between the two cards, so it has to have painted its final text too.
-		await expect(page.locator('[data-image-model-settings]').getByText('Latest Claude Sonnet')).toBeVisible();
+		// The image reader sits between the two cards, so it has to have painted its final text too.
+		await expect(page.getByTestId('image-reader-card-state')).toHaveAttribute('data-state', 'ready');
 		// Two frames, so a shift caused by the last answer has been recorded.
 		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 		const shifts = await page.evaluate((from) => (window as unknown as { __shifts: { value: number; at: number; nodes: string[] }[] }).__shifts.filter((s) => s.at >= from), t0);

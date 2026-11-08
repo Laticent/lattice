@@ -144,9 +144,9 @@ export function familyOf(id) {
 		return { key: `${vendor} · ${line} · ${tier || 'base'}`, vendor, line, tier, version };
 	};
 	// Claude: `claude-sonnet-5.5`, `claude-sonnet-4-5-20250929`, older `claude-3-5-sonnet-20241022`.
-	let m = bare.match(/^claude-(opus|sonnet|haiku)(?:-(\d+(?:[.-]\d+)?))?(?:-\d{8})?(?:-latest)?$/);
+	let m = bare.match(/^claude-(opus|sonnet|haiku)(?:-(\d{1,3}(?:[.-]\d{1,3})?))?(?:-\d{8})?(?:-latest)?$/);
 	if (m) return place('anthropic', 'claude', m[1], m[2]);
-	m = bare.match(/^claude-(\d+(?:[.-]\d+)?)-(opus|sonnet|haiku)(?:-\d{8})?(?:-latest)?$/);
+	m = bare.match(/^claude-(\d{1,3}(?:[.-]\d{1,3})?)-(opus|sonnet|haiku)(?:-\d{8})?(?:-latest)?$/);
 	if (m) return place('anthropic', 'claude', m[2], m[1]);
 	// Gemini: `gemini-3.8-flash-lite-tts`, `gemini-3.1-flash-tts-preview`, `gemini-2.5-flash-lite-preview-tts`.
 	m = bare.match(/^gemini-(\d+(?:\.\d+)*)-(.+)$/);

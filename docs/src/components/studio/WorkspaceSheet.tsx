@@ -20,7 +20,7 @@ import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOve
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
-import { ChatModelSection, ImageReaderSection, ProvidersSection, UsedBy, VoiceModelSection } from './AiModelSections';
+import { ChatModelSection, ImageReaderSection, ProvidersSection, VoiceModelSection } from './AiModelSections';
 import { disconnectAllProviders, } from './api-key';
 import { architectSpend, connectOpenRouter, setBudget, useArchitectStatus } from './architect';
 import { packBundle } from './asset-bundle';
@@ -32,7 +32,7 @@ import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } fro
 import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
-import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, type WorkspaceTab } from './panel-shells';
+import { AI_CONNECTIONS_LEAD, AI_MODELS_LEAD, AI_USED_BY, WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, WorkspaceLead, WorkspaceSelectionLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
@@ -944,17 +944,15 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							{/* ── MODELS IN USE — the three selections, each naming its route and what uses it
 							    (2026-11-08-studio-ai-routes-ux.md). The chat chip writes the chat selection. ── */}
 							<GroupLabel icon={<Sparkles className="size-3.5" />}>Models in use</GroupLabel>
-							<p className="-mt-1 mb-3 text-[11px] leading-relaxed text-muted-foreground">What the Studio runs on. Change one, and every feature that uses it follows.</p>
-							<div className="mb-1 text-[12px] font-semibold text-[var(--text-heading)]">Chat model</div>
-							<ChatModelSection status={ai} />
-							<UsedBy>Chat, Refine, Theme, Finish, Drawing, Component, Coach fixes, slide alt text</UsedBy>
-							<div className="mb-1 mt-4 text-[12px] font-semibold text-[var(--text-heading)]">Image reader</div>
-							<ImageReaderSection status={ai} />
-							<UsedBy>Library photo descriptions</UsedBy>
-							<div className="mb-1 mt-4 text-[12px] font-semibold text-[var(--text-heading)]">Voice model</div>
+							<WorkspaceLead>{AI_MODELS_LEAD}</WorkspaceLead>
+							<WorkspaceSelectionLabel first>Chat model</WorkspaceSelectionLabel>
+							<ChatModelSection status={ai} usedBy={AI_USED_BY.chat} />
+							<WorkspaceSelectionLabel>Image reader</WorkspaceSelectionLabel>
+							<ImageReaderSection status={ai} usedBy={AI_USED_BY.image} />
+							<WorkspaceSelectionLabel>Voice model</WorkspaceSelectionLabel>
 							<div>
 								<VoiceModelSection
-									usedBy="Present, Read aloud, Narrated export"
+									usedBy={AI_USED_BY.voice}
 									more={
 									<div>
 										<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
@@ -1024,7 +1022,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							    selection that is not set; it never changes one that is. ── */}
 							<AiSection>
 								<GroupLabel icon={<KeyRound className="size-3.5" />}>Connections</GroupLabel>
-								<p className="-mt-1 mb-3 text-[11px] leading-relaxed text-muted-foreground">Where the Studio can reach models. Connecting adds models; it changes what is in use only when nothing was set.</p>
+								<WorkspaceLead>{AI_CONNECTIONS_LEAD}</WorkspaceLead>
 								<ProvidersSection status={ai} onConnect={connect} connecting={connecting} />
 							</AiSection>
 

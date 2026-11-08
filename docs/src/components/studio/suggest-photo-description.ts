@@ -123,7 +123,7 @@ export async function suggestPhotoDescription(thumbDataUrl: string, deckLang?: s
 	// that is not set, waits on its connection, or runs on this device (no on-device model sees
 	// pictures) reads the photo with nothing.
 	const reader = model.imageReader?.();
-	if (!reader || reader.state === 'unset' || reader.state === 'needs-key' || reader.state === 'warming' || reader.state === 'retired') return { status: 'offline' };
+	if (!reader || reader.state === 'off' || reader.state === 'unset' || reader.state === 'needs-key' || reader.state === 'warming' || reader.state === 'retired') return { status: 'offline' };
 	if (reader.state === 'no-vision') return { status: 'novision' };
 	const { look } = imageSettings();
 	const route = reader.provider;

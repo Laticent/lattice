@@ -287,7 +287,8 @@ export type ArchitectModel = {
 	// Direct provider keys (§7 step 2). Optional: a test double without them is OpenRouter-only.
 	activeProvider?: () => CloudProvider;
 	checkProviderKey?: (provider: CloudProvider, key: string) => Promise<number>;
-	saveProviderKey?: (provider: CloudProvider, key: string) => void;
+	/** Store a key; returns what it filled (a selection that was not set). */
+	saveProviderKey?: (provider: CloudProvider, key: string) => { kind: string; provider: string }[] | undefined;
 	removeProviderKey?: (provider: CloudProvider) => void;
 	disconnectAllProviders?: () => void;
 	providersWithKeys?: () => CloudProvider[];

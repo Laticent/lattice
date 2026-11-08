@@ -2,7 +2,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // DIRECT PROVIDER KEYS — OpenAI, Anthropic and Gemini beside OpenRouter (lifecycle note §7 step 2).
 //
-// For each provider: paste a key in Workspace → AI → Providers & keys, have it checked against that
+// For each provider: paste a key in Workspace → AI → Connections, have it checked against that
 // provider's free model listing, then run four Studio AI faculties — Theme, Finish and Motion
 // succeed, Component meets a 402 — and prove every request went to the provider's own endpoint
 // with its own auth header, none to OpenRouter's chat endpoint, and the 402 names the provider.
@@ -166,7 +166,7 @@ for (const p of PROVIDERS) {
 		await page.getByRole('button', { name: 'Check & save' }).click();
 		await expect(page.getByTestId(`provider-row-${p.id}`)).toContainText(`Key …${p.key.slice(-4)}`);
 		await expect(page.getByText(p.key)).toHaveCount(0);
-		// Owner decision 3: the saved key's chat model is the selection at once.
+		// Nothing was set, so the saved key FILLS the chat model (2026-11-08-studio-ai-routes-ux.md rule 1).
 		await expect(page.getByTestId('chat-model-card')).toContainText(`${p.label} · your own key`);
 		// Sealed at rest: the stored value is an envelope, never the key.
 		// The sealed write lands after the toast, so wait for it rather than read once.
@@ -218,7 +218,7 @@ for (const p of PROVIDERS) {
 	});
 }
 
-test('a saved direct key and an OpenRouter key switch with "Use"; removing another key leaves the selection alone', async ({ page }) => {
+test('connecting a second key never moves the chat model; choosing one is done in Models in use; removing another key leaves it alone', async ({ page }) => {
 	const p = PROVIDERS[0];
 	await mockAll(page, p);
 	await page.route('https://openrouter.ai/api/v1/auth/key', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' }));
@@ -226,16 +226,25 @@ test('a saved direct key and an OpenRouter key switch with "Use"; removing anoth
 	await openWorkspaceAi(page);
 	const card = page.getByTestId('chat-model-card');
 
+	// The first connection fills the chat model that was not set.
 	await page.getByLabel('OpenRouter API key').fill('sk-or-v1-e2e-switch-key-0or0');
 	await page.getByRole('button', { name: 'Check & save' }).click();
 	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …0or0');
+	await expect(card).toContainText('OpenRouter · your account');
 
+	// A second connection adds models; the chat model stays where the author left it.
 	await page.getByRole('button', { name: 'Add an OpenAI key' }).click();
 	await page.getByLabel('OpenAI API key').fill(p.key);
 	await page.getByRole('button', { name: 'Check & save' }).click();
-	await expect(card).toContainText('OpenAI · your own key');
+	await expect(page.getByTestId('provider-row-openai')).toContainText(`Key …${p.key.slice(-4)}`);
+	await expect(card).toContainText('OpenRouter · your account');
+	await expect(page.getByRole('button', { name: 'Use for chat' })).toHaveCount(0);
 
-	await page.getByTestId('provider-row-openrouter').getByRole('button', { name: 'Use for chat' }).click();
+	// Choosing is done on the Chat model card.
+	await card.getByRole('button', { name: /Change/ }).click();
+	await page.getByRole('radiogroup', { name: 'Chat provider' }).getByRole('radio', { name: 'OpenAI' }).click();
+	await expect(card).toContainText('OpenAI · your own key');
+	await page.getByRole('radiogroup', { name: 'Chat provider' }).getByRole('radio', { name: 'OpenRouter' }).click();
 	await expect(card).toContainText('OpenRouter · your account');
 
 	await page.getByRole('button', { name: 'Remove the OpenAI key' }).click();

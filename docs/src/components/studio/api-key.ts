@@ -16,7 +16,7 @@ export { guessProvider, KEY_PROVIDER_INFO };
  * sealed through lib/openrouter-key.js. Connecting never changes a set selection; it fills only a
  * Not-set one, and the Studio shell names what it filled (2026-11-08-studio-ai-routes-ux.md).
  */
-export async function saveProviderKey(provider: CloudProvider, raw: string): Promise<{ ok: true } | { ok: false; note: string }> {
+export async function saveProviderKey(provider: CloudProvider, raw: string): Promise<{ ok: true; filled: { kind: string; provider: string }[] } | { ok: false; note: string }> {
 	const info = KEY_PROVIDER_INFO[provider];
 	// A key copied from a chat or a PDF can carry a line break or a zero-width character, which
 	// `fetch` refuses in a header before any request leaves, and that used to read as "could not
@@ -37,9 +37,12 @@ export async function saveProviderKey(provider: CloudProvider, raw: string): Pro
 		status = await m.checkProviderKey(provider, key);
 	}
 	if (status === 200) {
-		if (m.saveProviderKey) m.saveProviderKey(provider, key);
+		// What the key filled (a selection that was not set), so the caller does not talk over the
+		// shell's fill notice, which says it better.
+		let filled: { kind: string; provider: string }[] | undefined;
+		if (m.saveProviderKey) filled = m.saveProviderKey(provider, key);
 		else m.restoreOpenRouter?.(key);
-		return { ok: true };
+		return { ok: true, filled: Array.isArray(filled) ? filled : [] };
 	}
 	if (status === 401 || status === 403) return { ok: false, note: `${info.label} rejected this key. Check it, or create a new one at ${info.keysHost}.` };
 	if (status === 0) return { ok: false, note: `Could not reach ${info.label} to check the key — check the connection and try again.` };

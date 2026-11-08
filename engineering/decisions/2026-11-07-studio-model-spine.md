@@ -5,6 +5,12 @@ summary: The Studio picked its chat model and its read-aloud voice from readines
 
 # Studio model spine — one stored selection for chat, one for voice
 
+> **Partly superseded 2026-11-08** by `2026-11-08-studio-ai-routes-ux.md`. The engine here stands (stored
+> selections, resolved without substitution, pinned per turn and per read). Decision 3 is replaced: saving a key
+> no longer selects anything; connecting fills only a selection that is not set. The OpenRouter dead-model
+> self-heal to the latest-Sonnet alias is replaced by version healing within a family. Workspace › AI is now
+> Models in use (Chat model, Image reader, Voice model) and Connections.
+
 ## 1. The problem
 
 The owner reported that the Studio's chat and voice models changed without being asked, that

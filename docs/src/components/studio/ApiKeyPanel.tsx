@@ -151,7 +151,8 @@ function ProviderRow({
 		setBusy(false);
 		if (out.ok) {
 			onDone();
-			notify(`${info.label} key saved.`);
+			// A key that filled a model that was not set is announced by the shell's fill notice instead.
+			if (!out.filled?.length) notify(`${info.label} key saved.`);
 		} else setError(out.note);
 	};
 	const remove = async () => {

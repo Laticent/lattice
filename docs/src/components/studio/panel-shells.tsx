@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload, Volume2 } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -94,6 +94,31 @@ export function WorkspaceGroupLabel({ icon, children }: { icon: React.ReactNode;
 	);
 }
 
+/** What each selection feeds (2026-11-08-studio-ai-routes-ux.md), shown under its card. One copy,
+ *  shared by the loading frame and the real tab so the sheet does not move when it loads. */
+export const AI_USED_BY = {
+	chat: 'Chat, Refine, Theme, Finish, Drawing, Component, Coach fixes, slide alt text',
+	image: 'Library photo descriptions',
+	voice: 'Present, Read aloud, Narrated export',
+} as const;
+export const AI_MODELS_LEAD = 'What the Studio runs on. Change one, and every feature that uses it follows.';
+export const AI_CONNECTIONS_LEAD = 'Where the Studio can reach models. Connecting adds models; it changes what is in use only when nothing was set.';
+
+/** A section's one-line lead, under its heading. */
+export function WorkspaceLead({ children }: { children: React.ReactNode }) {
+	return <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">{children}</p>;
+}
+
+/** A selection's name above its card (Chat model, Image reader, Voice model). */
+export function WorkspaceSelectionLabel({ first, children }: { first?: boolean; children: React.ReactNode }) {
+	return <div className={`mb-1.5 text-[12px] font-semibold text-[var(--text-heading)] ${first ? '' : 'mt-4'}`}>{children}</div>;
+}
+
+/** The line under a selection card naming every feature that runs on it. */
+export function WorkspaceUsedBy({ children }: { children: React.ReactNode }) {
+	return <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Used by {children}</p>;
+}
+
 /**
  * A secondary section inside the Workspace AI tab (Spend, Instructions), shared with
  * `WorkspaceSheet.tsx` — each sits below the Model section behind a hairline divider and top
@@ -117,14 +142,20 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 						    a card of the real card's fixed height (AiModelSections.tsx SelectionCard, 68px), so
 						    the sheet does not move when the real content arrives. */}
 						<Inert className="block">
-							<WorkspaceGroupLabel icon={<Sparkles />}>Chat model</WorkspaceGroupLabel>
+							<WorkspaceGroupLabel icon={<Sparkles />}>Models in use</WorkspaceGroupLabel>
+							<WorkspaceLead>{AI_MODELS_LEAD}</WorkspaceLead>
+							<WorkspaceSelectionLabel first>Chat model</WorkspaceSelectionLabel>
 							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.chat}</WorkspaceUsedBy>
+							<WorkspaceSelectionLabel>Image reader</WorkspaceSelectionLabel>
+							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.image}</WorkspaceUsedBy>
+							<WorkspaceSelectionLabel>Voice model</WorkspaceSelectionLabel>
+							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.voice}</WorkspaceUsedBy>
 							<WorkspaceAiSection>
-								<WorkspaceGroupLabel icon={<Volume2 />}>Voice model</WorkspaceGroupLabel>
-								<Block className="rounded-xl" h={68} />
-							</WorkspaceAiSection>
-							<WorkspaceAiSection>
-								<WorkspaceGroupLabel icon={<KeyRound />}>Providers &amp; keys</WorkspaceGroupLabel>
+								<WorkspaceGroupLabel icon={<KeyRound />}>Connections</WorkspaceGroupLabel>
+								<WorkspaceLead>{AI_CONNECTIONS_LEAD}</WorkspaceLead>
 								<Block className="rounded-xl" h={122} />
 							</WorkspaceAiSection>
 						</Inert>

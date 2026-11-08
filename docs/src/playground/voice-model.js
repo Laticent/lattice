@@ -1952,6 +1952,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       writeLS(K.RUNG, name || null); emitChange();
     },
     orVoice, setOrVoice(v) { if (selection) selection.select({ provider: 'openrouter', voice: v || '' }); else { writeLS(K.OR_VOICE, v || null); emitChange(); } },
+    // The Gemini voice model and voice as they will speak (the curated default fills a blank pick).
+    geminiModel, geminiVoice,
     orModel, setOrModel(m) { if (selection) selection.select({ provider: 'openrouter', model: m || '' }); else { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); } },
     kokoroVoice, setKokoroVoice(v) { if (selection) selection.select({ provider: 'kokoro', voice: v || '' }); else { writeLS(K.KOKORO_VOICE, v || null); emitChange(); } },
     /** The voice / model a rung speaks in, by rung name (cache keys, labels). */

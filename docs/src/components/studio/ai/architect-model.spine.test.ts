@@ -334,6 +334,18 @@ describe('model spine — a retired version heals within its family', () => {
 		expect(m.availability().readiness.state).toBe('retired');
 	});
 
+	it('a reroute heal inside a pinned turn moves the pin, so the next round asks for the healed model', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
+		const m = make();
+		const calls: string[] = [];
+		m.__setOpenRouter(retiringRoute(calls, ['anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5.5'], { answer: () => 'anthropic/claude-sonnet-5.5' }));
+		const turn = await m.pin();
+		await turn.complete({ messages: [{ role: 'user', content: 'one' }] });
+		await turn.complete({ messages: [{ role: 'user', content: 'two' }] });
+		expect(calls).toEqual(['anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5.5']);
+		expect(events).toHaveLength(1);
+	});
+
 	it('a silent reroute to a newer version of the same family is a heal', async () => {
 		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5' });
 		const m = make();
@@ -341,5 +353,18 @@ describe('model spine — a retired version heals within its family', () => {
 		await m.complete({ messages: [{ role: 'user', content: 'hi' }] });
 		expect(readChatSelection().model).toBe('anthropic/claude-sonnet-5.5');
 		expect(events[0]).toMatchObject({ to: 'anthropic/claude-sonnet-5.5' });
+	});
+});
+
+// The AI-off switch wins over an explicit route: the image reader must not spend while AI is off.
+describe('model spine — AI off stops a call on its own route', () => {
+	it('a route call answers from the floor and the image reader reads off', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
+		const m = createArchitectModel({ getSettings: () => ({ modelEnabled: false }) }) as unknown as Model & { imageReader: () => { state: string } };
+		const calls: string[] = [];
+		m.__setOpenRouter(fakeOpenRouter(calls));
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }], route: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
+		expect(calls, 'nothing reached a paid route').toEqual([]);
+		expect(m.imageReader().state).toBe('off');
 	});
 });

@@ -235,6 +235,8 @@ type VoiceModel = {
 	orVoice: () => string;
 	setOrVoice: (v: string) => void;
 	orModel: () => string;
+	geminiModel?: () => string;
+	geminiVoice?: () => string;
 	setOrModel: (m: string) => void;
 	kokoroVoice: () => string;
 	setKokoroVoice: (v: string) => void;
@@ -1689,7 +1691,8 @@ export async function defaultBakeVoice(): Promise<BakeVoice> {
 	if (sel.provider === 'kokoro') return onDeviceBakeVoice();
 	const v = await getVoice();
 	const speed = v?.speedPref() ?? 1;
-	if (sel.provider === 'gemini') return { rung: 'gemini', model: sel.model, voice: sel.voice, speed };
+	// Resolved the way the Gemini rung resolves it, so the label and the price name the model that will speak.
+	if (sel.provider === 'gemini') return { rung: 'gemini', model: sel.model || v?.geminiModel?.() || '', voice: sel.voice || v?.geminiVoice?.() || '', speed };
 	return { rung: 'openrouter', model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed };
 }
 

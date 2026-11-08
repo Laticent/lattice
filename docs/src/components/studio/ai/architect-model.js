@@ -1017,7 +1017,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       // A provider that answers with another model than the one asked (OpenRouter can reroute a
       // retired id) is held to the same rule: a newer version of the same family is a heal,
       // anything else stops the selection.
-      return backend.complete({ ...run, onAnsweredBy: (id) => { noteAnswered(route, model, id); run.onAnsweredBy?.(id); } });
+      return backend.complete({ ...run, onAnsweredBy: (id) => { noteAnswered(route, model, id, opts.onModel); run.onAnsweredBy?.(id); } });
     };
     try {
       const out = await call(asked);
@@ -1046,13 +1046,17 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       return await call(to);
     }
   }
-  function noteAnswered(route, asked, answered) {
+  function noteAnswered(route, asked, answered, onModel) {
     if (!answered || !asked || answered === asked || asked.startsWith('~') || asked.startsWith('openrouter/')) return;
     const fa = familyOf(asked);
     const fb = familyOf(answered);
     if (fa && fb) {
       if (fa.key !== fb.key) markRetired({ provider: route, model: asked, answeredBy: answered });
-      else if (healTarget(asked, [{ id: answered }]) === answered) healSelections({ provider: route, from: asked, to: answered });
+      else if (healTarget(asked, [{ id: answered }]) === answered) {
+        healSelections({ provider: route, from: asked, to: answered });
+        // A pinned turn moves its pin too, so its next round asks for the healed model.
+        onModel?.(answered);
+      }
       return;
     }
     // Ids the table cannot place: a different vendor is a different provider, which is never a heal.
@@ -1066,7 +1070,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
     // whatever the selection says now.
     // A call on an explicit ROUTE (the image reader on its own provider: 2026-11-08-studio-ai-routes-ux.md
     // §4.2) runs on that provider's backend for this call only, whatever the chat selection is.
-    const backend = opts.__pin ? opts.__pin.backend : opts.route ? (CHAT_CLOUD_PROVIDERS.includes(opts.route) ? backendFor(opts.route) : floorBackend) : pickBackend();
+    // AI off (or the floor forced) wins over an explicit route too: nothing on a route may spend then.
+    const routeOk = modelOn() && !floorForced && CHAT_CLOUD_PROVIDERS.includes(opts.route);
+    const backend = opts.__pin ? opts.__pin.backend : opts.route ? (routeOk ? backendFor(opts.route) : floorBackend) : pickBackend();
     if (backend === floorBackend) return floorBackend.complete(opts);
     // The route and the model this call runs on, read the way the backends read them.
     const route = backend.provider ?? 'openrouter';
@@ -1250,6 +1256,8 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
      */
     imageReader() {
       const img = readImageSelection();
+      // AI switched off: the reader is off too, whatever its route says.
+      if (!modelOn() || floorForced) return { mode: img.mode, provider: img.provider, model: '', state: 'off' };
       if (img.mode === 'own') {
         const b = backendFor(img.provider);
         const model = img.model || b.getModel?.() || '';
@@ -1277,7 +1285,10 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       if (provider === 'openrouter') { openrouter.restore(key); writeOpenRouterVia('key'); }
       else { directFor(provider).restore(key); directFor(provider).invalidateCatalog(); directFor(provider).listModels().catch(() => {}); }
       floorForced = false;
-      return fillFromConnections();
+      const filled = fillFromConnections();
+      // Every view of the keys (Connections, the cards) re-reads on this, filled or not.
+      emitChange();
+      return filled;
     },
     /** Remove a provider's key. The selection stays as chosen and reads `needs-key`: nothing substitutes another provider. */
     removeProviderKey(provider) {

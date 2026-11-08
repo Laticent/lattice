@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: Workspace › AI blurred three questions (how the Studio reaches models, which model does what, and who uses it), so the owner could not tell what was what. The redesign separates them into Connections (OpenRouter with two ways in, your own provider keys, this device), three selections (chat, image, voice) that each name their route and the features they feed, and fixed rules for when the Studio may change a selection (only a never-set one, or a retired version healed within its own family). Reviewed by the adversarial trio on 2026-11-08; its findings are folded in.
 ---
 
@@ -60,7 +60,7 @@ offered first; pasting is there for the bring-your-own-key author.
 | Selection | Used by | Needs |
 |---|---|---|
 | **Chat model** | Chat, Refine, Theme, Finish, Drawing, Component (generate and refine), Coach fixes, chat compaction | Chat edits need tool use (an on-device model answers one-shot, without edits); a photo in the chat needs a model that reads images |
-| **Image reader** | Library photo descriptions, slide alt text | A model that reads images |
+| **Image reader** | Library photo descriptions | A model that reads images |
 | **Voice model** | Present, Read aloud, Narrated export | A model that speaks; the export bakes in exactly this voice |
 
 The image reader (named so, and not "image model", which stays free for a future
@@ -79,7 +79,8 @@ of the picture turns it into *can't read images*. Nothing is refused on a guess.
 **Same as chat moves with chat, and says so**: when chat changes (a pick, a fill or a heal), the
 notice names both ("Chat and the image reader now use Claude Sonnet 5.5 · OpenRouter"). That is the one
 place two selections move together, by the author's own choice of "same as chat".
-Slide alt text moves onto it from the chat model (it reads an image too). Narrated export loses
+Slide alt text stays on the chat model: it is written from the slide's source text, not from a picture
+(`generateDescription` in `architect.ts` builds its prompt from the markdown), so it needs no image reader. Narrated export loses
 its own narrator picker and bakes in the voice model, with a Gemini path added.
 
 **A feature its selection cannot serve says so on the card**, in one line under "Used by":
@@ -240,7 +241,7 @@ connection names what it filled.
    `image_url`, Anthropic converted to image blocks, `docs/src/components/studio/ai/direct-providers.js`),
    and "reads images" comes from the model's catalog row (`vision`). What changes: the image
    selection resolves its own backend and model, like chat, instead of borrowing the chat
-   provider; `suggest-photo-description.ts` and slide alt text read it; the price comes from the
+   provider; `suggest-photo-description.ts` reads it; the price comes from the
    same catalog row the chat uses. **The real work** is that the architect model keeps one active
    provider today (`suggest-photo-description.ts` reads `activeProvider()`), so a request on a route
    other than chat's needs `complete()` to take the route explicitly (`complete({ route, model })`),
@@ -313,3 +314,32 @@ set); on-device auto-fill and download-selects; the missing chat-model callers; 
 spend; the free and paid Kokoro; the full state vocabulary; the two-OpenRouter-routes question
 (re-asked, now one connection); and the mockups' naming, counts, 44 px targets, labels and
 touch-only tooltip.
+
+## Implementation (2026-11-08, PR #3079)
+
+What shipped, by the plan above:
+
+1. **Not set and the fill** (`docs/src/lib/model-selection.js`): `UNSET_CHAT` / `UNSET_VOICE`, the migration rows,
+   `fillUnset` / `fillFromConnections` and `SELECTION_FILLED_EVENT`. `saveProviderKey`, the OpenRouter sign-in,
+   `summon()` and a download no longer select. The shell announces a fill once.
+2. **Image reader**: `readImageSelection` / `selectImage`, migrated from `settings.imageModel`. `architect-model.js`
+   exposes `imageReader()`, `listModelsOn()` and `modelPriceOn()`; `complete({ route })` runs one call on another
+   route. `suggest-photo-description.ts` prices, budget-gates (`cloudBudgetBlock(..., route)`) and sends on the
+   reader's route, and books its spend as `image` on that route.
+3. **Narrated export**: `defaultBakeVoice()` reads the voice selection (OpenRouter, a Gemini key, or Kokoro on this
+   device); `NarrationExportOptions.tsx` names the narrator and has no picker of its own.
+4. **Version healing**: `familyOf`, `healTarget` and `sameFamily` in `provider-registry.js` (an explicit tier table;
+   an id it cannot place is never healed). One healer in `architect-model.js` `complete()` serves every cloud route:
+   a model-gone answer is checked against the route's live list (a model still listed is not retired), healed to the
+   newest NEWER version of its family, stored for every selection that named it (`healSelections`), and retried once;
+   with nothing newer the selection reads `retired` (`markRetired`). The id that answered is read from OpenRouter's
+   replies (`onAnsweredBy`), so a silent reroute to another family stops the selection. The Gemini voice heals the same
+   way in `voice-model.js`. `isDeadModelError` and its alias heal are gone.
+5. **Screens**: Workspace › AI is *Models in use* (three cards, each with "Used by") and *Connections* (OpenRouter
+   "Signed in" or "Key …", your own keys with what each serves, this device). "Use for chat" is gone. Out of credit is
+   recorded per route from a request (`noteOutOfCredit`) and shown with its time and an *Add billing* link. Spend
+   lists chat and the image reader per route.
+
+Left for later, each recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`
+(`3079-p1-model-guard-rails.md`), and voice spend in the per-selection list (voice synthesis does not book spend
+today; the export panel quotes it).
