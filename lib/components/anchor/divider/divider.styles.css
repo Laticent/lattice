@@ -162,7 +162,10 @@ section.divider > .divider-marker {
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
   font-weight: 500;
-  line-height: 1;
+  /* The footer's own box (1.45 in 1.6em, base.modifiers.css `section footer`): its rows start at the top,
+   * so the count's baseline is the footer's. */
+  line-height: 1.45;
+  block-size: 1.6em;
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
   color: var(--_rail-on);

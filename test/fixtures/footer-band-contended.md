@@ -109,6 +109,15 @@ on this page stands exactly where it stands on every other page (footer-band.tes
 
 ---
 
+<!-- _footer: "CONFIDENTIEL ![mark](sample:logo-acme-mark.svg) Société Générale — an inline image in the running footer" -->
+
+## A railed body page whose footer carries an image.
+
+A footer image is a glyph, one cap tall on the baseline, so the rail and the page number on this page
+stand exactly where they stand on every other page (footer-band.test.js).
+
+---
+
 <!-- _class: divider -->
 <!-- _header: '' -->
 

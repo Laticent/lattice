@@ -677,8 +677,32 @@ section footer {
   z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-b); left:var(--frame-inset-l); right:calc(var(--frame-page-reserve) - var(--_bar-r, 0px));
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
-  line-height:1; letter-spacing:0.06em; text-align:left;
+  /* The footer band's box (stage.css `> footer`: 1.45 in 1.6em), as a MINIMUM so a long footer still
+   * wraps upward from the band: one baseline for the footer on every frame, content or sovereign. */
+  line-height:1.45; min-block-size:1.6em; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
+}
+/* AN IMAGE IN THE FOOTER IS A GLYPH, cap-tall on the baseline. `footer: "Confidential ![](logo.svg)"` drew
+ * the logo at its own size: on a sovereign frame (a divider) it stood a hundred pixels above the band,
+ * and in the footer Cell's 1.6em box it was clipped along with the words after it. One cap of the
+ * footer's own type sits inside every line box the band uses (line height 1 or 1.45), so it can neither
+ * move the shared baseline nor grow the band, and the page number and the rail beside it hold still
+ * (engineering/decisions/2026-11-08-anchor-chrome.md; footer-band.test.js). */
+/* `img:not(.emoji):not(.deck-logo)` to out-rank the slide image rule above (`section img:not(.emoji)
+ * :not(.deck-logo)`, (0,2,2)), which makes every image a rounded, cover-cropped BLOCK: in the footer that
+ * broke the line in three and cropped the mark. */
+/* A superscript or subscript (`Acme<sup>®</sup>`) raises its own line box and, with it, the line: zero
+ * line height keeps the mark raised and the band's baseline where every other slide's is. */
+section footer :is(sup, sub) { line-height: 0; }
+section footer img:not(.emoji):not(.deck-logo),
+section footer svg {
+  display: inline-block;
+  block-size: 1cap;
+  inline-size: auto;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+  vertical-align: baseline;
 }
 
 

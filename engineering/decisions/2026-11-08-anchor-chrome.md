@@ -131,10 +131,20 @@ asserts the resolved columns (only the footer's flexes; the page column is one w
 rail's inset from the band's end is one number across a deck that includes an unnumbered page and a
 `compact` page.
 
-One thing the box alignment does not change: the page number's BOX shares every frame's berth, but on
-a content slide its digits sit about 5 px higher than on a title, divider or closing, because the
-in-band footer's box (1.6em) is taller than a sovereign frame's page-number line. That was so before
-this change too; `followups.d/3095-p1-page-number-ink-across-frames.md` tracks it.
+**One baseline on every frame.** A title, divider or closing set its footer, page number and section
+marker in a `line-height: 1` box, the content band in a 1.45 line height inside a 1.6em box, so the
+sovereign frames' digits sat about 5 px lower (0.375em: the box's 0.15em slack plus half the extra
+leading, whatever the font). Both were so before this change. Every chrome text box now takes the band's
+shape (`section footer` as a minimum, so a long footer still wraps upward; the section-level
+`.lat-pagination`; the divider's marker), so the digits and the footer share one baseline on every frame
+and the boxes keep one berth (pagination-one-mark.test.js).
+
+**Nothing in the footer's text can move the band.** An inline image was drawn at its own size (a hundred
+pixels tall on a divider, clipped with the words after it in the band) and a `<sup>` raised the line:
+both moved the shared baseline, so the rail and the page number dropped 3 to 6 px on that slide. A footer
+image is now a glyph, one cap tall on the baseline, and `sup` / `sub` take zero line height.
+`footer-band.test.js` asserts the rail's lift off the band is one number across a deck with an image
+footer and a superscript footer.
 
 The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
 column in from the edge on every slide, which is consistent, and saves a deck-level switch.

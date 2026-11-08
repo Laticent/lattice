@@ -36,7 +36,12 @@ section > .lat-pagination {
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
   font-weight: 500;
-  line-height: 1;
+  /* The footer band's own box (stage.css `> .lat-pagination`: 1.45 line height in a 1.6em box), so the
+   * digits on a title, divider or closing sit on the same baseline as on a content slide, and the box
+   * keeps the same berth (pagination-one-mark.test.js). A `line-height: 1` box put them 5px lower
+   * (followups.d/3095-p1, closed by this; engineering/decisions/2026-11-08-anchor-chrome.md). */
+  line-height: 1.45;
+  block-size: 1.6em;
   letter-spacing: 0.06em;
   color: var(--marp-slide-pagination-color, var(--marp-slide-footer-color, var(--text-muted)));
   white-space: nowrap;

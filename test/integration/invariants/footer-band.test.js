@@ -112,7 +112,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
         if (cs.display === 'none') { suppressed.push({ page: i + 1, cls: s.className }); return; }
         const rail = cell.querySelector(':scope > .tile-progress');
         if (!rail) return;
-        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, height: b.height, width: b.width }; };
+        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, height: b.height, width: b.width }; };
         promoted.push({
           page: i + 1,
           position: cs.position,
@@ -232,6 +232,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
     // and so the rail's distance from the band's end is ONE number across the deck, including the
     // page with no number and the `compact` page, the two places it used to move.
     const railInsets = new Set();
+    const railLifts = new Set();
     const pagCols = new Set();
     for (const b of bands) {
       assert.equal(b.tracks.length, 4, `p${b.page}: the band resolved ${b.tracks.length} columns, not 4: ${b.tracks.join(' ')}`);
@@ -242,10 +243,14 @@ describe('footer band — a contended band keeps every mark legible', () => {
       assert.ok(Math.abs(split - splitNatural) < 0.5, `p${b.page}: the split column is ${split.toFixed(1)}px for a ${splitNatural.toFixed(1)}px counter — it flexes`);
       pagCols.add(pag.toFixed(1));
       railInsets.add((b.band.right - b.rail.right).toFixed(1));
+      railLifts.add((b.band.bottom - b.rail.bottom).toFixed(1));
     }
     assert.ok(bands.some((b) => !b.hasPag), 'the fixture lost its railed page with no page number');
     assert.equal(pagCols.size, 1, `the page-number column changed width: ${[...pagCols].join(', ')}`);
     assert.equal(railInsets.size, 1, `the rail moved across pages: its inset from the band's end was ${[...railInsets].join(', ')}px`);
+    // And it holds its HEIGHT: the fixture's page whose footer carries an inline image is where it used
+    // to drop (3px at hd, 6px in story) when the image moved the band's shared baseline.
+    assert.equal(railLifts.size, 1, `the rail moved up or down across pages: its lift off the band's bottom was ${[...railLifts].join(', ')}px`);
   });
 
   test('the section rail carries NO label — rank 4 of the order', () => {
