@@ -358,8 +358,8 @@ Every one of them is a **switch**, and every switch is spelled the same way:
 
 | Element | Whole deck | One slide (`_class`) | On by default? |
 |---|---|---|---|
-| Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | no — appears once you give it text, except on a title, which names the deck |
-| Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | no — appears once you give it text, then on every slide, title and dividers included |
+| Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | once you give it text; not on a title |
+| Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | once you give it text, on every slide |
 | Page number | `paginate: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider, topic and closing |
 | Section rail | `class: no-progress` | `no-progress` · `with-progress` | on when the deck has dividers |
 | Logo | `logo: …`, or `class: no-logo` | `no-logo` · `with-logo` | on once you set `logo:` |
