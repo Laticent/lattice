@@ -77,9 +77,13 @@ function staleNames(base, corpusDecks) {
   return [...new Set([...(base.swept || []), ...Object.keys(base.decks || {})])].filter((d) => !have.has(d)).sort();
 }
 
-/** One line for the nightly report: cost per deck, so a slowdown shows before the job ceiling does. */
-function costLine({ decks, seconds, jobs }) {
-  return `⏱ sweep cost — ${decks} decks in ${Math.round(seconds)}s at ${jobs} workers: ${(seconds / Math.max(1, decks)).toFixed(2)} s/deck`;
+/**
+ * One line for the nightly report: cost per deck, so a slowdown shows before the job ceiling does.
+ * It names the PDF writer when one is given, because the shared writer alone costs about 3 s a deck
+ * (#3081): a line that does not say which writer ran cannot be compared with the one before it.
+ */
+function costLine({ decks, seconds, jobs, writer }) {
+  return `⏱ sweep cost — ${decks} decks in ${Math.round(seconds)}s at ${jobs} workers: ${(seconds / Math.max(1, decks)).toFixed(2)} s/deck${writer ? ` (${writer} PDF writer)` : ''}`;
 }
 
 module.exports = { judge, blessed, blessedSubset, staleNames, costLine };

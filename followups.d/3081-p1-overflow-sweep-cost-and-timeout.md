@@ -3,23 +3,21 @@ origin: 3081
 priority: P1
 recorded: 2026-11-08
 area: infra
-severity: medium
+severity: low
 swimlane: .github/workflows/overflow-nightly.yml
-deferred: large — needs a bisect across six weeks of trees plus a sharding decision for the owner
+deferred: blocked — the evidence is two scheduled nightlies, which only run after the fix merges
 source: https://github.com/Laticent/lattice/pull/3081
 ---
 
-# The overflow nightly is close to its 45-minute limit
+# Confirm the overflow nightly has 2x headroom after the --chrome-pdf fix
 
-why now   — the sweep took 2267 s on the 2026-11-07 nightly and 2111 s on a 4-vCPU sandbox
-            (2026-11-08), against `timeout-minutes: 45` (2700 s). The 11-04 and 11-05 runs
-            timed out and measured nothing. Cost per deck rose from about 1.2 s to about 4.2 s
-            while the corpus grew 1.6x, and the biggest jump falls between 09-27 and 09-28.
-where     — `tools/check-overflow-corpus.js` (prints `⏱ sweep cost` every run since #3081),
-            `.github/workflows/overflow-nightly.yml`. Suspect commit: 268f0a3f9, not bisected.
-            Trees older than the `--size` flag reject it, so drop `--size` to bisect them.
-done when — the per-deck cost regression is found and fixed or explained, and the nightly
-            has at least 2x headroom under its limit (by a fix, by sharding into parallel
-            jobs, or by `--format html` once its parity is on record).
-evidence  — two consecutive nightly `⏱ sweep cost` lines under 1350 s.
-verify    — a `workflow_dispatch` run of overflow-nightly on the fix branch.
+why now   — the cost regression is found and fixed: the shared vector PDF writer (268f0a3f9, #2404)
+            cost ~3 s a deck, and the sweep now renders with `--chrome-pdf`. Measured on a 4-vCPU
+            sandbox: 1703 s -> 643 s for 504 decks (908 s on a CPU-contended run), same verdict
+            on every deck. What is left is
+            the runner's own number, which nothing before the merge can produce.
+where     — `.github/workflows/overflow-nightly.yml`, the `⏱ sweep cost` line in the sweep step.
+done when — two consecutive scheduled nightlies print `⏱ sweep cost` under 1350 s with
+            `(chrome PDF writer)`; then delete this file. If either is over, shard the sweep.
+evidence  — the two cost lines, quoted with their run links.
+verify    — read the nightly logs.
