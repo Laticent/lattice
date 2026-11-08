@@ -53,8 +53,8 @@ made: lib/runtime/chart-readers/<kind>.js, one reader per kind, and lib/runtime/
 what a kernel writes on its marks, in its `<desc>` or in its screen-reader table can break its reader. Run
 `node --test test/unit/runtime/chart-readers.test.js`: it reads every gallery chart back and redraws it byte
 for byte. A reader that no longer reads a chart whole makes that chart keep its exported drawing (the
-redraw checks each list against the export first), so the cost of a missed reader is a lost redraw, not
-wrong data. engineering/decisions/2026-11-03-responsive-tables.md §"The whole-source kinds".
+redraw checks each list against the export first), so the cost of a missed reader is almost always a lost
+redraw, not wrong data. The check cannot see a name the export itself stripped (followups.d/3021-p13). engineering/decisions/2026-11-03-responsive-tables.md §"The whole-source kinds".
 
 ## Switched off
 

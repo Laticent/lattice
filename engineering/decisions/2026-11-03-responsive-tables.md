@@ -652,7 +652,8 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   phrases occurs in a gallery, so the round-trip test cannot see it. So the redraw checks every list before
   it uses one (lib/runtime/chart-redraw.js `verified`): it draws the list at the box the export drew for and
   requires the exported drawing back, byte for byte for a whole-slide chart, and for a pane (whose export
-  canvas is not in the page) the same description and the same label and value on every mark; otherwise
+  canvas is not in the page) the same description, the same label and value on every mark and the same
+  noted marks, and a pane whose drawing carries neither a description nor a valued mark keeps its export; otherwise
   the chart keeps its exported drawing. That is the unit test's oracle, run on every deck in the page, once
   per chart. test/unit/runtime/chart-readers.test.js pins it on every gallery chart and on three lossy lists
   (a dropped category, the seven-series line read as six, a pane value changed).
@@ -663,7 +664,9 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   test. What the check cannot see was fixed in the readers: a line's middle category that no dot names and
   the axis did not print, and a heatmap row or column with no values, were named from the screen-reader
   table, whose text went through a tag stripper (`Feb <b>x</b> tail` printed `Feb x tail`); the heatmap now
-  reads the painted label and the line refuses. The redraw copies the exported drawing into an INERT
+  reads the painted label. The line keeps reading its table: refusing cost every long monthly line its
+  redraw (no dots past about fifteen points, the checker's measure), so a middle name that looks like markup
+  can print stripped on a phone until the export's stripper is fixed (followups.d/3021-p13). The redraw copies the exported drawing into an INERT
   document before reading it: a copy in the live page loaded an author's raw `<img>` again and re-ran its
   handler on every rotation (18 times after five, now once, at load). A refusal puts the exported drawing
   back rather than leaving another box's redraw on screen, and is remembered for that box. And a PANE keeps its exported drawing when the kernel
@@ -692,6 +695,14 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
 - **Journey is held.** Its reader reads all nine gallery journeys back whole, but the kernel's portrait board
   clips in the fluid stage at 390px (labels overlap, the frame's "Content clipped"), which is worse than the
   small exported board. lib/runtime/chart-readers/index.js leaves it out; the round-trip test keeps it tested.
+- **Tower gets a narrow form (the owner's look at the phone render, 2026-11-08).** Its layer names sat in a
+  side column that took half a phone-width box, right-aligned beside bars squeezed to the other half, and its
+  key was one tall column sized from the diagram's height, larger than the labels it explains. Below 260
+  units wide (a phone redraw, a narrow pane), each layer's name and size now print in a heading row above its
+  band, the bars take the full width, and the key wraps in centered rows at the chart's own label size (the
+  shared key's flowing band, `fitLabels`). A crowded tower whose heading rows would not fit keeps the side
+  column. A whole slide is 320 wide in either orientation, so no whole-slide export moves (landscape and
+  portrait gallery renders byte-identical to `main`).
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

@@ -170,6 +170,14 @@ describe('chart redraw: the check before trust refuses a list that is not the au
     });
   }
 
+  test('a pane whose drawing says nothing a check can hold keeps its export (a roadmap)', () => {
+    const md = fs.readFileSync(path.join(KINDS, 'roadmap', 'roadmap.gallery.md'), 'utf8');
+    const body = new JSDOM(engine.render(md, {}).html).window.document.querySelector('section.roadmap.chart-frame .chart-body');
+    const list = READERS.roadmap(body.cloneNode(true));
+    assert.ok(list, 'the reader reads it');
+    withDocument(() => assert.equal(verified(rec(), list, 'roadmap', body.cloneNode(true), true), false));
+  });
+
   test('a pane is checked on what its drawing says', () => {
     const body = exported('- North `4`\n- South `3`\n', 'bar');
     const whole = READERS.bar(body.cloneNode(true));
