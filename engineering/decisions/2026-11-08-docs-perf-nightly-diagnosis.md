@@ -58,6 +58,13 @@ Three gate changes follow from this. None of them raises a budget:
    shows median-of-3 is the noise source. Alternating head and base needs both builds served at once and a new collect
    loop, so it is `followups.d/2085-p4-perf-nightly-alternate-arms.md`. The base arm measures with its own config, so
    the first night after merge compares a median of 5 against a median of 3.
+   *Done later on 2026-11-08 (the follow-up PR):* `perf-collect.mjs --base-docs` serves both builds at once (head on
+   :4399, base on :4398) and measures each URL head and base back to back, flipping which goes first each round. Both
+   arms now use head's configs, so they always have the same run count. A base run that fails, such as a page added
+   since the base commit, is logged and skipped; `perf-nightly.yml` builds the base in its own step before the collect,
+   so a base that fails to build, or a base server that will not start, still leaves a head-only report. The collect
+   reports `base_ok` (true only when every form factor got at least one base run), and the "measured green" comment
+   requires it, so a night whose base runs all failed is never reported as a clean compare. The job-time cost is in that PR's body.
 3. **Upload the per-run reports.** `actions/upload-artifact@v4` skips hidden files and folders by default. The per-run
    `lhr-*.json` files live under `.perf-out/`, so every artifact so far has held `perf-report.md` alone. This one is a bug in
    an existing step, not a new gate, and this PR fixes it with `include-hidden-files: true`.

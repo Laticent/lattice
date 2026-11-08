@@ -55,6 +55,9 @@ This directly answers item #4 ("absolute thresholds rot").
 The base is **measured fresh each run** by building the ~24h-ago `main` commit
 and the current `main` **back-to-back on the same runner**, then diffing the
 medians. Measuring both on one runner cancels *systematic* hardware differences.
+*(Amended 2026-11-08: the two builds are now served at once and measured
+alternately per URL, so drift DURING the job cancels too, and both arms use
+head's Lighthouse configs. `2026-11-08-docs-perf-nightly-diagnosis.md` §2.)*
 
 - **Why not B-committed (a `perf-baseline.json`):** it removes rot too and is
   cheaper at runtime, but it adds an **update ritual** (someone must `--update`
