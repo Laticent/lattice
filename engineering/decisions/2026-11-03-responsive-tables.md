@@ -634,7 +634,8 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   reads every chart back, redraws the list with the kernel at the box the export drew for, and demands the
   same chart body byte for byte (render-scoped ids renumbered). No expectation is hand-written, so a reader
   that drops a category, a value, a series name, a note or a modifier's effect fails on a real deck. Each
-  chart is then redrawn for a phone and must show the same marks. 107 gallery charts read back whole; two
+  chart is then redrawn for a phone and must show the same valued marks (roadmap, journey and some
+  hub-spoke charts carry none, so for them it only proves the phone drawing draws). 107 gallery charts read back whole; two
   are refused and keep their exported drawing, pinned by count in `REFUSED`: bullet's stress slide
   (hand-written `Band` zones carry no value) and roadmap's `horizons` slide (the card form drops the
   workstream column's header, and it draws the same cards in every box).
@@ -655,6 +656,20 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   the chart keeps its exported drawing. That is the unit test's oracle, run on every deck in the page, once
   per chart. test/unit/runtime/chart-readers.test.js pins it on every gallery chart and on three lossy lists
   (a dropped category, the seven-series line read as six, a pane value changed).
+- **Red team and checker (2026-11-08).** The check refuses every data break the red team found in the
+  readers as first written: a grouped `diverging` bar (the tornado: its reader takes a hue for a series,
+  and diverging paints hue by sign, so series swapped or values vanished), a slope whose trailing entities
+  have one reading each (dropped), a grouped bar with a missing value (categories reordered); each is a unit
+  test. What the check cannot see was fixed in the readers: a line's middle category that no dot names and
+  the axis did not print, and a heatmap row or column with no values, were named from the screen-reader
+  table, whose text went through a tag stripper (`Feb <b>x</b> tail` printed `Feb x tail`); the heatmap now
+  reads the painted label and the line refuses. The redraw copies the exported drawing into an INERT
+  document before reading it: a copy in the live page loaded an author's raw `<img>` again and re-ran its
+  handler on every rotation (18 times after five, now once, at load). A refusal puts the exported drawing
+  back rather than leaving another box's redraw on screen, and is remembered for that box. A note's own
+  text is left out when counting shortened names. And a PANE keeps its exported drawing when the kernel
+  would change its class list: roadmap's `horizons` card styles are scoped to a slide, so a roadmap pane
+  redrew as unstyled cards (the checker's repro, now in the integration test).
 - **A kernel can change the section's class list with the box.** On a portrait box roadmap adds `horizons`,
   and its card styles apply only under `section.roadmap.horizons`. The redraw applies exactly the kernel's
   class change to the host and undoes it when the exported drawing comes back (and for print); classes
@@ -678,12 +693,12 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   pane, which needs the owner's sign-off.
 
 At 390 × 844, the smallest label per gallery chart (text box height, main → this branch): line 10 → 16px,
-slope 9 → 15, ep-curve 9 → 15, tower 6 → 15, stacked-bar 7–8 → 12–17, waterfall 10 → 10–13, bullet 9 → 15,
+slope 9 → 15, ep-curve 9 → 15, tower 6 → 15, stacked-bar 7–8 → 12–17, waterfall 10 → 10–13, bullet 9 → 15 (its refused stress slide stays 9),
 heatmap 6–10 → 11–16, piechart, map and hub-spoke from no drawing (0px tall) to 12–21px, funnel 9 → 9 (its
 tall shape), roadmap from a crushed grid to its `horizons` cards. No chart shortens a name the export
 printed whole. One read and redraw costs 0.3 to 5 ms per chart in Node and jsdom (hub-spoke 12 ms, its
-direction search included), once per chart per box change. The inlined runtime grows by 25.6 KB minified
-(8.4 KB gzipped) on 1.34 MB; no chart adds a byte to the export.
+direction search included), plus one draw at the export's box for the check, once per chart. The inlined
+runtime grows by 25.5 KB minified (8.4 KB gzipped) on 1.34 MB; no chart adds a byte to the export.
 test/integration/export/fluid-chart-redraw.test.js pins a line, a pie and a roadmap on the real export in
 Chromium: each redraws on a phone (the pie in a box it did not have), the roadmap turns to cards, and the
 desktop gets every exported drawing and class list back byte for byte.

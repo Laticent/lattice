@@ -90,8 +90,9 @@ for (const kind of Object.keys(READERS)) {
 
     test('the gallery has charts to read', () => assert.ok(charts.length > 0));
 
-    test(`refuses exactly ${REFUSED[kind]?.length ?? 0} gallery chart(s)`, () => {
-      assert.equal(charts.filter((c) => !read(c)).length, REFUSED[kind]?.length ?? 0);
+    test(`refuses exactly the pinned gallery charts (${REFUSED[kind]?.length ?? 0})`, () => {
+      const want = (REFUSED[kind] || []).map((r) => /^slide (\d+):/.exec(r)?.[1]);
+      assert.deepEqual(charts.filter((c) => !read(c)).map((c) => c.s.id), want);
     });
 
     for (const c of charts) {
@@ -112,7 +113,9 @@ for (const kind of Object.keys(READERS)) {
         withDocument(() => assert.equal(verified(rec, list, clsOf(c.s), c.body.cloneNode(true), false), true));
       });
 
-      test(`${name}: redrawn for a phone, the same marks`, (t) => {
+      // Only the marks that carry a value are compared: roadmap, journey and some hub-spoke charts have
+      // none, so for those this proves the phone drawing draws; the byte-for-byte test above proves the read.
+      test(`${name}: redrawn for a phone, the same valued marks`, (t) => {
         const list = read(c);
         if (!list) { t.skip('refused'); return; }
         const out = transformChartSection(`<h2>.</h2>${list}`, clsOf(c.s), 'portrait', { w: 200, h: 188 }, null, undefined);
@@ -151,6 +154,21 @@ describe('chart redraw: the check before trust refuses a list that is not the au
     const six = `<ul>${cats.map((q, i) => `<li>${q}<ul>${'ABCDEF'.split('').map((n, k) => `<li>${n} <code>${i + k + 1}</code></li>`).join('')}</ul></li>`).join('')}</ul>`;
     withDocument(() => assert.equal(verified(rec(), six, 'line', body.cloneNode(true), false), false));
   });
+
+  // The red team's repros (2026-11-08): each reader reads a list that is not the author's; the check refuses.
+  for (const [what, cls, md] of [
+    ['a tornado (grouped diverging bars: hue is the sign, not the series)', 'bar diverging row', '- Price\n  - Downside `-12`\n  - Upside `9`\n- Volume\n  - Downside `-7`\n  - Upside `8`\n'],
+    ['a slope whose trailing entities have one reading each', 'slope', '- North\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel\n  - 2023 `22%`\n- South\n  - 2026 `3%`\n'],
+    ['a grouped bar with a missing value (categories would reorder)', 'bar row', '- Q1\n  - Plan `4`\n  - Actual `3`\n- Q2\n  - Actual `5`\n- Q3\n  - Plan `2`\n'],
+  ]) {
+    test(`${what} keeps its exported drawing`, () => {
+      const body = exported(md, cls);
+      const kind = cls.split(' ')[0];
+      const list = READERS[kind](body.cloneNode(true));
+      if (!list) return; // the reader refused on its own: also the exported drawing
+      withDocument(() => assert.equal(verified(rec(), list, cls, body.cloneNode(true), false), false));
+    });
+  }
 
   test('a pane is checked on what its drawing says', () => {
     const body = exported('- North `4`\n- South `3`\n', 'bar');
