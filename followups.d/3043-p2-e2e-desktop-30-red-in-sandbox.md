@@ -2,7 +2,7 @@
 origin: 3043
 priority: P2
 recorded: 2026-11-05
-updated: 2026-11-06
+updated: 2026-11-08
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
@@ -71,3 +71,9 @@ done when — `npx playwright test --project=desktop --project=tablet --project=
             ends with 0 failed, or each remaining test skips with a stated reason the sandbox cannot meet.
 evidence  — the full-suite summary line before and after, on `main`.
 verify    — tier 1, self-review with the gates.
+
+2026-11-08 — measured on PR #3089 (agenda fill), against a clean main at 1ba5779, desktop project, run alone: the
+            same 16 tests red on both trees, so none is the PR's. New to this list: chat-library-assets.spec.ts:251
+            ("the cost readout rises by a few tenths of a cent when the Library gains photos") is red on main too. Not
+            investigated. compose-soft-break.spec.ts:50 failed twice under full-suite load and passed 6 of 6 run alone
+            (--repeat-each=3), so it joins the load list.
