@@ -4,41 +4,45 @@
 // Run by `.github/workflows/golden-bless.yml`. It rewrites golden PDFs in the working tree,
 // so it refuses to start when any tracked PDF already has uncommitted changes.
 //
-//   1. Check the whole corpus (`regression-gate.mjs --scope all --json`).
-//   2. Re-bless ONLY what drifted: a gallery by name, a deck by path. A blanket bless would
-//      rewrite every golden blessed on another machine, burying a handful of real changes
-//      in byte churn (regression-gate.mjs explains why at runDeckGolden).
-//   3. A gallery bless rewrites both moods. Put back the mood that did not drift, so the
-//      commit holds exactly the goldens that moved.
+//   1. Check the whole corpus, one worker per core, and keep the fresh render of ONLY what
+//      drifted (`regression-gate.mjs --scope all --json --jobs auto --promote`): a deck, or a
+//      gallery's one mood. A blanket bless would rewrite every golden blessed on another
+//      machine, burying a handful of real changes in byte churn (regression-gate.mjs explains
+//      why at runDeckGolden). One render per golden both checks and blesses it.
+//   2. (Folded into step 1. It was a second render of every drifted golden.)
+//   3. Render the goldens that do not exist yet, galleries first, one process per core, and
+//      start none after BLESS_DEADLINE_MS. Then refresh the showcase WebPs cut from them.
 //   4. Score the four auto-merge rules (lib/golden-bless-verdict.mjs) on what was WRITTEN,
 //      not on what the check reported. Rule 4 reads the golden-diff comments of the PRs
 //      merged since the last bless, through `gh`; without it, nothing counts as seen.
 //
 // Writes .scratch/golden-bless/{verdict.json,verdict.md,rendered-from.txt,montages/} and
-// prints the markdown. Exits 2 on a dirty tree and 3 when any bless failed (after writing the
-// verdict, which names it), so the workflow goes red rather than reading it as a quiet night.
+// prints the markdown. Exits 2 on a dirty tree and 3 when the check changed a PDF it did not
+// report as drifted (after writing the verdict, which names it), so the workflow goes red before
+// the PR step. A golden that could not be rendered or re-blessed, and a showcase WebP that could
+// not be refreshed, go to failed.txt instead: the PR is updated and the night still goes red.
 // Design: engineering/decisions/2026-10-06-goldens-bot-blessed.md §2.1.
 //
 // Usage:
 //   node tools/golden-bless.mjs                  # check, bless, score
-//   node tools/golden-bless.mjs --report <file>  # skip step 1: reuse a saved --json report
+//   node tools/golden-bless.mjs --report <file>  # skip the full check: reuse a saved --json report
+//                                                # and re-check (and promote) only what it says drifted
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  BLESS_BUDGET_MS,
   BLESS_DEADLINE_MS,
   goldenRows,
   lastBlessRenderedFrom,
   parseShownGoldens,
   prNumber,
-  runWithinBudget,
   seenFromPrs,
   verdict,
   verdictMarkdown,
+  writtenProblems,
 } from './lib/golden-bless-verdict.mjs';
 import { galleryName } from './lib/golden-render.mjs';
 
@@ -52,6 +56,7 @@ const require = createRequire(import.meta.url);
 const { classify, buildFor } = require('./build-staged-pdfs.js');
 const { SHOWCASES: SHOWCASE_DEFS } = require('./build-showcase-galleries.js');
 const { componentDir, groupByBucket, loadAll } = require('../lib/components');
+const { defaultJobs, pool } = require('./lib/pool.js');
 const COMPONENTS_BY_BUCKET = groupByBucket(loadAll());
 
 const git = (args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 });
@@ -84,11 +89,6 @@ function undo(paths) {
   for (const f of paths.filter((p) => !tracked.includes(p))) rmSync(join(ROOT, f), { force: true });
 }
 
-// First-time renders per night. A night with hundreds missing (a mass rename, a new
-// family) would otherwise run past the job's timeout and commit nothing, every night.
-// The rest wait for the next night.
-const MISSING_CAP = 40;
-
 // The PDFs a classified markdown file should have committed beside it.
 function expectedPdfs(md, job) {
   if (job.kind === 'deck') return [job.out];
@@ -109,7 +109,18 @@ function sourcesMissingPdfs() {
     if (!job) continue;
     if (expectedPdfs(md, job).some((p) => !tracked.has(p))) out.push(md);
   }
-  return out;
+  // Render what other gates READ first: galleries (rasterize-showcase and component-galleries need
+  // them), then exemplars (exemplar-render), then everything else. When a night cannot render them
+  // all, the bless PR is rebuilt from `main` the next night, so the same first sources are picked
+  // again: under the old alphabetical order and a fixed cap of 40, 69 examples/ decks stood ahead of
+  // the 28 moved chart galleries every night and the galleries were never reached (#1845).
+  const rank = (md) => {
+    const kind = classify(md)?.kind;
+    if (kind === 'component' || kind === 'bucket' || kind === 'showcase') return 0;
+    if (md.startsWith('exemplars/')) return 1;
+    return 2;
+  };
+  return out.map((md, i) => [rank(md), i, md]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([, , md]) => md);
 }
 
 function gate(args, okCodes) {
@@ -118,6 +129,44 @@ function gate(args, okCodes) {
     return { ok: false, error: `regression-gate ${args.join(' ')} exited ${r.status}: ${(r.stderr || '').trim().split('\n').slice(-3).join(' | ')}` };
   }
   return { ok: true, stdout: r.stdout };
+}
+
+// `regression-gate.mjs --unit` for one gallery name or deck path, without blocking, so a pool can
+// run several. --unit leaves .scratch/regression alone, which a full gate run would clear.
+function gateUnit(scope, only, extra) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [GATE, '--scope', scope, '--only', only, '--unit', ...extra], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('error', (e) => resolve({ ok: false, error: String(e.message || e) }));
+    child.on('close', (code) => resolve(code === 0 || code === 1 ? { ok: true } : { ok: false, error: `regression-gate --only ${only} exited ${code}: ${err.trim().split('\n').slice(-2).join(' | ')}` }));
+  });
+}
+
+// One first render: `build-staged-pdfs.js <sources>` in its own process. Its gallery builders block
+// while they render, so running them in this process would render one at a time whatever the pool.
+function renderSources(sources) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [join(ROOT, 'tools', 'build-staged-pdfs.js'), ...sources], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    child.stderr.on('data', (d) => { err += d; });
+    child.on('error', (e) => resolve({ ok: false, error: String(e.message || e) }));
+    child.on('close', (code) => resolve(code === 0 ? { ok: true } : { ok: false, error: err.trim().split('\n').filter((l) => /fail|error/i.test(l)).slice(-1)[0] || `exited ${code}` }));
+  });
+}
+
+// The first renders as independent units, in sourcesMissingPdfs' order. Every showcase deck shares
+// one builder (build-showcase-galleries.js renders them all), so they are one unit: two of them in
+// parallel would write the same files.
+function renderUnits(missing) {
+  const units = [];
+  let showcases = null;
+  for (const md of missing) {
+    if (classify(md)?.kind !== 'showcase') units.push([md]);
+    else if (showcases) showcases.push(md);
+    else units.push((showcases = [md]));
+  }
+  return units;
 }
 
 // The PRs merged since `from` on the first-parent line, each with what its golden-diff
@@ -196,7 +245,7 @@ async function main() {
   } else {
     const reportFile = join(REGRESSION_OUT, 'report.json');
     rmSync(reportFile, { force: true });
-    const r = gate(['--scope', 'all', '--json'], [0, 1]);
+    const r = gate(['--scope', 'all', '--json', '--jobs', 'auto', '--promote'], [0, 1]);
     if (!r.ok) throw new Error(r.error);
     raw = readFileSync(reportFile, 'utf8');
   }
@@ -204,68 +253,53 @@ async function main() {
   // report.json holds the bare array; a saved --json stdout wraps it as { report }.
   const parsed = JSON.parse(raw);
   const rows = goldenRows(Array.isArray(parsed) ? parsed : parsed.report);
-  // Each later `--bless` run clears .scratch/regression, so keep the check's montages now.
   if (existsSync(REGRESSION_OUT)) cpSync(REGRESSION_OUT, join(OUT, 'montages'), { recursive: true });
   const drifted = rows.filter((r) => r.status === 'DRIFT');
+  // A saved report means the check, and so its promotion, did not run here: promote what it says
+  // drifted by checking just those galleries and decks again, in parallel.
+  if (reportIdx >= 0) {
+    const units = [...new Map(drifted.map((r) => {
+      const m = r.golden.match(/^(.*)\.gallery\.(light|dark)\.pdf$/);
+      return m ? [`g:${galleryName(`${m[1]}.gallery.md`)}`, ['galleries', galleryName(`${m[1]}.gallery.md`)]] : [`d:${r.golden}`, ['decks', r.golden.replace(/\.pdf$/, '')]];
+    })).values()];
+    const { results } = await pool(units, defaultJobs(), ([scope, only]) => gateUnit(scope, only, ['--promote']));
+    for (const r of results) if (!r.ok) throw new Error(r.error);
+  }
 
-  // Step 2. A bless must exit 0. One that does not is a problem in the verdict.
+  // Step 2 happened inside step 1: `--promote` kept the fresh render of every golden that drifted
+  // (a gallery per mood, so the mood that did not drift is never touched), which is byte-identical to
+  // what a re-bless would write. A separate re-bless rendered each drifted golden a second time, and
+  // with hundreds drifted that second pass ran the job into its 180-minute cap (2026-10-26 to 10-28).
+  // The tree was clean at the start, so every changed PDF is a drifted golden the check promoted.
   const blessProblems = [];
-  const galleryNames = new Set();
-  const decks = new Set();
-  for (const r of drifted) {
-    const m = r.golden.match(/^(.*)\.gallery\.(light|dark)\.pdf$/);
-    if (m) galleryNames.add(galleryName(`${m[1]}.gallery.md`));
-    else decks.add(r.golden.replace(/\.pdf$/, ''));
-  }
-  // One process per gallery or deck, inside a time budget (BLESS_BUDGET_MS): a night with hundreds
-  // drifted ran the job into its 180-minute cap and committed nothing (2026-10-26 to 10-28, followups
-  // 2945-p7). What is left waits for the next night. Progress goes to stderr, so a run that is still
-  // cut off shows how far it got.
-  const units = [...[...galleryNames].map((name) => ['galleries', name]), ...[...decks].map((deck) => ['decks', deck])];
-  // The deadline is measured from the process start, so the check phase's time counts against the job's cap.
-  const deadline = Date.now() - process.uptime() * 1000 + BLESS_DEADLINE_MS;
-  const blessed = runWithinBudget(
-    units,
-    ([scope, only], k) => {
-      process.stderr.write(`[golden-bless] re-bless ${k + 1}/${units.length}: ${scope} ${only}\n`);
-      const r = gate(['--scope', scope, '--bless', '--only', only], [0]);
-      if (!r.ok) blessProblems.push(r.error);
-    },
-    { deadline },
-  );
-  const blessedGoldens = new Set(blessed.done.flatMap(([scope, only]) => (scope === 'decks' ? [`${only}.pdf`] : [])));
-  const blessedGalleries = new Set(blessed.done.filter(([scope]) => scope === 'galleries').map(([, name]) => name));
-
-  // Step 3. The tree was clean at the start, so every changed PDF is ours to keep or undo. A drifted
-  // golden the budget did not reach is not wanted tonight (it is unchanged anyway).
-  const reached = (golden) => {
-    const m = golden.match(/^(.*)\.gallery\.(light|dark)\.pdf$/);
-    return m ? blessedGalleries.has(galleryName(`${m[1]}.gallery.md`)) : blessedGoldens.has(golden);
-  };
-  const want = new Set(drifted.map((r) => r.golden).filter(reached));
-  const restore = changedPdfs().filter((f) => !want.has(f));
-  if (restore.length) undo(restore);
-
-  // Step 3a. Goldens that do not exist yet: a deck or gallery merged without a PDF. One
-  // source at a time, so a deck that will not render costs only its own PDF: it becomes a
-  // problem in the verdict, and every other golden still lands tonight.
   const renderProblems = [];
-  const missing = sourcesMissingPdfs();
-  for (const md of missing.slice(0, MISSING_CAP)) {
-    try {
-      await buildFor([md]);
-    } catch (err) {
-      renderProblems.push(`rendering ${md} for the first time failed: ${String(err.message).split('\n')[0]}`);
-      undo(expectedPdfs(md, classify(md)).filter((p) => changedPdfs().includes(p)));
-    }
+  const beforeUndo = writtenProblems(rows, changedPdfs());
+  if (beforeUndo.stray.length) {
+    undo(beforeUndo.stray);
+    blessProblems.push(`the check changed ${beforeUndo.stray.length} PDF(s) it did not report as drifted (${beforeUndo.stray.slice(0, 3).join(', ')}); they were put back`);
   }
+  const { unblessed, unchecked } = writtenProblems(rows, changedPdfs());
+  if (unblessed.length) renderProblems.push(`${unblessed.length} drifted golden(s) were not re-blessed (${unblessed.slice(0, 3).join(', ')})`);
+  if (unchecked.length) renderProblems.push(`${unchecked.length} golden(s) could not be checked (${unchecked.slice(0, 3).join(', ')}); see check.json for each error`);
+
+  // Step 3a. Goldens that do not exist yet: a deck or gallery merged without a PDF. Each source
+  // renders in its own process, one per core, so a deck that will not render costs only its own
+  // PDF: it becomes a problem in the verdict, and every other golden still lands tonight. No new
+  // render starts after BLESS_DEADLINE_MS; what is left waits for the next night, galleries first.
+  const missing = sourcesMissingPdfs();
+  const deadline = Date.now() - process.uptime() * 1000 + BLESS_DEADLINE_MS;
+  const firstRenders = await pool(renderUnits(missing), defaultJobs(), async (unit) => {
+    const r = await renderSources(unit);
+    if (r.ok) return;
+    renderProblems.push(`rendering ${unit.join(', ')} for the first time failed: ${r.error}`);
+    const ours = new Set(unit.flatMap((md) => expectedPdfs(md, classify(md))));
+    undo(changedPdfs().filter((p) => ours.has(p)));
+  }, { stop: () => Date.now() >= deadline });
   // Deferred is not failed: it holds auto-merge (a problem) but does not turn the night red.
   const deferred = [];
-  if (blessed.left.length) {
-    deferred.push(`${blessed.left.length} more drifted gallery or deck re-bless(es) wait for the next night (budget ${BLESS_BUDGET_MS / 60000} min, and none after minute ${BLESS_DEADLINE_MS / 60000} of the run)`);
-  }
-  if (missing.length > MISSING_CAP) {
-    deferred.push(`${missing.length - MISSING_CAP} more golden(s) have no PDF yet; the next night renders them (cap ${MISSING_CAP})`);
+  const waiting = firstRenders.left.flat();
+  if (waiting.length) {
+    deferred.push(`${waiting.length} more source(s) have no PDF yet; the next night renders them (no first render starts after minute ${BLESS_DEADLINE_MS / 60000} of the run)`);
   }
   // The generated showcase decks (examples/<id>-gallery.md, built from the component
   // manifests of their buckets). The pre-commit hook step 3 removed was their only writer,
@@ -301,8 +335,10 @@ async function main() {
   // fails when a source PDF changed and its WebP did not: the first bless PR (#2598) went
   // red on exactly that. The script rewrites every WebP, and WebP bytes are not stable
   // between runs, so keep only the WebPs whose gallery PDF this bless wrote.
+  // A showcase problem holds auto-merge and turns the night red, but after the PR is updated, like a
+  // first render that failed: the WebPs are derived from the goldens, so they never hold the goldens back.
   const derived = refreshShowcase(new Set(written));
-  blessProblems.push(...derived.problems);
+  renderProblems.push(...derived.problems);
 
   // Step 4.
   const renderedFrom = git(['rev-parse', 'HEAD']).trim();
@@ -316,14 +352,11 @@ async function main() {
     seen = seenFromPrs(prs);
     seenProblems.push(...problems);
   }
-  // A drifted golden the budget did not reach is deferred, not failed: it is left out of tonight's
-  // verdict (the `deferred` line says how many wait), so it is not listed as a bless that failed.
-  const v = verdict(rows.filter((r) => r.status !== 'DRIFT' || reached(r.golden)), seen, written, { created });
+  const v = verdict(rows, seen, written, { created });
   v.problems.push(...blessProblems, ...renderProblems, ...deferred, ...seenProblems);
   if (v.problems.length) v.autoMerge = false;
   v.renderedFrom = renderedFrom;
   v.windowFrom = from;
-  v.restoredUnmoved = restore.length;
   v.showcaseDecks = showcaseDecks;
   v.showcaseRefreshed = derived.kept;
   const md = verdictMarkdown(v, { renderedFrom, runUrl: process.env.GOLDEN_BLESS_RUN_URL || '' });
@@ -331,15 +364,16 @@ async function main() {
   writeFileSync(join(OUT, 'verdict.md'), `${md}\n`);
   writeFileSync(join(OUT, 'rendered-from.txt'), `${renderedFrom.slice(0, 12)}\n`);
   process.stdout.write(`${md}\n`);
-  // A bless that failed must turn the night red. Otherwise a run that wrote nothing looks
-  // exactly like a quiet night, and the workflow would close the PR and go green.
+  // A tree the check changed behind its own report cannot be trusted, so it turns the night red
+  // BEFORE the PR step. Otherwise a run that wrote nothing looks exactly like a quiet night, and the
+  // workflow would close the PR and go green.
   if (blessProblems.length) {
-    process.stderr.write(`golden-bless: ${blessProblems.length} bless(es) failed; see the verdict.\n`);
+    process.stderr.write(`golden-bless: ${blessProblems.length} problem(s) with what the check wrote; see the verdict.\n`);
     process.exit(3);
   }
-  // A golden that could not be rendered for the first time still turns the night red, but
-  // AFTER the bless PR is opened (golden-bless.yml reads this file last), so one broken
-  // deck does not hold back every other golden.
+  // A golden that could not be rendered or re-blessed, or a showcase WebP that could not be
+  // refreshed, still turns the night red, but AFTER the bless PR is opened (golden-bless.yml reads
+  // this file last), so one broken deck does not hold back every other golden.
   writeFileSync(join(OUT, 'failed.txt'), renderProblems.map((p) => `${p}\n`).join(''));
 }
 

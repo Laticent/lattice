@@ -53,6 +53,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { judge, blessed, blessedSubset, staleNames, costLine } = require('./lib/overflow-corpus-ratchet');
+const { pool } = require('./lib/pool');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -154,15 +155,6 @@ function probe(deck, { sharedWriter = false } = {}) {
   });
 }
 
-async function pool(items, n, fn) {
-  const results = new Array(items.length);
-  let i = 0;
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-    while (i < items.length) { const k = i++; results[k] = await fn(items[k]); }
-  }));
-  return results;
-}
-
 async function main() {
   const argv = process.argv.slice(2);
   const flag = (f) => argv.includes(`--${f}`);
@@ -198,7 +190,7 @@ async function main() {
   const decks = only.length ? only.map(toDeck) : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const t0 = performance.now();
-  const rows = await pool(decks, jobs, (d) => probe(d, { sharedWriter: writer === 'shared' }));
+  const { results: rows } = await pool(decks, jobs, (d) => probe(d, { sharedWriter: writer === 'shared' }));
   // COST PER DECK, printed every run (#2060). The nightly's wall clock tripled per deck in six weeks
   // while the corpus grew 1.6x, and nothing said so until runs hit the job ceiling and measured nothing.
   const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs, writer };
