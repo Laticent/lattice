@@ -452,7 +452,7 @@ export function StudioPreviewBarSkeleton() {
 }
 
 /** The slide navigator + deck status strip below the preview — dropped at the Read stop. */
-export function StudioPreviewFooterSkeleton() {
+export function StudioPreviewFooterSkeleton({ caption }: { caption: string }) {
 	return (
 		<>
 			{/* The app's navigator row: `px-3 py-2`, then the slide pills, the current one followed by its
@@ -475,7 +475,17 @@ export function StudioPreviewFooterSkeleton() {
 			<div className="ssr-status flex shrink-0 items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<ContentBar className="w-24" />
 				<span className="flex-1" />
-				<ContentBar className="w-20" />
+				{/* The deck caption ("16 : 9 · 7 slides") IS drawn, unlike the rest of this row, because
+				    it is the page's largest text on a phone. Without it Lighthouse takes the app's copy,
+				    which paints only after hydration, as the largest paint: mobile LCP went from about
+				    5 s to 14 s when the header's Undo and Redo narrowed the deck title below it (issue
+				    #2085). It names the newcomer's deck at build time; the pre-paint seed in
+				    studio.astro swaps in the returning visitor's built-in deck, and falls back to the
+				    neutral bar for any deck it cannot be sure of (an edited or user deck, a URL with a
+				    query or hash), so the shell never states a count the app then corrects. The
+				    container query matches the app's: the caption hides on a pane under 20rem. */}
+				<span className="ssr-deck-caption hidden shrink-0 @[20rem]:inline">{caption}</span>
+				<ContentBar className="ssr-caption-bar w-20" />
 			</div>
 		</>
 	);

@@ -152,7 +152,7 @@ import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
-import { sizeRatio } from './slide-size';
+import { deckCaption, sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
@@ -342,9 +342,8 @@ const SIZES = [
 /** The size a deck with no `size:` key renders at. */
 const DEFAULT_SIZE = '16:9';
 // Aspect ratio (w:h) per engine `@size` token — the preview CARD matches the deck's real
-// shape, never a hardcoded 16:9. SIZE_RATIO/sizeRatio are the shared source of truth (also
-// used by the pre-hydration instant shell); see slide-size.ts.
-const ratioText = ([w, h]: [number, number]): string => (w === 1080 ? '9 : 19.5' : `${w} : ${h}`);
+// shape, never a hardcoded 16:9. SIZE_RATIO/sizeRatio, ratioText and deckCaption are the shared
+// source of truth (also used by the pre-hydration instant shell); see slide-size.ts.
 // Relative time for the version-history list (just now / Nm / Nh / Nd).
 function timeAgo(ts: number): string {
 	const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -7179,7 +7178,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* Ratio + count hide on a NARROW PANE (container query, not the sm: viewport —
 				    a wide iPad viewport with a dragged-narrow pane would otherwise keep showing
 				    it and crowd the row). */}
-				<span className="flex-1" /><span className="hidden shrink-0 @[20rem]:inline">{ratioText(previewRatio)} · {viewFlatTotal} slide{viewFlatTotal === 1 ? '' : 's'}</span>
+				{/* The pre-paint shell draws this same caption for a deck it can name (studio.astro,
+				    DECK_CAPTIONS). Keep the two on deckCaption: Lighthouse takes this span as the
+				    page's largest paint on a phone when the shell's copy is missing, and that moved
+				    mobile LCP from about 5 s to 14 s (issue #2085). */}
+				<span className="flex-1" /><span className="hidden shrink-0 @[20rem]:inline">{deckCaption(previewRatio, viewFlatTotal)}</span>
 			</div>
 			)}
 		</section>

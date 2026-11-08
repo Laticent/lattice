@@ -40,6 +40,11 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             2026-10-27, PR #2921: lever A built, CDN median TBT 1,686 -> 1,532 ms, score 45 on both (note §11). Lever D
             measured as a no-go: Suspense boundaries gave no gain locally. The real hydration cost is two single calls, the
             picker's search index (now built on first search, about -180 ms blocking at 4x) and the editor mount (2921-p1) (§12).
+            2026-11-08 (engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md): mobile Studio LCP had gone back up,
+            4.7-5.3 s -> 13.6-14.2 s at #2940 (the phone header's Undo/Redo shrank the shell's deck title, so the app's
+            late status caption became the largest paint). The pre-paint shell now draws that caption: LCP median
+            14.1 s -> 5.6 s, score 0.38 -> 0.41, 7 interleaved local runs per arm. TBT (~1.5 s) and FCP are unchanged and
+            are still what this item is about.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
             at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
             for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.

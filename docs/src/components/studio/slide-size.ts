@@ -55,3 +55,15 @@ export function sizeFromSource(source: string): string {
 export function deckRatio(source: string): [number, number] {
 	return sizeRatio(sizeFromSource(source));
 }
+
+// How the preview's status strip names a ratio: "16 : 9", and "9 : 19.5" for the phone size,
+// whose engine token is 1080 wide.
+export function ratioText([w, h]: [number, number]): string {
+	return w === 1080 ? '9 : 19.5' : `${w} : ${h}`;
+}
+
+// The status strip's deck caption, "16 : 9 · 7 slides". One function for the app and the
+// pre-paint shell, so the shell's copy of the caption can never read differently from the app's.
+export function deckCaption(ratio: [number, number], slides: number): string {
+	return `${ratioText(ratio)} · ${slides} slide${slides === 1 ? '' : 's'}`;
+}
