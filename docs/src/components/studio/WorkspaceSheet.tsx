@@ -27,6 +27,7 @@ import { packBundle } from './asset-bundle';
 import { DeleteBtn } from './delete-btn';
 import { iosNeedsShareSheet } from './download';
 import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
+import { ImageModelSettings } from './ImageModelSettings';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { KEY_PROVIDER_INFO } from './key-providers';
@@ -56,8 +57,6 @@ import { DEGRADED_TOAST_MS } from './toast-duration';
 import type { PackReport } from './workspace-backup';
 import { downloadBlob, isEvictionProneBrowser, stashRestoreReport, storageSummary, WORKSPACE_ZIP_NAME } from './workspace-backup-meta';
 
-// The image model's picker loads when Workspace → Model is opened, not with the Studio.
-const ImageModelSettings = React.lazy(() => import('./ImageModelSettings').then((m) => ({ default: m.ImageModelSettings })));
 
 const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0);
 
@@ -947,10 +946,12 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								status={ai}
 								cloudExtras={
 									!direct ? (
+										// A static import: this sheet is itself lazy, so the picker still stays out of
+										// the Studio's first load, and the section paints at its full height at once
+										// (a Suspense placeholder here was shorter than the picker, and the Voice
+										// model section below jumped when it arrived).
 										<div className="mt-4">
-											<React.Suspense fallback={<div className="h-[88px]" aria-hidden />}>
-												<ImageModelSettings status={ai} />
-											</React.Suspense>
+											<ImageModelSettings status={ai} />
 										</div>
 									) : null
 								}

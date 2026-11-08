@@ -1503,7 +1503,7 @@ export function useSelectedVoiceLabel(): { label: string | null; loading: boolea
 export async function voiceAvailability(): Promise<VoiceAvailability> {
 	const v = await getVoice();
 	return (
-		v?.availability() ?? {
+		v?.availability?.() ?? {
 			rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false,
 		}
 	);
