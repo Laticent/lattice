@@ -246,29 +246,39 @@ the PR critical path — their stale-committed-artifact half is already backstop
 at pre-commit, so a next-morning catch on `main` is cheap to revert. Rationale:
 `engineering/decisions/2026-06-27-integration-nightly-split.md`.
 
-**`marp-kit-render` is the one suite that reaches outside the repo.** It renders
-BOTH Marp hand-off artifacts — `dist/marp-kit` and a freshly exported
-Export-to-Marp bundle — through real marp-cli, fetched on demand with `npx` at
-the version range `lib/export/marp-bundle.js` exports. marp-cli is deliberately not
-a dependency (HARD RULE #1: Marp is an export target, not a render path), and it
-runs with `npm_config_ignore_scripts=true` since it executes registry content on
-the merge path, and `CHROME_NO_SANDBOX=1` because marp-cli turns the Chromium
-sandbox off for root and inside a container but NOT for a plain non-root VM —
-which is exactly what a GitHub runner is, so without it every render dies with
-"No usable sandbox!". `--browser-args` is not a marp-cli option and never was.
+**The Export-to-Marp suites run a pinned marp-cli, and no test reaches the network.**
+`marp-kit-render` renders BOTH Marp hand-off artifacts — `dist/marp-kit` and a freshly exported
+Export-to-Marp bundle — through real marp-cli, and four more files (`marp-admission`,
+`marp-video-link`, `marp-bundle-author-script`, `marp-bundle-shell-grammar`) render bundles with it.
+marp-cli is deliberately not a dependency (HARD RULE #1: Marp is an export target, not a render
+path): an exact pin with a lockfile lives in its own folder, `test/fixtures/marp-cli/`, and
+`test/helpers/marp-cli.js` runs its binary. The helper refuses a pin outside the range
+`lib/export/marp-bundle.js` exports (`MARP_CLI_RANGE`, what the bundle tells recipients to run),
+so a range bump that leaves the pin behind fails every Marp suite. CI installs the pin in its own
+step before any test (`Install the pinned marp-cli`, cached on the lockfile); locally, run
+`npm ci --prefix test/fixtures/marp-cli --ignore-scripts` once. Before #3045 the suites fetched the
+range with `npx` inside the test, and a slow registry cancelled them 22 times in 30 days.
+`LATTICE_MARP_CLI=range` brings that route back on purpose, for a run that wants the newest
+release in the range; it needs the network, so it runs off the per-PR path: the integration
+nightly's "Export-to-Marp on the newest marp-cli in the range" arm runs the five files that way
+every night and files the rolling issue when a new release breaks the bundle.
 
-**The skip is local-only.** With no registry access it retries three times, then
-skips *off* CI with a printed reason — hard-failing a laptop with no network just
-teaches people to ignore the suite — and **throws on CI**. A gate that self-skips
-in CI is not a gate: `# skipped 14` in a several-hundred-line TAP stream is not a
-signal anyone reads, and the job goes green covering nothing.
+marp-cli runs with `CHROME_NO_SANDBOX=1` because it turns the Chromium sandbox off for root and
+inside a container but NOT for a plain non-root VM — which is exactly what a GitHub runner is, so
+without it every render dies with "No usable sandbox!". `--browser-args` is not a marp-cli option
+and never was.
 
-Because the version range resolves fresh, the suite prints the resolved marp-cli
-version and repeats it in every failure message — without that a red gate cannot
-be triaged as "marp-cli moved" versus "we broke it." Renders are kept in
-`.scratch/marp-render/` (gitignored, reaped by `npm run clean:scratch`) and CI
-uploads them as an artifact on failure, because the defects this guards are the
-kind you see on page one of the PDF.
+**The skip is local-only.** Without the pinned install it skips *off* CI with a printed reason
+(the install command) — hard-failing a laptop that has not installed it just teaches people to
+ignore the suite — and **throws on CI**. A gate that self-skips in CI is not a gate:
+`# skipped 14` in a several-hundred-line TAP stream is not a signal anyone reads, and the job
+goes green covering nothing.
+
+The suite prints the marp-cli version it ran and repeats it in every failure message, so a red
+gate on the range route can be triaged as "marp-cli moved" versus "we broke it." Renders are kept
+in `.scratch/marp-render/` (gitignored, reaped by `npm run clean:scratch`) and CI uploads them as
+an artifact on failure, because the defects this guards are the kind you see on page one of the
+PDF.
 
 The CI visual-correctness gate is the **per-component semantic-invariant suite**
 (`test/integration/invariants/component-invariants.test.js`): it renders each

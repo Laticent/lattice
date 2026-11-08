@@ -624,21 +624,21 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	// A second deck becomes the open one; deck A is then a stored deck that still writes the old name.
 	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
 	await page.getByRole('menuitem', { name: 'New deck' }).click();
-	const craft = page.locator('header').getByText('Craft', { exact: true });
-	if (await craft.isVisible().catch(() => false)) await craft.click();
-
-	// The Library button TOGGLES the panel, and "New deck" and the Craft switch re-render the shell
-	// after their clicks return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI
-	// runner (#2739: the tab was never found, twice) while passing every local run, so open it until
-	// the tab is really there. A Library that cannot open still fails here, after 15 s.
+	// The Library button TOGGLES the panel, and "New deck" and the Craft switch re-render the shell after their clicks
+	// return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI runner (#2739: the tab was never found,
+	// twice), and a retry loop that clicked until the tab showed only hid it (#3045). So wait for each switch to land on
+	// its own signal, then read the button's own state, `aria-pressed`, and press it only when it is off.
+	await expect(page.getByRole('button', { name: /Untitled deck/ })).toBeVisible();
+	const craft = page.locator('header').getByRole('button', { name: /^Craft — every panel/ });
+	if ((await craft.getAttribute('aria-pressed')) !== 'true') await craft.click();
+	await expect(craft).toHaveAttribute('aria-pressed', 'true');
+	const library = page.getByRole('button', { name: CHROME.library });
+	if ((await library.getAttribute('aria-pressed')) !== 'true') await library.click();
+	await expect(library).toHaveAttribute('aria-pressed', 'true');
 	const mediaPill = page.getByRole('tab', { name: 'Media', exact: true });
-	await expect(async () => {
-		if (!(await mediaPill.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
-		await expect(mediaPill).toBeVisible({ timeout: 2_000 });
-		await mediaPill.click({ timeout: 2_000 });
-		await page.getByRole('button', { name: 'Filter' }).click();
-		await page.getByRole('menuitemradio', { name: 'Images' }).click();
-	}).toPass({ timeout: 15_000 });
+	await mediaPill.click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');
 	await first.getByLabel('Name', { exact: true }).fill('roomy');

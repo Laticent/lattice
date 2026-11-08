@@ -1,0 +1,8 @@
+{
+  "name": "lattice-marp-cli-pin",
+  "private": true,
+  "description": "The marp-cli the Export-to-Marp integration tests render with. Pinned and locked so a test never fetches it; see test/helpers/marp-cli.js.",
+  "dependencies": {
+    "@marp-team/marp-cli": "4.5.1"
+  }
+}

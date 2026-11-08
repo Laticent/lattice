@@ -14,7 +14,7 @@
  * bundle's own config, and opened in Chromium: no flag may be set, the runtime must still load, and
  * the quoted code must still show.
  *
- * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
+ * Local runs skip when the pinned marp-cli is not installed (test/helpers/marp-cli.js); CI fails instead (marp-kit-render.test.js
  * explains why a self-skipping gate is not a gate).
  */
 
@@ -23,10 +23,9 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { marpCli } = require('../../helpers/marp-cli');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT = path.join(ROOT, '.scratch', 'marp-bundle-author-script');
 const TIMEOUT = 300000;
@@ -71,12 +70,16 @@ Quoted: \`<script>alert(1)</script>\` stays code.
 an unclosed block on the last slide
 `;
 
+// The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test.
+const MARP = marpCli();
+
 function marp(args, cwd, timeout = TIMEOUT) {
-  const env = { ...process.env, npm_config_ignore_scripts: 'true', CHROME_NO_SANDBOX: '1' };
+  const env = { ...process.env, CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
     try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
   }
-  return npxSync(['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, '--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
+  if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
+  return MARP.run(['--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
 // The markup a deck can leave open on its last slide that swallows the bundle's trailing lines: an
@@ -110,7 +113,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-bundle-author-script] ${reason}`);
       skip = reason;
       return;
@@ -294,7 +297,7 @@ And $E = mc^2$ is math.
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-bundle-author-script] ${reason}`);
       skip = reason;
       return;

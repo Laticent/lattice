@@ -497,25 +497,24 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: ISO week (for the marp-cli cache key)
-        id: week
-        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
-      - name: Cache marp-cli for npx
-        # Five integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
-        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its whole dependency tree again.
-        # When the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
-        # suite's before-hook failure cancelled every test under it: 4 of 4 marp-bundle-author-script failures and 5 of
-        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test.
-        # WHAT IT REMOVES, AND WHAT IT DOES NOT: a warm cache removes the tarball downloads and the unpack race; npx
-        # still asks the registry for the package's metadata on every call (npm 10's libnpmexec resolves the range
-        # online), so a registry that is down still fails the probe. A cache is scoped to the PR that saved it (this
-        # workflow has no push to main), so a PR's first run misses and its later pushes hit.
-        # The key holds the file with the range AND the ISO week: without the week a cached 4.x would satisfy the
-        # range forever, and a new marp-cli 4.x that breaks export-to-Marp would go unseen here.
+      - name: Cache the pinned marp-cli
+        # Five integration files render with the real marp-cli. They used to fetch it inside the test with
+        # `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`, and npx asked the registry on every call, cache or not: a
+        # slow registry turned 22 integration runs red in 30 days ("did not finish before its parent and was
+        # cancelled"), a test failure that was never about the code (#3045). The tests now run an exact pin with a
+        # lockfile, `test/fixtures/marp-cli/`, through test/helpers/marp-cli.js, and nothing in a test reaches the
+        # network. The key is the lockfile, so a pin bump installs fresh and nothing else does.
+        id: marp-cli-cache
         uses: actions/cache@v4
         with:
-          path: ~/.npm/_npx
-          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/export/marp-bundle.js') }}-${{ steps.week.outputs.week }}
+          path: test/fixtures/marp-cli/node_modules
+          key: marp-cli-pin-${{ runner.os }}-${{ hashFiles('test/fixtures/marp-cli/package-lock.json') }}
+      - name: Install the pinned marp-cli
+        # Its own step, before any test: a registry outage is a red step with this name, not a cancelled suite.
+        # Scripts off, as the npx route ran it: nothing in marp-cli's tree needs one (puppeteer-core downloads no browser).
+        if: steps.marp-cli-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: npm ci --prefix test/fixtures/marp-cli --ignore-scripts --no-audit --no-fund
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as

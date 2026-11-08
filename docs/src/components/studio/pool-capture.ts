@@ -25,13 +25,21 @@ export function slotShows(slot: HTMLElement | undefined, props: PooledPreviewPro
 	}
 }
 
+/** `captureSlot`'s answer when the reader scrolled while its code loaded: nothing was captured; queue it again. */
+export const SCROLLED = 'scrolled' as const;
+
 /**
  * Rasterize the slide a slot's frame shows, at the slot's own size (times the device's pixel ratio), as a JPEG.
  * `still` is asked again once the picture is drawn: a slot re-pointed mid-capture yields null, never another slide's
  * picture. Fonts are not embedded (the export's `fontEmbedCSS` costs a fetch per face); at a map tile's size a
  * fallback face is not legible either way, and the live picture replaces the poster when the tile is live again.
+ *
+ * `quiet` is asked once more right before the clone starts, after the capture code has loaded. The pool checked that
+ * the scroller was still before it ran this, but the imports below are awaits, and a scroll that landed during them
+ * started a capture mid-scroll (studio-map-posters.spec.ts, #3045). Not quiet: nothing is cloned, and the answer is
+ * `SCROLLED`.
  */
-export async function captureSlot(slot: HTMLDivElement | undefined, still: () => boolean): Promise<Blob | null> {
+export async function captureSlot(slot: HTMLDivElement | undefined, still: () => boolean, quiet: () => boolean = () => true): Promise<Blob | null | typeof SCROLLED> {
 	const frame = slot?.querySelector('iframe');
 	const doc = frame?.contentDocument;
 	const section = doc?.querySelector<HTMLElement>('.lattice > section');
@@ -51,6 +59,7 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 			import('./export/capture-ribbon.js'),
 			import('../../../../lib/core/capture-style-properties.mjs'),
 		]);
+		if (!quiet()) return SCROLLED;
 		// A `performance` entry per capture: its WALL time, from the clone to the JPEG, across awaits (image inlining and the
 		// encode may run off the main thread). It bounds the main-thread cost; a long-task reading is what pins it down.
 		const t0 = performance.now();

@@ -6,7 +6,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { bake } = require('./bake-helper.js');
+const { bake, bakeCounted } = require('./bake-helper.js');
 
 const photo = pathToFileURL(path.join(__dirname, '../../../lib/samples/photo-wide.jpg')).href;
 const forms = {
@@ -234,9 +234,9 @@ test('a CRLF after a backslash is one newline, so the string continues and the u
 
 test('an unclosed quoted url( does not rescan leading whitespace (it was quadratic)', () => {
   const body = ' '.repeat(500000) + 'url("\n'.repeat(40000);
-  const t0 = Date.now();
-  bake(`<style>${body}</style>`);
-  assert.ok(Date.now() - t0 < 3000, `took ${Date.now() - t0} ms`);
+  // Counted, not timed: the rescan read the whitespace again from every opener, 40,000 x 500,000 characters.
+  const { work } = bakeCounted(`<style>${body}</style>`);
+  assert.ok(work <= 10 * body.length, `the inliner covered ${work} characters for ${body.length} (3.0 per character today)`);
 });
 
 test('srcset candidates, a <picture> source, a video poster and an SVG image are baked', () => {
@@ -313,10 +313,22 @@ const HOSTILE = {
   'a long srcset of commas and candidates': `<img srcset="${'a.png 1x,'.repeat(120000)}">`,
   'repeated --background-image strings': `<div style='${'--background-image:"url(\\"file://'.repeat(30000)}'></div>`,
 };
+// Counted, not timed (HARD RULE #32): a 3 s stopwatch here failed on a Windows runner, and only there. The inliner's work
+// is at most 10.4 characters read per input character today (repeated escapes), so 40 leaves room for a reader to
+// change and still fails a rescan, which reads the rest of the text per opener. Conversions: at most one, which is the
+// deck folder itself (`baseUrl`) or the one address a case repeats; #2800's defect converted each copy again.
 for (const [name, html] of Object.entries(HOSTILE)) {
-  test(`1 MB hostile deck under 3 s, parse included: ${name}`, () => {
-    const t0 = Date.now();
-    bake(html, { baseUrl: 'file:///tmp/deck/' });
-    assert.ok(Date.now() - t0 < 3000, `${name} took ${Date.now() - t0} ms`);
+  test(`1 MB hostile deck: linear work and one path conversion per address: ${name}`, () => {
+    const { work, conversions } = bakeCounted(html, { baseUrl: 'file:///tmp/deck/' });
+    assert.ok(work <= 40 * html.length, `${name}: the inliner covered ${work} characters for ${html.length}`);
+    assert.ok(conversions <= 1, `${name}: ${conversions} path conversions`);
   });
 }
+
+test('a srcset repeating one address with no local path converts it once, not once per copy (#2800)', () => {
+  // `file://share.example/…` has no local path on any platform, so every conversion throws; the answer is remembered.
+  const html = `<img srcset="${'file://share.example/a.png 1x,'.repeat(2000)}">`;
+  const { missing, conversions } = bakeCounted(html);
+  assert.deepEqual(missing, ['file://share.example/a.png']);
+  assert.equal(conversions, 1);
+});
