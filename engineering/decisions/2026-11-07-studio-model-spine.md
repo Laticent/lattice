@@ -243,10 +243,12 @@ once a second by a read.
   input, and requires 0. It was 0.085 at 820 before the skeleton fix. Making the image-model block a
   static import (the sheet itself is lazy) removed a Suspense placeholder 150px shorter than the
   block, which would otherwise have pushed the Voice model section down after it opened.
-- **Route budget:** +3565 bytes of Studio eager JS against `main` 644f177, declared in
-  `docs/route-budget.d/3079-model-spine.md`: the synchronous selection store and the key-state read
-  the first frame needs. The chooser, provider rows and chip switch ship in the lazy Workspace and
-  chat chunks.
+- **Route budget:** +3799 bytes of Studio eager JS against `main` 644f177, declared as +4000 in
+  `docs/route-budget.d/3079-model-spine.md`: the synchronous selection store and key-state read the
+  first frame needs, plus the boot-path guard rails added after review. The retired-voice notice
+  reaches the shell as an event (`lattice:voice-model-gone`), because importing the notice kernel
+  from `read-aloud.ts` split it into its own chunk on two routes (+~430 B each). The chooser,
+  provider rows and chip switch ship in the lazy Workspace and chat chunks.
 - **Live, on the owner's keys (2026-11-08), in throwaway specs never committed:** Gemini's live
   model list holds `gemini-3.8-flash-tts` and `gemini-3.8-flash-lite-tts`, and the curation picks
   `gemini-3.8-flash` (chat) and `gemini-3.8-flash-lite-tts` (voice); OpenAI's list resolves to
