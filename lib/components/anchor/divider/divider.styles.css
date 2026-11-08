@@ -117,33 +117,65 @@ section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-w
  * and its style (`progress-rail: bar`). It is frame content, not a chrome Cell: a divider is a
  * sovereign Frame and hosts none (design/forms.md §6).
  *
- * In flow, as the first row of the divider's centered block, directly above the eyebrow and the name,
- * at its full height. Two cheaper placements were tried and both drew where they had no room:
- *   - OUT of flow in the top band: a deck's `header:` text sits there and the marker drew over it.
- *   - In flow but ZERO tall, painted above its place: nothing reserved that room, so a tall block (a
- *     two-line name at `venue: hall`, a portrait canvas, an image-first divider) put the marker over
- *     the header or above the frame, and no fit gate saw it because the slide still "fit".
- * A real row costs the block its height, so a divider that is already full now reports the overflow
- * the engine and check:venue-conformance can see, instead of painting over its neighbors. The plain
- * divider aligns it with the name; a `divider light` centers it with its block (`--headline-justify`).
- * Spaced with padding, never margin (HARD RULE #20). */
+ * WHERE THE RAIL WILL BE (the owner's call, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md).
+ * The marker sits exactly where the deck's footer rail sits on the slides after it: bottom-right by
+ * default, bottom-center under `progress-rail: center`, upright on the right edge under `edge`. So the
+ * divider teaches what the marks mean AND where to look for them. It used to be the first row of the
+ * centered block, above the name, on every placement: one mark in three places.
+ *
+ * The bottom band is free on a divider: it carries no page number (its manifest's `chrome`), so the
+ * marker takes the page number's corner, and the footer (the deck's standing note) yields the marker
+ * its berth and ends in an ellipsis before it. The block above never reaches the band: the footer has
+ * always lived there. The top band, where the out-of-flow marker once drew over the header, is not
+ * touched. Spaced with padding and gap, never margin (HARD RULE #20). */
+section.divider {
+  /* The marker's berth in the bottom band, which the footer leaves it. The footer rail's own berth
+   * (`--footer-center-w`, stage.css) at the marker's scale: ten marks and the count at `--_mk`. */
+  --_marker-w: calc(var(--_sec-1cqi, 1cqi) * 34);
+  /* Where the marker's row ends: the frame's edge, since a divider carries no page number. */
+  --_marker-end: var(--frame-inset-r);
+}
+/* `divider with-pagination` brings the page number back (lib/core/pagination.js), and it owns the
+ * corner: the marker ends where the footer would, short of the number, as the content rail parks
+ * beside it. Without this the number drew inside the marker (the checker's probe, 2026-11-08). */
+section.divider.with-pagination { --_marker-end: calc(var(--frame-page-reserve) - var(--_bar-r, 0px)); }
 section.divider > .divider-marker {
-  --_mk: 1.5;
+  --_mk: 1.25;
+  position: absolute;
+  z-index: var(--z-chrome);
+  inset-inline-end: var(--_marker-end);
+  inset-block-end: var(--frame-inset-b);
   display: flex;
-  align-items: center;
-  padding-block-end: var(--sp-md);
-  /* Slide-width units, not `--sp-*`: those scale with `--canvas-scale` (1.95 in portrait) while the
-   * marks do not, and ten sections on a `story` divider then ran the row to the slide's edge. */
-  gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
+  /* ONE LINE WITH THE FOOTER. The count is the footer's own type (family, size, weight, tracking,
+   * line height) on a box anchored where the footer's is, so the two share a baseline; the marks stand
+   * on that baseline in a box one cap tall, so they center on the figures' middle, not on the line box,
+   * which carries room below the baseline the figures never use (owner's review, 2026-11-08: count and
+   * marks centered 3.5px apart at 200 dpi before; within 0.5px, with the footer, after). */
+  align-items: baseline;
+  justify-content: flex-end;
+  max-width: var(--_marker-w);
+  /* ONE SPACING UNIT, the gap between two marks; the count sits exactly two of them from the first
+   * mark, so the row reads as a label and its scale rather than five loose things. Slide-width
+   * units, not `--sp-*`: those scale with `--canvas-scale` (1.95 in portrait) while the marks do
+   * not, and ten sections on a `story` divider then ran the row to the slide's edge. */
+  --_mk-gap: calc(var(--_sec-1cqi, 1cqi) * 0.6 * var(--_mk));
+  gap: calc(var(--_mk-gap) * 2);
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  /* One line, so the row is the type: the body's 1.6 leading made a portrait marker 72px tall at
-   * conference, most of it air. */
+  font-size: var(--chrome-fs);
+  font-weight: 500;
   line-height: 1;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
   color: var(--_rail-on);
+}
+/* The footer yields the marker its berth: it stops short of it and ends in an ellipsis. The
+ * `center` and `edge` placements of the marker, and the footer's share under `center`, live with
+ * the rail's other placements (progress.css). */
+section.divider:has(> .divider-marker) > footer {
+  inset-inline-end: calc(var(--_marker-end) + var(--_marker-w) + var(--sp-md));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* `1 / 4` is a figure, not prose: isolated and left-to-right, so a right-to-left deck does not
  * reorder it into `4 / 1`. */
@@ -151,14 +183,12 @@ section.divider > .divider-marker > .divider-marker-count { direction: ltr; unic
 section.divider > .divider-marker > .divider-marker-marks {
   display: flex;
   align-items: center;
-  gap: calc(var(--_sec-1cqi, 1cqi) * 0.6 * var(--_mk));
+  block-size: 1cap;
+  gap: var(--_mk-gap);
 }
-/* A `divider qr` is the one divider whose content already fills its slide: on a narrow canvas the
- * code takes 30% of the width (qr-general.css) under a venue-scaled name, and at `venue: conference`
- * the marker's row tipped it into a clip (check:venue-conformance, `divider qr` tall/conference).
- * Only there, at conference and hall, does a divider that carries a marker cap the code's design
- * size at 20% of the width, still over conference's scan floor; at hall the floor `--qr-min` wins
- * through the same `max()` as qr-general.css. Laptop and huddle keep the full size. */
-section.divider.qr:is(.venue-conference, .venue-hall):has(> .divider-marker) {
-  --qr-share: max(var(--qr-min, 0.1), min(var(--qr-base), 0.2));
-}
+/* The label font is monospaced, so each space in `2 / 4` is a full figure wide and the count's inner
+ * gaps matched its gap to the marks: three loose glyphs. Pulled in, the count reads as one label and
+ * every gap inside it is smaller than the gap to the scale (owner's review, 2026-11-08; -0.45em
+ * crowded the slash). */
+section.divider > .divider-marker > .divider-marker-count { word-spacing: -0.3em; }
+

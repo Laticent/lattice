@@ -1441,12 +1441,11 @@ rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: 
 - **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
   slides before the first divider carry no rail.
 - **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
-  marks, larger, this section lit, directly above the eyebrow and the section name: left-aligned with
-  the name on a plain or numbered divider, centered on a `divider light`. It is a real row of the
-  divider's block, so it takes its line of the slide's room (at `venue: conference` and `hall` a
-  `divider qr` with a marker caps its code at 20% of the slide width, still over the venue's scan
-  floor). A hidden divider draws no marker and no numeral. That is where a reader learns what the
-  footer marks mean.
+  marks, a little larger, this section lit, **where the rail will be**: the bottom-right corner by
+  default, the center of the footer band under `center`, upright on the right edge under `edge`. So the
+  divider teaches both what the marks mean and where to look for them. A divider carries no page
+  number, so the marker takes that corner; the deck's footer stays and ends in an ellipsis before the
+  marker. A hidden divider draws no marker and no numeral.
 - **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
   rail as it will look in that section. A different count draws nothing.
 - **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
@@ -1457,8 +1456,9 @@ the same tone cue the topic track uses for its current topic, so the two scales 
 a11y-achromatopsia (`topic.styles.css` § the lit item).
 
 **One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
-same number the rail lights. `npm run lint:deck` suggests `empty-section` when a divider follows a
-divider directly, because the first section then holds no slide and its mark never lights.
+same number the rail lights. `npm run lint:deck` warns `empty-section` when a divider follows a
+divider directly, because the first section then holds no slide, its mark never lights, and the first
+rail a reader sees says `2 / 4`.
 
 **`center` costs footer width.** The rail never yields in the footer band, and the author's
 footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
