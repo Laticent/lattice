@@ -238,6 +238,24 @@ export type SingleSlideOptions = {
 	liveLayout?: boolean;
 };
 
+/**
+ * `text` with every `<!-- … -->` cut out, an unclosed one to the end. A scan, not a regex replace: a one-pass
+ * `replace(/<!--[\s\S]*?-->/g, '')` can splice a new `<!--` together from the pieces it leaves (CodeQL
+ * js/incomplete-multi-character-sanitization). Only the agenda probe below uses it, and only to test for a list line.
+ */
+function withoutComments(text: string): string {
+	let out = '';
+	let at = 0;
+	for (;;) {
+		const open = text.indexOf('<!--', at);
+		if (open === -1) return out + text.slice(at);
+		out += text.slice(at, open);
+		const close = text.indexOf('-->', open + 4);
+		if (close === -1) return out;
+		at = close + 3;
+	}
+}
+
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
 export function currentPaletteMode(paletteOverride?: string): { palette: string; mode: 'light' | 'dark' } {
 	const root = document.documentElement;
@@ -558,7 +576,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		test: (deck) =>
 			deck.split(/^\s*---\s*$/m).some((chunk) => {
 				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
-				const prose = chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, '').replace(/<!--[\s\S]*?-->/g, '');
+				const prose = withoutComments(chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, ''));
 				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
 			}),
 	},
