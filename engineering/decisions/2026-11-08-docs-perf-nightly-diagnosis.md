@@ -6,8 +6,8 @@ summary: >
   step is mobile /studio/ LCP going from about 5 s to 14 s on 10-29: after #2940 put Undo and Redo in the phone header, the
   deck title the pre-paint shell draws fell to 64x20 px, so Lighthouse took the app's own "16 : 9 · 7 slides" caption,
   painted after hydration, as the largest paint. The shell now draws that caption itself: median LCP 14.1 s to 5.6 s, 7
-  interleaved runs per arm. The nightly also never uploaded its per-run reports; it does now. Changing the floor rule and
-  the run count are the owner's calls.
+  interleaved runs per arm. The nightly also never uploaded its per-run reports; it does now. The floor trips only on a
+  crossing past the noise band, and mobile takes 5 runs a night instead of 3.
 ---
 
 # Docs perf nightly: what is noise, what is real (2026-11-08)
@@ -42,11 +42,14 @@ on the owner because it changes what the alarm means.
 
 Three gate changes follow from this. None of them raises a budget:
 
-1. **Floor on crossing only.** Trip the floor when base passes it and head falls below it. While both sit under it,
-   use the ordinary noise and tolerance check. *(Owner's call: alarm meaning.)*
-2. **More runs per arm, alternated.** Use 5–7 runs per arm instead of 3, alternating head and base. Section 1's simulation
-   shows median-of-3 is the noise source. *(Owner's call: a number the owner set, and roughly twice the nightly's
-   Lighthouse time.)*
+1. **Floor on crossing only.** The floor now trips when base is at or above it and head falls below it by more than
+   the noise band (`noiseAbs`, 0.02). A page already under it regresses only through the ordinary tolerance check
+   (0.05). Taken in this PR. The owner left the call to the session.
+2. **More runs per arm, alternated.** Mobile runs go from 3 to 5 in `lighthouserc.mobile.cjs`, which adds 10 Lighthouse
+   runs per arm per night. Desktop stays at 3, because its scores are not near any threshold. Section 1's simulation
+   shows median-of-3 is the noise source. Alternating head and base needs both builds served at once and a new collect
+   loop, so it is `followups.d/2085-p4-perf-nightly-alternate-arms.md`. The base arm measures with its own config, so
+   the first night after merge compares a median of 5 against a median of 3.
 3. **Upload the per-run reports.** `actions/upload-artifact@v4` skips hidden files and folders by default. The per-run
    `lhr-*.json` files live under `.perf-out/`, so every artifact so far has held `perf-report.md` alone. This one is a bug in
    an existing step, not a new gate, and this PR fixes it with `include-hidden-files: true`.

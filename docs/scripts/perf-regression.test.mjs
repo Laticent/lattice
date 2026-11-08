@@ -95,6 +95,15 @@ describe('evaluate', () => {
 	it('flags a head score under the catastrophe floor when it got worse', () => {
 		expect(evaluate('performance-score', 0.52, 0.48).regressed).toBe(true);
 	});
+	it('does NOT fire the floor for a page already below it; the tolerance check still applies (#2085)', () => {
+		expect(evaluate('performance-score', 0.42, 0.41).regressed).toBe(false); // the nightly wobble that filed #2085
+		expect(evaluate('performance-score', 0.45, 0.4).regressed).toBe(false); // 0.05 is not past tolAbs
+		expect(evaluate('performance-score', 0.45, 0.39).regressed).toBe(true); // past tolAbs: a real drop
+	});
+	it('does NOT fire the floor on a crossing inside the noise band', () => {
+		expect(evaluate('performance-score', 0.51, 0.5).regressed).toBe(false);
+		expect(evaluate('performance-score', 0.5, 0.49).regressed).toBe(false);
+	});
 	it('does NOT fire the floor on an improving (or no-op) day below the floor', () => {
 		expect(evaluate('performance-score', 0.4, 0.45).regressed).toBe(false); // improved
 		expect(evaluate('performance-score', 0.45, 0.45).regressed).toBe(false); // no-op
