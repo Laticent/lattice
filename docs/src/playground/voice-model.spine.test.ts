@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
-import { createVoiceModel } from './voice-model.js';
+import { createVoiceModel, listGeminiVoiceCatalog } from './voice-model.js';
 
 // The model spine, voice half: the Studio's voice is the stored VOICE selection, resolved and
 // never laddered, and independent of the chat selection
@@ -195,6 +195,25 @@ describe('model spine — Gemini direct voice', () => {
 		expect(isModelGoneError(404, '')).toBe(true);
 		expect(isModelGoneError(400, 'Model gemini-x is deprecated')).toBe(true);
 		expect(isModelGoneError(400, 'No endpoints found for hexgrad/kokoro-82m')).toBe(true);
+	});
+
+	it('reads every page of Gemini\'s voice list and offers the named, multilingual voices, not the locale personas', async () => {
+		// The shape a real key answered on 2026-11-08: 2,114 voices over three pages, sorted by id.
+		const pages: Record<string, unknown> = {
+			'': { voices: [{ id: 'achernar', display_name: 'Achernar' }, { id: 'ar-001-advisor-1' }, { id: 'en-us-advisor-1' }], next_page_token: 'p2' },
+			p2: { voices: [{ id: 'kore' }, { id: 'pt-br-tutor-3' }], next_page_token: 'p3' },
+			p3: { voices: [{ id: 'zephyr' }, { id: 'yue-hk-csagent-2' }] },
+		};
+		const seen: string[] = [];
+		const fetchImpl = async (url: string) => {
+			seen.push(url);
+			if (url.includes('/models?')) return Response.json({ models: [{ name: 'models/gemini-3.8-flash-lite-tts' }] });
+			const token = new URL(url).searchParams.get('page_token') ?? '';
+			return Response.json(pages[token]);
+		};
+		const c = await listGeminiVoiceCatalog('AIzaTestKey000000000000000', fetchImpl as unknown as typeof fetch);
+		expect(c.voices).toEqual(['achernar', 'kore', 'zephyr']);
+		expect(seen.filter((u) => u.includes('/voices?'))).toHaveLength(3);
 	});
 
 	it('takes the curated default model from the live list before the first read', async () => {

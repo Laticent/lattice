@@ -576,21 +576,42 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
  * (curated as a preference, never as pinned ids — provider-registry.js) and the prebuilt voices
  * from the live `/voices` list. Never hand-typed. `{ models, voices, reachable }`.
  */
+/**
+ * Gemini's NAMED prebuilt voices (Achernar, Kore, Puck, …), read live from `/v1beta/voices`.
+ * Measured 2026-11-08 on a real key: the list holds 2,114 voices in 39 languages over three pages
+ * (`next_page_token`), sorted by id. 30 are the named, multilingual voices; the rest are
+ * locale-specific personas with ids like `en-us-advisor-1`. A read-aloud picker of 2,000 raw ids is
+ * unusable, so the picker offers the named voices; the locale personas wait for a language filter
+ * (followups.d/3079-p3-gemini-locale-voices.md). Every page is read, because the named ids sort
+ * among the locale ones. Never hand-typed: a voice Google adds or drops shows up here.
+ */
+async function listGeminiNamedVoices(f, headers) {
+  const out = [];
+  let token = '';
+  for (let page = 0; page < 10; page++) {
+    const r = await f(`${GEMINI_API}/voices?type=prebuilt&page_size=1000${token ? `&page_token=${encodeURIComponent(token)}` : ''}`, { headers });
+    if (!r.ok) break;
+    const d = await r.json();
+    for (const v of d.voices || []) {
+      const id = String(v.id || v.name || '').replace(/^voices\//, '');
+      if (id && !/^[a-z]{2,3}-/i.test(id)) out.push(id);
+    }
+    token = d.next_page_token || d.nextPageToken || '';
+    if (!token) break;
+  }
+  return out;
+}
+
 export async function listGeminiVoiceCatalog(key, fetchImpl) {
   const f = fetchImpl || fetch;
   const headers = { 'x-goog-api-key': key };
   try {
-    const [mr, vr] = await Promise.all([f(`${GEMINI_API}/models?pageSize=1000`, { headers }), f(`${GEMINI_API}/voices?type=prebuilt&page_size=1000`, { headers })]);
+    const [mr, voices] = await Promise.all([f(`${GEMINI_API}/models?pageSize=1000`, { headers }), listGeminiNamedVoices(f, headers)]);
     if (!mr.ok) return { models: [], voices: [], reachable: false };
     const md = await mr.json();
     const models = (md.models || [])
       .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), name: m.displayName || '' }))
       .filter((m) => /-tts(\b|$|-)/.test(m.id));
-    let voices = [];
-    if (vr.ok) {
-      const vd = await vr.json();
-      voices = (vd.voices || []).map((v) => String(v.id || v.name || '').replace(/^voices\//, '')).filter(Boolean);
-    }
     return { models, voices, reachable: true };
   } catch {
     return { models: [], voices: [], reachable: false };

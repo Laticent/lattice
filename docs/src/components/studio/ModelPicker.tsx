@@ -11,6 +11,7 @@ import {
 } from '@/components/studio/ai/or-catalog.js';
 import { modelDisplayName } from '@/lib/model-name';
 import { notify } from '@/lib/notify';
+import { CURATED, curate } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
 import { KEY_PROVIDER_INFO } from './key-providers';
@@ -79,7 +80,19 @@ export function useModelCatalog(
 	}, [wanted]);
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
-	const groups = React.useMemo(() => groupByVendor(filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query)), [models, view, query, opts.visionOnly]);
+	const groups = React.useMemo(() => {
+		const shown = filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query);
+		// OpenRouter ids are `vendor/model`, so they group by vendor. A direct provider's ids are bare
+		// (`gemini-3.8-flash`), which made every model its own heading: list them as two groups instead,
+		// the registry's recommended families first (newest first), then every other live model.
+		if (provider === 'openrouter') return groupByVendor(shown);
+		const ordered = curate(shown, CURATED.chat[provider as keyof typeof CURATED.chat]);
+		const label = KEY_PROVIDER_INFO[provider].label;
+		return [
+			{ vendor: 'Recommended', models: ordered.filter((m) => m.curated) },
+			{ vendor: `All ${label} models`, models: ordered.filter((m) => !m.curated) },
+		].filter((g) => g.models.length);
+	}, [models, view, query, opts.visionOnly, provider]);
 
 	const pick = async (m: ORModel) => {
 		setSelectedId(m.id);

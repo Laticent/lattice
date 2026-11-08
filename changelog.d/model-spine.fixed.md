@@ -18,3 +18,6 @@
 - Studio: the image model setting (which model reads your photos, and how closely) stays in view under the chat model card instead of being hidden behind Change.
 - Studio: a model picked while the browser's storage is full now takes effect on the page instead of silently keeping the old one, and a selection written by a newer version of the Studio in another tab is left alone rather than reset. A key that could not be opened because the browser's key store was briefly unreachable now opens by itself once the store recovers.
 - Studio: when a provider retires the voice model you chose, read-aloud turns off and tells you once where to pick another, instead of failing on every sentence; the voice card shows "Model retired". No other voice speaks in its place.
+- Studio: Workspace › AI accepts Google's newer Gemini API keys (they start with "AQ."), not only the classic "AIza…" ones.
+- Studio: the Gemini voice picker offers Gemini's 30 named voices (Achernar, Kore, Puck, …), read live from Google, instead of a list of raw voice ids.
+- Studio: a direct provider's model list (Gemini, Anthropic, OpenAI) opens on its recommended models, newest first, then every other model; and the chat card and chip name the model that will answer ("Gemini 3.8 Flash"), not just the provider.

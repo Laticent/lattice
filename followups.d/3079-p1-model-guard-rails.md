@@ -33,6 +33,8 @@ where     — docs/src/lib/provider-registry.js, docs/src/components/studio/ai/{
 done when — every model id the Studio names comes from the config file; the nightly run is green
             against live lists and opens an issue on a retired id (proved with a deliberately
             retired id in a dry run); chat shows "Model retired" and never substitutes.
+seen      — live lists on 2026-11-08: `qwen/qwq` in or-catalog.js OR_VALUE is no longer on
+            OpenRouter; every other configured id was live.
 evidence  — the nightly run's log; unit tests for the config loader and chat's gone path; an e2e
             with a 404ing chat model.
 verify    — tier 2 maker-checker (CI contract + engine-adjacent).

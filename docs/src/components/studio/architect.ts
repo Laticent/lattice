@@ -2041,6 +2041,19 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				openRouterKeyInvalid: !!a.openRouterKeyInvalid,
 				provider: a.provider ?? 'openrouter',
 			});
+			// A direct provider with no explicit pick runs its curated default, which is only known
+			// once its model list loads (free, cached). Load it so the card and the chip name the
+			// model that will answer ("Gemini 3.8 Flash"), not just the provider.
+			if (cloudSelected && readiness.provider !== 'openrouter' && readiness.state === 'ready' && !m.openRouterModel?.() && m.listOpenRouterModels) {
+				try {
+					await m.listOpenRouterModels();
+				} catch {
+					/* the provider's name stands in */
+				}
+				if (stale()) return;
+				const id = m.openRouterModel?.() ?? null;
+				if (id) setState((s) => ({ ...s, modelId: id, modelName: m.openRouterModelName?.() ?? null }));
+			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.
 			try {

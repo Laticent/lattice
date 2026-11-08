@@ -133,10 +133,11 @@ The direct Gemini voice (`gemini-tts` rung, `voice-model.js`) calls
 `models/<id>:generateContent` with `responseModalities: ['AUDIO']` and
 `speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, on the Gemini key only. A response
 with a RIFF header is returned as is; headerless L16 (the documented default) is wrapped into WAV. The
-model list comes from the live `/v1beta/models`. The voice roster is read from `/v1beta/voices`
-(never hand-typed), but Google documents no such list endpoint, so on a real key the roster may be
-empty and Gemini speaks in the model's default voice; how to offer a voice choice there is an open
-owner decision (PR #3079). Until the model list answers, the rung uses `gemini-3.8-flash-lite-tts`.
+model list comes from the live `/v1beta/models`. The voice roster is read live from `/v1beta/voices`
+(never hand-typed). Measured on a real key (2026-11-08): 2,114 voices in 39 languages over three
+pages, of which 30 are the named, multilingual voices (Achernar … Zephyr) and the rest
+locale-specific personas (`en-us-advisor-1`). The picker reads every page and offers the 30 named
+voices; the personas wait for a language filter (`followups.d/3079-p3-gemini-locale-voices.md`). Until the model list answers, the rung uses `gemini-3.8-flash-lite-tts`.
 
 **A retired voice model turns read-aloud off; nothing stands in.** Providers retire TTS models with
 little notice. When a speech call answers 404, or 400 naming the model as not found, unsupported,
@@ -246,4 +247,15 @@ once a second by a read.
   `docs/route-budget.d/3079-model-spine.md`: the synchronous selection store and the key-state read
   the first frame needs. The chooser, provider rows and chip switch ship in the lazy Workspace and
   chat chunks.
-- **Not verified:** a live provider (the owner's call; HARD RULE #24), and real Safari on iOS.
+- **Live, on the owner's keys (2026-11-08), in throwaway specs never committed:** Gemini's live
+  model list holds `gemini-3.8-flash-tts` and `gemini-3.8-flash-lite-tts`, and the curation picks
+  `gemini-3.8-flash` (chat) and `gemini-3.8-flash-lite-tts` (voice); OpenAI's list resolves to
+  `gpt-6.1-terra`; every OpenRouter featured TTS id is live, and `qwen/qwq` (chat Value lens) is not.
+  Both 3.8 TTS models answer `audio/wav` with a RIFF header; a missing model answers 404 "not found",
+  which `isModelGoneError` reads as retired. The real Studio saved a real Gemini key through the UI,
+  selected Gemini for chat ("Gemini 3.8 Flash") and voice, and Present spoke through
+  `gemini-3.8-flash-lite-tts` (HTTP 200). That run found and fixed four defects: Google's newer
+  `AQ.` key format was refused by the shape check; the voice picker would have shown the first 1,000
+  raw voice ids; the card and chip named only the provider for a curated default; and the direct
+  model list made every bare id its own heading.
+- **Not verified:** live OpenRouter chat or speech on our key (HARD RULE #24), and real Safari on iOS.
