@@ -113,3 +113,16 @@ session proxy answers 403 for github.com release downloads), and the alerts API 
 The PR's own CodeQL check reports only new alerts. Dismissing the §2 and §3 false positives on the
 dashboard still needs someone with `security_events` access.
 
+
+## 7. Owner policy, 2026-11-08: fix, do not dismiss
+
+The owner ruled that **a CodeQL alert is not dismissed unless there is an extraordinary reason,
+with evidence.** "Used in tests", "dev script" and "false positive" are not enough on their own.
+So the §2 false positives and the §3 test, fixture and script alerts are **not** a dismissal
+checklist any more: each one is fixed in code, the way §2's real findings were. A test's regex
+is rewritten to a linear form or replaced by a parser; a fixture that must stay hostile is the
+one shape that can argue for an exception, and then only with the evidence written here.
+
+A re-check on 2026-11-08 (PR #3084, from the `CodeQL` check on every PR merged since
+2026-10-25) found no new JavaScript alerts; the remaining count is about 35 (inferred, the alerts
+API is still 403 for agents). The work is `followups.d/1958-p2-fix-not-dismiss-codeql.md`.

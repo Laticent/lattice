@@ -224,10 +224,20 @@ Measured CodeQL run time: PR runs median 4.0 min (n=28, 2.5–11.3); Push on mai
 | **(b) Require GHAS `CodeQL` on the PR only — CHOSEN** | Blocks a red alert before a PR can be queued, adds no queue time, keeps default setup | Code that only two PRs combine in the queue goes unscanned until Push on main, which still runs after merge. |
 | (c) No gate (the state before) | Zero cost | The human authorizing the merge is the only control; the evidence above shows that once worked and nearly failed. |
 
-**How to apply (b), for the owner.** Add `CodeQL` as a required check in a ruleset (or branch
-protection) that applies to pull requests targeting `main`, and leave "Main Merge Queue"'s
-required checks as they are (`ci` only). Then put one small PR through the full path and watch it
-reach `main`: the PR should wait on `CodeQL`, and the queue should not.
+**How to apply (b), for the owner: the code-scanning rule, NOT a required status check.** GitHub
+has a ruleset rule built for this, "Require code scanning results" (code scanning merge
+protection). GitHub's docs say it "will not apply to merge queue groups", and that it is not a
+status check, so it gates the pull request without ever waiting on a `gh-readonly-queue/…` ref
+(https://docs.github.com/en/code-security/code-scanning/managing-your-code-scanning-configuration/set-code-scanning-merge-protection).
+A required status check named `CodeQL` is the wrong tool: a branch's required checks are also
+expected on the merge group, which is the deadlock measured above.
+
+Steps: Settings → Rules → Rulesets → New ruleset → New branch ruleset. Name it (e.g. "Code
+scanning on PRs"), set Enforcement to Active, target the default branch, tick "Require code
+scanning results", add the tool `CodeQL` with Alerts "Errors" and Security alerts "High or
+higher", and create it. Leave "Main Merge Queue" as it is (`ci` only). Then watch one small PR
+through the full path: the PR should be blocked by a new high alert, and the queue should not
+wait on CodeQL.
 
 (a) stays open as its own decision, on the query suite's merits.
 
