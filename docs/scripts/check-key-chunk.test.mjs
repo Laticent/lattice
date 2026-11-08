@@ -15,7 +15,9 @@ describe('check-key-chunk', () => {
 		const names = keyNames(fs.readFileSync(path.join(HERE, '..', 'src', 'lib', 'openrouter-key.js'), 'utf8'));
 		expect(names).toContain('lattice-db-or-key');
 		expect(names).toContain('lattice-db-or-key-invalid');
-		expect(names).toContain('lattice-db-provider');
+		// `lattice-db-provider` moved to lib/model-selection.js with the model spine (a legacy
+		// selection key the migration reads, not a key slot); how OpenRouter connected is a slot here.
+		expect(names).toContain('lattice-db-or-via');
 		expect(names.length).toBeGreaterThanOrEqual(9);
 	});
 
