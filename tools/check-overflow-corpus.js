@@ -30,7 +30,8 @@
  *   node tools/check-overflow-corpus.js --bless       # re-record it (say why in the PR)
  *   node tools/check-overflow-corpus.js --bless examples/new.md   # record just these decks' floors
  *   node tools/check-overflow-corpus.js --jobs 6      # parallelism (default min(4, cpus-2))
- *   node tools/check-overflow-corpus.js --json
+ *   node tools/check-overflow-corpus.js --json        # includes `clipped`, every deck's pages, for diffing two runs
+ *   node tools/check-overflow-corpus.js --writer shared   # render with the shared PDF writer (slow; parity checks only)
  *   node tools/check-overflow-corpus.js examples/foo.md …   # just these decks
  *
  * THE BASELINE RECORDS ITS OWN DENOMINATOR (`decksSwept`). Only CLIPPING decks are
@@ -104,11 +105,28 @@ function corpus() {
   ])].sort();
 }
 
-/** Render one deck; return the pages the emulator reports as clipped. */
-function probe(deck) {
+/**
+ * Render one deck; return the pages the emulator reports as clipped.
+ *
+ * `--chrome-pdf` BY DEFAULT, because the sweep reads a console line and throws the PDF away.
+ * Since 268f0a3f9 (#2404, 2026-09-27) the CLI writes PDFs with the shared vector writer
+ * (lib/core/pdf-compose), which costs about 3 s a deck on its own: 4.6 s against 1.6 s with
+ * Chrome's printer for one gallery rendered alone on a 4-vCPU sandbox. It is the bulk of the
+ * nightly's 1.2 s to 4.2 s per-deck jump (not bisected; the corpus grew in the same weeks). The writer runs AFTER `measureOverflow()` in lattice.js and
+ * `CHROME_PDF` gates nothing else, so both writers print the same ⚠ OVERFLOW and ⚠ CONTENT
+ * CLIPPED lines; a full sweep in each, diffed with `--json`, agreed on every deck (#3081 P1).
+ * `--writer shared` renders the slow way, to re-prove that parity after a change near the writer.
+ *
+ * Not `.html`: a plain .html export skips the guards trim and the card-tag equalize pass, so it
+ * can report a verdict the PDF does not have. It measured only 11% faster than `--chrome-pdf`
+ * (572 s against 643 s for 504 decks), which does not pay for that risk (#3081 P2).
+ */
+function probe(deck, { sharedWriter = false } = {}) {
   return new Promise((resolve) => {
     const out = path.join(WORK, deck.replace(/[/\\]/g, '_').replace(/\.md$/, '') + '.pdf');
-    const child = spawn(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'], { cwd: ROOT, env: process.env });
+    const args = [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'];
+    if (!sharedWriter) args.push('--chrome-pdf');
+    const child = spawn(process.execPath, args, { cwd: ROOT, env: process.env });
     let buf = '';
     const grab = (d) => { buf += d.toString(); };
     child.stdout.on('data', grab);
@@ -148,11 +166,20 @@ async function pool(items, n, fn) {
 async function main() {
   const argv = process.argv.slice(2);
   const flag = (f) => argv.includes(`--${f}`);
-  const val = (f, d) => { const i = argv.indexOf(`--${f}`); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
+  // `--flag value` or `--flag=value`. The `=` form used to fall through to the default without a
+  // word, so `--writer=shared` ran the Chrome printer while the user believed it re-proved parity.
+  const val = (f, d) => {
+    const eq = argv.find((a) => a.startsWith(`--${f}=`));
+    if (eq) return eq.slice(f.length + 3) || d;
+    const i = argv.indexOf(`--${f}`);
+    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d;
+  };
   const bless = flag('bless');
   const json = flag('json');
   const jobs = Math.max(1, Math.min(Number(val('jobs', Math.min(4, Math.max(1, os.cpus().length - 2)))) || 3, 12));
-  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null));
+  const writer = val('writer', 'chrome');
+  if (writer !== 'chrome' && writer !== 'shared') { console.error(`✗ --writer takes chrome or shared, not ${writer}.`); process.exit(2); }
+  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null) && a !== val('writer', null));
 
   if (!process.env.CHROME_PATH) {
     console.error('✗ CHROME_PATH is not set — the SessionStart hook exports it.');
@@ -171,10 +198,10 @@ async function main() {
   const decks = only.length ? only.map(toDeck) : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const t0 = performance.now();
-  const rows = await pool(decks, jobs, probe);
+  const rows = await pool(decks, jobs, (d) => probe(d, { sharedWriter: writer === 'shared' }));
   // COST PER DECK, printed every run (#2060). The nightly's wall clock tripled per deck in six weeks
   // while the corpus grew 1.6x, and nothing said so until runs hit the job ceiling and measured nothing.
-  const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs };
+  const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs, writer };
   // The per-run dir is ours alone, so it is safe to remove wholesale.
   try { fs.rmSync(WORK, { recursive: true, force: true }); } catch { /* best effort */ }
 
@@ -197,7 +224,7 @@ async function main() {
   // A deck-subset run judges only the decks it was given, so `unfloored` there names exactly those.
 
   if (json) {
-    console.log(JSON.stringify({ ok: !regressions.length && !errors.length && !unfloored.length, total, unfloored, cost: { ...cost, perDeck: cost.seconds / Math.max(1, cost.decks) }, swept: rows.length, baselineSwept: base.decksSwept ?? null, baseline: base.totalSlides ?? null, regressions, improvements, errors }, null, 2));
+    console.log(JSON.stringify({ ok: !regressions.length && !errors.length && !unfloored.length, total, unfloored, cost: { ...cost, perDeck: cost.seconds / Math.max(1, cost.decks) }, swept: rows.length, baselineSwept: base.decksSwept ?? null, baseline: base.totalSlides ?? null, regressions, improvements, errors, clipped: Object.fromEntries(clipped.map((r) => [r.deck, r.pages])) }, null, 2));
     process.exit(regressions.length || errors.length || unfloored.length ? 1 : 0);
   }
 

@@ -91,6 +91,11 @@ jobs:
     # comment asserted the reverse.
     # Raised 30 -> 45 on 2026-11-04 (owner call, D3 on #3034): the corpus grew from 279 to 493 decks and the sweep from
     # 14 to 29 min, so 5 of 15 nights were cancelled at 30 (engineering/decisions/2026-11-04-ci-flake-audit.md §5).
+    # The per-deck cost then tripled, from ~1.2 s to ~4.2 s, and the cause was not the corpus: since
+    # 268f0a3f9 (#2404) the CLI writes PDFs with the shared vector writer, ~3 s a deck, a PDF the
+    # sweep throws away; that is the bulk of the jump. The tool now renders with --chrome-pdf
+    # (#3081): measured 1703 s -> 643 s for 504 decks at 2 workers on a quiet 4-vCPU sandbox
+    # (908 s on a second run that shared the CPU with a test suite), same verdict on every deck.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

@@ -55,6 +55,9 @@ test('bless records every swept deck by name, sorted, and only clipping decks in
 
 test('the cost line divides the sweep by its decks (work done, not a timing assertion)', () => {
   assert.equal(costLine({ decks: 500, seconds: 2000, jobs: 2 }), '⏱ sweep cost — 500 decks in 2000s at 2 workers: 4.00 s/deck');
+  // The writer is named when given: the shared one alone costs ~3 s a deck, so two lines that
+  // do not say which ran cannot be compared (#3081).
+  assert.equal(costLine({ decks: 500, seconds: 800, jobs: 2, writer: 'chrome' }), '⏱ sweep cost — 500 decks in 800s at 2 workers: 1.60 s/deck (chrome PDF writer)');
 });
 
 test('a deck-subset bless records just those decks and keeps every other floor', () => {
