@@ -35,7 +35,7 @@ what's what." Read against the shipped screens (PR #3079, `2a27df50`):
 | Layer | Question | What it holds |
 |---|---|---|
 | **Connections** | How can the Studio reach models? | **OpenRouter**: the platform, one account for every model, connected by signing in **or** by pasting an OpenRouter key. **Your own keys**: Gemini, Anthropic, OpenAI. **This device**: free, private models. |
-| **Selections** | Which model does what? | **Chat model**, **Reads images**, **Voice model**: each a route + model (voice: + voice). |
+| **Selections** | Which model does what? | **Chat model**, **Image reader**, **Voice model**: each a route + model (voice: + voice). |
 | **Uses** | Who reads each one? | Listed on its card (below). |
 
 ### Routes: six
@@ -60,10 +60,10 @@ offered first; pasting is there for the bring-your-own-key author.
 | Selection | Used by | Needs |
 |---|---|---|
 | **Chat model** | Chat, Refine, Theme, Finish, Drawing, Component (generate and refine), Coach fixes, chat compaction | Chat edits need tool use (an on-device model answers one-shot, without edits); a photo in the chat needs a model that reads images |
-| **Reads images** | Library photo descriptions, slide alt text | A model that reads images |
+| **Image reader** | Library photo descriptions, slide alt text | A model that reads images |
 | **Voice model** | Present, Read aloud, Narrated export | A model that speaks; the export bakes in exactly this voice |
 
-The image reader (the card is named **Reads images**, so "image model" stays free for a future
+The image reader (named so, and not "image model", which stays free for a future
 image *generator*, which on OpenRouter, Gemini and OpenAI is a different kind of model and is not in
 this design) stays its own selection (owner, 2026-11-08: "image models should be separate?
 that would be the least astonishing"), shown openly as a card, so it can no longer bill a model
@@ -77,7 +77,7 @@ images**. "Reads images" comes from the model's catalog row; a direct-key model 
 list yet (a new release) reads **not known**: it is offered and tried, and only a provider's refusal
 of the picture turns it into *can't read images*. Nothing is refused on a guess.
 **Same as chat moves with chat, and says so**: when chat changes (a pick, a fill or a heal), the
-notice names both ("Chat and Reads images now use Claude Sonnet 5.5 · OpenRouter"). That is the one
+notice names both ("Chat and the image reader now use Claude Sonnet 5.5 · OpenRouter"). That is the one
 place two selections move together, by the author's own choice of "same as chat".
 Slide alt text moves onto it from the chat model (it reads an image too). Narrated export loses
 its own narrator picker and bakes in the voice model, with a Gemini path added.
@@ -109,7 +109,12 @@ OpenRouter one shows its price.
      order of events cannot matter: an Anthropic key fills chat (and image, as same-as-chat) but not
      voice (Anthropic cannot speak); a later OpenRouter sign-in then fills voice, because voice is
      still Not set. When two connections could fill at once, OpenRouter wins, then Gemini,
-     Anthropic, OpenAI (a fixed order). On-device models never fill: the author picks them. A
+     Anthropic, OpenAI (a fixed order). On-device models never fill, with **one exception the owner
+     chose to keep voice free on desktop** (2026-11-08): on a desktop browser that can run Kokoro, a
+     Not-set voice is filled with **Kokoro · This device**, before any cloud connection, and the
+     notice says "Voice uses Kokoro · This device, free. It downloads about 80 MB on your first
+     read." The first read shows captions and the download's progress, as `main` does today; later
+     reads speak. Phones and browsers that cannot run Kokoro fill voice from a cloud connection. A
      selection that was ever set is never filled again, whatever its state (removed connection,
      rejected key, out of credit, retired).
    - **Heal a retired version within its family** (owner, 2026-11-08: "self heal… is about model
@@ -130,8 +135,8 @@ OpenRouter one shows its price.
        family: treated as a heal (stored, announced). Another family: the reply is shown, the
        selection reads **Model retired**, and the notice says "OpenRouter answered with GPT 6.1
        Terra instead of Claude Sonnet 5.0"; the next turn does not run until the author picks.
-2. **Chat, image and voice are independent.** Any connected route that can serve each. The one
-   link is the author's: *Reads images: same as chat* follows chat, and every notice says so.
+2. **Chat, the image reader and voice are independent.** Any connected route that can serve each. The one
+   link is the author's: *Image reader: same as chat* follows chat, and every notice says so.
 3. **Nothing else falls back.** A selection that cannot run shows its state and one action:
 
    | State | Action |
@@ -217,12 +222,15 @@ connection names what it filled.
    **Voice** follows `main`'s ladder (`pickRung`), so a voice that spoke on `main` speaks the same
    way after the upgrade:
    - a stored voice model pick or rung → *set* to it;
-   - no pick, on desktop with Kokoro already downloaded → *set* to **Kokoro · This device** (free,
-     what `main` used);
-   - no pick, an OpenRouter key, Kokoro not downloaded → *set* to OpenRouter's default voice;
-   - no pick, no key, Kokoro not downloaded → *Not set* (on `main` this case was captions too).
-   The Kokoro check is the existing cache probe, which is asynchronous, so the voice migration runs
-   when the voice module first loads, before any read; until then the card shows the stored state.
+   - no pick, on a desktop that can run Kokoro (`main`'s `preferOnDevice`), with or without a key
+     and whether or not Kokoro is downloaded yet → *set* to **Kokoro · This device** (free, what
+     `main` used: its first read starts the download);
+   - no pick, on a phone or a browser that cannot run Kokoro, an OpenRouter key → *set* to
+     OpenRouter's default voice (what `main` spoke there);
+   - no pick, there, no key → *Not set* (captions on `main` too).
+   "Can run Kokoro" is a synchronous check (pointer and platform, as `main`'s `kokoroSupported`),
+   so the voice migration is synchronous like chat's; the download state is not needed for it, and
+   the card never shows *Not set* and then flips.
    **A legacy pick whose key is gone** (a stored Gemini provider with no Gemini key) → *set* to that
    provider, reading *Needs its connection*: what the author chose, never silently another.
    A test covers each row against `main`'s keys.
@@ -272,6 +280,9 @@ OpenRouter stays one slot (`lattice-db-or-key`); the card records how it was con
 
 ## 6. Owner decisions, 2026-11-08
 
+0. Keep the free desktop voice: a Not-set voice on a desktop that can run Kokoro is filled with
+   Kokoro · This device (the one on-device fill), as `main` does today.
+
 1. OpenRouter is one connection with two ways in (sign in, or paste a key).
 2. Chat, image and voice routes are independent.
 3. Connecting fills a selection only when it was never set.
@@ -281,6 +292,11 @@ OpenRouter stays one slot (`lattice-db-or-key`); the card records how it was con
 6. Design first, then rebuild the UI in PR #3079.
 
 ## 7. Review
+
+Rescored 7.5/10, then 8/10 (round 3: fit 9, determinism 9, clarity 8, consistency 8, failure
+handling 8, mockups 8, feasibility 7, maintainability 8). Round 3's remaining items are applied:
+one name, Image reader, on every surface; and the free desktop voice put to the owner (kept).
+Feasibility and maintainability cannot honestly rise further until it is built and tested.
 
 Scored 7/10 by an independent grader after the first revision (fit to goals 9, determinism 7,
 clarity 8, consistency 7, failure handling 7, mockups 7, feasibility 6, maintainability 7). This
