@@ -239,6 +239,9 @@ higher", and create it. Leave "Main Merge Queue" as it is (`ci` only). Then watc
 through the full path: the PR should be blocked by a new high alert, and the queue should not
 wait on CodeQL.
 
+**Deferred by the owner, 2026-11-08:** not switched on yet, to avoid handling its fallout now.
+The setup and the expected fallout are in `followups.d/1928-p2-enable-codeql-pr-gate.md`.
+
 (a) stays open as its own decision, on the query suite's merits.
 
 ## If the owner declines — what stays true
