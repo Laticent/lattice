@@ -4,6 +4,7 @@ import { ensureEngine } from './load-engine';
 afterEach(() => {
 	document.head.innerHTML = '';
 	vi.useRealTimers();
+	window.LatticePlayground = undefined;
 });
 
 describe('ensureEngine', () => {
@@ -18,6 +19,20 @@ describe('ensureEngine', () => {
 		expect(injected?.src).toBe(url);
 		injected?.dispatchEvent(new Event('error'));
 		await expect(p).rejects.toThrow(/failed to load/);
+		expect(vi.getTimerCount()).toBe(before - 1);
+	});
+
+	it('stops polling once the load event resolves it', async () => {
+		// The load listener resolved the promise but left the poll running until its next tick, which read `window`
+		// after a test environment had gone (the same leak ensure-katex.ts had on its load path).
+		vi.useFakeTimers();
+		const url = 'https://example.test/playground/v/loaded/lattice-playground.js';
+		const p = ensureEngine(url);
+		const before = vi.getTimerCount();
+		const injected = document.querySelector<HTMLScriptElement>('script[data-lattice-engine]');
+		window.LatticePlayground = {} as typeof window.LatticePlayground;
+		injected?.dispatchEvent(new Event('load'));
+		await expect(p).resolves.toBeUndefined();
 		expect(vi.getTimerCount()).toBe(before - 1);
 	});
 });

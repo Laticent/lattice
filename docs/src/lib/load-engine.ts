@@ -85,6 +85,9 @@ export function ensureEngine(url: string): Promise<void> {
 		};
 		const finish = () => {
 			if (window.LatticePlayground) {
+				// Stop polling here too: a poll left running after the load event resolved read `window` on its next
+				// tick, after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
+				clearInterval(t);
 				resolve();
 				return true;
 			}
@@ -111,14 +114,8 @@ export function ensureEngine(url: string): Promise<void> {
 
 		if (finish()) return;
 		t = setInterval(() => {
-			if (finish()) {
-				clearInterval(t);
-				return;
-			}
-			if (++attempts >= MAX_ATTEMPTS) {
-				clearInterval(t);
-				fail('lattice engine load timed out');
-			}
+			if (finish()) return;
+			if (++attempts >= MAX_ATTEMPTS) fail('lattice engine load timed out');
 		}, POLL_MS);
 	});
 

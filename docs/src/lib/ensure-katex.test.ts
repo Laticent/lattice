@@ -67,6 +67,22 @@ describe('ensureKatexProvider', () => {
 		await expect(p).rejects.toThrow(/failed to load/);
 	});
 
+	it('stops polling once the load event resolves it', async () => {
+		// The load listener resolved the promise but left the poll running until its next tick, which read `window`
+		// after the test environment had gone: the second "window is not defined" that failed docs-build at random.
+		vi.useFakeTimers();
+		try {
+			const p = ensureKatexProvider('https://example.test/lattice-katex-loaded.js');
+			const injected = document.querySelector<HTMLScriptElement>('script[data-lattice-katex-provider]');
+			window.__latticeKatexReady = true;
+			injected?.dispatchEvent(new Event('load'));
+			await expect(p).resolves.toBeUndefined();
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('stops polling once a load error rejects it', async () => {
 		// A poll left running after the reject read `window` after the test environment had gone (an unhandled
 		// ReferenceError in CI). Count the timers instead of waiting on one (the flaky-tests note: assert on work done, never on time).
