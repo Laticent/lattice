@@ -685,6 +685,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		window.addEventListener(COMMENTS_EVENT, onChange);
 		return () => window.removeEventListener(COMMENTS_EVENT, onChange);
 	}, [deck.id]);
+	// A provider retired the selected voice model: say so once, wherever the author is. The event is
+	// read-aloud.ts's VOICE_MODEL_GONE_EVENT, named here as a string so this shell does not import
+	// that module (a static import moves chunk boundaries on two routes; docs/route-budget.json).
+	React.useEffect(() => {
+		const onGone = (e: Event) => {
+			const d = (e as CustomEvent<{ message: string; description?: string }>).detail;
+			if (d?.message) notify(d.message, { description: d.description, duration: 8_000 });
+		};
+		window.addEventListener('lattice:voice-model-gone', onGone);
+		return () => window.removeEventListener('lattice:voice-model-gone', onGone);
+	}, []);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
 	// WHERE THE AUTHOR IS — the slide, its page, the caret — lives in ONE focus hub

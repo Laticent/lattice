@@ -2,7 +2,6 @@ import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
 import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
-import { notify } from '@/lib/notify';
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
@@ -359,7 +358,13 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					// goes silent and the author is told once, with where to choose another.
 					onModelGone: ({ provider, model }: { provider: string; model: string }) => {
 						const who = provider === 'gemini' ? 'Gemini' : 'OpenRouter';
-						notify(`${who} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, { description: modelDisplayName({ id: model, provider }), duration: 8_000 });
+						// Raised as an event the Studio shell turns into a notice: importing the notice kernel
+						// here would split it into a chunk of its own on two routes (docs/route-budget.json).
+						window.dispatchEvent(
+							new CustomEvent(VOICE_MODEL_GONE_EVENT, {
+								detail: { message: `${who} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, description: modelDisplayName({ id: model, provider }) },
+							}),
+						);
 					},
 				}),
 			)
@@ -1507,6 +1512,9 @@ export function useSelectedVoiceLabel(): { label: string | null; loading: boolea
 	}, []);
 	return out;
 }
+
+/** Raised when a provider retired the selected voice model: `{ message, description }` for the one notice. */
+export const VOICE_MODEL_GONE_EVENT = 'lattice:voice-model-gone';
 
 /** Live voice status — which rung is active, what's ready/cached/supported. */
 export async function voiceAvailability(): Promise<VoiceAvailability> {
