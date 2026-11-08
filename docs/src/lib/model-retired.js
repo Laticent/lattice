@@ -108,8 +108,25 @@ export function healSelections({ provider, from, to }) {
 	return kinds;
 }
 
+// ── What a provider answered about a REFUSED key (owner report, 2026-11-08) ────────────────
+// A key that reads "Key rejected" right after a sign-in had no record of why. The last refusal is
+// kept for this page (status, the provider's own words, how long after the key was written, how
+// many asks) and Connections shows it, so the next report names the cause instead of a guess.
+// Never the key itself.
+const refusals = new Map();
+
+/** Record a provider's refusal of a key: `{ status, message, ageMs, asks, at }`. */
+export function noteKeyRefusal(provider, { status, message = '', ageMs = null, asks = 1 }) {
+	refusals.set(provider, { status, message: String(message).replace(/\s+/g, ' ').trim().slice(0, 140), ageMs, asks, at: Date.now() });
+	emit('db-model-changed');
+}
+
+/** The last refusal a provider gave this page, or null. */
+export const lastKeyRefusal = (provider) => refusals.get(provider) ?? null;
+
 /** Tests only: forget every retired model and out-of-credit mark. */
 export function __resetRetiredForTests() {
 	retired.clear();
 	outOfCredit.clear();
+	refusals.clear();
 }

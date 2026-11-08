@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
@@ -800,5 +800,9 @@ describe('WorkspaceSheet — a rejected key shows on every card on its route', (
 		for (const id of ['chat-model-card', 'image-reader-card', 'voice-model-card']) {
 			await waitFor(() => expect(within(sheet.getByTestId(id)).getByTestId(`${id}-state`)).toHaveTextContent('Key rejected'));
 		}
+		// The OpenRouter row says what OpenRouter answered, so a report names the cause.
+		const { noteKeyRefusal } = await import('@/lib/model-retired.js');
+		act(() => noteKeyRefusal('openrouter', { status: 401, message: 'User not found.', ageMs: 4000, asks: 3 }));
+		await waitFor(() => expect(sheet.getByTestId('provider-row-openrouter-line')).toHaveTextContent('OpenRouter said 401: User not found., 4 s after the key was made, asked 3×'));
 	});
 });

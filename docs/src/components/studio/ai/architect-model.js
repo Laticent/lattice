@@ -19,7 +19,7 @@
 // touch the engine render paths.
 
 import { familyOf, healTarget } from '../../../lib/model-family.js';
-import { clearOutOfCredit, healSelections, isRetired, markRetired, noteOutOfCredit } from '../../../lib/model-retired.js';
+import { clearOutOfCredit, healSelections, isRetired, markRetired, noteKeyRefusal, noteOutOfCredit } from '../../../lib/model-retired.js';
 import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
 import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
@@ -301,10 +301,17 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         // live everywhere. Ask again, twice, before calling it rejected: a key that is really
         // dead is still marked within about ten seconds (owner report, 2026-11-08: "Key
         // rejected" right after signing in, while the same key read Ready elsewhere).
+        let asks = 1;
         for (const wait of [2500, 7000]) {
           if (res.status !== 401 || openRouterKeyAgeMs() > FRESH_KEY_MS || key !== readOpenRouterKey()) break;
           await new Promise((r) => setTimeout(r, wait));
           res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+          asks++;
+        }
+        if (res.status === 401 && key === readOpenRouterKey()) {
+          const why = await res.clone().json().then((j) => j?.error?.message ?? '').catch(() => '');
+          const age = openRouterKeyAgeMs();
+          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks });
         }
         noteStatus(res.status, key);
         if (!res.ok) return null;
@@ -538,6 +545,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!res.ok) {
         noteStatus(res.status, key);
         const detail = await res.text().catch(() => '');
+        if (res.status === 401) {
+          const age = openRouterKeyAgeMs();
+          noteKeyRefusal('openrouter', { status: 401, message: /"message"\s*:\s*"([^"]*)/.exec(detail)?.[1] ?? detail, ageMs: Number.isFinite(age) ? age : null });
+        }
         throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };

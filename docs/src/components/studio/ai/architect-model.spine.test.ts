@@ -380,7 +380,10 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
 		vi.useFakeTimers();
 		let n = 0;
-		const auth = vi.fn(async () => new Response(JSON.stringify({ data: { usage: 0, limit: null } }), { status: statuses[Math.min(n++, statuses.length - 1)] }));
+		const auth = vi.fn(async () => {
+			const status = statuses[Math.min(n++, statuses.length - 1)];
+			return new Response(JSON.stringify(status === 401 ? { error: { message: 'User not found.', code: 401 } } : { data: { usage: 0, limit: null } }), { status });
+		});
 		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/key') ? auth() : Response.json({ data: [] }))));
 		const m = make() as unknown as Acct;
 		m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
@@ -401,5 +404,8 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 		const r = await run([401]);
 		expect(r.calls).toBe(3);
 		expect(r.rejected).toBe(true);
+		// What OpenRouter said is kept, so Connections can name the cause (never the key).
+		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
+		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3 });
 	});
 });
