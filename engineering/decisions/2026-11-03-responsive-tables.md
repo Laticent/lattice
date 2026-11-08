@@ -762,7 +762,8 @@ crowded one keeps its export at 10), piechart, map and hub-spoke from no drawing
 funnel 9 → 9 (its tall shape), roadmap from a crushed grid to its `horizons` cards. On every gallery chart
 the phone prints every word the desktop printed (axis ticks aside), measured in Chromium. One read and redraw costs 0.3 to 5 ms per chart in Node and jsdom (hub-spoke 12 ms, its
 direction search included), plus one draw at the export's box for the check, once per chart. The inlined
-runtime grows by 25.5 KB minified (8.4 KB gzipped) on 1.34 MB; no chart adds a byte to the export.
+runtime grows by 41.6 KB minified (13.7 KB gzipped) on 1.34 MB with all 21 readers (25.5 KB for the first
+fourteen); a chart adds only the source attributes its kind records.
 test/integration/export/fluid-chart-redraw.test.js pins a line, a pie, a roadmap, a tower and a roadmap pane on
 the real export in Chromium: each slide chart redraws on a phone (the pie in a box it did not have) and prints
 every label the export printed, the roadmap turns to cards, the pane keeps its grid, and the desktop gets
