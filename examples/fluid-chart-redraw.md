@@ -147,3 +147,43 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
   - Globex Re `60%`
   - Meridian Re `40%`
 - Retention `$50M`
+
+---
+
+<!-- _class: quadrant -->
+
+`[{Effort, 0..10}, {Reach, 0..100}]`
+
+## The quadrant scatters items on two axes.
+
+Effort in analyst-weeks; reach as the percent of teams that would adopt it, optimistically.
+
+- Quick Wins
+  - Weekly signal digest `{2, 82}`
+  - Slack intake bot `{3, 72}`
+- Strategic Bets
+  - Scoring model v2 `{8, 88}`
+    - Owner: Platform team
+    - A 3-week spike de-risks the roadmap
+  - Decision-log API `{7, 74}`
+- Defer
+  - Per-team weighting UI `{2, 28}`
+  - Maturity self-assessment `{1, 20}`
+- Time Sinks
+  - Bespoke board exports `{8, 18}`
+  - Custom calibration tooling `{9, 26}`
+
+---
+
+<!-- _class: risk-matrix -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
