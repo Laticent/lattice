@@ -1,0 +1,3 @@
+studio: +60
+home: +60
+The Stage now seals its document with the same per-page script nonce as the Studio preview (followups.d/3048-p10). The nonce moves out of `single-slide-render.ts` into its own `page-script-nonce.js`, imported only by the Studio preview and the Stage, so the Playground, which seals no frame, does not carry it. CI measured +23 (studio) and +25 (home) on 6c555c8 against `main` 644f177, when the nonce still sat in `preview-csp.js` and the Playground paid +90 for it; this declares the split module's import with a little room for gzip variation. Given back first: the Playground's +90.

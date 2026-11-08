@@ -59,19 +59,6 @@
 import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
 
 /**
- * One script nonce per page load, shared by every builder that seals its frame with
- * `previewCspMeta({ scriptNonce })` (the Studio preview, the Stage). Random, so a shared deck's
- * markup cannot carry it; constant for the page, so a rewrite of the same document is
- * byte-identical and render signatures keep matching. See the BYOK lifecycle note §4 and
- * `scriptSources` in lib/core/subresource-csp.mjs.
- */
-export const PAGE_SCRIPT_NONCE = (() => {
-	const b = new Uint8Array(18);
-	globalThis.crypto.getRandomValues(b);
-	return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_');
-})();
-
-/**
  * The `<meta http-equiv="Content-Security-Policy">` tag every preview-frame document
  * carries. Emitted FIRST in `<head>`, before any content, so it governs the whole document.
  *

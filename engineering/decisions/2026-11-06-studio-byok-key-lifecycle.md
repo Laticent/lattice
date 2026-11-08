@@ -158,7 +158,7 @@ even unguarded, because markup inserted through the preview's patch paths does n
 `<script>` elements; the guard is what stops the event-handler vectors, which do.)
 
 **The second wall: a `script-src` (#3048-p5, 2026-11-06).** The Studio preview frame now
-carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `preview-csp.js`
+carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `page-script-nonce.js`
 makes one random nonce per page load (`PAGE_SCRIPT_NONCE`, 18 bytes), and `single-slide-render.ts`
 stamps it on every script `srcdoc()` writes: the font gate, dagre, the runtime, the link guard, and the drawn
 libraries' preloads. The browser then refuses any inline event handler, `javascript:` URL, or

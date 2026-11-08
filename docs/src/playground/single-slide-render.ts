@@ -56,10 +56,11 @@ import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { PAGE_SCRIPT_NONCE, previewCspMeta } from '../playground/preview-csp.js';
+import { PAGE_SCRIPT_NONCE } from '../playground/page-script-nonce.js';
+import { previewCspMeta } from '../playground/preview-csp.js';
 
 // One nonce per page load for every preview frame this module writes (see srcdoc()); shared
-// with the Stage, and defined beside the policy it feeds (preview-csp.js).
+// with the Stage (page-script-nonce.js).
 const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';

@@ -48,7 +48,8 @@ import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs'
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
-import { PAGE_SCRIPT_NONCE, previewCspMeta } from '../../../playground/preview-csp.js';
+import { PAGE_SCRIPT_NONCE } from '../../../playground/page-script-nonce.js';
+import { previewCspMeta } from '../../../playground/preview-csp.js';
 import { STAGE_CHROME_CSS } from './stage-chrome.js';
 
 /**
