@@ -169,13 +169,23 @@ function evaluate(metricId, base, head) {
 	// for any drop at all, even 0.01, which is why issue #2085 was red most nights. A page
 	// parked below the floor still regresses through the ordinary tolerance check below.
 	// engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md §2.
-	if (cfg.floor != null && base >= cfg.floor && head < cfg.floor && worseBy > noise) {
+	if (cfg.floor != null && base >= cfg.floor && head < cfg.floor && exceeds(worseBy, noise)) {
 		return { regressed: true, reason: `below floor ${cfg.floor}` };
 	}
 
 	const tol = cfg.tolAbs != null ? cfg.tolAbs : (cfg.tolPct ?? 0) * Math.abs(base);
 	const threshold = Math.max(noise, tol);
-	return { regressed: worseBy > threshold, worseBy, threshold };
+	return { regressed: exceeds(worseBy, threshold), worseBy, threshold };
+}
+
+// "More than", with float noise taken out. Scores arrive rounded to two decimals, and
+// 0.5 - 0.48 is 0.020000000000000018 in JS: a bare `>` called that drop past a 0.02 band,
+// and 0.55 - 0.50 past a 0.05 tolerance while 0.45 - 0.40 (0.04999...) was not. A drop
+// exactly AT a band is inside it. The slack is far below any real metric step (0.01 score,
+// 1 ms, 0.001 CLS), so it changes no result except those edges.
+const EDGE = 1e-9;
+function exceeds(worseBy, band) {
+	return worseBy - band > EDGE;
 }
 
 function fmt(metricId, v) {

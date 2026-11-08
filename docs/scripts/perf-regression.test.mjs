@@ -100,9 +100,23 @@ describe('evaluate', () => {
 		expect(evaluate('performance-score', 0.45, 0.4).regressed).toBe(false); // 0.05 is not past tolAbs
 		expect(evaluate('performance-score', 0.45, 0.39).regressed).toBe(true); // past tolAbs: a real drop
 	});
-	it('does NOT fire the floor on a crossing inside the noise band', () => {
+	it('does NOT fire the floor on a crossing inside the noise band, including exactly at it', () => {
 		expect(evaluate('performance-score', 0.51, 0.5).regressed).toBe(false);
 		expect(evaluate('performance-score', 0.5, 0.49).regressed).toBe(false);
+		// 0.5 - 0.48 is 0.020000000000000018 in JS; a drop of exactly the band is inside it.
+		expect(evaluate('performance-score', 0.5, 0.48).regressed).toBe(false);
+		expect(evaluate('performance-score', 0.51, 0.49).regressed).toBe(false);
+	});
+	it('fires the floor on a crossing past the noise band, from a base exactly at the floor', () => {
+		expect(evaluate('performance-score', 0.5, 0.47).regressed).toBe(true); // pins base >= floor, not >
+		expect(evaluate('performance-score', 0.5, 0.47).reason).toBe('below floor 0.5');
+	});
+	it('treats a drop of exactly tolAbs as inside it, whatever the float error', () => {
+		// 0.55 - 0.50 is 0.050000000000000044 and 0.45 - 0.40 is 0.04999999999999999 in JS.
+		for (const [b, h] of [[0.55, 0.5], [0.45, 0.4], [0.95, 0.9], [0.65, 0.6], [0.35, 0.3]]) {
+			expect(evaluate('performance-score', b, h).regressed, `${b} -> ${h}`).toBe(false);
+		}
+		expect(evaluate('performance-score', 0.95, 0.89).regressed).toBe(true);
 	});
 	it('does NOT fire the floor on an improving (or no-op) day below the floor', () => {
 		expect(evaluate('performance-score', 0.4, 0.45).regressed).toBe(false); // improved

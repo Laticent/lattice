@@ -45,6 +45,14 @@ Three gate changes follow from this. None of them raises a budget:
 1. **Floor on crossing only.** The floor now trips when base is at or above it and head falls below it by more than
    the noise band (`noiseAbs`, 0.02). A page already under it regresses only through the ordinary tolerance check
    (0.05). Taken in this PR. The owner left the call to the session.
+   Two consequences, both deliberate. A drop of exactly a band is inside it: scores come
+   rounded to two decimals and `0.5 - 0.48` is `0.020000000000000018` in JS, so the compare
+   now takes float error out of every "more than" (an independent check found the floor
+   still filing that 0.50 to 0.48 wobble, and the 0.05 tolerance deciding exact-0.05 drops
+   by float luck, 41 of 96 one way). And a page under the floor can now slide downhill
+   unalarmed at under 0.05 a night (0.40, 0.36, 0.32, ...), because each night compares
+   against a base only a day old. Pages above the floor always had that exposure. The
+   floor is now a crossing alarm, not a "the score is very low" alarm.
 2. **More runs per arm, alternated.** Mobile runs go from 3 to 5 in `lighthouserc.mobile.cjs`, which adds 10 Lighthouse
    runs per arm per night. Desktop stays at 3, because its scores are not near any threshold. Section 1's simulation
    shows median-of-3 is the noise source. Alternating head and base needs both builds served at once and a new collect
