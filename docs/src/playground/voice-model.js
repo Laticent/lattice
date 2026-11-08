@@ -25,6 +25,7 @@
 // must not use the `@/…` alias or import a TypeScript module.
 
 import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
+import { healTarget } from '../lib/model-family.js';
 import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
@@ -32,7 +33,7 @@ import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
 import { classifyProviderError } from '../lib/provider-errors.js';
-import { CURATED, curatedDefault, healTarget } from '../lib/provider-registry.js';
+import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';

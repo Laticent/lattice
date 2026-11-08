@@ -404,93 +404,6 @@ export function fillFromConnections() {
 	return filled;
 }
 
-// ── Out of credit (2026-11-08-studio-ai-routes-ux.md, state vocabulary) ──────────────────────
-// Known only from a request: the provider answered a billing failure. The connection and key work,
-// so nothing is switched off; Connections shows "out of credit at 14:02" until a later request on
-// that route succeeds or the page reloads.
-const outOfCredit = new Map();
-
-/** Record that a route answered a billing failure, now. */
-export function noteOutOfCredit(provider) {
-	if (!provider) return;
-	const had = outOfCredit.has(provider);
-	outOfCredit.set(provider, Date.now());
-	if (!had) emit('db-model-changed');
-}
-
-/** A request on the route succeeded: it has credit again. */
-export function clearOutOfCredit(provider) {
-	if (outOfCredit.delete(provider)) emit('db-model-changed');
-}
-
-/** When the route last answered a billing failure on this page (ms), or null. */
-export const outOfCreditAt = (provider) => outOfCredit.get(provider) ?? null;
-
-// ── Retired models and version healing (2026-11-08-studio-ai-routes-ux.md rule 1) ───────────
-
-/** The event that announces a retired model: healed (`to` set) or stopped (`to` null). */
-export const MODEL_RETIRED_EVENT = 'lattice:model-retired';
-
-// Models a route told us are retired, for this page: a selection naming one reads "Model retired".
-// A reload asks the provider again.
-const retired = new Set();
-const retiredKey = (provider, model) => `${provider}:${model}`;
-
-/** Whether a route told us this model is retired (this page only). */
-export const isRetired = (provider, model) => !!model && retired.has(retiredKey(provider, model));
-
-function announceRetired(detail) {
-	if (!hasWindow) return;
-	try {
-		window.dispatchEvent(new CustomEvent(MODEL_RETIRED_EVENT, { detail }));
-	} catch {
-		/* no event support */
-	}
-}
-
-/**
- * Mark a model retired with no newer version in its family on this route: every selection that
- * names it reads "Model retired" and waits for the author. Nothing else is selected in its place.
- * `answeredBy` names the model a provider answered with instead (a silent reroute).
- * @param {{ provider: string, model: string, answeredBy?: string }} r
- */
-export function markRetired({ provider, model, answeredBy }) {
-	if (!model || retired.has(retiredKey(provider, model))) return;
-	retired.add(retiredKey(provider, model));
-	emit('db-model-changed');
-	emit('db-voice-changed');
-	announceRetired({ provider, model, to: null, kinds: selectionsNaming(provider, model), ...(answeredBy ? { answeredBy } : {}) });
-}
-
-/** Which selections name this model on this route ('chat' | 'image' | 'voice'). */
-function selectionsNaming(provider, model) {
-	const kinds = [];
-	const chat = readChatSelection();
-	if (chat.provider === provider && chat.model === model) kinds.push('chat');
-	const img = readImageSelection();
-	if (img.mode === 'own' && img.provider === provider && img.model === model) kinds.push('image');
-	const voice = readVoiceSelection();
-	if (voice.provider === provider && voice.model === model) kinds.push('voice');
-	return kinds;
-}
-
-/**
- * HEAL a retired version: every selection that names `from` on `provider` moves to `to`, the newer
- * version of the same family on the same route (the caller found it with `healTarget`). It is the
- * one change to a set selection the Studio makes on its own, and it is always announced. A voice
- * keeps its voice (a family shares its roster). Returns the kinds it moved.
- * @param {{ provider: string, from: string, to: string }} h
- */
-export function healSelections({ provider, from, to }) {
-	const kinds = selectionsNaming(provider, from);
-	if (kinds.includes('chat')) selectChat({ provider, model: to });
-	if (kinds.includes('image')) selectImage({ mode: 'own', provider, model: to });
-	if (kinds.includes('voice')) selectVoice({ provider, model: to, voice: readVoiceSelection().voice });
-	retired.add(retiredKey(provider, from));
-	announceRetired({ provider, model: from, to, kinds });
-	return kinds;
-}
-
 /**
  * NORMALIZE a stored voice id against the live roster: the one write that is not a pick.
  * Like the migration, it corrects what is stored (a voice id the provider renamed or dropped)
@@ -551,8 +464,6 @@ export function watchSelectionStorage() {
 
 /** Test seam: forget the storage watch and the in-memory copy. */
 export function __resetSelectionForTests() {
-	retired.clear();
-	outOfCredit.clear();
 	refused.clear();
 	watching = false;
 	memory.clear();

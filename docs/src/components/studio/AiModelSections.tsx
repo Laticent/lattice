@@ -4,7 +4,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
-import { isRetired, readImageSelection, readVoiceSelection, selectImage } from '@/lib/model-selection.js';
+import { isRetired } from '@/lib/model-retired.js';
+import { readImageSelection, readVoiceSelection, selectImage } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
 import { providerLabel } from '@/lib/provider-registry.js';

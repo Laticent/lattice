@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CURATED, curate, curatedDefault, familyOf, healTarget, PROVIDERS, providerLabel, sameFamily } from './provider-registry.js';
+import { familyOf, healTarget, sameFamily } from './model-family.js';
+import { CURATED, curate, curatedDefault, PROVIDERS, providerLabel } from './provider-registry.js';
 
 // Curation is a preference over the LIVE list: it orders and recommends, never pins.
 

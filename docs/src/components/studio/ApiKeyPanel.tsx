@@ -1,6 +1,7 @@
 import { Cpu, KeyRound, Loader2, Sparkles } from 'lucide-react';
 import * as React from 'react';
-import { outOfCreditAt, readImageSelection, readVoiceSelection } from '@/lib/model-selection.js';
+import { outOfCreditAt } from '@/lib/model-retired.js';
+import { readImageSelection, readVoiceSelection } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { openRouterKeyHint, providerKeyHint, readOpenRouterVia } from '@/lib/openrouter-key.js';
 import { cn } from '@/lib/utils';

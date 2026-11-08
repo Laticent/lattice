@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { healSelections, readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
+import { healSelections } from '../lib/model-retired.js';
+import { readVoiceSelection, selectChat, selectVoice } from '../lib/model-selection.js';
 import { createVoiceModel, listGeminiVoiceCatalog } from './voice-model.js';
 
 // The model spine, voice half: the Studio's voice is the stored VOICE selection, resolved and

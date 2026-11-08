@@ -18,10 +18,11 @@
 // it moved here from the Drawing Board's tree in the succession's P1); it does not
 // touch the engine render paths.
 
-import { CHAT_CLOUD_PROVIDERS, chatModelFor, clearOutOfCredit, fillFromConnections, healSelections, isRetired, isSet, markRetired, noteOutOfCredit, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
+import { familyOf, healTarget } from '../../../lib/model-family.js';
+import { clearOutOfCredit, healSelections, isRetired, markRetired, noteOutOfCredit } from '../../../lib/model-retired.js';
+import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
 import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
-import { familyOf, healTarget } from '../../../lib/provider-registry.js';
 import { directBackend } from './direct-providers.js';
 
 // Re-exported so architect.ts can open the sealed key from this lazily loaded chunk.

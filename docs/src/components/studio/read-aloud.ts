@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
-import { healSelections, normalizeStoredVoice, noteOutOfCredit, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
+import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
@@ -355,7 +355,8 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						readKey: (p: string) => (p === 'openrouter' ? readOpenRouterKey() : readProviderKey(p)),
 						noteStatus: noteProviderStatus,
 						openKey: (p: string) => (p === 'openrouter' ? loadOpenRouterKey() : loadProviderKey(p)),
-						heal: healSelections,
+						// Loaded on use: healing and the out-of-credit mark are off the boot path (route budget).
+						heal: (h: { provider: string; from: string; to: string }) => import('@/lib/model-retired.js').then((m) => m.healSelections(h)),
 					},
 					// A provider retired (or stopped serving) the selected voice model: read-aloud
 					// goes silent and the author is told once, with where to choose another.
@@ -364,7 +365,7 @@ function getRealVoice(): Promise<VoiceModel | null> {
 					// Out of credit or quota: the key and model are fine, so nothing is switched off; this
 					// read is silent and the author is told once where to fix it.
 					onBilling: ({ provider }: { provider: string }) => {
-						noteOutOfCredit(provider);
+						import('@/lib/model-retired.js').then((m) => m.noteOutOfCredit(provider));
 						voiceNotice(`${voiceProviderName(provider)} has no credit or quota left on this key, so read-aloud is silent. Add billing with ${voiceProviderName(provider)}, or pick another voice in Workspace › AI.`);
 					},
 				}),

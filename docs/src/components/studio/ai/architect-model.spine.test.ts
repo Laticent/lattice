@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetRetiredForTests } from '../../../lib/model-retired.js';
 import { __resetSelectionForTests, CHAT_SELECTION_KEY, readChatSelection, readVoiceSelection, selectChat, selectVoice } from '../../../lib/model-selection.js';
 import { __resetOpenRouterKeyForTests, openRouterKeySettled } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
@@ -284,7 +285,8 @@ describe('model spine — a retired version heals within its family', () => {
 	const onRetired = (e: Event) => events.push((e as CustomEvent).detail);
 	beforeEach(() => {
 		events.length = 0;
-		__resetSelectionForTests(); // the retired list lasts a page; each case is a fresh page
+		__resetSelectionForTests();
+		__resetRetiredForTests(); // the retired list lasts a page; each case is a fresh page
 		window.addEventListener('lattice:model-retired', onRetired);
 		return () => window.removeEventListener('lattice:model-retired', onRetired);
 	});
@@ -297,7 +299,7 @@ describe('model spine — a retired version heals within its family', () => {
 		expect(await m.complete({ messages: [{ role: 'user', content: 'hi' }] })).toBe('answered by anthropic/claude-sonnet-5.5');
 		expect(calls).toEqual(['anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5.5']);
 		expect(readChatSelection()).toMatchObject({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
-		expect(events).toEqual([{ provider: 'openrouter', model: 'anthropic/claude-sonnet-5', to: 'anthropic/claude-sonnet-5.5', kinds: ['chat'] }]);
+		expect(events).toMatchObject([{ provider: 'openrouter', model: 'anthropic/claude-sonnet-5', to: 'anthropic/claude-sonnet-5.5', kinds: ['chat'], route: 'OpenRouter', toName: 'Claude Sonnet 5.5' }]);
 	});
 
 	it('with nothing newer in the family, reads Model retired and never answers on Opus or GPT', async () => {
