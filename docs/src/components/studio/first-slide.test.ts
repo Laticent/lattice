@@ -84,4 +84,51 @@ describe('first-slide', () => {
 		const { result } = renderHook(() => m.useFirstSlideShown());
 		expect(result.current).toBe(true);
 	});
+
+	// The quiet gate (#3076): the font warm-up waits on it before each file, so typing — a tour's included — holds it.
+	describe('whenQuiet', () => {
+		it('resolves at once when nothing has happened', async () => {
+			const m = await fresh();
+			let done = false;
+			void m.whenQuiet(2000).then(() => {
+				done = true;
+			});
+			await Promise.resolve();
+			expect(done).toBe(true);
+		});
+
+		it('waits out the quiet period after activity, and each new activity restarts it', async () => {
+			const m = await fresh();
+			m.noteActivity();
+			let done = false;
+			void m.whenQuiet(2000).then(() => {
+				done = true;
+			});
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(done).toBe(false);
+			m.noteActivity(); // a source edit or a keystroke 1.5 s in
+			await vi.advanceTimersByTimeAsync(1500);
+			expect(done).toBe(false);
+			await vi.advanceTimersByTimeAsync(600);
+			expect(done).toBe(true);
+		});
+
+		it('counts a keystroke as activity', async () => {
+			const m = await fresh();
+			let first = false;
+			await m.whenQuiet(2000).then(() => {
+				first = true;
+			});
+			expect(first).toBe(true);
+			window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+			let done = false;
+			void m.whenQuiet(2000).then(() => {
+				done = true;
+			});
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(done).toBe(false);
+			await vi.advanceTimersByTimeAsync(1100);
+			expect(done).toBe(true);
+		});
+	});
 });

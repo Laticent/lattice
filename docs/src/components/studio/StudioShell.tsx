@@ -103,7 +103,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, useFirstSlideShown } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, noteActivity, useFirstSlideShown, whenQuiet } from './first-slide';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
@@ -1748,7 +1748,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				const katexUrl = sourceHasMathOutsideCode(sourceRef.current) ? deriveKatexProviderUrl() : null;
 				// Fabricate's gallery carries a Diagram specimen, so opening Fabricate counts too.
 				const diagramRuntimeUrl = (diagramsUsed || fabricateUsed) && options?.runtimeUrl ? options.runtimeUrl : null;
-				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed });
+				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed, themeBase: options?.themeBase ?? null, firstSlide: firstSlideShown, quiet: whenQuiet });
 			})
 			.catch(() => {}),
 		);
@@ -1759,7 +1759,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		};
 		// `options` comes from the page and never changes, so this runs once; the warmables are
 		// memoized, so a re-run would fetch nothing twice.
-	}, [options?.runtimeUrl]);
+	}, [options?.runtimeUrl, options?.themeBase]);
+	// Every source change is activity for the quiet gate (`first-slide.ts` › whenQuiet), so the font warm-up never
+	// downloads while someone, or a tour, is typing.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger, not a value the body reads.
+	React.useEffect(() => {
+		noteActivity();
+	}, [source]);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 

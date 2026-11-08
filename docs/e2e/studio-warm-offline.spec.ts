@@ -17,6 +17,9 @@ test.use({ serviceWorkers: 'allow' });
 const chunk = (name: string) => new RegExp(`^/_astro/${name}\\.[\\w-]+\\.js$`);
 const KATEX = /^\/playground\/v\/[0-9a-f]+\/lattice-katex\.js$/;
 const MERMAID = /^\/playground\/v\/[0-9a-f]+\/mermaid\.min\.js$/;
+// A deck with math OUTSIDE code. The starter deck's only math sits in inline code, and since the Studio stopped reading
+// that as math (`sourceHasMathOutsideCode`), the warm-up rightly skips KaTeX for it, so the KaTeX case needs its own deck.
+const MATH_DECK = '# Offline math\n\nEuler: $e^{i\\pi} + 1 = 0$\n\n---\n\n## Second slide\n\n- one\n- two\n';
 
 async function cachedPaths(page: Page): Promise<string[]> {
 	return page.evaluate(async () => {
@@ -32,18 +35,20 @@ async function warmOnline(
 	page: Page,
 	origin: string,
 	names: Array<string | RegExp>,
-	{ fabricateUsed = false, diagramsUsed = false, saveData = false } = {},
+	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false } = {},
 ): Promise<void> {
 	await page.addInitScript(
-		([used, diagrams, save]) => {
+		([used, diagrams, save, math, mathSource]) => {
 			try {
 				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
 				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
+				// The starter deck's stored source (studio-store.ts SRC_PREFIX), as a JSON string.
+				if (math) localStorage.setItem('lattice-studio-src-welcome', JSON.stringify(mathSource));
 			} catch {}
 			if (save) Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		},
-		[fabricateUsed, diagramsUsed, saveData],
+		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK] as const,
 	);
 	await page.goto(`${origin}/studio/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => navigator.serviceWorker.ready);
@@ -83,7 +88,7 @@ test('Present and the reading view open offline after a session that never opene
 	try {
 		// Each surface's whole on-demand path, not just its own chunk: Present's narration and the
 		// reading view import player-core and player-prune once open.
-		await warmOnline(page, origin, ['PresentOverlay', 'ReadArticle', 'narration-projection', 'player-core\\.generated', 'player-prune\\.generated', KATEX]);
+		await warmOnline(page, origin, ['PresentOverlay', 'ReadArticle', 'narration-projection', 'player-core\\.generated', 'player-prune\\.generated', KATEX], { mathDeck: true });
 		expect(hits.filter((p) => chunk('Fabricate').test(p)), 'Fabricate warmed for a browser that never opened it').toEqual([]);
 		expect(hits.filter((p) => MERMAID.test(p)), 'Mermaid warmed for a browser that never showed a diagram').toEqual([]);
 
@@ -99,8 +104,7 @@ test('Present and the reading view open offline after a session that never opene
 		await page.getByRole('button', { name: CHROME.readArticle }).click();
 		await expect(page.locator('article.st-read-article h1, article.st-read-article h2').first()).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByText('This deck could not be turned into an article')).toHaveCount(0);
-		// The starter deck reads as math to the detector, so the article loaded the KaTeX provider,
-		// offline, from the copy the warm-up cached. Without it, math would fall back to source text.
+		// The deck has math, so the article loaded the KaTeX provider, offline, from the copy the warm-up cached. Without it, math would fall back to source text.
 		expect(await page.evaluate(() => (window as { __latticeKatexReady?: boolean }).__latticeKatexReady)).toBe(true);
 	} finally {
 		server.closeAllConnections();

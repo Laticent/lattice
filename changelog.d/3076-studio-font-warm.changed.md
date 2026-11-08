@@ -1,0 +1,1 @@
+- The Studio now downloads the fonts your first slide did not need in the background, once the slide is on screen and you have paused. The first emoji, code block or `finish: sketch` you add then draws in its own font straight away, instead of showing a fallback font and swapping. It is skipped when the browser asks to save data.

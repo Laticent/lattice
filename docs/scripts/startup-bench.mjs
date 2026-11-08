@@ -103,6 +103,8 @@ async function run(browser) {
 		await new Promise((r) => setTimeout(r, 25));
 	}
 	// AFTER=1: the 3 s after the slide, where deferred work lands: main-thread busy time and long tasks (>50 ms).
+	// AFTER_MS widens the window: the idle warm-ups (studio-warm.ts) start only after 3 s without input, so a window that
+	// covers them, the background font fetches (#3076) included, needs about 15 s on the phone profile.
 	let afterBusy = null;
 	let longTasks = null;
 	if (first != null && process.env.AFTER === '1' && cdp) {
@@ -112,7 +114,7 @@ async function run(browser) {
 		});
 		const td = (m) => m.metrics.find((x) => x.name === 'TaskDuration')?.value ?? 0;
 		const m0 = await cdp.send('Performance.getMetrics');
-		await page.waitForTimeout(3000);
+		await page.waitForTimeout(Number(process.env.AFTER_MS || 3000));
 		afterBusy = td(await cdp.send('Performance.getMetrics')) - td(m0);
 		longTasks = await page.evaluate(() => window.__lt);
 	}
