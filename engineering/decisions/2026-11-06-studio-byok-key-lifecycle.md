@@ -108,8 +108,11 @@ made to leak a value); `workspace-backup.test.ts` › "never packs the OpenRoute
 present" pins the backup.
 
 The shipped bundle names the key in one chunk, `openrouter-key.*.js` (measured on the built
-site, 2026-11-06). A post-build check that keeps it that way is a new CI step and so waits on
-the owner (`followups.d/3048-p4-key-name-in-one-shipped-chunk.md`).
+site, 2026-11-06). Since 2026-11-08 the docs `build` keeps it that way: `docs/scripts/check-key-chunk.mjs`
+reads every `lattice-db-…` name from `openrouter-key.js` and fails the build if any of them appears in
+a second chunk under `dist/_astro` or in any HTML file (owner-approved; it runs inside the existing
+build step, so CI gained no job or step). It cannot see code that walks `localStorage` without naming
+a key, or that builds a key name from parts at runtime.
 
 ## 4. A shared deck cannot read the key
 

@@ -22,6 +22,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for every job's GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions,
+# #1958). Without this block each job got the repo default. `pull-requests: read` is for
+# dorny/paths-filter, which lists a PR's files through the API. The two jobs that write
+# (golden-diff, ci) declare their own `permissions:`, which replaces this block for them.
+permissions:
+  contents: read
+  pull-requests: read
+
 # ── Every job carries a timeout-minutes ───────────────────────────────────────
 # GitHub's default is SIX HOURS, and before this only `studio-smoke` had a cap.
 # `npm ci` on node 24 wedges — FOUR times in the 26 hours to 2026-09-02T14:21Z,
