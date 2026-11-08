@@ -140,6 +140,20 @@ const EVERYDAY = { openai: /^gpt-\d/, gemini: /flash(?!.*(lite|image))/, anthrop
 // Whole dash-separated words only: a bare `mini` would match inside "gemini" and drop every Gemini model.
 const SIDE_TIERS = /(^|-)(pro|nano|lite|preview|exp|experimental|codex|mini|haiku|luna|opus|image|audio)(-|$)/i;
 
+/** The version numbers in a model id, `gemini-3.8-flash` → [3, 8]; none → []. */
+function versionOf(id) {
+	const m = /(\d+(?:\.\d+)*)/.exec(String(id || ''));
+	return m ? m[1].split('.').map(Number) : [];
+}
+/** Positive when version `a` is higher than `b`, part by part; a missing part counts as 0. */
+function compareVersions(a, b) {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const d = (a[i] ?? 0) - (b[i] ?? 0);
+		if (d) return d;
+	}
+	return 0;
+}
+
 /**
  * The default model when the author has not picked one, from the provider's own list. Derived,
  * not hard-coded, because model ids move faster than this file would be edited. In order:
@@ -153,8 +167,12 @@ const SIDE_TIERS = /(^|-)(pro|nano|lite|preview|exp|experimental|codex|mini|haik
 export function pickDefaultModel(models, provider) {
 	const ok = models.filter((m) => m.promptPerM != null && m.completionPerM != null);
 	const main = ok.filter((m) => !SIDE_TIERS.test(m.id));
-	const newest = (list) => [...list].sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0];
-	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || (b.created ?? 0) - (a.created ?? 0))[0];
+	// "Newest" by creation date, then by the version in the id. Gemini's list carries NO dates, so
+	// by date alone every model tied and the first listed won: `gemini-2.5-flash`, which Gemini now
+	// refuses to new users with a 404 while naming `gemini-3.8-flash` (live run, 2026-11-08, 3058-p1).
+	const newer = (a, b) => (b.created ?? 0) - (a.created ?? 0) || compareVersions(versionOf(b.id), versionOf(a.id));
+	const newest = (list) => [...list].sort(newer)[0];
+	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || newer(a, b))[0];
 	const pick = newest(main.filter((m) => m.completionPerM <= 10)) ?? cheapest(main) ?? cheapest(ok);
 	if (pick) return pick.id;
 	const family = EVERYDAY[provider];

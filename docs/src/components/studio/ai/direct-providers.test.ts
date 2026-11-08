@@ -74,6 +74,22 @@ describe('pricing from the OpenRouter catalog', () => {
 		expect(pickDefaultModel([{ id: 'gemini-9-flash', promptPerM: 1, completionPerM: 4, created: 1 }, { id: 'gemini-9-pro', promptPerM: 2, completionPerM: 9, created: 2 }], 'gemini')).toBe('gemini-9-flash');
 		expect(pickDefaultModel([{ id: 'gemini-9-pro' }, { id: 'gemini-9-flash' }, { id: 'gemini-9-flash-lite' }], 'gemini')).toBe('gemini-9-flash');
 	});
+	it('a list with no dates (Gemini) picks the highest version, not the first listed', () => {
+		// Gemini's /models carries no `created`; it lists a retired gemini-2.5-flash first, and a live
+		// run on 2026-11-08 got a 404 ("no longer available to new users") from defaulting to it.
+		const listed = [
+			{ id: 'gemini-2.5-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-2.5-pro', promptPerM: 1.25, completionPerM: 10 },
+			{ id: 'gemini-3.5-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-3.8-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-3.10-flash-lite', promptPerM: 0.1, completionPerM: 0.4 },
+		];
+		expect(pickDefaultModel(listed, 'gemini')).toBe('gemini-3.8-flash');
+		// Unpriced, the everyday family follows the same order.
+		expect(pickDefaultModel(listed.map(({ id }) => ({ id })), 'gemini')).toBe('gemini-3.8-flash');
+		// A creation date still wins over the version when the provider gives one.
+		expect(pickDefaultModel([{ id: 'gpt-9', promptPerM: 1, completionPerM: 5, created: 1 }, { id: 'gpt-8', promptPerM: 1, completionPerM: 5, created: 2 }], 'openai')).toBe('gpt-8');
+	});
 });
 
 describe('Anthropic request shape', () => {
