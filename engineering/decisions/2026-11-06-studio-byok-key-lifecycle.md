@@ -389,11 +389,21 @@ returns the tier to OpenRouter.
   and OpenRouter are unchanged. Found by the inversion pass; pinned in `architect.test.ts`.
 - **Models.** The picker lists the provider's own `/models`, minus embedding, image and audio
   models, priced from the catalog. Until the author picks one, the default (`pickDefaultModel`) is
-  the newest model the catalog prices at $10 or less per million output tokens, outside the side
+  the newest model the catalog prices at $10 or less per million output tokens, from the provider's
+  everyday family first (Flash, GPT, Sonnet), outside the side
   tiers (pro, mini, lite, preview, opus and the like, matched as whole words: a bare `mini` once
   matched inside "gemini"). Failing that, the CHEAPEST priced model, so a fallback never moves the
   author up in price; with no prices at all, the newest of the provider's everyday family (Sonnet,
-  Flash, GPT). It is derived rather than pinned, for the same reason as the price.
+  Flash, GPT). It is derived rather than pinned, for the same reason as the price. "Newest" is by
+  creation date, then by the version in the id, because Gemini's list carries no dates: by date
+  alone every model tied and list order chose the retired `gemini-2.5-flash` (404 "no longer
+  available to new users"); by version alone `gemini-4-argon` won, which a plain key lists but
+  cannot use (429). Both found live on 2026-11-08.
+- **No answer deadline yet.** A live run on 2026-11-08 saw Gemini hold requests to an overloaded
+  model for minutes before a 503, a 429 or a dropped connection, with the author watching a spinner.
+  A first-byte deadline only works once every faculty streams: a non-streaming reply sends its
+  headers when the whole answer is done, so a 60 s cap would cut healthy long replies
+  (`followups.d/3058-p2-answer-deadline.md`). The Studio never swaps in another model on its own.
 - **A rejected key.** A 401 marks that provider's key (§2's rules, per slot). The Workspace says
   "<Provider> — key rejected" and offers **Replace key** (there is no OAuth to reconnect with),
   and `describeModelError` names the provider: "Anthropic rejected the key — replace it in
@@ -445,6 +455,26 @@ key for Anthropic's hosts. The owner declined OpenAI and Gemini keys for now
 request reached a real provider. Three things only a live run can confirm: that each provider still
 accepts browser (CORS) requests on these endpoints, that the price mapping finds the real ids,
 and that the four faculties' replies parse. The brief asks for one under $1 total.
+
+**Live run, 2026-11-08: OpenAI verified; Gemini partly verified, and it found three defects.** The
+owner's keys were set as environment variables; a throwaway harness in `.scratch/` typed each into
+the Studio's API key field on a real `build:e2e` and drove the four faculties (HARD RULE #24: never
+committed, never per-PR).
+- **OpenAI**: Theme, Finish, Motion and Component all succeeded on `gpt-6.1-terra` (three runs).
+  The Spend tab's estimate (2.9K, 3.0K, 3.0K tokens) matched the usage OpenAI returned (2,883,
+  3,042 and 2,971 tokens). Each run logged three chat requests for the four faculties; which
+  faculty made no request was not traced.
+  Spend in dollars could not be compared: a browser key cannot read OpenAI's billing.
+- **Gemini**: the key starts `AQ.`, and the Studio refused it as "not a Gemini key" (fixed: both
+  `AIza` and `AQ.` are accepted; Gemini's models list and chat endpoint accept the key). Then every
+  faculty hit the retired default model (fixed, above). Pinned to `gemini-3.5-flash`, Theme
+  generated a full palette live (884 prompt / 146 completion tokens); the next request got 503
+  "high demand". Direct calls the same hour: `gemini-3.5-flash` and `gemini-3.1-flash-lite` answered
+  in about 1 s, `gemini-3.8-flash` returned 503 or held the request past 60 s, `gemini-4-argon`
+  answered 429. Finish, Motion and Component on Gemini remain UNVERIFIED live: Google's capacity,
+  not the Studio's request, stopped them. The endpoint, the Bearer auth and the request shape are
+  verified.
+- Still UNVERIFIED: a live 402 on either provider (producing one would spend money).
 
 ## 8. Plugins cannot read the key
 
