@@ -115,6 +115,9 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 			'## The roadmap grids workstreams against phases.\n\n<!-- _class: roadmap -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |\n| --- | --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 | [ ] Per-team weights |\n| Tooling | [!] Intake form | [/] Dashboards | [ ] Self-serve |\n',
 			// A roadmap in a PANE keeps its exported grid: the `horizons` card styles are scoped to a slide, and
 			// a pane redrew as unstyled cards (the checker's repro).
+			// A tower whose narrowest canvas dropped a share's label (Helios Re's 20%) and shortened "Open 25%":
+			// the redraw widens until every label the export printed prints (the owner's look at the phone render).
+			'## Six reinsurers carry $310M above a $50M retention.\n\n<!-- _class: tower -->\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n',
 			'## Roadmap in a pane.\n\n<!-- _class: columns ratio-30-70 -->\n<!-- _pane: list -->\n\n- Some framing text for the left pane.\n\n<!-- _pane: roadmap -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` |\n| --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 |\n| Tooling | [!] Intake form | [/] Dashboards |\n',
 		].join('\n---\n\n');
 		fs.writeFileSync(path.join(dir, 'kinds.md'), deck);
@@ -128,13 +131,20 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 			const b = s.querySelector('.chart-body');
 			const svg = b.querySelector('svg');
 			const px = [...b.querySelectorAll('svg text')].map((t) => t.getBoundingClientRect().height).filter((h) => h > 0);
-			return { cls: s.className, html: b.innerHTML, h: b.getBoundingClientRect().height, viewBox: svg?.getAttribute('viewBox'), minPx: px.length ? Math.min(...px) : null };
+			// Every word the drawing prints in a label, axis ticks aside (a phone legitimately prints fewer ticks).
+			const words = [];
+			for (const t of b.querySelectorAll('svg text')) {
+				if (/\b(cart-tick|tower-edge)\b/.test(t.getAttribute('class') || '')) continue;
+				const sp = t.querySelectorAll('tspan');
+				words.push(...(sp.length ? [...sp].map((x) => x.textContent).join(' ') : t.textContent).split(/\s+/).filter(Boolean));
+			}
+			return { cls: s.className, html: b.innerHTML, h: b.getBoundingClientRect().height, viewBox: svg?.getAttribute('viewBox'), minPx: px.length ? Math.min(...px) : null, words: words.sort() };
 		}));
 		await page.setViewport({ width: 1280, height: 720 });
 		await page.goto(pathToFileURL(out).href, { waitUntil: 'load' });
 		await page.waitForFunction(() => document.fonts.status === 'loaded');
 		const desk = await state();
-		assert.equal(desk.length, 4);
+		assert.equal(desk.length, 5);
 		assert.ok(desk[1].h > 100, `the pie has a box on the desktop (${desk[1].h}px)`);
 		assert.ok(!/\bhorizons\b/.test(desk[2].cls), 'the roadmap is a grid on the desktop');
 
@@ -142,14 +152,19 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 		await page.waitForFunction((vbs) => {
 			const s = [...document.querySelectorAll('section.chart-frame, lat-pane.chart-frame')];
 			const vb = (i) => s[i].querySelector('.chart-body svg').getAttribute('viewBox');
-			return vb(0) !== vbs[0] && vb(1) !== vbs[1] && s[2].classList.contains('horizons');
-		}, { timeout: 30000 }, [desk[0].viewBox, desk[1].viewBox]);
+			return vb(0) !== vbs[0] && vb(1) !== vbs[1] && vb(3) !== vbs[3] && s[2].classList.contains('horizons');
+		}, { timeout: 30000 }, desk.map((c) => c.viewBox));
 		const phone = await state();
 		assert.ok(phone[0].minPx >= 14, `the line's labels at the slide's size (${phone[0].minPx}px)`);
 		assert.ok(phone[1].h > 200 && phone[1].minPx >= 14, `the pie has a box and readable labels (${phone[1].h}px, ${phone[1].minPx}px)`);
 		assert.match(phone[2].html, /Signal taxonomy/, 'the roadmap redrew as cards, its content intact');
-		assert.equal(phone[3].html, desk[3].html, 'the roadmap pane keeps its exported grid');
-		assert.equal(phone[3].cls, desk[3].cls, 'and its class list');
+		assert.equal(phone[4].html, desk[4].html, 'the roadmap pane keeps its exported grid');
+		assert.equal(phone[4].cls, desk[4].cls, 'and its class list');
+		// Nothing the export printed goes missing on the phone: no dropped value, no shortened name.
+		for (const [i, c] of phone.entries()) {
+			const missing = desk[i].words.filter((w) => { const k = c.words.indexOf(w); if (k < 0) return true; c.words.splice(k, 1); return false; });
+			assert.deepEqual(missing, [], `chart ${i}: every label the export printed prints on the phone`);
+		}
 
 		await page.setViewport({ width: 1280, height: 720 });
 		await page.waitForFunction(() => !document.querySelectorAll('section.chart-frame, lat-pane.chart-frame')[2].classList.contains('horizons'), { timeout: 30000 });

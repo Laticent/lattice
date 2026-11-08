@@ -666,18 +666,22 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   reads the painted label and the line refuses. The redraw copies the exported drawing into an INERT
   document before reading it: a copy in the live page loaded an author's raw `<img>` again and re-ran its
   handler on every rotation (18 times after five, now once, at load). A refusal puts the exported drawing
-  back rather than leaving another box's redraw on screen, and is remembered for that box. A note's own
-  text is left out when counting shortened names. And a PANE keeps its exported drawing when the kernel
+  back rather than leaving another box's redraw on screen, and is remembered for that box. And a PANE keeps its exported drawing when the kernel
   would change its class list: roadmap's `horizons` card styles are scoped to a slide, so a roadmap pane
   redrew as unstyled cards (the checker's repro, now in the integration test).
 - **A kernel can change the section's class list with the box.** On a portrait box roadmap adds `horizons`,
   and its card styles apply only under `section.roadmap.horizons`. The redraw applies exactly the kernel's
   class change to the host and undoes it when the exported drawing comes back (and for print); classes
   another pass sets are left alone.
-- **No name the export printed whole is shortened.** The widen-until-the-names-fit step now COUNTS
-  shortened names: it used to stop at once when the export had shortened one, and the waterfall gallery's
-  crowded bridge then shortened three more on a phone. A redraw that still shortens more than the export
-  after the widest canvas keeps the exported drawing.
+- **Nothing the export printed goes missing.** The first cut only widened a canvas that SHORTENED a name
+  (an ellipsis). The owner's look at the phone renders found the gap: a narrow canvas also DROPS labels the
+  kernel cannot fit, and records only some of them. The tower dropped Helios Re's 20% share and cut "Open
+  25%" to "25%", and at the redraw's narrowest canvas a waterfall shortened "Price", a line thinned six
+  quarters to two and a heatmap hid nine cell values. So the rule is now the plain one: every word of every
+  label the exported drawing printed (axis ticks aside, which a phone legitimately prints fewer of) must
+  print in the redraw. A canvas that loses one is widened, in steps of 1.25×, up to five tries, and the
+  labels shrink until all of them print; if the widest canvas still loses one, the chart keeps its exported
+  drawing. The integration test pins it on the tower, and it fails on the earlier rule.
 - **Size-container kinds had no height in the fluid view.** Radar, map, quadrant, word-cloud, piechart and
   hub-spoke drew 0px tall in the `--fluid` viewer at every width, a phone and a 1280 × 720 desktop alike
   (base.fluid-view.css holds a slide's stage to its content's height, and size containment lends it none).
@@ -692,16 +696,18 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.
 
-At 390 × 844, the smallest label per gallery chart (text box height, main → this branch): line 10 → 16px,
-slope 9 → 15, ep-curve 9 → 15, tower 6 → 15, stacked-bar 7–8 → 12–17, waterfall 10 → 10–13, bullet 9 → 15 (its refused stress slide stays 9),
-heatmap 6–10 → 11–16, piechart, map and hub-spoke from no drawing (0px tall) to 12–21px, funnel 9 → 9 (its
-tall shape), roadmap from a crushed grid to its `horizons` cards. No chart shortens a name the export
-printed whole. One read and redraw costs 0.3 to 5 ms per chart in Node and jsdom (hub-spoke 12 ms, its
+At 390 × 844, the smallest label per gallery chart (text box height, main → this branch): line 10 → 10–16px
+(five charts widen to keep every quarter), slope 9 → 15, ep-curve 9 → 15, tower 6 → 11, stacked-bar 7–8 →
+12–17, waterfall 10 → 10–13, bullet 9 → 15 (its refused stress slide stays 9), heatmap 6–10 → 15–16 (the
+crowded one keeps its export at 10), piechart, map and hub-spoke from no drawing (0px tall) to 12–21px,
+funnel 9 → 9 (its tall shape), roadmap from a crushed grid to its `horizons` cards. On every gallery chart
+the phone prints every word the desktop printed (axis ticks aside), measured in Chromium. One read and redraw costs 0.3 to 5 ms per chart in Node and jsdom (hub-spoke 12 ms, its
 direction search included), plus one draw at the export's box for the check, once per chart. The inlined
 runtime grows by 25.5 KB minified (8.4 KB gzipped) on 1.34 MB; no chart adds a byte to the export.
-test/integration/export/fluid-chart-redraw.test.js pins a line, a pie and a roadmap on the real export in
-Chromium: each redraws on a phone (the pie in a box it did not have), the roadmap turns to cards, and the
-desktop gets every exported drawing and class list back byte for byte.
+test/integration/export/fluid-chart-redraw.test.js pins a line, a pie, a roadmap, a tower and a roadmap pane on
+the real export in Chromium: each slide chart redraws on a phone (the pie in a box it did not have) and prints
+every label the export printed, the roadmap turns to cards, the pane keeps its grid, and the desktop gets
+every exported drawing and class list back byte for byte.
 
 ## What comes next
 
