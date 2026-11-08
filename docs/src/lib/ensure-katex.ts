@@ -28,14 +28,23 @@ export function ensureKatexProvider(url: string): Promise<void> {
 		let attempts = 0;
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS, matching ensureEngine's bound.
 		let t: ReturnType<typeof setInterval> | undefined;
-		const fail = (msg: string) => {
-			// Stop polling too: a failed load used to leave the interval reading `window` for ~10s after the reject.
+		let settled = false;
+		// Every exit clears the poll. A poll left running after the promise settled read `window` on its next tick,
+		// after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
+		const stop = () => {
+			settled = true;
 			clearInterval(t);
+		};
+		const fail = (msg: string) => {
+			if (settled) return;
+			stop();
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
 		const finish = () => {
+			if (settled) return true;
 			if (window.__latticeKatexReady) {
+				stop();
 				resolve();
 				return true;
 			}
@@ -55,14 +64,8 @@ export function ensureKatexProvider(url: string): Promise<void> {
 
 		if (finish()) return;
 		t = setInterval(() => {
-			if (finish()) {
-				clearInterval(t);
-				return;
-			}
-			if (++attempts >= MAX_ATTEMPTS) {
-				clearInterval(t);
-				fail('katex provider load timed out');
-			}
+			if (finish()) return;
+			if (++attempts >= MAX_ATTEMPTS) fail('katex provider load timed out');
 		}, POLL_MS);
 	});
 
