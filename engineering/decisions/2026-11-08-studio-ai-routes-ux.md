@@ -1,164 +1,222 @@
 ---
 status: proposed
-summary: Workspace › AI blurred three questions (how the Studio reaches models, which model does what, and who uses it), so the owner could not tell what was what. The redesign separates them into Connections (OpenRouter sign-in, your own keys including your own OpenRouter key, and this device), two selections (chat model, voice model) that each name their route, and a plain list of the features each one feeds. Connecting never changes a working selection.
+summary: Workspace › AI blurred three questions (how the Studio reaches models, which model does what, and who uses it), so the owner could not tell what was what. The redesign separates them into Connections (OpenRouter with two ways in, your own provider keys, this device), three selections (chat, image, voice) that each name their route and the features they feed, and fixed rules for when the Studio may change a selection (only a never-set one, or a retired version healed within its own family). Reviewed by the adversarial trio on 2026-11-08; its findings are folded in.
 ---
 
 # Studio AI: routes, selections and the screens that show them
 
-Builds on `2026-11-07-studio-model-spine.md`, whose engine stays: one stored chat selection and
-one stored voice selection, resolved without substitution, pinned per turn and per read. This
-note is about the **model the author sees**, and the few engine changes that model needs.
-Mockups: the "Studio AI: models and connections" canvas, https://claude.ai/artifact/FBJX8jCQKAXa381Xf5uufu (private to the owner).
+Builds on `2026-11-07-studio-model-spine.md`, whose engine stays: stored selections, resolved
+without substitution, pinned per chat turn and per read. This note is about the **model the
+author sees**, and the engine changes that model needs.
+Mockups: the "Studio AI: models and connections" canvas,
+https://claude.ai/artifact/FBJX8jCQKAXa381Xf5uufu (private to the owner).
 
 ## 1. Why the first spine UI was not enough
 
 Owner review, 2026-11-08: "what you have done is not really deterministic to me. I can't tell
-what's what." Read against the shipped screens (PR #3079, `2a27df50`), four things caused it:
+what's what." Read against the shipped screens (PR #3079, `2a27df50`):
 
-1. **Connecting changed the selection.** Saving a Gemini key switched chat AND voice to Gemini
-   (owner decision 3 of the spine). Connecting and choosing were one act.
-2. **OpenRouter looked like one more key.** Its row sat in the same list as Gemini, Anthropic
-   and OpenAI, although it is the platform the Studio is built around.
-3. **Chat and voice chose differently.** Chat: "Cloud | On-device", then provider pills, then a
-   list. Voice: "OpenRouter | Gemini | On-device". Two shapes for one idea.
-4. **The route was hidden.** A card said "Gemini": a model, or a route? Gemini 3.8 Flash can be
-   reached through OpenRouter or through the author's Gemini key, and nothing said which one would
-   answer, or which account it would bill.
+1. **Saving a key changed the selection.** A saved key always took over chat, and took over voice
+   when the current voice could not run (`architect-model.js` `saveProviderKey`). Connecting and
+   choosing were one act. (The OpenRouter sign-in return selects nothing: `resumeOpenRouterAuth`.)
+2. **OpenRouter looked like one more key**, in the same list as Gemini, Anthropic and OpenAI.
+3. **Chat and voice chose differently**: "Cloud | On-device" plus provider pills for chat;
+   "OpenRouter | Gemini | On-device" for voice.
+4. **The route was hidden.** A card said "Gemini": a model or a route? Gemini 3.8 Flash can come
+   through OpenRouter or the author's Gemini key, and nothing said which would answer or bill.
+5. **Two more models hid outside the selections** (found by the trio): Library photo
+   descriptions run on their own image-model setting (default the latest Claude Sonnet,
+   `suggest-photo-description.ts`, `image-look.ts`), and narrated export bakes with its own
+   narrator pick (`NarrationExportOptions.tsx`, `read-aloud.ts` `defaultBakeVoice`, OpenRouter or
+   Kokoro only).
 
-## 2. The model: three layers, each answering one question
+## 2. The model: connections, selections, uses
 
 | Layer | Question | What it holds |
 |---|---|---|
-| **Connections** | How can the Studio reach models? | **OpenRouter** (signed in): the platform, one account and one wallet for every chat and voice model. **Your own keys**: your OpenRouter key, your Gemini key, your Anthropic key, your OpenAI key, each separate. **This device**: free and private models. |
-| **Selections** | Which model does what? | Exactly two. **Chat model** = route + model. **Voice model** = route + model + voice. |
-| **Uses** | Who reads them? | Chat model: Chat, Refine, Theme, Finish, Alt text, Charts. Voice model: Present, Read aloud, Narrated export. |
+| **Connections** | How can the Studio reach models? | **OpenRouter**: the platform, one account for every model, connected by signing in **or** by pasting an OpenRouter key. **Your own keys**: Gemini, Anthropic, OpenAI. **This device**: free, private models. |
+| **Selections** | Which model does what? | **Chat model**, **Image model**, **Voice model**: each a route + model (voice: + voice). |
+| **Uses** | Who reads each one? | Listed on its card (below). |
 
-### Routes
+### Routes: six
 
-A **route** is one connection the Studio can send a request through. There are seven, and every
-model the Studio names is named with its route:
+| Route | Connected by | Chat | Image | Voice | Bills |
+|---|---|---|---|---|---|
+| **OpenRouter** | Sign in (one click) **or** paste an OpenRouter key | every chat model | every vision model | every voice model | that OpenRouter account |
+| **Your Gemini key** | paste a key | Gemini | Gemini | Gemini TTS | that Google account |
+| **Your Anthropic key** | paste a key | Claude | Claude | none | that Anthropic account |
+| **Your OpenAI key** | paste a key | GPT | GPT | none (follow-up 3048) | that OpenAI account |
+| **This device** (chat) | the browser's own, or a download | Browser built-in, WebLLM, Universal | none | none | free |
+| **This device** (voice) | download (~80 MB) | none | none | Kokoro | free |
 
-| Route | How it is connected | Chat | Voice | Bills |
-|---|---|---|---|---|
-| **OpenRouter** | Sign in (OAuth, one click) | every OpenRouter chat model | every OpenRouter voice model | the signed-in OpenRouter account |
-| **Your OpenRouter key** | paste a key | every OpenRouter chat model | every OpenRouter voice model | that key's OpenRouter account |
-| **Your Gemini key** | paste a key | Gemini models | Gemini TTS | that Google account |
-| **Your Anthropic key** | paste a key | Claude models | none | that Anthropic account |
-| **Your OpenAI key** | paste a key | GPT models | none (follow-up 3048) | that OpenAI account |
-| **This device** (chat) | download once, or the browser's own | Browser built-in, WebLLM, Universal | none | free |
-| **This device** (voice) | download once (~80 MB) | none | Kokoro | free |
+**OpenRouter is one connection with two ways in** (owner, 2026-11-08, after the trio showed that
+sign-in mints an ordinary OpenRouter key, identical in kind to a pasted one, and that a stored key
+cannot say how it was obtained). The card says which way it was connected ("Signed in" or "Key
+…ab12"). One slot, no migration guess, no duplicate rows. Sign-in is the path a new author is
+offered first; pasting is there for the bring-your-own-key author.
 
-**OpenRouter sign-in and your OpenRouter key are two routes**, not two ways into one (owner,
-2026-11-08: "two distinct OpenRouter idioms… they are distinct"). Sign-in is the platform path a
-new author takes; a pasted key is bring-your-own-key, listed with the other keys. They can both be
-connected at once, each picks its own models, and each bills its own account.
+### The three selections and what they feed
+
+| Selection | Used by | Needs |
+|---|---|---|
+| **Chat model** | Chat, Refine, Theme, Finish, Drawing, Component (generate and refine), Coach fixes, chat compaction | Chat edits need tool use (an on-device model answers one-shot, without edits); a photo in the chat needs a model that reads images |
+| **Image model** | Library photo descriptions, slide alt text | A model that reads images |
+| **Voice model** | Present, Read aloud, Narrated export | A model that speaks; the export bakes in exactly this voice |
+
+The image model stays its own selection (owner, 2026-11-08: "image models should be separate?
+that would be the least astonishing"): reading a picture is a different job from writing a deck,
+and a strong vision model can sit beside a cheap chat model. It is shown openly as a card, so it
+can no longer bill a model nobody sees. Slide alt text moves onto it from the chat model (it reads
+an image too). Narrated export loses its own narrator picker and bakes in the voice model, with a
+Gemini path added.
+
+**A feature its selection cannot serve says so on the card**, in one line under "Used by":
+"Chat edits need a model with tool use" or "Photo descriptions need a model that reads images",
+with a one-tap way to change. Nothing silently refuses.
 
 ### One way to name a model, everywhere
 
-`<model> · <route>`, the same words in the Workspace cards, the chooser, the chat chip, Present's
-voice pill and every notice:
+`<model> · <route>`, the same words in the cards, the chooser, the chat chip, Present's pill and
+every notice. Route labels: `OpenRouter`, `Your Gemini key`, `Your Anthropic key`, `Your OpenAI
+key`, `This device`. Voice adds the voice before the model: `Kore · Gemini 3.8 Flash Lite TTS ·
+Your Gemini key`; where space is short (the Present pill, a phone chip) the model drops first, the
+route last: `Kore · Your Gemini key`.
 
-- `Claude Sonnet 5.5 · OpenRouter`
-- `Gemini 3.8 Flash · Your Gemini key`
-- `Browser built-in · This device`
-- `Kokoro, Heart · This device`
-
-The same model through two routes is two entries, never merged: `Gemini 3.8 Flash · OpenRouter` and
-`Gemini 3.8 Flash · Your Gemini key` answer the same way but bill different accounts.
+The same model through two routes is two entries (`Gemini 3.8 Flash · OpenRouter` and `Gemini 3.8
+Flash · Your Gemini key`), because they bill different accounts. A free on-device copy and a paid
+cloud copy of one model (Kokoro) are told apart by price: the device one reads "Free", the
+OpenRouter one shows its price.
 
 ### Rules (the deterministic part)
 
-1. **A selection changes only when the author picks.** Connecting adds models; it never changes
-   a working selection. **Exception (owner, 2026-11-08):** a selection that cannot run at all
-   (nothing set, or its route is not connected) is filled by the first connection that can serve
-   it, with that route's recommended model, and a notice says so: "Chat now uses Gemini 3.8 Flash
-   · Your Gemini key, because nothing was set."
-2. **Chat and voice are independent.** Any connected route for either; a Claude key for chat with
-   an OpenRouter voice is a normal setup (owner, 2026-11-08).
-3. **Nothing falls back.** A selection that cannot run says why, in one vocabulary, and stops:
-   `Ready` · `Loading 42%` · `Needs its connection` · `Not downloaded` · `Model retired` ·
-   `Out of credit`. Each has one action next to it (Connect, Download, Choose another, Add billing).
-4. **Removing a connection leaves the selection in place** and reads `Needs its connection`, with
-   Reconnect beside it.
-5. **Pickers curate.** A route's list opens on Recommended (the newest of each family, two to four
-   models) with All and search one step away. The selected model is always shown.
+1. **The author changes a selection; the Studio changes it in exactly two cases, and says so.**
+   - **Fill a never-set selection.** A selection is *Not set* until the author picks or the first
+     fill happens. The first cloud connection (OpenRouter, or a key) fills each Not-set selection it
+     can serve, with its recommended model, and a notice names each one. On-device models never
+     fill: the author picks them. A selection that was ever set is never filled again, whatever its
+     state (removed connection, rejected key, out of credit, retired).
+   - **Heal a retired version within its family** (owner, 2026-11-08: "self heal… is about model
+     versions healing: if Sonnet 5.0 is not available but 5.5 is, we use that. We never change
+     model family or model provider"). When the selected model answers as retired, the Studio
+     moves to the newest live version of the **same family on the same route** (Claude Sonnet 5.0 →
+     5.5; Gemini 3.8 Flash Lite TTS → 3.9 Flash Lite TTS), stores it, and tells the author:
+     "Claude Sonnet 5.0 was retired. Chat now uses Claude Sonnet 5.5 · OpenRouter." No newer
+     version in the family: the selection reads **Model retired** and stops. It never moves to
+     another family (Sonnet → Opus), another provider (Claude → GPT) or another route. This
+     replaces today's chat self-heal to the latest-Sonnet alias, which could cross families.
+2. **Chat, image and voice are independent.** Any connected route that can serve each.
+3. **Nothing else falls back.** A selection that cannot run shows its state and one action:
+
+   | State | Action |
+   |---|---|
+   | Ready | none |
+   | Loading 42% | none (wait) |
+   | Not set | Choose |
+   | Needs its connection | Connect / Reconnect |
+   | Key rejected | Replace key |
+   | Out of credit | Add billing (the key and the connection work) |
+   | Rate limited | none (wait; retried next time) |
+   | Not in your region | Choose another |
+   | Not downloaded | Download |
+   | Not supported on this device | Choose another |
+   | Model retired | Choose another |
+   | Offline | none (retried when back) |
+
+4. **Removing a connection leaves the selection in place** (*Needs its connection*). Rule 1 never
+   fills it, so rotating a key cannot hand chat to another provider.
+5. **Downloading is not choosing.** Downloading an on-device model makes it available; it does not
+   select it (today `summon()` and `setTier('auto')` select: both change).
+6. **Pickers curate.** A route's list opens on Recommended (the newest of each family: two to four
+   models) with All and search one step away; the selected model always shows. OpenRouter keeps
+   its Value and Free lenses beside Recommended and All. `OR_FEATURED` is pruned to match (no
+   Gemini 2.5, no GPT-4o).
 
 ## 3. The screens
 
-### Workspace › AI (desktop sheet, tablet, phone: one layout that stacks)
+### Workspace › AI (desktop and tablet sheet; full screen on a phone)
 
-Top to bottom:
+1. **Models in use**: three cards, Chat, Image, Voice. Each: route glyph, `<model> · <route>`, its
+   state with its action, **Change**, "Used by …", and any "needs" line.
+2. **Connections**: "Where the Studio can reach models. Connecting adds models; it changes what is
+   in use only when nothing was set."
+   - **OpenRouter** card, first: "One account for every model." Not connected: **Sign in with
+     OpenRouter** and "or paste an OpenRouter key". Connected: "Signed in" or "Key …ab12", the
+     balance when the key has a limit (pay-as-you-go keys show usage only), Disconnect.
+   - **Your own keys**: Gemini, Anthropic, OpenAI rows: what each serves (`Chat · Image · Voice`),
+     state, Add / Replace (one atomic step) / Remove.
+   - **This device**: Browser built-in, WebLLM, Universal, Kokoro: size, Download / Downloaded /
+     Not supported here.
+3. **Spend**: every selection's route that bills (chat, image, voice), not chat only.
 
-1. **Models in use**: two cards, Chat model and Voice model. Each: route glyph, `<model> · <route>`
-   on two lines, a status, **Change**, and a quiet line "Used by Chat, Refine, Theme, Finish, Alt
-   text, Charts" (voice: "Used by Present, Read aloud, Narrated export").
-2. **Connections**, with one sentence: "Where the Studio can reach models. Connecting adds models;
-   it never changes what is in use."
-   - **OpenRouter**: its own card, first. Signed out: "One account for every chat and voice
-     model", **Sign in with OpenRouter**. Signed in: the account, its balance, Sign out.
-   - **Your own keys**: four rows (OpenRouter key, Gemini, Anthropic, OpenAI). Each says what it
-     serves (`Chat · Voice`, or `Chat`), its state (`No key`, `Key …ab12 · in use for chat`,
-     `Rejected`, `Out of credit`) and Add / Replace / Remove.
-   - **This device**: Browser built-in, WebLLM, Universal (chat) and Kokoro (voice), each with its
-     size and Download / Downloaded.
-3. **Spend**: for the chat model's route only, as today.
+### Change: one chooser for all three
 
-### Change (the chooser), the same for chat and voice
-
-One sheet, three steps on one screen, read top to bottom:
-
-1. **Route**: the connected routes as radio rows (`OpenRouter · 300+ models`, `Your Gemini key ·
-   12 models`, `This device · 3 models`), plus "Connect another…" that scrolls to Connections.
-   Unconnected routes are not listed.
-2. **Model**: the chosen route's list, Recommended first, All and search below.
-3. **Voice** (voice only): the model's named voices, with a sample button.
-
-Picking a model makes it the selection at once; the card above updates in place. There is no
-Save.
+Route (connected routes that can serve this selection; unconnected ones are not listed, "Connect
+another…" scrolls to Connections), then model (Recommended first), then voice (voice only, with a
+sample). Picking makes it the selection at once; there is no Save.
 
 ### The chat chip and Present's pill
 
-- **Chip**: `Claude Sonnet 5.5 · OpenRouter` (truncates the model, never the route). Its popover is
-  the same chooser, compact: route tabs for connected routes, Recommended list, "All models and
-  connections…" opening Workspace › AI.
-- **Present's voice pill**: `Heart · This device`, `Loading voice 42%`, or `Captions` with the
-  reason as its tooltip.
+- **Chip**: `Claude Sonnet 5.5 · OpenRouter`; the model truncates, the route does not. Its popover
+  is the compact chooser (route tabs, Recommended), **lazy-loaded on first open** so the label is
+  all the Studio's first load pays for.
+- **Present's pill**: `Kore · Your Gemini key`, `Loading voice 42%`, or `Captions · <reason>` with
+  the reason inline (a tooltip cannot be opened on a touch screen); tapping it opens the action.
 
-### First run (nothing connected)
+### First run
 
-The two cards read "Not set" with one primary action, **Sign in with OpenRouter**, and two quiet
-alternatives: "Use your own key" and "Use this device". Whatever is connected first fills both
-selections where it can (rule 1's exception), and the notice names what was chosen.
+The three cards read **Not set**. One primary action, **Sign in with OpenRouter**, with "or paste
+an OpenRouter key"; then "Use your own key" (saying Anthropic and OpenAI keys cannot speak) and
+"Use this device" (Browser built-in needs nothing; the others download). The notice after the first
+connection names what it filled.
 
-## 4. What changes in the engine
+## 4. Engine changes
 
-The spine stays. Three changes:
+1. **A real *Not set*.** Selection records gain an unset state; today `DEFAULT_CHAT` /
+   `DEFAULT_VOICE` stand in as `openrouter` with the curated default (`model-selection.js`).
+   Migration: an existing record is *set*; no record and no legacy keys is *Not set*.
+2. **The image model joins the spine**: a stored selection like the other two (route + model),
+   migrated from `settings.imageModel`; `suggest-photo-description.ts` and slide alt text read it.
+3. **Narrated export reads the voice selection** and gains a Gemini path; the export panel's own
+   narrator picker goes.
+4. **Rule 1 in code**: `saveProviderKey` stops selecting; the fill runs only for Not-set
+   selections; `summon()` and `setTier('auto')` stop selecting.
+5. **Version healing replaces the alias self-heal** (`isDeadModelError` → latest Sonnet): one
+   family-aware healer shared by chat, image and voice, keyed on the registry's families.
+6. **One route table** in `lib/provider-registry.js` (id, label, glyph, what it serves, how it
+   connects, state vocabulary) feeding the cards, chooser, chip, pill and notices, with a test over
+   every route × state row.
+7. **Spend** records voice and image spend against their routes; `spend.js`'s "Cloud AI
+   (OpenRouter)" label becomes per route.
 
-1. **Two OpenRouter routes.** Today one slot (`lattice-db-or-key`) holds the OpenRouter key however
-   it was obtained. Sign-in and pasted key need their own slots and route ids (`openrouter` and
-   `openrouter-key`), and the selection records name the route. Open question for the owner: a key
-   stored before this change cannot say how it was obtained. Proposed: it becomes **Your
-   OpenRouter key** (the conservative label: the author can sign in to add the platform route).
-2. **Connect never switches a working selection** (rule 1). `saveProviderKey` and the OAuth
-   return stop calling `selectChat` / the stranded-voice select, except to fill a selection that
-   cannot run.
-3. **One route vocabulary** in `lib/provider-registry.js`: id, label (`Your Gemini key`), glyph,
-   what it serves, how it connects. The cards, the chooser, the chip, the pill and the notices all
-   read it, so the words cannot drift.
+OpenRouter stays one slot (`lattice-db-or-key`); the card records how it was connected from now on
+(an older key reads "Key …ab12").
 
 ## 5. Alternatives considered
 
-- **One global mode** (OpenRouter, or own keys, or this device, for everything). Simpler, but it
-  cannot express "chat on my Claude key, voice through OpenRouter", and Anthropic has no voice, so
-  a Claude-key author would have no voice at all. Rejected by the owner's answer to question 2.
-- **A setup wizard.** Clear the first time, but it hides the state afterwards, which is the
-  problem being fixed.
-- **Provider-first lists** (pick Gemini, then see its models, whatever the route). Shorter, but it
-  merges two routes for the same model and hides which account pays.
+- **One global mode** (OpenRouter, or own keys, or this device, for everything): cannot express a
+  Claude key for chat with a voice from OpenRouter (Anthropic has no voice).
+- **Two OpenRouter routes** (sign-in and pasted key as peers): rejected after the trio; same key
+  kind, same wallet, duplicate rows, and existing keys cannot be classified.
+- **Fold the image model into chat**: fewer settings, but a cheap chat model would block photo
+  descriptions, and the owner judged a separate, visible pick less astonishing.
+- **A setup wizard**: hides the state afterwards, which is the problem being fixed.
 
 ## 6. Owner decisions, 2026-11-08
 
-1. OpenRouter sign-in and a pasted OpenRouter key are distinct routes.
-2. Chat and voice routes are independent.
-3. Connecting fills a selection only when it cannot run.
-4. Design first, then rebuild the UI in PR #3079.
+1. OpenRouter is one connection with two ways in (sign in, or paste a key).
+2. Chat, image and voice routes are independent.
+3. Connecting fills a selection only when it was never set.
+4. The image model is its own visible selection.
+5. Self-healing moves a retired version to the newest version of the same family on the same
+   route, and tells the author; it never changes family, provider or route.
+6. Design first, then rebuild the UI in PR #3079.
+
+## 7. Review
+
+The adversarial trio (red team, Munger inversion, independent checker) reviewed the first draft of
+this note on 2026-11-08. Folded in: the hidden image model and narrator picker; the collision
+between "removed connection keeps the selection" and "fill what cannot run" (now: fill only Not
+set); on-device auto-fill and download-selects; the missing chat-model callers; voice and image
+spend; the free and paid Kokoro; the full state vocabulary; the two-OpenRouter-routes question
+(re-asked, now one connection); and the mockups' naming, counts, 44 px targets, labels and
+touch-only tooltip.
