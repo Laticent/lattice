@@ -134,7 +134,7 @@ rail's inset from the band's end is one number across a deck that includes an un
 One thing the box alignment does not change: the page number's BOX shares every frame's berth, but on
 a content slide its digits sit about 5 px higher than on a title, divider or closing, because the
 in-band footer's box (1.6em) is taller than a sovereign frame's page-number line. That was so before
-this change too, and is recorded in `followups.d/` by the PR that shipped this note.
+this change too; `followups.d/3095-p1-page-number-ink-across-frames.md` tracks it.
 
 The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
 column in from the edge on every slide, which is consistent, and saves a deck-level switch.
