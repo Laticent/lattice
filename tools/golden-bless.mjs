@@ -109,7 +109,17 @@ function sourcesMissingPdfs() {
     if (!job) continue;
     if (expectedPdfs(md, job).some((p) => !tracked.has(p))) out.push(md);
   }
-  return out;
+  // Render what other gates READ first: galleries (rasterize-showcase and component-galleries need
+  // them), then exemplars (exemplar-render), then everything else. Alphabetical order put 69
+  // examples/ decks ahead of the 28 moved chart galleries, and because the bless PR is not merged
+  // the same first MISSING_CAP sources were picked every night, so the galleries were never reached.
+  const rank = (md) => {
+    const kind = classify(md)?.kind;
+    if (kind === 'component' || kind === 'bucket' || kind === 'showcase') return 0;
+    if (md.startsWith('exemplars/')) return 1;
+    return 2;
+  };
+  return out.map((md, i) => [rank(md), i, md]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([, , md]) => md);
 }
 
 function gate(args, okCodes) {

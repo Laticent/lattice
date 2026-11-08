@@ -115,11 +115,23 @@ async function build() {
 	mkdirSync(tmp, { recursive: true });
 
 	const sources = {};
+	const prior = existsSync(SOURCES) ? JSON.parse(readFileSync(SOURCES, 'utf8')) : {};
 	let wrote = 0;
+	let waiting = 0;
 	for (const m of showcaseComponents()) {
 		const page = m.showcase?.page || 2;
 		for (const mode of MODES) {
 			const pdf = srcPdf(m, mode);
+			const key = `${m.name}.${mode}`;
+			const rec = prior[key];
+			// Same excuse check() grants (#2997): a moved chart kind whose PDF has not been blessed at its new
+			// home yet keeps its old WebP and old record, so --check stays green and the next build picks it up.
+			if (!existsSync(pdf) && rec && existsSync(outFile(m.name, mode)) && movedChartKind(rec.src, pdf.replace(`${repoRoot}/`, ''))) {
+				process.stderr.write(`waiting: ${key}: kept the WebP from ${rec.src}; ${pdf.replace(`${repoRoot}/`, '')} is not rendered yet.\n`);
+				sources[key] = rec;
+				waiting++;
+				continue;
+			}
 			if (!existsSync(pdf)) {
 				process.stderr.write(`missing source gallery: ${pdf}\n  → run \`npm run build:galleries\` first.\n`);
 				process.exit(1);
@@ -137,7 +149,7 @@ async function build() {
 	}
 	rmSync(tmp, { recursive: true, force: true });
 	writeFileSync(SOURCES, `${JSON.stringify(sources, null, '\t')}\n`);
-	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/ + showcase-sources.json.\n`);
+	process.stdout.write(`rasterize-showcase: wrote ${wrote} WebP into public/showcase/ + showcase-sources.json${waiting ? ` (${waiting} kept, waiting for a moved gallery's first bless)` : ''}.\n`);
 }
 
 if (process.argv.includes('--check')) check();
