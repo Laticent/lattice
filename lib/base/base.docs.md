@@ -1269,8 +1269,11 @@ the diagram but not the labels inside it. Full contract:
 Page-number pair. Front matter `paginate:` numbers the deck and is on unless it
 says `false`. `no-pagination` hides one slide's number; `with-pagination` shows
 it, even on a component that opts out. A component opts its slides out in its
-manifest with `"chrome": { "pagination": false }` (title, divider and closing
-do), so a bookend needs no token. The class wins over the manifest, and the
+manifest with `"chrome": { "pagination": false }` (title, divider, topic and
+closing do), so an anchor needs no token. The title also drops the running header
+(`"chrome": { "header": false }`, stamped as `no-header`; `with-header` brings it
+back). Why each anchor keeps or drops each band:
+`engineering/decisions/2026-11-08-anchor-chrome.md`. The class wins over the manifest, and the
 manifest wins over the deck. A `<!-- paginate: -->` or `<!-- _paginate: -->`
 comment is ignored, and `lint:deck` says what to write instead.
 

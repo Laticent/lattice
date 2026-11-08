@@ -165,8 +165,6 @@
     "prefix": "lattice-closing",
     "body": [
       "<!-- _class: closing -->",
-      "<!-- _header: '' -->",
-      "<!-- _footer: '' -->",
       "",
       "## Closing takeaway or call to action",
       "",
@@ -351,8 +349,6 @@
     "prefix": "lattice-divider",
     "body": [
       "<!-- _class: divider -->",
-      "<!-- _header: '' -->",
-      "<!-- _footer: '' -->",
       "",
       "`Section 01`",
       "",
@@ -1258,8 +1254,6 @@
     "prefix": "lattice-title",
     "body": [
       "<!-- _class: title -->",
-      "<!-- _header: '' -->",
-      "<!-- _footer: '' -->",
       "",
       "# Deck title goes here",
       "",

@@ -68,7 +68,7 @@ Section boundary slide. Dark canvas with a single heading.
 - Section title that doesn't earn a section
   - If the next 3-4 slides aren't a coherent unit, the `light` variant (bright canvas, centered) is the right tool. Reserve the dark divider for genuine section starts.
 - Header or footer overrides
-  - Don't reinstate `_header:` or `_footer:` on a divider. The dark canvas is meant to be uninterrupted; chrome belongs on body slides.
+  - Don't blank the header or footer with `_header: ''` / `_footer: ''` on a divider. A divider keeps the deck's running header and its footer, the standing note (a "Confidential", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). Drop one on purpose with `no-header` / `no-footer`, or every band with `silent`.
 
 ---
 

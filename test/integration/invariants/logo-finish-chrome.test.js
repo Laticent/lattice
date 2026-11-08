@@ -35,13 +35,16 @@ function resolveChrome() {
 const slides = (...bodies) => bodies.join('\n\n---\n\n');
 const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running header"\nfooter: "Running footer"\npaginate: true\n${fm}\n---\n\n${body}\n`;
 
-// slide 1 carries the mark (title scope); slide 2 does not; slide 3 opts out; slide 4 is a title again
+// slide 1 carries the mark (title scope); slide 2 does not; slide 3 opts out; slide 4 is a title again.
+// The titles carry `with-header`: a title drops the running header by its manifest
+// (engineering/decisions/2026-11-08-anchor-chrome.md), so without it the cover's `header: false` would
+// hold whatever the logo did, and `no-logo` could never give the header back.
 const SCOPED = (placement) => deck(
   `logo: sample:logo-acme-mark.svg\nlogo-finish: ${placement} title\nfinish: atrium`,
   slides(
-    '<!-- _class: title -->\n\n# Cover',
+    '<!-- _class: title with-header -->\n\n# Cover',
     '## Plain slide\n\nBody copy.',
-    '<!-- _class: no-logo title -->\n\n# Cover without a mark',
+    '<!-- _class: no-logo title with-header -->\n\n# Cover without a mark',
     '<!-- _class: divider -->\n\n## Divider\n\nSubtitle.',
   ),
 );

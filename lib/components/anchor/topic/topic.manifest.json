@@ -3,6 +3,7 @@
   "name": "topic",
   "function": "anchor",
   "form": "split",
+  "chrome": { "pagination": false },
   "substance": "prose",
   "adapt": {
     "mode": "native",

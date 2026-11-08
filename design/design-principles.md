@@ -161,17 +161,21 @@ Marp's rule: underscore prefix = this slide only, no underscore = this slide and
 
 **Page numbers are not a slide directive.** Front matter `paginate:` numbers the deck and is on unless it says
 `false`. A slide opts out with the `no-pagination` class and back in with `with-pagination`. A component opts its
-slides out in its manifest (`"chrome": { "pagination": false }`), as title, divider and closing do, so their slides
-need nothing. A `paginate:` or `_paginate:` comment is ignored, and the deck lint says what to write instead.
+slides out in its manifest (`"chrome": { "pagination": false }`), as title, divider, topic and closing do, so their
+slides need nothing. A `paginate:` or `_paginate:` comment is ignored, and the deck lint says what to write instead.
 Marp carries plain directives onward; Export to Marp writes Marp's own directives so a Marp render agrees (owner's
 rulings, 2026-10-20).
 
-Title, divider, and closing slides should suppress header and footer (their manifest already drops the page number):
+**Anchor slides keep a band unless they already do its job** (owner's ruling, 2026-11-08,
+`engineering/decisions/2026-11-08-anchor-chrome.md`). Each band has one job. The header says which deck this is, so
+only the title drops it (`"chrome": { "header": false }`). The footer is the deck's standing note (a
+"Confidential", a copyright) and no slide does that job, so every anchor keeps it. The page number gives way on
+title, divider, topic and closing: the divider's section marker and the topic's track say where the reader is. The
+logo stays everywhere. An author writes nothing for the default, and overrides one slide with the band's switch:
 
 ```markdown
-<!-- _class: title -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
+<!-- _class: title with-header -->
+<!-- _class: divider no-footer -->
 ```
 
 ## 2.3 Header, Footer & Pagination CSS

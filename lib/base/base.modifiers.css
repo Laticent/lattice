@@ -2087,18 +2087,11 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * no second counter, so a deck that mixes the two still counts 01, 02, 03 straight
  * through. */
 
-/* The masthead owns the top band, so the running header and the footer both stand
- * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
- * the footer in a `.cell-footer` and left the header a direct child
- * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The `.cell-footer`
- * arm is DEFENSIVE, not exercised: `divider` renders on the legacy frame today, so no
- * such DOM exists — it is here so a future Form migration does not silently restore the
- * footer. The PAGE NUMBER is
- * deliberately untouched — it lives bottom-right, nowhere near this, and it is the one
- * piece of chrome a section start still benefits from. */
-section.divider.numbered > header,
-section.divider.numbered > footer,
-section.divider.numbered > .cell-footer > footer { display: none; }
+/* A numbered divider keeps the deck's running header and footer, as every divider does
+ * (engineering/decisions/2026-11-08-anchor-chrome.md: a band stays unless the slide already
+ * does its job). The numeral sits below the header's band, so the two do not meet; the
+ * variant hid both until 2026-11-08, which dropped a deck's "Confidential" on exactly the
+ * slides that open its sections. */
 
 /* THE BAND IS RESERVED, so the copy cannot reach the mark.
  *
@@ -2986,7 +2979,8 @@ svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
  *   top-*           → the running header and the meta tile
  *   bottom-left,
  *   bottom-center   → the footer text (it spans the whole bottom edge)
- *   bottom-right    → the page number and the progress rail (the footer keeps its text)
+ *   bottom-right    → the page number and the progress rail, and a divider's section marker, which
+ *                     stands where the rail does (the footer keeps its text)
  * Only an EXPLICIT word does this, and only on a slide that HAS the mark (`:has(> img.deck-logo)`):
  * the deck's words ride every section, so keying on the class alone hid the chrome on slides the
  * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
@@ -2997,7 +2991,7 @@ section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-log
 section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
 section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,
 section.form:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > .cell-footer > footer,
-section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress) {
+section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress, .divider-marker) {
   display: none;
 }
 section.logo-bottom-right.logo-bottom-right:has(> img.deck-logo)::after { content: none; }
