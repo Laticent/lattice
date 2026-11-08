@@ -1613,8 +1613,10 @@ section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spo
  * as a centered block, and all six kinds drew 0px tall. Unlike a continuous host, the fluid slide HAS a
  * definite height, so the stage takes what is left of it and the chart fills that, as on a paged slide.
  * A 16:10 box from the width would be the whole viewport on a desktop. `:not(.lat-pane-host)`: a panes
- * host's stage already grows, and the extra class outweighs base.fluid-view.css's `!important` hold. */
-section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spoke):not(.lat-pane-host):where(:root[data-lattice-view="fluid"] *) > .cell-stage {
+ * host's stage already grows, and the extra class outweighs base.fluid-view.css's `!important` hold.
+ * journey joins them: its vertical board's rows divide the height they are given, so held to its
+ * content the board got 157px on a phone and its rows overlapped (journey.styles.css, a phone). */
+section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spoke, .journey):not(.lat-pane-host):where(:root[data-lattice-view="fluid"] *) > .cell-stage {
   flex-grow: 1 !important;
 }
 

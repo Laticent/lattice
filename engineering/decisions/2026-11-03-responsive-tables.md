@@ -627,8 +627,8 @@ through their own browser layout.
 ### The whole-source kinds (2026-11-08)
 
 Every kind the survey found carrying its whole source now has a reader in lib/runtime/chart-readers/, one
-file per kind, except two: matrix-grid draws the same HTML grid in every box (its kernel reads no
-orientation and no canvas), so there is nothing to redraw; and journey's reader is written but HELD.
+file per kind, except matrix-grid: it draws the same HTML grid in every box (its kernel reads no
+orientation and no canvas), so there is nothing to redraw.
 
 - **The oracle is the export itself.** test/unit/runtime/chart-readers.test.js exports each kind's gallery,
   reads every chart back, redraws the list with the kernel at the box the export drew for, and demands the
@@ -692,9 +692,16 @@ orientation and no canvas), so there is nothing to redraw; and journey's reader 
   chart fills it (chart-family.styles.css). A 16:10 box from the width, the continuous host's answer,
   would be the whole viewport on a desktop. Measured bodies: 540 to 717px at 390 × 844, 306 to 456px at 1280 × 720,
   150 to 237px on a landscape phone (844 × 390), each from 0.
-- **Journey is held.** Its reader reads all nine gallery journeys back whole, but the kernel's portrait board
-  clips in the fluid stage at 390px (labels overlap, the frame's "Content clipped"), which is worse than the
-  small exported board. lib/runtime/chart-readers/index.js leaves it out; the round-trip test keeps it tested.
+- **Journey's vertical board fits one phone screen (the owner: "the journey is simply broken").** A portrait
+  deck splits a journey a stage per page; the fluid viewer shows one slide per screen, so its redraw put every
+  stage on one 844px screen, and two things broke. The fluid view holds a slide's stage to its content's
+  height, and the board's rows divide whatever height they are given, so the board got 157px and its rows
+  overlapped. And unsplit, each stage shares the height by its task count while every row keeps a 7cqi
+  minimum, so the five-stage, twelve-task gallery board overflowed its stages and rode over their bands. In
+  the fluid view journey's stage now takes the rest of the slide's height (it joins the size-container
+  kinds' rule in chart-family.styles.css), and on a phone (a screen at most 40em wide) the board is
+  content-sized like a split page with compact rows (journey.styles.css, the last block). All nine gallery
+  boards fit at 390 × 844 with no row over another; the reader, held until this, is on.
 - **Tower gets a narrow form (the owner's look at the phone render, 2026-11-08).** Its layer names sat in a
   side column that took half a phone-width box, right-aligned beside bars squeezed to the other half, and its
   key was one tall column sized from the diagram's height, larger than the labels it explains. Below 260

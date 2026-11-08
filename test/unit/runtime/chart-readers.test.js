@@ -20,9 +20,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const { transformChartSection } = require('../../../lib/transformers/chart-frame');
-// The runtime's readers, plus the ones written and HELD from it (lib/runtime/chart-readers/index.js says why).
-const RUNTIME_READERS = require('../../../lib/runtime/chart-readers');
-const READERS = { ...RUNTIME_READERS, journey: require('../../../lib/runtime/chart-readers/journey').read };
+const READERS = require('../../../lib/runtime/chart-readers');
 const { verified } = require('../../../lib/runtime/chart-redraw');
 
 const KINDS = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
@@ -188,6 +186,3 @@ describe('chart redraw: the check before trust refuses a list that is not the au
   });
 });
 
-test('journey\'s reader is held out of the runtime (followups.d/3021-p9-chart-narrow-forms.md, item 1)', () => {
-  assert.equal(RUNTIME_READERS.journey, undefined, 'its portrait board clips in the fluid stage; fix that before registering it');
-});
