@@ -43,6 +43,13 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             2026-11-08: a fourth, found red on that branch's own docs-build: `PlaygroundApp.test.tsx` threw "window is
             not defined" after the run. The reveal's per-frame poll outlived unmount and went live afterwards, arming a
             teardown timer nothing cancelled. The poll now stops once its frame leaves the page; a held-frame test is its arm.
+            Two e2e flakes FOUND while exercising that PR (retries 0, 4 busy loops on 4 cores), both pre-existing on `main`
+            644f177 and not fixed yet: `playground-tab-switch.spec.ts:211` (wide) on webkit-tablet, `frames.every(f =>
+            f.same)` false, i.e. the preview document was replaced during the Explore switch (branch 1 in 41, `main` 1 in
+            41). Lead: the spec marks the frame's window right after an edit while a full write from that edit may still be
+            in flight; confirm by recording whether the write that replaced it began before the mark. And
+            `playground-first-paint.spec.ts:990` on desktop (`main` 1 in 1 full run, branch 0 in 1): the poll at :1002
+            reads `.hasAttribute` on a null element.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
