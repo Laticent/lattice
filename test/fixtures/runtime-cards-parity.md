@@ -453,6 +453,24 @@ function after() {
 
 ---
 
+<!-- _class: contact -->
+
+- Ada Slide `name`
+- Founder `title`
+- Laticent `org`
+- hello@laticent.io `email`
+
+---
+
+<!-- _class: wifi -->
+
+## wifi
+
+- Lattice-Demo `ssid`
+- specimen2026 `password`
+
+---
+
 <!-- _class: quote -->
 
 ## quote
