@@ -115,7 +115,11 @@ export function healSelections({ provider, from, to }) {
 // Never the key itself.
 const refusals = new Map();
 
-/** Record a provider's refusal of a key: `{ status, message, ageMs, asks, at }`. */
+/**
+ * Record a provider's refusal of a key: `{ status, message, ageMs, asks, at }`.
+ * @param {string} provider
+ * @param {{ status: number, message?: string, ageMs?: number | null, asks?: number }} r
+ */
 export function noteKeyRefusal(provider, { status, message = '', ageMs = null, asks = 1 }) {
 	refusals.set(provider, { status, message: String(message).replace(/\s+/g, ' ').trim().slice(0, 140), ageMs, asks, at: Date.now() });
 	emit('db-model-changed');
