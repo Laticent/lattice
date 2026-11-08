@@ -5,3 +5,4 @@
 - On a phone in the `--fluid` viewer, a roadmap's phase cards are calmer: one line per item with the workstream name beside it, no rule beside each item, and a phase date the size of the phase title.
 - A journey on a phone in the `--fluid` viewer shows its whole board as stages stacked down the screen, one compact row per task; it used to show the wide board squeezed to tiny labels.
 - Quadrant, risk-matrix, scatter, histogram, radar, gantt and word-cloud charts redraw for a phone too: each now records its values on its marks as new attributes (the drawing is unchanged), and a quadrant in a narrow box draws a narrower plane so its labels print at the slide's size.
+- In a narrow box a risk matrix puts its key under the grid, so the grid takes the full width, and a word cloud's size key prints at the slide's label size.

@@ -737,6 +737,12 @@ orientation and no canvas), so there is nothing to redraw.
   and shrank the plane under it. Below 260 units wide each variant draws a 300 × 320 drawing with label budgets
   to match, and cohort's key goes under the plane at the chart's label size. No deck's export moves (no
   example pane is that narrow).
+- **Risk-matrix and word-cloud get narrow forms too.** Risk-matrix kept its key beside the grid, a third
+  of a phone-width box, so its grid's tick words printed at 5-9px; below 260 units wide the grid takes the
+  full width and the key runs under it, a row per risk (14px on a phone). Word-cloud draws on an 1100-wide
+  canvas, so its size key printed at 7px on a phone; below 260 units its key under the cloud is scaled 2.4x
+  about the canvas center. No deck's export moves (26 risk-matrix and quadrant decks, 16 word-cloud decks,
+  byte-identical once the new attributes are stripped).
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.
