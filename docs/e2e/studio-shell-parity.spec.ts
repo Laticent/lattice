@@ -193,7 +193,8 @@ for (const c of CASES) {
 		// the iPad report — the EDIT and PREVIEW sub-bars. The shell mirrors all five
 		// control-for-control.
 		//
-		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view. But
+		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view (the one
+		// exception, the status strip's deck caption, is outside the roots this spec compares). But
 		// "the shell must not draw the count" was for years also read as "so its width is a
 		// guess", and that reading is what this spec spent six px of tolerance hiding. The two
 		// unknowable slots now reserve a fixed width from a shared constant (`DECK_META_SLOT`,

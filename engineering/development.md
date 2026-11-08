@@ -1108,7 +1108,7 @@ locally from `docs/`:
   job. A selector matching nothing is reported as a MISS under every one of the three, never
   as silence.
 - **`npm run perf`** (= `perf:collect` to `.perf/local` + a report) — measures
-  the current site, median-of-3, desktop (`lighthouserc.cjs`) + mobile
+  the current site, median-of-3 desktop (`lighthouserc.cjs`) + median-of-5 mobile
   (`lighthouserc.mobile.cjs`), and prints the numbers. **Report-only locally**
   (no base to diff against). The actual gate is the nightly:
   `.github/workflows/perf-nightly.yml` builds + measures `main@HEAD` vs the

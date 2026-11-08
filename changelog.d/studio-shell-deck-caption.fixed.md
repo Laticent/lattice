@@ -1,0 +1,1 @@
+- The Studio's loading screen now shows the deck's size and slide count ("16 : 9 · 7 slides") before the app finishes loading, when it can be sure which deck will open. On a phone this brings Lighthouse's largest-paint time for /studio/ back from about 14 s to about 5.6 s; it had regressed when Undo and Redo joined the phone header (#2085).

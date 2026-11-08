@@ -29,6 +29,7 @@ import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
+import { builtinDeckCaptions } from '../components/studio/deck-captions';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
 import { BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURE_ALIASES, POSTURES } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
@@ -212,6 +213,12 @@ const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
 // Built-in deckId → title, so the seed can best-effort correct the shell topbar title to the
 // LAST-ACTIVE deck (not just DECKS[0]) for a returning visitor — a title, never slide content.
 const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => [d.id, d.title]));
+// Built-in deckId → the preview status strip's caption ("16 : 9 · 7 slides"), counted with the
+// app's own slide index (buildDeckIndex, the outliner the Studio's focus hub runs) over the full
+// deck, which is the lens the app boots with. The shell draws it so that its largest text is on
+// screen at first paint: without it a phone's largest paint is the app's copy of the caption,
+// after hydration (issue #2085). The seed below picks the visitor's deck or falls back to a bar.
+const DECK_CAPTIONS: Record<string, string> = builtinDeckCaptions();
 // The Studio's pre-hydration INSTANT SHELL is Nacre-ONLY: a single animated skeleton in one
 // contained box (at the deck's chosen aspect), shown to EVERY visitor at HTML-parse time
 // (before the client:only island + the ~505KB engine load) and dismissed by the app once its
@@ -393,6 +400,13 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    row to it and let the navigator take the remainder, so the two rows land on the app's own
    line no matter what the placeholder inside them happens to be. */
 #studio-ssr-shell .ssr-status{min-height:var(--sh-status,0px);flex:0 0 auto;}
+/* The deck caption against its fallback bar: the caption when the seed is sure of the deck,
+   the bar when it is not (data-ssr-caption-unknown). The footer is the caption's size
+   container, as the app's preview pane is, so the 20rem gate on the caption reads the same. */
+#studio-ssr-shell .ssr-paneftr{container-type:inline-size;}
+#studio-ssr-shell .ssr-caption-bar{display:none;}
+:root[data-ssr-caption-unknown] #studio-ssr-shell .ssr-deck-caption{display:none;}
+:root[data-ssr-caption-unknown] #studio-ssr-shell .ssr-caption-bar{display:inline-flex;}
 /* flex:1 0 auto — grow to fill the footer at the default size, but do NOT shrink below the
    navigator's own content, or a raised font size would be absorbed by squashing this row
    instead of growing the band. (No backticks in these comments: this block is a JS template
@@ -506,7 +520,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > [data-pane-role="editor"] { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DECK_CAPTIONS, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -535,6 +549,26 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.
 					//  data-ssr-shell is set ABOVE, before this try, so the shell shows even if a
 					//  storage read throws.)
+					// CAPTION SEED — the status strip's "16 : 9 · 7 slides" (DECK_CAPTIONS). The shell states it
+					// only when it is sure which deck the app will boot, so it resolves the boot deck by the
+					// rules of loadBootDeck (studio-store.ts): the active deck when the index lists it, else
+					// index[0], else DECKS[0]. Any doubt shows the neutral bar instead: an active id the index
+					// does not list (the app falls back, and migrateWelcome may change the list), an unreadable
+					// record, a user deck, or a built-in deck with edited source. A wrong count painted and
+					// then corrected is the second content surface 2026-07-21-studio-preview-one-skeleton.md
+					// retired. A query or hash (a lesson, a shared deck) is handled by the script after the
+					// footer skeleton, which runs even when storage is blocked and this never does.
+					try {
+						var cAct = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
+						var cDid = cAct && typeof cAct.deckId === 'string' ? cAct.deckId : '';
+						var cIdx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') || 'null');
+						var cIds = [];
+						if (cIdx && cIdx.length) { for (var ci = 0; ci < cIdx.length; ci++) cIds.push(cIdx[ci] && cIdx[ci].id); }
+						else cIds = Object.keys(DECK_CAPTIONS);
+						var boot = cDid ? (cIds.indexOf(cDid) !== -1 ? cDid : '') : cIds[0];
+						if (boot && typeof DECK_CAPTIONS[boot] === 'string' && !localStorage.getItem('lattice-studio-src-' + boot)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[boot]);
+						else r.setAttribute('data-ssr-caption-unknown', '');
+					} catch (e6) { r.setAttribute('data-ssr-caption-unknown', ''); }
 					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
 					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
 					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck
@@ -985,7 +1019,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			<div class="ssr-band ssr-activityrail"><StudioActivityRailSkeleton /></div>
 			<div class="ssr-band ssr-editpane"><StudioEditorPaneSkeleton /></div>
 			<div class="ssr-band ssr-panehdr"><StudioPreviewBarSkeleton /></div>
-			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton /></div>
+			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton caption={DECK_CAPTIONS[firstDeck.id] ?? ''} /></div>
+			<script is:inline>(function(){var r=document.documentElement;if(location.search||location.hash){r.setAttribute("data-ssr-caption-unknown","");return;}var v=r.getAttribute("data-ssr-caption");if(!v)return;var t=document.querySelectorAll(".ssr-deck-caption");for(var i=0;i<t.length;i++)t[i].textContent=v;})();</script>
 			<div class="ssr-stage">
 				<div class="ssr-slidebox" id="ssr-slidebox">
 					<span class="nacre-loader" aria-hidden="true">
