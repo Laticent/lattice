@@ -410,7 +410,7 @@ function pcmBlobFromResponse(pcmBytes, contentType) {
 
 // OpenRouter TTS — a fetch on the architect's existing OAuth key. Deck text leaves
 // the device (gated by the same consent the architect connect flow already takes).
-function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
+function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   return {
     name: 'openrouter-tts',
@@ -425,6 +425,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
       const model = modelOverride || getModel();
+      if (gone?.has('openrouter', model)) throw modelGoneError('openrouter', model);
       const wantsPcm = isPcmOnlyModel(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
@@ -456,6 +457,10 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         // Surface the API's reason (bad model slug, unknown voice, no credit) instead
         // of a silent fall-through — the only way to diagnose without the console.
         let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch {}
+        if (isModelGoneError(res.status, detail)) {
+          gone?.add('openrouter', model, detail);
+          throw modelGoneError('openrouter', model, detail);
+        }
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
       }
       if (wantsPcm) {
@@ -486,13 +491,8 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
 // A chosen Gemini voice never bills OpenRouter: this rung only ever calls Google with the
 // Gemini key (engineering/decisions/2026-11-07-studio-model-spine.md).
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-/**
- * The Gemini voice model used only until the live list answers (or when it cannot be read). The
- * live list decides the real default (CURATED.voice.gemini: Flash-Lite TTS, then Flash TTS, newest
- * version first). This is the id Google's own Gemini-TTS docs list, so a fallback request names a
- * model that exists rather than one only some accounts have.
- */
-export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.1-flash-tts-preview';
+/** The curated default Gemini voice model (GA): Flash-Lite TTS. Used until the live list answers, which then decides. */
+export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
 
 function base64ToBytes(b64) {
   const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
@@ -513,7 +513,26 @@ export function geminiSpeechBody(text, voice) {
   };
 }
 
-function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus }) {
+/**
+ * Whether a failed speech call means the MODEL is gone (retired, renamed, not served to this key)
+ * rather than a passing fault. Providers retire TTS models with little notice, so the Studio
+ * must say so and stop, never retry every sentence or quietly use another model
+ * (engineering/decisions/2026-11-07-studio-model-spine.md §6). A bad key is not a gone model.
+ */
+export function isModelGoneError(status, detail = '') {
+  if (status === 401 || /API_KEY_INVALID/.test(detail)) return false;
+  if (status === 404) return true;
+  return status === 400 && /(not found|not supported|is not available|no longer (available|supported)|deprecated|unsupported model|invalid model|no endpoints found)/i.test(detail);
+}
+
+/** An error that names a gone model, so callers can tell it from a passing fault. */
+function modelGoneError(provider, model, detail) {
+  const e = new Error(`${provider} no longer serves ${model}` + (detail ? ': ' + detail.slice(0, 160) : ''));
+  e.modelGone = { provider, model };
+  return e;
+}
+
+function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone }) {
   return {
     name: 'gemini-tts',
     ready() { return !!getKey(); },
@@ -521,6 +540,8 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus }) {
       const key = getKey();
       if (!key) throw new Error('Gemini not connected');
       const model = modelOverride || getModel();
+      // A model already found gone is not asked again: one notice, not a 404 per sentence.
+      if (gone?.has('gemini', model)) throw modelGoneError('gemini', model);
       const res = await (fetchImpl || fetch)(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -532,6 +553,10 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus }) {
       if (!res.ok) { try { detail = (await res.text()).slice(0, 300); } catch {} }
       const status = res.status === 400 && /API_KEY_INVALID/.test(detail) ? 401 : res.status;
       noteStatus?.(status, key);
+      if (!res.ok && isModelGoneError(status, detail)) {
+        gone?.add('gemini', model, detail);
+        throw modelGoneError('gemini', model, detail);
+      }
       if (!res.ok) throw new Error('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''));
       const json = await res.json();
       const part = (json?.candidates?.[0]?.content?.parts || []).find((p) => p?.inlineData?.data);
@@ -830,7 +855,7 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
 // Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
 // engineering/decisions/2026-11-07-studio-model-spine.md
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection } = {}) {
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -905,7 +930,21 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
   const allowSpeech = () => allowBrowserVoice === true || readLS(K.DEV_SPEECH) === '1' || settings().voiceDevSpeech === true;
 
-  const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
+  // Voice models a provider told us are gone, for this page. The selection that names one reads
+  // `unavailable` with reason `model-gone`, the author is told once (`onModelGone`), and nothing
+  // speaks in its place. Another model is unaffected; a reload asks the provider again.
+  const goneModels = new Map();
+  const gone = {
+    has: (provider, model) => goneModels.has(`${provider}:${model}`),
+    add(provider, model, detail) {
+      const k = `${provider}:${model}`;
+      if (goneModels.has(k)) return;
+      goneModels.set(k, { provider, model, detail: String(detail || '') });
+      try { onModelGone?.({ provider, model }); } catch {}
+      emitChange();
+    },
+  };
+  const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl, gone });
   // Direct-key voice rungs by selection provider. Gemini speaks on the author's own Gemini key.
   const geminiPick = () => {
     if (!selection) return { model: '', voice: '' };
@@ -928,7 +967,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   const geminiModel = () => geminiPick().model || geminiDefault;
   const geminiVoice = () => geminiPick().voice;
   const cloudRungs = selection?.readKey
-    ? { gemini: geminiTtsRung({ getKey: () => selection.readKey('gemini'), getModel: geminiModel, getVoice: geminiVoice, fetchImpl, noteStatus: selection.noteStatus ? (st, k) => selection.noteStatus('gemini', st, k) : undefined }) }
+    ? { gemini: geminiTtsRung({ getKey: () => selection.readKey('gemini'), getModel: geminiModel, getVoice: geminiVoice, fetchImpl, gone, noteStatus: selection.noteStatus ? (st, k) => selection.noteStatus('gemini', st, k) : undefined }) }
     : {};
   // The voice a rung speaks in, by rung name — one rule for every cache and latency key.
   const voiceForRung = (name) => (name === 'openrouter-tts' ? orVoice() : name === 'kokoro' ? kokoroVoice() : name === 'gemini-tts' ? geminiVoice() : '');
@@ -1136,7 +1175,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
 
   // Resolve the SELECTION (Studio): the selected rung and its readiness, never another rung.
   //   ready | warming (key opening, model loading) | needs-key | unavailable (not on this device / not loaded)
-  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable' }} */
+  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable', reason?: 'model-gone' }} */
   function resolveVoice() {
     const s = selection.read();
     if (s.provider === 'kokoro') {
@@ -1145,6 +1184,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
     const rung = s.provider === 'openrouter' ? openrouter : cloudRungs[s.provider];
     if (!rung) return { sel: s, rung: silentRung, state: 'unavailable' };
+    if (gone.has(s.provider, modelIdFor(rung.name))) return { sel: s, rung, state: 'unavailable', reason: 'model-gone' };
     if (rung.ready()) return { sel: s, rung, state: 'ready' };
     return { sel: s, rung, state: selection.keyState(s.provider) === 'opening' ? 'warming' : 'needs-key' };
   }
@@ -1806,7 +1846,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     availability() {
       return {
         rung: pickRung().name,
-        readiness: selection ? (() => { const r = resolveVoice(); return { progress: r.state === 'warming' && r.sel.provider === 'kokoro' ? kokoroPct / 100 : null, state: r.state, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
+        readiness: selection ? (() => { const r = resolveVoice(); return { progress: r.state === 'warming' && r.sel.provider === 'kokoro' ? kokoroPct / 100 : null, state: r.state, reason: r.reason ?? null, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
         openRouterReady: openrouter.ready(),
         geminiReady: !!cloudRungs.gemini?.ready(),
         kokoroReady: kokoro.ready(),

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
-import { voiceDisplayName } from '@/lib/model-name';
+import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
 import { normalizeStoredVoice, readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { loadOpenRouterKey, loadProviderKey, noteProviderStatus, providerKeyState, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
@@ -280,6 +280,8 @@ export type VoiceAvailability = {
 /** The voice selection's readiness. It never names a substitute. */
 export type VoiceReadiness = {
 	state: 'ready' | 'warming' | 'needs-key' | 'unavailable';
+	/** Why it is unavailable: `model-gone` = the provider no longer serves the selected model. */
+	reason?: 'model-gone' | null;
 	source: 'cloud' | 'device';
 	provider: string;
 	model: string;
@@ -351,6 +353,14 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						readKey: (p: string) => (p === 'openrouter' ? readOpenRouterKey() : readProviderKey(p)),
 						noteStatus: noteProviderStatus,
 						openKey: (p: string) => (p === 'openrouter' ? loadOpenRouterKey() : loadProviderKey(p)),
+					},
+					// A provider retired (or stopped serving) the selected voice model: read-aloud
+					// goes silent and the author is told once, with where to choose another.
+					onModelGone: ({ provider, model }: { provider: string; model: string }) => {
+						const who = provider === 'gemini' ? 'Gemini' : 'OpenRouter';
+						import('@/lib/notify')
+							.then(({ notify }) => notify(`${who} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, { description: modelDisplayName({ id: model, provider }), duration: 8_000 }))
+							.catch(() => {});
 					},
 				}),
 			)

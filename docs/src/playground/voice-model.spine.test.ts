@@ -119,11 +119,12 @@ describe('model spine — voice', () => {
 describe('model spine — Gemini direct voice', () => {
 	const RIFF = btoa(String.fromCharCode(0x52, 0x49, 0x46, 0x46, 36, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20));
 
-	function geminiVoice(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>) {
+	function geminiVoice(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>, onModelGone?: (g: { provider: string; model: string }) => void) {
 		return createVoiceModel({
 			getOpenRouterKey: () => 'sk-or-v1-test', // present, and must NOT be used
 			keyPrefix: 'studio',
 			fetchImpl,
+			onModelGone,
 			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: (p: string) => (p === 'gemini' ? 'AIzaTestKey000000000000000' : 'sk-or-v1-test') },
 		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean; bytes: Blob | null; key: string; error?: string }> };
 	}
@@ -158,6 +159,42 @@ describe('model spine — Gemini direct voice', () => {
 		expect(out.ok).toBe(true);
 		const head = new Uint8Array(await (out.bytes as Blob).arrayBuffer()).slice(0, 4);
 		expect(String.fromCharCode(...head)).toBe('RIFF');
+	});
+
+	it('a model Gemini no longer serves turns the voice off, says so once, and is not asked again', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Puck' });
+		const gone = vi.fn();
+		const calls: string[] = [];
+		const v = geminiVoice(async (url) => {
+			calls.push(url);
+			if (url.includes('flash-lite-tts:generateContent')) return Response.json({ error: { code: 404, message: 'models/gemini-3.8-flash-lite-tts is not found for API version v1beta' } }, { status: 404 });
+			return Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] });
+		}, gone);
+		const first = await v.synthFor({ rung: 'gemini', text: 'One.' });
+		expect(first.ok).toBe(false);
+		expect(gone).toHaveBeenCalledExactlyOnceWith({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts' });
+		// The selection reads unavailable with the reason; nothing else is substituted.
+		expect(v.availability().readiness).toMatchObject({ state: 'unavailable', reason: 'model-gone', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts' });
+		const second = await v.synthFor({ rung: 'gemini', text: 'Two.' });
+		expect(second.ok).toBe(false);
+		expect(calls.filter((u) => u.includes(':generateContent'))).toHaveLength(1);
+		expect(gone).toHaveBeenCalledTimes(1);
+		// Choosing another model is a fresh start.
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-tts', voice: 'Kore' });
+		expect(v.availability().readiness).toMatchObject({ state: 'ready', model: 'gemini-3.8-flash-tts' });
+		expect((await v.synthFor({ rung: 'gemini', text: 'Three.' })).ok).toBe(true);
+	});
+
+	it('a bad key or a passing fault is not a gone model', async () => {
+		const { isModelGoneError } = await import('./voice-model.js');
+		expect(isModelGoneError(400, '{"error":{"message":"API key not valid","details":[{"reason":"API_KEY_INVALID"}]}}')).toBe(false);
+		expect(isModelGoneError(401, 'unauthorized')).toBe(false);
+		expect(isModelGoneError(500, 'internal')).toBe(false);
+		expect(isModelGoneError(429, 'quota')).toBe(false);
+		expect(isModelGoneError(400, 'Invalid voice name')).toBe(false);
+		expect(isModelGoneError(404, '')).toBe(true);
+		expect(isModelGoneError(400, 'Model gemini-x is deprecated')).toBe(true);
+		expect(isModelGoneError(400, 'No endpoints found for hexgrad/kokoro-82m')).toBe(true);
 	});
 
 	it('takes the curated default model from the live list before the first read', async () => {

@@ -124,10 +124,9 @@ on-device) and its curated families. Curation is a preference over the provider'
 (`curate`, `curatedDefault`): curated matches first, every live model kept, no pinned ids, so a
 retired id stops matching and a new release in the family is picked up. The Gemini families match
 any version from 3 up, newest version first (by `created` when the list has it, else by the version
-in the id, a GA id before a preview of the same version). The first draft pinned `3.8` in each
-pattern; Google's Gemini-TTS docs list `gemini-3.1-flash-tts-preview` as the only 3.x TTS model
-(owner screenshot, 2026-11-08), so on such an account nothing was recommended and the fallback
-named a model that was not there. Gemini 2.5 ids are listed but not curated. The direct chat default prefers the curated family inside the existing price rule (a
+in the id, a GA id before a preview of the same version): today that is the GA
+`gemini-3.8-flash-lite-tts` (the default) and `gemini-3.8-flash-tts`, and an account that only lists
+`gemini-3.1-flash-tts-preview` gets that instead of no recommendation at all. Gemini 2.5 ids are listed but not curated. The direct chat default prefers the curated family inside the existing price rule (a
 fallback still never moves the author up in price).
 
 The direct Gemini voice (`gemini-tts` rung, `voice-model.js`) calls
@@ -137,7 +136,17 @@ with a RIFF header is returned as is; headerless L16 (the documented default) is
 model list comes from the live `/v1beta/models`. The voice roster is read from `/v1beta/voices`
 (never hand-typed), but Google documents no such list endpoint, so on a real key the roster may be
 empty and Gemini speaks in the model's default voice; how to offer a voice choice there is an open
-owner decision (PR #3079). Until the model list answers, the rung uses `gemini-3.1-flash-tts-preview`.
+owner decision (PR #3079). Until the model list answers, the rung uses `gemini-3.8-flash-lite-tts`.
+
+**A retired voice model turns read-aloud off; nothing stands in.** Providers retire TTS models with
+little notice. When a speech call answers 404, or 400 naming the model as not found, unsupported,
+deprecated or without endpoints (`isModelGoneError`; a bad key is not this), the voice model records
+the model as gone for the page: the selection reads `unavailable` with reason `model-gone`, the voice
+card shows "Model retired", the author gets one notice saying where to choose another, and the rung
+is not asked again (one notice, not a 404 per sentence). Another model is unaffected; a reload asks
+the provider again. The owner's follow-up (`followups.d/3079-p1-model-guard-rails.md`) makes the
+model ids a hotfixable config file, checks them nightly, and gives chat the same rule.
+
 Clips key under their own rung name, so they never collide with an OpenRouter clip.
 
 ## 7. Workspace › AI, the chip and Present

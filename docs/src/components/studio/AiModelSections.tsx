@@ -74,6 +74,7 @@ function SelectionCard({
 	state,
 	progress,
 	alert,
+	alertBadge,
 	open,
 }: {
 	testId: string;
@@ -85,6 +86,8 @@ function SelectionCard({
 	progress?: number | null;
 	/** A problem that stops the selection (a rejected key): replaces the meta line and the badge. */
 	alert?: string | null;
+	/** The badge for an alert that a key cannot fix (a retired model): shown as-is, not as "Key rejected". */
+	alertBadge?: string;
 	open: boolean;
 }) {
 	const blocked = !!alert || state === 'needs-key' || state === 'unavailable';
@@ -120,7 +123,11 @@ function SelectionCard({
 					<span className="min-w-0 truncate text-[11px] text-muted-foreground [grid-area:m]">{meta}</span>
 				)}
 				{/* Readiness changes IN PLACE. A missing key is actionable right here. */}
-				{alert || state === 'needs-key' ? (
+				{alert && alertBadge ? (
+					<span data-testid={`${testId}-state`} data-state="model-gone" className={cn(badgeClass, 'text-[var(--fail)]')}>
+						{alertBadge}
+					</span>
+				) : alert || state === 'needs-key' ? (
 					<button type="button" data-testid={`${testId}-state`} data-state={state} onClick={scrollToProviders} className={cn(badgeClass, 'text-[var(--fail)] underline-offset-2 hover:underline')}>
 						{alert ? 'Key rejected' : 'Add a key'}
 					</button>
@@ -270,7 +277,17 @@ export function VoiceModelSection({ more }: { more?: React.ReactNode }) {
 	const meta = r?.state === 'needs-key' ? 'Add a key or choose on-device' : sel.source === 'device' ? 'On this device · free and private' : `${providerLabel(sel.provider)} · ${sel.provider === 'openrouter' ? 'your account' : 'your own key'}`;
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
-			<SelectionCard testId="voice-model-card" source={sel.source} keyed={sel.provider === 'gemini'} name={name} meta={meta} state={r?.state} open={open} />
+			<SelectionCard
+				testId="voice-model-card"
+				source={sel.source}
+				keyed={sel.provider === 'gemini'}
+				name={name}
+				meta={meta}
+				state={r?.state}
+				alert={r?.reason === 'model-gone' ? `${providerLabel(sel.provider)} no longer offers this model. Choose another.` : null}
+				alertBadge="Model retired"
+				open={open}
+			/>
 			<CollapsibleContent className="mt-3">
 				<TtsSettings />
 			</CollapsibleContent>

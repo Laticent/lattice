@@ -304,6 +304,40 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key select
 	await expect(ws.voice).toContainText('Gemini · your own key');
 });
 
+test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off and says so, never another voice', async ({ page }) => {
+	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
+	await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' }) }, { promptApi: false });
+	const seen = await mockOpenRouter(page);
+	const speak: string[] = [];
+	await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+		const req = route.request();
+		if (req.method() === 'OPTIONS') return route.fulfill({ status: 204 });
+		const url = req.url().split('?')[0];
+		if (url.endsWith(':generateContent')) {
+			speak.push(url);
+			return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 404, message: 'models/gemini-3.8-flash-lite-tts is not found for API version v1beta', status: 'NOT_FOUND' } }) });
+		}
+		if (url.endsWith('/v1beta/models')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ models: [{ name: 'models/gemini-3.8-flash-lite-tts' }, { name: 'models/gemini-3.8-flash-tts' }] }) });
+		return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+	});
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: First line. Second line. Third line. -->\n\n---\n\n# Two\n');
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
+	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	await expect(page.getByText('Gemini retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.')).toBeVisible({ timeout: 30_000 });
+	// Gemini was asked once; nothing was sent to OpenRouter in its place.
+	expect(speak).toHaveLength(1);
+	expect(seen.speech).toEqual([]);
+	if (process.env.SPINE_SHOTS) await page.screenshot({ path: `${process.env.SPINE_SHOTS}/present-voice-retired.png`, animations: 'disabled' });
+	await page.keyboard.press('Escape');
+	const ws = await openWorkspaceAi(page);
+	await expect(ws.voice.getByTestId('voice-model-card-state')).toHaveText('Model retired');
+	await expect(ws.voice).toContainText('Gemini no longer offers this model');
+});
+
 // A stand-in for kokoro-js (the ~80 MB on-device voice). `from_pretrained` reports 42% and then
 // waits for the page's BroadcastChannel message, so the test decides when the "download" ends.
 const FAKE_KOKORO = `

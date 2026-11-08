@@ -20,7 +20,7 @@ describe('provider registry', () => {
 	});
 
 	it('recommends the newest Gemini TTS that is actually live, whatever its version', () => {
-		// What Google's Gemini-TTS docs list today: only 3.1 Flash TTS (a preview) from 3 up.
+		// An account that lists only 3.1 Flash TTS (a preview) from 3 up still gets a recommendation.
 		const today = [{ id: 'gemini-2.5-pro-tts' }, { id: 'gemini-2.5-flash-tts' }, { id: 'gemini-3.1-flash-tts-preview' }, { id: 'gemini-2.5-flash-lite-preview-tts' }];
 		expect(curatedDefault(today, CURATED.voice.gemini)).toBe('gemini-3.1-flash-tts-preview');
 		expect(curatedDefault([...today, { id: 'gemini-3.1-flash-lite-preview-tts' }], CURATED.voice.gemini)).toBe('gemini-3.1-flash-lite-preview-tts');

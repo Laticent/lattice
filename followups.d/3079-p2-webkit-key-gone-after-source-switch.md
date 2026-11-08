@@ -8,7 +8,7 @@ swimlane: engineering/decisions/2026-11-07-studio-model-spine.md
 deferred: blocked — 2 failures in about 270 WebKit runs, and 0 in the 220 of them that carried a probe (a Storage hook, a failure-time snapshot, console logging on every key-deleting path), so there is no failing run with a trace to fix from
 source: https://github.com/Laticent/lattice/pull/3079 (the chip's source switch e2e, first WebKit run after a fresh build:e2e)
 ---
-# WebKit once read "needs a key" for a stored OpenRouter key after a source switch
+# WebKit sometimes reads "needs a key" for a stored OpenRouter key after a source switch
 
 why now   — `model-spine.spec.ts` › "the chip reaches every source" failed twice on webkit-tablet
             (the first run after a fresh build:e2e, and run 3 of a 20x repeat):
