@@ -151,6 +151,10 @@ jobs:
             perf-report.md
           if-no-files-found: warn
           retention-days: 14
+          # upload-artifact v4 skips hidden files and folders by default, and every per-run
+          # Lighthouse report lives under the hidden .perf-out folder, so until this line the
+          # artifact held perf-report.md alone and no night's runs could be re-read (issue #2085).
+          include-hidden-files: true
 
       # On a regression, open or append a single rolling tracking issue (found by
       # a title marker). It is SELF-LABELED at creation: a GITHUB_TOKEN-opened
