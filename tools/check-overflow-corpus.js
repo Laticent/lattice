@@ -167,7 +167,11 @@ async function main() {
   }
   fs.mkdirSync(WORK, { recursive: true });
 
-  const decks = only.length ? only : corpus();
+  // Deck arguments are normalized to the repo-relative POSIX names the baseline keys on, so
+  // `./examples/foo.md` or an absolute path is judged against its floor, not read as NO FLOOR.
+  const decks = only.length
+    ? only.map((a) => path.relative(ROOT, path.resolve(a)).split(path.sep).join('/'))
+    : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const t0 = performance.now();
   const rows = await pool(decks, jobs, (d) => probe(d, format));
@@ -215,7 +219,8 @@ async function main() {
     process.exit(0);
   }
   if (unfloored.length) {
-    // `have NO FLOOR` is a marker: overflow-nightly.yml classifies it as a finding, like the regression line.
+    // `have NO FLOOR` is a stable marker line. overflow-nightly.yml classifies a failing run by grepping
+    // for markers; until its grep names this one, an unfloored-only run files as `kind=unknown`.
     console.error(`\n✗ ${unfloored.length} deck(s) have NO FLOOR in the baseline — no bless ever swept them, so the ratchet cannot vouch for them:\n`);
     for (const d of unfloored) {
       const r = rows.find((x) => x.deck === d);
