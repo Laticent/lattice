@@ -104,6 +104,7 @@
       "lattice.js -> lib/plugins/chart-family/shared/standalone-svg.js"
     ],
     "lib/runtime -> lib/plugins/chart-family": [
+      "lib/runtime/chart-readers/ep-curve.js -> lib/plugins/chart-family/shared/cartesian.js",
       "lib/runtime/index.js -> lib/plugins/chart-family/kinds/flowchart/flowchart.layout.js",
       "lib/runtime/index.js -> lib/plugins/chart-family/kinds/state-chart/state-chart.layout.js"
     ],

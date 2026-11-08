@@ -5833,10 +5833,24 @@ const SANCTIONED_MARK_IDENTITY = [
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
-  // The fluid viewer's chart redraw READS a bar's label and value back off its exported marks (through
-  // `dataset`) and puts the kernel's redrawn marks, carrying the same two attributes, into the page. It
-  // authors no identity of its own: every one it places is the kernel's, rebuilt from the exported one.
-  ['runtime/chart-redraw.js', true, true],
+  // The fluid viewer's chart READERS (lib/runtime/chart-readers/, one per kind) READ a chart's labels and
+  // values back off its exported marks, so lib/runtime/chart-redraw.js can redraw it with the kernel. A
+  // reader names the attributes only to read them; the marks the redraw puts into the page are the
+  // kernel's, rebuilt from the exported ones, so no reader authors an identity of its own. (journey and
+  // roadmap read their source from text and do not name either attribute.)
+  ['runtime/chart-readers/bar.js', true, true],
+  ['runtime/chart-readers/bullet.js', true, true],
+  ['runtime/chart-readers/ep-curve.js', true, true],
+  ['runtime/chart-readers/funnel.js', true, true],
+  ['runtime/chart-readers/heatmap.js', true, true],
+  ['runtime/chart-readers/hub-spoke.js', true, true],
+  ['runtime/chart-readers/line.js', true, true],
+  ['runtime/chart-readers/map.js', true, true],
+  ['runtime/chart-readers/piechart.js', true, true],
+  ['runtime/chart-readers/slope.js', true, true],
+  ['runtime/chart-readers/stacked-bar.js', true, true],
+  ['runtime/chart-readers/tower.js', true, true],
+  ['runtime/chart-readers/waterfall.js', true, true],
 ];
 
 /**

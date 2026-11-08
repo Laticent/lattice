@@ -103,4 +103,56 @@ describe('export: the --fluid viewer redraws a bar chart for its box', () => {
 		for (const [i, c] of back.entries()) assert.equal(c.html, desk[i].html, `chart ${i}: the exported drawing, byte for byte`);
 		await page.close();
 	});
+
+	// The other kinds (lib/runtime/chart-readers/): a line chart, a pie (a SIZE container, which drew 0px
+	// tall in the fluid view before chart-family.styles.css gave its stage the slide's height), and a
+	// roadmap, whose kernel changes the section's class list for a portrait box (`horizons`).
+	test('a phone redraws a line, a pie and a roadmap; the desktop gets each exported drawing back', { timeout: TIMEOUT }, async () => {
+		const deck = [
+			'---\ntheme: indaco\n---\n',
+			'## Services caught enterprise.\n\n<!-- _class: line -->\n\n- Q1\n  - Enterprise `4.1`\n  - Services `1.2`\n- Q2\n  - Enterprise `4.4`\n  - Services `1.6`\n- Q3\n  - Enterprise `4.2`\n  - Services `2.3`\n',
+			'## Decks took half the hours.\n\n<!-- _class: piechart -->\n\n- Deck production `46%`\n- Meetings `22%`\n- Realigning `18%`\n- Deciding `14%`\n',
+			'## The roadmap grids workstreams against phases.\n\n<!-- _class: roadmap -->\n\n| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |\n| --- | --- | --- | --- |\n| Framework | [x] Signal taxonomy | [-] Scoring model v2 | [ ] Per-team weights |\n| Tooling | [!] Intake form | [/] Dashboards | [ ] Self-serve |\n',
+		].join('\n---\n\n');
+		fs.writeFileSync(path.join(dir, 'kinds.md'), deck);
+		const out = path.join(dir, 'kinds.html');
+		const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'kinds.md'), out, '--quiet', '--fluid'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+		const page = await browser.newPage();
+		const state = () => page.evaluate(() => [...document.querySelectorAll('section.chart-frame')].map((s) => {
+			const b = s.querySelector('.chart-body');
+			const svg = b.querySelector('svg');
+			const px = [...b.querySelectorAll('svg text')].map((t) => t.getBoundingClientRect().height).filter((h) => h > 0);
+			return { cls: s.className, html: b.innerHTML, h: b.getBoundingClientRect().height, viewBox: svg?.getAttribute('viewBox'), minPx: px.length ? Math.min(...px) : null };
+		}));
+		await page.setViewport({ width: 1280, height: 720 });
+		await page.goto(pathToFileURL(out).href, { waitUntil: 'load' });
+		await page.waitForFunction(() => document.fonts.status === 'loaded');
+		const desk = await state();
+		assert.equal(desk.length, 3);
+		assert.ok(desk[1].h > 100, `the pie has a box on the desktop (${desk[1].h}px)`);
+		assert.ok(!/\bhorizons\b/.test(desk[2].cls), 'the roadmap is a grid on the desktop');
+
+		await page.setViewport({ width: 390, height: 844 });
+		await page.waitForFunction((vbs) => {
+			const s = [...document.querySelectorAll('section.chart-frame')];
+			const vb = (i) => s[i].querySelector('.chart-body svg').getAttribute('viewBox');
+			return vb(0) !== vbs[0] && vb(1) !== vbs[1] && s[2].classList.contains('horizons');
+		}, { timeout: 30000 }, [desk[0].viewBox, desk[1].viewBox]);
+		const phone = await state();
+		assert.ok(phone[0].minPx >= 14, `the line's labels at the slide's size (${phone[0].minPx}px)`);
+		assert.ok(phone[1].h > 200 && phone[1].minPx >= 14, `the pie has a box and readable labels (${phone[1].h}px, ${phone[1].minPx}px)`);
+		assert.match(phone[2].html, /Signal taxonomy/, 'the roadmap redrew as cards, its content intact');
+
+		await page.setViewport({ width: 1280, height: 720 });
+		await page.waitForFunction(() => !document.querySelectorAll('section.chart-frame')[2].classList.contains('horizons'), { timeout: 30000 });
+		const back = await state();
+		for (const [i, c] of back.entries()) {
+			assert.equal(c.html, desk[i].html, `chart ${i}: the exported drawing, byte for byte`);
+			assert.equal(c.cls, desk[i].cls, `chart ${i}: the exported class list`);
+		}
+		await page.close();
+	});
 });

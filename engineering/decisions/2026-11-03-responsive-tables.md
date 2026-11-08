@@ -617,12 +617,66 @@ test/integration/export/fluid-chart-redraw.test.js pins the real export: nothing
 one redraw per chart on a phone, the focused chart kept, and the byte-for-byte restore (it fails on the
 first cut and with the redraw off).
 
-**Bar is the first reader.** The read-back survey (2026-11-06, every chart gallery): bullet, ep-curve,
+**Bar was the first reader.** The read-back survey (2026-11-06, every chart gallery): bullet, ep-curve,
 funnel, heatmap, line, map, piechart, slope, stacked-bar, tower, waterfall, hub-spoke, journey,
 matrix-grid and roadmap carry their whole source on their marks; histogram, gantt, scatter, quadrant,
 risk-matrix, radar and word-cloud keep part of it only in geometry or the `<desc>` prose; kanban, progress
 and timeline-list never change with the box; flowchart and state-chart redraw from their stored model
 through their own browser layout.
+
+### The whole-source kinds (2026-11-08)
+
+Every kind the survey found carrying its whole source now has a reader in lib/runtime/chart-readers/, one
+file per kind, except two: matrix-grid draws the same HTML grid in every box (its kernel reads no
+orientation and no canvas), so there is nothing to redraw; and journey's reader is written but HELD.
+
+- **The oracle is the export itself.** test/unit/runtime/chart-readers.test.js exports each kind's gallery,
+  reads every chart back, redraws the list with the kernel at the box the export drew for, and demands the
+  same chart body byte for byte (render-scoped ids renumbered). No expectation is hand-written, so a reader
+  that drops a category, a value, a series name, a note or a modifier's effect fails on a real deck. Each
+  chart is then redrawn for a phone and must show the same marks. 107 gallery charts read back whole; two
+  are refused and keep their exported drawing, pinned by count in `REFUSED`: bullet's stress slide
+  (hand-written `Band` zones carry no value) and roadmap's `horizons` slide (the card form drops the
+  workstream column's header, and it draws the same cards in every box).
+- **What a reader reads besides the marks.** Where a value is on no mark, a reader takes it from text
+  already in the chart body and checks it against the drawing, or refuses. Line and heatmap read the
+  screen-reader table the kernel puts in the body; bullet reads the printed target and checks the tick sits
+  where that target would put it; hub-spoke picks each spoke's direction so that the kernel's own
+  `describe()` reproduces the exported `<desc>`, and refuses unless the whole `<desc>` matches; ep-curve
+  infers an axis range from where the extremes sit and refuses any other position. Where a reader matches
+  the kernel's description wording ("past the six-series limit"), a change of wording makes it refuse,
+  which is the safe direction.
+- **A kernel can change the section's class list with the box.** On a portrait box roadmap adds `horizons`,
+  and its card styles apply only under `section.roadmap.horizons`. The redraw applies exactly the kernel's
+  class change to the host and undoes it when the exported drawing comes back (and for print); classes
+  another pass sets are left alone.
+- **No name the export printed whole is shortened.** The widen-until-the-names-fit step now COUNTS
+  shortened names: it used to stop at once when the export had shortened one, and the waterfall gallery's
+  crowded bridge then shortened three more on a phone. A redraw that still shortens more than the export
+  after the widest canvas keeps the exported drawing.
+- **Size-container kinds had no height in the fluid view.** Radar, map, quadrant, word-cloud, piechart and
+  hub-spoke drew 0px tall in the `--fluid` viewer at every width, a phone and a 1280 × 720 desktop alike
+  (base.fluid-view.css holds a slide's stage to its content's height, and size containment lends it none).
+  In the fluid view their stage now takes what is left of the slide's height, as on a paged slide, and the
+  chart fills it (chart-family.styles.css). A 16:10 box from the width, the continuous host's answer,
+  would be the whole viewport on a desktop.
+- **Journey is held.** Its reader reads all nine gallery journeys back whole, but the kernel's portrait board
+  clips in the fluid stage at 390px (labels overlap, the frame's "Content clipped"), which is worse than the
+  small exported board. lib/runtime/chart-readers/index.js leaves it out; the round-trip test keeps it tested.
+- **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
+  reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
+  pane, which needs the owner's sign-off.
+
+At 390 × 844, the smallest label per gallery chart (text box height, main → this branch): line 10 → 16px,
+slope 9 → 15, ep-curve 9 → 15, tower 6 → 15, stacked-bar 7–8 → 12–17, waterfall 10 → 10–13, bullet 9 → 15,
+heatmap 6–10 → 11–16, piechart, map and hub-spoke from no drawing (0px tall) to 12–21px, funnel 9 → 9 (its
+tall shape), roadmap from a crushed grid to its `horizons` cards. No chart shortens a name the export
+printed whole. One read and redraw costs 0.3 to 5 ms per chart in Node and jsdom (hub-spoke 12 ms, its
+direction search included), once per chart per box change. The inlined runtime grows by 25.6 KB minified
+(8.4 KB gzipped) on 1.34 MB; no chart adds a byte to the export.
+test/integration/export/fluid-chart-redraw.test.js pins a line, a pie and a roadmap on the real export in
+Chromium: each redraws on a phone (the pie in a box it did not have), the roadmap turns to cards, and the
+desktop gets every exported drawing and class list back byte for byte.
 
 ## What comes next
 

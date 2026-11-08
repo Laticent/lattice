@@ -1591,7 +1591,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   stroke-width: 0.55;
 }
 
-/* ── A continuous host: a size-contained chart body needs a box of its own ──
+/* ── A continuous host or the fluid viewer: a size-contained chart body needs a box of its own ──
  * Six kinds fill a SIZE container (radar, map, quadrant's cohort and in-form plot, word-cloud,
  * piechart, hub-spoke: the container-fill model above). Size containment means the content lends the
  * box no height, which is right on a slide, where the stage hands it a definite one. In a continuous
@@ -1607,6 +1607,15 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spoke):where(:root[data-lattice-flow="continuous"] *) .chart-body {
   aspect-ratio: 16 / 10;
   flex: 0 0 auto;
+}
+/* The `--fluid` viewer had the same collapse, at every width: its slide is a full-screen box, but
+ * lib/base/base.fluid-view.css holds the slide's stage to its content's height so a sparse slide sits
+ * as a centered block, and all six kinds drew 0px tall. Unlike a continuous host, the fluid slide HAS a
+ * definite height, so the stage takes what is left of it and the chart fills that, as on a paged slide.
+ * A 16:10 box from the width would be the whole viewport on a desktop. `:not(.lat-pane-host)`: a panes
+ * host's stage already grows, and the extra class outweighs base.fluid-view.css's `!important` hold. */
+section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spoke):not(.lat-pane-host):where(:root[data-lattice-view="fluid"] *) > .cell-stage {
+  flex-grow: 1 !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
