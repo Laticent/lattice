@@ -8,7 +8,7 @@
  * with `--default-plugins=none --disable-plugin=chart-family`, `marp` from the registry with the bundle's own config, then the page in Chromium — and,
  * as the control, the same deck on the default set, where the diagram and the chart draw.
  *
- * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
+ * Local runs skip when the pinned marp-cli is not installed (test/helpers/marp-cli.js); CI fails instead (marp-kit-render.test.js
  * explains why a self-skipping gate is not a gate).
  */
 
@@ -17,10 +17,9 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { marpCli } = require('../../helpers/marp-cli');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT_ROOT = path.join(ROOT, '.scratch', 'marp-admission');
 const TIMEOUT = 300000;
@@ -70,12 +69,16 @@ footer: "<b class=\\"ff\\" data-lattice\\x2dsettle=\\"pending\\">f</b>"
 Inline <span class="inline" data-lattice-off="math" data-lattice-final>x</span> too.
 `;
 
+// The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test.
+const MARP = marpCli();
+
 function marp(args, cwd, timeout = TIMEOUT) {
-  const env = { ...process.env, npm_config_ignore_scripts: 'true', CHROME_NO_SANDBOX: '1' };
+  const env = { ...process.env, CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
     try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
   }
-  return npxSync(['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, ...args], { cwd, encoding: 'utf8', env, timeout });
+  if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
+  return MARP.run([...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
 describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli, real Chromium', () => {
@@ -86,7 +89,7 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-admission] ${reason}`);
       skip = reason;
       return;
