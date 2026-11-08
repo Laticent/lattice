@@ -77,3 +77,8 @@ verify    — tier 1, self-review with the gates.
             ("the cost readout rises by a few tenths of a cent when the Library gains photos") is red on main too. Not
             investigated. compose-soft-break.spec.ts:50 failed twice under full-suite load and passed 6 of 6 run alone
             (--repeat-each=3), so it joins the load list.
+            WebKit and Gecko, same day, same method (main at 234538b): 646 passed, 16 failed on the branch; 12 still red
+            run alone; 9 of them red on main too (studio-read-article-charts:60 webkit-phone ×2, library-images:256
+            webkit-tablet and gecko, mermaid-cache-bindings:143 ×4, library-header-search:19). The other three are
+            intermittent on BOTH trees, run --repeat-each=3: playground-tab-switch:211/:260 (webkit-phone, 1 of 15 red
+            on the branch, 2 of 15 on main) and plugin-returns:60 (webkit-tablet, 2 of 3 red on the branch, 3 of 3 on main).
