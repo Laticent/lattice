@@ -83,6 +83,8 @@ describe('pricing from the OpenRouter catalog', () => {
 			{ id: 'gemini-3.5-flash', promptPerM: 0.3, completionPerM: 2.5 },
 			{ id: 'gemini-3.8-flash', promptPerM: 0.3, completionPerM: 2.5 },
 			{ id: 'gemini-3.10-flash-lite', promptPerM: 0.1, completionPerM: 0.4 },
+			// The highest version, but outside the everyday family: a plain key got 429 on it.
+			{ id: 'gemini-4-argon', promptPerM: 0.5, completionPerM: 4 },
 		];
 		expect(pickDefaultModel(listed, 'gemini')).toBe('gemini-3.8-flash');
 		// Unpriced, the everyday family follows the same order.

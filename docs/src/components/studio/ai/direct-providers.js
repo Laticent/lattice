@@ -158,7 +158,7 @@ function compareVersions(a, b) {
  * The default model when the author has not picked one, from the provider's own list. Derived,
  * not hard-coded, because model ids move faster than this file would be edited. In order:
  *   1. the newest priced model at $10 or less per million output tokens, outside the side tiers
- *      (pro, mini, lite, preview, opus…);
+ *      (pro, mini, lite, preview, opus…), from the provider's everyday family when it has one there;
  *   2. else the CHEAPEST priced model outside the side tiers, then the cheapest priced at all:
  *      a fallback never moves the author UP in price (inversion pass, 2026-11-06);
  *   3. else, with no prices at all, the newest model of the provider's everyday family
@@ -173,9 +173,13 @@ export function pickDefaultModel(models, provider) {
 	const newer = (a, b) => (b.created ?? 0) - (a.created ?? 0) || compareVersions(versionOf(b.id), versionOf(a.id));
 	const newest = (list) => [...list].sort(newer)[0];
 	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || newer(a, b))[0];
-	const pick = newest(main.filter((m) => m.completionPerM <= 10)) ?? cheapest(main) ?? cheapest(ok);
-	if (pick) return pick.id;
 	const family = EVERYDAY[provider];
+	const affordable = main.filter((m) => m.completionPerM <= 10);
+	// The provider's everyday family first (Flash, GPT, Sonnet): the highest version in the list can be
+	// a model a plain key cannot use. `gemini-4-argon` sat above `gemini-3.8-flash` and answered 429
+	// "exceeded your current quota" on a key that lists it (live run, 2026-11-08, 3058-p1).
+	const pick = newest(affordable.filter((m) => family?.test(m.id))) ?? newest(affordable) ?? cheapest(main) ?? cheapest(ok);
+	if (pick) return pick.id;
 	return (family && newest(models.filter((m) => family.test(m.id) && !SIDE_TIERS.test(m.id)))?.id) ?? models[0]?.id ?? null;
 }
 
