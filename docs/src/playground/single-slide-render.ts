@@ -56,16 +56,11 @@ import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
-import { previewCspMeta } from '../playground/preview-csp.js';
+import { PAGE_SCRIPT_NONCE, previewCspMeta } from '../playground/preview-csp.js';
 
-// One nonce per page load for every preview frame this module writes (see srcdoc()). Random, so a
-// shared deck's markup cannot carry it; constant for the page, so a rewrite of the same slide is
-// byte-identical and the render signatures below keep matching.
-const PREVIEW_SCRIPT_NONCE = (() => {
-	const b = new Uint8Array(18);
-	globalThis.crypto.getRandomValues(b);
-	return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_');
-})();
+// One nonce per page load for every preview frame this module writes (see srcdoc()); shared
+// with the Stage, and defined beside the policy it feeds (preview-csp.js).
+const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
 
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
