@@ -246,11 +246,14 @@ test('@smoke the zoom cursor leaves with the slide even when the render of the n
 	await page.mouse.move(at.x - 40, at.y - 40);
 	await page.mouse.move(at.x, at.y, { steps: 4 });
 	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	// The keyboard turns the slides, so the mouse stays where it is and no wheel cooldown (present-transport.mjs
+	// `createWheelGate`, 480 ms) can swallow the second turn. Focus leaves the editor first, or PageDown scrolls it.
+	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 	const cdp = await page.context().newCDPSession(page);
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 });
-	await page.mouse.wheel(0, 300);
+	await page.keyboard.press('PageDown');
 	await expect(slideTitle(page)).toHaveText('Second slide', { timeout: 30_000 });
-	await page.mouse.wheel(0, 300);
+	await page.keyboard.press('PageDown');
 	await expect(slideTitle(page)).toHaveText('Third slide', { timeout: 30_000 });
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');

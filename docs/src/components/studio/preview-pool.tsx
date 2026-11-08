@@ -727,6 +727,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 								// A full write still loading is waited for (a few times), never captured.
 								if (!same() && tries++ < 8 && slotsRef.current[index]?.tileId === tileId && slotsRef.current[index]?.props === props) {
 									window.setTimeout(() => {
+										if (!alive.current) return resolve(null);
 										captureQueue.current.push(job);
 										drainCaptures();
 									}, 250);
@@ -736,6 +737,8 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 								// The reader scrolled while the capture code loaded: back to the front of the queue, which waits
 								// for the scroller to be quiet again before it runs anything.
 								if (got === SCROLLED) {
+									// A pool that is gone drains nothing: answer now, or the caller waits for good.
+									if (!alive.current) return resolve(null);
 									captureQueue.current.unshift(job);
 									return;
 								}

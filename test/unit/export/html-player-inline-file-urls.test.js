@@ -315,8 +315,8 @@ const HOSTILE = {
 };
 // Counted, not timed (HARD RULE #32): a 3 s stopwatch here failed on a Windows runner, and only there. The inliner's work
 // is at most 10.4 characters read per input character today (repeated escapes), so 40 leaves room for a reader to
-// change and still fails a rescan, which reads the rest of the text per opener. Every case holds at most one distinct
-// address, so one conversion: #2800's defect converted each copy of a repeated address again.
+// change and still fails a rescan, which reads the rest of the text per opener. Conversions: at most one, which is the
+// deck folder itself (`baseUrl`) or the one address a case repeats; #2800's defect converted each copy again.
 for (const [name, html] of Object.entries(HOSTILE)) {
   test(`1 MB hostile deck: linear work and one path conversion per address: ${name}`, () => {
     const { work, conversions } = bakeCounted(html, { baseUrl: 'file:///tmp/deck/' });
