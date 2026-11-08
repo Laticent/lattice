@@ -368,6 +368,14 @@ export function StudioEditorPaneSkeleton() {
  * `2026-07-21-studio-preview-one-skeleton.md` retired the cached-last-slide replay for: a
  * second content surface that disagrees with the live one. Content gets a neutral bar inside
  * the real control's shape, so the STRUCTURE is honest and nothing asserts a value.
+ *
+ * ONE EXCEPTION, and it is conditional: the status strip's deck caption ("16 : 9 · 7 slides",
+ * StudioPreviewFooterSkeleton). On a phone it is the page's largest text, and leaving it to the
+ * app moved Lighthouse's largest paint to after hydration (mobile LCP 5 s to 14 s, issue #2085).
+ * The shell states it only when the pre-paint seed in studio.astro resolves the boot deck the way
+ * `loadBootDeck` does and finds an unedited built-in deck on a plain URL; any doubt shows this
+ * bar. The count is the app's own (`buildDeckIndex` at build time, pinned by
+ * deck-captions.test.ts). Everything else on this list stays undrawn.
  */
 function ContentBar({ className }: { className?: string }) {
 	return (

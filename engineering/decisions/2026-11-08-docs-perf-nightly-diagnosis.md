@@ -77,9 +77,16 @@ render delay. Head, 3 runs: LCP 14.0–14.2 s, every time on `span.hidden` in `#
   it differently.
 - `studio.astro` computes `DECK_CAPTIONS` at build time for each built-in deck. It counts slides with `buildDeckIndex`, the
   same index the app's focus hub builds, over the full deck, which is the lens the app boots with.
-- The pre-paint seed states a caption only when the boot deck is certain: the newcomer's deck, or a returning visitor's
-  built-in deck with no edited source, on a URL with no query and no hash. Every other case (an edited deck, a user deck,
-  a lesson or share link) keeps the neutral bar. A count painted and then corrected would be the second content surface
+- The pre-paint seed resolves the boot deck by `loadBootDeck`'s rules (the active deck when the stored index lists it,
+  else `index[0]`, else `DECKS[0]`). It states a caption only when that deck is a built-in one with no edited source, on
+  a URL with no query and no hash. Every other case (an active id the index does not list, an unreadable record, an
+  edited deck, a user deck, a lesson or share link) keeps the neutral bar. The first version of the seed trusted the
+  active record without checking the index. The independent checker reproduced three states where the shell then
+  painted a count the app corrected: a dangling active id, no active record with `q3-board` first in the index, and an
+  edited welcome deck with no active record. All three now show the bar or the right count. 9 boot states were checked
+  in a browser, shell against hydrated app.
+- `deck-captions.ts` builds the table, and `deck-captions.test.ts` pins it to the count the app's focus hub produces for
+  every built-in deck. A count painted and then corrected would be the second content surface
   `2026-07-21-studio-preview-one-skeleton.md` retired.
 - The footer band becomes the caption's size container, as the app's preview pane is, so the caption's `@[20rem]` gate
   resolves the same way in both.
@@ -100,7 +107,11 @@ alternated each round, 7 rounds, on one machine:
 | FCP, median | 4,677 ms | 5,054 ms |
 | TBT, median | 1,497 ms | 1,466 ms |
 
-The two LCP ranges do not overlap. The fix lands back in the 4.7–5.3 s range of the build before #2940. The score moves
+After the seed fix in §3, a second interleaved run (5 per arm) on a noisier machine
+(head itself ranged 4.9–14.4 s and TBT reached 3.3 s) gave LCP medians of 14,122 ms on head and 6,055 ms with the fix,
+score 0.35 and 0.38.
+
+The two LCP ranges in the 7-run table do not overlap. The fix lands back in the 4.7–5.3 s range of the build before #2940. The score moves
 only 0.03 because TBT and FCP set most of it. Those are what the 2868-p1 plan is about, and this change does not touch
 them. FCP and TBT are within run-to-run spread.
 

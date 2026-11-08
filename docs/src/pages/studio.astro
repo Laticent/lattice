@@ -28,8 +28,8 @@ import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
-import { SIZE_RATIO, deckCaption, deckRatio } from '../components/studio/slide-size';
-import { buildDeckIndex } from '../lib/deck-outline/deck-outline';
+import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
+import { builtinDeckCaptions } from '../components/studio/deck-captions';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
 import { BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURE_ALIASES, POSTURES } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
@@ -218,13 +218,7 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // deck, which is the lens the app boots with. The shell draws it so that its largest text is on
 // screen at first paint: without it a phone's largest paint is the app's copy of the caption,
 // after hydration (issue #2085). The seed below picks the visitor's deck or falls back to a bar.
-const DECK_CAPTIONS: Record<string, string> = Object.fromEntries(
-	DECKS.map((d) => {
-		const src = deckSource(d);
-		const n = buildDeckIndex(src).units.reduce((sum, u) => sum + (u.parts.length || 1), 0);
-		return [d.id, deckCaption(deckRatio(src), n)];
-	}),
-);
+const DECK_CAPTIONS: Record<string, string> = builtinDeckCaptions();
 // The Studio's pre-hydration INSTANT SHELL is Nacre-ONLY: a single animated skeleton in one
 // contained box (at the deck's chosen aspect), shown to EVERY visitor at HTML-parse time
 // (before the client:only island + the ~505KB engine load) and dismissed by the app once its
@@ -555,6 +549,26 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.
 					//  data-ssr-shell is set ABOVE, before this try, so the shell shows even if a
 					//  storage read throws.)
+					// CAPTION SEED — the status strip's "16 : 9 · 7 slides" (DECK_CAPTIONS). The shell states it
+					// only when it is sure which deck the app will boot, so it resolves the boot deck by the
+					// rules of loadBootDeck (studio-store.ts): the active deck when the index lists it, else
+					// index[0], else DECKS[0]. Any doubt shows the neutral bar instead: an active id the index
+					// does not list (the app falls back, and migrateWelcome may change the list), an unreadable
+					// record, a user deck, or a built-in deck with edited source. A wrong count painted and
+					// then corrected is the second content surface 2026-07-21-studio-preview-one-skeleton.md
+					// retired. A query or hash (a lesson, a shared deck) is handled by the script after the
+					// footer skeleton, which runs even when storage is blocked and this never does.
+					try {
+						var cAct = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
+						var cDid = cAct && typeof cAct.deckId === 'string' ? cAct.deckId : '';
+						var cIdx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') || 'null');
+						var cIds = [];
+						if (cIdx && cIdx.length) { for (var ci = 0; ci < cIdx.length; ci++) cIds.push(cIdx[ci] && cIdx[ci].id); }
+						else cIds = Object.keys(DECK_CAPTIONS);
+						var boot = cDid ? (cIds.indexOf(cDid) !== -1 ? cDid : '') : cIds[0];
+						if (boot && typeof DECK_CAPTIONS[boot] === 'string' && !localStorage.getItem('lattice-studio-src-' + boot)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[boot]);
+						else r.setAttribute('data-ssr-caption-unknown', '');
+					} catch (e6) { r.setAttribute('data-ssr-caption-unknown', ''); }
 					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
 					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
 					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck
@@ -586,17 +600,6 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							} catch (e5) { ttl = ''; } // corrupt index → fall through to the built-in title
 							if (!ttl && typeof DECK_TITLES[did] === 'string') ttl = DECK_TITLES[did];
 							if (ttl) r.setAttribute('data-ssr-title', ttl);
-						}
-						// CAPTION SEED — the status strip's "16 : 9 · 7 slides" (DECK_CAPTIONS). Stated only when
-						// the deck the app will boot is certain: a built-in deck with no edited source, on a plain
-						// URL (the script after the footer skeleton drops it for a query or hash, which can open a
-						// lesson or a shared deck, even when storage is blocked and this seed never runs). Anything else gets the
-						// neutral bar, because a wrong count painted and then corrected is the second content
-						// surface 2026-07-21-studio-preview-one-skeleton.md retired.
-						// A newcomer (no active deck) boots DECKS[0], whose caption the shell already carries.
-						if (did) {
-							if (typeof DECK_CAPTIONS[did] === 'string' && !localStorage.getItem('lattice-studio-src-' + did)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[did]);
-							else r.setAttribute('data-ssr-caption-unknown', '');
 						}
 						if (did) {
 							var edited = localStorage.getItem('lattice-studio-src-' + did);
