@@ -115,10 +115,68 @@ Suono stays a byte source; a chosen direct provider never bills OpenRouter; HARD
 
 The `/cadenza` and `/suono` library pages create a voice model without a selection and keep the
 old pref ladder. They never read or write the Studio's selection records
-(`followups.d/3048-p10-library-pages-on-the-voice-spine.md`).
+(`followups.d/3079-p3-library-pages-on-the-voice-spine.md`).
 
-## 6. Evidence
+## 6. Providers, curation and the Gemini voice
 
-Unit: `lib/model-selection.test.ts`, `ai/architect-model.spine.test.ts`,
-`playground/voice-model.spine.test.ts`, `read-aloud.normalize-voice.test.ts`,
-`test/unit/playground/architect-model.test.js` (chat selection — who answers).
+`docs/src/lib/provider-registry.js` is the one table of what each provider does (chat, voice, key,
+on-device) and its curated families. Curation is a preference over the provider's LIVE list
+(`curate`, `curatedDefault`): curated matches first, every live model kept, no pinned ids, so a
+retired id stops matching and a new release in the family is picked up. Gemini 2.5 ids are not
+curated. The direct chat default prefers the curated family inside the existing price rule (a
+fallback still never moves the author up in price).
+
+The direct Gemini voice (`gemini-tts` rung, `voice-model.js`) calls
+`models/<id>:generateContent` with `responseModalities: ['AUDIO']` and
+`speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, on the Gemini key only. The 3.8 models
+answer WAV with a RIFF header, returned as is; headerless L16 is wrapped. The model list comes from
+the live `/v1beta/models`, the voice roster from the live `/v1beta/voices` (never hand-typed), and
+its clips key under their own rung name, so they never collide with an OpenRouter clip.
+
+## 7. Workspace › AI, the chip and Present
+
+Workspace › AI is three sections (`AiModelSections.tsx`): **Chat model**, **Voice model** and
+**Providers & keys**. Each selection is a fixed-height card — source glyph, name, where it runs, a
+fixed-width readiness badge, Change — and Change opens the chooser in place. The chat chooser's
+Source switch (Cloud / On-device) only filters; picking a provider or a model selects it. A missing
+key is actionable on the card ("Add a key" scrolls to Providers & keys); a rejected key is an alert
+on the card. Spend and the standing instructions follow the ACTIVE selection's source. Narration
+prefs moved from General to Voice model › More narration settings.
+
+The chat chip names the selected model for every selection, on-device included, with a source
+glyph and a "Models & keys…" link; its list writes the same chat selection. Present's voice pill
+names the selected voice ("Heart · on-device") and reads "Loading voice… n%" while it warms.
+`lib/model-name.ts` is the one model-name formatter.
+
+**First frame.** `useArchitectStatus` seeds needs-key / ready from storage synchronously; the
+skeleton has the real section shapes; the Spend rows keep their shape while the account read is in
+flight; value text sits left-aligned in fixed boxes so a value arriving moves nothing.
+
+## 8. A loop the spine exposed, fixed
+
+`lib/openrouter-key.js` announced `db-model-changed` after every key load, including a load that
+failed transiently (the secrets store unreachable). Every listener re-read the key, which retried
+the load, which failed and announced again: a loop that starved the page. A transient failure now
+leaves the key "not known yet" (read as `warming`), announces only a change, and is retried at most
+once a second by a read.
+
+## 9. Evidence
+
+- **Unit:** `lib/model-selection.test.ts` (migration once, reload, normalization, cross-tab
+  events), `lib/provider-registry.test.ts`, `lib/model-name.test.ts`,
+  `ai/architect-model.spine.test.ts` (reload, no substitution, unseal race, needs-key, mid-turn
+  switch, chip and cost credited to the answering model, cross-tab, saving a key selects chat and,
+  when stranded, voice; on-device warm only from cache), `playground/voice-model.spine.test.ts`
+  (no implicit Kokoro, voice independent of chat, voice unseal race, Gemini request shape and WAV,
+  curated default from the live list), `read-aloud.normalize-voice.test.ts`,
+  `ChatCost.test.tsx` (chip label), `WorkspaceSheet.test.tsx`,
+  `test/unit/playground/architect-model.test.js`.
+- **e2e** (`docs/e2e/model-spine.spec.ts`, providers mocked): reload persistence for chat and
+  voice; a mid-turn switch keeps the answerer; cross-tab sync; the chip equals the model that
+  answered and is the global selection; the unseal race does not substitute; voice independent of
+  chat; Present reads in the selected voice; saving a key activates chat and the stranded voice.
+  Run on Chromium (1440 and 390), WebKit (tablet and phone) and Gecko.
+- **CLS** on opening Workspace › AI (Chromium, no key / OpenRouter key / on-device selected):
+  0 at 1440, 820 and 390, down from 0.085 at 820. Measured with a
+  `layout-shift` PerformanceObserver over the sheet's open, every provider mocked.
+- **Not verified:** a live provider (the owner's call; HARD RULE #24), and real Safari on iOS.

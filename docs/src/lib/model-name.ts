@@ -22,7 +22,8 @@ export function nameFromId(id: string): string {
 		.replace(/-latest$/, '')
 		.split(/[-_:]/)
 		.filter(Boolean)
-		.map((w) => (UPPER.has(w.toLowerCase()) ? w.toUpperCase() : /^\d/.test(w) ? w : w[0].toUpperCase() + w.slice(1)));
+		// A parameter count reads as written in the model's own name: 82m → 82M, 1.5b → 1.5B.
+		.map((w) => (UPPER.has(w.toLowerCase()) ? w.toUpperCase() : /^\d+(\.\d+)?[mbk]$/i.test(w) ? w.toUpperCase() : /^\d/.test(w) ? w : w[0].toUpperCase() + w.slice(1)));
 	return `${words.join(' ')}${latest ? ' (latest)' : ''}`;
 }
 

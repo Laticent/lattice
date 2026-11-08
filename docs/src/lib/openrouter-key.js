@@ -179,6 +179,9 @@ function announce() {
 	}
 }
 
+/** How soon a key whose open failed transiently is tried again by a read. */
+const TRANSIENT_RETRY_MS = 1000;
+
 function makeSlot(KEY, REJECTED) {
 	let cached;
 	let cachedRaw;
@@ -187,6 +190,7 @@ function makeSlot(KEY, REJECTED) {
 	let generation = 0; // bumped by every write, so a load that started earlier cannot overwrite it
 	let migrating = null;
 	let persisting = Promise.resolve();
+	let lastTransient = 0; // when an open last failed transiently (the store unreachable)
 
 	/** Re-seal a plaintext key left from before encryption, in place, when this browser can. Single-flight. */
 	function migrate(raw) {
@@ -231,12 +235,18 @@ function makeSlot(KEY, REJECTED) {
 				}
 			}
 			// A write that started after this load wins: never put an older key back.
+			const before = cached;
 			if (pending === 0 && generation === startedAt) {
-				cached = key || null;
+				// A transient failure leaves the key "not known yet": it is stored, just not open.
+				cached = transient ? undefined : key || null;
 				cachedRaw = transient ? undefined : read(KEY);
 			}
 			loading = null;
-			announce();
+			if (transient) lastTransient = Date.now();
+			// Announce a CHANGE only. A transient failure that leaves the key as unknown as before
+			// announced every time, and every listener re-read the key, which retried the open, which
+			// failed and announced again: a loop that starved the page while the store was unreachable.
+			if (!(transient && before === undefined && cached === undefined)) announce();
 			return cached ?? null;
 		})();
 		return loading;
@@ -257,7 +267,8 @@ function makeSlot(KEY, REJECTED) {
 			return raw;
 		}
 		cached = undefined;
-		load();
+		// After a transient failure, retry at most once a second rather than on every read.
+		if (Date.now() - lastTransient >= TRANSIENT_RETRY_MS) load();
 		return null;
 	}
 
@@ -313,6 +324,7 @@ function makeSlot(KEY, REJECTED) {
 		pending = 0;
 		generation = 0;
 		persisting = Promise.resolve();
+		lastTransient = 0;
 	}
 
 	/** 'ready' | 'opening' (a sealed key is stored but not open yet) | 'rejected' | 'none'. */

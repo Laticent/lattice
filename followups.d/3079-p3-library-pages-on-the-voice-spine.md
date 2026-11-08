@@ -1,12 +1,12 @@
 ---
-origin: 3048
-priority: P10
+origin: 3079
+priority: P3
 recorded: 2026-11-07
 area: website
 severity: low
 swimlane: engineering/decisions/2026-11-07-studio-model-spine.md
 deferred: off-path — the /cadenza and /suono library pages are reference pages outside the Studio; the spine brief scoped the Studio
-source: owner review of the model-spine checkpoint (feat/model-spine has no PR yet; filed under 3048, the BYOK voice item it extends — re-file under the spine PR's number when it opens)
+source: https://github.com/Laticent/lattice/pull/3079 (owner review of the model-spine checkpoint, deviation 2)
 ---
 # Move /cadenza and /suono onto the voice spine
 

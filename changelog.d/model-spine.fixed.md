@@ -13,3 +13,4 @@
 - Studio: the chat's model chip now names the model that will answer, on-device included, with an icon for where it runs, and links to "Models & keys…". Without a key it says "Add a key or choose on-device". Picking a model in the chip changes the same global chat model as Workspace → AI.
 - Present: the voice button names the voice that is speaking ("Heart · on-device", "Eve · OpenRouter") instead of a fixed "Aria", and shows "Loading voice… n%" while your selected voice loads, then starts reading.
 - Studio: one model-name format everywhere a model is named (Workspace, the chip, the pickers, Present).
+- Studio: when the browser's key store could not be reached, the Studio could spin re-reading the key and stop responding. A key that cannot be opened yet now reads "still opening" and is retried at most once a second.

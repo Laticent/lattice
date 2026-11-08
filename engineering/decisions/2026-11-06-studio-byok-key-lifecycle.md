@@ -341,6 +341,12 @@ tier, not a third backend, so everything below the switch (spend, standing instr
 voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
 `WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.
 
+> **Superseded in part 2026-11-07** by `2026-11-07-studio-model-spine.md`: saving a key no longer
+> calls `setStudioTier('auto')` — it selects that provider's chat model (owner decision 3) — and
+> removing the active direct key no longer returns the tier to OpenRouter: the selection stays and
+> reads "needs a key", because moving the author to another provider is the substitution the spine
+> removes. The provider in use is part of the chat selection record, not `lattice-db-provider`.
+
 **Shipped (step 2): direct OpenAI, Anthropic and Gemini keys.** The API key tab has a provider
 picker (OpenRouter, OpenAI, Anthropic, Gemini; OpenRouter first and the default) and a list of
 the keys this browser holds, each with Use, Replace and Remove. One provider runs the cloud tier
