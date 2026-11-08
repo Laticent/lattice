@@ -873,8 +873,9 @@ jobs:
   # drives the Architect against a LIVE OpenRouter model and asserts a real
   # productivity outcome (source changed + checkpoint saved). A separate job so
   # a paid-API flake can never redden the deterministic suite above. Gated on
-  # the OPEN_ROUTER_KEY secret — when it is unset the spec self-skips with a
-  # reason and this job stays green. Cost: three Haiku-tier completions over a
+  # the OPEN_ROUTER_KEY secret — when it is unset the job FAILS at its first step
+  # (#1931): a keyless run used to self-skip green, indistinguishable from a real
+  # one. The spec's own test.skip stays for local runs. Cost: three Haiku-tier completions over a
   # two-slide deck (~a cent a night); the Studio's own hard-stop budget cap is
   # armed by the spec as the runaway guard. The spec disables trace + video so
   # the key never reaches an uploaded artifact.
@@ -884,6 +885,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # Fail loud, before any install, when the key is missing (#1931 criterion 2). A boolean
+      # over the secret never exposes its value and does not put the key in this step's env.
+      # The filing step below still runs (always(), and the run step's outcome is then
+      # `skipped`), so a lost key also files the rolling issue.
+      - name: Require the OpenRouter key
+        id: key
+        run: |
+          if [ '${{ secrets.OPEN_ROUTER_KEY != '' }}' != 'true' ]; then
+            echo "::error title=OPEN_ROUTER_KEY missing::the OPEN_ROUTER_KEY secret is not set; the live AI tier did not run."
+            echo "### Live AI tier NOT RUN: OPEN_ROUTER_KEY is not set" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -957,6 +970,9 @@ jobs:
         if: always() && (steps.ai.outputs.failed == 'true' || steps.ai.outcome != 'success') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A missing key fails the job BEFORE checkout, so there is no git repo for `gh` to read
+          # the repository from (the same failure line ~225 records); name it.
+          GH_REPO: ${{ github.repository }}
           OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
         run: |
           set -euo pipefail
@@ -985,17 +1001,21 @@ jobs:
 
           {
             echo "The nightly live-AI Studio scenarios failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.ai.outcome }})."
+            if [ '${{ steps.key.outcome }}' = 'failure' ]; then
+              echo ""
+              echo "**Cause: the \`OPEN_ROUTER_KEY\` secret is not set.** Nothing ran; re-add the secret (issue #1931)."
+            fi
             echo ""
             echo "This tier drives a REAL OpenRouter model on our key, so triage it in this order:"
             echo "1. Is it a spec/product regression? The failing locator and its call log are below."
             echo "2. Is it the model or the API? A timeout waiting for a diff card, or a 4xx/5xx, points here."
-            echo "3. Is the key unset or out of budget? Then the run reports **skipped**, not failed — the tally below says which."
+            echo "3. Is the key out of budget? A 402/429 from OpenRouter points here. (An unset key fails the 'Require the OpenRouter key' step instead.)"
             echo ""
             echo "What failed (full report in the run's artifact):"
             echo ""
             echo '```'
-            # `skipped` is in the pattern deliberately: a keyless run self-skips and stays
-            # green, so if this alarm ever fires on a run whose tally is all-skipped, the
+            # `skipped` is in the pattern deliberately: a keyless run now fails before the
+            # specs, so if this alarm ever fires on a run whose tally is all-skipped, the
             # cause is the harness, not a spec.
             grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ (failed|passed|skipped)' \
               "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
@@ -1071,6 +1091,7 @@ jobs:
         if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
           TITLE='[studio-e2e-ai] Live AI Studio scenarios failing on main'

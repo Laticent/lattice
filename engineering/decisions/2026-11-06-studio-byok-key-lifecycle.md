@@ -108,8 +108,11 @@ made to leak a value); `workspace-backup.test.ts` › "never packs the OpenRoute
 present" pins the backup.
 
 The shipped bundle names the key in one chunk, `openrouter-key.*.js` (measured on the built
-site, 2026-11-06). A post-build check that keeps it that way is a new CI step and so waits on
-the owner (`followups.d/3048-p4-key-name-in-one-shipped-chunk.md`).
+site, 2026-11-06). Since 2026-11-08 the docs `build` keeps it that way: `docs/scripts/check-key-chunk.mjs`
+reads every `lattice-db-…` name from `openrouter-key.js` and fails the build if any of them appears in
+a second chunk under `dist/_astro` or in any HTML file (owner-approved; it runs inside the existing
+build step, so CI gained no job or step). It cannot see code that walks `localStorage` without naming
+a key, or that builds a key name from parts at runtime.
 
 ## 4. A shared deck cannot read the key
 
@@ -155,9 +158,9 @@ even unguarded, because markup inserted through the preview's patch paths does n
 `<script>` elements; the guard is what stops the event-handler vectors, which do.)
 
 **The second wall: a `script-src` (#3048-p5, 2026-11-06).** The Studio preview frame now
-carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `single-slide-render.ts`
-makes one random nonce per page load (`PREVIEW_SCRIPT_NONCE`, 18 bytes) and stamps it on every
-script `srcdoc()` writes: the font gate, dagre, the runtime, the link guard, and the drawn
+carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `page-script-nonce.js`
+makes one random nonce per page load (`PAGE_SCRIPT_NONCE`, 18 bytes), and `single-slide-render.ts`
+stamps it on every script `srcdoc()` writes: the font gate, dagre, the runtime, the link guard, and the drawn
 libraries' preloads. The browser then refuses any inline event handler, `javascript:` URL, or
 `<script>` the parser meets without that nonce, whatever the sanitizer let through.
 `'strict-dynamic'` trusts what those scripts insert with `createElement('script')` (the runtime's
@@ -186,8 +189,15 @@ Three things the adversarial trio found, all fixed in this PR:
 
 The policy is opt-in in `lib/core/subresource-csp.mjs` (`scriptSources`, reached by passing
 `scriptNonce`). Without a nonce the policy has no `script-src`, as before, so the CLI export and the
-other preview builders (Stage, Print, the deck preview) are unchanged until each one stamps its own
+other preview builders (Print, the deck preview) are unchanged until each one stamps its own
 scripts.
+
+**The Stage joined on 2026-11-08 (3048-p10).** `buildStageDoc` passes the same page nonce and stamps
+its five scripts (font gate, dagre, runtime, reveal, fit) and the drawn libraries' preloads. One nonce
+serves both frames; within a page load that adds nothing, since every preview frame already shared one.
+A per-DOCUMENT nonce would break the Stage: `paint()` rewrites it with `document.open()`/`write()`, a
+`<meta>` policy stays on the window across that, so a second document's scripts would meet the first
+document's nonce as well. Keep the Stage's nonce per page unless the rewrite becomes a fresh window.
 
 Measured, 2026-11-06:
 
@@ -225,8 +235,8 @@ red, and the vectors that read the key were:
 | Webpage export (prune frame) | `buildSrcdoc`, and `assemblePlayer`'s `sanitize` cap (`share-export.ts`) | `<script>`, `<svg><script>`, `details ontoggle`, `iframe srcdoc`, `svg onload` |
 | Library scene art | `sanitizeSceneAssets` (`scene-library.ts`) | SVG `<image onerror>`, `foreignObject` `img onerror` and `details ontoggle` |
 
-So on each of these six the sanitizer is still the ONLY wall: none carries the `script-src` the
-Studio preview now has. Giving each its own nonce is the next defense-in-depth step, and the
+So on each of these six the sanitizer was the ONLY wall: none carried the `script-src` the
+Studio preview has. The Stage now does (above); on the other five the sanitizer is still the only wall. Giving each its own nonce is the next defense-in-depth step, and the
 specs above are what would prove it (`followups.d/3048-p10-nonce-script-src-on-other-surfaces.md`).
 
 Two things the specs taught. Print's options step shows a Studio preview frame (single-slide-render,

@@ -22,6 +22,11 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Least privilege (CodeQL actions/missing-workflow-permissions, #1958): the build job only reads
+# the checkout and uploads the Pages artifact; the deploy job declares its own pages/id-token.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-24.04

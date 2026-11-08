@@ -48,6 +48,7 @@ import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs'
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
+import { PAGE_SCRIPT_NONCE } from '../../../playground/page-script-nonce.js';
 import { previewCspMeta } from '../../../playground/preview-csp.js';
 import { STAGE_CHROME_CSS } from './stage-chrome.js';
 
@@ -324,6 +325,10 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			'<button id="latt-full" type="button" aria-label="Full screen" aria-pressed="false" class="latt-ctl-full">\u26f6</button>' +
 			'</div>'
 		: '';
+	// Every script this document writes carries the page's nonce, and its CSP refuses any script
+	// without it, so a `<script>` or inline handler that got past the sanitizer does not run
+	// (followups 3048-p10; the same seal the Studio preview has, single-slide-render.ts).
+	const n = ' nonce="' + PAGE_SCRIPT_NONCE + '"';
 	return (
 		// `<html lang>`, like the two sibling builders (deck-preview.js, share-export.ts). This
 		// one omitted it, so the Stage — the surface an AUDIENCE actually looks at — shipped a
@@ -343,7 +348,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless data-lattice-preview><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
-		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +
+		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)], scriptNonce: PAGE_SCRIPT_NONCE }) +
 		(standalone ? '<title>Stage</title>' : '') +
 		'<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
 		(katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
@@ -431,9 +436,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
 		// The font gate, in <head> — same placement rule as the other two preview
 		// builders. See lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
-		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl) : '') +
+		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		// No diagram library tag: the runtime's plugin host loads Mermaid's (the plugin's
@@ -448,8 +453,8 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// on its first draw. Absent → a branching machine lays out on the grid, and the
 		// runtime says so on the console.
 		(dagreUrl && (html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1)
-			? '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
-		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
+			? '<scr' + 'ipt' + n + ' src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
+		'<scr' + 'ipt' + n + ' src="' + rt + '"></scr' + 'ipt>' +
 		// The reveal waits for this document's OWN faces, not just for one frame.
 		// `#latt-stage` is `visibility:hidden` until the line below flips it, so the
 		// fallback-metric solve already happens off-screen; the defect was that the
@@ -457,9 +462,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// preview: under `standalone` this document is the top-level window an
 		// AUDIENCE is watching, so the shift lands on a projector. Never holds
 		// forever — see lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
+		'<scr' + 'ipt' + n + '>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
 		onFontsReady('lattStageReveal') + '</scr' + 'ipt>' +
-		'<scr' + 'ipt>' + FIT + '</scr' + 'ipt></body></html>'
+		'<scr' + 'ipt' + n + '>' + FIT + '</scr' + 'ipt></body></html>'
 	);
 }
 

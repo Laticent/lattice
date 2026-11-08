@@ -15,6 +15,19 @@ describe('stage-window — buildStageDoc', () => {
 		expect(doc).toContain('e.data.pv');
 		expect(doc).toContain('background:#111');
 	});
+	it('seals the stage with a nonce script-src, and stamps every script it writes (3048-p10)', () => {
+		// A drawn fence and a state-chart model, so the preload and the dagre tag are written too.
+		const html = '<pre><code class="language-mermaid">flowchart LR</code></pre><div data-sc-model="{}"></div>';
+		const doc = buildStageDoc({ html, width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', dagreUrl: '/dagre.js', standalone: true });
+		const nonce = /script-src 'nonce-([^']+)'/.exec(doc)?.[1];
+		expect(nonce, 'the policy names a nonce').toBeTruthy();
+		const scripts = doc.match(/<script\b[^>]*>/gi) ?? [];
+		expect(scripts.length).toBeGreaterThanOrEqual(5);
+		for (const tag of scripts) expect(tag, tag).toContain(`nonce="${nonce}"`);
+		for (const tag of doc.match(/<link\b[^>]*\bas="script"[^>]*>/gi) ?? []) expect(tag, tag).toContain(`nonce="${nonce}"`);
+		// A script the sanitizer missed would carry no nonce: the deck's markup never sees it.
+		expect(buildStageDoc({ html: '<i>x</i>', width: 1, height: 1, bg: '#000', css: '', runtimeUrl: '/r.js' })).toContain(`'nonce-${nonce}'`);
+	});
 	it('omits the katex tag when not supplied, and never writes a Mermaid tag', () => {
 		// A deck with no diagram must not pull a multi-hundred-KB script into the room's window —
 		// and now no deck does from here: the Mermaid plugin's library is loaded by the runtime's

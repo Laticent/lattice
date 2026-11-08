@@ -9394,11 +9394,11 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // (OPENROUTER_ALLOW_SPEND=1), prints its plan first, --limit bounds it. The lesson folders it also records use local Kokoro, no key.
 const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
 
-// Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
-// unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
+// Workflows allowed to spend the key: sanctioned, budgeted, skipping or failing VISIBLY when the
+// secret is unset (#1931: a silent green skip looks like a real run), and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
-  '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, self-skips without the secret (#696)
+  '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines
@@ -9453,8 +9453,8 @@ function checkOpenRouterBudget(errors) {
     }
   }
   // Invariant 2b — a workflow may spend the key ONLY if it's sanctioned AND runs off the
-  // PR/commit critical path (nightly schedule / workflow_dispatch, budgeted, self-skipping when
-  // the secret is unset). pull_request/push/merge_group fire constantly = the budget hole a
+  // PR/commit critical path (nightly schedule / workflow_dispatch, budgeted, skipping or failing
+  // visibly when the secret is unset). pull_request/push/merge_group fire constantly = the budget hole a
   // sanction can't bless. See engineering/decisions/2026-06-13-gate-strategy-change-detection.md.
   const wfDir = path.join(ROOT, '.github', 'workflows');
   const seenWf = new Set();
@@ -9472,7 +9472,7 @@ function checkOpenRouterBudget(errors) {
           `${rel} references OPEN_ROUTER_KEY (HARD RULE #24) — a workflow may spend our budget only if ` +
           `it is a sanctioned, budgeted, nightly/dispatch live tier. Add it to ` +
           `SANCTIONED_OPENROUTER_WORKFLOWS in tools/check-ownership.js with justification, keep it OFF ` +
-          `pull_request/push, and have it self-skip when the secret is unset.`,
+          `pull_request/push, and have it skip or fail visibly when the secret is unset.`,
         );
       } else if (onPrPath) {
         errors.push(
