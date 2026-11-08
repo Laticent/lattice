@@ -19,3 +19,8 @@ done when — a week of perf-nightly runs files no regression for a drop inside 
 2026-11-08 — the owner left the call to the session ("use your best judgment"), and the floor now trips only when head
 crosses it from above by more than `noiseAbs` (engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md §2). What is
 left is the done-when above: read a week of perf-nightly runs, then delete this file.
+
+2026-11-08, read again — #3085 merged at 15:28 UTC. The last scheduled night before it (run 42478891535, 12:09 UTC,
+head `644f177b`) filed nothing, and the PR-branch dispatch (run 42490597756) filed nothing either. No scheduled night has
+run on the new rule yet, so the week starts with the 2026-11-09 night and ends with the 2026-11-15 one. Close #2085 and
+delete this file after that run if none of the seven filed a drop inside the noise band.

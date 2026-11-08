@@ -10,8 +10,9 @@ name: Perf nightly (docs regression watch)
 # engineering/decisions/2026-06-15-docs-perf-gating-policy.md for the full policy.
 #
 # Shape: B-injob relative budget. It builds + measures `main@HEAD` AND the
-# `main` commit from ~24h ago, BACK-TO-BACK ON THE SAME RUNNER, and compares the
-# medians (scripts/perf-regression.mjs). Measuring both on one runner cancels
+# `main` commit from ~24h ago ON THE SAME RUNNER, serving both at once and
+# alternating them per URL (head, base, base, head, ...; scripts/perf-collect.mjs),
+# and compares the medians (scripts/perf-regression.mjs). Measuring both on one runner cancels
 # systematic hardware differences; only a real regression beyond tolerance trips
 # it. Stateless — no committed baseline, no update ritual. Double-build cost is
 # free at night. On a regression it opens / appends a rolling tracking issue.
@@ -77,23 +78,14 @@ jobs:
       - name: Install docs deps (head)
         run: npm ci
         working-directory: docs
-      - name: Collect — head
-        run: node scripts/perf-collect.mjs --out "$HEAD_OUT"
-        working-directory: docs
-        env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
-
-      # ---- BASE (~24h ago), measured with HEAD's tooling ----
-      # The base commit predates these perf scripts, so overlay HEAD's
-      # collect/compare scripts into a worktree of the base SOURCE and measure
-      # it there — identical tooling, base's site. We deliberately do NOT copy
-      # HEAD's lighthouserc*.cjs: the base measures its OWN url list/settings, so
-      # a page added/removed or a setting changed in the last 24h can't 404 the
-      # base collect — the compare matches by URL and skips pages with no base.
-      # continue-on-error: a broken historical commit must not fail the watch
-      # (the compare then runs head-only).
-      - name: Build + collect — base
-        id: basecollect
+      # ---- BASE (~24h ago), built with HEAD's tooling ----
+      # The base commit may predate these perf scripts, so overlay HEAD's
+      # collect/compare scripts into a worktree of the base SOURCE and BUILD it
+      # there. Its own step with continue-on-error: a broken historical commit
+      # must not fail the watch (the collect then runs head-only and the compare
+      # reports head alone).
+      - name: Build — base
+        id: basebuild
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -106,7 +98,29 @@ jobs:
           npm ci
           cd "$BASE_TREE/docs"
           npm ci
-          node scripts/perf-collect.mjs --out "$BASE_OUT"
+          node scripts/perf-collect.mjs --build-only
+
+      # ---- Collect: head and base served at once, alternated per URL ----
+      # Head on :4399, base on :4398, each URL measured head, base, head, base
+      # with the order flipped every round, so runner drift across the job lands
+      # on both arms (issue #2085; engineering/decisions/2026-11-08-docs-perf-
+      # nightly-diagnosis.md §2). Both arms use HEAD's lighthouserc configs, so
+      # they share run counts and settings; a URL the base does not have yet
+      # fails on base only, is skipped, and the compare skips it. Without a base
+      # build, or a base server, head is collected alone. The step's `base_ok`
+      # output is true only when every form factor got at least one base run,
+      # and the measured-green stand-down below requires it.
+      - name: Collect — head and base, alternated
+        id: basecollect
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.basebuild.outcome }}" = "success" ]; then
+            node scripts/perf-collect.mjs --out "$HEAD_OUT" --base-docs "$BASE_TREE/docs" --base-out "$BASE_OUT"
+          else
+            echo "::warning::base build failed — collecting head alone"
+            node scripts/perf-collect.mjs --out "$HEAD_OUT"
+          fi
+        working-directory: docs
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
 
@@ -128,6 +142,9 @@ jobs:
           # whose entire body was that one footer line. No metric, no table, no admission that
           # nothing was measured, appended nightly to the very thread this change exists to stop
           # poisoning. A harness failure now goes red LOUDLY and files nothing.
+          # Carry the collect's `base_ok` through, so the stand-down weighs one arm (this step):
+          # true only when the base arm measured every form factor.
+          echo "base_ok=${BASE_OK:-false}" >> "$GITHUB_OUTPUT"
           rc=0
           node scripts/perf-regression.mjs --base "$BASE_OUT" --head "$HEAD_OUT" --md "$GITHUB_WORKSPACE/perf-report.md" || rc=$?
           case "$rc" in
@@ -136,6 +153,8 @@ jobs:
             *) echo "regressed=false" >> "$GITHUB_OUTPUT"; echo "::warning::perf compare invoked wrong — not filed as a regression"; exit 1 ;;
           esac
         working-directory: docs
+        env:
+          BASE_OK: ${{ steps.basecollect.outputs.base_ok }}
 
       - name: Job summary
         if: always()
@@ -233,7 +252,8 @@ jobs:
       # ever argues the other side".
       #
       # BOTH ARMS MUST HAVE SUCCEEDED, and the base arm is the one that matters.
-      # `Build + collect — base` is `continue-on-error`, and perf-regression.mjs skips any
+      # `Build — base` is `continue-on-error`, the alternated collect skips any base run
+      # that fails, and perf-regression.mjs skips any
       # metric with no base reading (`evaluate()`: `base == null → regressed: false, reason:
       # 'missing'`). So a base arm that died entirely yields ZERO comparisons and a cheerful
       # `regressed=false` — not a green site, a green nothing. Commenting "measured green" on
@@ -243,7 +263,8 @@ jobs:
         if: >-
           always() && github.ref == 'refs/heads/main'
           && steps.compare.outcome == 'success' && steps.compare.outputs.regressed == 'false'
-          && steps.basecollect.outcome == 'success'
+          && steps.basebuild.outcome == 'success' && steps.basecollect.outcome == 'success'
+          && steps.compare.outputs.base_ok == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -323,7 +344,7 @@ jobs:
       - name: Bench — head
         run: node test/benchmark/engine-bench.mjs --json --export --inline-runs 5 > head-bench.json
 
-      # continue-on-error, matching the lighthouse job's `Build + collect — base`: a broken
+      # continue-on-error, matching the lighthouse job's `Build — base`: a broken
       # historical commit, or a transient `npm ci`, must not silently disable the whole alarm. It
       # used to: every downstream step lacked `if: always()`, so a base failure skipped the compare,
       # the preview ceilings AND the issue step, and the only symptom was a red nightly nobody

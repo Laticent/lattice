@@ -45,6 +45,12 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             late status caption became the largest paint). The pre-paint shell now draws that caption: LCP median
             14.1 s -> 5.6 s, score 0.38 -> 0.41, 7 interleaved local runs per arm. TBT (~1.5 s) and FCP are unchanged and
             are still what this item is about.
+            2026-11-08, later (engineering/decisions/2026-11-08-studio-phone-editor-after-pause.md): blocking time
+            attributed (React hydration ~930 ms scripting, the preview runtime ~305 ms in one task, unattributed ~620 ms;
+            FCP is mostly Lantern counting ~145 modulepreloaded requests). One lever tried and NOT shipped: building the
+            phone's hidden editor after a 3 s pause took ~240 ms of React work out of Lighthouse's window, but TBT moved
+            -27 ms (noise), an Edit tap 1.5 s after the slide went 213 -> 733 ms, and Coach's Fix all did nothing until the
+            editor mounted. Next by size: React hydration (profile what mounts before the slide), then the runtime split.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
             at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
             for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.
