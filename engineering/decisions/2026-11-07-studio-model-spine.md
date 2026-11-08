@@ -141,10 +141,34 @@ fixed-width readiness badge, Change — and Change opens the chooser in place. T
 Source switch (Cloud / On-device) only filters; picking a provider or a model selects it. A missing
 key is actionable on the card ("Add a key" scrolls to Providers & keys); a rejected key is an alert
 on the card. Spend and the standing instructions follow the ACTIVE selection's source. Narration
-prefs moved from General to Voice model › More narration settings.
+prefs moved from General to Voice model › More narration settings. The image model (which model
+reads the author's photos) is its own setting, so it sits under the chat card, not behind Change.
+
+The cards lay out by their OWN width (a container query, `@[26rem]`), not the viewport's, because
+the Workspace sheet is narrow on a wide screen too. Wide: name and meta stacked, the badge in its
+own column, Change with its label. Narrow (a phone, ~360px of card): the name takes the whole top
+line, the badge moves under it beside the meta, and Change becomes an icon. The badge keeps a fixed
+width in both, so readiness still changes in place. Before this, the badge squeezed the name on a
+phone ("Claude Sonn…").
+
+**Providers & keys** is one row per provider: OpenRouter, Gemini, Anthropic, OpenAI and On-device
+(`ApiKeyPanel.tsx`). A row says whether it holds a key (`Key …ab12`, `No key`, or rejected) and
+what it is in use for (chat, voice, both), read from the two selections. A keyed row offers Replace
+and Remove, plus "Use for chat" when chat runs elsewhere; an empty row offers Add, which opens the
+key field inline on that row. OpenRouter's row carries the one-click sign-in. With no key stored
+anywhere, OpenRouter's field starts open, so the first run is one paste. On-device needs no key and
+its row only reports what it is in use for.
 
 The chat chip names the selected model for every selection, on-device included, with a source
-glyph and a "Models & keys…" link; its list writes the same chat selection. Present's voice pill
+glyph and a "Models & keys…" link; its list writes the same chat selection. Because the chip sets
+the GLOBAL selection, it reaches every source the Workspace does: a source switch lists each
+provider holding a key plus On-device. Picking a provider selects it at once, on the model last
+picked there (`selectChat` also remembers the model it is leaving, so a record written without
+that memory still comes back to it). On-device lists the three engines in place of the catalog,
+and picking one selects it, loaded or not; a model that is not loaded reads so in the chip and
+loads under Models & keys. The chip's "Featured" lens showing one model in review was the e2e mock
+catalog (two `test/*` models), not curation over-filtering: `OR_FEATURED` matches by family
+prefix against the live list, and the direct providers open on All. Present's voice pill
 names the selected voice ("Heart · on-device") and reads "Loading voice… n%" while it warms.
 `lib/model-name.ts` is the one model-name formatter.
 
@@ -169,14 +193,25 @@ once a second by a read.
   when stranded, voice; on-device warm only from cache), `playground/voice-model.spine.test.ts`
   (no implicit Kokoro, voice independent of chat, voice unseal race, Gemini request shape and WAV,
   curated default from the live list), `read-aloud.normalize-voice.test.ts`,
-  `ChatCost.test.tsx` (chip label), `WorkspaceSheet.test.tsx`,
+  `ChatCost.test.tsx` (chip label, the chip's source switch), `WorkspaceSheet.test.tsx` (one row
+  per provider),
   `test/unit/playground/architect-model.test.js`.
 - **e2e** (`docs/e2e/model-spine.spec.ts`, providers mocked): reload persistence for chat and
   voice; a mid-turn switch keeps the answerer; cross-tab sync; the chip equals the model that
   answered and is the global selection; the unseal race does not substitute; voice independent of
-  chat; Present reads in the selected voice; saving a key activates chat and the stranded voice.
-  Run on Chromium (1440 and 390), WebKit (tablet and phone) and Gecko.
-- **CLS** on opening Workspace › AI (Chromium, no key / OpenRouter key / on-device selected):
-  0 at 1440, 820 and 390, down from 0.085 at 820. Measured with a
-  `layout-shift` PerformanceObserver over the sheet's open, every provider mocked.
+  chat; Present reads in the selected voice; saving a key activates chat and the stranded voice;
+  the chip reaches a saved provider and the on-device models; Present's first read waits for the
+  on-device voice and its pill reads "Loading voice… 42%" (a stand-in for kokoro-js reports 42%
+  and holds the load until the test releases it). Run on Chromium (1440 and 390), WebKit (tablet
+  and phone) and Gecko.
+- **CLS** on opening Workspace › AI: gated at 1440, 820 and 390 in `model-spine.spec.ts` (Chromium,
+  OpenRouter key, mocked). The test sums every `layout-shift` entry from the tab click until both
+  cards read ready and the image model has painted, including the ones Chromium marks as following
+  input, and requires 0. It was 0.085 at 820 before the skeleton fix. Making the image-model block a
+  static import (the sheet itself is lazy) removed a Suspense placeholder 150px shorter than the
+  block, which would otherwise have pushed the Voice model section down after it opened.
+- **Route budget:** +3565 bytes of Studio eager JS against `main` 644f177, declared in
+  `docs/route-budget.d/3079-model-spine.md`: the synchronous selection store and the key-state read
+  the first frame needs. The chooser, provider rows and chip switch ship in the lazy Workspace and
+  chat chunks.
 - **Not verified:** a live provider (the owner's call; HARD RULE #24), and real Safari on iOS.

@@ -353,6 +353,12 @@ the keys this browser holds, each with Use, Replace and Remove. One provider run
 at a time; saving a key makes its provider the one in use, and removing the active direct key
 returns the tier to OpenRouter.
 
+> **Since 2026-11-08 (model spine, PR #3079):** the picker and the key list are one list, one row
+> per provider (OpenRouter, Gemini, Anthropic, OpenAI, On-device) under Workspace › AI ›
+> Providers & keys; Add opens the key field on that row. Removing a key no longer returns the tier
+> to OpenRouter: the selection stays and reads "needs a key"
+> (`2026-11-07-studio-model-spine.md` §7).
+
 - **Keys.** `lib/openrouter-key.js` holds one sealed slot per provider (`lattice-db-or-key`,
   `lattice-db-openai-key`, `lattice-db-gemini-key`, `lattice-db-anthropic-key`), each with its
   own rejected mark, all sealed under the one AES-GCM key from §9. It also stores which provider

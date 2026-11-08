@@ -178,6 +178,24 @@ test('@crosswidth @webkit-tablet @gecko the chip names the model that answered, 
 	await expect(ws.chat.getByTestId('chat-model-card-name')).toHaveText('Big Model');
 });
 
+test('@crosswidth @webkit-tablet @gecko the chip reaches every source: a saved provider and the on-device models', async ({ page }) => {
+	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
+	await mockOpenRouter(page);
+	await gotoStudio(page);
+	await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
+	const chip = page.getByTestId('chat-model-chip-name');
+	await expect(chip).toHaveText('Test Model');
+	await chip.click();
+	await page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'On-device' }).click();
+	await page.getByRole('radiogroup', { name: 'On-device model' }).getByRole('radio', { name: /Browser built-in/ }).click();
+	await expect(chip).toHaveText('Browser built-in model');
+	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'device', provider: 'prompt-api' });
+	// And back to OpenRouter, on the model last picked there.
+	await page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'OpenRouter' }).click();
+	await expect(chip).toHaveText('Test Model');
+	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', model: 'test/model' });
+});
+
 test('@webkit-tablet @gecko another tab follows a selection change without a reload', async ({ page, context }) => {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
 	await mockOpenRouter(page);
@@ -276,7 +294,7 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key select
 	await gotoStudio(page);
 	const ws = await openWorkspaceAi(page);
 	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Add a key');
-	await page.getByRole('group', { name: 'Key provider' }).getByRole('button', { name: 'Gemini', exact: true }).click();
+	await page.getByRole('button', { name: 'Add a Gemini key' }).click();
 	await page.getByLabel('Gemini API key').fill(GEM);
 	await page.getByRole('button', { name: 'Check & save' }).click();
 	await expect(ws.chat).toContainText('Gemini · your own key');
@@ -285,3 +303,82 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key select
 	expect(await stored(page, 'lattice-studio-voice-selection')).toMatchObject({ source: 'cloud', provider: 'gemini' });
 	await expect(ws.voice).toContainText('Gemini · your own key');
 });
+
+// A stand-in for kokoro-js (the ~80 MB on-device voice). `from_pretrained` reports 42% and then
+// waits for the page's BroadcastChannel message, so the test decides when the "download" ends.
+const FAKE_KOKORO = `
+export class KokoroTTS {
+  static from_pretrained(_id, opts) {
+    opts?.progress_callback?.({ status: 'progress', file: 'model.onnx', progress: 42 });
+    return new Promise((resolve) => {
+      const ch = new BroadcastChannel('fake-kokoro');
+      ch.onmessage = () => { ch.close(); resolve(new KokoroTTS()); };
+    });
+  }
+  async generate() {
+    const rate = 24000, n = Math.floor(rate * 0.3), audio = new Float32Array(n);
+    for (let i = 0; i < n; i++) audio[i] = 0.2 * Math.sin((2 * Math.PI * 440 * i) / rate);
+    return { audio, sampling_rate: rate };
+  }
+  list_voices() {}
+}
+export default { KokoroTTS };
+`;
+
+test('Present waits for the on-device voice on its first read, and its voice pill says how far the load is', async ({ page, context }) => {
+	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'device', provider: 'kokoro', model: '', voice: 'af_heart' }) }, { promptApi: false });
+	await context.route('https://esm.run/kokoro-js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: FAKE_KOKORO }));
+	await mockOpenRouter(page);
+	await gotoStudio(page);
+	// Undo the fixture's worker block: a read loads the on-device voice OFF the main thread only,
+	// so with the block in place the load fails and Present reads captions (see share-ondevice-narration.spec.ts).
+	await page.evaluate(() => {
+		window.Worker = Object.getPrototypeOf(window.Worker);
+	});
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The on-device voice reads this line. -->\n\n---\n\n# Two\n');
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
+	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	// The first read starts the load and waits for it, visibly: no other voice stands in.
+	await expect(voice).toContainText('Loading voice… 42%', { timeout: 30_000 });
+	await shot(page, 'present-loading-voice');
+	await page.evaluate(() => new BroadcastChannel('fake-kokoro').postMessage('go'));
+	await expect(voice).toContainText('Heart · on-device', { timeout: 30_000 });
+});
+
+// CLS 0 opening Workspace › AI, at the three widths the Studio ships to. Every card paints its
+// final shape from the stored selection on the first frame, and readiness changes IN PLACE, so
+// nothing on the tab may move once it is shown. Layout-shift entries are counted whether or not
+// they follow input: the tab click is input, and Chromium would otherwise drop the shifts of the
+// next 500 ms, which is exactly when the model and voice modules answer.
+for (const width of [1440, 820, 390]) {
+	test(`nothing moves on Workspace › AI once it is shown — ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: width < 640 ? 844 : 900 });
+		await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) });
+		await mockOpenRouter(page);
+		await gotoStudio(page);
+		await page.evaluate(() => {
+			const w = window as unknown as { __shifts: { value: number; at: number; nodes: string[] }[] };
+			w.__shifts = [];
+			new PerformanceObserver((list) => {
+				for (const e of list.getEntries() as unknown as { value: number; startTime: number; sources?: { node?: Node }[] }[]) {
+					w.__shifts.push({ value: e.value, at: e.startTime, nodes: (e.sources ?? []).map((s) => (s.node instanceof Element ? `${s.node.tagName}.${s.node.className}`.slice(0, 120) : String(s.node?.nodeName))) });
+				}
+			}).observe({ type: 'layout-shift' });
+		});
+		const ws = await openWorkspaceAi(page);
+		const t0 = await page.evaluate(() => performance.now());
+		await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveAttribute('data-state', 'ready');
+		await expect(ws.voice.getByTestId('voice-model-card-state')).toHaveAttribute('data-state', 'ready');
+		// The image model sits between the two cards, so it has to have painted its final text too.
+		await expect(page.locator('[data-image-model-settings]').getByText('Latest Claude Sonnet')).toBeVisible();
+		// Two frames, so a shift caused by the last answer has been recorded.
+		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+		const shifts = await page.evaluate((from) => (window as unknown as { __shifts: { value: number; at: number; nodes: string[] }[] }).__shifts.filter((s) => s.at >= from), t0);
+		const cls = shifts.reduce((n, s) => n + s.value, 0);
+		expect(cls, `layout shifts after the AI tab was shown: ${JSON.stringify(shifts)}`).toBe(0);
+		await shot(page, `workspace-ai-cls-${width}`);
+	});
+}
