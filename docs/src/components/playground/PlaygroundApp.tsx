@@ -569,12 +569,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// after unmount is a React warning, and on the Studio→Playground back-and-forth it is
 	// reachable). See goLive below.
 	const shellDropRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-	React.useEffect(
-		() => () => {
+	/** Set at unmount. The reveal below polls once per animation frame, and a poll still running then must stop there:
+	 *  going live after unmount strips a bake flag the next mount may own and arms a teardown timer nothing cancels. */
+	const unmountedRef = React.useRef(false);
+	React.useEffect(() => {
+		unmountedRef.current = false;
+		return () => {
+			unmountedRef.current = true;
 			if (shellDropRef.current) clearTimeout(shellDropRef.current);
-		},
-		[],
-	);
+		};
+	}, []);
 
 	// Defer the "live" transition until the in-frame slides are actually VISIBLE. The
 	// engine writes the srcdoc, then the in-iframe FIT agent scales the sections and only
@@ -618,6 +622,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}, SHELL_FADE_MS + 60);
 		};
 		const check = () => {
+			if (unmountedRef.current) return;
 			let ready = false;
 			try {
 				const win = frame.contentWindow;

@@ -40,6 +40,9 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             `block.test.ts` "bounds" (a stopwatch ratio). The rest of the census, with each flake's root cause, status
             and next step, is in this branch's PR body. collage-lightbox:211 is a product race in `StudioShell.tsx`
             (the hover hit-test runs before the frame shows the new slide); a fix is in progress, not in this branch.
+            2026-11-08: a fourth, found red on that branch's own docs-build: `PlaygroundApp.test.tsx` threw "window is
+            not defined" after the run. The reveal's per-frame poll outlived unmount and went live afterwards, arming a
+            teardown timer nothing cancelled. The poll now stops at unmount; a held-frame test is its arm.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
