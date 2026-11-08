@@ -4,7 +4,6 @@
 // module, the Workspace sheet); the selection store is on the Studio's boot path and these are
 // not (docs/route-budget.json). engineering/decisions/2026-11-08-studio-ai-routes-ux.md rule 1.
 
-import { modelDisplayName } from './model-name';
 import { readChatSelection, readImageSelection, readVoiceSelection, selectChat, selectImage, selectVoice } from './model-selection.js';
 import { providerLabel } from './provider-registry.js';
 
@@ -53,12 +52,12 @@ const retiredKey = (provider, model) => `${provider}:${model}`;
 /** Whether a route told us this model is retired (this page only). */
 export const isRetired = (provider, model) => !!model && retired.has(retiredKey(provider, model));
 
-// The event carries the names a person reads, so the shell that shows the notice needs neither
-// the name formatter nor the provider table on its boot path.
+// The event carries the route's label, so the shell that shows the notice does not need the
+// provider table on its boot path; it formats the model names itself, lazily. (This module stays
+// plain JS with plain-JS imports: the Node unit tier loads it without a bundler.)
 function announceRetired(detail) {
 	if (!hasWindow) return;
-	const name = (id) => modelDisplayName({ id, provider: detail.provider });
-	detail = { ...detail, route: providerLabel(detail.provider) || detail.provider, modelName: name(detail.model), ...(detail.to ? { toName: name(detail.to) } : {}), ...(detail.answeredBy ? { answeredName: name(detail.answeredBy) } : {}) };
+	detail = { ...detail, route: providerLabel(detail.provider) || detail.provider };
 	try {
 		window.dispatchEvent(new CustomEvent(MODEL_RETIRED_EVENT, { detail }));
 	} catch {

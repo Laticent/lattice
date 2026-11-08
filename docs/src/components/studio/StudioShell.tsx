@@ -701,17 +701,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the author is told what changed, or what to do; nothing moves to another family unannounced.
 	React.useEffect(() => {
 		const WHAT: Record<string, string> = { chat: 'Chat', image: 'The image reader', voice: 'Voice' };
-		const onRetired = (e: Event) => {
-			const d = (e as CustomEvent<{ route: string; modelName: string; to: string | null; toName?: string; kinds: string[]; answeredName?: string }>).detail;
+		const onRetired = async (e: Event) => {
+			const d = (e as CustomEvent<{ provider: string; route: string; model: string; to: string | null; kinds: string[]; answeredBy?: string }>).detail;
 			if (!d) return;
+			// The name formatter loads with the notice, off the boot path (route budget).
+			const { modelDisplayName } = await import('@/lib/model-name');
+			const name = (id: string) => modelDisplayName({ id, provider: d.provider });
 			const who = d.kinds.map((k) => WHAT[k] ?? k);
 			const subject = who.length ? who.join(' and ').replace(/^(.)/, (c) => c.toUpperCase()) : 'The Studio';
 			if (d.to) {
-				notify(`${d.modelName} was retired. ${subject} now ${who.length > 1 ? 'use' : 'uses'} ${d.toName} · ${d.route}.`, { description: 'Same model family, newer version. Change it in Workspace › AI.', duration: 8_000 });
-			} else if (d.answeredName) {
-				notify(`${d.route} answered with ${d.answeredName} instead of ${d.modelName}.`, { description: 'That model looks retired. Choose another in Workspace › AI before the next request.', duration: 15_000 });
+				notify(`${name(d.model)} was retired. ${subject} now ${who.length > 1 ? 'use' : 'uses'} ${name(d.to)} · ${d.route}.`, { description: 'Same model family, newer version. Change it in Workspace › AI.', duration: 8_000 });
+			} else if (d.answeredBy) {
+				notify(`${d.route} answered with ${name(d.answeredBy)} instead of ${name(d.model)}.`, { description: 'That model looks retired. Choose another in Workspace › AI before the next request.', duration: 15_000 });
 			} else {
-				notify(`${d.modelName} was retired, and ${d.route} has no newer version of it.`, { description: 'Choose another model in Workspace › AI.', duration: 15_000 });
+				notify(`${name(d.model)} was retired, and ${d.route} has no newer version of it.`, { description: 'Choose another model in Workspace › AI.', duration: 15_000 });
 			}
 		};
 		// lib/model-retired.js MODEL_RETIRED_EVENT, named as a string so this shell does not pull that module onto the boot path.

@@ -238,7 +238,9 @@ describe('chat selection — who answers', () => {
   });
 
   test('a selected OpenRouter answers while local tiers are ready', async () => {
-    const { model } = await fresh();
+    const { model, sel } = await fresh();
+    // Nothing is selected on a fresh Studio (2026-11-08-studio-ai-routes-ux.md): select it.
+    sel.selectChat({ provider: 'openrouter' });
     const m = model.createArchitectModel({ getSettings: () => ({}) });
     m.__setUniversal(readyBackend('transformers', 'U'));
     m.__setPromptAvailability('available');

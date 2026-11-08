@@ -299,7 +299,7 @@ describe('model spine — a retired version heals within its family', () => {
 		expect(await m.complete({ messages: [{ role: 'user', content: 'hi' }] })).toBe('answered by anthropic/claude-sonnet-5.5');
 		expect(calls).toEqual(['anthropic/claude-sonnet-5', 'anthropic/claude-sonnet-5.5']);
 		expect(readChatSelection()).toMatchObject({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
-		expect(events).toMatchObject([{ provider: 'openrouter', model: 'anthropic/claude-sonnet-5', to: 'anthropic/claude-sonnet-5.5', kinds: ['chat'], route: 'OpenRouter', toName: 'Claude Sonnet 5.5' }]);
+		expect(events).toMatchObject([{ provider: 'openrouter', model: 'anthropic/claude-sonnet-5', to: 'anthropic/claude-sonnet-5.5', kinds: ['chat'], route: 'OpenRouter' }]);
 	});
 
 	it('with nothing newer in the family, reads Model retired and never answers on Opus or GPT', async () => {
