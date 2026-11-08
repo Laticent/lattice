@@ -705,7 +705,7 @@ orientation and no canvas), so there is nothing to redraw.
 - **Tower gets a narrow form (the owner's look at the phone render, 2026-11-08).** Its layer names sat in a
   side column that took half a phone-width box, right-aligned beside bars squeezed to the other half, and its
   key was one tall column sized from the diagram's height, larger than the labels it explains. Below 260
-  units wide (a phone redraw, a narrow pane), each layer's name and size now print in a heading row above its
+  units wide in the fluid viewer's redraw, each layer's name and size now print in a heading row above its
   band, the bars take the full width, and the key wraps in centered rows at the chart's own label size (the
   shared key's flowing band, `fitLabels`). A crowded tower whose heading rows would not fit keeps the side
   column. A whole slide is 320 wide in either orientation, so no whole-slide export moves (landscape and
@@ -743,6 +743,14 @@ orientation and no canvas), so there is nothing to redraw.
   canvas, so its size key printed at 7px on a phone; below 260 units its key under the cloud is scaled 2.4x
   about the canvas center. No deck's export moves (26 risk-matrix and quadrant decks, 16 word-cloud decks,
   byte-identical once the new attributes are stripped).
+- **The narrow forms are the fluid viewer's alone (the checker, 2026-11-08).** They first keyed on the
+  canvas width, and a half-width pane on a 16:9 slide is 223 units wide too, so the paged export of a tower,
+  quadrant or risk matrix in a two-column pane changed: a ten-risk matrix's labels fell from 14.6px to 7.7px.
+  lib/runtime/chart-redraw.js now marks the canvas it passes `fluid`, and the kernels take a narrow form only
+  on that mark. test/unit/components/narrow-forms.test.js pins it for all four kinds (a 223-wide export pane
+  keeps the wide form; it fails with the gate removed), and the checker's pane decks render byte-identical to
+  `main` once the new attributes are stripped. The pane check before trust also compares the new source
+  attributes now, so a word's weight or a band's range cannot drift in a pane unseen.
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
-**Drawn with** `svg` — Layers, shares, figures and the key are one `<svg>`. Every layer is the same height, not drawn to scale: its size is printed beside it in the market's notation (`$40M xs $50M`) and each boundary carries its figure on the right edge, so a $40M bottom layer stays as readable as a $200M top one. In a narrow box (a phone, a narrow pane) each layer's name and size print above its band instead of in a side column, the bars take the full width, and the key wraps in centered rows at the chart's label size.
+**Drawn with** `svg` — Layers, shares, figures and the key are one `<svg>`. Every layer is the same height, not drawn to scale: its size is printed beside it in the market's notation (`$40M xs $50M`) and each boundary carries its figure on the right edge, so a $40M bottom layer stays as readable as a $200M top one. Redrawn for a phone in the `--fluid` viewer, each layer's name and size print above its band instead of in a side column, the bars take the full width, and the key wraps in centered rows at the chart's label size.
 
 **Tags** `risk` · `ownership` · `proportion` · `board-deck`
 
