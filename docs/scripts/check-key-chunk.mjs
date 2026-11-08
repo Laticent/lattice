@@ -49,7 +49,9 @@ export function keyNames(source) {
  * @returns {{ problems: string[], chunkByName: Record<string, string[]> }}
  */
 export function findProblems(names, jsFiles, htmlFiles, read = (f) => fs.readFileSync(f, 'utf8')) {
-	const res = names.map((n) => [n, new RegExp(`(?<![A-Za-z0-9-])${n.replace(/-/g, '\\-')}(?![A-Za-z0-9-])`)]);
+	// Escape every regex metacharacter (backslash included), not just the hyphen a slot name uses today.
+	const escapeRe = (n) => n.replace(/[\\^$.*+?()[\]{}|-]/g, '\\$&');
+	const res = names.map((n) => [n, new RegExp(`(?<![A-Za-z0-9-])${escapeRe(n)}(?![A-Za-z0-9-])`)]);
 	const chunkByName = Object.fromEntries(names.map((n) => [n, []]));
 	const problems = [];
 	for (const f of jsFiles) {
