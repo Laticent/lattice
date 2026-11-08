@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 summary: Workspace › AI blurred three questions (how the Studio reaches models, which model does what, and who uses it), so the owner could not tell what was what. The redesign separates them into Connections (OpenRouter with two ways in, your own provider keys, this device), three selections (chat, image, voice) that each name their route and the features they feed, and fixed rules for when the Studio may change a selection (only a never-set one, or a retired version healed within its own family). Reviewed by the adversarial trio on 2026-11-08; its findings are folded in.
 ---
 
