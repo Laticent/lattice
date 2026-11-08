@@ -31,7 +31,11 @@ function ensureOne(name: string, url: string): Promise<void> {
 	if (existing) return existing;
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;
+		let t: ReturnType<typeof setInterval> | undefined;
 		const fail = (msg: string) => {
+			// Stop polling too: a poll left running after a load error read `window` for ~10 s and, timing out, deleted a
+			// later retry's loader (the leak #3070 fixed in ensure-katex.ts and load-engine.ts).
+			clearInterval(t);
 			loaders.delete(url); // a later render retries
 			reject(new Error(msg));
 		};
@@ -41,14 +45,11 @@ function ensureOne(name: string, url: string): Promise<void> {
 		s.setAttribute('data-lattice-plugin-data', name);
 		s.addEventListener('error', () => fail(`plugin data failed to load: ${url}`));
 		document.head.appendChild(s);
-		const t = setInterval(() => {
+		t = setInterval(() => {
 			if (loaded(name)) {
 				clearInterval(t);
 				resolve();
-			} else if (++attempts >= MAX_ATTEMPTS) {
-				clearInterval(t);
-				fail(`plugin data load timed out: ${url}`);
-			}
+			} else if (++attempts >= MAX_ATTEMPTS) fail(`plugin data load timed out: ${url}`);
 		}, POLL_MS);
 	});
 	loaders.set(url, p);
