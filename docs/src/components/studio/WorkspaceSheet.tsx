@@ -1080,8 +1080,8 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									<dl data-testid="spend-by-use" className="ml-[36px] mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 text-[11px]">
 										{spendByUse.map((u) => (
 											<React.Fragment key={`${u.kind}|${u.route}`}>
-												<dt className="truncate text-muted-foreground">{u.kind === 'image' ? 'Image reader' : 'Chat'} · {KEY_PROVIDER_INFO[u.route as keyof typeof KEY_PROVIDER_INFO]?.label ?? 'cloud'}</dt>
-												<dd className="text-right font-mono text-muted-foreground">{u.route && u.route !== 'openrouter' ? '≈ ' : ''}{fmtUSD(u.usd)}</dd>
+												<dt className="truncate text-muted-foreground">{u.kind === 'image' ? 'Image reader' : u.kind === 'voice' ? 'Voice' : 'Chat'} · {KEY_PROVIDER_INFO[u.route as keyof typeof KEY_PROVIDER_INFO]?.label ?? 'cloud'}</dt>
+												<dd className="text-right font-mono text-muted-foreground">{u.kind === 'voice' || (u.route && u.route !== 'openrouter') ? '≈ ' : ''}{fmtUSD(u.usd)}</dd>
 											</React.Fragment>
 										))}
 									</dl>

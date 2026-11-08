@@ -5,3 +5,5 @@
 - Studio: a narrated webpage export speaks in your voice model, including a Gemini voice or the on-device voice; the export panel no longer has a narrator picker of its own.
 - Studio: a provider that answers "out of credit" is shown as that under Connections, with the time and a link to add billing.
 - Studio: on an OpenAI key, a reasoning model that refuses tools (GPT-6.1 Terra) now answers the chat without edits instead of failing the turn; and a turn that never reached a direct provider names that provider ("never reached Gemini"), not OpenRouter.
+- Studio: read-aloud and narration on a cloud voice now count toward Spend, as an estimate from the voice's per-character price ("Voice · OpenRouter ≈ $0.09"), and toward a spend cap.
+- Studio: right after signing in to OpenRouter, the new key no longer reads "Key rejected" because OpenRouter had not finished setting it up: a 401 on a just-made key is checked again before it counts. When a key really is refused, the chat, image reader and voice cards all say so, not only the chat card.

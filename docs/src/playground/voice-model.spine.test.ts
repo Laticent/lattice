@@ -153,6 +153,20 @@ describe('model spine — Gemini direct voice', () => {
 		expect(out.key).toContain('gemini-tts'); // its own cache identity, never an OpenRouter clip's
 	});
 
+	it('reports each cloud clip it makes, once, so its cost can be booked; a cached clip is not reported', async () => {
+		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' });
+		const made = vi.fn();
+		const v = createVoiceModel({
+			keyPrefix: 'studio',
+			onSynthesized: made,
+			fetchImpl: async () => Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: RIFF } }] } }] }),
+			selection: { read: readVoiceSelection, select: selectVoice, keyState: () => 'ready', readKey: () => 'AIzaTestKey000000000000000' },
+		}) as unknown as V & { synthFor: (o: { rung: string; text: string }) => Promise<{ ok: boolean }> };
+		expect((await v.synthFor({ rung: 'gemini', text: 'Hello there.' })).ok).toBe(true);
+		expect((await v.synthFor({ rung: 'gemini', text: 'Hello there.' })).ok).toBe(true);
+		expect(made).toHaveBeenCalledExactlyOnceWith({ route: 'gemini', model: 'gemini-3.8-flash-lite-tts', chars: 12 });
+	});
+
 	it('wraps headerless L16 PCM into WAV', async () => {
 		selectVoice({ provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Puck' });
 		const pcm = btoa(String.fromCharCode(...new Array(64).fill(1)));

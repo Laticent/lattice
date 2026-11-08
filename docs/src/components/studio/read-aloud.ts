@@ -364,6 +364,10 @@ function getRealVoice(): Promise<VoiceModel | null> {
 						voiceNotice(`${voiceProviderName(provider)} retired the voice model you chose. Read-aloud is off: pick another in Workspace › AI.`, modelDisplayName({ id: model, provider })),
 					// Out of credit or quota: the key and model are fine, so nothing is switched off; this
 					// read is silent and the author is told once where to fix it.
+					// A cloud clip was made: book its estimated cost as voice spend on its route.
+					onSynthesized: ({ route, model, chars }: { route: string; model: string; chars: number }) => {
+						void bookVoiceSpend(route, model, chars);
+					},
 					onBilling: ({ provider }: { provider: string }) => {
 						import('@/lib/model-retired.js').then((m) => m.noteOutOfCredit(provider));
 						voiceNotice(`${voiceProviderName(provider)} has no credit or quota left on this key, so read-aloud is silent. Add billing with ${voiceProviderName(provider)}, or pick another voice in Workspace › AI.`);
@@ -1638,6 +1642,28 @@ export async function geminiVoiceCatalog(): Promise<{ models: { id: string; name
 		return { ...c, models: reg.curate(c.models, reg.CURATED.voice.gemini, { perFamily: 1 }) };
 	} catch {
 		return { models: [], voices: [], reachable: false };
+	}
+}
+
+// VOICE SPEND (2026-11-08-studio-ai-routes-ux.md, Spend): neither OpenRouter's speech endpoint
+// nor Gemini's returns a cost, so a clip is booked at its model's per-character price from
+// OpenRouter's public catalog (a Gemini model by its `google/` id there). Marked as an estimate in
+// Workspace › AI. A model with no published price books nothing rather than a guess.
+let voicePrices: Promise<OrVoiceModel[]> | null = null;
+async function bookVoiceSpend(route: string, model: string, chars: number): Promise<void> {
+	try {
+		voicePrices ??= listTtsModels();
+		const list = await voicePrices;
+		if (!list.length) voicePrices = null; // unreachable: ask again next clip
+		const id = route === 'gemini' ? `google/${model}` : model;
+		const m = list.find((x) => x.id === id);
+		if (!m) return;
+		const [{ ttsCostPerMChars }, { recordSpend }] = await Promise.all([import('@/playground/tts-cost.js'), import('@/components/studio/ai/spend.js')]);
+		const perM = ttsCostPerMChars(m);
+		if (perM == null || !(chars > 0)) return;
+		recordSpend((perM * chars) / 1e6, 0, undefined, { kind: 'voice', route });
+	} catch {
+		/* spend is a readout; a failure to price a clip never stops the voice */
 	}
 }
 

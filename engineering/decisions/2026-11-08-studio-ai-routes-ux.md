@@ -340,6 +340,10 @@ What shipped, by the plan above:
    recorded per route from a request (`noteOutOfCredit`) and shown with its time and an *Add billing* link. Spend
    lists chat and the image reader per route.
 
-Left for later, each recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`
-(`3079-p1-model-guard-rails.md`), and voice spend in the per-selection list (voice synthesis does not book spend
-today; the export panel quotes it).
+Voice spend is booked too: the voice model reports each cloud clip it makes (`onSynthesized`), and read-aloud
+books it at the model's per-character price from OpenRouter's public catalog (`bookVoiceSpend`), marked as an
+estimate. A fresh key's 401 on `/auth/key` is asked again twice before the key is called rejected, and every card
+on a route whose key was refused says so (owner report, 2026-11-08).
+
+Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`
+(`3079-p1-model-guard-rails.md`).

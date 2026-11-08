@@ -193,6 +193,7 @@ function makeSlot(KEY, REJECTED) {
 	let migrating = null;
 	let persisting = Promise.resolve();
 	let lastTransient = 0; // when an open last failed transiently (the store unreachable)
+	let writtenAt = 0; // when this page last wrote a key: a key minted seconds ago may not be live everywhere yet
 	// The slot retries a transient failure by itself, backing off, so the key opens (and
 	// announces) once the store recovers even if nothing reads it meanwhile. One timer at most.
 	let retryTimer = null;
@@ -292,6 +293,7 @@ function makeSlot(KEY, REJECTED) {
 		cached = next;
 		generation++;
 		pending++;
+		writtenAt = next ? Date.now() : 0;
 		write(REJECTED, null);
 		persisting = persisting.then(async () => {
 			try {
@@ -340,6 +342,7 @@ function makeSlot(KEY, REJECTED) {
 		generation = 0;
 		persisting = Promise.resolve();
 		lastTransient = 0;
+		writtenAt = 0;
 		if (retryTimer) clearTimeout(retryTimer);
 		retryTimer = null;
 		retryDelay = TRANSIENT_RETRY_MS;
@@ -352,7 +355,7 @@ function makeSlot(KEY, REJECTED) {
 		return read(KEY) ? 'opening' : 'none';
 	}
 
-	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, state, settled: () => persisting };
+	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, state, settled: () => persisting, writtenAt: () => writtenAt };
 }
 
 const SLOTS = Object.fromEntries(Object.entries(SLOT_NAMES).map(([p, [k, r]]) => [p, makeSlot(k, r)]));
@@ -394,6 +397,12 @@ export function readOpenRouterKey() {
  * Store a key (or remove it with null). Memory changes now; the sealed copy is written next,
  * in order. A new key, or none, always clears the rejected mark. Returns the write's promise.
  */
+/** How long ago this page wrote the OpenRouter key (ms), or Infinity when it did not. */
+export function openRouterKeyAgeMs() {
+	const t = OR.writtenAt();
+	return t ? Date.now() - t : Number.POSITIVE_INFINITY;
+}
+
 export function writeOpenRouterKey(key) {
 	if (!key) write(OR_VIA, null);
 	return OR.writeKey(key);

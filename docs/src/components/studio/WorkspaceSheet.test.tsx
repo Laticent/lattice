@@ -784,3 +784,21 @@ describe('WorkspaceSheet — Connections', () => {
 		expect(sheet.queryByRole('button', { name: 'Use for chat' })).toBeNull();
 	});
 });
+
+// Every card on a route whose key was refused says so, not only the chat card (owner report,
+// 2026-11-08: chat read "Key rejected" while the image reader and voice on the same key read Ready).
+describe('WorkspaceSheet — a rejected key shows on every card on its route', () => {
+	afterEach(() => {
+		localStorage.removeItem('lattice-db-or-key');
+		localStorage.removeItem('lattice-db-or-key-invalid');
+	});
+	it('chat, the image reader and the voice all read Key rejected', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		localStorage.setItem('lattice-db-or-key-invalid', '1');
+		statusSpy.mockReturnValue({ ...connectedStatus, openRouterKeyInvalid: true });
+		const { sheet } = openSheet();
+		for (const id of ['chat-model-card', 'image-reader-card', 'voice-model-card']) {
+			await waitFor(() => expect(within(sheet.getByTestId(id)).getByTestId(`${id}-state`)).toHaveTextContent('Key rejected'));
+		}
+	});
+});

@@ -880,7 +880,7 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
 // Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
 // engineering/decisions/2026-11-07-studio-model-spine.md
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling } = {}) {
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling, onSynthesized } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -1111,6 +1111,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // The MODEL id for a given rung name — only OpenRouter's rung varies by model
   // (Kokoro's on-device model is fixed); anything else (mock/injected/
   // speechSynthesis) has no model concept, so it's simply excluded from the key.
+  // A CLOUD clip was just made (not served from a cache): tell the caller, which books its cost
+  // as voice spend on its route (2026-11-08-studio-ai-routes-ux.md, Spend). On-device is free.
+  function tellSynthesized(rungName, model, text) {
+    const route = rungName === 'openrouter-tts' ? 'openrouter' : rungName === 'gemini-tts' ? 'gemini' : '';
+    if (!route || !onSynthesized) return;
+    try { onSynthesized({ route, model, chars: String(text || '').length }); } catch {}
+  }
+
   function modelIdFor(rungName) {
     if (rungName === 'openrouter-tts') return orModel();
     if (rungName === 'kokoro') return KOKORO_MODEL;
@@ -1372,6 +1380,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       .then((blob) => {
         if (!blob) return null;
         cacheSet(key, blob);
+        tellSynthesized(rung.name, modelIdFor(rung.name), text);
         // Write through to the device, unawaited — a caller may be waiting to PLAY this.
         if (narrationCacheEnabled()) {
           Promise.resolve(putClip(key, blob)).catch(() => {
@@ -1824,7 +1833,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // only OUR patience, never the caller's cancellation.
       const inflight = r
         .synth({ text, voice: effVoice, speed: effSpeed, model: rung !== 'kokoro' ? effModel : undefined, signal: sig })
-        .then((b) => { if (b) cacheSet(key, b); return b; })
+        .then((b) => { if (b) { cacheSet(key, b); tellSynthesized(r.name, effModel, text); } return b; })
         .finally(done);
       // Swallow a late rejection so an abandoned request cannot surface as an unhandled
       // rejection after this function has already returned its answer.

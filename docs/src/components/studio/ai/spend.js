@@ -70,7 +70,7 @@ function bookUse(use, cost) {
     ss.setItem(SPEND_BY_USE_KEY, JSON.stringify(all));
   } catch {}
 }
-/** This session's spend per use and route: [{ kind: 'chat' | 'image', route, usd }], largest first. */
+/** This session's spend per use and route: [{ kind: 'chat' | 'image' | 'voice', route, usd }], largest first. */
 export function readSpendByUse() {
   try {
     const all = JSON.parse(globalThis.sessionStorage?.getItem(SPEND_BY_USE_KEY) || '{}');
@@ -78,7 +78,7 @@ export function readSpendByUse() {
   } catch { return []; }
 }
 
-/** @param {number} cost @param {number} [tokens] @param {string} [deckId] @param {{ kind: 'chat' | 'image', route: string }} [use] */
+/** @param {number} cost @param {number} [tokens] @param {string} [deckId] @param {{ kind: 'chat' | 'image' | 'voice', route: string }} [use] */
 export function recordSpend(cost, tokens = 0, deckId, use) {
   // Cost and tokens are recorded independently — a free model bills $0 but still
   // burns tokens, so the token tally must not be gated on a positive cost.

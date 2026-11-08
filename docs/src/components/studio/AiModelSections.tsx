@@ -7,7 +7,7 @@ import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
 import { isRetired } from '@/lib/model-retired.js';
 import { readImageSelection, readVoiceSelection, selectImage } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
-import { openRouterKeyHint, providerKeyHint } from '@/lib/openrouter-key.js';
+import { openRouterKeyHint, providerKeyHint, providerKeyState } from '@/lib/openrouter-key.js';
 import { providerLabel } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
 import { ApiKeyPanel } from './ApiKeyPanel';
@@ -159,6 +159,13 @@ function SelectionCard({
 	);
 }
 
+/** The sentence for a selection whose route's key the provider refused, or null. Every card on that
+ *  route says it, not only the chat card (owner report, 2026-11-08). */
+function rejectedAlert(p: string): string | null {
+	if (!['openrouter', 'gemini', 'anthropic', 'openai'].includes(p) || providerKeyState(p) !== 'rejected') return null;
+	return `${providerLabel(p)} rejected the key (revoked or expired) — ${p === 'openrouter' ? 'sign in again' : 'replace it'} below.`;
+}
+
 const KEYED: CloudProvider[] = ['openrouter', 'gemini', 'anthropic', 'openai'];
 const hasKey = (p: CloudProvider) => !!(p === 'openrouter' ? openRouterKeyHint() : providerKeyHint(p));
 
@@ -294,8 +301,8 @@ export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; us
 				name={name}
 				meta={meta}
 				state={r?.state}
-				alert={r?.reason === 'model-gone' ? `${providerLabel(sel.provider)} no longer offers this model. Choose another.` : null}
-				alertBadge="Model retired"
+				alert={rejectedAlert(sel.provider) ?? (r?.reason === 'model-gone' ? `${providerLabel(sel.provider)} no longer offers this model. Choose another.` : null)}
+				alertBadge={rejectedAlert(sel.provider) ? undefined : 'Model retired'}
 				open={open}
 			/>
 			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}
@@ -393,8 +400,8 @@ export function ImageReaderSection({ status, usedBy }: { status: ArchitectStatus
 				name={name}
 				meta={meta}
 				state={own ? ownState : chatOnDevice ? undefined : chat?.state}
-				alert={!own && chatOnDevice ? "The chat model runs on this device and can't read images. Choose an image reader." : null}
-				alertBadge="Can't read images"
+				alert={(route0 ? rejectedAlert(route0) : null) ?? (!own && chatOnDevice ? "The chat model runs on this device and can't read images. Choose an image reader." : null)}
+				alertBadge={route0 && rejectedAlert(route0) ? undefined : "Can't read images"}
 				open={open}
 			/>
 			{usedBy ? <WorkspaceUsedBy>{usedBy}</WorkspaceUsedBy> : null}

@@ -21,7 +21,7 @@
 import { familyOf, healTarget } from '../../../lib/model-family.js';
 import { clearOutOfCredit, healSelections, isRetired, markRetired, noteOutOfCredit } from '../../../lib/model-retired.js';
 import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
-import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
+import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
 import { directBackend } from './direct-providers.js';
 
@@ -45,6 +45,7 @@ const TRANSFORMERS_URL = 'https://esm.run/@huggingface/transformers';
 const OPENROUTER_AUTH_URL = 'https://openrouter.ai/auth';
 const OPENROUTER_KEYS_URL = 'https://openrouter.ai/api/v1/auth/keys';
 const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/auth/key'; // GET: this key's usage + limit
+const FRESH_KEY_MS = 60_000; // a key written this recently gets two more asks before a 401 counts
 const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/api/v1/credits'; // GET: account wallet (total_credits/total_usage)
 const OPENROUTER_KEYS_SETTINGS_URL = 'https://openrouter.ai/settings/keys'; // where a user sets a per-key spend limit
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
@@ -295,7 +296,16 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const key = readOpenRouterKey();
       if (!key) return null;
       try {
-        const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        let res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        // A key OpenRouter minted seconds ago (a fresh sign-in) can answer 401 here before it is
+        // live everywhere. Ask again, twice, before calling it rejected: a key that is really
+        // dead is still marked within about ten seconds (owner report, 2026-11-08: "Key
+        // rejected" right after signing in, while the same key read Ready elsewhere).
+        for (const wait of [2500, 7000]) {
+          if (res.status !== 401 || openRouterKeyAgeMs() > FRESH_KEY_MS || key !== readOpenRouterKey()) break;
+          await new Promise((r) => setTimeout(r, wait));
+          res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        }
         noteStatus(res.status, key);
         if (!res.ok) return null;
         const d = (await res.json()).data || {};

@@ -370,3 +370,36 @@ describe('model spine — AI off stops a call on its own route', () => {
 		expect(m.imageReader().state).toBe('off');
 	});
 });
+
+// A key OpenRouter minted seconds ago can answer 401 on /auth/key before it is live everywhere
+// (owner report, 2026-11-08: "Key rejected" right after signing in). It is asked again before the
+// Studio calls it rejected; a key that keeps answering 401 is still marked.
+describe('model spine — a fresh key is re-asked before it is called rejected', () => {
+	type Acct = Model & { restoreOpenRouter: (k: string) => void; openRouterAccount: () => Promise<unknown> };
+	async function run(statuses: number[]) {
+		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
+		vi.useFakeTimers();
+		let n = 0;
+		const auth = vi.fn(async () => new Response(JSON.stringify({ data: { usage: 0, limit: null } }), { status: statuses[Math.min(n++, statuses.length - 1)] }));
+		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/key') ? auth() : Response.json({ data: [] }))));
+		const m = make() as unknown as Acct;
+		m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
+		await openRouterKeySettled();
+		const out = m.openRouterAccount();
+		await vi.advanceTimersByTimeAsync(10_000);
+		const info = await out;
+		vi.useRealTimers();
+		return { info, calls: auth.mock.calls.length, rejected: openRouterKeyRejected() };
+	}
+	it('a 401 then a 200 reads the account and leaves the key ready', async () => {
+		const r = await run([401, 200]);
+		expect(r.calls).toBe(2);
+		expect(r.info).not.toBeNull();
+		expect(r.rejected).toBe(false);
+	});
+	it('a key that keeps answering 401 is still marked rejected, after two more asks', async () => {
+		const r = await run([401]);
+		expect(r.calls).toBe(3);
+		expect(r.rejected).toBe(true);
+	});
+});
