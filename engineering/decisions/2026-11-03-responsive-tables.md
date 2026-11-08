@@ -717,6 +717,26 @@ orientation and no canvas), so there is nothing to redraw.
   workstream name in plain text beside it, no rule, and a pill sized from the title. Roadmap stays off the
   shared table cards on purpose (§"The block layouts copy no markup": it is a cross-tab), and no export
   changes (roadmap.styles.css, the last block).
+- **The partial-source kinds record their source on their marks (the owner's call, 2026-11-08).** Quadrant,
+  risk-matrix, scatter, histogram, radar, gantt and word-cloud kept part of each item's source only in
+  geometry or the `<desc>` prose. Each now carries it as NEW attributes, written exactly as the author typed
+  it; `data-label` and `data-value` mean what they meant (the Present Guide reads those two):
+  - quadrant, risk-matrix, scatter: `data-x` / `data-y` on each point (`data-x-to` / `data-y-to` for a second
+    record, `data-size-value` for a written size), quadrant's axis list as `data-axis` on its figure, scatter's
+    size measure as `data-size-axis`;
+  - histogram: `data-range` on each band (`$1M..$10M`);
+  - radar, gantt, word-cloud: `data-raw`, a JSON array of the row's values as written (decoded, so `R&D` does
+    not come back as `R&amp;D`), with radar's comparison band as `data-pack`, its scale as `data-min` /
+    `data-max`, a sector's axis as `data-group`, and gantt's lane as `data-lane` and window as `data-window` /
+    `data-today`.
+  Stripped of the new attributes, every deck that uses one of these kinds (80, galleries, examples and
+  baseline decks) renders byte-identical to `main`. A reader each reads 52 of 53 gallery charts back byte for
+  byte (radar's small-multiples draws the same grid in every box and is refused).
+- **Quadrant gets a narrow geometry.** Every variant but cohort drew a fixed 420 × 348 drawing whatever box it
+  was given, so a phone scaled its labels to 8-11px; cohort fitted its box but kept a pane's slide-size key
+  and shrank the plane under it. Below 260 units wide each variant draws a 300 × 320 drawing with label budgets
+  to match, and cohort's key goes under the plane at the chart's label size. No deck's export moves (no
+  example pane is that narrow).
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

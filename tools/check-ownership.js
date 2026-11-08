@@ -5841,6 +5841,13 @@ const SANCTIONED_MARK_IDENTITY = [
   // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
   // redrawn data with its exported data; it writes neither.
   ['runtime/chart-redraw.js', true, true],
+  ['runtime/chart-readers/gantt.js', true, false],
+  ['runtime/chart-readers/histogram.js', true, true],
+  ['runtime/chart-readers/quadrant.js', true, false],
+  ['runtime/chart-readers/radar.js', true, false],
+  ['runtime/chart-readers/risk-matrix.js', true, false],
+  ['runtime/chart-readers/scatter.js', true, false],
+  ['runtime/chart-readers/word-cloud.js', true, false],
   ['runtime/chart-readers/bar.js', true, true],
   ['runtime/chart-readers/bullet.js', true, true],
   ['runtime/chart-readers/ep-curve.js', true, true],

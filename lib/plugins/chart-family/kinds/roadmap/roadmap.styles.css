@@ -965,8 +965,8 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
     grid-template-columns: minmax(0, 6em) minmax(0, 1fr);
     align-items: baseline;
     column-gap: var(--sp-sm);
-    padding-left: 0;
-    border-left: 0;
+    padding-inline-start: 0;
+    border-inline-start: 0;
   }
   section.roadmap.horizons:where(:root[data-lattice-view="fluid"] *) .row-label {
     font-family: var(--font-body);

@@ -27,6 +27,13 @@ const KINDS = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-fa
 
 /** Charts in each kind's gallery a reader refuses (they keep the exported drawing), and why. */
 const REFUSED = {
+  'quadrant': [],
+  'risk-matrix': [],
+  'scatter': [],
+  'histogram': [],
+  'radar': ['slide 7: small-multiples draws the same grid of minis in every box, so there is nothing to redraw'],
+  'gantt': [],
+  'word-cloud': [],
   'line': [],
   'slope': [],
   'ep-curve': [],
