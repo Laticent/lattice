@@ -785,8 +785,17 @@ orientation and no canvas), so there is nothing to redraw.
   1280 x 720), in every orientation, and its size joins the redraw key (it follows the slide's width and
   type, never the chart's drawing, so it cannot loop). Labels print at 1.26x the body text in every
   landscape box (1280, 1440, 1024 and 1180 wide measured) and 0.78x in every portrait box (820, 600, 390: the
-  200-unit floor that keeps words whole holds them there); at the export's own size the canvas is 320 x 180
-  and the exported drawing stays, byte for byte.
+  200-unit floor that keeps words whole holds them there). A box of the shape the deck was drawn for (its
+  orientation and aspect) keeps the exported drawing at any size: the slide's type scales with it, so its
+  labels already hold their proportion, and a portrait deck at its own size shows its own drawing.
+  The checker found three faults in the first cut, each fixed and re-measured with its own scripts: the
+  body size was read with a probe element added and removed on every pass, and the runtime's shared
+  MutationObserver answered each probe with another pass (an endless loop, about 70% of a core on an idle
+  page); it is now read from `--fs-body`'s computed product, touching nothing (0 DOM changes once idle, as
+  `main`). The redraw ran before the geometry pass wrote `--_sec-1cqi`, so its first measurement read the
+  unset fallback and showed a wrong drawing for a frame on ordinary desktops (500 x 280 units at 1920 x
+  1080); it now runs after the writes (a steady 320 x 180 from the first frame at 1366, 1920 and 2560). And a
+  portrait deck at its own size redrew; the authored shape now keeps the export.
 - **Funnel redraws its shape, not its type.** Its kernel switches to the tall geometry on a portrait box but
   reads no canvas, so its labels stay at 9px. Reading the canvas changes the export of every funnel in a
   pane, which needs the owner's sign-off.

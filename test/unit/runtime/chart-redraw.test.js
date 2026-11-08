@@ -103,3 +103,29 @@ describe('chart-redraw: a bar chart is read back from its marks', () => {
     assert.equal(readBar(first), null);
   });
 });
+
+describe('chart-redraw: the slide body size is read without touching the page', () => {
+  // A first cut measured `--fs-body` with a probe element added and removed on every pass; the runtime's
+  // shared MutationObserver answered each probe with another pass, an endless loop (the checker's repro).
+  const { bodyPx } = require('../../../lib/runtime/chart-redraw');
+  const withStyle = (value, fn) => {
+    const dom = new JSDOM('<section><p>a</p></section>');
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = () => ({ getPropertyValue: (n) => (n === '--fs-body' ? value : '') });
+    try { return fn(dom.window.document.querySelector('section')); } finally { global.getComputedStyle = prev; }
+  };
+
+  test('a computed product of numbers and one px length is its value; the section is untouched', () => {
+    withStyle('calc(1.67 * 12.800px * 1)', (section) => {
+      const before = section.outerHTML;
+      assert.ok(Math.abs(bodyPx(section) - 21.376) < 1e-9);
+      assert.equal(section.outerHTML, before, 'no element added or removed');
+    });
+  });
+
+  test('anything the page has not resolved to px is NaN, so the redraw waits', () => {
+    for (const v of ['calc(1.67 * 1cqi * 1)', '', 'calc(1.67 * var(--x) * 1)', 'calc(2 * 3)']) {
+      withStyle(v, (section) => assert.ok(Number.isNaN(bodyPx(section)), v));
+    }
+  });
+});
