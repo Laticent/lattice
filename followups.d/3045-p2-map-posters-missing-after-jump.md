@@ -2,7 +2,7 @@
 origin: 3045
 priority: P2
 recorded: 2026-11-08
-area: studio
+area: website
 severity: low
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §How the rule is held
 deferred: large — pre-existing on main d1a4704; the cause is unknown after 210 loaded runs and needs a trace of which tiles were captured and under which key
