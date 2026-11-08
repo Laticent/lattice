@@ -14,7 +14,7 @@ header: "Lattice · position marks"
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- _footer: "Eisenhower · each card's mark fills its own corner" -->
+<!-- _footer: "Eisenhower · the mark fills its corner" -->
 
 ## Four kinds of work, sorted by impact and effort.
 
@@ -32,7 +32,7 @@ header: "Lattice · position marks"
 ---
 
 <!-- _class: matrix-2x2 -->
-<!-- _footer: "Build or buy · the fourth card keeps its outcome ring, on its own page too" -->
+<!-- _footer: "Build or buy · the outcome ring travels" -->
 
 ## Where each vendor lands on coverage and cost.
 
@@ -68,7 +68,7 @@ header: "Lattice · position marks"
 ---
 
 <!-- _class: matrix-2x2 compact -->
-<!-- _footer: "Compact · the mark keeps its size against denser type" -->
+<!-- _footer: "Compact · the mark keeps its size" -->
 
 ## Markets by growth and share.
 
