@@ -130,6 +130,7 @@ describe('a failed request says why, instead of an empty reply', () => {
 		const { isToolRefusal, describeModelError } = await import('./chat-agent');
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found that support tool use.')).toBe(true);
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found that can handle the requested parameters.')).toBe(true);
+		expect(isToolRefusal('OpenAI error 400: {"error":{"message":"Function tools with reasoning_effort are not supported for gpt-6.1-terra in /v1/chat/completions."}}')).toBe(true);
 		expect(isToolRefusal('OpenRouter error 401: User not found')).toBe(false);
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found for some/retired-model.')).toBe(false);
 		expect(describeModelError('OpenRouter error 401: User not found')).toMatch(/reconnect in Workspace/);
@@ -139,6 +140,8 @@ describe('a failed request says why, instead of an empty reply', () => {
 		expect(describeModelError('OpenRouter error 401: {"error":{"message":"User not found.","code":401}}')).toContain('(OpenRouter said: User not found.)');
 		expect(describeModelError('OpenRouter error 404: No endpoints found for x/y')).toMatch(/pick another model/);
 		expect(describeModelError('TypeError: Load failed')).toMatch(/never reached OpenRouter/);
+		// A dropped connection names no provider; the route the turn ran on does (live check, 2026-11-08).
+		expect(describeModelError('TypeError: Failed to fetch', 'gemini')).toMatch(/never reached Gemini/);
 	});
 });
 

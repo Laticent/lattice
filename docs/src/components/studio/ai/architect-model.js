@@ -1006,7 +1006,7 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
   // retired one moves to the newest newer version of its own family on the same route, which is
   // stored and announced, and the call runs once more on it; with nothing newer the selection
   // reads "Model retired" and the error reaches the caller. Never another family, provider or route.
-  const TOOL_REFUSAL = /support tool use|support tools?\b|handle the requested parameters/i;
+  const TOOL_REFUSAL = /support tool use|support tools?\b|handle the requested parameters|function tools?\b[^.]*not supported/i;
   const errStatus = (e) => {
     const m = String(e?.message || '').match(/ error (\d{3})(?::\s*([\s\S]*))?/);
     return m ? { status: Number(m[1]), detail: m[2] || '' } : null;

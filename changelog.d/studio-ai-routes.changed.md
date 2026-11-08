@@ -4,3 +4,4 @@
 - Studio: when a provider retires your model, the Studio moves to the newest version of the same family on the same provider (Claude Sonnet 5 → 5.5) and tells you. It never moves to another family or provider: with nothing newer, the model reads "Model retired" and waits for you. A provider that answers with a different model instead is caught and named.
 - Studio: a narrated webpage export speaks in your voice model, including a Gemini voice or the on-device voice; the export panel no longer has a narrator picker of its own.
 - Studio: a provider that answers "out of credit" is shown as that under Connections, with the time and a link to add billing.
+- Studio: on an OpenAI key, a reasoning model that refuses tools (GPT-6.1 Terra) now answers the chat without edits instead of failing the turn; and a turn that never reached a direct provider names that provider ("never reached Gemini"), not OpenRouter.

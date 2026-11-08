@@ -349,6 +349,10 @@ export function ImageReaderSection({ status, usedBy }: { status: ArchitectStatus
 	// biome-ignore lint/correctness/useExhaustiveDependencies: status is the refresh trigger
 	const withKeys = React.useMemo(() => KEYED.filter(hasKey), [status]);
 	const [route, setRoute] = React.useState<CloudProvider>(() => (img.mode === 'own' ? (img.provider as CloudProvider) : (withKeys[0] ?? 'openrouter')));
+	// A route list that gains its first key while the sheet is open moves the shown route onto it.
+	React.useEffect(() => {
+		if (img.mode !== 'own' && !withKeys.includes(route) && withKeys[0]) setRoute(withKeys[0]);
+	}, [withKeys, route, img.mode]);
 	React.useEffect(() => {
 		if (!open && img.mode === 'own') setRoute(img.provider as CloudProvider);
 	}, [open, img]);
@@ -402,7 +406,14 @@ export function ImageReaderSection({ status, usedBy }: { status: ArchitectStatus
 						if (v === 'same') {
 							selectImage({ mode: 'same' });
 							notify('The image reader now follows the chat model.');
-						} else if (withKeys.includes(route)) selectImage({ mode: 'own', provider: route });
+						} else {
+							// The route shown, if it is connected; else the first connected one. A key added
+							// after the sheet opened is a route too (live check, 2026-11-08).
+							const to = withKeys.includes(route) ? route : withKeys[0];
+							if (!to) return;
+							setRoute(to);
+							selectImage({ mode: 'own', provider: to });
+						}
 					}}
 					className="mb-3 flex-wrap gap-1.5"
 				>

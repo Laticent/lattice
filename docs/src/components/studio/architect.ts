@@ -598,7 +598,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 // The sentence for a failed request, loaded only when a request fails: the per-cause sentences are
 // most of model-error.ts's weight, and a first load that never fails should not pay for them
 // (docs/route-budget.json). The chat agent imports it statically, inside its own lazy chunk.
-const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e));
+const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e), readChatSelection().provider);
 
 export type ThemeGenOutcome =
 	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */

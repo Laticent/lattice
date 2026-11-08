@@ -247,6 +247,15 @@ test('connecting a second key never moves the chat model; choosing one is done i
 	await page.getByRole('radiogroup', { name: 'Chat provider' }).getByRole('radio', { name: 'OpenRouter' }).click();
 	await expect(card).toContainText('OpenRouter · your account');
 
+	// The image reader can use a key added after the sheet opened: "a model of its own" lands on a
+	// connected route (a live check on 2026-11-08 found it did nothing when no key existed at mount).
+	const reader = page.getByTestId('image-reader-card');
+	await reader.getByRole('button', { name: /Change/ }).click();
+	await page.getByRole('radio', { name: 'A model of its own' }).click();
+	await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-image-selection') || '{}').mode)).toBe('own');
+	await page.getByRole('radio', { name: 'Same as chat model' }).click();
+	await reader.getByRole('button', { name: /Change/ }).click();
+
 	await page.getByRole('button', { name: 'Remove the OpenAI key' }).click();
 	await expect(page.getByTestId('provider-row-openai')).toContainText('No key');
 	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …0or0');

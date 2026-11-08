@@ -12,12 +12,17 @@ import { classifyProviderError } from '@/lib/provider-errors.js';
 /** The transport's failure shape, "<Provider> error <status>": group 1 the provider, group 2 the status. */
 export const MODEL_ERROR = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error (\d{3})/;
 
+const LABEL: Record<string, string> = { openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Gemini' };
+
 /** An author-facing sentence for a failed model request, from the transport's
- *  "<Provider> error <status>: <detail>" message. */
-export function describeModelError(message: string): string {
+ *  "<Provider> error <status>: <detail>" message. `provider` is the route the call ran on, for a
+ *  failure that names none (a dropped connection reads "Failed to fetch"). */
+export function describeModelError(message: string, provider?: string): string {
 	// The transport names the provider it called: OpenRouter, or a direct OpenAI / Anthropic /
-	// Gemini key (lifecycle note §7). Every sentence below names that provider back.
-	const who = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}/.exec(message)?.[1] ?? 'OpenRouter';
+	// Gemini key (lifecycle note §7). Every sentence below names that provider back. A network
+	// failure names none, so the route the caller ran on stands in: a Gemini turn that never
+	// reached Google used to say "never reached OpenRouter" (live check, 2026-11-08).
+	const who = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}/.exec(message)?.[1] ?? LABEL[provider ?? ''] ?? 'OpenRouter';
 	const direct = who !== 'OpenRouter';
 	const status = Number(MODEL_ERROR.exec(message)?.[2] ?? 0);
 	const raw = /\b(?:OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}: ([\s\S]*)/.exec(message)?.[1] ?? '';
