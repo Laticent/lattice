@@ -202,8 +202,9 @@ export function selectChat({ provider, model }) {
 	if (!isCloud && !CHAT_DEVICE_PROVIDERS.includes(provider)) throw new Error(`unknown chat provider ${provider}`);
 	const id = isCloud ? (model ?? cur.last[provider] ?? '') : '';
 	const last = { ...cur.last };
-	// Remember the model being LEFT too, so coming back to that provider finds it. A selection
-	// written another way (the legacy migration) has a model but no memory of it.
+	// Remember the model being LEFT too, so coming back to that provider finds it. Every write
+	// here and the migration already record it; this covers a record written by hand (a test
+	// fixture, a future writer) with a model but no memory of it. It never overwrites a memory.
 	if (cur.source === 'cloud' && cur.model && !last[cur.provider]) last[cur.provider] = cur.model;
 	if (isCloud && id) last[provider] = id;
 	const rec = { v: VERSION, source: isCloud ? 'cloud' : 'device', provider, model: id, last };

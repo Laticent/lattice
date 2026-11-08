@@ -154,8 +154,8 @@ phone ("Claude Sonn…").
 **Providers & keys** is one row per provider: OpenRouter, Gemini, Anthropic, OpenAI and On-device
 (`ApiKeyPanel.tsx`). A row says whether it holds a key (`Key …ab12`, `No key`, or rejected) and
 what it is in use for (chat, voice, both), read from the two selections. A keyed row offers Replace
-and Remove, plus "Use for chat" when chat runs elsewhere; an empty row offers Add, which opens the
-key field inline on that row. OpenRouter's row carries the one-click sign-in. With no key stored
+and Remove, plus "Use for chat" when chat runs elsewhere; an empty row offers Add ("Paste a key" on OpenRouter's row),
+which opens the key field inline on that row. OpenRouter's row carries the one-click sign-in. With no key stored
 anywhere, OpenRouter's field starts open, so the first run is one paste. On-device needs no key and
 its row only reports what it is in use for.
 
@@ -163,8 +163,8 @@ The chat chip names the selected model for every selection, on-device included, 
 glyph and a "Models & keys…" link; its list writes the same chat selection. Because the chip sets
 the GLOBAL selection, it reaches every source the Workspace does: a source switch lists each
 provider holding a key plus On-device. Picking a provider selects it at once, on the model last
-picked there (`selectChat` also remembers the model it is leaving, so a record written without
-that memory still comes back to it). On-device lists the three engines in place of the catalog,
+picked there (`selectChat` also remembers the model it is leaving; every write and the migration
+already do, so this only covers a record written by hand, such as a test fixture). On-device lists the three engines in place of the catalog,
 and picking one selects it, loaded or not; a model that is not loaded reads so in the chip and
 loads under Models & keys. The chip's "Featured" lens showing one model in review was the e2e mock
 catalog (two `test/*` models), not curation over-filtering: `OR_FEATURED` matches by family
@@ -205,7 +205,7 @@ once a second by a read.
   and holds the load until the test releases it). Run on Chromium (1440 and 390), WebKit (tablet
   and phone) and Gecko.
 - **CLS** on opening Workspace › AI: gated at 1440, 820 and 390 in `model-spine.spec.ts` (Chromium,
-  OpenRouter key, mocked). The test sums every `layout-shift` entry from the tab click until both
+  OpenRouter key, mocked). The test sums every `layout-shift` entry from just after the tab click until both
   cards read ready and the image model has painted, including the ones Chromium marks as following
   input, and requires 0. It was 0.085 at 820 before the skeleton fix. Making the image-model block a
   static import (the sheet itself is lazy) removed a Suspense placeholder 150px shorter than the

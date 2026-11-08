@@ -49,11 +49,11 @@ export function ApiKeyPanel({ status, onConnect, connecting = false }: { status:
 	const chatOnDevice = r?.source === 'device';
 	// With no key anywhere, the default provider's field is open: the first-run path is one paste.
 	const none = ORDER.every((p) => !hints[p]);
-	const [editing, setEditing] = React.useState<CloudProvider | null>(none ? 'openrouter' : null);
-	React.useEffect(() => {
-		if (none) setEditing((e) => e ?? 'openrouter');
-	}, [none]);
-	const open = editing;
+	// `undefined` = nobody chose: derived on every render, so a sealed key that opens after mount
+	// (every hint reads null until then) closes the field by itself. A row's Add / Replace / Keep
+	// sets it explicitly; a save or a remove hands it back to the derivation.
+	const [editing, setEditing] = React.useState<CloudProvider | null | undefined>(undefined);
+	const open = editing === undefined ? (none ? 'openrouter' : null) : editing;
 
 	return (
 		<ul className="flex flex-col gap-1.5" aria-label="Providers">
@@ -67,6 +67,7 @@ export function ApiKeyPanel({ status, onConnect, connecting = false }: { status:
 					rejected={chatProvider === p && !!status.openRouterKeyInvalid}
 					editing={open === p}
 					onEdit={(on) => setEditing(on ? p : null)}
+					onDone={() => setEditing(undefined)}
 					onConnect={p === 'openrouter' ? onConnect : undefined}
 					connecting={connecting}
 				/>
@@ -94,6 +95,7 @@ function ProviderRow({
 	rejected,
 	editing,
 	onEdit,
+	onDone,
 	onConnect,
 	connecting,
 }: {
@@ -104,6 +106,7 @@ function ProviderRow({
 	rejected: boolean;
 	editing: boolean;
 	onEdit: (on: boolean) => void;
+	onDone: () => void;
 	onConnect?: () => void;
 	connecting: boolean;
 }) {
@@ -112,23 +115,27 @@ function ProviderRow({
 	const [busy, setBusy] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const inputId = React.useId();
-	const close = () => {
-		onEdit(false);
-		setError(null);
-		setValue('');
-	};
+	// A row whose field closes forgets what was typed into it and its error, however it closed
+	// (Keep, a save, or another row's Add taking the field).
+	React.useEffect(() => {
+		if (!editing) {
+			setValue('');
+			setError(null);
+		}
+	}, [editing]);
+	const close = () => onEdit(false);
 	const save = async () => {
 		setBusy(true);
 		setError(null);
 		const out = await saveProviderKey(provider, value);
 		setBusy(false);
 		if (out.ok) {
-			close();
+			onDone();
 			notify(`${info.label} key saved — chat now runs on ${info.label}.`);
 		} else setError(out.note);
 	};
 	const remove = async () => {
-		close();
+		onDone();
 		await removeProviderKey(provider);
 		notify(`${info.label} key removed from this browser.`);
 	};
@@ -172,14 +179,14 @@ function ProviderRow({
 									{connecting ? 'Opening…' : 'Sign in'}
 								</button>
 							) : null}
-							<button type="button" onClick={() => onEdit(!editing)} aria-expanded={editing} aria-label={`Add ${/^[AEIOU]/.test(info.label) ? 'an' : 'a'} ${info.label} key`} className={btn}>
+							<button type="button" onClick={() => onEdit(!editing)} aria-expanded={editing} aria-label={onConnect ? `Paste a key for ${info.label}` : `Add ${/^[AEIOU]/.test(info.label) ? 'an' : 'a'} ${info.label} key`} className={btn}>
 								{onConnect ? 'Paste a key' : 'Add'}
 							</button>
 						</>
 					)}
 					{/* A rejected OpenRouter key can be replaced by signing in again. */}
 					{hint && rejected && onConnect ? (
-						<button type="button" onClick={onConnect} disabled={connecting} aria-label="Reconnect OpenRouter" className={cn(btn, 'inline-flex items-center gap-1.5')}>
+						<button type="button" onClick={onConnect} disabled={connecting} aria-label="Sign in again to OpenRouter" className={cn(btn, 'inline-flex items-center gap-1.5')}>
 							<Sparkles className="size-3.5" />
 							{connecting ? 'Opening…' : 'Sign in again'}
 						</button>

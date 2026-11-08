@@ -185,7 +185,7 @@ describe('WorkspaceSheet — a rejected key', () => {
 			const card = await sheet.findByTestId('chat-model-card');
 			expect(within(card).getByRole('alert')).toHaveTextContent('OpenRouter rejected the key');
 			expect(within(card).getByRole('button', { name: 'Key rejected' })).toBeInTheDocument();
-			expect(sheet.getByRole('button', { name: /Sign in with OpenRouter|Reconnect OpenRouter/ })).toBeInTheDocument();
+			expect(sheet.getByRole('button', { name: /Sign in with OpenRouter|Sign in again to OpenRouter/ })).toBeInTheDocument();
 		} finally {
 			statusSpy.mockReturnValue(connectedStatus);
 		}

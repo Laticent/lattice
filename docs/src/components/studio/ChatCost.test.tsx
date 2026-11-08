@@ -81,6 +81,21 @@ describe('ChatCost — the chip reaches every source (model spine)', () => {
 	});
 });
 
+describe('ChatCost — reopening the chip', () => {
+	it('shows the selected source again, not On-device browsed and left unpicked', async () => {
+		localStorage.setItem('lattice-db-or-key', 'sk-or-v1-abcdefgh1a2b');
+		const user = userEvent.setup();
+		render(<ChatCost source="# One" />);
+		await user.click(screen.getByRole('button', { name: /Change model/ }));
+		await user.click(screen.getByRole('radio', { name: 'On-device' }));
+		await user.keyboard('{Escape}');
+		await user.click(screen.getByRole('button', { name: /Change model/ }));
+		expect(screen.getByRole('radio', { name: 'OpenRouter' })).toHaveAttribute('aria-checked', 'true');
+		expect(screen.queryByRole('radiogroup', { name: 'On-device model' })).toBeNull();
+		localStorage.clear();
+	});
+});
+
 describe('readableModelId', () => {
 	it('turns an id into a name without the catalog', () => {
 		expect(readableModelId('~anthropic/claude-sonnet-latest')).toBe('Claude Sonnet (latest)');

@@ -397,7 +397,10 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 	// Which list the popover shows: a cloud provider's catalog, or the on-device engines. It
 	// follows the selection, and the source switch can open the engines before one is picked.
 	const [showDevice, setShowDevice] = React.useState(device);
-	React.useEffect(() => setShowDevice(device), [device]);
+	// Reopening the chip shows the SELECTED source, not the one last browsed and left unpicked.
+	React.useEffect(() => {
+		if (open) setShowDevice(device);
+	}, [open, device]);
 	const cloudReady = !device && !showDevice && status.openRouterReady;
 	const over = spend.status.level === 'over';
 	const warn = spend.status.level === 'warn';

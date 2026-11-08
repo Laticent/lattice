@@ -14,5 +14,5 @@
 - Present: the voice button names the voice that is speaking ("Heart · on-device", "Eve · OpenRouter") instead of a fixed "Aria", and shows "Loading voice… n%" while your selected voice loads, then starts reading.
 - Studio: one model-name format everywhere a model is named (Workspace, the chip, the pickers, Present).
 - Studio: when the browser's key store could not be reached, the Studio could spin re-reading the key and stop responding. A key that cannot be opened yet now reads "still opening" and is retried at most once a second.
-- Studio: Workspace → AI → Providers & keys lists one row per provider (OpenRouter, Gemini, Anthropic, OpenAI, On-device). Each row says whether it holds a key and what it is in use for (chat, voice or both), with Replace and Remove, or Add, which opens the key field on that row. OpenRouter's row keeps the one-click sign-in.
+- Studio: Workspace → AI → Providers & keys lists one row per provider (OpenRouter, Gemini, Anthropic, OpenAI, On-device). Each row says whether it holds a key and what it is in use for (chat, voice or both), with Replace and Remove, or Add, which opens the key field on that row. OpenRouter's row offers its one-click sign-in beside "Paste a key".
 - Studio: the image model setting (which model reads your photos, and how closely) stays in view under the chat model card instead of being hidden behind Change.
