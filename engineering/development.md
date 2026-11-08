@@ -263,6 +263,20 @@ release in the range; it needs the network, so it runs off the per-PR path: the 
 nightly's "Export-to-Marp on the newest marp-cli in the range" arm runs the five files that way
 every night and files the rolling issue when a new release breaks the bundle.
 
+**The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
+`checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
+`lib/**` to a complexity verdict in `tools/regex-census.json`, and each file's count of patterns
+that are not linear to the table's `backlog` (HARD RULE #32; the why is
+`engineering/decisions/2026-11-06-flaky-tests.md` §Backtracking). The gate only parses: it never runs
+recheck, so CI installs nothing for it. A new or changed literal fails it until the writer decides
+it, and the writer is the one place recheck runs: `npm ci --prefix tools/recheck --omit=optional
+--ignore-scripts` once (about 12 MB; the native binaries are optional and unused), then
+`npm run regex:census -- --write`. It refuses to raise a file's backlog; `--check '/…/'` prints
+recheck's verdict and attack string for one pattern, and `--verify` re-decides every entry. A drained
+pattern's test proves it with `test/helpers/regex-trace.js` (`assertLinearRegexes(fn)`: every regex
+the call ran is `safe` in the table, no clock) and `test/helpers/regex-differential.js` (a seeded fuzz
+of the old pattern against the new one).
+
 marp-cli runs with `CHROME_NO_SANDBOX=1` because it turns the Chromium sandbox off for root and
 inside a container but NOT for a plain non-root VM — which is exactly what a GitHub runner is, so
 without it every render dies with "No usable sandbox!". `--browser-args` is not a marp-cli option

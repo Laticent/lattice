@@ -117,6 +117,39 @@ an input the old pattern needs a minute or more for, a bound at least 25 times t
 under the old pattern's, and `// flaky-ok:` with both measurements on the line. Its mutation arm is the old pattern
 overrunning the bound on the test's own input.
 
+**Backtracking now has a verdict instead of a clock: the regex census** (owner D1 on #3092, 2026-11-08: ratchet
+first, then drain). `recheck` 4.6.2 decides a pattern's worst case from its automaton (`checker: 'automaton'`),
+which needs no input and no timing. It runs only in `tools/regex-census.js`, from its own pinned folder
+`tools/recheck/` (the pure-JS backend, about 12 MB with the optional native binaries left out, so the root `npm ci`
+carries none of it), with **no timeout**: recheck's own size limits stop a pattern it cannot model, and a child
+process with a fixed 3 GB heap stops one that exhausts memory, so a verdict depends on the pattern, not the machine.
+The answer for every distinct literal in `lib/**` (keyed on its text, `/source/flags`) is committed in
+`tools/regex-census.json`, so only a new or changed literal is decided again.
+- **The gate**, `checkRegexCensus` in `tools/check-ownership.js` (via `build:check`), never runs recheck. It parses
+  `lib/**` with TypeScript and fails on a literal with no verdict, on a verdict whose literal is gone, and on any
+  file whose count of literals that are not `safe` differs from the table's `backlog`. The count is what makes it a
+  ratchet: a slow pattern copied into another file fails even though its verdict is cached. A pattern that is slow in
+  principle but bounded by construction says so on its line, `// regex-ok: <why>`, the reason required.
+- **The writer**, `npm run regex:census -- --write`, decides what is missing, drops what is stale, and refuses both
+  a new literal recheck does not call linear and a raised backlog (`--raise` overrides it, with the reason in the
+  PR). A table that does not parse is an error, never a fresh start. The gate holds counts, not identities, so a file
+  that trades a drained pattern for a new slow one passes the gate; the writer is what refuses the new one. `--check '/…/'` prints one pattern's
+  verdict and attack string; `--verify` re-decides every entry.
+- **The first census** (3,846 regex literals in 407 files, 2,352 distinct): 1,820 safe, 413 polynomial, 1
+  exponential (`lib/packages/npm-plugin-loader.js`), and 118 unknown (115 that recheck cannot model, 3 that outgrow
+  the heap). The backlog is 699 literals in 191 files, led by `lint-core.js` (93), `chart-narration.js` and `carousel.js`.
+  Most are the unanchored `\s+x` shape, quadratic only on a long run of the leading class. An `unknown` verdict
+  (look-around and back-references, which recheck cannot model, or a pattern that outgrows the heap) counts as slow:
+  the gate never treats "could not decide" as linear.
+- **What replaces a hang guard**: `test/helpers/regex-trace.js`. `assertLinearRegexes(fn)` wraps
+  `RegExp.prototype.exec`, which every string and RegExp method reaches once the prototype's `exec` is not the
+  built-in one (ECMA-262 RegExpExec), records every pattern the call ran, and fails on any whose verdict is not
+  `safe`, and on any the table does not hold (a pattern built at run time), unless the test names it in `allow` with
+  recheck's verdict as the reason. `test/helpers/regex-differential.js` is the rewrite's other half: a seeded fuzz
+  that scans the old pattern and the new one over the same draws and returns the first input where they disagree.
+- **Cost**: about 2 s per `build:check` (1.9 to 2.7 s measured, under load), the TypeScript parse of 407 files. The
+  first full census took about 45 minutes on 4 cores; a new literal takes 0.5 to 3 s.
+
 **The gate read a `flaky-ok` mark from the wrong line after a U+2028 or U+2029.** TypeScript counts both as line
 breaks and `text.split('\n')` does not, so in `test/unit/core/lattice-doc.test.js` every mark below a string holding
 one was read two lines off and ignored. `flakyTestHits` now cuts the line from TypeScript's own line starts.
