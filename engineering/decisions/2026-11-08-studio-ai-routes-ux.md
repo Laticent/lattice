@@ -64,11 +64,15 @@ offered first; pasting is there for the bring-your-own-key author.
 | **Voice model** | Present, Read aloud, Narrated export | A model that speaks; the export bakes in exactly this voice |
 
 The image model stays its own selection (owner, 2026-11-08: "image models should be separate?
-that would be the least astonishing"): reading a picture is a different job from writing a deck,
-and a strong vision model can sit beside a cheap chat model. It is shown openly as a card, so it
-can no longer bill a model nobody sees. Slide alt text moves onto it from the chat model (it reads
-an image too). Narrated export loses its own narrator picker and bakes in the voice model, with a
-Gemini path added.
+that would be the least astonishing"), shown openly as a card, so it can no longer bill a model
+nobody sees. **Its default is "Same as chat model"**: the frontier models on every cloud route
+(Claude, GPT, Gemini) read images in the same request that chats (owner, 2026-11-08), so most
+authors never need a second pick, and the card still names exactly which model reads their photos:
+`Same as chat · Claude Sonnet 5.5 · OpenRouter`. Change picks a separate one (a strong vision model
+beside a cheap chat model). When "same as chat" cannot read images (an on-device chat model, or a
+text-only model), the card reads **Chat model can't read images** with **Choose an image model**.
+Slide alt text moves onto it from the chat model (it reads an image too). Narrated export loses
+its own narrator picker and bakes in the voice model, with a Gemini path added.
 
 **A feature its selection cannot serve says so on the card**, in one line under "Used by":
 "Chat edits need a model with tool use" or "Photo descriptions need a model that reads images",
@@ -90,11 +94,16 @@ OpenRouter one shows its price.
 ### Rules (the deterministic part)
 
 1. **The author changes a selection; the Studio changes it in exactly two cases, and says so.**
-   - **Fill a never-set selection.** A selection is *Not set* until the author picks or the first
-     fill happens. The first cloud connection (OpenRouter, or a key) fills each Not-set selection it
-     can serve, with its recommended model, and a notice names each one. On-device models never
-     fill: the author picks them. A selection that was ever set is never filled again, whatever its
-     state (removed connection, rejected key, out of credit, retired).
+   - **Fill a Not-set selection.** A selection is *Not set* until it is picked or filled, and once
+     set it never returns to Not set. **Whenever a cloud connection exists (OpenRouter or a key) and
+     a selection is Not set, the Studio fills it** from that connection, with its recommended model,
+     and a notice names it. This is checked when a connection is added and once at startup, so the
+     order of events cannot matter: an Anthropic key fills chat (and image, as same-as-chat) but not
+     voice (Anthropic cannot speak); a later OpenRouter sign-in then fills voice, because voice is
+     still Not set. When two connections could fill at once, OpenRouter wins, then Gemini,
+     Anthropic, OpenAI (a fixed order). On-device models never fill: the author picks them. A
+     selection that was ever set is never filled again, whatever its state (removed connection,
+     rejected key, out of credit, retired).
    - **Heal a retired version within its family** (owner, 2026-11-08: "self heal… is about model
      versions healing: if Sonnet 5.0 is not available but 5.5 is, we use that. We never change
      model family or model provider"). When the selected model answers as retired, the Studio
@@ -104,6 +113,15 @@ OpenRouter one shows its price.
      version in the family: the selection reads **Model retired** and stops. It never moves to
      another family (Sonnet → Opus), another provider (Claude → GPT) or another route. This
      replaces today's chat self-heal to the latest-Sonnet alias, which could cross families.
+     - **A family is defined, not inferred**: `familyOf(id)` in the route table maps an id to
+       provider + line + tier (`anthropic · claude · sonnet`, `google · gemini · flash-lite-tts`) from
+       an explicit, tested table, not from the pickers' curation patterns (which are preferences
+       and may group a Flash with a Flash Lite). An id the table cannot place is never healed.
+     - **A provider that reroutes silently** (OpenRouter can answer a retired id with another
+       model): every reply carries the id that answered, and the spine already records it. Same
+       family: treated as a heal (stored, announced). Another family: the reply is shown, the
+       selection reads **Model retired**, and the notice says "OpenRouter answered with GPT 6.1
+       Terra instead of Claude Sonnet 5.0"; the next turn does not run until the author picks.
 2. **Chat, image and voice are independent.** Any connected route that can serve each.
 3. **Nothing else falls back.** A selection that cannot run shows its state and one action:
 
@@ -114,7 +132,7 @@ OpenRouter one shows its price.
    | Not set | Choose |
    | Needs its connection | Connect / Reconnect |
    | Key rejected | Replace key |
-   | Out of credit | Add billing (the key and the connection work) |
+   | Out of credit | Add billing (the key and the connection work). Known only from a request that key made: a key row shows it with its time ("out of credit at 14:02") until a request succeeds |
    | Rate limited | none (wait; retried next time) |
    | Not in your region | Choose another |
    | Not downloaded | Download |
@@ -162,6 +180,12 @@ sample). Picking makes it the selection at once; there is no Save.
 - **Present's pill**: `Kore · Your Gemini key`, `Loading voice 42%`, or `Captions · <reason>` with
   the reason inline (a tooltip cannot be opened on a touch screen); tapping it opens the action.
 
+### Not set and needs-a-connection outside the Workspace
+
+- **Chip**: `Choose a chat model` (Not set) or `Claude Sonnet 5.5 · Needs OpenRouter`; tapping it
+  opens the chooser, or Connections when nothing is connected.
+- **Present's pill**: `Captions · no voice set` with Choose a voice.
+
 ### First run
 
 The three cards read **Not set**. One primary action, **Sign in with OpenRouter**, with "or paste
@@ -172,21 +196,42 @@ connection names what it filled.
 ## 4. Engine changes
 
 1. **A real *Not set*.** Selection records gain an unset state; today `DEFAULT_CHAT` /
-   `DEFAULT_VOICE` stand in as `openrouter` with the curated default (`model-selection.js`).
-   Migration: an existing record is *set*; no record and no legacy keys is *Not set*.
-2. **The image model joins the spine**: a stored selection like the other two (route + model),
-   migrated from `settings.imageModel`; `suggest-photo-description.ts` and slide alt text read it.
+   `DEFAULT_VOICE` stand in as `openrouter` with the curated default, and `migrateChat` /
+   `migrateVoice` write that default record even when nothing was stored
+   (`docs/src/lib/model-selection.js`). They stop doing so. The spine has not reached `main`, so
+   the only upgrade source is `main`'s legacy keys, and migration reproduces what `main` ran:
+   - a legacy model pick or provider, with its key stored → a *set* record on that provider (what
+     the author was already using; no notice, nothing changes for them);
+   - an OpenRouter key and no pick → *set* to OpenRouter with its default model (`main`'s
+     behavior);
+   - no key at all → *Not set*.
+   A test covers each row against `main`'s keys.
+2. **The image model joins the spine** as a stored selection whose default is *same as chat*,
+   migrated from `settings.imageModel` (a stored pick other than the old default becomes an
+   explicit image selection on OpenRouter). The engine work is small because the request path
+   exists: every cloud route already sends image parts in its chat request (OpenAI and Gemini as
+   `image_url`, Anthropic converted to image blocks, `docs/src/components/studio/ai/direct-providers.js`),
+   and "reads images" comes from the model's catalog row (`vision`). What changes: the image
+   selection resolves its own backend and model, like chat, instead of borrowing the chat
+   provider; `suggest-photo-description.ts` and slide alt text read it; the price comes from the
+   same catalog row the chat uses.
 3. **Narrated export reads the voice selection** and gains a Gemini path; the export panel's own
    narrator picker goes.
 4. **Rule 1 in code**: `saveProviderKey` stops selecting; the fill runs only for Not-set
    selections; `summon()` and `setTier('auto')` stop selecting.
 5. **Version healing replaces the alias self-heal** (`isDeadModelError` → latest Sonnet): one
    family-aware healer shared by chat, image and voice, keyed on the registry's families.
-6. **One route table** in `lib/provider-registry.js` (id, label, glyph, what it serves, how it
-   connects, state vocabulary) feeding the cards, chooser, chip, pill and notices, with a test over
-   every route × state row.
+6. **One route table** in `docs/src/lib/provider-registry.js` (id, label, glyph, what it serves,
+   how it connects, `familyOf`, state vocabulary) feeding the cards, chooser, chip, pill and notices,
+   with a test over every route × state row and every healing case. The nightly check
+   (`followups.d/3079-p1-model-guard-rails.md`) also runs `familyOf` over each provider's live list
+   and fails on an id it cannot place.
 7. **Spend** records voice and image spend against their routes; `spend.js`'s "Cloud AI
    (OpenRouter)" label becomes per route.
+8. **Startup bytes.** The Studio is over its startup-JS soft target, so only the chip's label, the
+   route table and the selection store load at startup; the chooser, the cards and Connections
+   load with the Workspace sheet or on the chip's first open. The PR declares the measured delta in
+   `docs/route-budget.d/` as #3079 already does.
 
 OpenRouter stays one slot (`lattice-db-or-key`); the card records how it was connected from now on
 (an older key reads "Key …ab12").
@@ -212,6 +257,14 @@ OpenRouter stays one slot (`lattice-db-or-key`); the card records how it was con
 6. Design first, then rebuild the UI in PR #3079.
 
 ## 7. Review
+
+Scored 7/10 by an independent grader after the first revision (fit to goals 9, determinism 7,
+clarity 8, consistency 7, failure handling 7, mockups 7, feasibility 6, maintainability 7). This
+revision closes its gaps: the fill and upgrade rules are exact; the image model defaults to same as
+chat and its cost is stated against the existing image-part path; families are a tested table and
+silent reroutes are handled; credit state is tied to a real request; Not set has a form on the chip
+and the pill; and the phone and image chooser are drawn.
+
 
 The adversarial trio (red team, Munger inversion, independent checker) reviewed the first draft of
 this note on 2026-11-08. Folded in: the hidden image model and narrator picker; the collision
