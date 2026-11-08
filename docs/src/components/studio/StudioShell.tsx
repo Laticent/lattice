@@ -4930,10 +4930,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const previewTapOffRef = React.useRef<(() => void) | null>(null);
 	const rehoverRef = React.useRef<(() => void) | null>(null);
 	// The pointer has not moved but the slide under it has: hit-test it again (see `onHover`'s setup).
+	// The hit-test reads `viewIndexRef` to tell whether the frame shows that slide yet.
+	const viewIndexRef = React.useRef(viewIndex);
+	viewIndexRef.current = viewIndex;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the slide index is the trigger; the effect reads no value from it
 	React.useEffect(() => {
 		rehoverRef.current?.();
 	}, [viewIndex]);
+	// Each render the live preview commits can change what is under a still pointer, so it asks for one more hit-test too.
+	const onLivePreviewRender = React.useCallback(() => rehoverRef.current?.(), []);
 	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
 	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
@@ -4976,8 +4981,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			hoverRaf = requestAnimationFrame(() => {
 				hoverRaf = 0;
 				if (hoverAt) {
-					const overCopy = hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
-					const overPhoto = hoverCollageAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					// HIT-TEST ONLY THE SLIDE THE READER IS ON. A slide change reaches the frame later than it reaches
+					// `viewIndex`: the render is scheduled, and a full write leaves the outgoing document in the frame
+					// until the new one loads. A hit-test in that window read the slide just left and kept its
+					// `zoom-in` cursor and marker, with nothing to test again (#3045, collage-lightbox.spec.ts:211).
+					// So: while the write loads, wait for its `load`; while the frame still shows another slide, show
+					// no cue, and let the render's `onRender` ask again.
+					// The frame's render host carries the stamps renderInto (single-slide-render.ts) leaves: a full write
+					// in flight (`__latticePendingLoad`) and the slide index last drawn (`__latticeShownSlide`), the same
+					// two pool-capture.ts `slotShows` reads before a poster capture.
+					const frame = hoverFrame();
+					const host = frame?.parentElement as (HTMLElement & { __latticePendingLoad?: boolean; __latticeShownSlide?: { index: number } }) | null | undefined;
+					if (frame && host?.__latticePendingLoad === true) {
+						frame.addEventListener('load', scheduleHover, { once: true });
+						return;
+					}
+					if (!frame || !host || (host.__latticeShownSlide && host.__latticeShownSlide.index !== viewIndexRef.current)) {
+						hoverCodeCopyAt(frame, null, null);
+						hoverCollageAt(frame, null, null);
+						if (holder.style.cursor) holder.style.cursor = '';
+						return;
+					}
+					const overCopy = hoverCodeCopyAt(frame, hoverAt.x, hoverAt.y);
+					const overPhoto = hoverCollageAt(frame, hoverAt.x, hoverAt.y);
 					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
 					const cursor = overPhoto ? 'zoom-in' : overCopy ? 'pointer' : '';
 					if (holder.style.cursor !== cursor) holder.style.cursor = cursor;
@@ -5011,6 +5037,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			holder.removeEventListener('pointermove', onHover);
 			holder.removeEventListener('pointerleave', onLeave);
 			if (hoverRaf) cancelAnimationFrame(hoverRaf);
+			hoverFrame()?.removeEventListener('load', scheduleHover);
 		};
 		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
 		// included. A NATIVE-listener controller rather than the React
@@ -7101,7 +7128,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>
