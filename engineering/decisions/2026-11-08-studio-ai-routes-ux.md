@@ -35,7 +35,7 @@ what's what." Read against the shipped screens (PR #3079, `2a27df50`):
 | Layer | Question | What it holds |
 |---|---|---|
 | **Connections** | How can the Studio reach models? | **OpenRouter**: the platform, one account for every model, connected by signing in **or** by pasting an OpenRouter key. **Your own keys**: Gemini, Anthropic, OpenAI. **This device**: free, private models. |
-| **Selections** | Which model does what? | **Chat model**, **Image model**, **Voice model**: each a route + model (voice: + voice). |
+| **Selections** | Which model does what? | **Chat model**, **Reads images**, **Voice model**: each a route + model (voice: + voice). |
 | **Uses** | Who reads each one? | Listed on its card (below). |
 
 ### Routes: six
@@ -60,17 +60,25 @@ offered first; pasting is there for the bring-your-own-key author.
 | Selection | Used by | Needs |
 |---|---|---|
 | **Chat model** | Chat, Refine, Theme, Finish, Drawing, Component (generate and refine), Coach fixes, chat compaction | Chat edits need tool use (an on-device model answers one-shot, without edits); a photo in the chat needs a model that reads images |
-| **Image model** | Library photo descriptions, slide alt text | A model that reads images |
+| **Reads images** | Library photo descriptions, slide alt text | A model that reads images |
 | **Voice model** | Present, Read aloud, Narrated export | A model that speaks; the export bakes in exactly this voice |
 
-The image model stays its own selection (owner, 2026-11-08: "image models should be separate?
+The image reader (the card is named **Reads images**, so "image model" stays free for a future
+image *generator*, which on OpenRouter, Gemini and OpenAI is a different kind of model and is not in
+this design) stays its own selection (owner, 2026-11-08: "image models should be separate?
 that would be the least astonishing"), shown openly as a card, so it can no longer bill a model
 nobody sees. **Its default is "Same as chat model"**: the frontier models on every cloud route
 (Claude, GPT, Gemini) read images in the same request that chats (owner, 2026-11-08), so most
 authors never need a second pick, and the card still names exactly which model reads their photos:
 `Same as chat · Claude Sonnet 5.5 · OpenRouter`. Change picks a separate one (a strong vision model
 beside a cheap chat model). When "same as chat" cannot read images (an on-device chat model, or a
-text-only model), the card reads **Chat model can't read images** with **Choose an image model**.
+text-only model), the card reads **Chat model can't read images** with **Choose a model that reads
+images**. "Reads images" comes from the model's catalog row; a direct-key model the catalog does not
+list yet (a new release) reads **not known**: it is offered and tried, and only a provider's refusal
+of the picture turns it into *can't read images*. Nothing is refused on a guess.
+**Same as chat moves with chat, and says so**: when chat changes (a pick, a fill or a heal), the
+notice names both ("Chat and Reads images now use Claude Sonnet 5.5 · OpenRouter"). That is the one
+place two selections move together, by the author's own choice of "same as chat".
 Slide alt text moves onto it from the chat model (it reads an image too). Narrated export loses
 its own narrator picker and bakes in the voice model, with a Gemini path added.
 
@@ -122,7 +130,8 @@ OpenRouter one shows its price.
        family: treated as a heal (stored, announced). Another family: the reply is shown, the
        selection reads **Model retired**, and the notice says "OpenRouter answered with GPT 6.1
        Terra instead of Claude Sonnet 5.0"; the next turn does not run until the author picks.
-2. **Chat, image and voice are independent.** Any connected route that can serve each.
+2. **Chat, image and voice are independent.** Any connected route that can serve each. The one
+   link is the author's: *Reads images: same as chat* follows chat, and every notice says so.
 3. **Nothing else falls back.** A selection that cannot run shows its state and one action:
 
    | State | Action |
@@ -205,22 +214,37 @@ connection names what it filled.
    - an OpenRouter key and no pick → *set* to OpenRouter with its default model (`main`'s
      behavior);
    - no key at all → *Not set*.
+   **Voice** follows `main`'s ladder (`pickRung`), so a voice that spoke on `main` speaks the same
+   way after the upgrade:
+   - a stored voice model pick or rung → *set* to it;
+   - no pick, on desktop with Kokoro already downloaded → *set* to **Kokoro · This device** (free,
+     what `main` used);
+   - no pick, an OpenRouter key, Kokoro not downloaded → *set* to OpenRouter's default voice;
+   - no pick, no key, Kokoro not downloaded → *Not set* (on `main` this case was captions too).
+   The Kokoro check is the existing cache probe, which is asynchronous, so the voice migration runs
+   when the voice module first loads, before any read; until then the card shows the stored state.
+   **A legacy pick whose key is gone** (a stored Gemini provider with no Gemini key) → *set* to that
+   provider, reading *Needs its connection*: what the author chose, never silently another.
    A test covers each row against `main`'s keys.
 2. **The image model joins the spine** as a stored selection whose default is *same as chat*,
    migrated from `settings.imageModel` (a stored pick other than the old default becomes an
-   explicit image selection on OpenRouter). The engine work is small because the request path
-   exists: every cloud route already sends image parts in its chat request (OpenAI and Gemini as
+   explicit image selection on OpenRouter). The request path exists: every cloud route already sends image parts in its chat request (OpenAI and Gemini as
    `image_url`, Anthropic converted to image blocks, `docs/src/components/studio/ai/direct-providers.js`),
    and "reads images" comes from the model's catalog row (`vision`). What changes: the image
    selection resolves its own backend and model, like chat, instead of borrowing the chat
    provider; `suggest-photo-description.ts` and slide alt text read it; the price comes from the
-   same catalog row the chat uses.
+   same catalog row the chat uses. **The real work** is that the architect model keeps one active
+   provider today (`suggest-photo-description.ts` reads `activeProvider()`), so a request on a route
+   other than chat's needs `complete()` to take the route explicitly (`complete({ route, model })`),
+   with the backend chosen per call. Each direct backend already exists; what is new is choosing
+   one per request instead of per session. Tested with chat on one route and image on another.
 3. **Narrated export reads the voice selection** and gains a Gemini path; the export panel's own
    narrator picker goes.
 4. **Rule 1 in code**: `saveProviderKey` stops selecting; the fill runs only for Not-set
    selections; `summon()` and `setTier('auto')` stop selecting.
 5. **Version healing replaces the alias self-heal** (`isDeadModelError` → latest Sonnet): one
-   family-aware healer shared by chat, image and voice, keyed on the registry's families.
+   healer shared by chat, image and voice, keyed on `familyOf` (rule 1), never on the curation
+   patterns.
 6. **One route table** in `docs/src/lib/provider-registry.js` (id, label, glyph, what it serves,
    how it connects, `familyOf`, state vocabulary) feeding the cards, chooser, chip, pill and notices,
    with a test over every route × state row and every healing case. The nightly check
