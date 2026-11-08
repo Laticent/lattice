@@ -29,6 +29,12 @@ export type ExportOptions = {
 	/** Office formats: every paragraph becomes a real text box (Calco), over a picture of
 	 *  the slide with its text removed. Off: one picture per slide. */
 	editable: boolean;
+	/** Leave the speaker notes out of the file's notes pane (the CLI's `--strip-notes`). Only the
+	 *  formats that write a notes pane offer it: LibreOffice, and PowerPoint with editable text.
+	 *  Off by default: notes ride, so you can present your own file (#1833, the owner's 2026-11-08
+	 *  ruling). The re-openable copy carries the deck's own source, notes included, so this switch
+	 *  turns re-openable off. */
+	stripNotes: boolean;
 };
 
 // The re-openable switch is remembered PER DECK: a deck you share with collaborators keeps

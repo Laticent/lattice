@@ -326,7 +326,11 @@ A plain HTML comment on a slide is that slide's speaker note:
 <!-- Open with the one number that matters. -->
 ```
 
-Notes ride inside every PDF, hidden. Three switches change that:
+Notes stay in by default, so you can present your own file from any computer.
+They ride inside every PDF (hidden), the PowerPoint notes pane, and the web page
+and player. Anyone you send the file to can read them, so every export that
+keeps notes says so on the console and names `--strip-notes`. Three switches
+change what ships:
 
 ```sh
 # Write the notes to deck.notes.txt as well

@@ -2617,6 +2617,17 @@ const slideNotes = notesCore.extractSlideNotes(slides);
 // Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
 const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
+// Every export that keeps speaker notes SAYS so, and names the switch (#1833, the owner's
+// option B, 2026-11-08). Notes stay in by default — you present your own file from any
+// machine — but the copy you send someone carries them too: the player's notes panel, the
+// PDF's annotations, PowerPoint's notes pane. The default is right; silence was wrong.
+// Counts the MATERIALIZED array, so under --strip-notes there is nothing to say. Gated by
+// --quiet like the format's own summary line it follows.
+function warnShippedNotes(what) {
+  const n = materializedNotes.filter(Boolean).length;
+  if (QUIET || !n) return;
+  console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+}
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // Per-slide inline `<!-- say: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
@@ -4563,6 +4574,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
+    warnShippedNotes('PDF');
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
@@ -4609,6 +4621,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
+    warnShippedNotes('PDF');
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
@@ -5008,6 +5021,7 @@ async function renderBody(browser, g, closeBrowser) {
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
+        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file');
       }
     } else {
       const pngBuffers = [];
@@ -5043,6 +5057,7 @@ async function renderBody(browser, g, closeBrowser) {
           // array (#1837).
         }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
+        warnShippedNotes('PowerPoint file');
       }
     }
   }
@@ -5275,10 +5290,7 @@ async function renderBody(browser, g, closeBrowser) {
         // So the export says what it is about to disclose, and names the flag. Counts the
         // MATERIALIZED array, so under `--strip-notes` there is nothing to warn about and
         // this stays silent (#1833).
-        const shippedNotes = materializedNotes.filter(Boolean).length;
-        if (shippedNotes) {
-          console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
-        }
+        warnShippedNotes('player');
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
         if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
@@ -5356,6 +5368,16 @@ async function renderBody(browser, g, closeBrowser) {
       // Never silent: the operator asked for an article and is getting the slide stack.
       console.warn(`  warning: no reading article could be projected; ${outHtml} is the clean render.`);
     }
+  }
+  // The web-page notes warning is decided HERE, from what actually landed at `outHtml`, not up
+  // where the plain render is written: the player (which warns for itself), the reading article
+  // (which carries no notes) and the `--fluid` viewer (which does, even beside a pdf/pptx/png)
+  // all rewrite that file after that point, and a player whose assembly failed leaves the plain
+  // render behind (#1833). The `--keep-html` sidecar of a pdf/pptx/png is a tooling copy, not a
+  // deliverable, and is not counted.
+  if (!playerOwnsOutHtml && (OUT_FORMAT === 'html' || (FLUID_VIEW && FLUID_BEATS_READ)) && fs.existsSync(outHtml)
+    && /<aside class="lattice-notes"/.test(fs.readFileSync(outHtml, 'utf8'))) {
+    warnShippedNotes('web page');
   }
   // ── The LIVE document's remote-subresource policy ────────────────────────────────────
   // Whatever HTML this run leaves at `outHtml` is a document someone OPENS — the `.html`

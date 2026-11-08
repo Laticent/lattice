@@ -106,3 +106,39 @@ describe('speaker notes (emulator)', () => {
     assert.equal(/# Slide 2/.test(txt), false, 'slide 2 has no note → no block');
   });
 });
+
+// Every export that keeps speaker notes says so on the console, and names the switch
+// (#1833, the owner's option B, 2026-11-08). Notes ride by default; the CLI is not silent
+// about it. Under --strip-notes there is nothing to warn about, and --quiet silences it with
+// the rest of the summary.
+describe('the CLI says when an export ships speaker notes (#1833)', () => {
+  const { spawnSync } = require('child_process');
+  function stderrOf(ext, extraArgs = []) {
+    const out = tmpFile(ext);
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, THEME, out, 'indaco', ...extraArgs], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+    assert.equal(r.status, 0, `export failed: ${r.stderr}`);
+    return r.stderr;
+  }
+  const WARNING = /⚠ (?:1 slide ships|\d+ slides ship) speaker notes in this (\S.*?) — anyone who opens the file can read them\. Export with --strip-notes to remove them\./g;
+  const warnings = (text) => [...text.matchAll(WARNING)].map((m) => m[1]);
+
+  for (const [ext, what] of [['.pdf', 'PDF'], ['.pptx', 'PowerPoint file'], ['.html', 'web page']]) {
+    test(`${ext}: warns once by default, and not under --strip-notes or --quiet`, { timeout: 240000 }, () => {
+      assert.deepEqual(warnings(stderrOf(ext)), [what], `one ${what} warning by default`);
+      assert.deepEqual(warnings(stderrOf(ext, ['--strip-notes'])), [], 'nothing ships under --strip-notes, so nothing is said');
+      assert.deepEqual(warnings(stderrOf(ext, ['-q'])), [], '--quiet silences it');
+    });
+  }
+
+  test('.html --player: one warning, for the player, not a second for the page it replaces', { timeout: 240000 }, () => {
+    assert.deepEqual(warnings(stderrOf('.html', ['--player'])), ['player']);
+  });
+
+  test('.html --read: no warning, because the reading article carries no notes', { timeout: 240000 }, () => {
+    assert.deepEqual(warnings(stderrOf('.html', ['--read'])), []);
+  });
+
+  test('.pdf --fluid: the emailable viewer beside the PDF carries notes, so both files warn', { timeout: 240000 }, () => {
+    assert.deepEqual(warnings(stderrOf('.pdf', ['--fluid'])), ['PDF', 'web page']);
+  });
+});

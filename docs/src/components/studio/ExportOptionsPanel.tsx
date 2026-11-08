@@ -14,7 +14,7 @@
 // So tapping "PDF", "PowerPoint" or "LibreOffice" lands here first — pick what rides along,
 // then Download.
 
-import { ArrowLeft, Download, FileArchive, Loader2, MessageSquare, Type } from 'lucide-react';
+import { ArrowLeft, Download, FileArchive, Loader2, MessageSquare, MicOff, Type } from 'lucide-react';
 import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
@@ -58,9 +58,15 @@ export function ExportOptionsPanel({
 	// Remembered per deck (export-options.ts): the answer for THIS deck's audience.
 	const [embedSource, setEmbedSource] = React.useState(() => loadEmbedSource(deckId));
 	const [editable, setEditable] = React.useState(false);
+	// Default OFF: notes ride, as on the CLI and the webpage export (#1833). Offered only where
+	// the file has a notes pane to put them in: LibreOffice always, PowerPoint with editable text
+	// (the picture-per-slide PowerPoint writes no notes).
+	const [stripNotesOn, setStripNotes] = React.useState(false);
 	const isPdf = format === 'pdf';
 	const isOffice = format === 'pptx' || format === 'odp';
 	const label = isPdf ? 'PDF' : format === 'pptx' ? 'PowerPoint' : 'LibreOffice';
+	const writesNotes = format === 'odp' || (format === 'pptx' && editable);
+	const stripNotes = writesNotes && stripNotesOn;
 	const total = commentCount(deckId, 'all', slideCount);
 	const inScope = commentCount(deckId, commentScope, slideCount);
 
@@ -141,6 +147,26 @@ export function ExportOptionsPanel({
 					</div>
 				)}
 
+				{/* Speaker notes — they ride by default; this is the opt-out for a file you send. */}
+				{writesNotes && (
+					<div className="rounded-xl border border-border bg-background p-3.5">
+						<div className="flex items-start justify-between gap-3">
+							<span className="flex items-start gap-2">
+								<MicOff className="mt-0.5 size-4 shrink-0 text-[var(--accent)]" />
+								<span>
+									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Strip speaker notes</span>
+									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+										{stripNotes
+											? 'Each slide’s notes pane is left empty.'
+											: `Your speaker notes go in each slide’s notes pane, where anyone who opens the ${label} file can read them. Turn on to leave them out.`}
+									</span>
+								</span>
+							</span>
+							<Switch className="mt-0.5" aria-label="Strip speaker notes" checked={stripNotes} disabled={busy} onCheckedChange={setStripNotes} />
+						</div>
+					</div>
+				)}
+
 				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
 				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
 				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} format={isPdf ? 'pdf' : 'office'} />
@@ -154,11 +180,13 @@ export function ExportOptionsPanel({
 							<span>
 								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Re-openable in Lattice</span>
 								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
-									Anyone you send this {label} to can import it in Lattice and edit the deck. It includes your speaker notes, hidden slides and the photos the deck uses, as stored in your Library (up to 32 MB of them); comments stay out.
+									{stripNotes
+										? 'Off while speaker notes are stripped: the re-openable copy is the deck itself, notes included.'
+										: `Anyone you send this ${label} to can import it in Lattice and edit the deck. It includes your speaker notes, hidden slides and the photos the deck uses, as stored in your Library (up to 32 MB of them); comments stay out.`}
 								</span>
 							</span>
 						</span>
-						<Switch className="mt-0.5" aria-label="Re-openable in Lattice" checked={embedSource} disabled={busy} onCheckedChange={setEmbedSource} />
+						<Switch className="mt-0.5" aria-label="Re-openable in Lattice" checked={embedSource && !stripNotes} disabled={busy || stripNotes} onCheckedChange={setEmbedSource} />
 					</div>
 				</div>
 				)}
@@ -169,9 +197,9 @@ export function ExportOptionsPanel({
 				data-demo={isPdf ? 'pdf-download' : 'pptx-download'}
 				disabled={busy}
 				onClick={() => {
-					const reopenable = format !== 'odp' && embedSource;
+					const reopenable = format !== 'odp' && embedSource && !stripNotes;
 					if (format !== 'odp') saveEmbedSource(deckId, embedSource);
-					onExport({ commentsInPdf: isPdf && commentsInPdf && total > 0, commentScope, embedSource: reopenable, editable: isOffice && editable });
+					onExport({ commentsInPdf: isPdf && commentsInPdf && total > 0, commentScope, embedSource: reopenable, editable: isOffice && editable, stripNotes });
 				}}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>

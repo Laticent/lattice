@@ -2534,6 +2534,9 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// Notes and descriptions come from the ENGINE render, before the capture frame
 	// sanitizes the comments they live in away (see exportPptx).
 	const record = await slideChannelRecord(render.html);
+	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
+	// descriptions are alt text, not private, so they still ride (#1833).
+	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		// Only the editable file has text boxes for a glyph to ride in; a picture-per-slide file draws the page as it is.
