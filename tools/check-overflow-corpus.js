@@ -30,7 +30,6 @@
  *   node tools/check-overflow-corpus.js --bless       # re-record it (say why in the PR)
  *   node tools/check-overflow-corpus.js --jobs 6      # parallelism (default min(4, cpus-2))
  *   node tools/check-overflow-corpus.js --json
- *   node tools/check-overflow-corpus.js --format html  # skip the PDF writer (prototype)
  *   node tools/check-overflow-corpus.js examples/foo.md …   # just these decks
  *
  * THE BASELINE RECORDS ITS OWN DENOMINATOR (`decksSwept`). Only CLIPPING decks are
@@ -105,9 +104,9 @@ function corpus() {
 }
 
 /** Render one deck; return the pages the emulator reports as clipped. */
-function probe(deck, ext = 'pdf') {
+function probe(deck) {
   return new Promise((resolve) => {
-    const out = path.join(WORK, deck.replace(/[/\\]/g, '_').replace(/\.md$/, '') + '.' + ext);
+    const out = path.join(WORK, deck.replace(/[/\\]/g, '_').replace(/\.md$/, '') + '.pdf');
     const child = spawn(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'], { cwd: ROOT, env: process.env });
     let buf = '';
     const grab = (d) => { buf += d.toString(); };
@@ -152,14 +151,7 @@ async function main() {
   const bless = flag('bless');
   const json = flag('json');
   const jobs = Math.max(1, Math.min(Number(val('jobs', Math.min(4, Math.max(1, os.cpus().length - 2)))) || 3, 12));
-  // --format html (PROTOTYPE, #2060): render each deck to the `.html` format, which runs the same
-  // Chromium layout, auto-split and overflow / content-clipped probes and skips the PDF writer
-  // (SVG twins, finish bake, in-page compose). The verdict is the console line, never the file,
-  // so the PDF bytes were pure cost here. Default stays `pdf` until a full-corpus parity sweep
-  // (same verdict on every deck in both formats) is on record.
-  const format = val('format', 'pdf');
-  if (!['pdf', 'html'].includes(format)) { console.error('✗ --format is pdf or html'); process.exit(2); }
-  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null) && a !== val('format', null));
+  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null));
 
   if (!process.env.CHROME_PATH) {
     console.error('✗ CHROME_PATH is not set — the SessionStart hook exports it.');
@@ -174,10 +166,10 @@ async function main() {
     : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const t0 = performance.now();
-  const rows = await pool(decks, jobs, (d) => probe(d, format));
+  const rows = await pool(decks, jobs, probe);
   // COST PER DECK, printed every run (#2060). The nightly's wall clock tripled per deck in six weeks
   // while the corpus grew 1.6x, and nothing said so until runs hit the job ceiling and measured nothing.
-  const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs, format };
+  const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs };
   // The per-run dir is ours alone, so it is safe to remove wholesale.
   try { fs.rmSync(WORK, { recursive: true, force: true }); } catch { /* best effort */ }
 

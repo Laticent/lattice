@@ -24,7 +24,7 @@ name: Overflow nightly (corpus clip ratchet)
 # basis. Both halves were wrong. A full green sweep is **279 decks in 5m21-5m31** on a
 # 4-vCPU box, and `--jobs 4` comes in at 5m22, so raising the worker count buys nothing.
 #
-# THE DEFAULT WORKER COUNT IS 2 HERE, NOT 3. `check-overflow-corpus.js:142` computes
+# THE DEFAULT WORKER COUNT IS 2 HERE, NOT 3. the `jobs` default in `check-overflow-corpus.js` `main()` computes
 # `min(4, max(1, cpus - 2))`, so 4 vCPUs give 2 workers and 2 vCPUs give 1. An earlier
 # revision of this header said "the box saturates at 3", which was read off the TOOL'S OWN
 # stale usage comment (`--jobs 6 # parallelism (default 3)`) rather than off the run — the
@@ -101,7 +101,7 @@ jobs:
       # THE BROWSER, and the thing that is easy to get wrong here. `detectChromeExecutable()`
       # resolves `PUPPETEER_EXECUTABLE_PATH`, then `CHROME_PATH` if that file exists, then
       # puppeteer's own cache under `$HOME/.cache/puppeteer`, then `which
-      # google-chrome|chromium|...`. `check-overflow-corpus.js:145` reads `CHROME_PATH`
+      # google-chrome|chromium|...`. The `CHROME_PATH` guard in `check-overflow-corpus.js` `main()` reads it
       # too, but only to refuse to start without it.
       #
       # This comment used to say the emulator did NOT read `CHROME_PATH`, and it was
@@ -135,7 +135,7 @@ jobs:
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
       # unconditionally — setting it turns the cache scan and `which`
       # fallbacks into dead code. So a partial or stale cache restore would hand both variables a
-      # path to nothing, sail past the `check-overflow-corpus.js:145` guard (which only asks that
+      # path to nothing, sail past the `CHROME_PATH` guard in `check-overflow-corpus.js` `main()` (which only asks that
       # CHROME_PATH is non-empty), and fail all 279 renders. This step therefore fails HERE, where
       # the message says "browser missing", rather than 279 decks later where it reads as a corpus
       # finding. No `-e` subtlety: this step WANTS to die on failure, which is `bash -e`'s default.
@@ -169,10 +169,10 @@ jobs:
       # with the report text contradicting the title in the same issue body. The exact
       # mirror of the defect this discrimination exists to prevent.
       #
-      # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js:186,206`
+      # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js` (the exits after `judge()`)
       # exits 1 for `regressions || errors || unfloored` — so a browser that cannot launch
       # fails all 279 renders and exits 1, indistinguishable by code from a deck that
-      # genuinely clipped. Exit 2 is only the guard refusing to start (`:145`), a `--bless`
+      # genuinely clipped. Exit 2 is only the guard refusing to start (the `CHROME_PATH` guard), a `--bless`
       # misuse, or an uncaught throw. So the classification reads the REPORT, which prints
       # unambiguous markers for each: `failed to render` per deck, and `clip MORE slides
       # than the baseline` for the finding. Render errors win when both are present — a
