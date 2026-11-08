@@ -1493,7 +1493,9 @@ pages are numbered `4.2` and move nothing after them. A deck with `paginate: fal
 on its agenda either.
 
 **An agenda you write is yours.** Its list and its page references are never changed. The style axis still
-reaches it, as a theme would; give the slide its own word to opt out.
+reaches it, as a theme would; give the slide its own word to opt out. The setting is written onto each agenda's own
+`_class` line, so an agenda named by a running `<!-- class: agenda -->` (no underscore) is filled but takes neither
+the deck's style nor page numbers: a word written there would carry to every later slide.
 
 Per slide: `_class: agenda circles` or `agenda checks` sets one agenda's style, `agenda agenda-ledger`
 keeps the ledger in a deck that chose another, and `agenda-no-pages` drops one filled agenda's page

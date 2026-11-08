@@ -203,3 +203,46 @@ test('no page numbers where the deck has none (`paginate: false`), and none on a
   const written = deck(slide('agenda', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
   assert.doesNotMatch(createEngine().render(written, 'indaco').html, /class="agenda-page"/);
 });
+
+// ── The page-number pass's two arms, and the checker's findings (2026-11-08, second pass) ──────────
+const { JSDOM } = require('jsdom');
+const progress = require('../../../lib/forms/tile/progress/progress.transform.js');
+const pagesOf = (root) => [...root.querySelectorAll('section.agenda')].map((s) => [...s.querySelectorAll('code.agenda-page')].map((c) => c.textContent));
+
+test('an item that ends in its own page reference gets no second one, even on an agenda that asks for pages', () => {
+  const src = deck(slide('agenda agenda-pages', '## A.\n\n1. One `p.12`\n2. Two'), ...DIVIDERS);
+  const { html } = createEngine().render(src, 'indaco');
+  const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
+  assert.equal((agenda.match(/<code\b/g) || []).length, 2, 'p.12 and one generated number, not three');
+  assert.match(agenda, /One <code>p\.12<\/code>/);
+});
+
+test('the live-DOM arm (the Export-to-Marp runtime) prints the same numbers, once, on Lattice and Marpit numbering', () => {
+  const src = deck('# Title', slide('agenda', '## A.'), DIVIDERS[0], DIVIDERS[1], DIVIDERS[2]);
+  const { html } = createEngine().render(src, 'indaco');
+  const want = pagesOf(new JSDOM(`<body>${html}</body>`).window.document);
+  assert.deepEqual(want, [['p.3', 'p.5']]);
+  for (const attr of ['data-lattice-pagination', 'data-marpit-pagination']) {
+    // The engine's numbers taken back out, so the DOM arm has to find them itself.
+    const bare = html.replace(/<code class="agenda-page">[^<]*<\/code>/g, '').replace(/data-lattice-pagination=/g, `${attr}=`);
+    const d = new JSDOM(`<body>${bare}</body>`).window.document;
+    for (const s of d.querySelectorAll('section')) s.setAttribute('data-lattice-slide', '');
+    progress.applyToDom(d);
+    progress.applyToDom(d); // idempotent
+    assert.deepEqual(pagesOf(d), want, attr);
+  }
+});
+
+test('a split run counts once, whether or not its pages carry a number', () => {
+  const sec = (cls, extra = '', body = '') => `<section class="${cls}" ${extra}>${body}</section>`;
+  const html = [
+    sec('agenda agenda-pages form', 'data-lattice-pagination="1"', '<ol><li>A</li><li>B</li></ol>'),
+    sec('list form silent', 'data-split-run="r1"'),
+    sec('list form silent', 'data-split-run="r1"'),
+    sec('divider'),
+    sec('list form', 'data-lattice-pagination="4"'),
+    sec('divider'),
+  ].join('');
+  const out = new JSDOM(`<body>${progress.applyToHtml(html)}</body>`).window.document;
+  assert.deepEqual(pagesOf(out), [['p.3', 'p.5']]);
+});
