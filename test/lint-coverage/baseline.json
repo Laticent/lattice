@@ -469,6 +469,10 @@
     {
       "path": "package-lock.json",
       "class": "not-code"
+    },
+    {
+      "path": "test/fixtures/marp-cli/package-lock.json",
+      "class": "not-code"
     }
   ]
 }
