@@ -28,23 +28,17 @@ export function ensureKatexProvider(url: string): Promise<void> {
 		let attempts = 0;
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS, matching ensureEngine's bound.
 		let t: ReturnType<typeof setInterval> | undefined;
-		let settled = false;
-		// Every exit clears the poll. A poll left running after the promise settled read `window` on its next tick,
-		// after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
-		const stop = () => {
-			settled = true;
-			clearInterval(t);
-		};
 		const fail = (msg: string) => {
-			if (settled) return;
-			stop();
+			// Stop polling too: a failed load used to leave the interval reading `window` for ~10s after the reject.
+			clearInterval(t);
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
 		const finish = () => {
-			if (settled) return true;
 			if (window.__latticeKatexReady) {
-				stop();
+				// Stop polling here too: a poll left running after the load event resolved read `window` on its next
+				// tick, after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
+				clearInterval(t);
 				resolve();
 				return true;
 			}

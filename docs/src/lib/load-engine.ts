@@ -76,23 +76,18 @@ export function ensureEngine(url: string): Promise<void> {
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS — bound the poll so a script that
 		// loads but never sets the global can't spin forever.
 		let t: ReturnType<typeof setInterval> | undefined;
-		let settled = false;
-		// Every exit clears the poll. A poll left running after a load error outlived it by ~10 s and, timing out, deleted
-		// a later retry's loader (PR #3070); one left running after the load event read `window` on its next tick.
-		const stop = () => {
-			settled = true;
-			clearInterval(t);
-		};
 		const fail = (msg: string) => {
-			if (settled) return;
-			stop();
+			// Stop polling too: a poll left running after a load error rejected outlived it by ~10 s, and on timing out
+			// deleted the loader of a later retry (the twin of ensure-katex.ts's leak, PR #3070).
+			clearInterval(t);
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
 		const finish = () => {
-			if (settled) return true;
 			if (window.LatticePlayground) {
-				stop();
+				// Stop polling here too: a poll left running after the load event resolved read `window` on its next
+				// tick, after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
+				clearInterval(t);
 				resolve();
 				return true;
 			}
