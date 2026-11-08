@@ -143,5 +143,8 @@ Their gains are inferred, not measured.
 
 - `startup-bench` on head against the 09-22 build.
 - Long tasks attributed to chunks from a real trace.
-- The fix on the CDN preview. Local Lighthouse overstates download cost
-  (`2026-10-26-lighthouse-home-runtime-prefetch.md` §7), but this fix moves a paint, not bytes.
+- A like-for-like CDN comparison. The PR's Cloudflare preview was measured against production (`lattice.style`, GitHub
+  Pages, no fix), 3 runs each, alternated. The two hosts differ (Brotli, caching), so only the direction counts:
+  LCP median 9.8 s on production against 5.2 s on the preview, score 0.44 against 0.49. Every production run took the
+  app's late caption as its largest paint. The one preview run where Lighthouse could name the element named the shell's
+  caption.
