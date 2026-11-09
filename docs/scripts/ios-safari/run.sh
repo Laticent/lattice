@@ -4,7 +4,8 @@
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
-# simulators and then in the Mac's own Safari. PROBE=office opens each one-slide editable .pptx that
+# simulators and then in the Mac's own Safari. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
+# cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
@@ -80,7 +81,14 @@ else
   else
     (cd docs && npm ci && npm run build:e2e)
   fi
-  (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+  if [ "$PROBE" = font-cache ]; then
+    # The font cache probe needs to count what reaches the server, on two origins, under GitHub Pages' cache header
+    # (font-cache-server.mjs): the control arm on $PORT, the warm arm on the next port.
+    # run.mjs reads the warm arm's origin from WARM_URL, which defaults to the next port.
+    (cd docs && node scripts/ios-safari/font-cache-server.mjs $PORT $((PORT + 1)) > "$OUT/preview.log" 2>&1) &
+  else
+    (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+  fi
   server=$!
   ready="http://localhost:$PORT/studio/"
   [ "$PROBE" = focus-sync ] && ready="http://localhost:$PORT/playground/"
