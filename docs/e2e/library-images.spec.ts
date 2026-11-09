@@ -313,10 +313,15 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		// The format dialog asks how to store them; the probes take its default.
+		// The format dialog asks how to store them. ORIGINAL, not its default: the byte scrub this test is about runs
+		// only for a photo kept as it is. The default is JPEG (PhotoFormatDialog `loadPhotoFormat`), which re-encodes
+		// the PNG and the GIF through a canvas, so taking it tested the canvas, not the scrubber, and failed on every
+		// engine the test runs on (followups.d/3087-p5).
 		for (let i = 0; i < 200; i++) {
+			const original = document.querySelector('[role="dialog"] [role="radio"][value="original"]') as HTMLButtonElement | null;
 			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-			if (b) {
+			if (original && original.getAttribute('aria-checked') !== 'true') original.click();
+			else if (original && b) {
 				b.click();
 				break;
 			}

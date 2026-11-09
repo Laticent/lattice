@@ -66,7 +66,11 @@ for (const tag of ['', ' @webkit-tablet', ' @gecko']) {
 			await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 			await expect(preview.locator('section.split-panel > .slide-bar')).toHaveCount(2, { timeout: 40_000 });
 		};
-		const heading = () => preview.locator('section:not(.split-panel) h2').first().evaluate((h) => {
+		// Measured once the frame's faces have landed and laid out: before that the heading sits where a fallback face puts
+		// it (Firefox read 35.25 px against 64 on 3 of 8 runs; followups.d/3087-p5). A signal, not a pause (HARD RULE #32).
+		const heading = () => preview.locator('section:not(.split-panel) h2').first().evaluate(async (h) => {
+			await document.fonts.ready;
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 			const b = h.closest('section')!.getBoundingClientRect();
 			const r = h.getBoundingClientRect();
 			return { x: r.left - b.left, y: r.top - b.top };
@@ -83,7 +87,9 @@ for (const tag of ['', ' @webkit-tablet', ' @gecko']) {
 		await expect(preview2.locator('section.split-panel > .slide-bar')).toHaveCount(2, { timeout: 40_000 });
 		const leftWidth = await preview2.locator('section.split-panel > .slide-bar:not(.slide-bar-top)').evaluate((el) => el.getBoundingClientRect().width);
 		expect(leftWidth, 'under left the strip has width').toBeGreaterThan(0);
-		const left = await preview2.locator('section:not(.split-panel) h2').first().evaluate((h) => {
+		const left = await preview2.locator('section:not(.split-panel) h2').first().evaluate(async (h) => {
+			await document.fonts.ready;
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 			const b = h.closest('section')!.getBoundingClientRect();
 			const r = h.getBoundingClientRect();
 			return { x: r.left - b.left, y: r.top - b.top };

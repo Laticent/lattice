@@ -2,7 +2,7 @@
 origin: 3043
 priority: P2
 recorded: 2026-11-05
-updated: 2026-11-08
+updated: 2026-11-09
 area: infra
 severity: medium
 swimlane: engineering/gotchas/ci.md
@@ -82,3 +82,7 @@ verify    — tier 1, self-review with the gates.
             webkit-tablet and gecko, mermaid-cache-bindings:143 ×4, library-header-search:19). The other three are
             intermittent on BOTH trees, run --repeat-each=3: playground-tab-switch:211/:260 (webkit-phone, 1 of 15 red
             on the branch, 2 of 15 on main) and plugin-returns:60 (webkit-tablet, 2 of 3 red on the branch, 3 of 3 on main).
+also red  — 2026-11-09, found by PR #3102's full desktop run and not in this file before: architect.spec.ts:53, :157,
+            :225 and :273 (the offline Coach and Chat turns, #1813), and studio-jargon-alignment.spec.ts:258 ("clicking
+            into a slide previews THAT slide"). Each fails run alone, in three runs out of three, and fails the same way on a
+            clean build of main 756c1ff with main's own specs. Not investigated.

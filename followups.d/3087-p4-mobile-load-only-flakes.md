@@ -5,8 +5,9 @@ recorded: 2026-11-08
 area: website
 severity: low
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
-deferred: off-path — load-only failures that hit main d1a4704 at the same rate; none reproduces alone
+deferred: large — about ten load-only failures, each its own investigation; the ones PR #3102 measured against main fail there at a similar rate
 source: https://github.com/Laticent/lattice/pull/3087
+updated: 2026-11-09, PR #3102 (one full run on its build, isolation and loaded repeats against main)
 ---
 
 # Mobile specs that fail only under full-project load, on main and on PR 3087 alike
@@ -23,6 +24,28 @@ why now   — PR 3087 ran the full `--project=mobile` suite (4 workers, --retrie
             on both builds. (demo-mobile.spec.ts:535 also failed once, on the PR's build BEFORE its quiet
             gate; it passed all three full runs after, so it is not listed.)
             A test that fails only under load still fails in CI's merge train (HARD RULE #32).
+update    — PR #3102 ran the full `--project=mobile` suite once (4 workers, --retries=0) on its build:
+            314 passed, 6 failed. Two are the known reds (ios-zoom:65, visual:37). The other four, alone,
+            three runs each: collage-lightbox.spec.ts:348 and :385 (@smoke) 3/3, model-spine.spec.ts:155
+            3/3, demo-mobile.spec.ts:535 2/3. So collage-lightbox:348/:385 and model-spine:155 join the
+            list above. demo-mobile:535 was then run 24 times under load (repeat-each, 4 workers) against
+            each build: main 3 failed, PR #3102 4 failed; 5/5 alone on both. Its failure: "the tail was
+            2018px off screen for 20+ consecutive frames while typing (scrollTop 0 of 2338)", that is,
+            Compose never scrolled to follow the tour's typing while the CPU was contended. That points
+            at the follow mechanism starving under load, not at the test's thresholds.
+            The other three, 8 runs each under the same load: main failed collage-lightbox:348 once and
+            :385 once (2 of 24); PR #3102 failed collage-lightbox:348 twice and model-spine:155 once (3 of
+            24). collage-lightbox is a load flake on main. model-spine:155, 16 more runs a side: 1 failed on each
+            (main a `locator.check` timeout, PR #3102 a `toHaveText`), so 1 of 24 against 2 of 24: a load
+            flake on main as well.
+desktop   — PR #3102 then ran the full `--project=desktop` suite once (4 workers, --retries=0): 1296 passed,
+            30 failed. 15 tests failed again alone, three runs each, and every one fails on main 756c1ff too.
+            The other 11 pass alone: they fail only under load. Run 4 times each at 4 workers, the 10 that
+            are not this PR's own spec failed 3 of 40 on main and 5 of 40 on the PR's build, on the same
+            tests (gallery-preview-metamorphic:370, lenses-landing:33, chart-detail-reveal:269 on main;
+            model-spine:155 once on the PR). Load-only on desktop, then: chart-detail-reveal:269,
+            compose-soft-break:22, fabricate:311, filo-undo:157, gallery-preview-metamorphic:370,
+            lenses-landing:33, model-spine:155, panel-shells:138, stage-window:168, status-pill:24.
 where     — the specs named above.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
