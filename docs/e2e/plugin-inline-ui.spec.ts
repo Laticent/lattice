@@ -47,6 +47,9 @@ for (const [label, width, height] of [
 		await expect(notice).toContainText('@tag-chip{…} spans');
 		// The preview shows the slide at the cursor (the `cards` slide, where a span sits in a card's body): whichever slide
 		// it is, the chip keeps the words before it on its own line, as the span it stands for did.
+		// Wait for a chip that is in its document: a preview re-render can swap the frame's document between "visible" and
+		// the measurement, and a detached node computes `display: ""` (1 of 15 webkit-tablet runs, 2026-11-09; HARD RULE #32).
+		await expect.poll(() => chips.first().evaluate((el) => el.isConnected && getComputedStyle(el).display !== '')).toBe(true);
 		const inLine = await chips.first().evaluate((el) => {
 			const r = el.getBoundingClientRect();
 			const s = el.closest('section')?.getBoundingClientRect();
