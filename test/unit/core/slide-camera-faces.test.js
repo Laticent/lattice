@@ -143,7 +143,14 @@ describe('the linear scanners answer as the regexes they replaced (seeded differ
       const s = draw(rand, VAR_PIECES, 14);
       const seen = [];
       const want = s.replace(OLD_VAR, (_, name) => `<${name}>`);
-      assert.equal(replaceVarRefs(s, (name) => (seen.push(name), `<${name}>`)), want, JSON.stringify(s));
+      assert.equal(
+        replaceVarRefs(s, (name) => {
+          seen.push(name);
+          return `<${name}>`;
+        }),
+        want,
+        JSON.stringify(s),
+      );
       assert.deepEqual(seen, [...s.matchAll(OLD_VAR)].map((m) => m[1]), JSON.stringify(s));
     }
   });

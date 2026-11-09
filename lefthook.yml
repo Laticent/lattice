@@ -35,9 +35,10 @@ pre-commit:
       run: node tools/lint-deck.js --strict {staged_files}
     - name: regex-census-recheck
       # HARD RULE #32. build:check's checkRegexCensus trusts each verdict in tools/regex-census.json, so a hand-typed
-      # "safe" would pass it. This re-decides, with recheck, only the verdicts the staged table adds or changes against
-      # HEAD, and blocks the commit on any that recheck answers differently (owner D1, 2026-11-09). It fires only when
-      # the table is staged, and costs 0.5 to 3 s per changed verdict. It needs recheck: `npm ci --prefix tools/recheck
+      # "safe" would pass it. This re-decides, with recheck, only the `safe` verdicts the staged table adds or changes
+      # against HEAD (the one verdict that lowers a backlog), and blocks the commit on any that recheck answers differently (owner D1, 2026-11-09). It fires only when
+      # the table is staged, and costs 0.5 to 3 s per changed safe verdict. Local only: LEFTHOOK=0,
+      # --no-verify, a merge or a web edit skips it, and no CI step re-runs it (recheck is outside the root npm ci). It needs recheck: `npm ci --prefix tools/recheck
       # --omit=optional --ignore-scripts` (the writer needs it too, so anyone staging a real table already has it).
       glob: 'tools/regex-census.json'
       run: node tools/regex-census.js --staged
