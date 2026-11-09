@@ -1842,7 +1842,8 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
   // budget stays ONE page. The count decides (phases + workstream rows against the box's shape),
   // never a measured fit, so the 2026-09-01 structural trigger still holds.
   describe('phase bands hold one page while their lines fit the box', () => {
-    const tagAt = (aspect) => rmTag.replace('>', ` data-aspect="${aspect}">`);
+    // The opening tag rebuilt with its stamp: `rmTag` ends with its one `>`.
+    const tagAt = (aspect) => `${rmTag.slice(0, -1)} data-aspect="${aspect}">`;
     // The phases built here with `rows` workstreams each, rather than edited out of `innerFor`'s markup.
     const at = (aspect, phases, rows) => carouselize(tagAt(aspect),
       innerFor(...phases).split(`<ul class="horizon-rows">`).map((part, i) => (i === 0 ? part

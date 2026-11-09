@@ -221,9 +221,12 @@ test('keySvg: a value past 13 characters wraps inside its column', () => {
   for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);
 });
 
-// Each key swatch's x, read tag by tag: `[^>]*>` closes on the tag's end, so the match cannot backtrack.
-const swatchXs = (body) => [...body.matchAll(/<rect class="chart-key-swatch"([^>]*)>/g)]
-  .map((m) => Number((/\sx="([\d.]+)"/.exec(m[1]) || [])[1]));
+// Each key swatch's x, read with plain string search (no regex to backtrack on a long tag).
+const swatchXs = (body) => body.split('<rect class="chart-key-swatch"').slice(1).map((part) => {
+  const tag = part.slice(0, part.indexOf('>'));
+  const at = tag.indexOf(' x="') + 4;
+  return Number(tag.slice(at, tag.indexOf('"', at)));
+});
 
 test('keySvg: portrait lays a key that fits into aligned columns, entries running down then across', () => {
   const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
