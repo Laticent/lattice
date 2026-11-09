@@ -142,7 +142,7 @@ test('an approved plugin is still approved after a reload', async ({ page }) => 
 	await gotoStudio(page);
 	const docked = page.getByRole('button', { name: 'Open Library' });
 	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
 	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 	await page.keyboard.press('Escape');
 	await setEditorContent(page, DECK);

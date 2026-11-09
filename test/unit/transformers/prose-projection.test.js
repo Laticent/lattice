@@ -2140,3 +2140,21 @@ test('on a MEDIA slide too, a plugin\'s aria-hidden drawing stays: the copy stri
 	assert.match(root, /SHOWN/);
 	assert.match(root, /<svg aria-hidden="true"/, root);
 });
+
+test("a plugin placeholder reads as a sentence, not its name run into its caption (followups.d/2651-p1)", () => {
+	const ph = '<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"></span><span class="lattice-plugin-words"><strong>gantt-plugin</strong><span>Plugin block · not in this deck\'s plugins: list</span></span></div>';
+	const chip = '<span data-lattice-plugin-off="chip-plugin" data-placement="chip" data-inline data-size="sm" role="note" title="x" aria-label="x"><span class="lattice-plugin-mark" aria-hidden="true"></span></span>';
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div><p>Before.</p>${ph}</div></section>`,
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Tags</h2></div><ul><li>Plan<ul><li>Bars ${chip} here.${ph}</li></ul></li></ul></div></section>`,
+	);
+	const before = secs.map((s) => s.outerHTML);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /gantt-pluginPlugin|Plugin block/, 'the caption is not run into the name');
+	assert.match(articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once this deck's plugins:(?:\u00a0|&nbsp;)list names it\.<\/p>/);
+	assert.match(articleHtml, /Bars <span class="lp-visual-note"><code>chip-plugin<\/code><\/span> here\./, 'an inline placeholder stays in its sentence');
+	assert.deepEqual(secs.map((s) => s.outerHTML), before, 'the caller’s slides are not changed');
+	// Listed but not approved in this browser (`data-reason="unapproved"`): the sentence says what is missing.
+	const [unapproved] = sections(`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div>${ph.replace('data-placement', 'data-reason="unapproved" data-placement')}</div></section>`);
+	assert.match(project([unapproved]).articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once its code is approved in this browser\.<\/p>/);
+});
