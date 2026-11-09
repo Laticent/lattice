@@ -24,7 +24,7 @@ consider anchor slides … I think we need a systematic approach and polish that
 - **The divider's marker sat in a different place from the rail it teaches.** It was drawn mid-slide above the name
   on every `progress-rail:` placement, and left-aligned under the numeral on `divider numbered`, while the footer rail
   sat bottom-right, bottom-center or on the right edge.
-- **The first rail a reader saw could say `2 / 4`.** `examples/gallery-jargon.md` opened its first section with two
+- **The first rail a reader saw could say `2/4`.** `examples/gallery-jargon.md` opened its first section with two
   dividers in a row, so section 1 held no slide; its agenda listed five sections against four dividers and lit item 2
   before the deck began. `empty-section` caught the first part, but only as a review suggestion, which
   `lint:deck --all` skips.
@@ -96,8 +96,10 @@ height 1), and they and the marks share one center line.
   within one device pixel. The `cap` is the footer's own: the rail takes the footer's font for it.
 - One spacing unit: the gap between two marks (`0.6` slide units, times the mark scale). The count sits
   two units from the first mark; the content rail and the agenda legend use the same unit, so the
-  legend, the marker and the rail share one rhythm. The count's word spacing is pulled in (`-0.3em`) so
-  `2 / 4` reads as one label in a monospaced face.
+  legend, the marker and the rail share one rhythm. The count is written `2/4`, no spaces: the footer's
+  tracking sets the figures apart, so it reads as one label in a monospaced face. A CSS `word-spacing`
+  pull-in looked the same in the browser and the PDF, but an editable PPTX or ODP keeps letter tracking
+  and drops word spacing, and the count spread wide there.
 - Under `edge` the marker is **marks only**. A count beside an upright column read as odd, set across
   it ran off the slide, and set sideways or stacked it was still a label hanging off a scale.
 - The marker yields where the rail does: hidden under a bottom-right logo, bottom-right instead of
@@ -148,6 +150,17 @@ footer and a superscript footer.
 
 The column is reserved in a deck with `paginate: false` too, as `center` always did: the rail then sits a
 column in from the edge on every slide, which is consistent, and saves a deck-level switch.
+
+## The top band
+
+The same audit, at the other edge. Every top-band text was already one face and one size (the chrome
+face at `--chrome-fs`, as the footer) and the eyebrow and the meta line already share a baseline, but
+the two CHROME lines spoke differently: the running header at 0.10em in the muted ink, the meta at 0.08em
+in `--text-label`, an accent-tinted label ink that made a date and an owner read as content. The owner
+chose one chrome voice: the header and the meta at weight 500, 0.08em, uppercase, in the header's own
+ink (`--marp-slide-header-color`, so the meta follows a layout that recolors the header, split-panel's
+field and print). The eyebrow keeps its own voice (600, 0.18em): it is the slide's label, part of the
+heading cluster, not running chrome. The footer keeps the author's case.
 
 ## Title and agenda
 

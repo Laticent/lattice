@@ -11,5 +11,9 @@
   letter-spacing: 0.08em;
   line-height: 1.6;
   text-transform: uppercase;
-  color: var(--text-label);
+  /* The running header's own ink, so the top band's two chrome lines read as one voice, and the meta
+   * follows wherever a layout recolors the header (split-panel's field, print). It was `--text-label`,
+   * an accent-tinted label ink that made the date and owner read as content (owner's call,
+   * 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md § The top band). */
+  color: var(--marp-slide-header-color, var(--text-muted));
 }
