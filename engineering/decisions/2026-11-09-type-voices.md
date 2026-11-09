@@ -167,7 +167,10 @@ including today's. Whatever the voice, the divider's eyebrow should scale with i
 After this note was written, the owner widened the follow-up beyond chrome and the eyebrow. Four
 additions, all in scope for the same piece of work:
 
-**1. Study the typographic hierarchy, tension and isolation first.** Before picking any font, map
+**1. Study the typographic hierarchy, tension and isolation first.** *Done:*
+`2026-11-09-type-hierarchy-study.md` measures today's roles, sets nine rules and audits ten mockup recipes. It tightens
+principle 5 below: ink alone cannot separate the eyebrow from chrome in 10 of 28 theme × mode pairs, so the eyebrow
+always changes face. Before picking any font, map
 how a slide's type tells the reader what matters:
 - **Hierarchy** is the order a reader takes the slide in, set by size, weight, face, ink and position.
 - **Tension** is the contrast between levels (a large serif heading over a small sans body pulls; two
