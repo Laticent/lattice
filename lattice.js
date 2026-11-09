@@ -6137,6 +6137,9 @@ html,body{background:var(--bg,#fff)}
  font-family:'Outfit',system-ui,sans-serif;font-size:17px;line-height:1.7}
 #lat-read>*{grid-column:prose-start/prose-end;min-width:0}
 #lat-read>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:1100px}
+#lat-read div[data-lattice-plugin]{contain:paint;max-width:100%}
+#lat-read div[data-lattice-plugin] :is(svg,img){max-width:100%;height:auto}
+#lat-read span[data-lattice-plugin][data-kind]{display:inline-block;unicode-bidi:isolate;contain:paint;max-width:100%;max-height:4em}
 #lat-read h1{font-size:2rem;line-height:1.15;color:var(--text-heading,#0d0d0d);padding:1.3em 0 .35em}
 #lat-read h1:first-child{padding-top:0}
 #lat-read h2{font-size:1.4rem;line-height:1.2;color:var(--text-heading,#111);padding:1.6em 0 .35em}

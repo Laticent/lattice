@@ -2120,12 +2120,13 @@ test('a plugin root nested in another is copied once, as part of the outer one',
 	assert.equal((articleHtml.match(/data-lattice-plugin="outer"/g) || []).length, 1);
 });
 
-test('the copy drops what the walk drops elsewhere, hidden text and chrome; a plugin paragraph equal to the eyebrow stays', () => {
+test('the copy drops what the walk drops elsewhere (chrome, asides), keeps an aria-hidden drawing, and keeps a plugin paragraph equal to the eyebrow', () => {
 	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
-		<p><code>Q3</code></p><div data-lattice-plugin="gp"><p>Q3</p><p aria-hidden="true">HIDDEN</p><aside>ASIDE</aside><p>SHOWN</p></div></div></section>`);
+		<p><code>Q3</code></p><div data-lattice-plugin="gp"><p>Q3</p><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><aside>ASIDE</aside><p>SHOWN</p></div></div></section>`);
 	const { articleHtml } = project(secs);
 	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
 	assert.match(root, /SHOWN/);
-	assert.doesNotMatch(root, /HIDDEN|ASIDE/);
+	assert.doesNotMatch(root, /ASIDE/, 'an aside is chrome, in a plugin as anywhere');
+	assert.match(root, /<svg aria-hidden="true"/, 'a decorative svg the plugin hid from the accessibility tree is still its picture');
 	assert.match(root, /<p>Q3<\/p>/, 'the plugin\'s own paragraph is not the author\'s eyebrow');
 });

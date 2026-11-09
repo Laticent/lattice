@@ -415,4 +415,55 @@ describe('the attack through the REAL CLI export, with a network log (spec/LPM.m
     }
     assert.deepEqual(hits, []);
   });
+
+  test('THE READING EXPORTS (--read, --player): a plugin\'s stylesheet veil, fixed box and wide svg stay inside its box', { timeout: TIMEOUT }, async () => {
+    // The checker on the containment fix: `--read` (`#lat-read`, lattice.js READING_ARTICLE_CSS) is a reading host too, and
+    // its article holds the plugin's root and its scoped sheet. Each must contain the plugin's paint as a slide does.
+    const dir = path.join(work, 'veil-plugin');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'veil-plugin.manifest.json'), JSON.stringify({ name: 'veil-plugin', type: 'plugin', format: 1, api: 1, contributes: { fences: { veil: { body: 'text' } } } }));
+    fs.writeFileSync(path.join(dir, 'veil-plugin.docs.md'), '# veil-plugin\n');
+    fs.writeFileSync(path.join(dir, 'veil-plugin.fixtures.md'), '```veil\nx\n```\n');
+    fs.writeFileSync(path.join(dir, 'veil-plugin.styles.css'), '.lp-veil-plugin-veil{position:fixed;inset:0;z-index:2147483647;background:#fff}\n');
+    fs.writeFileSync(path.join(dir, 'veil-plugin.render.js'), 'function render(){return \'<div class="lp-veil-plugin-veil">VEIL</div><p style="position:fixed;inset:0;background:#000">FIXED</p><svg width="1600" height="40" viewBox="0 0 1600 40"><rect width="1600" height="40"></rect></svg><p>note</p>\'}\nexport { render as default };\n');
+    fs.writeFileSync(path.join(work, 'veil.md'), '---\ntheme: indaco\nplugins: [veil-plugin]\n---\n\n## Plan of record\n\nThe plan stands.\n\n```veil\nx\n```\n');
+    for (const args of [['packages', 'add', dir], ['packages', 'trust', 'plugin/veil-plugin', '--yes']]) {
+      const r = await lattice(...args);
+      assert.equal(r.code, 0, r.out);
+    }
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      for (const [flag, sel] of [['--read', '#lat-read'], ['--player', '#lp-article']]) {
+        const out = `veil${flag}.html`;
+        const r = await lattice('veil.md', '-o', out, flag);
+        assert.equal(r.code, 0, r.out);
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1440, height: 900 });
+        await page.goto(`file://${path.join(work, out)}`, { waitUntil: 'load' });
+        if (flag === '--player') await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /Read · Article/.test(b.getAttribute('aria-label') || ''))?.click());
+        await page.waitForSelector(`${sel} [data-lattice-plugin="veil-plugin"]`, { visible: true });
+        const got = await page.evaluate((s) => {
+          const art = document.querySelector(s);
+          const root = art.querySelector('[data-lattice-plugin="veil-plugin"]');
+          root.scrollIntoView();
+          const r = root.getBoundingClientRect();
+          const a = art.getBoundingClientRect();
+          const inside = (el) => { const b = el?.getBoundingClientRect(); return !!b && b.left >= r.left - 1 && b.right <= r.right + 1 && b.top >= r.top - 1 && b.bottom <= r.bottom + 1; };
+          return {
+            contain: getComputedStyle(root).contain,
+            veil: !!root.querySelector('.lp-veil-plugin-veil'),
+            veilInRoot: inside(root.querySelector('.lp-veil-plugin-veil')),
+            fixedInRoot: inside(root.querySelector('p[style]')),
+            svgFits: root.querySelector('svg').getBoundingClientRect().width <= a.width + 1,
+            paintsOver: document.elementFromPoint(innerWidth - 20, innerHeight - 20)?.closest('[data-lattice-plugin]') !== null,
+          };
+        }, sel);
+        assert.deepEqual(got, { contain: 'paint', veil: true, veilInRoot: true, fixedInRoot: true, svgFits: true, paintsOver: false }, flag);
+        await page.close();
+      }
+    } finally {
+      await browser.close();
+    }
+  });
 });

@@ -584,6 +584,10 @@ mechanisms hold it:
   the page. The door refuses an `<li>` outside `ul`/`ol`/`menu` and a `<dd>`/`<dt>` outside `dl`
   (`doorFinishFence`, `lib/core/door-attr.mjs`): their start tags close the nearest open item, walking past the
   root `<div>`, so a plugin fence the author wrote in a bullet would otherwise land its item in the author's list.
+  Its PAINT stays in the box too, wherever the box lands: `contain:paint` on the root, in a slide
+  (`section div[data-lattice-plugin]`) and in every reading host, which copies a plugin's drawing whole: the player's and
+  webpage's article (`#lp-article`), the CLI's `--read` (`#lat-read`) and the Studio's Read view (`.st-read-article`). A
+  `position:fixed` box or the plugin's own stylesheet cannot cover the page, and a wide drawing scales to the column.
 - **The door's addresses.** It drops any address a plugin invents (`doorFilterAttr`), keeping only addresses the
   slide already held, `data:` URLs and `#fragments`.
 

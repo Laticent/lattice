@@ -318,9 +318,11 @@ async function shots(page: Page, name: string, own: { width: number; height: num
 // stylesheet matches there, and a `position:fixed` box it drew covered the whole Read view. Only `section` contained it
 // (base.modifiers.css). The reading hosts now contain it too (`#lp-article`, `.st-read-article`), and a wide drawing
 // scales to the column. Measured on BOTH reading hosts: the Studio's Read · Article, and the exported webpage's.
-const VEIL_CSS = '.gantt-plugin-veil{position:fixed;inset:0;z-index:2147483647;background:#fff}';
+// The class sits in the plugin's own namespace (`lp-<name>`, code-door-fence.mjs `fenceNamespace`): the door strips any other,
+// so a bare `gantt-plugin-veil` never reached the page and this leg could not fail (the checker on the containment fix).
+const VEIL_CSS = '.lp-gantt-plugin-veil{position:fixed;inset:0;z-index:2147483647;background:#fff}';
 const VEIL = `function render(){
-  return '<div class="gantt-plugin-veil">FAKE READING VIEW</div><p style="position:fixed;inset:0;background:#000">FIXED BOX</p>' +
+  return '<div class="lp-gantt-plugin-veil">FAKE READING VIEW</div><p style="position:fixed;inset:0;background:#000">FIXED BOX</p>' +
     '<svg width="1600" height="40" viewBox="0 0 1600 40"><rect width="1600" height="40"></rect></svg><p>chart note</p>';
 }
 export { render as default };`;
@@ -337,9 +339,8 @@ const paintOf = ({ sel, article }: { sel: string; article: string }) => {
 	return {
 		article,
 		root: !!root,
-		// The Studio's article re-sanitizes and drops the plugin's own class, so its stylesheet has nothing to match there:
-		// absent counts as contained. The webpage keeps the class, so there the veil must sit inside the root.
-		veilInRoot: !root?.querySelector('.gantt-plugin-veil') || inside(box(root.querySelector('.gantt-plugin-veil'))),
+		veil: !!root?.querySelector('.lp-gantt-plugin-veil'),
+		veilInRoot: inside(box(root?.querySelector('.lp-gantt-plugin-veil') ?? null)),
 		fixedInRoot: inside(box(root?.querySelector('p[style]') ?? null)),
 		svgFits: !!a && (box(root?.querySelector('svg') ?? null)?.width ?? 1e9) <= a.width + 1,
 		rootFits: !!a && !!r && r.width <= a.width + 1,
@@ -370,7 +371,7 @@ test(`a plugin's veil, fixed box and wide drawing stay in its box in the Read vi
 	await expect(exportRoot).toHaveCount(1);
 	await exportRoot.scrollIntoViewIfNeeded();
 	const exported = await reader.evaluate(paintOf, { sel: '#lp-article', article: 'webpage' });
-	expect(exported).toEqual({ article: 'webpage', root: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
+	expect(exported).toEqual({ article: 'webpage', root: true, veil: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
 	if (EVIDENCE) for (const dark of [false, true]) {
 		if (dark) await reader.locator('#lp-mode').click();
 		await reader.screenshot({ path: path.join(EVIDENCE, `plugin-veil-article-${dark ? 'dark' : 'light'}-${own.width}-${browserName}.png`) });
@@ -397,6 +398,6 @@ test(`a plugin's veil, fixed box and wide drawing stay in its box in the Read vi
 	await expect(studioRoot).toHaveCount(1, { timeout: 30_000 });
 	await studioRoot.scrollIntoViewIfNeeded();
 	const studio = await page.evaluate(paintOf, { sel: '.st-read-article', article: 'studio' });
-	expect(studio).toEqual({ article: 'studio', root: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
+	expect(studio).toEqual({ article: 'studio', root: true, veil: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
 
 });
