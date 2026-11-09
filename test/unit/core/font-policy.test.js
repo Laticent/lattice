@@ -52,8 +52,17 @@ test('lint: a leftover `fonts:` line is flagged as renamed, and the fix renames 
   const emptyDeck = deck('fonts: used\nfont-embedding:');
   const [e] = found('fonts: used\nfont-embedding:');
   assert.equal(e.autofixable, false);
-  assert.match(e.fix, /Move the words onto the empty `font-embedding:` line/);
+  assert.match(e.fix, /Move the words onto the `font-embedding:` line/);
   assert.equal(applyAllFixes(emptyDeck, vocab), emptyDeck, 'the deck is left as the author wrote it');
+  // A new key that names no tier decides nothing either: only a comment, or only unknown words.
+  for (const fm of ['fonts: used\nfont-embedding: # todo', 'fonts: used\nfont-embedding: bogus']) {
+    assert.equal(found(fm)[0].autofixable, false, fm);
+    assert.equal(applyAllFixes(deck(fm), vocab), deck(fm), `${fm}: the words survive`);
+  }
+  // A space before the colon is still the key, and the fix still lands on it.
+  assert.equal(applyAllFixes(deck('fonts : used'), vocab), deck('font-embedding : used'));
+  // A look-alike line inside a `style: |` block is CSS, not the key: the fix edits the real key line only.
+  assert.equal(applyAllFixes(deck('style: |\n  fonts: used\nfonts: used'), vocab), deck('style: |\n  fonts: used\nfont-embedding: used'));
   assert.equal(found('font-embedding: used').length, 0);
   // Exports no longer read the old key.
   const { frontMatterValue } = require('../../../lib/core/front-matter-key');

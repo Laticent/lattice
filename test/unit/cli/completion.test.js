@@ -53,6 +53,13 @@ const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(a
 const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
 
+describe('drift: PARSEARGS_OWN holds no stale entry', () => {
+  test('names only flags parseArgs still refuses itself, so deleting a guard fails here too', () => {
+    const named = literals(PARSE_ARGS);
+    assert.deepEqual([...PARSEARGS_OWN].filter((f) => !named.has(f)), []);
+  });
+});
+
 describe('drift: Tab offers every option the CLI accepts', () => {
   test('the render command: every row of the options table', () => {
     assert.ok(RENDER.size >= 45, `only ${RENDER.size} render options read; the table moved`);

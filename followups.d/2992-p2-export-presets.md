@@ -22,7 +22,7 @@ source: https://github.com/Laticent/lattice/pull/2992
        draft     — PDF: Share (default) · Print · Review. PowerPoint/LibreOffice: Present (default) · Edit.
                    Webpage: Share (default) · Private. Named for the result, one line of what you get and give up,
                    ideally an estimated size; changing a setting flips to Custom and shows what differs; a deck's own
-                   `images:`/`fonts:` lines are its starting point, labeled. Prune what presets make redundant (the
+                   `images:`/`font-embedding:` lines are its starting point, labeled. Prune what presets make redundant (the
                    font tiers, the Settings panel's PDF options).
        done when — a design note (outcome map tested on real decks, mockups at 1440/820/390) is confirmed by the owner
                    in one round, then built on its own branch: Studio and CLI share the presets, screenshots at three
