@@ -21,3 +21,8 @@ done when — two consecutive scheduled nightlies print `⏱ sweep cost` under 1
             `(chrome PDF writer)`; then delete this file. If either is over, shard the sweep.
 evidence  — the two cost lines, quoted with their run links.
 verify    — read the nightly logs.
+
+progress  — scheduled nightly 1 of 2 (run 81, `main@978728bb`, 2026-11-09):
+            `⏱ sweep cost — 507 decks in 733s at 2 workers: 1.45 s/deck (chrome PDF writer)`,
+            https://github.com/Laticent/lattice/actions/runs/42600201917. Under 1350 s.
+            The sweep step took 12 min 14 s of the job's 45. Nightly 2 is the next scheduled run.

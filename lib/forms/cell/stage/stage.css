@@ -231,10 +231,17 @@ section.form > .cell-footer {
    * its number; the split counter sits BEFORE the rail for the same reason, taking only the footer's
    * room. A flex row could reserve only for an element that exists, and a missing number left none:
    * the rail moved 10px at two digits and 50px on a slide with no number (measured on main,
-   * 2026-11-08). Empty columns still hold their gap, a constant, so nothing moves. `center`
-   * re-slices this into five symmetric columns (progress-center.css). */
+   * 2026-11-08). The GAP belongs to the items, not the grid: `column-gap` is 0 and the split counter,
+   * the rail and the page number each carry their own lead as `padding-inline-start`. A grid gap is
+   * charged around EMPTY columns too, and the page column held a gap past its six characters, so the
+   * footer text lost up to 3 gaps (4.8em) on slides with no rail, and ten corpus decks ended their
+   * footers in an ellipsis (overflow nightly run 81, 2026-11-09).
+   * The page column is FIXED only where a rail stands against it (`:has(> .tile-progress)` below):
+   * stillness is the rail's need. Without a rail it is at least the six-character width and grows
+   * only for a number that needs more, so a short number leaves the footer the rest of the band.
+   * `center` re-slices this into five symmetric columns (progress-center.css). */
   display: grid;
-  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] var(--footer-pag-col);
+  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] minmax(var(--footer-pag-col), auto);
   /* ONE ROW, the in-flow footer's own box tall (`> footer` below: 1.6em of the chrome face). Fixed, so
    * no item can grow the band: aligned on the baseline, an item whose box hangs lower than the
    * footer's (the split counter's, the rail's) made the row taller on the slides that carry it, and
@@ -246,7 +253,27 @@ section.form > .cell-footer {
    * the figures never use: the footer's capitals, the page number and the marks centered 2px apart
    * each at 200 dpi (owner's review, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md). */
   align-items: baseline;
-  column-gap: var(--footer-gap);  /* not --sp-md, which `compact` redefines (base.tokens.css) */
+  column-gap: 0;  /* each item carries its own lead (above); the gap is --footer-gap, not --sp-md, which `compact` redefines */
+}
+/* A bottom-right logo takes the band's end (base.modifiers.css § THE LOGO IS SUPREME hides the page number
+ * and the rail there), so the band ends a gap short of the mark and the hidden number keeps no column. The
+ * mark sits at `right: --frame-inset-r`, the band's own right edge, and its box is the section's
+ * `--deck-logo-w` plus a plate's padding on each side (base.modifiers.css), read here, never restated.
+ * Before the band gave empty columns' room back, their gaps happened to clear the logo; now this does.
+ * `center` stands down under this logo (progress-center.css), so this is always the `right` band. */
+section.form.logo-bottom-right:has(> img.deck-logo) > .cell-footer {
+  padding-right: calc(var(--deck-logo-w) + 2 * var(--logo-plate-pad, 0px) + var(--footer-gap));
+  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] 0;
+}
+/* With a rail, the page column is one width on every slide: six characters plus the number's lead, so the
+ * rail, which ends where the column starts, holds still across 9 -> 10 and on a slide with no number.
+ * A divider's marker ends on the same line (divider.styles.css `--_marker-end`). Only a rail that SHOWS:
+ * the claim frames hide it (below), and a hidden rail has no place to hold. A bottom-right logo hides it
+ * too; the logo's own rule above out-ranks this one and sets the page column to 0. The guard sits in
+ * `:where()` so this rule keeps its (0,3,1) and `center`'s five-track grid (progress-center.css) still
+ * out-ranks it. */
+section.form:where(:not(.claim-quiet, .claim-hero, .claim-bleed)) > .cell-footer:has(> .tile-progress) {
+  grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] calc(var(--footer-pag-col) + var(--footer-gap));
 }
 /* Universal modifier (#527 family) — lift the footer band off the bottom edge into
  * the frame (so the bottom inset mirrors the top by a full band height) instead of
@@ -337,6 +364,7 @@ section.form > .cell-footer > .lat-pagination {
   /* Fills its column, the number set at the column's end, so the digits keep the band's right edge. */
   grid-column: pag;
   grid-row: 1;
+  padding-inline-start: var(--footer-gap);  /* its own lead from the item before it (`.cell-footer`) */
   text-align: end;
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
@@ -387,6 +415,7 @@ section.form > .cell-footer > .tile-progress {
   inset: auto;
   grid-column: rail;
   grid-row: 1;
+  padding-inline-start: var(--footer-gap);  /* its own lead, so an absent rail costs the footer nothing (`.cell-footer`) */
   /* `none`. The progress-center Cell caps the rail at `--footer-center-w` for its ABSOLUTE
    * placement, where the reserve is the only thing keeping it off the page number. In flow the rail
    * sits in an `auto` column, so its content size IS its box and a clamp can only ever be too small —
@@ -420,7 +449,7 @@ section.form > .cell-footer > .tile-progress {
 .lat-split-rail .seg { flex: 0 0 auto; }
 /* The split counter's column: before the rail, so a split slide's counter takes the footer's room and
  * never the rail's place (`.cell-footer` above). The page number's column is set with its type. */
-section.form > .cell-footer > .lat-split-rail { grid-column: split; grid-row: 1; }
+section.form > .cell-footer > .lat-split-rail { grid-column: split; grid-row: 1; padding-inline-start: var(--footer-gap); }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched).
  *
