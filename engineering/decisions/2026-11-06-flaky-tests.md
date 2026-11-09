@@ -147,6 +147,16 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   `safe`, and on any the table does not hold (a pattern built at run time), unless the test names it in `allow` with
   recheck's verdict as the reason. `test/helpers/regex-differential.js` is the rewrite's other half: a seeded fuzz
   that scans the old pattern and the new one over the same draws and returns the first input where they disagree.
+- **It found live slow patterns the stopwatches missed.** A hang guard only times the input it was written for. The
+  trace sees every pattern the call runs, so the first guards it replaced flagged two that their inputs never
+  reached: the fence-opener `/^([ \t]*)(`{3,}|~{3,})(.*)$/` (about ten copies across `lib/**`; a line split on `\n`
+  can still hold a U+2028, and then `(.*)$` retries every split of the backtick run), and lift-bracket-span's
+  `<p\b[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>` over many unclosed openers. Both are drained: `lib/core/fence-opener.js`
+  reads the fence line in one pass (8 copies swapped), and `paragraphCodeSpans` in lift-bracket-span.js scans the
+  paragraphs linearly; each is held to its old pattern by a seeded differential fuzz with a mutation arm. Ten of the
+  twenty hang guards are retired; `followups.d/3045-p2-regex-recheck-gate.md` lists the ten left and what their paths
+  run. recheck cannot model a look-around, so a pattern made linear by one (a look-behind, or the atomic-group idiom
+  `(?=(\s*))\1`) carries its proof in writing: `// regex-ok:` on its line and the same reason in the test's `allow`.
 - **Cost**: about 2 s per `build:check` (1.9 to 2.7 s measured, under load), the TypeScript parse of 407 files. The
   first full census took about 45 minutes on 4 cores; a new literal takes 0.5 to 3 s.
 

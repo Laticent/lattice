@@ -5,7 +5,7 @@ recorded: 2026-11-08
 area: infra
 severity: medium
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md §How the rule is held
-deferred: large — decided (owner D1 on #3092: B-then-A); a gate plus a 561-entry backlog is its own PR, cut after #3092 merges
+deferred: large — part (a) shipped (the ratchet); part (b), draining a backlog of 689 slow literals in 186 files, is many PRs of rewrites, each with its own fuzz
 ---
 
 # Replace the regex hang guards with recheck, and decide the repo-wide gate's shape
@@ -33,6 +33,27 @@ how       — what a 2026-11-08 scan of `lib/**` found (TypeScript-parsed regex 
             written reason, like `flaky-ok`), and recheck installed in its own pinned folder like test/fixtures/marp-cli
             so the root `npm ci` does not carry its 67 MB. Then (b) drains the table folder by folder, lint-core first,
             and each drained pattern retires its wall-clock hang guard.
+progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCensus` holds lib/** to tools/regex-census.json
+            in build:check; recheck 4.6.2 is pinned in tools/recheck/ (pure-JS backend, about 12 MB); the writer is
+            `npm run regex:census`. Part (b) started: `test/helpers/regex-trace.js` (`assertLinearRegexes`) replaced 10
+            of the 20 hang guards (meta-record, bracket-list, chart-values-numeric-pill, lift-bracket-span,
+            front-matter-scalar, codeql-1958, render-target-keys, deck-front-matter-settings, video-providers,
+            lattice-doc). Drained: the fence opener (lib/core/fence-opener.js, 8 copies in lib/core and lint-core) and
+            lift-bracket-span's paragraph scan, each with a seeded differential fuzz and a mutation arm.
+            The 10 guards left, and what the trace found on each path:
+            · slide-camera-faces (2): `/var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)/g` (slide-camera.mjs:254) is polynomial
+              ('var(---,' repeated). Fix: run it only on the value up to its last `)`, where `,[^)]*` always finds
+              one; recheck still calls the pattern polynomial, so that one needs a regex-ok and an `allow` reason.
+            · chart-narration (1): `/%%\{[\s\S]*?\}%%/g` and `/!?\[([^\]]*)\]\([^)]*\)/g` polynomial, plus
+              markdown-it's own patterns (a dependency's: `allow` each with recheck's verdict).
+            · closed-comments (1): a fence pattern with a back-reference (unknown), the autolink pattern
+              (polynomial) and a tag pattern with a look-ahead (unknown), on findSkeletonHtml's path.
+            · masthead-lift (1), chart-row-record (3), relationship-scaling (2, test/benchmark): not traced yet.
+            The backlog went from 699 literals in 191 files to 689 in 186; lint-core from 93 to 92 (the fence opener). The video plugin's copy of the fence opener
+            (lib/plugins/video/shared/fences.js) stays: a plugin imports nothing from lib/core.
+            The census cannot certify a look-around (recheck cannot model one), so a pattern made linear by a
+            look-behind or an atomic-group look-ahead carries its proof in writing: `// regex-ok:` on its line, and
+            the same reason in the test's `allow`.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

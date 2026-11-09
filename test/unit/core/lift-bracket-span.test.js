@@ -9,7 +9,9 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { liftBracketSpans, bodyIndex } = require('../../../lib/core/lift-bracket-span');
+const { liftBracketSpans, bodyIndex, paragraphCodeSpans } = require('../../../lib/core/lift-bracket-span');
+const { mulberry32 } = require('../../helpers/regex-differential');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const p = (code) => `<p><code>${code}</code></p>\n`;
 const HEAD = '<h2>A headline</h2>\n';
@@ -159,14 +161,10 @@ describe('a fenced code block cannot swallow the axis', () => {
     // swallowed every fence and ran linear, so this arm passed with the fix
     // reverted. Without one, every `<pre>` start scans to the end and fails.
     const many = (n) => '<pre><code>x</code></pre>\n'.repeat(n) + TABLE;
-    // A hang guard sized by F4 (HARD RULE #32), in place of a ratio of two timings. The defect is backtracking inside
-    // one regex exec, which `charReads` cannot see (it reads 2.00 per character with the defect and without), so the
-    // input is one the old `<p[^>]*>` needs 29 s for, measured on a copy of this module with it put back. Today: 2.7 ms.
-    const html = many(60000);
-    const t0 = process.hrtime.bigint();
-    liftBracketSpans(html, { bodyTags: ['<table'] });
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-    assert.ok(ms < 2500, `60,000 fenced blocks took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — 2.7 ms today; the old pattern 29 s at this size
+    // The defect is backtracking inside one regex exec, which `charReads` cannot see (it reads 2.00 per character with
+    // the defect and without; the old `<p[^>]*>` took 29 s on 60,000 fences). So every regex the lift runs must be one
+    // recheck calls linear (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+    assertLinearRegexes(() => liftBracketSpans(many(200), { bodyTags: ['<table'] }));
   });
 });
 
@@ -202,5 +200,34 @@ describe('axisAcceptor — a list the component cannot fully read is not its axi
   });
   test('passes maxParts through', () => {
     assert.deepEqual(axisAcceptor({ members: ['x'] }, { maxParts: 2 })('[{A, 1, 2}]'), [['A', '1, 2']]);
+  });
+});
+
+describe('paragraphCodeSpans — the linear read of the old paragraph pattern', () => {
+  // The pattern it replaced (tests are outside the census, which reads lib/** only). recheck: polynomial (a run of
+  // `<p><code>` openers with no `</code></p>` made every opener scan to the end).
+  const OLD = /<p\b[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>\s*<\/p>\s*/g;
+  const old = (s) => {
+    const out = [];
+    OLD.lastIndex = 0;
+    for (let m = OLD.exec(s); m; m = OLD.exec(s)) out.push({ index: m.index, whole: m[0], inner: m[1] });
+    return out;
+  };
+  const TOK = ['<p', '<p>', '<p ', '<pre>', '>', '<code', '<code>', '<code x>', '</code>', '</p>', ' ', '\n', '\u00a0', 'a', '_', '[x]', '<', '/', '</cod', 'p'];
+
+  test('matches what the old pattern matched, over 50,000 seeded token strings (seed 3045)', () => {
+    const rand = mulberry32(3045);
+    for (let n = 0; n < 50_000; n++) {
+      let s = '';
+      const len = Math.floor(rand() * 16);
+      for (let k = 0; k < len; k++) s += TOK[Math.floor(rand() * TOK.length)];
+      assert.deepEqual(paragraphCodeSpans(s), old(s), JSON.stringify(s));
+    }
+  });
+
+  test('is linear by the census on openers with no closer, the old pattern\'s quadratic case', () => {
+    const html = `${'<p><code>x'.repeat(2_000)}<table>`;
+    const { result } = assertLinearRegexes(() => paragraphCodeSpans(html));
+    assert.deepEqual(result, []);
   });
 });

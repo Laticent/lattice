@@ -25,6 +25,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { frontMatterScalar, frontMatterValue, topLevelFrontMatterValue } = require('../../../lib/core/front-matter-key');
 const { parseFrontMatter } = require('../../../lib/engine/directives');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 /** The engine's own door, so a divergence between the two readers fails here. */
 const viaEngine = (line) => parseFrontMatter(`---\n${line}\n---\n\n# T`).directives;
@@ -206,13 +207,15 @@ describe('block-scalar header — linear on a long run of spaces', () => {
   // at 40K spaces, ~50 s per render. 4x the input is ~4x the time when linear, ~16x when not.
   const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\nlift: on\n`;
   test('a header ending in U+2028 after a long run of spaces reads in linear time', () => {
-    // A hang guard sized by F4 (HARD RULE #32), in place of a ratio of two timings that ejected #2953. Backtracking
-    // inside one regex has no count to read, so the input is one the old pattern cannot finish: run alone on 200K
-    // spaces it was still going when killed at 60 s. Today the read takes 1.5 ms.
-    const t0 = process.hrtime.bigint();
-    assert.equal(frontMatterValue(`${fm(200000)}k: v\n`, 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-    assert.ok(ms < 5000, `the header scan took ${ms.toFixed(0)} ms on 200K spaces`); // flaky-ok: hang guard — 1.5 ms today; the old regex over 60 s at this size
+    // In place of a ratio of two timings that ejected #2953, then a 5 s hang guard. Backtracking inside one regex has no
+    // count to read (the old pattern, on 200K spaces, was still going when killed at 60 s), so every regex the read runs
+    // must be one recheck calls linear (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+    // The two key patterns are built from the key's name at run time, so the census (literals only) cannot hold them.
+    const allow = {
+      '/^lift[ \\t]*:/': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
+      '/^[ \\t]*lift[ \\t]*:[ \\t]*(.*)$/m': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
+    };
+    assertLinearRegexes(() => assert.equal(frontMatterValue(`${fm(2000)}k: v\n`, 'lift'), 'on', 'the hostile line is not a header, so the next line is a key'), { allow });
     assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
   });
 

@@ -7,6 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const m = { ...require('../../../lib/core/meta-record.mjs'), ...require('../../../lib/core/meta-edit.mjs') };
 const { scanWork } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const SRC = '---\ntheme: indaco\n---\n\n<!-- class: dark -->\n<!-- _footer: One -->\n\n# A\n\n---\n\n<!-- _class: cards -->\n\n# B\n\n---\n\n# C\n';
 
@@ -113,12 +114,12 @@ describe('the comment finder is linear on hostile text', () => {
     });
     assert.ok(scanned <= 10 * t.length, `${scanned} chars scanned for ${t.length}`);
     // The lazy regex this replaced (`/<!--([\s\S]*?)-->/g`, 5.4 s at 250 KB) did the same search inside one match,
-    // where no count sees it, so it gets a hang guard (F4 in engineering/decisions/2026-11-06-flaky-tests.md).
-    const t0 = performance.now();
-    m.comments(t);
-    m.hasMarker(t, 'stress-slide');
-    const ms = performance.now() - t0;
-    assert.ok(ms < 5000, `${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 4.5 ms, the old shape ~94 s at this size
+    // where no count sees it. So every regex the two calls run must be one recheck calls linear
+    // (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+    assertLinearRegexes(() => {
+      m.comments(t);
+      m.hasMarker(t, 'stress-slide');
+    });
   });
   test('hasMarker ignores a fenced marker', () => {
     assert.equal(m.hasMarker('<!-- stress-slide -->', 'stress-slide'), true);

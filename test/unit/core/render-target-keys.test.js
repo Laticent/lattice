@@ -20,6 +20,7 @@ const {
 } = require('../../../lib/core/render-target-keys');
 const { lintTextWith } = require('../../../lib/authoring/lint-core');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const REPO = join(__dirname, '..', '..', '..');
 const deck = (fm) => `---\n${fm}\n---\n\n# Slide\n\nBody.\n`;
@@ -222,15 +223,17 @@ test('EQUIVALENCE: the rewrite is linear where the verbatim pattern was quadrati
 		assert.ok(!LEGACY_ON[key].source.startsWith('^\\s*'), `${key}: leading \\s* is the quadratic shape`);
 	}
 
-	// A hang guard, not a speed test (HARD RULE #32, F4). The backtracking lives inside one regex
-	// match, where no count reaches it, so this times the READER with a bound no runner gets near:
-	// 250k newlines read in 1.4 ms, and the verbatim pattern wired in would take about 86 s
-	// (35 s measured at 160k, growing with the square).
-	const block = `fluid:${'\n'.repeat(250000)}`;
-	const t0 = process.hrtime.bigint();
-	assert.equal(readRenderTargetKey(block, 'fluid'), false);
-	const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-	assert.ok(ms < 5000, `the reader took ${ms.toFixed(0)} ms on 250k newlines; the quadratic pattern takes about 86 s`); // flaky-ok: hang guard — linear 1.4 ms, the old shape ~86 s at this size (35 s measured at 160k)
+	// The backtracking lives inside one regex match, where no count reaches it (the verbatim pattern took 35 s on 160k
+	// newlines, growing with the square). So every regex the READER runs must be one recheck calls linear
+	// (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+	const block = `fluid:${'\n'.repeat(2000)}`;
+	// Both are built from the key at run time, so the census (literals only) cannot hold them.
+	const allow = {
+		// The reader builds this from a template literal, so its source holds a real TAB (\u0009), not the escape `\t`.
+		'/^[ \u0009]*fluid:[ \u0009]*(.*)$/gim': '`npm run regex:census -- --check` (recheck 4.6.2): safe',
+		[String(LEGACY_ON.fluid)]: 'recheck cannot model look-ahead; `(?=(\\s*))\\1` is an atomic group: the blank run is taken once and never re-split, and the classes on either side exclude line terminators',
+	};
+	assertLinearRegexes(() => assert.equal(readRenderTargetKey(block, 'fluid'), false), { allow });
 });
 
 test('an absent key is off, and one key never answers for another', () => {
