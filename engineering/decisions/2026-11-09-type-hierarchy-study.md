@@ -333,7 +333,10 @@ Each option averaged over every combination it appears in:
    1.35, so `classic` loses tension that every Inter pairing keeps.
 6. **Two misses are the same in every combination** and are not choices: the pie key (19.9 px) sits within 10% of the
    body, and indaco's header and footer read 3.5:1 on its dark title and divider panels in both modes (every other
-   palette theme passes). Both are logged, not scored as differences.
+   palette theme passes). Neither is scored as a difference between choices. The indaco defect is fixed in the same PR:
+   a theme may now name `--on-inverse-muted` for its chrome on the dark bookend panel, indaco names `#91A7C2`
+   (4.58:1), and `test/unit/palette/contrast.test.js` holds every theme's bookend chrome to AA in both modes. The
+   scores above were measured before the fix, so each combination's contrast score would rise by the same amount.
 
 ### What the scores cannot see
 

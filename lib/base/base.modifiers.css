@@ -1261,6 +1261,28 @@ section.divider:not(.light):not(.print) {
   --deck-logo-filter: var(--deck-logo-filter-inverse);
   --deck-logo-opacity: var(--deck-logo-opacity-inverse);
 }
+/* CHROME ON THE DARK PANEL takes the panel's muted ink, when the theme names one. The bands read the
+ * Marp chrome colors, which base.tokens.css maps to `--text-muted`, and on these panels that resolves
+ * to the theme's dark-scheme muted ink, tuned for its dark CANVAS. Every theme but one paints the panel
+ * near-black, so the two agree. Indaco paints it brand navy (#003D66, the lightest --surface-inverse in
+ * the repo), where its dark muted ink measured 3.5:1, under AA for 15 px text (found by
+ * tools/type-voice-audit.mjs, 2026-11-09). Lifting that ink everywhere was measured and rejected: the
+ * first passing value sits 1.01:1 from the theme's secondary ink, so muted and secondary would merge on
+ * every dark surface. So a theme may name `--on-inverse-muted`, read only here, and a theme that names
+ * nothing renders exactly as before (the fallback is the mapping base.tokens.css already makes). The
+ * print block above remaps the same three tokens the same way; `.print` is excluded here as there.
+ * Gated by test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes.
+ *
+ * SPECIFICITY (0,1,1), ON PURPOSE: the panel predicate sits in `:where()`, so the rule weighs exactly
+ * what an author's `section.my-class { --marp-slide-footer-color: … }` weighs, and the author's style,
+ * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
+ * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
+ * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
+section:where(.title, .closing, .divider:not(.light)):not(.print) {
+  --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
+}
 
 
 /* ── INLINE-CODE INK on dark islands ──

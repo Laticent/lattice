@@ -79,6 +79,7 @@ to spot during palette development.
 | `--bg` | Slide canvas |
 | `--bg-alt` | Card fill, alternate row, secondary surface |
 | `--surface-inverse` | Dark panel canvas (title, divider, closing) |
+| `--on-inverse-muted` | *Optional.* Chrome ink (header, footer, page number) on the `--surface-inverse` panel. Omit it and the chrome takes the dark-scheme `--text-muted`, which is right wherever the panel is near-black. Name it when your panel is light enough that `--text-muted` falls under 4.5:1 there (indaco's brand-navy panel does). Gated in `test/unit/palette/contrast.test.js`. |
 | `--border` | Hairline rule on light surfaces |
 | `--text-display` | Text on dark surfaces |
 | `--text-heading` | Primary text on light surfaces |

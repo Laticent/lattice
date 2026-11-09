@@ -4911,6 +4911,20 @@ const SANCTIONED_FALLBACK_READS = [
       'a category tint (#2305), where an accent bar is accent on accent. The fallback IS the ' +
       'intended value for the common case, so a theme omitting it is correct rather than degraded.',
   },
+  {
+    token: 'on-inverse-muted',
+    fallback: 'text-muted',
+    why:
+      'a per-theme OVERRIDE, not a required slot. The header, footer and page number on a dark ' +
+      'bookend panel (title, closing, divider; base.modifiers.css) read it before --text-muted, ' +
+      'which on those panels resolves to the theme\'s dark-scheme muted ink. That ink is the ' +
+      'right chrome ink wherever the panel is near-black, which is every theme but indaco; indaco ' +
+      'paints brand navy and names its own lift. The fallback carries the SAME contract the read ' +
+      'needs, and that is gated rather than asserted: test/unit/palette/contrast.test.js holds ' +
+      'the resolved chrome ink (this token, else --text-muted in the dark scheme) to 4.5:1 on ' +
+      '--surface-inverse for every theme in both modes, so a theme that omits the token while its ' +
+      'muted ink fails on its panel turns that test red (found 2026-11-09 by tools/type-voice-audit.mjs).',
+  },
 ];
 
 /**
