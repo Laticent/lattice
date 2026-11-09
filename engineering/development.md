@@ -351,6 +351,12 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — Biome on staged JS/JSON only
 - `affected-tests` — `tools/affected-tests.js` maps staged paths to
   scoped scripts; runs only what's affected. See *Affected tests* below.
+- `lint-deck` — `tools/lint-deck.js --strict` on staged decks.
+- `regex-census-recheck` — only when `tools/regex-census.json` is staged:
+  `node tools/regex-census.js --staged` re-decides, with recheck, each `safe` verdict the
+  staged table adds or changes against `HEAD` (the one verdict that lowers a backlog), and fails on any recheck answers
+  differently (HARD RULE #32; `build:check` trusts the verdicts it is shown). About
+  1 s per changed safe verdict; local only, no CI step re-runs it. Needs `npm ci --prefix tools/recheck --omit=optional --ignore-scripts`.
 
 **pre-push** (serial, fail-fast cheap-first):
 - `lint` — full tree

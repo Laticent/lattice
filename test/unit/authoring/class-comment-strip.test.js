@@ -12,6 +12,8 @@ const path = require('node:path');
 const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const { stripClassComments } = require('../../../lib/authoring/prose-budgets.js');
 const { reviewText } = require('../../../lib/authoring/review-core.js');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 // The regex as it stood before #1890. Only ever run on short inputs here: it is cubic.
 const OLD = /<!--\s*_?class:\s*[^>]*?\s*-->/g;
@@ -73,26 +75,34 @@ describe('stripClassComments matches the old regex', () => {
 });
 
 describe('stripClassComments is linear', () => {
-  // The old regex took 381 ms, 3.1 s and 23.9 s on 1000, 2000 and 4000 spaces (cubic).
-  const time = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
+  // The old regex took 381 ms, 3.1 s and 23.9 s on 1000, 2000 and 4000 spaces (cubic). No clock (HARD RULE #32): the
+  // strip is a hand walker, so `charReads` counts its reads (one per character today), and every regex the strip and
+  // the review run must be one recheck calls linear (test/helpers/regex-trace.js), which is the shape the bug had.
+  const work = (fn) => { const r = charReads(fn); return Math.max(r.scanned, r.reads); };
+  const reads = (src) => work(() => stripClassComments(src));
+  // reviewText builds one pattern at run time from its checkbox table, so the census cannot hold it.
+  const allow = { '/`\\{([x\\-/ ])\\}`/g': 'built at run time in review-core; recheck 4.6.2 safe' };
 
-  test('an unterminated directive followed by 4000 spaces takes under 50 ms, in the strip and in reviewText', () => {
+  test('an unterminated directive followed by 4000 spaces is read once, in the strip and in reviewText', () => {
     const src = `# Title\n\n<!-- class: ${' '.repeat(4000)}\n\nwords here`;
-    assert.ok(time(() => stripClassComments(src)) < 50);
-    assert.ok(time(() => reviewText(src)) < 50 * 20, 'the whole review stays far from a freeze');
+    assert.ok(reads(src) <= 2 * src.length, `${reads(src)} reads for ${src.length} characters`);
+    assertLinearRegexes(() => stripClassComments(src));
+    assertLinearRegexes(() => reviewText(src), { allow });
   });
 
-  test("the issue's own input: '<!-- _class: ' and 3000 spaces, tabs or newlines, under 50 ms each", () => {
+  test("the issue's own input: '<!-- _class: ' and 3000 spaces, tabs or newlines, read in linear work", () => {
     for (const ws of [' ', '\t', '\n', '\n\n']) {
       const src = `<!-- _class: ${ws.repeat(3000)}`;
-      assert.ok(time(() => stripClassComments(src)) < 50, JSON.stringify(ws));
+      assert.ok(reads(src) <= 2 * src.length, `${JSON.stringify(ws)}: ${reads(src)} reads for ${src.length} characters`);
+      assertLinearRegexes(() => stripClassComments(src));
       assert.equal(stripClassComments(src), src);
     }
   });
 
-  test('20,000 unterminated directives (240 KB), quadratic for a `[^>]*-->` regex, take under 50 ms', () => {
-    const src = '<!-- class: '.repeat(20000);
-    assert.ok(time(() => stripClassComments(src)) < 50);
-    assert.equal(stripClassComments(src), src);
+  test('failing arm: a strip that rescans from every blank is caught by the count', () => {
+    // A stand-in for the cubic shape: from each position, read on to the end of the run. The count sees it.
+    const rescan = (src) => { for (let i = 0; i < src.length; i++) for (let j = i; j < src.length && src.charCodeAt(j) === 32; j++); return src; };
+    const src = `<!-- _class: ${' '.repeat(3000)}`;
+    assert.ok(work(() => rescan(src)) > 2 * src.length);
   });
 });

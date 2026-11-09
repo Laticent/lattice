@@ -61,6 +61,25 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             The census cannot certify a look-around (recheck cannot model one), so a pattern made linear by a
             look-behind or an atomic-group look-ahead carries its proof in writing: `// regex-ok:` on its line, and
             the same reason in the test's `allow`.
+            2026-11-09 (zero-flakes part 4, owner D1): the pre-commit job `regex-census-recheck` re-decides each
+            verdict the staged table adds or changes against HEAD (`node tools/regex-census.js --staged`), so a
+            hand-typed verdict no longer passes. A planted `"safe"` on a polynomial pattern failed the commit in 1.04 s.
+            2026-11-09 (part 4, P2): seven of the ten hang guards retired (slide-camera-faces 2, relationship-scaling
+            2, chart-narration 1, closed-comments 1, masthead-lift 1). Each path's slow patterns became linear readers,
+            each held to its old pattern by a seeded differential fuzz (seed 3045) with a mutation arm:
+            fontFaceRules/replaceVarRefs (slide-camera.mjs), firstClause/dropTrailingPunct/closePunctGaps
+            (relationship.js), stripMdLinks/stripMermaidDirectives (chart-narration.js), replaceFencedBlocks/
+            replaceAutolinks/skeletonTags (layout/gate.js), attrRunReader (new lib/forms/cell/masthead/attr-run.js, the footer-cell
+            walk in masthead.transform.js). Backlog 697 -> 675. LEFT: chart-row-record's 3 guards. They run all of
+            lint and render: about 120 patterns recheck does not call safe, about 25 of which read the hostile input
+            (lint-core's caption/say/fence/list scans, markdown-it's own, the engine's tag walkers). They retire with
+            the lint-core drain, not one at a time.
+            2026-11-09 (part 4, P3): the five patterns admitted with --raise in #3097 are drained: lint-core's agenda
+            fence and html-block strippers (stripAgendaFences, stripAgendaHtmlBlocks), agenda-autofill's class-directive
+            rewrite (replaceClassDirective), and progress.transform.js's class attribute (two alternatives instead of a
+            back-reference) and first-heading read (firstHeadingInner). Each is held to its old pattern by a seeded
+            fuzz (test/unit/core/agenda-progress-readers.test.js) and to linear work by scanWork
+            (test/unit/core/linear-readers-work.test.js). Backlog 675 -> 670.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

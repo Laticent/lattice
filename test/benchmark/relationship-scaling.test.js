@@ -14,6 +14,9 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { labelOf, textOf } = require('../../lib/core/relationship');
 const { scanWork } = require('../helpers/work-count');
+const { assertLinearRegexes } = require('../helpers/regex-trace');
+const { mulberry32 } = require('../helpers/regex-differential');
+const { firstClause, dropTrailingPunct, closePunctGaps } = require('../../lib/core/relationship');
 
 describe('perf: relationship — the katex scan scales linearly', () => {
   // `<[a-zA-Z][\w-]*[^>]*>` has two overlapping quantifiers, so a tag with no `>` made the engine re-split the name at
@@ -33,17 +36,40 @@ describe('perf: relationship — the katex scan scales linearly', () => {
     assert.ok(perChar(textOf, candidates) <= 16, 'textOf searched past linear on many candidate tags');
   });
 
-  test('the two old regex shapes would hang here; the scanner does not', () => {
-    // A hang guard, sized by F4: nothing counts backtracking inside one regex exec (test/helpers/work-count.js says
-    // why), so each input is large enough that its old pattern needs minutes, with the bound far above today's cost.
-    // Measured 2026-11-06: the unclosed tag 45 ms at 400,000 characters, against the old tag regex alone (one
-    // `replace`, not `labelOf`'s repeated passes, which made the 6.0 s above) at 72 ms on 10,000, growing with the square
-    // (about 115 s here); the candidate tags 204 ms at 150,000, against the old katex search's
-    // 3.2 s at 20,000 (about 180 s here).
-    const time = (fn) => { const t0 = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t0) / 1e6; };
-    const tag = time(() => labelOf(`<${'a'.repeat(400000)}`));
-    assert.ok(tag < 5000, `an unclosed tag took ${tag.toFixed(0)} ms`); // flaky-ok: hang guard — linear 45 ms, the old shape about 115 s at this size
-    const spans = time(() => textOf(`katex${'<span x='.repeat(150000)}>`));
-    assert.ok(spans < 15000, `candidate tags took ${spans.toFixed(0)} ms`); // flaky-ok: hang guard — linear 204 ms, the old shape about 180 s at this size
+  test('the two old regex shapes would hang here; every regex the scanner runs now is linear', () => {
+    // No clock (HARD RULE #32): the defect was backtracking inside one regex exec, which no count sees. So the guard asks
+    // the census instead: every pattern `labelOf` and `textOf` run on these inputs must be one recheck calls linear
+    // (test/helpers/regex-trace.js). The label's three slow patterns are rewritten as linear readers, held to the old
+    // patterns by the fuzz below.
+    assertLinearRegexes(() => labelOf(`<${'a'.repeat(400)}`));
+    assertLinearRegexes(() => textOf(`katex${'<span x='.repeat(150)}>`));
+    assertLinearRegexes(() => labelOf(`<li>Alpha${' '.repeat(400)}— beta: gamma. delta, ${' '.repeat(400)}x</li>`));
+  });
+});
+
+describe('the label readers answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
+  // The old patterns (tests are outside the census, which reads lib/** only).
+  const OLD_BREAK = /\s+[—–]\s+|:\s+|(?<=[a-z]{3})\.\s+/;
+  const OLD_TAIL = /[.:;,]+$/;
+  const OLD_GAP = /\s+([,;:.])/g;
+  const PIECES = [' ', ' ', '\t', '\n', '\u00a0', '\u2028', '—', '–', '-', ':', '.', ',', ';', 'a', 'b', 'c', 'Q', '1', 'ab', 'xyz'];
+  const draw = (rand) => {
+    let s = '';
+    const len = Math.floor(rand() * 13);
+    for (let i = 0; i < len; i++) s += PIECES[Math.floor(rand() * PIECES.length)];
+    return s;
+  };
+  test('firstClause, dropTrailingPunct and closePunctGaps match split / replace on 30,000 draws', () => {
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 30000; i++) {
+      const s = draw(rand);
+      assert.equal(firstClause(s), s.split(OLD_BREAK)[0], `firstClause ${JSON.stringify(s)}`);
+      assert.equal(dropTrailingPunct(s), s.replace(OLD_TAIL, ''), `dropTrailingPunct ${JSON.stringify(s)}`);
+      assert.equal(closePunctGaps(s), s.replace(OLD_GAP, '$1'), `closePunctGaps ${JSON.stringify(s)}`);
+    }
+  });
+  test('mutation arm: the trace fails the old patterns on the same kind of input', () => {
+    assert.throws(() => assertLinearRegexes(() => 'a  b'.replace(OLD_GAP, '$1')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'a.'.replace(OLD_TAIL, '')), /polynomial|unknown|does not hold/);
   });
 });

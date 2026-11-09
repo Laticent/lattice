@@ -6,6 +6,8 @@
  *   npm run regex:census -- --write      decide each literal the table lacks, drop stale verdicts, lower the backlog
  *   npm run regex:census -- --verify     re-decide EVERY verdict and report each one that changed (slow: minutes)
  *   npm run regex:census -- --check '/a+b/'   decide one pattern and print recheck's answer (with the attack string)
+ *   npm run regex:census -- --staged     re-decide each `safe` verdict the STAGED table adds or changes against HEAD, fail on
+ *                                        any that recheck does not give (the pre-commit job in lefthook.yml, owner D1 2026-11-09)
  *
  * The gate is `checkRegexCensus` in tools/check-ownership.js, and it needs no recheck: it only holds lib/** to this table.
  * This writer is the one place recheck runs. recheck is pinned in its own folder, tools/recheck/, so the root `npm ci`
@@ -156,6 +158,49 @@ function decideAll(keys, jobs, progressFile) {
   });
 }
 
+/**
+ * The verdict entries `next` adds or changes against `prev`: every entry a hand edit could have typed. A dropped entry is not
+ * listed (the gate catches a dropped live one as missing). Pure; tools/regex-census.js --staged re-decides each.
+ */
+function changedVerdicts(prev, next) {
+  const before = prev || {};
+  return Object.keys(next || {}).filter((k) => JSON.stringify(next[k]) !== JSON.stringify(before[k]));
+}
+
+/** A table as git holds it at `rev` (`:path` is the index): null when that revision has no such file. */
+function gitTable(rev, rel) {
+  const { execFileSync } = require('node:child_process');
+  let text;
+  try {
+    text = execFileSync('git', ['show', `${rev}${rel}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+  return JSON.parse(text);
+}
+
+/**
+ * --staged: the gate trusts a verdict it is shown, so a typed `"safe"` would pass build:check. This re-decides, with
+ * recheck, each `safe` verdict the staged table adds or changes against HEAD, and returns the ones recheck answers
+ * differently.
+ * Only the changed entries run, so a commit that does not touch the table costs nothing and one that adds a literal
+ * costs that literal's 0.5 to 3 s.
+ */
+async function recheckStaged(jobs) {
+  const rel = 'tools/regex-census.json';
+  const staged = gitTable(':', rel);
+  if (!staged) return { keys: [], wrong: [] };
+  const head = gitTable('HEAD:', rel) || {};
+  // Only a `safe` verdict needs proof: it is the one verdict that lowers a file's backlog. A hand-typed polynomial,
+  // exponential or unknown only makes the gate stricter, and re-deciding one recheck cannot model can take minutes
+  // (a 3 GB heap exhausted twice), so those are left alone.
+  const keys = changedVerdicts(head.verdicts, staged.verdicts).filter((k) => staged.verdicts[k] === 'safe');
+  if (!keys.length) return { keys, wrong: [] };
+  const fresh = await decideAll(keys, jobs);
+  const wrong = keys.filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(staged.verdicts[k])).map((k) => ({ key: k, table: staged.verdicts[k], recheck: fresh[k] }));
+  return { keys, wrong };
+}
+
 /** The committed table. Only a MISSING file is a first run; a table that does not parse is an error, never a fresh start
  *  (a re-baseline would quietly admit every slow literal). */
 function readTable(file) {
@@ -213,6 +258,20 @@ async function main() {
     const key = opt('--check');
     const { entry, r } = await decide(recheck, key);
     console.log(JSON.stringify({ key, entry, attack: r.attack?.pattern ?? r.attack?.string, hotspot: r.hotspot }, null, 2));
+    return;
+  }
+
+  if (flag('--staged')) {
+    loadRecheck(); // fail here, with the install line, rather than in every child
+    const t0 = Date.now();
+    const { keys, wrong } = await recheckStaged(jobs);
+    for (const w of wrong) console.error(`  ${w.key}: the staged table says ${JSON.stringify(w.table)}, recheck says ${JSON.stringify(w.recheck)}`);
+    if (wrong.length) {
+      console.error(`regex-census --staged: ${wrong.length} of ${keys.length} changed "safe" verdict(s) in tools/regex-census.json are not recheck's answer (HARD RULE #32).`);
+      console.error('A verdict is written by `npm run regex:census -- --write`, never by hand. Restore the table (git checkout tools/regex-census.json) and run the writer.');
+      process.exit(1);
+    }
+    console.log(`regex-census --staged: ${keys.length} changed "safe" verdict(s) re-decided, all match recheck (${((Date.now() - t0) / 1000).toFixed(1)} s).`);
     return;
   }
 
@@ -280,8 +339,10 @@ async function main() {
   console.log(`regex-census: wrote ${path.relative(ROOT, tableFile)}: ${missing.length} decided, ${Object.keys(verdicts).filter((k) => !live.has(k)).length} stale dropped, ${lowered} file backlog(s) lowered${raised.length && !firstRun ? `, ${raised.length} RAISED (--raise)` : ''}.`);
 }
 
+module.exports = { changedVerdicts };
+
 if (process.env.REGEX_CENSUS_CHILD) child();
-else {
+else if (require.main === module) {
   main().catch((e) => {
     console.error(e);
     process.exit(1);
