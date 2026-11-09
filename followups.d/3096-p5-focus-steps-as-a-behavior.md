@@ -16,9 +16,12 @@ why now   — the parser copies a `_focusSteps` slide once per step (lib/integra
             table renders 5 sections and 5 PDF pages. Every reader of slide position pays for it: the #1387
             off-by-one, guards in narration, the preview, the render cache, the slice check and the Marp export, and
             now four section counts (divider marker, numeral, rail, topic eyebrow) that read a focus-step divider as
-            three sections. `_build` already works the right way: one slide, `data-build`, CSS, Present reveals in
-            place, print shows the whole slide.
-where     — a design note in engineering/decisions/ first (amending 2026-06-16-focus-highlighting.md §4), then
+            three sections. `_build` has the right model (one slide, steps stamped, CSS keyed on a `data-build-at` the
+            player sets) but only that half shipped: nothing sets `data-build-at`, so no surface walks its steps yet.
+            Issue #380 tracks the walker and the page-per-step PDF; both features need the same two pieces. Issue
+            #1765 asks for one Studio control for `_focus`, `_focusStyle`, `_focusSteps` and `_build`.
+where     — a design note in engineering/decisions/ first (amending 2026-06-16-focus-highlighting.md §4, and built
+            with issue #380's step walker so `_build` and `_focusSteps` share it), then
             plugins.js (stop copying), lib/transformers/focus.js and lib/base/base.focus.css (steps as state on one
             slide), Present's step walker, the PDF/PPTX export (one frame; page-per-step as an opt-in), and the
             guards the copies made necessary.

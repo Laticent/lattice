@@ -191,8 +191,12 @@ the sense above.
    printed walkthrough, is an explicit export option applied in that export only.
 4. **No mark reads a behavior.** Page numbers, section counts, narration's slide index and the preview never see a step.
 
-**`_build` follows all four.** `lib/transformers/build.js` stamps `data-build` on the one slide, `lib/base/base.build.css`
-draws the steps, Present reveals them in place, and print shows the whole slide.
+**`_build` is designed to follow all four, but only its first half has shipped.** `lib/transformers/build.js` stamps
+each unit's step on the one slide and `lib/base/base.build.css` hides the units past the current step, keyed on a
+`data-build-at` the player is meant to set. No code sets it today: the player that walks the steps (increment 2 of
+`2026-06-16-narrative-step-model.md` §11) and the page-per-step PDF (increment 3) are not built, and issue #380 tracks
+them. So a `_build` slide shows whole everywhere, Present included. The model is right; the walker is missing, and it
+is the same walker `_focusSteps` needs.
 
 **`_focusSteps` breaks rules 1 and 4.** The highlight itself is already CSS: `lib/transformers/focus.js` tags the target
 `.lat-focus` and its siblings `.lat-recede`, and `lib/base/base.focus.css` draws the treatment. But the step is applied
@@ -203,7 +207,8 @@ cost landed on every reader of slide position instead: the #1387 off-by-one, the
 render cache, the slice check and the Export-to-Marp note, and now four section counts that see one divider as three.
 
 **So `_focusSteps` is redesigned on `_build`'s model:** one slide carrying its steps, walked live by moving
-`.lat-focus`, one frame in still formats, and page-per-step only as an export option. One committed deck uses it
+`.lat-focus`, one frame in still formats, and page-per-step only as an export option. Both need the same step walker
+in Present and the same page-per-step export, so the two are built together with #380, not twice. One committed deck uses it
 (`examples/focus.md`, once). The PDF change is an export-bytes change, so its before and after renders go to the owner
 for sign-off. Its design note comes first (`followups.d/3096-p5-focus-steps-as-a-behavior.md`).
 
