@@ -23,6 +23,7 @@ const PROBES = [
 	{ file: 'studio-probe.js', fn: 'latticeStudioProbe' },
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
+	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
 ].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');

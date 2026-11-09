@@ -134,8 +134,8 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), then the pane-swap probe (panes-probe.js, #2916),
- * each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916)
+ * and the sheet focus probe (sheet-focus-probe.js, #3108), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
@@ -144,13 +144,15 @@ async function studioPage(id, file, fn) {
 async function runStudioProbe(id) {
 	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
 	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
+	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus)],
 	};
 }
 
