@@ -867,14 +867,23 @@ roadmap's phases to stack as bands.
 - A roadmap stays ONE page while its bands fit, and the decision is still made from the markup,
   as 2026-09-01 requires: phases plus the LINES its rows wrap to, against a budget for the box's
   shape (`carousel.js` `roadmapBandLines`). A row is as tall as the taller of its two cells, and
-  both wrap. The name column is capped at 30% of the band (`fit-content(30%)`): ~13 uppercase
-  characters a line, each ~0.7 of a commitment line. The commitment column takes the rest, ~20
-  characters a line beside the widest name and ~30 beside a two-letter one. Each wrapped line
-  counts as a whole band line, so the count errs toward splitting. Two graders each found a
-  roadmap that held one story page and clipped where `main` split it: first long commitments
-  (the count read rows alone), then 25-character workstream names (the count read commitments
-  alone, and the name column took its full one-line width). Both now split, 4 pages at story and
-  mobile, as on `main`, and no repro clips.
+  both wrap. The name column is capped at 30% of the band (`fit-content(30%)`), and the row's
+  status inset takes ~31px of it, so a name gets ~220px of a monospaced label at ~20.4px a
+  character: 10 characters a line, each line ~0.7 of a commitment line. The commitment column
+  takes the rest of ~835px at ~26px a character. Each wrapped line counts as a whole band line,
+  so the count errs toward splitting. Three graders each found a roadmap that held one story or
+  mobile page and clipped where `main` split it: long commitments (the count read rows alone),
+  25-character names (it read commitments alone, and the name column took its full one-line
+  width), then 11- to 13-character two-word names (it counted 13 characters a line from an
+  estimate; measured, it is 10). Each now splits as on `main`.
+- A rendered sweep holds the formula to the page: 144 roadmaps (names of 5, 9, 11, 13, 16 and
+  25 characters; 3 or 5 rows; 2, 3 or 4 phases; commitments of 8, 18, 28 and 45 characters) at
+  story, mobile and portrait, each checked for the CLI's OVERFLOW and CONTENT CLIPPED. None clips
+  at story or mobile. At portrait, the ones that clip clip on `main` too: five rows of long
+  commitments overflow even one phase's own page.
+- A SPLIT page keeps `main`'s two-column cards, not a band. It holds one phase, and the cards use
+  the width the split bought. Bands on a split page made five rows of wrapped names run into the
+  footer, and the sweep found 16 portrait decks that clipped where `main`'s cards fit.
 - The decision applies only at a TALL box (`aspect < 0.9`), where the bands are drawn. A square
   or landscape roadmap keeps its cards and the split it always had.
 - The page is 1080px wide, so its height is 1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take

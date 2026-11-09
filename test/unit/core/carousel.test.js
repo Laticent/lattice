@@ -1874,6 +1874,13 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
       assert.ok(Array.isArray(at(0.56, ['A', 'B', 'C'], 3, 'Signal taxonomy v1', 'Developer experience team')));
       assert.equal(at(0.56, ['A', 'B', 'C'], 3, 'Signal taxonomy v1', 'Framework'), null, 'a short name: one page');
     });
+    test('a two-word name of 13 characters wraps in the 30% column: five rows split at 9:19.5', () => {
+      // The label is monospaced at ~20.4px a character in a ~220px cell: 10 characters a line, so
+      // `Design System` takes two. Counting it at 13 a line held this one mobile page and clipped
+      // it (#3088's third grader).
+      assert.ok(Array.isArray(at(0.46, ['A', 'B', 'C'], 5, 'Decision log', 'Design System')));
+      assert.equal(at(0.46, ['A', 'B', 'C'], 5, 'Decision log', 'Analytics'), null, 'nine characters: one line, one page');
+    });
     test('a square or landscape roadmap keeps the split: bands are drawn only on a tall page', () => {
       assert.ok(Array.isArray(at(1, ['A', 'B'], 1)));
     });
