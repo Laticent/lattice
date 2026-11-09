@@ -231,6 +231,9 @@ test('an empty Library adds nothing to the prompt, tools included', async ({ pag
 
 // The cost readout beside the chat is a typical-turn estimate (agentTurnUsd). A Library puts its list and three
 // tool definitions in every turn, so adding photos must raise it, a little, and removing them must bring it back.
+// The figure SHOWN is rounded (two decimals from 10 cents up), so a rise of a few tenths of a cent on a $0.11 edit
+// does not change the text: the spec reads the unrounded estimate the figure carries in `data-usd`. When this spec
+// was written an edit cost under 10 cents and showed three decimals; the prompt has grown since (followups 3079-p2).
 const readout = async (page: Page) => {
 	// The per-turn figures live in the model chip's dropdown (ChatCost's ModelChip): open it, read both, close it.
 	const chip = page.getByRole('button', { name: /Change model/ });
@@ -239,8 +242,11 @@ const readout = async (page: Page) => {
 	const figure = async (label: string) => {
 		const row = page.getByText(label, { exact: true }).locator('xpath=following-sibling::span').first();
 		if (!(await row.count())) return null;
-		const m = (await row.textContent())?.match(/\$([\d.]+)/);
-		return m ? Number(m[1]) : null;
+		const shown = (await row.textContent())?.match(/\$([\d.]+)/);
+		const exact = Number(await row.getAttribute('data-usd'));
+		// The unrounded figure must be the one shown, rounded: a data-usd that drifted from the text would test nothing real.
+		if (shown && Number.isFinite(exact)) expect(Math.abs(exact - Number(shown[1]))).toBeLessThanOrEqual(0.005);
+		return Number.isFinite(exact) && exact > 0 ? exact : null;
 	};
 	const question = await figure('Ask a question');
 	const edit = await figure('Make an edit');
