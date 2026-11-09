@@ -442,6 +442,15 @@ describe('footer band — each mark pays for itself, and the band clears a botto
           footerRight: footer ? footer.getBoundingClientRect().right : null,
           logoLeft: logo ? logo.getBoundingClientRect().left : null,
           railShown: !!(cell && [...cell.children].some((k) => k.classList.contains('tile-progress') && getComputedStyle(k).display !== 'none')),
+          // The band's gap in px on this slide, read from the token, so "one gap short of the logo" is a number.
+          gap: cell ? (() => {
+            const probe = document.createElement('div');
+            probe.style.cssText = 'position:absolute;visibility:hidden;width:var(--footer-gap)';
+            cell.appendChild(probe);
+            const w = probe.getBoundingClientRect().width;
+            probe.remove();
+            return w;
+          })() : 0,
         };
       }));
     await page.close();
@@ -470,12 +479,21 @@ describe('footer band — each mark pays for itself, and the band clears a botto
       `p${s.page}: footer ${footer} + page column ${pag} != band ${s.contentW}: something else takes the footer's room`);
   });
 
-  test('a bottom-right logo hides the rail and number, and the footer ends short of it', () => {
-    const s = find(/\blogo-bottom-right\b/);
-    assert.ok(s.logoLeft != null && s.footerRight != null, `p${s.page}: the logo or the footer is missing`);
-    assert.ok(!s.railShown, `p${s.page}: the rail still shows under a bottom-right logo`);
-    assert.ok(s.footerRight <= s.logoLeft,
-      `p${s.page}: the footer box ends at ${s.footerRight.toFixed(1)}px, past the logo's left edge at ${s.logoLeft.toFixed(1)}px`);
+  test('a bottom-right logo hides the rail and number, and the footer ends ONE GAP short of it', () => {
+    // Every size word, a plate (its padding widens the mark), and a center rail (which stands down under this
+    // logo). "Not overlapping" is too weak: a reserve that dropped the gap, or read the wrong scale, would pass it.
+    const logoSlides = slides.filter((x) => /\blogo-bottom-right\b/.test(x.cls));
+    for (const re of [/\blogo-lg\b/, /\blogo-plate\b/, /\bprogress-rail-center\b/]) {
+      assert.ok(logoSlides.some((x) => re.test(x.cls)), `the fixture lost its bottom-right logo slide with ${re}`);
+    }
+    for (const s of logoSlides) {
+      assert.ok(s.logoLeft != null && s.footerRight != null, `p${s.page}: the logo or the footer is missing`);
+      assert.ok(!s.railShown, `p${s.page}: the rail still shows under a bottom-right logo`);
+      const clear = s.logoLeft - s.footerRight;
+      assert.ok(Math.abs(clear - s.gap) < 0.5,
+        `p${s.page} (${s.cls.split(' ').filter((c) => c.startsWith('logo-') || c.startsWith('progress-rail-c')).join(' ')}): `
+        + `the footer ends ${clear.toFixed(1)}px short of the logo, not one gap (${s.gap.toFixed(1)}px)`);
+    }
   });
 
   test('`center` keeps its own five-track grid', async () => {
@@ -483,7 +501,8 @@ describe('footer band — each mark pays for itself, and the band clears a botto
     // (four named columns plus an implicit fifth for the items center places there), but its edge tracks are
     // no longer equal, so the rail is off the band's center.
     const symmetric = (t) => t.length === 5 && Math.abs(t[0] - t[4]) < 0.5;
-    const s = find(/\bprogress-rail-center\b/);
+    const s = slides.find((x) => /\bprogress-rail-center\b/.test(x.cls) && !/\blogo-bottom-right\b/.test(x.cls));
+    assert.ok(s, 'the fixture lost its plain center slide');
     assert.ok(symmetric(s.tracks), `p${s.page}: center's tracks are not symmetric: ${s.tracks.join(' ')}`);
     // The fixed-column rule and center's grid can tie on specificity, and then the BUNDLE's order decides,
     // which differs from deck to deck: the fixture above kept five tracks with a guard that re-sliced

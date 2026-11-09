@@ -257,22 +257,22 @@ section.form > .cell-footer {
 }
 /* A bottom-right logo takes the band's end (base.modifiers.css § THE LOGO IS SUPREME hides the page number
  * and the rail there), so the band ends a gap short of the mark and the hidden number keeps no column. The
- * logo is `6.25cqi` wide times its size word, at `right: --frame-inset-r`, the band's own right edge.
- * Before the band gave empty columns' room back, their gaps happened to clear the logo; now this does. */
+ * mark sits at `right: --frame-inset-r`, the band's own right edge, and its box is the section's
+ * `--deck-logo-w` plus a plate's padding on each side (base.modifiers.css), read here, never restated.
+ * Before the band gave empty columns' room back, their gaps happened to clear the logo; now this does.
+ * `center` stands down under this logo (progress-center.css), so this is always the `right` band. */
 section.form.logo-bottom-right:has(> img.deck-logo) > .cell-footer {
-  --_logo-scale: 1;
-  padding-right: calc(6.25cqi * var(--_logo-scale) + var(--footer-gap));
+  padding-right: calc(var(--deck-logo-w) + 2 * var(--logo-plate-pad, 0px) + var(--footer-gap));
   grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] 0;
 }
-section.form.logo-bottom-right.logo-sm:has(> img.deck-logo) > .cell-footer { --_logo-scale: 0.75; }
-section.form.logo-bottom-right.logo-lg:has(> img.deck-logo) > .cell-footer { --_logo-scale: 1.5; }
 /* With a rail, the page column is one width on every slide: six characters plus the number's lead, so the
  * rail, which ends where the column starts, holds still across 9 -> 10 and on a slide with no number.
  * A divider's marker ends on the same line (divider.styles.css `--_marker-end`). Only a rail that SHOWS:
- * the claim frames hide it (below) and so does a bottom-right logo (base.modifiers.css), and a hidden rail
- * has no place to hold. The guards sit in `:where()` so this rule keeps its (0,3,1) and `center`'s five-track
- * grid (progress-center.css) still out-ranks it. */
-section.form:where(:not(.claim-quiet, .claim-hero, .claim-bleed)):where(:not(.logo-bottom-right:has(> img.deck-logo))) > .cell-footer:has(> .tile-progress) {
+ * the claim frames hide it (below), and a hidden rail has no place to hold. A bottom-right logo hides it
+ * too; the logo's own rule above out-ranks this one and sets the page column to 0. The guard sits in
+ * `:where()` so this rule keeps its (0,3,1) and `center`'s five-track grid (progress-center.css) still
+ * out-ranks it. */
+section.form:where(:not(.claim-quiet, .claim-hero, .claim-bleed)) > .cell-footer:has(> .tile-progress) {
   grid-template-columns: [footer] minmax(0, 1fr) [split] auto [rail] auto [pag] calc(var(--footer-pag-col) + var(--footer-gap));
 }
 /* Universal modifier (#527 family) — lift the footer band off the bottom edge into

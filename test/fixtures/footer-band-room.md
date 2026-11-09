@@ -41,6 +41,30 @@ progress-rail: dots on
 
 ---
 
+<!-- _class: logo-bottom-right logo-lg -->
+
+## A large bottom-right logo
+
+- The reserve reads the mark's own width, so the size word moves both
+
+---
+
+<!-- _class: logo-bottom-right logo-plate -->
+
+## A bottom-right logo on a plate
+
+- The plate's padding widens the mark, and the reserve with it
+
+---
+
+<!-- _class: logo-bottom-right progress-rail-center -->
+
+## A centered rail under a bottom-right logo
+
+- The logo hides the rail, so center stands down and the right band's reserve applies
+
+---
+
 <!-- _class: progress-rail-center -->
 
 ## A centered rail
