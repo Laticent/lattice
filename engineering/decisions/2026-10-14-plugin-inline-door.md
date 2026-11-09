@@ -341,3 +341,24 @@ The trio (red team, inversion, checker) read the commits; what each found and wh
   schema (`plugin.schema.json`), `spec/LPM.md` §3.3, §10 and §12, and this note now say what was built. Its two larger
   points, freezing and a declarative tier, went to the owner (§10: provisional; no template tier); shadowing on rebuilt layouts and the
   versioning of the consent text are followups that block phase G.
+
+**2026-11-09 — the #2687 followups that were still open (PR #2725, rebased onto 756c1fff).**
+- **What `fields` holds** (`2687-p5`). `spec/LPM.md` §3.3.1 lists the value per field type, pinned through both builds
+  of `@laticent/segno/read` (`test/unit/cli/inline-fields-contract.test.js`); both doors take `compileSlot` from Segno
+  since #3038. Rebased onto #3038, the test caught the move it was written for: `{>a}` read as the text `">a"` and is
+  now a description no record slot takes, so `@kind{> …}` is not drawn. Two #2686 changes are still planned (phase 4's
+  old spellings, the thin space); the rule "a span that reads keeps its `fields`" applies from the freeze on.
+- **A versioned consent text** (`2687-p6`). `CONSENT_VERSION` 1 is the text byte for byte (four digests pinned, one with
+  a `returns` segment); trust.js `trustOf` takes every accepted version's digest, so the CLI's checks, its kept pins and
+  the Studio accept an approval under any of them.
+- **The placeholder in grid cells and the Reading view** (`2651-p1`). All three placements fit a `cards-grid` card and a
+  `columns` pane at 1440, 820 and 390; the Reading view says it in a sentence (`withPlaceholderNotes`), for both of the
+  placeholder's states (not listed, or listed and not approved); the caption no longer ends on a bare `plugins:`.
+- **Dropped from the October version:** the fence style filter (`fenceStyle`). #2910 contains a fence drawing's paint and
+  strips the top-layer attributes, and main records the decision that a fence keeps its renderer's styles because a
+  block drawing has real uses for positioning (base.modifiers.css). A filter would reverse that, and would be a second
+  hand-written CSS declaration parser after #2871 and #3033 moved to one tokenizer per language. The e2e flake fixes were
+  superseded on main.
+- **The rebuilt-layout shadow** (`2687-p4`) was decided by the owner (a listed plugin draws on every slide type) and
+  built in #3110 with the slide-text address check; **Compose's panel for a kind's slot** (`2687-p8`) is still open.
+
