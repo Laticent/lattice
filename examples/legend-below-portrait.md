@@ -59,7 +59,7 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 ---
 
 <!-- _class: radar -->
-<!-- _footer: "Radar · no value column, labels reclaim the width" -->
+<!-- _footer: "Radar · labels reclaim the value column" -->
 
 `Capability · team vs target`
 

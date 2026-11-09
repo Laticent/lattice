@@ -133,6 +133,18 @@ asserts the resolved columns (only the footer's flexes; the page column is one w
 rail's inset from the band's end is one number across a deck that includes an unnumbered page and a
 `compact` page.
 
+**Amended 2026-11-09: the gap belongs to the items, and the column is fixed only where a rail needs it.**
+The first cut used a grid `column-gap` and a page column fixed on every slide. A grid charges its gap
+around empty columns too, so a slide with no rail or split counter still paid three gaps (4.8em) plus
+the fixed column, and the footer text lost that room. The first scheduled overflow nightly after this
+change (run 81) found ten corpus decks whose footers now ended in an ellipsis, all clean on the parent
+commit. Now `column-gap` is 0 and the split counter, the rail and the page number each carry their
+own lead (`padding-inline-start: var(--footer-gap)`). With a rail (`.cell-footer:has(> .tile-progress)`),
+the page column stays one width, six characters plus that lead, so the rail ends on the same line on
+every slide (113.9 px inset on `examples/progress-rail.md`, as before) and the divider's marker still
+ends there. Without a rail, nothing needs to hold still, so the column is at least six characters
+and grows only for a number that needs more. The footer keeps the rest of the band.
+
 **One baseline on every frame.** A title, divider or closing set its footer, page number and section
 marker in a `line-height: 1` box, the content band in a 1.45 line height inside a 1.6em box, so the
 sovereign frames' digits sat about 5 px lower (0.375em: the box's 0.15em slack plus half the extra

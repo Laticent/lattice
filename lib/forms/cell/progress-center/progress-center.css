@@ -89,12 +89,13 @@ section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) 
   column-gap: var(--footer-gap);
 }
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > footer { grid-column: 1 / 3; grid-row: 1; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 4; grid-row: 1; justify-self: end; }
-section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 5; grid-row: 1; justify-self: end; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 4; grid-row: 1; justify-self: end; padding-inline-start: 0; }
+section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 5; grid-row: 1; justify-self: end; padding-inline-start: 0; }
 /* The rail itself: a grid item in the middle track, not the absolute placement the default owns. */
 section.form.progress-rail-center:not(.logo-bottom-center:has(> img.deck-logo)) > .cell-footer > .tile-progress {
   grid-column: 3;
   grid-row: 1;
+  padding-inline-start: 0;  /* the five-track grid keeps its own column-gap; the `right` band's item lead would off-center the rail */
   position: static;
   inset: auto;
   max-width: none;

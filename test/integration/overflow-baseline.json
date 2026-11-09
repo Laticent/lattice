@@ -1,7 +1,7 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `swept` names every deck the blessing run covered: a deck in `swept` but absent from `decks` is clean; a deck absent from `swept` has no floor and fails by name.",
   "totalSlides": 62,
-  "decksSwept": 507,
+  "decksSwept": 509,
   "swept": [
     "design/design-system.gallery.md",
     "design/forms.gallery.md",
@@ -15,6 +15,7 @@
     "examples/adaptive-sizing.md",
     "examples/adaptive-sweep.md",
     "examples/agenda-autofill.md",
+    "examples/agenda-page-numbers.md",
     "examples/anchor-chrome.md",
     "examples/anima-chart.md",
     "examples/anima-heatmap.md",
@@ -117,6 +118,7 @@
     "examples/focus-styles.md",
     "examples/focus.md",
     "examples/font-scale.md",
+    "examples/footer-band-room.md",
     "examples/footer-cell.md",
     "examples/form.md",
     "examples/frame-chrome-and-notes.md",
