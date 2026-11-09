@@ -68,7 +68,7 @@ async function latticeSheetFocusProbe() {
 		}
 		result.ok = true;
 	} catch (e) {
-		result.error = String(e && e.message ? e.message : e);
+		result.error = String(e?.message ? e.message : e);
 	}
 	return result;
 }
