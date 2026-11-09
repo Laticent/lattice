@@ -6,7 +6,8 @@ summary: >
   MARKS (page numbers, the section rail, the divider's count and numeral, the topic eyebrow, the proof color, the
   agenda's page references; stamped, switched on or off, never authored; they must agree). Measured on 561 committed
   decks: every mark agrees on all of them, but a divider with focus steps makes four marks count one section as
-  several. Decided: a committed agreement test comes first, a shared counter only if that test ever needs one; the
+  several. That case names a third thing, dynamic BEHAVIORS (focus steps, builds): state that changes while presenting,
+  never a slide of its own and never read by a mark. Decided: a committed agreement test comes first, a shared counter only if that test ever needs one; the
   glossary moves to the fill model and must be the deck's last slide or slides; a citation syntax is designed next.
 ---
 
@@ -36,7 +37,7 @@ defined.
 | Who places it | The author places the slide; the engine never inserts one (the glossary is the one exception today, see below) | The engine stamps it where it applies |
 | Can the author write it instead? | **Yes, and the author wins.** A written agenda list, an authored `_track` on a topic slide | No. The author switches it on or off (`paginate: false`, `progress-rail: off`, `no-progress`). Three authored overrides exist and stay: a proof's `cat-N`, a slide's own `progress-N`, and a topic slide's own eyebrow |
 | Settings | One front-matter register, applied to that slide only (the `agenda:` shape) | The mark's own register or switch |
-| When the deck lacks the facts | Render nothing and let lint say why (an agenda with one divider: `agenda-empty`) | Show nothing rather than a wrong value (the agenda's page references refuse when the count is in doubt, or when the list does not name the dividers in order). Four marks break this today on a divider with focus steps (§The measurement) |
+| When the deck lacks the facts | Render nothing and let lint say why (an agenda with one divider: `agenda-empty`) | Show nothing rather than a wrong value (the agenda's page references refuse when the count is in doubt, or when the list does not name the dividers in order). Four marks break this today on a divider with focus steps (§The measurement), because a behavior is counted as slides (§Dynamic behaviors) |
 | The rule that matters most | The author's words are never overwritten | **Every mark agrees with every other mark** |
 
 ## The inventory, checked against the code
@@ -119,8 +120,9 @@ marker reads `1 / 3`, `2 / 3`, `3 / 3`, the numerals read 01, 02, 03, the rail d
 eyebrow reads `03`, in a deck with two sections. The agenda fill reads the source, lists two sections, and (since this
 PR) drops its page numbers because the counts do not match. No committed deck puts focus steps on a divider, which is
 why the corpus is clean. The fix is the same in all four marks: count an expanded copy once, which needs the expander
-to stamp the copies the way a heading split stamps `data-split-run`. **This is the first case the agreement test was
-meant to find, and it bears on D3** (below).
+to stamp the copies the way a heading split stamps `data-split-run`. But that patch treats the symptom: the cause is
+that a presenting behavior is turned into slides at parse time. **§Dynamic behaviors** below fixes the cause, and with it
+this case needs no patch to any count.
 
 Smaller findings:
 
@@ -148,9 +150,9 @@ checked by hand on one fixture each.
 ## What this changes: a test first, and the counter question is now concrete
 
 The earlier draft proposed one shared deck counter, the only source every mark reads. The committed decks agree, so the
-counter is not urgent for them, and it would rewrite six working counts. But the focus-step divider is a real
-disagreement, and it sits in four counts at once: the fix is either the same patch four times (twice per render path)
-or one count they all read. That is the trade the owner is asked to make (D3).
+counter is not urgent for them, and it would rewrite six working counts. The one measured disagreement, the focus-step
+divider, is not a counting bug: it goes away when focus steps stop making slides (§Dynamic behaviors), so it argues
+for neither four patches nor a counter.
 It would also not be one piece of code. It needs a source count (the agenda fill and the glossary run before render)
 and a render count (the marks), and because dividers carry no page stamp, it must recount slides rather than read the
 stamp.
@@ -169,6 +171,41 @@ The earlier draft also proposed replacing the one-slide preview's `DECK_DERIVED_
 `docs/src/playground/single-slide-render.ts`) with one rule ("this deck has a dynamic component"). Dropped: that rule
 would mark nearly every deck, since almost every deck has page numbers, and the six entries are each narrower and
 correct.
+
+## Dynamic behaviors: the other kind
+
+The owner's word for `_focusSteps` (2026-11-09): "an advanced dynamic behavior capability". It is dynamic, but not in
+the sense above.
+
+- **Dynamic components** fill in from FACTS IN THE DECK (the dividers, slide order, the acronyms). They are settled once
+  per render, and every surface shows the same answer.
+- **Dynamic behaviors** change OVER TIME WHILE PRESENTING: `_focusSteps` moves a spotlight, `_build` reveals items one
+  by one. They depend on where the presenter is, which is state, not a fact about the deck.
+
+**The rule for a behavior:**
+
+1. **One source slide is one slide everywhere.** A behavior never adds a slide.
+2. **Live surfaces** (Present, the Studio, the HTML player) run it as **state plus CSS**: the current step moves a class
+   and the stylesheet draws it.
+3. **Still formats** (PDF, PowerPoint, PNG) show **one frame**, a defined still of the slide. One page per step, a
+   printed walkthrough, is an explicit export option applied in that export only.
+4. **No mark reads a behavior.** Page numbers, section counts, narration's slide index and the preview never see a step.
+
+**`_build` follows all four.** `lib/transformers/build.js` stamps `data-build` on the one slide, `lib/base/base.build.css`
+draws the steps, Present reveals them in place, and print shows the whole slide.
+
+**`_focusSteps` breaks rules 1 and 4.** The highlight itself is already CSS: `lib/transformers/focus.js` tags the target
+`.lat-focus` and its siblings `.lat-recede`, and `lib/base/base.focus.css` draws the treatment. But the step is applied
+by copying the slide in the Markdown parser (`focusSteps` in `lib/integrations/markdown-it/plugins.js`, chosen in
+`2026-06-16-focus-highlighting.md` §4 so pagination and the PowerPoint export "need no special casing"). Every surface
+then gets N slides: a 3-slide source with one three-step table renders 5 sections in the HTML and 5 PDF pages. The
+cost landed on every reader of slide position instead: the #1387 off-by-one, the guards in narration, the preview, the
+render cache, the slice check and the Export-to-Marp note, and now four section counts that see one divider as three.
+
+**So `_focusSteps` is redesigned on `_build`'s model:** one slide carrying its steps, walked live by moving
+`.lat-focus`, one frame in still formats, and page-per-step only as an export option. One committed deck uses it
+(`examples/focus.md`, once). The PDF change is an export-bytes change, so its before and after renders go to the owner
+for sign-off. Its design note comes first (`followups.d/3096-p5-focus-steps-as-a-behavior.md`).
 
 ## The glossary on the content rules
 
@@ -201,9 +238,10 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 |---|---|---|
 | D1 | The definition | **Anything the engine fills in from other facts in the deck**, with the two kinds and their rules above (2026-11-08) |
 | D2 | The glossary | **Fill model, as the deck's last slide or slides, with a one-time lint fix** that writes the slide into the source; the old key honored meanwhile (2026-11-08, last-slide rule 2026-11-09) |
-| D3 | Agreement | **A committed agreement test first; a shared counter only if needed.** The preview's one rule dropped (2026-11-09: "we need to prove it rather than assume"). **Open:** the focus-step divider is the first measured disagreement; fix it in four counts, or build the counter for it |
+| D3 | Agreement | **A committed agreement test first; a shared counter only if needed.** The preview's one rule dropped (2026-11-09: "we need to prove it rather than assume"). The focus-step divider does not reopen it: it is a behavior counted as slides, fixed at its cause (D6) |
 | D4 | The manifest `dynamic` field | **Not asked.** A proposal until a consumer needs it |
 | D5 | A sources slide | **Design the citation syntax next**; a sources slide is its first consumer (2026-11-08) |
+| D6 | Dynamic behaviors | **A third kind with its own rule: one slide, state plus CSS live, one frame in still formats, never read by a mark.** `_focusSteps` is redesigned on `_build`'s model (2026-11-09) |
 
 ## The work this sets up, in order
 
@@ -211,7 +249,8 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
    the thirteen fixtures, on both render paths, with the proof color's hidden-slide rule as its sanctioned exception, a
    presence rule for every mark, and the count sites the red team added (the split rail, the `data-lattice-slide`
    stamps). `followups.d/3096-p1-mark-agreement-test.md`.
-2. **The focus-step divider counted once**, by whichever route D3 picks. `followups.d/3096-p5-focus-step-divider-counts.md`.
+2. **`_focusSteps` as a behavior** (a design note, then a PR): one slide, steps walked live, one frame in still formats,
+   page-per-step as an export option; before and after PDFs to the owner. `followups.d/3096-p5-focus-steps-as-a-behavior.md`.
 3. **The glossary on the fill model** (one PR): the empty-slide fill, the last-slide lint, the two-part autofix, the six
    trims and counts retired, and narration, Present, the closing check and the term export moved off the key, each
    verified on its surface. `followups.d/3096-p2-glossary-fill-model.md`.
@@ -222,6 +261,7 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 
 ## Not decided here
 
-- Whether a shared counter is ever built. The owner decides with the focus-step case in hand (D3).
+- Whether a shared counter is ever built. The agreement test decides that, by failing or not (D3).
 - Whether narration reads a counter. It reads the rendered slides today and agrees.
-- Any visible change to a mark beyond the focus-step count and the eyebrow's period and name.
+- Any visible change to a mark beyond the eyebrow's period and name. (The `_focusSteps` redesign changes what a PDF
+  shows, and goes to the owner on its own.)
