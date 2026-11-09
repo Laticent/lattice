@@ -1845,9 +1845,9 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     // The opening tag rebuilt with its stamp: `rmTag` ends with its one `>`.
     const tagAt = (aspect) => `${rmTag.slice(0, -1)} data-aspect="${aspect}">`;
     // The phases built here with `rows` workstreams each, rather than edited out of `innerFor`'s markup.
-    const at = (aspect, phases, rows, text = 'x') => carouselize(tagAt(aspect),
+    const at = (aspect, phases, rows, text = 'x', name = 'WS') => carouselize(tagAt(aspect),
       innerFor(...phases).split(`<ul class="horizon-rows">`).map((part, i) => (i === 0 ? part
-        : `${`<li><span class="row-label">WS</span><span class="row-text">${text}</span></li>`.repeat(rows)}${part.slice(part.indexOf('</ul>'))}`))
+        : `${`<li><span class="row-label">${name}</span><span class="row-text">${text}</span></li>`.repeat(rows)}${part.slice(part.indexOf('</ul>'))}`))
         .join(`<ul class="horizon-rows">`),
       { strategy: 'roadmap-horizons' });
     test('three phases of three workstreams (12 lines) hold one page at 9:16 and 9:19.5', () => {
@@ -1862,11 +1862,20 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
       assert.ok(Array.isArray(at(0.56, ['A', 'B', 'C', 'D'], 4)));
     });
     test('a commitment that wraps counts each of its lines: long commitments split at 9:16', () => {
-      // 30 characters wrap to two lines in a band (~24 a line), so 3 + 9 x 2 = 21 lines, past 14.
-      // Counting rows alone held this one page and clipped it (#3088's grader).
-      const long = 'Decision log for every region';
+      // Beside a two-letter name the commitment column holds ~30 characters, so 40 wrap to two lines:
+      // 3 + 9 x 2 = 21 lines, past 14. Counting rows alone held this one page and clipped it (#3088's grader).
+      const long = 'Decision log for every region we serve';
       assert.equal(at(0.56, ['A', 'B', 'C'], 3, 'Decision log'), null, 'one line each: 12 lines, one page');
       assert.ok(Array.isArray(at(0.56, ['A', 'B', 'C'], 3, `<strong>${long}</strong>`)), 'two lines each: splits');
+    });
+    test('a workstream name that wraps counts too: 25-character names split at 9:16', () => {
+      // The name column is capped at 30% of the band, ~13 characters a line, so `Developer experience
+      // team` takes three lines; short commitments alone would have held one page and clipped.
+      assert.ok(Array.isArray(at(0.56, ['A', 'B', 'C'], 3, 'Signal taxonomy v1', 'Developer experience team')));
+      assert.equal(at(0.56, ['A', 'B', 'C'], 3, 'Signal taxonomy v1', 'Framework'), null, 'a short name: one page');
+    });
+    test('a square or landscape roadmap keeps the split: bands are drawn only on a tall page', () => {
+      assert.ok(Array.isArray(at(1, ['A', 'B'], 1)));
     });
     test('a slide with no data-aspect keeps the old structural split', () => {
       assert.ok(Array.isArray(split('A', 'B', 'C')));

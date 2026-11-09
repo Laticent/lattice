@@ -828,7 +828,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * width a split page bought; a band shares its page, so it spends height instead.) */
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: fit-content(30%) minmax(0, 1fr);
   align-content: start;
   column-gap: var(--sp-md);
 }

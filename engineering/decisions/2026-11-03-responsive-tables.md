@@ -849,10 +849,15 @@ roadmap's phases to stack as bands.
   `fluid`, and `keySvg` then skips the grid, the way risk-matrix keeps its export panes. The
   card grader found the first cut redrawing `examples/panes.md`'s 16:9 pie pane (two key
   columns, labels ~2.5% smaller) with nobody's sign-off. The fluid redraw's panes keep the grid.
+- `keySvg` lays out the grid ONLY for a caller that passes `aspects`; `false` or nothing keeps the
+  single column. The second grader found radar and quadrant cohort calling `keySvg` with no
+  `aspects`, which the first cut read as "both portrait shapes", so a 16:9 export pane of either
+  took the grid (a three-series radar's key went to three columns). Both now pass `keyAspects`,
+  and a caller that forgets gets the old key, not a new layout.
 - What changes in exports: portrait slides with a keyed chart, a key below a chart that a
-  callout placement chose (two square decks in the corpus), and nothing else. 422 decks hashed
-  at their own size against the branch's base: 2 differ, both `size: story`. Landscape,
-  `panes.md` included, is byte-identical.
+  callout placement chose (two square decks in the corpus), and nothing else. 422 decks rendered
+  against current `main` with styles and the new source attributes stripped: 2 differ, both
+  `size: story`. Landscape, every export pane included, is unchanged.
 
 ### § 30 — roadmap phase bands
 
@@ -860,14 +865,19 @@ roadmap's phases to stack as bands.
   per workstream with the names in one column (a CSS subgrid of the band's two tracks), so the
   items line up as the table's cells do.
 - A roadmap stays ONE page while its bands fit, and the decision is still made from the markup,
-  as 2026-09-01 requires: phases plus the LINES its commitments wrap to, against a budget for
-  the box's shape (`carousel.js` `BAND_LINES_PER_HEIGHT`, `BAND_FIXED`, `BAND_CHARS_PER_LINE`).
-  A commitment's column is ~631px of 47px type, about 24 characters a line (measured: 39-47
-  characters take two lines, 51-53 take three), and each wrapped line counts as a whole band
-  line, so the count errs toward splitting. The first cut counted rows alone, and a roadmap of
-  50-character commitments held one story page and clipped where `main` split it; it now splits
-  (4 pages at story and mobile, as on `main`). The page is 1080px wide, so its height is
-  1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take
+  as 2026-09-01 requires: phases plus the LINES its rows wrap to, against a budget for the box's
+  shape (`carousel.js` `roadmapBandLines`). A row is as tall as the taller of its two cells, and
+  both wrap. The name column is capped at 30% of the band (`fit-content(30%)`): ~13 uppercase
+  characters a line, each ~0.7 of a commitment line. The commitment column takes the rest, ~20
+  characters a line beside the widest name and ~30 beside a two-letter one. Each wrapped line
+  counts as a whole band line, so the count errs toward splitting. Two graders each found a
+  roadmap that held one story page and clipped where `main` split it: first long commitments
+  (the count read rows alone), then 25-character workstream names (the count read commitments
+  alone, and the name column took its full one-line width). Both now split, 4 pages at story and
+  mobile, as on `main`, and no repro clips.
+- The decision applies only at a TALL box (`aspect < 0.9`), where the bands are drawn. A square
+  or landscape roadmap keeps its cards and the split it always had.
+- The page is 1080px wide, so its height is 1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take
   ~650px. The budget is 8 lines at 4:5, 14 at 9:16 and 19 at 9:19.5. The demo deck's roadmap (3
   phases of 3, 12 lines) is one page at story and mobile and still splits at portrait;
   `examples/portrait-roadmap.md`'s two (16 and 15 lines) are one page each at mobile.

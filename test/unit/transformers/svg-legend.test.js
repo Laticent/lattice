@@ -230,7 +230,7 @@ const swatchXs = (body) => body.split('<rect class="chart-key-swatch"').slice(1)
 
 test('keySvg: portrait lays a key that fits into aligned columns, entries running down then across', () => {
   const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
-  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait', aspects: [1.09, 0.67] });
   const xs = swatchXs(port.body);
   const cols = [...new Set(xs)];
   assert.ok(cols.length >= 2 && cols.length <= 3, `two or three columns, got ${cols.length}`);
@@ -250,6 +250,8 @@ test('keyAspects: an export pane keeps the single column; a fluid pane and a ful
     orientation: 'portrait', aspects: keyAspects(ctx) }).body)).size;
   assert.equal(keyAspects({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), false);
   assert.equal(colsFor({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), 1, 'export pane: one column');
+  const omitted = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  assert.equal(new Set(swatchXs(omitted.body)).size, 1, 'no aspects passed: one column, so a new caller cannot change an export by forgetting');
   assert.ok(colsFor({ paneView: { w: 223, h: 300, fluid: true }, orientation: 'landscape' }) >= 2, 'fluid pane: the grid');
   assert.ok(colsFor({ orientation: 'portrait', aspect: 4 / 5 }) >= 2, 'a full portrait slide: the grid');
 });
