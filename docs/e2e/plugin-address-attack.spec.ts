@@ -318,7 +318,7 @@ async function shots(page: Page, name: string, own: { width: number; height: num
 // stylesheet matches there, and a `position:fixed` box it drew covered the whole Read view. Only `section` contained it
 // (base.modifiers.css). The reading hosts now contain it too (`#lp-article`, `.st-read-article`), and a wide drawing
 // scales to the column. Measured on BOTH reading hosts: the Studio's Read · Article, and the exported webpage's.
-// The class sits in the plugin's own namespace (`lp-<name>`, code-door-fence.mjs `fenceNamespace`): the door strips any other,
+// The class sits in the plugin's own namespace (`lp-<name>`, lib/packages/code-door-fence.mjs `fenceNamespace`): the door strips any other,
 // so a bare `gantt-plugin-veil` never reached the page and this leg could not fail (the checker on the containment fix).
 const VEIL_CSS = '.lp-gantt-plugin-veil{position:fixed;inset:0;z-index:2147483647;background:#fff}';
 const VEIL = `function render(){

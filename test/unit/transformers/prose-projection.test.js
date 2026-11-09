@@ -2130,3 +2130,13 @@ test('the copy drops what the walk drops elsewhere (chrome, asides), keeps an ar
 	assert.match(root, /<svg aria-hidden="true"/, 'a decorative svg the plugin hid from the accessibility tree is still its picture');
 	assert.match(root, /<p>Q3<\/p>/, 'the plugin\'s own paragraph is not the author\'s eyebrow');
 });
+
+test('on a MEDIA slide too, a plugin\'s aria-hidden drawing stays: the copy strips chrome, not the media walk\'s hidden selector', () => {
+	const secs = sections(`<section data-lattice-slide class="image form"><div class="cell-stage">
+		<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Chart"></p>
+		<div data-lattice-plugin="gp"><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.match(root, /<svg aria-hidden="true"/, root);
+});
