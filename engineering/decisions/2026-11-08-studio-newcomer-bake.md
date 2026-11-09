@@ -196,6 +196,41 @@ every render waiting on it, a render re-checks that it still owns the frame afte
 bake it wrote. Two `:252` geometry cases in `studio-instant-shell` fail on `main`'s build too
 (`followups.d/2982-p3-instant-shell-slide-box-drift.md`).
 
+## 8. Preview-first boot for a returning visitor, on this seam: built, measured, not shipped (2026-11-09)
+
+§6 expected a returning visitor's preview-first boot to reuse PR A's seeding seam, with the document coming from this
+device instead of the build. That was built and measured in this PR's session, and it does not pay, so it was taken
+out again.
+
+**What was built.** The renderer described what a frame shows in the bake's shape (`snapshotBake`, with the deck's
+web-image policy added to the parts). The Studio stored it in Cache Storage 1.5 s after the preview settled and on
+`pagehide`, with the sheet under a content key so it was written only when it changed. The head seed read it back for a
+returning visitor, and `adoptBake` took it as it takes the newcomer bake. It worked: on a reload the visitor's own slide 3
+was adopted before the engine, as the only write, and the first render patched it `in-place`.
+
+**What it measured.** `npm run perf:startup` with `WARM=1` (a first load, then a reload in the same profile with the
+service worker allowed, which is a returning visit), `main` against the change, 5 loads each, alternated:
+
+| Profile | Build | First slide | Visible | Editable |
+|---|---|---|---|---|
+| phone | `main` | 2035 ms | 2239 ms | (no editor on a phone until its pane opens) |
+| phone | stored frame | 2094 ms | 2327 ms | |
+| desktop | `main` | 1172 ms | 1386 ms | 1388 ms |
+| desktop | stored frame | 1053 ms | 1377 ms | 1378 ms |
+
+No difference past run-to-run spread. **Why:** on a returning visit the engine is cached, and it has loaded before the
+preview mounts. One phone timeline: engine 829 ms, preview host mounted 1096 ms, frame written 1595 ms, visible 2058 ms.
+A write at mount saves only the render itself, which is short once the engine is warm. The head's read of a 1.3 MB
+stored frame then costs main-thread time of its own (the same load with the stored frame: host 1525 ms, visible 2426 ms).
+The newcomer bake pays because a cold engine takes about 1.75 s to arrive and evaluate. A warm one does not.
+
+**So the −26% the lost spike reported cannot come from this seam.** It has to come from painting before the island
+mounts, which is option B in §4: a page-owned frame that reverses `2026-07-21-studio-preview-one-skeleton.md`. That is
+the owner's call, and the owner declined it (2026-11-09, D1 B on PR #3102): work that does not add value is not
+worth doing. The follow-up was retired with this decision. The instrument stays: `startup-bench.mjs` now
+reports time to editable (the deck editor takes a keystroke), which is the second number a returning-visitor change
+has to move.
+
 ## Not in scope
 
 - Unifying the shell's and the frame's font URLs (#3076 lists it as a separate item).

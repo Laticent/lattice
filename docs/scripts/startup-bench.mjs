@@ -102,6 +102,23 @@ async function run(browser) {
 		}
 		await new Promise((r) => setTimeout(r, 25));
 	}
+	// EDITABLE: the deck editor can take a keystroke (contenteditable, laid out). A phone opens on the preview and mounts no
+	// editor until its pane is chosen, so there it stays null.
+	let editable = null;
+	while (first != null && P.viewport.width > 699 && Date.now() < deadline) {
+		const ok = await page
+			.evaluate(() => {
+				const el = document.querySelector('[aria-label="Deck source"]');
+				const ce = el?.matches('[contenteditable="true"]') ? el : el?.querySelector('[contenteditable="true"]');
+				return !!ce && ce.getClientRects().length > 0;
+			})
+			.catch(() => false);
+		if (ok) {
+			editable = Date.now() - t0;
+			break;
+		}
+		await new Promise((r) => setTimeout(r, 25));
+	}
 	// AFTER=1: the 3 s after the slide, where deferred work lands: main-thread busy time and long tasks (>50 ms).
 	// AFTER_MS widens the window: the idle warm-ups (studio-warm.ts) start only after 3 s without input, so a window that
 	// covers them, the background font fetches (#3076) included, needs about 15 s on the phone profile.
@@ -121,7 +138,7 @@ async function run(browser) {
 	// The Studio newcomer bake's outcome on the preview host (single-slide-render.ts `adoptBake`): `adopted`,
 	// `refused:<why>`, or null when the visit fetched none. A run that compares builds should say which it measured.
 	const bake = await page.evaluate((sel) => document.querySelector(sel)?.parentElement?.getAttribute('data-lattice-bake') ?? null, FRAME).catch(() => null);
-	const out = { firstSlide: first, visible, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks, bake };
+	const out = { firstSlide: first, visible, editable, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks, bake };
 	await ctx.close();
 	return out;
 }
@@ -143,6 +160,7 @@ const summary = {
 	firstSlideMaxMs: ok.length ? Math.max(...ok.map((r) => r.firstSlide)) : null,
 	firstSlideMedianMs: ok.length ? Math.round(median(ok.map((r) => r.firstSlide))) : null,
 	visibleMedianMs: ok.some((r) => r.visible != null) ? Math.round(median(ok.filter((r) => r.visible != null).map((r) => r.visible))) : null,
+	editableMedianMs: ok.some((r) => r.editable != null) ? Math.round(median(ok.filter((r) => r.editable != null).map((r) => r.editable))) : null,
 	requestsMedian: ok.length ? median(ok.map((r) => r.requestsAtSlide)) : null,
 	afterBusyMedianS: ok.some((r) => r.afterBusy != null) ? Number(median(ok.map((r) => r.afterBusy ?? 0)).toFixed(2)) : null,
 	longTasksMedianCount: ok.some((r) => r.longTasks) ? median(ok.map((r) => (r.longTasks ?? []).length)) : null,
@@ -156,6 +174,7 @@ else {
 	console.log(`${PROFILE} ${URL}`);
 	console.log(`first slide  median ${summary.firstSlideMedianMs} ms  min ${summary.firstSlideMinMs}  max ${summary.firstSlideMaxMs}  (${runs.map((r) => r.firstSlide).join(', ')})`);
 	console.log(`visible      median ${summary.visibleMedianMs} ms  (${runs.map((r) => r.visible).join(', ')})`);
+	if (summary.editableMedianMs != null) console.log(`editable     median ${summary.editableMedianMs} ms  (${runs.map((r) => r.editable).join(', ')})`);
 	if (summary.afterBusyMedianS != null) console.log(`3 s after    ${summary.afterBusyMedianS} s busy, ${summary.longTasksMedianCount} long tasks (median), longest ${summary.longTaskMaxMs} ms`);
 	console.log(`requests     median ${summary.requestsMedian} (by the slide)`);
 	console.log(`main thread  median ${summary.busyMedianS} s busy by the slide (TaskDuration, throttled clock)`);
