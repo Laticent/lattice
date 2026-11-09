@@ -814,6 +814,55 @@ the real export in Chromium: each slide chart redraws on a phone (the pie in a b
 every label the export printed, the roadmap turns to cards, the pane keeps its grid, and the desktop gets
 every exported drawing and class list back byte for byte.
 
+## A key under a chart runs in columns; roadmap phases stack as bands (§ 29, § 30)
+
+The owner's look at the portrait, square, mobile and story renders (2026-11-09) asked why pie,
+tower and risk-matrix looked different at four sizes that are all 1080px wide. Each kind placed
+its own key: pie and tower put one long column under the chart, risk-matrix kept its key beside
+the grid at every size, and a key one column wide was as tall as the chart, which then shrank to
+fit the page. The owner asked for the key to sit under the chart in two or three columns, and for
+roadmap's phases to stack as bands.
+
+### § 29 — the column key
+
+- `keySvg`'s below-the-chart layout (`legend-svg-key.js` `gridLayout`, `buildGrid`) lays the key
+  out as aligned columns: each cell is swatch, label and value, every cell as wide as the widest
+  entry, entries running down a column, then across. Every label is on one line, or the grid is
+  not used.
+- The column count is MEASURED, not fixed. Each candidate (the single column, two columns, three
+  columns, or every entry in one row) is laid out as the whole unit and fitted into the chart's
+  box at the slide's real shape (`layer.stageAspects`, the measure the callout placement already
+  uses). The one that leaves the diagram largest wins; a near tie (5%) goes to the shorter unit,
+  because the box estimate assumes a one-line title and a real box is only ever shorter. Measured
+  on `examples/fluid-chart-redraw.md`: the pie takes two columns at 4:5 and one at 9:16 and
+  9:19.5, where its disc then fills the width; risk-matrix the same.
+- A key may run wider than its diagram, up to twice the diagram's height (`GRID_WIDE_OF_H`), so a
+  pie's two-column key is not held to the disc's width.
+- Tower's portrait key prints at the size of its layer labels (`FS.note`), as its phone form
+  already did; a key sized from the diagram's height alone printed its names twice the size of
+  the labels it explains.
+- Risk-matrix puts its key under the grid on a portrait slide too (it did on a phone already),
+  with its own column count chosen the same way (`keyColumns`), and the IMPACT axis title now
+  moves with the grid.
+- What changes in exports: portrait slides with a keyed chart, a key below a chart that a
+  callout placement chose (two square decks in the corpus, `panes.md` at landscape), and nothing
+  else. 416 decks rendered at their own size, then forced to square: 2 and 7 differ, all in a key
+  under a chart. Landscape is byte-identical otherwise.
+
+### § 30 — roadmap phase bands
+
+- At a tall box the roadmap's phases render as full-width BANDS: a phase header, then one line
+  per workstream with the names in one column (a CSS subgrid of the band's two tracks), so the
+  items line up as the table's cells do.
+- A roadmap stays ONE page while its bands fit, and the decision is still made from the markup,
+  as 2026-09-01 requires: phases plus workstream rows against a budget for the box's shape
+  (`carousel.js` `BAND_LINES_PER_HEIGHT`, `BAND_FIXED`). The page is 1080px wide, so its height is
+  1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take
+  ~650px. The budget is 8 lines at 4:5, 14 at 9:16 and 19 at 9:19.5. The demo deck's roadmap (3
+  phases of 3, 12 lines) is one page at story and mobile and still splits at portrait;
+  `examples/portrait-roadmap.md`'s two (16 and 15 lines) are one page each at mobile.
+- Past the budget, the split is the one it was: a cover, then one phase per page.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):

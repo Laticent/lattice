@@ -155,8 +155,9 @@ test('keySvg: orientation undefined/landscape/square are byte-identical (only th
 test('keySvg: portrait stacks the key BELOW the diagram and centers it', () => {
   const land = keySvg(PIE);
   const port = keySvg({ ...PIE, orientation: 'portrait' });
-  // The portrait unit is taller than wide (fills a tall box); landscape is wider.
-  assert.ok(port.viewH > port.viewW, `portrait is tall (got ${port.viewW}×${port.viewH})`);
+  // Portrait spends the diagram's width on the key, not its own: the unit is no wider
+  // than the landscape one, whose key is a rail beside the diagram.
+  assert.ok(port.viewW <= land.viewW, `portrait is no wider than landscape (got ${port.viewW} vs ${land.viewW})`);
   assert.ok(land.viewW > land.viewH, `landscape is wide (got ${land.viewW}×${land.viewH})`);
   // The diagram is centered horizontally by a non-zero dx (landscape leaves it 0).
   assert.ok(port.diagramDx > 0, `portrait centers the diagram (dx=${port.diagramDx})`);
@@ -218,4 +219,24 @@ test('keySvg: a value past 13 characters wraps inside its column', () => {
   const [value] = valuesOf(keyOf(['Caribbean / Central America']));
   assert.ok(value.lines.length >= 2, `wrapped to ${value.lines.length} lines`);
   for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);
+});
+
+test('keySvg: portrait lays a key that fits into aligned columns, entries running down then across', () => {
+  const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
+  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  const xs = [...port.body.matchAll(/<rect class="chart-key-swatch"[^>]* x="([\d.]+)"/g)].map((m) => +m[1]);
+  const cols = [...new Set(xs)];
+  assert.ok(cols.length >= 2 && cols.length <= 3, `two or three columns, got ${cols.length}`);
+  // Column-major: the first column holds the first entries.
+  assert.equal(xs[0], xs[1], 'the second entry sits under the first');
+  // One line per label in the grid.
+  assert.equal((port.body.match(/<tspan/g) || []).length, rows.length);
+});
+
+test('keySvg: portrait keeps the single column when a label is too long for two', () => {
+  const rows = [{ swatchFill: 'red', label: 'A label far too long to sit two abreast under this chart', value: '1%' },
+    { swatchFill: 'blue', label: 'Short', value: '2%' }];
+  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  const xs = [...port.body.matchAll(/<rect class="chart-key-swatch"[^>]* x="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.equal(new Set(xs).size, 1);
 });

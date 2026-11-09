@@ -809,32 +809,28 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .chart-body {
   flex: 1 0 auto;
 }
-/* With the body floored, these can finally hand the height down: `1fr` rows
- * stretch the cards that remain on the page, and the card's own rows spread
- * into it instead of bunching under the header. */
+/* PHASE BANDS (2026-11-09, responsive-tables § 30). The phases stack as full-width
+ * bands at their natural height, centered in the floored body, so a roadmap that holds
+ * one page (`roadmap-horizons` declines to split it: carousel.js BAND_LINES_PER_HEIGHT)
+ * reads top to bottom with the free space shared above and below rather than poured
+ * into each band. A split page holds one band, centered the same way. */
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons {
-  grid-auto-rows: 1fr;
+  grid-auto-rows: auto;
+  align-content: center;
 }
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card {
-  height: 100%;
   min-height: 0;
 }
-/* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
- * card, and a single column of four short `LABEL · value` rows used barely
- * half the width while running the card's full height — a lot of empty right
- * margin next to a lot of vertical travel. Two columns read as the table this
- * component is, halve the vertical run, and use the width the split just
- * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
- * long workstream name from forcing a track wider than its half. */
+/* ONE LINE PER WORKSTREAM: the workstream's name, then its item, the names in one
+ * column down the band so the items line up the way the table's cells do. Each row is a
+ * SUBGRID of the band's two tracks, so the name column is as wide as the longest name and
+ * no wider. (A two-column card of label-over-value cells, the form before bands, used the
+ * width a split page bought; a band shares its page, so it spends height instead.) */
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Distributed, not clumped. `center` left the rows as a tight block marooned
-   * in a tall card; space-evenly with TWO-LINE cells spreads them without the
-   * canyon the one-line cells produced. */
-  align-content: space-evenly;
-  height: 100%;
-  gap: var(--sp-lg) var(--sp-lg);
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-content: start;
+  column-gap: var(--sp-md);
 }
 /* The row's height is set by `.row-text`, which carries the glyphs — setting
  * font-size on the <li> does nothing, because both spans declare their own. */
@@ -865,15 +861,15 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
   --lat-pill-size: max(var(--chart-text-min), calc(1.7cqi * var(--roadmap-pill-scale)));
 }
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows { gap: var(--sp-2xs); }
-/* Each workstream row collapses to ONE line (LABEL · value) — halves the card
- * body so 4+ phases stack without overflow. */
-/* Label OVER value, not beside it. The inline `LABEL · value` row was a
- * one-column compromise; in a half-width track the label eats the line and the
- * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
- * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
- * that forced a row is simply gone now that two columns supply the width. */
+/* The row is a subgrid of the band's two tracks (above): name, then item, on one line. */
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li {
-  align-items: start;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  /* A subgrid's own gap replaces its parent's, and the base row sets 2px: restate the
+   * band's column gap here, or the name runs into the item's status disc. */
+  column-gap: var(--sp-md);
+  align-items: baseline;
 }
 
 

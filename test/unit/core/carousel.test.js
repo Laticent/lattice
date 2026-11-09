@@ -1838,6 +1838,31 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
   // index 1. Before that a split roadmap opened straight into "Foundation".
   const cards = (parts) => parts.slice(1);
 
+  // PHASE BANDS (2026-11-09, responsive-tables § 30): a roadmap whose bands fit the page's line
+  // budget stays ONE page. The count decides (phases + workstream rows against the box's shape),
+  // never a measured fit, so the 2026-09-01 structural trigger still holds.
+  describe('phase bands hold one page while their lines fit the box', () => {
+    const tagAt = (aspect) => rmTag.replace('>', ` data-aspect="${aspect}">`);
+    const at = (aspect, phases, rows) => carouselize(tagAt(aspect),
+      innerFor(...phases).replace(/<ul class="horizon-rows">[\s\S]*?<\/ul>/g,
+        `<ul class="horizon-rows">${'<li><span class="row-label">WS</span><span class="row-text">x</span></li>'.repeat(rows)}</ul>`),
+      { strategy: 'roadmap-horizons' });
+    test('three phases of three workstreams (12 lines) hold one page at 9:16 and 9:19.5', () => {
+      assert.equal(at(0.56, ['A', 'B', 'C'], 3), null);
+      assert.equal(at(0.46, ['A', 'B', 'C'], 3), null);
+    });
+    test('the same roadmap splits at 4:5, whose page holds 8 lines', () => {
+      const parts = at(0.8, ['A', 'B', 'C'], 3);
+      assert.ok(Array.isArray(parts) && parts.length === 4, 'a cover and one page per phase');
+    });
+    test('past the budget a tall page splits too: four phases of four workstreams (20 lines) at 9:16', () => {
+      assert.ok(Array.isArray(at(0.56, ['A', 'B', 'C', 'D'], 4)));
+    });
+    test('a slide with no data-aspect keeps the old structural split', () => {
+      assert.ok(Array.isArray(split('A', 'B', 'C')));
+    });
+  });
+
   test('the run opens on the shared accent cover', () => {
     const parts = split('Foundation', 'Hardening', 'Scale');
     assert.match(parts[0], /data-split-role="cover"/);
