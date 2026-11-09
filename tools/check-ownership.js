@@ -8768,7 +8768,8 @@ const SLIDE_TEXT_SINK_KINDS = Object.freeze({
 // `encode` elsewhere is not a sink.
 const SLIDE_TEXT_QR_ENCODE = /\bencode\s*\(/;
 const SLIDE_TEXT_QR_IMPORT = /require\(\s*['"][^'"]*(?:\/qr|qr-card)['"]\s*\)|from\s+['"][^'"]*(?:\/qr|qr-card)['"]/;
-const SLIDE_TEXT_GUARD = /\bmaskPluginSubtrees\s*\(|closest\(\s*['"`]\[data-lattice-plugin\]['"`]\s*\)/;
+// A guard may name the root's tag (`div[data-lattice-plugin]`, `span[data-lattice-plugin]`): still the plugin's root.
+const SLIDE_TEXT_GUARD = /\bmaskPluginSubtrees\s*\(|closest\(\s*['"`](?:div|span)?\[data-lattice-plugin\]['"`]\s*\)/;
 
 const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
@@ -8937,7 +8938,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     file: 'lib/transformers/prose-projection.mjs',
     reads: ['html', 'li', 'regex', 'text'],
     sinks: { 'attribute-template': 1, 'css-url': 4 },
-    guards: 2,
+    guards: 5,
     guard: 'masks',
     why:
       'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s.',

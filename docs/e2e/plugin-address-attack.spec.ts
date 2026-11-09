@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { BrowserContext, FrameLocator, Page } from '@playwright/test';
 import { ganttZip } from './plugin-fence-fixture';
-import { expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, shareExport, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, shareExport, test } from './studio-fixture';
 
 // ── A zip plugin writes addresses onto `qr` and chart slides, in the REAL Studio ─────────────────────────────────
 //
@@ -228,12 +228,12 @@ async function logSeesControl(page: Page, log: string[]): Promise<void> {
 }
 
 /** Import the plugin through the real Library, write the deck, and approve its code from the notice, at `own`. */
-async function installAndApprove(page: Page, code: string, deck: string, marker: string, own: { width: number; height: number }): Promise<void> {
+async function installAndApprove(page: Page, code: string, deck: string, marker: string, own: { width: number; height: number }, styles?: string): Promise<void> {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	const docked = page.getByRole('button', { name: 'Open Library' });
 	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
-	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(code) });
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(code, 'gantt-plugin', styles) });
 	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 	await page.keyboard.press('Escape');
 	await setEditorContent(page, deck);
@@ -311,3 +311,92 @@ async function shots(page: Page, name: string, own: { width: number; height: num
 	}
 	await page.setViewportSize(own);
 }
+
+// ── The reading view holds a plugin's drawing whole, so it must hold its PAINT too ──────────────────────────────────
+//
+// The checker on f11014c: the article copies a plugin's root (prose-projection `projectGeneric`), so the plugin's scoped
+// stylesheet matches there, and a `position:fixed` box it drew covered the whole Read view. Only `section` contained it
+// (base.modifiers.css). The reading hosts now contain it too (`#lp-article`, `.st-read-article`), and a wide drawing
+// scales to the column. Measured on BOTH reading hosts: the Studio's Read · Article, and the exported webpage's.
+const VEIL_CSS = '.gantt-plugin-veil{position:fixed;inset:0;z-index:2147483647;background:#fff}';
+const VEIL = `function render(){
+  return '<div class="gantt-plugin-veil">FAKE READING VIEW</div><p style="position:fixed;inset:0;background:#000">FIXED BOX</p>' +
+    '<svg width="1600" height="40" viewBox="0 0 1600 40"><rect width="1600" height="40"></rect></svg><p>chart note</p>';
+}
+export { render as default };`;
+const VEIL_DECK = '---\ntheme: cuoio\nplugins: [gantt-plugin]\n---\n\n## Plan of record\n\nThe plan stands.\n\n```gantt\nA 1\n```\n';
+
+/** Where the plugin's veil, fixed box and drawing paint, against its root and the reading column. */
+const paintOf = ({ sel, article }: { sel: string; article: string }) => {
+	const art = document.querySelector(sel) as HTMLElement;
+	const root = art.querySelector('[data-lattice-plugin="gantt-plugin"]') as HTMLElement;
+	const box = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
+	const r = box(root);
+	const a = box(art);
+	const inside = (b: DOMRect | null) => !!b && !!r && b.left >= r.left - 1 && b.right <= r.right + 1 && b.top >= r.top - 1 && b.bottom <= r.bottom + 1;
+	return {
+		article,
+		root: !!root,
+		// The Studio's article re-sanitizes and drops the plugin's own class, so its stylesheet has nothing to match there:
+		// absent counts as contained. The webpage keeps the class, so there the veil must sit inside the root.
+		veilInRoot: !root?.querySelector('.gantt-plugin-veil') || inside(box(root.querySelector('.gantt-plugin-veil'))),
+		fixedInRoot: inside(box(root?.querySelector('p[style]') ?? null)),
+		svgFits: !!a && (box(root?.querySelector('svg') ?? null)?.width ?? 1e9) <= a.width + 1,
+		rootFits: !!a && !!r && r.width <= a.width + 1,
+		paintsOver: (document.elementFromPoint(innerWidth - 20, innerHeight - 20) as HTMLElement | null)?.closest('[data-lattice-plugin]') !== null,
+	};
+};
+
+test(`a plugin's veil, fixed box and wide drawing stay in its box in the Read view and the webpage export @crosswidth @webkit-tablet @gecko`, async ({ page, browserName }) => {
+	const own = page.viewportSize() ?? { width: 1440, height: 900 };
+	await installAndApprove(page, VEIL, VEIL_DECK, 'Plan of record', own, VEIL_CSS);
+	await expect(livePreview(page).locator('[data-lattice-plugin="gantt-plugin"]')).toHaveCount(1, { timeout: 30_000 });
+
+	// 1. The exported webpage (Share → Webpage), first, while the Studio is in Craft (a phone's Read posture has no Share),
+	// opened as a reader opens it, in its Read · Article view.
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	const download = page.waitForEvent('download', { timeout: 120_000 });
+	await shareExport(page, 'webpage');
+	// A download's temp path has no extension, and a page opened from it is read as text: give it its `.html` name.
+	const file = path.join(test.info().outputDir, 'veil-export.html');
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	await (await download).saveAs(file);
+	const reader = await page.context().newPage();
+	await reader.setViewportSize(own);
+	await reader.goto(`file://${file}`);
+	await reader.getByRole('button', { name: 'Read · Article' }).first().click();
+	const exportRoot = reader.locator('#lp-article [data-lattice-plugin="gantt-plugin"]');
+	await expect(exportRoot).toHaveCount(1);
+	await exportRoot.scrollIntoViewIfNeeded();
+	const exported = await reader.evaluate(paintOf, { sel: '#lp-article', article: 'webpage' });
+	expect(exported).toEqual({ article: 'webpage', root: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
+	if (EVIDENCE) for (const dark of [false, true]) {
+		if (dark) await reader.locator('#lp-mode').click();
+		await reader.screenshot({ path: path.join(EVIDENCE, `plugin-veil-article-${dark ? 'dark' : 'light'}-${own.width}-${browserName}.png`) });
+	}
+	await reader.close();
+	await page.keyboard.press('Escape');
+
+	// 2. The Studio's Read · Article, in the app's own document.
+	// The dial is the desktop and tablet route; a phone has no dial, so the posture is parked at Read and the page reloaded
+	// (studio-read-wide-diagram.spec.ts does the same; gotoStudio's init script re-seeds `craft`, so it is overwritten).
+	const dial = page.getByRole('button', { name: CHROME.postureStops[0] });
+	if (await dial.isVisible()) await dial.click();
+	else {
+		const read = () => {
+			const k = 'lattice-studio-settings';
+			localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k) || '{}'), posture: 'read' }));
+		};
+		await page.evaluate(read);
+		await page.addInitScript(read);
+		await page.reload();
+	}
+	await page.getByRole('button', { name: CHROME.readArticle }).click();
+	const studioRoot = page.locator('.st-read-article [data-lattice-plugin="gantt-plugin"]');
+	await expect(studioRoot).toHaveCount(1, { timeout: 30_000 });
+	await studioRoot.scrollIntoViewIfNeeded();
+	const studio = await page.evaluate(paintOf, { sel: '.st-read-article', article: 'studio' });
+	expect(studio).toEqual({ article: 'studio', root: true, veilInRoot: true, fixedInRoot: true, svgFits: true, rootFits: true, paintsOver: false });
+
+});

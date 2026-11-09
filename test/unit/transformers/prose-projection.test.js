@@ -2104,3 +2104,28 @@ test('a plugin\'s drawing reaches the article whole, root included: its text is 
 	assert.match(articleHtml, /<li>https:\/\/example\.com\/author<\/li>/, 'the author\'s own bullet is still there');
 	assert.match(articleHtml, /<span data-lattice-plugin="tag" data-kind="tag">x<\/span>/, 'a span keeps its root inside the author\'s paragraph');
 });
+
+test('a plugin span inside the author\'s heading rides with it: not a second block (the checker on #3110 f11014c)', () => {
+	const secs = sections('<section data-lattice-slide class="content"><h2>Title <span data-lattice-plugin="i" data-kind="ic"><svg viewBox="0 0 1 1"></svg>WORD</span></h2><p>body</p></section>');
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/WORD/g) || []).length, 1, articleHtml);
+	assert.doesNotMatch(articleHtml, /^\s*<span data-lattice-plugin/m, 'never a top-level block');
+});
+
+test('a plugin root nested in another is copied once, as part of the outer one', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<div data-lattice-plugin="outer"><div data-lattice-plugin="inner"><p>INNER</p></div><p>OUTER</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/INNER/g) || []).length, 1, articleHtml);
+	assert.equal((articleHtml.match(/data-lattice-plugin="outer"/g) || []).length, 1);
+});
+
+test('the copy drops what the walk drops elsewhere, hidden text and chrome; a plugin paragraph equal to the eyebrow stays', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<p><code>Q3</code></p><div data-lattice-plugin="gp"><p>Q3</p><p aria-hidden="true">HIDDEN</p><aside>ASIDE</aside><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.doesNotMatch(root, /HIDDEN|ASIDE/);
+	assert.match(root, /<p>Q3<\/p>/, 'the plugin\'s own paragraph is not the author\'s eyebrow');
+});
