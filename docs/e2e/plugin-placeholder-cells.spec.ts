@@ -72,10 +72,15 @@ for (const placement of ['chip', 'figure', 'stage'] as const) {
 		['tablet', 820, 1180],
 		['mobile', 390, 844],
 	] as const) {
-		test(`a ${placement} placeholder fits a card and a pane, at ${label} (${width}px)`, async ({ page }) => {
+		test(`a ${placement} placeholder fits a card and a pane, at ${label} (${width}px) @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }) => {
 			await gotoStudio(page);
-			const docked = page.getByRole('button', { name: 'Open Library' });
-			await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+			// Import at desktop width, where the Library is one button; the width under test is set after (the
+			// webkit-phone project starts at phone width, where the Library sits behind the menu).
+			await page.setViewportSize({ width: 1440, height: 900 });
+			// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
+			const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+			await expect(library).toBeVisible({ timeout: 15_000 });
+			await library.click();
 			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement }) });
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 			await page.keyboard.press('Escape');
@@ -114,10 +119,15 @@ for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
-	test(`the placeholder in the Reading view fits the article, at ${label} (${width}px)`, async ({ page }) => {
+	test(`the placeholder in the Reading view fits the article, at ${label} (${width}px) @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }) => {
 		await gotoStudio(page);
-		const docked = page.getByRole('button', { name: 'Open Library' });
-		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+		// Import at desktop width, where the Library is one button; the width under test is set after (the
+		// webkit-phone project starts at phone width, where the Library sits behind the menu).
+		await page.setViewportSize({ width: 1440, height: 900 });
+		// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
+		const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+		await expect(library).toBeVisible({ timeout: 15_000 });
+		await library.click();
 		await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement: 'figure' }) });
 		await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 		await page.keyboard.press('Escape');
@@ -152,10 +162,15 @@ for (const [label, width, height] of [
 
 // The placeholder's second state: the deck LISTS the plugin and this browser has not approved its code
 // (code-door-fence.mjs `fencePlaceholder` `reason: 'unapproved'`). The Reading view says what is missing.
-test('a listed, unapproved plugin reads as a sentence that says what is missing, at mobile (390px)', async ({ page }) => {
+test('a listed, unapproved plugin reads as a sentence that says what is missing, at mobile (390px) @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	const docked = page.getByRole('button', { name: 'Open Library' });
-	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+	// Import at desktop width, where the Library is one button; the width under test is set after (the
+	// webkit-phone project starts at phone width, where the Library sits behind the menu).
+	await page.setViewportSize({ width: 1440, height: 900 });
+	// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
+	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+	await expect(library).toBeVisible({ timeout: 15_000 });
+	await library.click();
 	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement: 'figure' }) });
 	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 	await page.keyboard.press('Escape');

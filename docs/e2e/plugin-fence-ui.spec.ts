@@ -138,10 +138,15 @@ for (const [label, width, height] of [
 // ── An approval survives a reload (followups.d/2687-p6, the versioned consent text) ──
 // The consent digest is now one of a list (`pluginDigests`, one per accepted version); the approval the Studio writes
 // must still be the one it reads back after the page loads again.
-test('an approved plugin is still approved after a reload', async ({ page }) => {
+test('an approved plugin is still approved after a reload @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	const docked = page.getByRole('button', { name: 'Open Library' });
-	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+	// Import at desktop width, where the Library is one button; the width under test is set after (the
+	// webkit-phone project starts at phone width, where the Library sits behind the menu).
+	await page.setViewportSize({ width: 1440, height: 900 });
+	// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
+	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+	await expect(library).toBeVisible({ timeout: 15_000 });
+	await library.click();
 	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
 	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 	await page.keyboard.press('Escape');
