@@ -307,6 +307,30 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key fills 
 	await expect(ws.voice).toContainText('Add a key or choose on-device');
 });
 
+test('@crosswidth @webkit-tablet @gecko a chat model the config retires stops chat and says so, never another model', async ({ page }) => {
+	// `qwen/qwq` is in models.config.json `retired.openrouter` (OpenRouter dropped it, 2026-11-08); a selection
+	// stored the real id the Value lens listed under that prefix.
+	// The selection reads retired before any request; the chat sends nothing and substitutes nothing.
+	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'qwen/qwq-32b' }) }, { promptApi: true });
+	const seen = await mockOpenRouter(page, () => textReply('should not answer'));
+	await gotoStudio(page);
+	await openChatAtWidth(page, page.viewportSize()?.width ?? 1440);
+	await expect(page.getByTestId('chat-model-chip-name')).toHaveText('Model retired · choose another');
+	await send(page, 'hello');
+	await expect(page.getByText('Your chat model was retired and OpenRouter has no newer version of it. Choose another in Workspace → AI.')).toBeVisible({ timeout: 30_000 });
+	expect(seen.chat).toEqual([]);
+	expect(await page.evaluate(() => (window as unknown as { __promptApiUsed: number }).__promptApiUsed)).toBe(0);
+	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ provider: 'openrouter', model: 'qwen/qwq-32b' });
+	await shot(page, `chat-retired-${page.viewportSize()?.width}`);
+	// On a phone the chat is a sheet, and the first Escape only leaves the composer: press until the sheet is gone.
+	await expect(async () => {
+		await page.keyboard.press('Escape');
+		await expect(page.locator('[data-slot="sheet-overlay"][data-state="open"]')).toHaveCount(0, { timeout: 1000 });
+	}).toPass({ timeout: 10_000 });
+	const ws = await openWorkspaceAi(page);
+	await expect(ws.chat.getByTestId('chat-model-card-state')).toHaveText('Model retired');
+});
+
 test('@webkit-tablet @gecko a voice model Gemini retired turns read-aloud off and says so, never another voice', async ({ page }) => {
 	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
 	await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' }) }, { promptApi: false });

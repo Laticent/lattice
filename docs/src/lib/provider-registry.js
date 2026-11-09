@@ -12,6 +12,8 @@
 // start at 3. OpenAI voice is out of scope (followups.d/3048-p9-direct-openai-voice.md).
 // engineering/decisions/2026-11-07-studio-model-spine.md
 
+import { MODELS } from './models-config.js';
+
 /**
  * @typedef {{ label: string, source: 'cloud' | 'device', chat: boolean, voice: boolean, keyed: boolean, note?: string }} ProviderInfo
  */
@@ -39,21 +41,10 @@ export const providerLabel = (p) => PROVIDERS[p]?.label ?? '';
  * voice curation stay in `or-catalog.js` (`OR_FEATURED`) and `tts-catalog.js` (`TTS_FEATURED`),
  * which the pickers' lenses already use; they are referenced, not copied.
  */
-// Gemini families match ANY version from 3 up (`3.1`, `3.8`, a future `4`), newest version first,
-// so the recommendation follows whatever Google lists today instead of naming a release that may
-// not exist on a given account or API (an earlier draft pinned `3.8` and matched nothing where only
-// `gemini-3.1-flash-tts-preview` is live).
-const GEMINI_V3UP = String.raw`gemini-(?:[3-9]|\d{2,})(?:\.\d+)*`;
-export const CURATED = Object.freeze({
-	chat: Object.freeze({
-		gemini: [new RegExp(`^${GEMINI_V3UP}-flash(-\\d{3,}|-latest|-preview)?$`), new RegExp(`^${GEMINI_V3UP}-pro(-\\d{3,}|-latest|-preview)?$`)],
-		anthropic: [/^claude-sonnet-\d/, /^claude-opus-\d/, /^claude-haiku-\d/],
-		openai: [/^gpt-6(\.\d+)?(-[a-z]+)?$/, /^gpt-5(\.\d+)?$/],
-	}),
-	voice: Object.freeze({
-		gemini: [new RegExp(`^${GEMINI_V3UP}-flash-lite-(?:preview-)?tts(-preview)?$`), new RegExp(`^${GEMINI_V3UP}-flash-tts(-preview)?$`)],
-	}),
-});
+// The families themselves live in `models.config.json` (one committed file every model id the
+// Studio names comes from; `{gemini3up}` matches any Gemini version from 3 up, so the recommendation
+// follows whatever Google lists today). engineering/decisions/2026-11-09-model-guard-rails.md
+export const CURATED = MODELS.families;
 
 const SIDE = /(^|-)(nano|mini|lite|image|audio|exp|experimental)(-|$)/i;
 

@@ -21,6 +21,7 @@
 import { familyOf, healTarget } from '../../../lib/model-family.js';
 import { clearOutOfCredit, healSelections, isRetired, markRetired, noteKeyAccepted, noteKeyRefusal, noteOutOfCredit } from '../../../lib/model-retired.js';
 import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
+import { MODELS } from '../../../lib/models-config.js';
 import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, OPENROUTER_ACTIVATION_MS, openRouterKeyActivating, openRouterKeyAgeMs, openRouterKeyMintedAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
 import { directBackend } from './direct-providers.js';
@@ -93,7 +94,7 @@ const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // 
 // model is retired/renamed (a pinned id 404s "No endpoints found"; the alias keeps
 // resolving to the current latest). Verified callable; resolves e.g. to
 // anthropic/claude-4.5-haiku-*. See engineering/decisions/2026-06-29-studio-model-liveness.md.
-const DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest';
+const DEFAULT_OR_MODEL = MODELS.defaults.chat.openrouter; // lib/models.config.json
 // A catalog fetch that has not answered in this long is abandoned, so the next call can try again.
 const CATALOG_FETCH_TIMEOUT_MS = 15000;
 // The author's OpenRouter key is read and written ONLY through lib/openrouter-key.js.

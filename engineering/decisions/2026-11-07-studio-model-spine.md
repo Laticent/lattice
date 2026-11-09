@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: The Studio picked its chat model and its read-aloud voice from readiness ladders on every call, so who answered depended on timing (a key still unsealing, Kokoro loaded or not, an in-memory on-device pick lost on reload). The model spine replaces both ladders with one stored chat selection and one stored voice selection, resolved without substitution, pinned per chat turn and per read, synced across tabs, and painted from storage on the first frame.
 ---
 
@@ -166,7 +166,7 @@ deprecated or without endpoints (`isModelGoneError`; a bad key is not this), the
 the model as gone for the page: the selection reads `unavailable` with reason `model-gone`, the voice
 card shows "Model retired", the author gets one notice saying where to choose another, and the rung
 is not asked again (one notice, not a 404 per sentence). Another model is unaffected; a reload asks
-the provider again. The owner's follow-up (`followups.d/3079-p1-model-guard-rails.md`) makes the
+the provider again. The owner's follow-up (`2026-11-09-model-guard-rails.md`) makes the
 model ids a hotfixable config file, checks them nightly, and gives chat the same rule.
 
 Clips key under their own rung name, so they never collide with an OpenRouter clip.

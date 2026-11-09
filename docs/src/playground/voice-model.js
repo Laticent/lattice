@@ -26,12 +26,13 @@
 
 import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
 import { healTarget } from '../lib/model-family.js';
-import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
+import { isConfigRetired, MODELS } from '../lib/models-config.js';
+import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 import { classifyProviderError } from '../lib/provider-errors.js';
 import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
@@ -64,7 +65,7 @@ const OR_SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
 // over it (see pickRung).
 // `af_heart` is the same Kokoro voice the on-device rung defaults to. Both overridable
 // via the localStorage prefs below.
-const DEFAULT_OR_TTS_MODEL = 'hexgrad/kokoro-82m';
+const DEFAULT_OR_TTS_MODEL = MODELS.defaults.voice.openrouter;
 const DEFAULT_OR_VOICE = 'af_heart';
 const DEFAULT_KOKORO_VOICE = 'af_heart';
 
@@ -495,7 +496,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
 // Gemini key (engineering/decisions/2026-11-07-studio-model-spine.md).
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 /** The curated default Gemini voice model (GA): Flash-Lite TTS. Used until the live list answers, which then decides. */
-export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
+export const GEMINI_TTS_DEFAULT_MODEL = MODELS.defaults.voice.gemini;
 
 function base64ToBytes(b64) {
   const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
@@ -1243,7 +1244,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
     const rung = s.provider === 'openrouter' ? openrouter : cloudRungs[s.provider];
     if (!rung) return { sel: s, rung: silentRung, state: 'unavailable' };
-    if (gone.has(s.provider, modelIdFor(rung.name))) return { sel: s, rung, state: 'unavailable', reason: 'model-gone' };
+    // Retired: a provider told this page so, or lib/models.config.json retires it (before any request).
+    if (gone.has(s.provider, modelIdFor(rung.name)) || isConfigRetired(s.provider, modelIdFor(rung.name))) return { sel: s, rung, state: 'unavailable', reason: 'model-gone' };
     if (rung.ready()) return { sel: s, rung, state: 'ready' };
     return { sel: s, rung, state: selection.keyState(s.provider) === 'opening' ? 'warming' : 'needs-key' };
   }

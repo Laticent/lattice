@@ -5,6 +5,7 @@
 // not (docs/route-budget.json). engineering/decisions/2026-11-08-studio-ai-routes-ux.md rule 1.
 
 import { readChatSelection, readImageSelection, readVoiceSelection, selectChat, selectImage, selectVoice } from './model-selection.js';
+import { isConfigRetired } from './models-config.js';
 import { providerLabel } from './provider-registry.js';
 
 const hasWindow = typeof window !== 'undefined';
@@ -49,8 +50,8 @@ export const MODEL_RETIRED_EVENT = 'lattice:model-retired';
 const retired = new Set();
 const retiredKey = (provider, model) => `${provider}:${model}`;
 
-/** Whether a route told us this model is retired (this page only). */
-export const isRetired = (provider, model) => !!model && retired.has(retiredKey(provider, model));
+/** Whether a route told us this model is retired (this page only), or lib/models.config.json retires it (every page). */
+export const isRetired = (provider, model) => !!model && (retired.has(retiredKey(provider, model)) || isConfigRetired(provider, model));
 
 // The event carries the route's label, so the shell that shows the notice does not need the
 // provider table on its boot path; it formats the model names itself, lazily. (This module stays
