@@ -246,7 +246,7 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 | D3 | Agreement | **A committed agreement test first; a shared counter only if needed.** The preview's one rule dropped (2026-11-09: "we need to prove it rather than assume"). The focus-step divider does not reopen it: it is a behavior counted as slides, fixed at its cause (D6) |
 | D4 | The manifest `dynamic` field | **Not asked.** A proposal until a consumer needs it |
 | D5 | A sources slide | **Design the citation syntax next**; a sources slide is its first consumer (2026-11-08) |
-| D6 | Dynamic behaviors | **A third kind with its own rule: one slide, state plus CSS live, one frame in still formats, never read by a mark.** `_focusSteps` is redesigned on `_build`'s model (2026-11-09) |
+| D6 | Dynamic behaviors | **A third kind with its own rule: one slide, state plus CSS live, one frame in still formats, never read by a mark.** `_focusSteps` is redesigned on `_build`'s model; the design, `2026-11-09-steps-as-a-behavior.md`, accepted with S1-S4 as recommended (2026-11-09) |
 
 ## The work this sets up, in order
 

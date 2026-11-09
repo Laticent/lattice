@@ -13,7 +13,7 @@ summary: >
 
 **Date:** 2026-11-09 · **Asked by:** the owner, after PR #3096 found a `_focusSteps` divider counted as three sections
 ("why the fuck is the engine turning it into several slides?"; "focus steps is a state management issue and a css
-solution"; "yeah, we need to redesign") · **Status:** proposed, no code · **Amends:**
+solution"; "yeah, we need to redesign") · **Status:** proposed (the index has no "decided, not built" state); the owner accepted it with S1-S4 as recommended on 2026-11-09; no code yet · **Amends:**
 `2026-06-16-focus-highlighting.md` §4 · **Finishes:** `2026-06-16-narrative-step-model.md` §11 increments 2 and 3
 (issue #380) · **Follows:** `2026-11-08-dynamic-components.md` §Dynamic behaviors · **Built by:**
 `followups.d/3096-p5-focus-steps-as-a-behavior.md`
@@ -123,14 +123,16 @@ Export to Marp already keeps a `_focusSteps` slide as one slide, with the direct
   as `examples/build.md` has always promised and never done.
 - **Page numbers stop jumping.** A three-step table is one page number, not three.
 
-## Choices for the owner
+## Decided
 
-| | Question | Options | Recommendation |
-|---|---|---|---|
-| S1 | What a focus slide shows at rest, in print and the preview | (a) nothing highlighted, every unit even; (b) the first step highlighted | **(a).** The still is the slide as written. (b) highlights one row and hides why, and it differs from build, whose rest shows everything |
-| S2 | Where Present lands when entering a stepping slide by "next" | (a) at rest, then the first click moves to step 1; (b) straight on step 1 | **(b) for focus, at step 0 for build.** A build's step 0 is "nothing revealed yet", which is the point; a focus slide at rest followed by a click that only adds a highlight wastes a click |
-| S3 | The page-per-step export's page numbers | (a) every page keeps the slide's number; (b) `4.1`, `4.2`, `4.3` | **(a).** It is one slide, and the agenda's page references must still land on it |
-| S4 | The attribute names | (a) generic `data-step*` with `data-build*` kept as aliases; (b) keep `data-build*` and give focus its own | **(a).** One contract, one walker, one CSS trigger |
+The owner took every recommendation on 2026-11-09 ("i'm aligned").
+
+| | Question | Decision |
+|---|---|---|
+| S1 | What a focus slide shows at rest, in print and the preview | **Nothing highlighted, every unit even.** The still is the slide as written, the same rule as a build's rest |
+| S2 | Where Present lands when entering a stepping slide by "next" | **Focus: straight on step 1. Build: at step 0, nothing revealed yet.** Entering by "prev" lands on the last step |
+| S3 | The page-per-step export's page numbers | **Every page keeps the slide's number.** It is one slide, and the agenda's page references must still land on it |
+| S4 | The attribute names | **Generic `data-step`, `data-steps`, `data-step-kind`, `data-step-at`**, with `data-build*` kept as aliases until nothing reads them |
 
 ## Not decided here
 
