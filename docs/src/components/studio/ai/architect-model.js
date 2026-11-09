@@ -51,6 +51,8 @@ const FRESH_KEY_MS = 60_000; // a key written this recently gets two more asks b
 // A refused fresh key is asked again at these ages (ms since it was written), then left alone.
 const LATE_RECHECK_MS = [30_000, 90_000, 180_000];
 /** What a stored key looks like, never the key: its `sk-or-v1-` prefix (or its first 3 characters) and its length. */
+/** The last four characters of the key the last sign-in on this page was given ('' before one). */
+let issuedHint = '';
 const keyShape = (key) => `${String(key).startsWith('sk-or-v1-') ? 'sk-or-v1-…' : `${String(key).slice(0, 3)}…`} ${String(key).length} chars`;
 function recheckFreshKey(key, ageAtRefusal) {
   for (const at of LATE_RECHECK_MS) {
@@ -330,7 +332,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         if (res.status === 401 && key === readOpenRouterKey()) {
           const why = await res.clone().json().then((j) => j?.error?.message ?? '').catch(() => '');
           const age = openRouterKeyAgeMs();
-          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks, shape: keyShape(key) });
+          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks, shape: keyShape(key), sent: `…${String(key).slice(-4)}`, issued: issuedHint });
           // A key refused in its first minute keeps being asked about (owner report, 2026-11-09:
           // a signed-in key still refused at 10 s). If OpenRouter starts accepting it, the mark
           // clears by itself and the record says after how long.
@@ -443,6 +445,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (!res.ok) throw new Error('OpenRouter auth failed (' + res.status + ')');
       const j = await res.json();
       if (!j.key) throw new Error('OpenRouter returned no key');
+      // The last four characters of the key this sign-in was given, for the refusal record: a
+      // refusal of a DIFFERENT key (an older one) then shows as such. Never the key.
+      issuedHint = `…${String(j.key).slice(-4)}`;
       setKey(j.key);
       writeLS(OR_VERIFIER_LS, null);
       // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).

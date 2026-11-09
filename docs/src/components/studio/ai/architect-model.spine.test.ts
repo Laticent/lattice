@@ -417,6 +417,6 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 		expect(r.rejected).toBe(true);
 		// What OpenRouter said is kept, so Connections can name the cause (never the key).
 		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
-		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3, shape: 'sk-or-v1-… 29 chars' });
+		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3, shape: 'sk-or-v1-… 29 chars', sent: '…0a0a' });
 	});
 });

@@ -169,7 +169,7 @@ function ProviderRow({
 	const record = lastKeyRefusal(provider);
 	const refusal = rejected ? record : null;
 	const said = refusal
-		? ` (${info.label} said ${refusal.status}${refusal.message ? `: ${refusal.message}` : ''}${refusal.ageMs != null ? `, ${Math.round(refusal.ageMs / 1000)} s after the key was made` : ''}${refusal.asks > 1 ? `, asked ${refusal.asks}×` : ''}${refusal.shape ? `; stored key ${refusal.shape}` : ''})`
+		? ` (${info.label} said ${refusal.status}${refusal.message ? `: ${refusal.message}` : ''}${refusal.ageMs != null ? `, ${Math.round(refusal.ageMs / 1000)} s after the key was made` : ''}${refusal.asks > 1 ? `, asked ${refusal.asks}×` : ''}${refusal.shape ? `; stored key ${refusal.shape}` : ''}${refusal.sent ? `; sent ${refusal.sent}${refusal.issued ? `, sign-in gave ${refusal.issued}` : ''}` : ''})`
 		: record?.acceptedAfterMs != null && hint
 			? ` (refused at first; ${info.label} accepted it ${Math.round(record.acceptedAfterMs / 1000)} s after it was made)`
 			: '';
