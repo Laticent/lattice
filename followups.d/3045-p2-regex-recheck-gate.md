@@ -61,6 +61,9 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             The census cannot certify a look-around (recheck cannot model one), so a pattern made linear by a
             look-behind or an atomic-group look-ahead carries its proof in writing: `// regex-ok:` on its line, and
             the same reason in the test's `allow`.
+            2026-11-09 (zero-flakes part 4, owner D1): the pre-commit job `regex-census-recheck` re-decides each
+            verdict the staged table adds or changes against HEAD (`node tools/regex-census.js --staged`), so a
+            hand-typed verdict no longer passes. A planted `"safe"` on a polynomial pattern failed the commit in 1.04 s.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

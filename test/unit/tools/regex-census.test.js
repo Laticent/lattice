@@ -159,3 +159,20 @@ describe('regex census — the test helpers', () => {
     assert.equal(found.seed, 7);
   });
 });
+
+// The pre-commit job (`regex-census.js --staged`, lefthook.yml, owner D1 2026-11-09) re-decides only what a commit could
+// have typed by hand. Which entries those are is a pure diff; recheck itself is not needed to test the choice.
+describe('regex-census --staged picks the verdicts a commit adds or changes', () => {
+  const { changedVerdicts } = require('../../../tools/regex-census.js');
+  test('a new key and a changed verdict are listed; an unchanged one and a dropped one are not', () => {
+    const head = { '/a/': 'safe', '/b+c/': 'polynomial', '/gone/': 'safe', '/u(?=x)/': { verdict: 'unknown', why: 'look-ahead' } };
+    const staged = { '/a/': 'safe', '/b+c/': 'safe', '/new/': 'safe', '/u(?=x)/': { verdict: 'unknown', why: 'look-ahead' } };
+    assert.deepEqual(changedVerdicts(head, staged).sort(), ['/b+c/', '/new/']);
+  });
+  test('an edited `why` on an unknown verdict counts as a change', () => {
+    assert.deepEqual(changedVerdicts({ '/x/': { verdict: 'unknown', why: 'a' } }, { '/x/': { verdict: 'unknown', why: 'b' } }), ['/x/']);
+  });
+  test('no table at HEAD lists every staged verdict', () => {
+    assert.deepEqual(changedVerdicts(undefined, { '/a/': 'safe' }), ['/a/']);
+  });
+});

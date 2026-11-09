@@ -33,6 +33,14 @@ pre-commit:
         - 'lib/plugins/*/kinds/**/*.gallery.md'
         - 'lib/integrations/**/*.gallery.md'
       run: node tools/lint-deck.js --strict {staged_files}
+    - name: regex-census-recheck
+      # HARD RULE #32. build:check's checkRegexCensus trusts each verdict in tools/regex-census.json, so a hand-typed
+      # "safe" would pass it. This re-decides, with recheck, only the verdicts the staged table adds or changes against
+      # HEAD, and blocks the commit on any that recheck answers differently (owner D1, 2026-11-09). It fires only when
+      # the table is staged, and costs 0.5 to 3 s per changed verdict. It needs recheck: `npm ci --prefix tools/recheck
+      # --omit=optional --ignore-scripts` (the writer needs it too, so anyone staging a real table already has it).
+      glob: 'tools/regex-census.json'
+      run: node tools/regex-census.js --staged
     # pdf-rebuild WAS HERE, and is gone on purpose (goldens rollout step 3). It rendered
     # and STAGED the PDF of every staged deck; pull requests no longer commit PDFs
     # (the lint job's tools/check-no-pdf-in-pr.mjs), and the nightly bless bot is their

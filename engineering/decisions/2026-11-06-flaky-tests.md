@@ -135,6 +135,12 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   PR). A table that does not parse is an error, never a fresh start. The gate holds counts, not identities, so a file
   that trades a drained pattern for a new slow one passes the gate; the writer is what refuses the new one. `--check '/…/'` prints one pattern's
   verdict and attack string; `--verify` re-decides every entry.
+- **The pre-commit re-check** (owner D1, 2026-11-09): the gate trusts the verdict it is shown, so a hand-typed `"safe"`
+  passed `build:check`. The lefthook job `regex-census-recheck` runs `node tools/regex-census.js --staged` whenever the
+  table is staged: it re-decides, with recheck, each verdict the staged table adds or changes against `HEAD`, and blocks
+  the commit on any recheck answers differently. A commit that does not stage the table pays nothing; one that does pays
+  about 1 s per changed verdict (1.04 s for the one planted in the PR that added it). A pre-commit hook, not a CI step,
+  because recheck lives outside the root `npm ci`; the limit is that `--no-verify` skips it, which HARD RULE #14 forbids.
 - **The first census** (3,846 regex literals in 407 files, 2,352 distinct): 1,820 safe, 413 polynomial, 1
   exponential (`lib/packages/npm-plugin-loader.js`), and 118 unknown (115 that recheck cannot model, 3 that outgrow
   the heap). The backlog is 699 literals in 191 files, led by `lint-core.js` (93), `chart-narration.js` and `carousel.js`.
