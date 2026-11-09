@@ -248,7 +248,7 @@ const readout = async (page: Page) => {
 	return question != null && edit != null ? { question, edit } : null;
 };
 
-test('the cost readout rises by a few tenths of a cent when the Library gains photos', async ({ page }) => {
+test('the cost readout rises by a few tenths of a cent when the Library gains photos @gecko', async ({ page }) => {
 	test.setTimeout(180_000);
 	await mockModel(page, true, []);
 	// A real user has the model catalog cached (it is fetched when the picker opens or a turn runs), and the
