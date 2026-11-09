@@ -2084,3 +2084,23 @@ test('obligation-matrix: a label set renames the spoken answer as it renames the
 	const [plain] = renderSpeech(md.replace(' pills', ''));
 	assert.match(plain, /GDPR — Notice: in force; Consent: partial\./);
 });
+
+test('a plugin\'s drawing reaches the article whole, root included: its text is never the author\'s (spec/LPM.md §10)', () => {
+	// PR #3110's attack spec (Share → Webpage): lifting the plugin's <ul> alone dropped `[data-lattice-plugin]`, so the
+	// article held the plugin's bullets as if the author had written them.
+	const secs = sections(
+		`<section data-lattice-slide class="closing qr form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Thank you</h2></div>
+			<ul><li>https://example.com/author</li></ul>
+			<div data-lattice-plugin="gp"><ul><li>https://attacker.example/leak</li></ul><p>note</p></div>
+			<p>Words with <span data-lattice-plugin="tag" data-kind="tag">x</span> inside.</p>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	const roots = articleHtml.match(/<div data-lattice-plugin="gp">[\s\S]*?<\/div>/g) || [];
+	assert.equal(roots.length, 1, 'the root once, not once per block inside it');
+	assert.match(roots[0], /<li>https:\/\/attacker\.example\/leak<\/li>[\s\S]*<p>note<\/p>/);
+	assert.doesNotMatch(articleHtml.replace(roots[0], ''), /attacker\.example/, 'and nowhere outside it');
+	assert.match(articleHtml, /<li>https:\/\/example\.com\/author<\/li>/, 'the author\'s own bullet is still there');
+	assert.match(articleHtml, /<span data-lattice-plugin="tag" data-kind="tag">x<\/span>/, 'a span keeps its root inside the author\'s paragraph');
+});

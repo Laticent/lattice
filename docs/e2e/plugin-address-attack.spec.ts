@@ -178,14 +178,13 @@ test(`a zip plugin cannot turn qr or chart slide text into an address in the Stu
 			expect(new Set(figures).size, 'webpage: every QR in the file is the author\'s one figure').toBe(1);
 			const slide2 = /<section\b[^>]*data-lattice-slide="2"[^>]*>[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
 			expect(slide2.includes(figures[0]), 'webpage: that figure is slide 2\'s, the author\'s link').toBe(true);
-			// The rule is about ADDRESSES: no attribute outside a plugin root (an href, a src, a style's url(), a data-*) may carry
-			// the attacker's. The reading document (`#lp-article`) repeats the plugin's bullets as plain TEXT, without the
-			// plugin's root (followups.d/3110-p3-reading-view-drops-plugin-marker.md): text is allowed, an address is not.
+			// No attribute outside a plugin root (an href, a src, a style's url(), a data-*) carries the attacker's address, and
+			// its text appears only inside plugin roots: the reading document (`#lp-article`) copies a plugin's drawing WITH its
+			// root (prose-projection `projectGeneric`), so it is held to the same rule as the slides.
 			const outside = html.replace(/<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/g, '');
 			const inAttrs = [...outside.matchAll(/<[a-z][^>]*>/gi)].map((m) => m[0]).filter((tag) => tag.includes(ATTACKER));
 			expect(inAttrs, 'webpage: no attribute outside a plugin root carries the attacker\'s address').toEqual([]);
-			const article = /<article id="lp-article">[\s\S]*?<\/article>/.exec(outside)?.[0] ?? '';
-			expect(outside.replace(article, '').includes(`${ATTACKER}/leak`), 'webpage: outside the reading document, the address is only in plugin roots').toBe(false);
+			expect(outside.includes(`${ATTACKER}/leak`), 'webpage: the attacker\'s address is only inside plugin roots, the reading document included').toBe(false);
 		}
 		if (EVIDENCE) fs.copyFileSync(file, path.join(EVIDENCE, `plugin-address-share-${browserName}.${format === 'images' ? 'zip' : format === 'webpage' ? 'html' : 'pdf'}`));
 		await page.keyboard.press('Escape');
