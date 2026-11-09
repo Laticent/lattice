@@ -39,8 +39,8 @@
  *   · `flex-shrink: 8` on the rail, to make it yield first, drove it to 0px wide, dots and all;
  *   · and the fix itself then clipped every diacritic off accented CAPITALS, which neither box nor
  *     ink geometry can see at all, because the loss is sub-box PAINT.
- * So this suite asserts the properties that GUARANTEE the rendering — flex items cannot overlap,
- * only one item can flex, `overflow: hidden` confines ink to the box, and the box must be tall
+ * So this suite asserts the properties that GUARANTEE the rendering — in-flow items cannot overlap,
+ * only the footer's column can flex, `overflow: hidden` confines ink to the box, and the box must be tall
  * enough to contain that ink — and it verifies the band is genuinely contended first, because
  * every shrink assertion below is vacuous on a band with slack. The first version of this file
  * asserted only that both boxes had width > 0 and let SEVEN of nine mutations through.
@@ -112,7 +112,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
         if (cs.display === 'none') { suppressed.push({ page: i + 1, cls: s.className }); return; }
         const rail = cell.querySelector(':scope > .tile-progress');
         if (!rail) return;
-        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, height: b.height, width: b.width }; };
+        const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom, height: b.height, width: b.width }; };
         promoted.push({
           page: i + 1,
           position: cs.position,
@@ -121,7 +121,11 @@ describe('footer band — a contended band keeps every mark legible', () => {
           textOverflow: cs.textOverflow,
           whiteSpace: cs.whiteSpace,
           maxWidth: cs.maxWidth,
-          flexGrow: cs.flexGrow,
+          bandDisplay: getComputedStyle(cell).display,
+          // The band's resolved columns in px, named lines dropped: footer · split · rail · page.
+          tracks: getComputedStyle(cell).gridTemplateColumns.split(/\s+/).filter((t) => /px$/.test(t)).map(parseFloat),
+          hasPag: !!cell.querySelector(':scope > .lat-pagination'),
+          footerColumn: cs.gridColumnStart,
           lineHeight: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2,
           footer: box(footer),
           footerClientW: footer.clientWidth,
@@ -144,8 +148,13 @@ describe('footer band — a contended band keeps every mark legible', () => {
           // width from the footer. This is the assertion that makes the export regression
           // structurally impossible rather than merely absent today.
           others: [...cell.children].filter((k) => k !== footer).map((k) => {
-            const kcs = getComputedStyle(k);
-            return { cls: k.className || k.tagName, grow: kcs.flexGrow, shrink: kcs.flexShrink, width: k.getBoundingClientRect().width };
+            const width = k.getBoundingClientRect().width;
+            // Its own content width, read by letting it size to its content for one measurement.
+            const prev = k.style.width;
+            k.style.width = 'max-content';
+            const natural = k.getBoundingClientRect().width;
+            k.style.width = prev;
+            return { cls: k.className || k.tagName, pag: k.classList.contains('lat-pagination'), width, natural };
           }),
           // The dots' own shape — an `on` dot is a pill, an off dot a circle, and a squeezed
           // row used to flatten both into indistinguishable slivers.
@@ -191,20 +200,57 @@ describe('footer band — a contended band keeps every mark legible', () => {
   test('the footer is the row\'s ONLY flexible item', () => {
     // THE central invariant, and the one that would have caught the reverted attempt. A second
     // item that can grow or shrink turns the row into a negotiation between two strings, and
-    // flexbox resolves that by shrinking BOTH — which is how a confidentiality footer lost
+    // a two-string negotiation truncates both — which is how a confidentiality footer lost
     // "any person not named on the distribution schedule" from the exported PDF while the
-    // section label it was competing with truncated too. Every wayfinding mark is `flex: 0 0 auto`
-    // and bounded by construction; the author's words take the remainder.
+    // section label it was competing with truncated too. The band is a GRID since 2026-11-08
+    // (stage.css `.cell-footer`, engineering/decisions/2026-11-08-anchor-chrome.md), so the rule
+    // lives in its columns: the footer's is the only flexible one (`minmax(0, 1fr)`), every
+    // wayfinding mark is exactly its content wide (an `auto` column), and the page number's column
+    // is a fixed reserve, the same width on every slide whatever its digits.
+    const pagWidths = new Set();
     for (const b of bands) {
-      assert.equal(b.flexGrow, '1', `p${b.page}: the footer must absorb the row's free space`);
+      assert.equal(b.bandDisplay, 'grid', `p${b.page}: the footer band is a grid`);
+      assert.equal(b.footerColumn, 'footer', `p${b.page}: the footer sits in the band's flexible column`);
       for (const o of b.others) {
-        assert.equal(o.grow, '0',
-          `p${b.page}: \`${o.cls}\` can GROW (flex-grow: ${o.grow}) — it will take width the author's footer needs`);
-        assert.equal(o.shrink, '0',
-          `p${b.page}: \`${o.cls}\` can SHRINK (flex-shrink: ${o.shrink}) — so it is negotiating for width, `
-          + 'and flexbox resolves a two-string negotiation by truncating both');
+        if (o.pag) {
+          pagWidths.add(o.width.toFixed(2));
+          continue;
+        }
+        assert.ok(Math.abs(o.width - o.natural) < 0.5,
+          `p${b.page}: \`${o.cls}\` is ${o.width.toFixed(1)}px in a ${o.natural.toFixed(1)}px content box — `
+          + 'a mark that grows takes width the footer needs; one that shrinks is negotiating for it');
       }
     }
+    assert.ok(pagWidths.size <= 1, `the page number's column changed width across pages: ${[...pagWidths].join(', ')}`);
+  });
+
+  test('only the footer\'s COLUMN flexes, and the rail holds still on every page', () => {
+    // The item-width check above cannot see a COLUMN that grows: a `1fr` rail column with the rail
+    // pinned to its end takes the footer's width while the rail stays content-wide (the checker's
+    // mutation, 2026-11-08). So read the resolved columns. The split and rail columns are exactly
+    // their marks wide, or zero; the page-number column is one width on every page, drawn or not;
+    // and so the rail's distance from the band's end is ONE number across the deck, including the
+    // page with no number and the `compact` page, the two places it used to move.
+    const railInsets = new Set();
+    const railLifts = new Set();
+    const pagCols = new Set();
+    for (const b of bands) {
+      assert.equal(b.tracks.length, 4, `p${b.page}: the band resolved ${b.tracks.length} columns, not 4: ${b.tracks.join(' ')}`);
+      const [, split, rail, pag] = b.tracks;
+      const railNatural = b.others.find((o) => /tile-progress/.test(o.cls))?.natural ?? 0;
+      const splitNatural = b.others.find((o) => /lat-split-rail/.test(o.cls))?.natural ?? 0;
+      assert.ok(Math.abs(rail - railNatural) < 0.5, `p${b.page}: the rail's column is ${rail.toFixed(1)}px for a ${railNatural.toFixed(1)}px rail — it flexes`);
+      assert.ok(Math.abs(split - splitNatural) < 0.5, `p${b.page}: the split column is ${split.toFixed(1)}px for a ${splitNatural.toFixed(1)}px counter — it flexes`);
+      pagCols.add(pag.toFixed(1));
+      railInsets.add((b.band.right - b.rail.right).toFixed(1));
+      railLifts.add((b.band.bottom - b.rail.bottom).toFixed(1));
+    }
+    assert.ok(bands.some((b) => !b.hasPag), 'the fixture lost its railed page with no page number');
+    assert.equal(pagCols.size, 1, `the page-number column changed width: ${[...pagCols].join(', ')}`);
+    assert.equal(railInsets.size, 1, `the rail moved across pages: its inset from the band's end was ${[...railInsets].join(', ')}px`);
+    // And it holds its HEIGHT: the fixture's page whose footer carries an inline image is where it used
+    // to drop (3px at hd, 6px in story) when the image moved the band's shared baseline.
+    assert.equal(railLifts.size, 1, `the rail moved up or down across pages: its lift off the band's bottom was ${[...railLifts].join(', ')}px`);
   });
 
   test('the section rail carries NO label — rank 4 of the order', () => {
@@ -218,7 +264,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
     }
   });
 
-  test('the footer is a real flex ITEM that ellipsises rather than clipping mid-word', () => {
+  test('the footer is a real in-flow ITEM that ellipsises rather than clipping mid-word', () => {
     for (const b of bands) {
       assert.equal(b.position, 'static', `p${b.page}: an absolute footer cannot participate in the row`);
       assert.match(b.overflow, /hidden|clip/, `p${b.page}: ink must be confined to the box for ellipsis to mean anything`);
@@ -240,7 +286,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
       assert.equal(b.maxWidth, 'none',
         `p${b.page}: the footer is capped at ${b.maxWidth} on top of its flex share — the row can no `
         + 'longer allocate the band, and the cap silently wins.');
-      // The band packs `flex-end`, so a footer that stops short detaches from the page's left
+      // The footer's column starts at the band's left, so a footer that stops short detaches from the page's left
       // margin — out of line with the header and the body. Cheap, and it is the visible symptom.
       assert.ok(Math.abs(b.footer.left - b.band.left) < 1,
         `p${b.page}: the footer starts at ${b.footer.left.toFixed(1)} but the band's left margin is `

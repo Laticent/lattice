@@ -1171,7 +1171,7 @@ async function main() {
   // where a parser reads them as more CSS, not as directives.
   // THE SECTION RAIL STAYS OUT unless the caller asks for it. The sweep's deck is N copies of
   // one component, so a divider sweep is a deck of N sections and would draw the deck's section
-  // marker on every step (progress.transform.js), a row of the divider's own block above the name.
+  // marker on every step (progress.transform.js), docked in the bottom band where the rail sits.
   // Deck-level wayfinding is not the component under test, and fixed marker ink once froze the ink
   // union's edges so a `nowrap` heading running off the slide read as an INERT sweep
   // (jank-sweep.test.js); `--front-matter 'progress-rail: on'` puts the marker back when it is.

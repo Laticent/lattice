@@ -670,15 +670,41 @@ section header {
   z-index: var(--z-chrome);
   position:absolute; top:var(--frame-inset-t); left:var(--frame-inset-l); right:var(--frame-inset-r);
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
-  letter-spacing:0.10em; text-transform:uppercase; text-align:left;
+  /* ONE CHROME VOICE with the meta line across the top band (meta.css): weight 500, 0.08em, muted
+   * (owner's call, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md § The top band). */
+  letter-spacing:0.08em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-b); left:var(--frame-inset-l); right:calc(var(--frame-page-reserve) - var(--_bar-r, 0px));
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
-  line-height:1; letter-spacing:0.06em; text-align:left;
+  /* The footer band's box (stage.css `> footer`: 1.45 in 1.6em), as a MINIMUM so a long footer still
+   * wraps upward from the band: one baseline for the footer on every frame, content or sovereign. */
+  line-height:1.45; min-block-size:1.6em; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
+}
+/* AN IMAGE IN THE FOOTER IS A GLYPH, cap-tall on the baseline. `footer: "Confidential ![](logo.svg)"` drew
+ * the logo at its own size: on a sovereign frame (a divider) it stood a hundred pixels above the band,
+ * and in the footer Cell's 1.6em box it was clipped along with the words after it. One cap of the
+ * footer's own type sits inside every line box the band uses (line height 1 or 1.45), so it can neither
+ * move the shared baseline nor grow the band, and the page number and the rail beside it hold still
+ * (engineering/decisions/2026-11-08-anchor-chrome.md; footer-band.test.js). */
+/* `img:not(.emoji):not(.deck-logo)` to out-rank the slide image rule above (`section img:not(.emoji)
+ * :not(.deck-logo)`, (0,2,2)), which makes every image a rounded, cover-cropped BLOCK: in the footer that
+ * broke the line in three and cropped the mark. */
+/* A superscript or subscript (`Acme<sup>®</sup>`) raises its own line box and, with it, the line: zero
+ * line height keeps the mark raised and the band's baseline where every other slide's is. */
+section footer :is(sup, sub) { line-height: 0; }
+section footer img:not(.emoji):not(.deck-logo),
+section footer svg {
+  display: inline-block;
+  block-size: 1cap;
+  inline-size: auto;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+  vertical-align: baseline;
 }
 
 
@@ -2087,18 +2113,11 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * no second counter, so a deck that mixes the two still counts 01, 02, 03 straight
  * through. */
 
-/* The masthead owns the top band, so the running header and the footer both stand
- * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
- * the footer in a `.cell-footer` and left the header a direct child
- * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The `.cell-footer`
- * arm is DEFENSIVE, not exercised: `divider` renders on the legacy frame today, so no
- * such DOM exists — it is here so a future Form migration does not silently restore the
- * footer. The PAGE NUMBER is
- * deliberately untouched — it lives bottom-right, nowhere near this, and it is the one
- * piece of chrome a section start still benefits from. */
-section.divider.numbered > header,
-section.divider.numbered > footer,
-section.divider.numbered > .cell-footer > footer { display: none; }
+/* A numbered divider keeps the deck's running header and footer, as every divider does
+ * (engineering/decisions/2026-11-08-anchor-chrome.md: a band stays unless the slide already
+ * does its job). The numeral sits below the header's band, so the two do not meet; the
+ * variant hid both until 2026-11-08, which dropped a deck's "Confidential" on exactly the
+ * slides that open its sections. */
 
 /* THE BAND IS RESERVED, so the copy cannot reach the mark.
  *
@@ -2986,7 +3005,8 @@ svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
  *   top-*           → the running header and the meta tile
  *   bottom-left,
  *   bottom-center   → the footer text (it spans the whole bottom edge)
- *   bottom-right    → the page number and the progress rail (the footer keeps its text)
+ *   bottom-right    → the page number and the progress rail, and a divider's section marker, which
+ *                     stands where the rail does (the footer keeps its text)
  * Only an EXPLICIT word does this, and only on a slide that HAS the mark (`:has(> img.deck-logo)`):
  * the deck's words ride every section, so keying on the class alone hid the chrome on slides the
  * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
@@ -2997,7 +3017,7 @@ section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-log
 section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
 section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,
 section.form:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > .cell-footer > footer,
-section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress) {
+section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress, .divider-marker) {
   display: none;
 }
 section.logo-bottom-right.logo-bottom-right:has(> img.deck-logo)::after { content: none; }
@@ -3246,7 +3266,7 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):not(.progress-rail-
 }
 /* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks
    the section rail): de-absolute so the footer row lays the marks out in flow —
-   footer text · section rail · k-of-N · page number. Same rule shape as
+   footer text · k-of-N · section rail · page number, each in its own column of the band's grid. Same rule shape as
    `section.form > .cell-footer > .tile-progress` in the stage Cell. */
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
@@ -3280,7 +3300,6 @@ section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
   display: block;
-  flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;

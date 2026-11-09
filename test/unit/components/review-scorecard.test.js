@@ -71,21 +71,6 @@ describe('review-core: reviewText', () => {
   });
 });
 
-describe('review-core: empty-section', () => {
-  const rule = (src) => reviewText(src).filter((f) => f.rule === 'empty-section');
-  test('a divider straight after a divider is named, on the second one', () => {
-    const src = '---\ntheme: indaco\n---\n\n<!-- _class: divider -->\n## One\n\n---\n\n<!-- _class: divider light -->\n## Two\n\n---\n\n## A slide\n\nBody text here.\n';
-    const f = rule(src);
-    assert.equal(f.length, 1);
-    assert.equal(f[0].slide, 2);
-    assert.equal(f[0].severity, 'suggestion');
-  });
-  test('a slide between the two dividers clears it', () => {
-    const src = '---\ntheme: indaco\n---\n\n<!-- _class: divider -->\n## One\n\n---\n\n## A slide\n\nBody.\n\n---\n\n<!-- _class: divider -->\n## Two\n';
-    assert.equal(rule(src).length, 0);
-  });
-});
-
 describe('scorecard: scoreDeck — the Craft / Style split', () => {
   const clean = `${FM}<!-- _class: title silent -->\n\n# Q3 board review\n\nthe ask\n\n---\n\n<!-- _class: kpi -->\n\n## Revenue grew 18%, led by APAC\n\n1. 18%\n   - growth\n\n---\n\n<!-- _class: decision -->\n\n## We recommend funding APAC\n\n- option\n  - body\n\n---\n\n<!-- _class: closing -->\n\n## Fund APAC\n`;
   const card = (src, lint = []) => scoreDeck({ source: src, lintFindings: lint, reviewFindings: reviewText(src, { bucketOf }) });

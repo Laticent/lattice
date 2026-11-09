@@ -36,9 +36,9 @@ The section rail answers "which part", and the page number answers "how far".
 
 ## Each mark is one section of the deck
 
-- The divider before this slide drew the marks large, next to the section's name
+- The divider before this slide drew the marks larger, where the rail sits on this slide
 - The footer repeats them small, with this section lit in the heading's ink
-- A hairline sets the page number apart, so it is not read as one more mark
+- The page number keeps its own column, so it is not read as one more mark and the rail never moves
 - A deck needs three sections and fifteen slides before the rail draws on its own; this one says `progress-rail: on`
 
 ---

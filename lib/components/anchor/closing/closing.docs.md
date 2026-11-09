@@ -6,7 +6,7 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.
+Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.
 
 ## Agent contract
 
@@ -42,15 +42,13 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 ## When NOT to use
 
 - **Multi-line heading.** Keep the closing line to one editorial sentence. The layout is centered and large — two-line closings get cramped and lose impact.
-- **Header or footer overrides.** Don't reinstate `_header:` or `_footer:` on the closing. The dark canvas is the "we're done" signal; chrome breaks it. Use the `silent` modifier to suppress all three in one token.
+- **Header or footer overrides.** Don't blank the footer with `_footer: ''` on the closing: it is the deck's standing note (a "Confidential", a copyright), and the last slide is often the one left on screen. Drop it on purpose with `no-footer`, or every band with `silent`.
 - **Mid-deck closing.** If the audience needs a strong statement mid-deck, use `big-number` or `content` with the `dark` modifier. Reserving closing for the final slide preserves its bookend role.
 
 ## Authoring
 
 ```markdown
 <!-- _class: closing -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
 
 ## Closing takeaway or call to action
 

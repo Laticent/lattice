@@ -219,11 +219,15 @@
     "chrome": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The slide chrome this component's slides show by default. `pagination: false` keeps the page number off every slide of this component (title, divider, closing), unless the slide asks for it with the `with-pagination` class. Read by the engine from lib/packages/chrome.generated.js, which tools/build-packages-index.js writes from these fields, so adding the field is the whole registration: nothing names a component in code. Omit the object for the common case (the deck's front matter decides).",
+      "description": "The slide chrome this component's slides show by default. `pagination: false` keeps the page number off every slide of this component (title, divider, topic, closing), unless the slide asks for it with the `with-pagination` class; `header: false` drops the running header the same way (title). The rule behind which band an anchor drops is engineering/decisions/2026-11-08-anchor-chrome.md: a band stays unless the slide already does its job. Read by the engine from lib/packages/chrome.generated.js, which tools/build-packages-index.js writes from these fields, so adding the field is the whole registration: nothing names a component in code. Omit the object for the common case (the deck's front matter decides).",
       "properties": {
         "pagination": {
           "type": "boolean",
           "description": "false: this component's slides show no page number unless the slide carries `with-pagination`. Omit for true."
+        },
+        "header": {
+          "type": "boolean",
+          "description": "false: this component's slides drop the deck's running `header:` unless the slide carries `with-header` (title: the slide already names the deck). The engine and the runtime stamp `no-header` from lib/packages/chrome.generated.js, so the existing switch does the hiding. Omit for true."
         }
       }
     },
