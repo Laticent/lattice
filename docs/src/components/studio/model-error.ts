@@ -22,6 +22,8 @@ export function describeModelError(message: string, provider?: string): string {
 	// Gemini key (lifecycle note §7). Every sentence below names that provider back. A network
 	// failure names none, so the route the caller ran on stands in: a Gemini turn that never
 	// reached Google used to say "never reached OpenRouter" (live check, 2026-11-08).
+	// A key a sign-in just minted, still being activated (the transport throws this sentence as-is).
+	if (/still activating this key/.test(message)) return message;
 	const who = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}/.exec(message)?.[1] ?? LABEL[provider ?? ''] ?? 'OpenRouter';
 	const direct = who !== 'OpenRouter';
 	const status = Number(MODEL_ERROR.exec(message)?.[2] ?? 0);

@@ -371,52 +371,67 @@ describe('model spine — AI off stops a call on its own route', () => {
 	});
 });
 
-// A key OpenRouter minted seconds ago can answer 401 on /api/v1/key before it is live everywhere
-// (owner report, 2026-11-08: "Key rejected" right after signing in). It is asked again before the
-// Studio calls it rejected; a key that keeps answering 401 is still marked.
-describe('model spine — a fresh key is re-asked before it is called rejected', () => {
-	type Acct = Model & { restoreOpenRouter: (k: string) => void; openRouterAccount: () => Promise<unknown> };
-	async function run(statuses: number[], advance = 10_000) {
-		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
+// A key a sign-in just minted can answer 401 for a minute or two while OpenRouter activates it: a
+// real sign-in on an iPhone was refused "User not found." and accepted 94 s after the key was made
+// (owner report, 2026-11-09). Inside the window it reads "activating", never "rejected"; a key still
+// refused after the window is marked rejected, and a pasted key's 401 is a rejection at once.
+describe('model spine — a freshly minted key is activating, not rejected', () => {
+	type Acct = Model & { restoreOpenRouter: (k: string) => void; openRouterAccount: () => Promise<unknown>; complete: (o: { messages: unknown[] }) => Promise<string> };
+	async function setup(statuses: number[], minted = true) {
+		const keys = await import('../../../lib/openrouter-key.js');
 		vi.useFakeTimers();
 		let n = 0;
 		const auth = vi.fn(async () => {
 			const status = statuses[Math.min(n++, statuses.length - 1)];
 			return new Response(JSON.stringify(status === 401 ? { error: { message: 'User not found.', code: 401 } } : { data: { usage: 0, limit: null } }), { status });
 		});
-		vi.stubGlobal('fetch', vi.fn(async (url: string) => (/\/api\/v1\/key$/.test(String(url)) ? auth() : Response.json({ data: [] }))));
+		const chat = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'User not found.', code: 401 } }), { status: 401 }));
+		vi.stubGlobal('fetch', vi.fn(async (url: string) => (/\/api\/v1\/key$/.test(String(url)) ? auth() : /chat\/completions/.test(String(url)) ? chat() : Response.json({ data: [] }))));
 		const m = make() as unknown as Acct;
-		m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
+		if (minted) keys.writeOpenRouterKey('sk-or-v1-fresh-oauth-key-0a0a', { minted: true });
+		else m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
 		await openRouterKeySettled();
-		const out = m.openRouterAccount();
-		const info = await (async () => {
-			await vi.advanceTimersByTimeAsync(10_000);
-			return out;
-		})();
-		if (advance > 10_000) await vi.advanceTimersByTimeAsync(advance - 10_000);
-		vi.useRealTimers();
-		return { info, calls: auth.mock.calls.length, rejected: openRouterKeyRejected() };
+		return { m, keys, auth, chat };
 	}
-	it('a 401 then a 200 reads the account and leaves the key ready', async () => {
-		const r = await run([401, 200]);
-		expect(r.calls).toBe(2);
-		expect(r.info).not.toBeNull();
-		expect(r.rejected).toBe(false);
-	});
-	it('a fresh key refused at first and accepted at 30 s clears its mark by itself, and says when', async () => {
-		const r = await run([401, 401, 401, 200], 40_000);
-		expect(r.calls).toBe(4);
-		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
-		expect(openRouterKeyRejected()).toBe(false);
+	it('a minted key refused at first reads activating, and clears by itself once accepted', async () => {
+		const { m, keys, auth } = await setup([401, 401, 200]);
+		expect(await m.openRouterAccount()).toBeNull();
+		expect(keys.openRouterKeyActivating()).toBe(true);
+		expect(keys.openRouterKeyRejected()).toBe(false);
+		await vi.advanceTimersByTimeAsync(31_000);
+		vi.useRealTimers();
+		expect(auth.mock.calls.length).toBe(3);
+		expect(keys.openRouterKeyActivating()).toBe(false);
+		expect(keys.openRouterKeyRejected()).toBe(false);
 		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
 		expect(lastKeyRefusal('openrouter')?.acceptedAfterMs).toBeGreaterThanOrEqual(30_000);
 	});
-	it('a key that keeps answering 401 is still marked rejected, after two more asks', async () => {
-		const r = await run([401]);
-		expect(r.calls).toBe(3);
-		expect(r.rejected).toBe(true);
+	it('a minted key still refused after the activation window is marked rejected', async () => {
+		const { m, keys } = await setup([401]);
+		await m.openRouterAccount();
+		await vi.advanceTimersByTimeAsync(keys.OPENROUTER_ACTIVATION_MS + 20_000);
+		vi.useRealTimers();
+		expect(keys.openRouterKeyActivating()).toBe(false);
+		expect(keys.openRouterKeyRejected()).toBe(true);
 		// What OpenRouter said is kept, so Connections can name the cause (never the key).
 		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
-		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3, shape: 'sk-or-v1-… 29 chars', sent: '…0a0a' });
+		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', shape: 'sk-or-v1-… 29 chars', sent: '…0a0a' });
+	});
+	it('a pasted key that answers 401 is rejected at once', async () => {
+		const { m, keys, auth } = await setup([401], false);
+		await m.openRouterAccount();
+		vi.useRealTimers();
+		expect(auth.mock.calls.length).toBe(1);
+		expect(keys.openRouterKeyActivating()).toBe(false);
+		expect(keys.openRouterKeyRejected()).toBe(true);
+	});
+	it('a chat sent while the key activates says so, instead of asking to reconnect', async () => {
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-haiku-5-5' });
+		const { m, keys } = await setup([401]);
+		await expect(m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true } as never)).rejects.toThrow(/still activating this key/);
+		vi.useRealTimers();
+		expect(keys.openRouterKeyRejected()).toBe(false);
+		const { describeModelError } = await import('../model-error');
+		expect(describeModelError('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.')).toMatch(/^OpenRouter is still activating/);
 	});
 });

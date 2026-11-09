@@ -342,7 +342,13 @@ What shipped, by the plan above:
 
 Voice spend is booked too: the voice model reports each cloud clip it makes (`onSynthesized`), and read-aloud
 books it at the model's per-character price from OpenRouter's public catalog (`bookVoiceSpend`), marked as an
-estimate. A fresh key's 401 on `/auth/key` is asked again twice before the key is called rejected; and key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
+estimate. A key a sign-in just minted is not live at OpenRouter at once: on the owner's iPhone it answered 401
+"User not found." for over a minute and was accepted 94 s after it was made (2026-11-09). So for
+`OPENROUTER_ACTIVATION_MS` (3 min) after a sign-in (`lib/openrouter-key.js`, the mint time kept across a
+reload), a 401 marks the key "activating", not rejected: Connections and the cards say OpenRouter is
+activating the key, a chat says to send again shortly, and the Studio asks again every 15 s, clearing
+the note the moment the key is accepted. A key still refused after the window is marked rejected; a
+pasted key's 401 is a rejection at once. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
 on a route whose key was refused says so (owner report, 2026-11-08).
 
 Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`

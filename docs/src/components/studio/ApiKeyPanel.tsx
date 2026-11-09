@@ -3,7 +3,7 @@ import * as React from 'react';
 import { lastKeyRefusal, outOfCreditAt } from '@/lib/model-retired.js';
 import { readImageSelection, readVoiceSelection } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
-import { openRouterKeyHint, providerKeyHint, readOpenRouterVia } from '@/lib/openrouter-key.js';
+import { openRouterKeyActivating, openRouterKeyHint, providerKeyHint, readOpenRouterVia } from '@/lib/openrouter-key.js';
 import { cn } from '@/lib/utils';
 import { removeProviderKey, saveProviderKey } from './api-key';
 import type { ArchitectStatus, CloudProvider } from './architect';
@@ -164,14 +164,16 @@ function ProviderRow({
 	// OpenRouter is one connection with two ways in; the row says which way it came in.
 	const via = provider === 'openrouter' && hint ? readOpenRouterVia() : null;
 	const how = via === 'oauth' ? 'Signed in' : `Key ${hint}`;
-	const state = rejected ? `${how} · rejected by ${info.label}, ${via === 'oauth' ? 'sign in again' : 'replace it'}` : creditAt != null && hint ? `${how} · out of credit at ${clock(creditAt)}` : hint ? `${how}${inUse ? ` · ${inUse}` : ' · not in use'}` : provider === 'openrouter' ? 'Not connected' : 'No key';
+	// A key a sign-in just minted: OpenRouter can refuse it for a minute or two while it activates it.
+	const activating = provider === 'openrouter' && !rejected && !!hint && openRouterKeyActivating();
+	const state = activating ? `${how} · OpenRouter is activating the key, which can take a minute or two after signing in` : rejected ? `${how} · rejected by ${info.label}, ${via === 'oauth' ? 'sign in again' : 'replace it'}` : creditAt != null && hint ? `${how} · out of credit at ${clock(creditAt)}` : hint ? `${how}${inUse ? ` · ${inUse}` : ' · not in use'}` : provider === 'openrouter' ? 'Not connected' : 'No key';
 	// What the provider said when it refused the key, so a report names the cause (owner, 2026-11-08).
 	const record = lastKeyRefusal(provider);
 	const refusal = rejected ? record : null;
 	const said = refusal
 		? ` (${info.label} said ${refusal.status}${refusal.message ? `: ${refusal.message}` : ''}${refusal.ageMs != null ? `, ${Math.round(refusal.ageMs / 1000)} s after the key was made` : ''}${refusal.asks > 1 ? `, asked ${refusal.asks}×` : ''}${refusal.shape ? `; stored key ${refusal.shape}` : ''}${refusal.sent ? `; sent ${refusal.sent}${refusal.issued ? `, sign-in gave ${refusal.issued}` : ''}` : ''})`
-		: record?.acceptedAfterMs != null && hint
-			? ` (refused at first; ${info.label} accepted it ${Math.round(record.acceptedAfterMs / 1000)} s after it was made)`
+		: record?.acceptedAfterMs != null && hint && !activating
+			? ` (${info.label} activated it ${Math.round(record.acceptedAfterMs / 1000)} s after it was made)`
 			: '';
 	const line = `${SERVES[provider]} — ${state}${said}`;
 	const warn = rejected || (creditAt != null && !!hint);

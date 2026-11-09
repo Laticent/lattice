@@ -21,7 +21,7 @@
 import { familyOf, healTarget } from '../../../lib/model-family.js';
 import { clearOutOfCredit, healSelections, isRetired, markRetired, noteKeyAccepted, noteKeyRefusal, noteOutOfCredit } from '../../../lib/model-retired.js';
 import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
-import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
+import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, OPENROUTER_ACTIVATION_MS, openRouterKeyActivating, openRouterKeyAgeMs, openRouterKeyMintedAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
 import { directBackend } from './direct-providers.js';
 
@@ -47,25 +47,36 @@ const OPENROUTER_KEYS_URL = 'https://openrouter.ai/api/v1/auth/keys';
 // GET: this key's usage + limit. OpenRouter's reference documents `/api/v1/key`; the Studio called
 // the undocumented `/api/v1/auth/key` until 2026-11-08, when a fresh sign-in's key read rejected.
 const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key';
-const FRESH_KEY_MS = 60_000; // a key written this recently gets two more asks before a 401 counts
-// A refused fresh key is asked again at these ages (ms since it was written), then left alone.
-const LATE_RECHECK_MS = [30_000, 90_000, 180_000];
+// A key a sign-in just minted can answer 401 for a minute or two while OpenRouter activates it
+// (OPENROUTER_ACTIVATION_MS). While it does, the Studio asks again every ACTIVATION_POLL_MS and
+// clears the "activating" note the moment it is accepted; one last ask after the window marks a
+// key still refused as rejected.
+const ACTIVATION_POLL_MS = 15_000;
 /** What a stored key looks like, never the key: its `sk-or-v1-` prefix (or its first 3 characters) and its length. */
+const keyShape = (key) => `${String(key).startsWith('sk-or-v1-') ? 'sk-or-v1-…' : `${String(key).slice(0, 3)}…`} ${String(key).length} chars`;
 /** The last four characters of the key the last sign-in on this page was given ('' before one). */
 let issuedHint = '';
-const keyShape = (key) => `${String(key).startsWith('sk-or-v1-') ? 'sk-or-v1-…' : `${String(key).slice(0, 3)}…`} ${String(key).length} chars`;
-function recheckFreshKey(key, ageAtRefusal) {
-  for (const at of LATE_RECHECK_MS) {
-    if (at <= ageAtRefusal) continue;
+let watching = null; // the key the activation watch is asking about (one watch at a time)
+let watchUntil = 0; // a watch whose timers were lost (a frozen tab) is not trusted past this
+function watchActivation(key) {
+  if (watching === key && Date.now() < watchUntil) return;
+  watching = key;
+  watchUntil = Date.now() + OPENROUTER_ACTIVATION_MS + 2 * ACTIVATION_POLL_MS;
+  const ask = () => {
+    if (key !== readOpenRouterKey() || !openRouterKeyActivating()) { watching = null; return; } // replaced, or accepted
+    const left = OPENROUTER_ACTIVATION_MS - openRouterKeyMintedAgeMs();
     setTimeout(async () => {
-      if (key !== readOpenRouterKey() || !openRouterKeyRejected()) return; // replaced, or already accepted
+      if (key !== readOpenRouterKey() || !openRouterKeyActivating()) { watching = null; return; }
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
         if (res.ok) noteKeyAccepted('openrouter', openRouterKeyAgeMs());
         noteOpenRouterStatus(res.status, key);
-      } catch { /* offline: the next recheck, or the next request, tells */ }
-    }, at - ageAtRefusal);
-  }
+      } catch { /* offline: ask again on the next beat */ }
+      if (openRouterKeyActivating() && key === readOpenRouterKey()) ask();
+      else watching = null;
+    }, Math.max(0, Math.min(ACTIVATION_POLL_MS, left + 1000)));
+  };
+  ask();
 }
 const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/api/v1/credits'; // GET: account wallet (total_credits/total_usage)
 const OPENROUTER_KEYS_SETTINGS_URL = 'https://openrouter.ai/settings/keys'; // where a user sets a per-key spend limit
@@ -294,7 +305,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   // deleted or expired), a 2xx clears an earlier mark, and an answer about a key that is no
   // longer stored is ignored (lib/openrouter-key.js). The key itself stays, so the author sees
   // "rejected · Reconnect" rather than a silent fall to "not connected".
-  const noteStatus = (status, key) => noteOpenRouterStatus(status, key);
+  // Every OpenRouter answer feeds the key's mark; a 401 for a key still activating starts the watch.
+  const noteStatus = (status, key) => {
+    noteOpenRouterStatus(status, key);
+    if (status === 401 && openRouterKeyActivating()) watchActivation(key);
+  };
   return {
     name: 'openrouter',
     ready() { return !!readOpenRouterKey(); },
@@ -317,26 +332,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const key = readOpenRouterKey();
       if (!key) return null;
       try {
-        let res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
-        // A key OpenRouter minted seconds ago (a fresh sign-in) can answer 401 here before it is
-        // live everywhere. Ask again, twice, before calling it rejected: a key that is really
-        // dead is still marked within about ten seconds (owner report, 2026-11-08: "Key
-        // rejected" right after signing in, while the same key read Ready elsewhere).
-        let asks = 1;
-        for (const wait of [2500, 7000]) {
-          if (res.status !== 401 || openRouterKeyAgeMs() > FRESH_KEY_MS || key !== readOpenRouterKey()) break;
-          await new Promise((r) => setTimeout(r, wait));
-          res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
-          asks++;
-        }
+        const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
         if (res.status === 401 && key === readOpenRouterKey()) {
           const why = await res.clone().json().then((j) => j?.error?.message ?? '').catch(() => '');
           const age = openRouterKeyAgeMs();
-          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks, shape: keyShape(key), sent: `…${String(key).slice(-4)}`, issued: issuedHint });
-          // A key refused in its first minute keeps being asked about (owner report, 2026-11-09:
-          // a signed-in key still refused at 10 s). If OpenRouter starts accepting it, the mark
-          // clears by itself and the record says after how long.
-          if (Number.isFinite(age) && age < FRESH_KEY_MS) recheckFreshKey(key, age);
+          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, shape: keyShape(key), sent: `…${String(key).slice(-4)}`, issued: issuedHint });
         }
         noteStatus(res.status, key);
         if (!res.ok) return null;
@@ -448,7 +448,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // The last four characters of the key this sign-in was given, for the refusal record: a
       // refusal of a DIFFERENT key (an older one) then shows as such. Never the key.
       issuedHint = `…${String(j.key).slice(-4)}`;
-      setKey(j.key);
+      writeOpenRouterKey(j.key, { minted: true });
       writeLS(OR_VERIFIER_LS, null);
       // A key was just written, so something can spend now: have the price list before it does (see the prefetch at model creation).
       this.listModels().catch(() => {});
@@ -578,6 +578,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           noteKeyRefusal('openrouter', { status: 401, message: /"message"\s*:\s*"([^"]*)/.exec(detail)?.[1] ?? detail, ageMs: Number.isFinite(age) ? age : null });
         }
         noteStatus(res.status, key);
+        if (res.status === 401 && openRouterKeyActivating()) {
+          throw new Error('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.');
+        }
         throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };

@@ -403,9 +403,40 @@ export function openRouterKeyAgeMs() {
 	return t ? Date.now() - t : Number.POSITIVE_INFINITY;
 }
 
-export function writeOpenRouterKey(key) {
+/**
+ * How long OpenRouter may take to start accepting a key a sign-in just minted. Until then a 401
+ * means "not active yet", not "rejected": a real sign-in on an iPhone was refused "User not
+ * found." for over a minute and accepted 94 s after the key was made (owner report, 2026-11-09).
+ */
+export const OPENROUTER_ACTIVATION_MS = 180_000;
+// When the stored key was minted by a sign-in (ms epoch). Not secret, and kept across a reload so
+// a page opened mid-activation still knows. A pasted key has none: its 401 is a rejection at once.
+const OR_MINTED = 'lattice-db-or-minted';
+let orActivating = false; // a 401 arrived inside the activation window, and no 2xx since
+
+/**
+ * Store the OpenRouter key (or remove it with null). `minted: true` marks a key a sign-in was just
+ * given, which OpenRouter may refuse for a minute or two while it activates it.
+ */
+export function writeOpenRouterKey(key, { minted = false } = {}) {
 	if (!key) write(OR_VIA, null);
+	write(OR_MINTED, key && minted ? String(Date.now()) : null);
+	if (orActivating) {
+		orActivating = false;
+		announce();
+	}
 	return OR.writeKey(key);
+}
+
+/** How long ago a sign-in minted the stored OpenRouter key (ms), or Infinity for a pasted key or none. */
+export function openRouterKeyMintedAgeMs() {
+	const t = Number(read(OR_MINTED));
+	return t > 0 && (OR.readKey() || read(OR.KEY)) ? Date.now() - t : Number.POSITIVE_INFINITY;
+}
+
+/** True while OpenRouter is still activating a key a sign-in just minted (it answered 401 inside the window). */
+export function openRouterKeyActivating() {
+	return orActivating && !!OR.readKey();
 }
 
 // How OpenRouter was connected: 'oauth' (signed in) or 'key' (pasted), for the card's line
@@ -439,7 +470,20 @@ export function openRouterKeyRejected() {
  * Returns true when the mark changed, so the caller can announce it once.
  */
 export function noteOpenRouterStatus(status, key) {
-	return OR.noteStatus(status, key);
+	if (!key || key !== OR.readKey()) return false;
+	// A 401 for a key a sign-in minted moments ago means OpenRouter has not activated it yet.
+	if (status === 401 && openRouterKeyMintedAgeMs() < OPENROUTER_ACTIVATION_MS) {
+		if (orActivating) return false;
+		orActivating = true;
+		announce();
+		return true;
+	}
+	const was = orActivating;
+	if (status !== 401 && !(status >= 200 && status < 300)) return OR.noteStatus(status, key);
+	orActivating = false; // a 2xx means active; a 401 past the window is a rejection
+	const changed = OR.noteStatus(status, key);
+	if (was && !changed) announce();
+	return changed || was;
 }
 
 /**
@@ -494,4 +538,5 @@ export function providerKeyState(provider) {
 export function __resetOpenRouterKeyForTests() {
 	for (const s of Object.values(SLOTS)) s.reset();
 	wrapKey = null;
+	orActivating = false;
 }

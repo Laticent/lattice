@@ -7,7 +7,7 @@ import { modelDisplayName, voiceDisplayName } from '@/lib/model-name';
 import { isRetired } from '@/lib/model-retired.js';
 import { readImageSelection, readVoiceSelection, selectImage } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
-import { openRouterKeyHint, providerKeyHint, providerKeyState } from '@/lib/openrouter-key.js';
+import { openRouterKeyActivating, openRouterKeyHint, providerKeyHint, providerKeyState } from '@/lib/openrouter-key.js';
 import { providerLabel } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
 import { ApiKeyPanel } from './ApiKeyPanel';
@@ -159,6 +159,12 @@ function SelectionCard({
 	);
 }
 
+/** The meta line for a card on `p`, or the activation note while OpenRouter is still activating a
+ *  key a sign-in just minted (it can refuse it for a minute or two; owner report, 2026-11-09). */
+function routeMeta(p: string, meta: string): string {
+	return p === 'openrouter' && openRouterKeyActivating() ? 'OpenRouter is activating the key, a minute or two after signing in' : meta;
+}
+
 /** The sentence for a selection whose route's key the provider refused, or null. Every card on that
  *  route says it, not only the chat card (owner report, 2026-11-08). */
 function rejectedAlert(p: string): string | null {
@@ -207,7 +213,7 @@ export function ChatModelSection({ status, usedBy }: { status: ArchitectStatus; 
 				source={source}
 				keyed={source === 'cloud' && provider !== 'openrouter'}
 				name={name}
-				meta={meta}
+				meta={source === 'cloud' ? routeMeta(provider, meta) : meta}
 				state={r?.state}
 				progress={r?.progress}
 				alert={source === 'cloud' && status.openRouterKeyInvalid ? `${providerLabel(provider)} rejected the key (revoked or expired) — ${provider === 'openrouter' ? 'sign in again' : 'replace it'} below.` : null}
@@ -299,7 +305,7 @@ export function VoiceModelSection({ more, usedBy }: { more?: React.ReactNode; us
 				source={sel.source}
 				keyed={sel.provider === 'gemini'}
 				name={name}
-				meta={meta}
+				meta={routeMeta(sel.provider, meta)}
 				state={r?.state}
 				alert={rejectedAlert(sel.provider) ?? (r?.reason === 'model-gone' ? `${providerLabel(sel.provider)} no longer offers this model. Choose another.` : null)}
 				alertBadge={rejectedAlert(sel.provider) ? undefined : 'Model retired'}
@@ -398,7 +404,7 @@ export function ImageReaderSection({ status, usedBy }: { status: ArchitectStatus
 				source="cloud"
 				keyed={!!route0 && route0 !== 'openrouter'}
 				name={name}
-				meta={meta}
+				meta={route0 ? routeMeta(route0, meta) : meta}
 				state={own ? ownState : chatOnDevice ? undefined : chat?.state}
 				alert={(route0 ? rejectedAlert(route0) : null) ?? (!own && chatOnDevice ? "The chat model runs on this device and can't read images. Choose an image reader." : null)}
 				alertBadge={route0 && rejectedAlert(route0) ? undefined : "Can't read images"}
