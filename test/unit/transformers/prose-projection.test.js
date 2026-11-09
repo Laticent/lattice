@@ -2158,3 +2158,29 @@ test("a plugin placeholder reads as a sentence, not its name run into its captio
 	const [unapproved] = sections(`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div>${ph.replace('data-placement', 'data-reason="unapproved" data-placement')}</div></section>`);
 	assert.match(project([unapproved]).articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once its code is approved in this browser\.<\/p>/);
 });
+
+test('a plugin placeholder: the narration says what the article says, wherever it stands (followups.d/2651-p1, the checker)', () => {
+	const ph = (reason = '') => `<div data-lattice-plugin-off="gantt-plugin"${reason} data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"></span><span class="lattice-plugin-words"><strong>gantt-plugin</strong><span>Plugin block · not in this deck's plugins: list</span></span></div>`;
+	const chip = '<span data-lattice-plugin-off="chip-plugin" data-placement="chip" data-inline data-size="sm" role="note" title="x" aria-label="x"><span class="lattice-plugin-mark" aria-hidden="true"></span></span>';
+	const slide = (body, h = 'Plan') => `<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>${h}</h2></div>${body}</div></section>`;
+	const secs = sections(
+		slide(`<p>Before.</p>${ph()}`),
+		slide(`<ul><li>Card<ul><li>Bars. ${ph()}</li></ul></li></ul>`),
+		slide(`<table><tr><th>Item</th></tr><tr><td>${ph()}</td></tr></table>`),
+		slide(`<p>Body.</p>`, `Plan ${chip} now`),
+		slide(`<p>Before.</p>${ph(' data-reason="unapproved"')}`),
+	);
+	const speech = speak(secs);
+	// Directly in the stage, in a card's list and in a table cell: the sentence, never the caption run-on, never silence.
+	for (const [i, t] of speech.slice(0, 3).entries()) {
+		assert.match(t, /The plugin gantt-plugin draws here once this deck's plugins:\s?list names it\./, `slide ${i + 1}: ${t}`);
+		assert.doesNotMatch(t, /Plugin block/, `slide ${i + 1}`);
+	}
+	assert.match(speech[4], /The plugin gantt-plugin draws here once its code is approved in this browser\./);
+	// A chip in a heading names the plugin in the article's heading, its table of contents and the spoken title alike.
+	const { articleHtml, toc } = project(secs);
+	assert.equal(toc[3].text.replace(/\s+/g, ' '), 'Plan chip-plugin now');
+	assert.match(speech[3], /^Plan chip-plugin now\./);
+	// A block stands in the article's note figure, as a visual layout's note does, so both hosts give it its box and spacing.
+	assert.match(articleHtml, /<figure class="lp-figure lp-figure-note"><p class="lp-visual-note">The plugin <code>gantt-plugin<\/code>/);
+});

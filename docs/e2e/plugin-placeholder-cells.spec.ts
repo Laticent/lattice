@@ -78,7 +78,7 @@ for (const placement of ['chip', 'figure', 'stage'] as const) {
 			// webkit-phone project starts at phone width, where the Library sits behind the menu).
 			await page.setViewportSize({ width: 1440, height: 900 });
 			// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
-			const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+			const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).filter({ visible: true }).first();
 			await expect(library).toBeVisible({ timeout: 15_000 });
 			await library.click();
 			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement }) });
@@ -90,8 +90,11 @@ for (const placement of ['chip', 'figure', 'stage'] as const) {
 			// The preview shows one slide; the editor's cursor left it on the last. Each slide, then the one before it.
 			for (const name of ['columns', 'cards'] as const) {
 				if (name === 'cards') {
-					const chip = page.getByRole('button', { name: /^Slide 1 —/ });
-					await ((await chip.count()) && (await chip.first().isVisible()) ? chip.first() : page.getByRole('button', { name: 'Previous slide' }).first()).click();
+					// The navigator's chip where the strip shows, else the preview's Previous button: whichever is VISIBLE, waited
+					// for (an instant count read the layout before the resize finished mounting).
+					const back = page.getByRole('button', { name: /^Slide 1 —/ }).or(page.getByRole('button', { name: 'Previous slide' })).filter({ visible: true }).first();
+					await expect(back).toBeVisible({ timeout: 15_000 });
+					await back.click();
 					await expect(livePreview(page).locator('section h2', { hasText: 'Two cards hold a plan.' })).toHaveCount(1, { timeout: 15_000 });
 				}
 				const placeholder = livePreview(page).locator('[data-lattice-plugin-off="gantt-plugin"]');
@@ -125,7 +128,7 @@ for (const [label, width, height] of [
 		// webkit-phone project starts at phone width, where the Library sits behind the menu).
 		await page.setViewportSize({ width: 1440, height: 900 });
 		// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
-		const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+		const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).filter({ visible: true }).first();
 		await expect(library).toBeVisible({ timeout: 15_000 });
 		await library.click();
 		await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement: 'figure' }) });
@@ -168,7 +171,7 @@ test('a listed, unapproved plugin reads as a sentence that says what is missing,
 	// webkit-phone project starts at phone width, where the Library sits behind the menu).
 	await page.setViewportSize({ width: 1440, height: 900 });
 	// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
-	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).filter({ visible: true }).first();
 	await expect(library).toBeVisible({ timeout: 15_000 });
 	await library.click();
 	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER, 'gantt-plugin', undefined, { placement: 'figure' }) });

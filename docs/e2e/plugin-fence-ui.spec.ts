@@ -144,7 +144,7 @@ test('an approved plugin is still approved after a reload @crosswidth @webkit-ph
 	// webkit-phone project starts at phone width, where the Library sits behind the menu).
 	await page.setViewportSize({ width: 1440, height: 900 });
 	// Wait for the rail the new width mounts: counting at once read the old layout and missed both buttons.
-	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).first();
+	const library = page.getByRole('button', { name: 'Open Library' }).or(page.getByRole('button', { name: 'Library', exact: true })).filter({ visible: true }).first();
 	await expect(library).toBeVisible({ timeout: 15_000 });
 	await library.click();
 	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(BARS_RENDERER) });
