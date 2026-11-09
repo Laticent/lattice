@@ -90,3 +90,12 @@ describe('the passes that move an address skip plugin output', () => {
     assert.ok(doc.querySelector('[data-lattice-plugin] img'), 'the plugin\'s picture is as it drew it');
   });
 });
+
+describe('what the design rests on', () => {
+  test('the fence door is the registry\'s LAST pass: no shipped HTML pass sees a plugin\'s output', () => {
+    // logo-marks, team-profile and collage leave their HTML halves unmasked because of this order alone
+    // (SANCTIONED_SLIDE_TEXT_ADDRESS_READERS says so per entry). Moving the door earlier must fail here first.
+    const { TRANSFORMERS } = require('../../../lib/transformers/registry.js');
+    assert.equal(TRANSFORMERS.at(-1).name, 'code-fences');
+  });
+});

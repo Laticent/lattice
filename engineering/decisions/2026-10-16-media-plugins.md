@@ -1049,9 +1049,12 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   code). The Studio attack spec also ran on WebKit and Firefox (`@crosswidth @webkit-tablet @gecko`) at 1440, 820 and 390: 9 of 9 pass. Its first
   WebKit run failed because `page.route()` interception broke the plugin sandbox's loads in WebKit; the spec no longer routes.
 - 2026-11-09: the slide-text address gate landed (branch `claude/slide-text-address-gate`, fixes 1 to 5 of #2725's
-  follow-ups). `checkSlideTextAddressReaders` holds 13 readers in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`: 8 masked
-  (qr-card, qr-general, video, collage, team-profile, logo-marks, prose-projection, the runtime's data probe) and 5
-  that build no address from text. The readers mask `[data-lattice-plugin]` through `maskPluginSubtrees`, so
+  follow-ups). `checkSlideTextAddressReaders` holds 19 readers in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`, each with its
+  address writes and guard calls COUNTED: 8 masked (qr-card, qr-general, video, collage, team-profile, logo-marks,
+  prose-projection, the runtime's data probe) and 11 that build no address from slide text. The adversarial trio found
+  one hole the masks cannot see: a plugin fence in a bullet whose output held a bare `<li>` was moved by the browser's
+  parser out of the plugin's root into the author's list, and the live runtime's `qr` pass encoded it. The door now
+  refuses an orphan `<li>`/`<dd>`/`<dt>` (`doorFinishFence`), and the spec names it as the rule's second leg. The readers mask `[data-lattice-plugin]` through `maskPluginSubtrees`, so
   `rebuilt-classes.js` and the door's shadow are deleted and a plugin draws on every slide. The rule moved into
   `spec/LPM.md` §10; §4.5 above now points there. The video row this note expected to delete never existed: `video`
   was already masked-by-design (§4.5 rule 3) when the gate landed, and it is sanctioned with guard `masks` because

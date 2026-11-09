@@ -567,19 +567,32 @@ An embedded or essential plugin's name is reserved.
 
 **The address rule, on every channel.** A plugin's output reaches the slide as text, and the host never turns that
 text into an address. An address the viewer loads or scans (an image, a poster, a mask, a link, a QR code) comes
-only from the author's own block: a markdown-it token, an `@kind{…}` record, or an element the engine stamped from
-one. It never comes from slide text (`textContent`, a walk over `<li>`s, a regex over a section's HTML, the
-runtime's DOM mirror), and never from inside `[data-lattice-plugin]`. Every built-in pass that reads rendered slide
-text and writes an address reads through `maskPluginSubtrees` (`@laticent/markup`, which blanks plugin subtrees
-and keeps offsets), or skips `closest('[data-lattice-plugin]')`, on the engine's HTML pass and the runtime's DOM
-pass alike. `checkSlideTextAddressReaders` (`tools/check-ownership.js`, via `build:check`) lists every such
-reader in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`, with its reason and guard, and fails on a new one, a removed
-guard, a new kind of read or write, and a stale entry. The door adds the second half: it drops any address a plugin
-invents (`doorFilterAttr`, `lib/core/door-attr.mjs`), keeping only addresses the slide already held, `data:` URLs
-and `#fragments`. Because no pass reads a plugin's output as an address, the door draws a plugin's fences and spans
-on every slide, including the ones a shipped pass rebuilds. A plugin that needs an address of its own (an in-tree
-`image` or `video`) reads it from its own record at render time and is never added to the sanctioned list: if the
-gate flags it, the code is wrong. Rationale and the attack: `engineering/decisions/2026-10-16-media-plugins.md` §4.5.
+only from the author's own content: a markdown-it token, an `@kind{…}` record, an element the engine stamped, or
+the author's own bullets (a `contact` field, a `qr` link). It never comes from inside `[data-lattice-plugin]`. Three
+mechanisms hold it:
+
+- **The readers.** A built-in pass that reads rendered slide text (`textContent`, a walk over `<li>`s, a regex over
+  a section's HTML) and writes an address reads through `maskPluginSubtrees` (`@laticent/markup`: it blanks plugin
+  subtrees and keeps offsets) or skips `closest('[data-lattice-plugin]')`. The QR, video and runtime readers do so
+  on the engine's HTML pass and the runtime's DOM pass alike. Three HTML halves (`logo-marks`, `team-profile`,
+  `collage`) rely instead on the door being the registry's LAST pass, which a test pins: no shipped HTML pass sees a
+  plugin's output. `checkSlideTextAddressReaders` (`tools/check-ownership.js`, via `build:check`) lists every
+  reader in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` with its reason, its address writes and its guard calls,
+  COUNTED. It fails on a new reader, a deleted guard, a new write and a stale entry. It is a census of files, not a
+  data-flow proof: its stated envelope is in the gate's header.
+- **The box.** A mask or a `closest()` holds only while the output stays inside its root once the browser parses
+  the page. The door refuses an `<li>` outside `ul`/`ol`/`menu` and a `<dd>`/`<dt>` outside `dl`
+  (`doorFinishFence`, `lib/core/door-attr.mjs`): their start tags close the nearest open item, walking past the
+  root `<div>`, so a plugin fence the author wrote in a bullet would otherwise land its item in the author's list.
+- **The door's addresses.** It drops any address a plugin invents (`doorFilterAttr`), keeping only addresses the
+  slide already held, `data:` URLs and `#fragments`.
+
+So the door draws a plugin's fences on every slide, including the ones a shipped pass rebuilds. A span draws
+wherever the layout keeps it as markup; a layout that turns a label into text (a chart's SVG label) shows the span
+as written, and the door says so in a warning. `contact` and `wifi` keep only their card, which drops any code
+block, a plugin's included. A plugin that needs an address of its own (an in-tree `image` or `video`) reads it from
+its own record at render time and is never added to the sanctioned list: if the gate flags it, the code is wrong.
+Rationale and the attack: `engineering/decisions/2026-10-16-media-plugins.md` §4.5.
 
 ## 11. Creating one
 
@@ -596,10 +609,11 @@ highlight.js language or alias, and at most 64 characters.
 ## 12. Changes
 
 - **0.11-draft, the address rule (2026-11-09).** §10 states the rule every channel shares: an address the viewer
-  loads or scans comes only from the author's own block, never from slide text and never from inside
-  `[data-lattice-plugin]`, held by `checkSlideTextAddressReaders`. The door no longer keeps a plugin off the
-  slides a shipped pass rebuilds (`lib/transformers/rebuilt-classes.js` is deleted): its fences and spans draw on
-  every slide. No field changes; still `api: 1`.
+  loads or scans comes only from the author's own content, never from inside `[data-lattice-plugin]`. Three things
+  hold it: the readers (`checkSlideTextAddressReaders`), the box (the door refuses a list item outside its own list),
+  and the door's addresses. The door no longer keeps a plugin off the slides a shipped pass rebuilds
+  (`lib/transformers/rebuilt-classes.js` is deleted): its fences draw on every slide, and its spans wherever the layout
+  keeps them as markup. No field changes; still `api: 1`.
 - **0.10-draft, the contract as it stands (2026-11-02).** No field changes meaning; the text catches up
   with the Hollywood contract (`engineering/decisions/2026-11-01-plugin-contract-hollywood.md` §9),
   still `api: 1`. §2 lists every role file (`inline`, `services`, `lint`, `page`, the three `draw`

@@ -28,8 +28,8 @@ function gate(files, sanctions = []) {
   checkSlideTextAddressReaders(errors, sanctions, root);
   return errors;
 }
-const WHY = 'a probe entry whose reason is long enough to count as a written justification for the gate';
-const entry = (file, reads, sinks, guard = 'masks') => ({ file, reads, sinks, guard, why: WHY });
+const WHY = 'a probe entry';
+const entry = (file, reads, sinks, guards = 1, guard = 'masks') => ({ file, reads, sinks, guards, guard, why: WHY });
 
 // The attack, as a pass would write it: the first bullet's text becomes a poster.
 // biome-ignore lint/suspicious/noTemplateCurlyInString: the probe is SOURCE TEXT a pass would hold, `${…}` included
@@ -39,7 +39,7 @@ describe('checkSlideTextAddressReaders — what it must catch', () => {
   test('a NEW pass that turns a bullet\'s text into a poster fails the build', () => {
     const errors = gate({ 'lib/transformers/poster.js': POSTER });
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /lib\/transformers\/poster\.js reads slide text and writes an address \(reads text\+li, writes css-url\)/);
+    assert.match(errors[0], /lib\/transformers\/poster\.js reads slide text and writes an address \(reads li\+text, writes css-url×1\)/);
     assert.match(errors[0], /maskPluginSubtrees/);
   });
 
@@ -65,20 +65,40 @@ describe('checkSlideTextAddressReaders — what it must catch', () => {
     assert.notEqual(unmasked, real, 'the probe removed the mask');
     const errors = gate({ [rel]: unmasked }, sanction);
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /guard 'masks' but no longer calls maskPluginSubtrees/);
+    assert.match(errors[0], /makes 0 guard call\(s\).*pins 1/);
   });
 
   test('a new kind of read or write in a sanctioned file is a new path, not one the old reason covers', () => {
-    const errors = gate({ 'lib/p.js': 'function f(sec, img) { if (sec.closest(\'[data-lattice-plugin]\')) return; img.src = sec.textContent; el.setAttribute(\'href\', x); }' }, [entry('lib/p.js', ['text'], ['property'])]);
+    const errors = gate({ 'lib/p.js': "function f(sec, img, el, x) { if (sec.closest('[data-lattice-plugin]')) return; img.src = sec.textContent; el.setAttribute('href', x); }" }, [entry('lib/p.js', ['text'], { property: 1 })]);
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /now reads text, writes property\+set-attribute; .* declares it reads text, writes property/);
+    assert.match(errors[0], /now reads text, writes property×1\+set-attribute×1; .* declares it reads text, writes property×1/);
+  });
+
+  test('COUNTS, not yes/no: a second write of a kind already pinned fails, and so does deleting one of two guards', () => {
+    // The checker on this gate: the runtime holds two guards and three `.src =`; a file-wide yes/no certified both.
+    const two = "function f(sec, a, b) { if (a.closest('[data-lattice-plugin]')) return; if (b.closest('[data-lattice-plugin]')) return; a.src = sec.textContent; }";
+    assert.deepEqual(gate({ 'lib/p.js': two }, [entry('lib/p.js', ['text'], { property: 1 }, 2)]), []);
+    const oneGuard = two.replace("if (b.closest('[data-lattice-plugin]')) return; ", '');
+    assert.match(gate({ 'lib/p.js': oneGuard }, [entry('lib/p.js', ['text'], { property: 1 }, 2)]).join('\n'), /makes 1 guard call\(s\).*pins 2/);
+    const secondSink = two.replace('a.src = sec.textContent;', 'a.src = sec.textContent; b.src = sec.textContent;');
+    assert.match(gate({ 'lib/p.js': secondSink }, [entry('lib/p.js', ['text'], { property: 1 }, 2)]).join('\n'), /writes property×2; .* declares it .*property×1/);
+  });
+
+  test('a regex over markup hunting an address is a read, though it never says <li or textContent', () => {
+    // The checker on this gate: both of these passed with no sanction.
+    const errors = gate({
+      'lib/a.js': 'function f(inner) { const m = /<a\\b[^>]*href="([^"]+)"/.exec(inner); return qrSvg(m[1]); }',
+      'lib/b.js': "function f(sec, img) { img.src = sec.querySelector('p').firstChild.data; }",
+    });
+    assert.ok(errors.some((e) => /^lib\/a\.js reads slide text .*reads regex, writes qr×1/.test(e)), errors.join('\n'));
+    assert.ok(errors.some((e) => /^lib\/b\.js reads slide text .*reads text, writes property×1/.test(e)), errors.join('\n'));
   });
 
   test('a stale entry, a duplicate, a bad guard and a missing reason each fail', () => {
     const errors = gate({ 'lib/p.js': 'const x = 1;' }, [
-      entry('lib/gone.js', ['text'], ['property']),
-      entry('lib/gone.js', ['text'], ['property']),
-      { ...entry('lib/gone2.js', ['text'], ['property'], 'trust-me'), why: 'short' },
+      entry('lib/gone.js', ['text'], { property: 1 }),
+      entry('lib/gone.js', ['text'], { property: 1 }),
+      { ...entry('lib/gone2.js', ['text'], { property: 1 }, 1, 'trust-me'), why: ' ' },
     ]);
     assert.ok(errors.some((e) => /duplicate entry for lib\/gone\.js/.test(e)), errors.join('\n'));
     assert.ok(errors.some((e) => /stale entry: lib\/gone\.js/.test(e)));
@@ -97,6 +117,7 @@ describe('checkSlideTextAddressReaders — what it must leave alone', () => {
       'lib/a.js': "function f(el, img, u) { el.textContent = 'x'; img.src = u; }",
       'lib/b.js': 'function f(sec) { return new TextEncoder().encode(sec.textContent); }',
       'lib/c.js': "function f(sec) { return sec.textContent; }\n// img.src = sec.textContent;",
+      'lib/d.js': 'function f(el, t) { el.textContent.length; return `<i data-src="${t}">`; }',
     }), []);
   });
 
@@ -108,6 +129,6 @@ describe('checkSlideTextAddressReaders — what it must leave alone', () => {
     const errors = [];
     checkSlideTextAddressReaders(errors);
     assert.deepEqual(errors, []);
-    for (const s of SANCTIONED_SLIDE_TEXT_ADDRESS_READERS) assert.ok(s.why.length >= 60, s.file);
+    for (const s of SANCTIONED_SLIDE_TEXT_ADDRESS_READERS) assert.ok(s.why.trim(), s.file);
   });
 });

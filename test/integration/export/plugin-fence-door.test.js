@@ -268,6 +268,24 @@ describe('the fence door through the real sandbox', () => {
     assert.deepEqual(hits, []);
   });
 
+  test('A FENCE IN A BULLET: an <li> the plugin returns outside its own list is refused, so it cannot become the author\'s bullet', { timeout: TIMEOUT }, async () => {
+    hits = [];
+    // The red team, 2026-11-09: an `<li>` start tag closes the author's open item, walking past the plugin's root <div>, so
+    // the plugin's URL became a top-level bullet of the author's list, outside `[data-lattice-plugin]`, and the runtime's `qr`
+    // pass encoded it. `doorFinishFence` refuses an orphan `<li>`/`<dd>`/`<dt>` (lib/core/door-attr.mjs).
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Thanks\n\n- Our plan:\n\n  ```gantt\n  SECRET-Q4\n  ```\n';
+    const p = plugin(`function render(f){return "<span>chart</span><li>${H}/leak?d="+encodeURIComponent(f.body.trim())+"</li>"}\nexport { render as default };`);
+    approve(p);
+    const r = run(p, md);
+    const html = r.rendered.html;
+    assert.doesNotMatch(html, /<div data-lattice-plugin="gantt-plugin">/, 'the plugin did not draw');
+    assert.match(html, /language-gantt/, 'the author\'s block is still code');
+    assert.doesNotMatch(html, /127\.0\.0\.1/, 'nothing of the plugin\'s reached the slide');
+    assert.ok(r.lines.warn.some((l) => /returned an <li> outside its own list/.test(l)), r.lines.warn.join('\n'));
+    await settle();
+    assert.deepEqual(hits, []);
+  });
+
   test('A VIDEO SLIDE: the plugin DRAWS, and the address it wrote is only text — nothing of ours turns it into a poster, link or code', { timeout: TIMEOUT }, async () => {
     hits = [];
     // Flipped from "the plugin never drew" (when the `video` pass read the slide's bullets): the address now comes only from the

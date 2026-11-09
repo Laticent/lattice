@@ -287,6 +287,23 @@ describe('through the real engine: capture, then substitute', () => {
     }
   });
 
+  test('a span a chart layout flattened into label text is not drawn, and the door says so; one that draws is not reported', async () => {
+    // The inversion lens, 2026-11-09: with the shadow gone the old "stays code" warning went too, so a chart label that
+    // turned `@tag{hot}` into SVG text showed a raw literal with no word. Only VISIBLE text counts: kanban keeps the
+    // literal in a `data-label` beside the span it drew, and a code block quoting the syntax is the author's.
+    const { fenceCaptureNotes } = await import('../../../lib/packages/code-door-fence.mjs');
+    const kinds = new Map([['tag', 'tag-plugin']]);
+    const src = (cls) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n- Alpha \`@tag{hot}\`: 60\n- Beta: 40\n\n\`\`\`js\n@tag{quoted}\n\`\`\`\n`;
+    for (const [cls, drawn, warned] of [['piechart', 0, 1], ['funnel', 0, 1], ['kanban', 1, 0], ['content', 1, 0]]) {
+      const cap = captureFences(new Map(), { ...slides, kinds });
+      render(src(cls), cap);
+      const notes = fenceCaptureNotes(cap, new Map());
+      assert.equal(cap.claims.length, drawn, `${cls}: drawn`);
+      assert.equal(notes.length, warned, `${cls}: ${notes.join(' | ')}`);
+      if (warned) assert.match(notes[0], /an `@tag\{…\}` span on slide 1 is not drawn: its layout turned it into text/);
+    }
+  });
+
   test('an ordinary slide, a layout class and a modifier get their fences drawn', () => {
     for (const classes of ['content', 'closing', 'split-panel', 'dark', 'content dark']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;
