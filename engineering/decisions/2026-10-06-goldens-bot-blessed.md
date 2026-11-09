@@ -379,6 +379,57 @@ last (90 days). Items (b), (d), (e), (f) and (g) of
 `followups.d/2570-p2-goldens-step-4-switch-on-auto-merge.md` stay open for the PR that
 switches auto-merge on.
 
+**The drift behind #2987, traced (2026-11-09).** #2624 merged on 10-17, and no bless has merged
+since, so #2987 carries three weeks of drift: 455 goldens changed and 130 rendered for the first
+time, from `978728bb`. The verdict counts 583 goldens and calls 431 of them unseen. This is where that drift came from.
+
+*Method.* `tools/golden-bisect.mjs` renders a golden at any commit: a fresh worktree, that
+commit's own `npm ci` and `npm run build`, and its own regression gate's `--bless --only`. It
+compares the result with main's golden (OLD) and the bless PR's (NEW). Only the 156 commits from
+`6e7c7388` (the render #2624 blessed) to `978728bb` that touch the render path are candidates.
+Two calibration readings hold the method up: at `6e7c7388` every sample renders like OLD, and at
+`978728bb` like NEW. The sandbox and the GitHub runner differ by up to 0.26% of a page, so drift
+below about 0.5% cannot be traced from here. 21 sample goldens, chosen across the kinds of text
+change the diff shows, were rendered at 10 evenly spaced commits and then bisected to one commit
+each. Every boundary is sharp: at most 0.44% of a page before the named commit, and 1.5% to 39%
+after it for all but three. `cover-paginate` reaches 0.93% and `bloom-engineering-journey` 0.69%.
+The anchor gallery reaches only 0.15%, inside the noise; #3095's own golden-diff listed it.
+
+| Cause | PR | Sample goldens, worst page before → at the PR | Goldens it can reach (est.) |
+|---|---|---|---|
+| kpi, stats and actors card CSS | #2729 | kpi gallery 0% → 20.9%; `rfp-response` 0.10% → 8.2%; `token-contrast/concrete` 0% → 14.5% | 100 use kpi, stats or actors |
+| progress and timeline-list CSS | #2770 | `adaptive-sweep` 0.40% → 5.6% | 39 |
+| pills become a plugin | #2755 | `cover-paginate` 0% → 0.93% | every deck with a pill |
+| Mermaid pie legend size | #2761 | `typed-diagram-narration` 0% → 1.5% | 7 Mermaid pies |
+| deck logo finish | #2829 | `finish-backdrops` 0.16% → 8.9% | 11 decks with `logo:` |
+| cycle connector as an SVG element | #2839 | `split-relationship` 0.10% → 30.0% | 9 cycles |
+| callouts split from the key | #2836 | `map` 0.07% → 4.5% | charts with callouts |
+| venue fixes (journey, matrix-grid, progress, contact, QR) | #2862 | `journey-stage-contrast` 0.19% → 4.9% | 46 |
+| page numbers on by default | #2826 | `bloom-engineering-journey` 0.21% → 0.69% | ~200 whose page numbers changed |
+| pricing rows | #2897 | `pricing` 0% → 7.5% | the pricing decks |
+| one status paint, pigment chart finish | #2905 | `chart-icons` 0% → 13.1%; `state-chart-polish-followups` 0% → 6.6%; obligation-matrix gallery 0% → 25.9%; `funnel` 0% → 3.0% | 106 charts and status marks |
+| icons as a font, emoji as PDF text | #2992 | `avatars` 0.44% → 1.5% | decks with icons or emoji |
+| anti-pattern slides and claim-hero | #2941, #2951 | title gallery 0.09% → 38.6%; 12 galleries lose a page | 98 galleries |
+| Mermaid 11.14 → 11.17 | #3051 | text: "Mermaid 11.14" → "11.17" | 31 with Mermaid |
+| running header 0.10em → 0.08em; anchor bands | #3095 | anchor gallery 0.01% → 0.15%; text: letter-split headers close up | 208 with a running header |
+
+Reach is an estimate from what each golden's markdown uses (a class, a fence, front matter) and
+from its text diff. It is not a per-golden bisect. 276 goldens also had their own markdown edited
+in the window, mostly by #2941 and #2951 (every gallery's anti-pattern slide) and #2755 and #3023
+(the pill and switch syntax). Two sampled goldens, `inventory` and `q-and-a`, drift 0.17% at
+most, inside the machine noise above, so this method cannot name their PR.
+
+*Why rule 4 calls them unseen.* Every PR above did post a golden-diff comment, except #2826. Each
+showed only what it rendered. `golden-diff` renders at most 40 goldens a PR, and every
+shared-change PR in the window left 70 to 74 galleries unrendered and said so. #2905 listed
+`chart-icons` and the legal survey, but not `funnel`, `state-chart-polish-followups` or the
+obligation-matrix gallery, all of which it moved. #2826 posted nothing: it edited about 130 decks,
+and `golden-diff` hit its 25-minute limit (`followups.d/2789-p2-golden-diff-uncapped-decks.md`).
+So "unseen" here means that golden-diff's render cap kept a reviewer from seeing these goldens,
+not that someone merged an unreviewed change. Every sample traced to a PR a person merged; none
+traced to a dependency bot or to drift with no change behind it. Whether to merge #2987 on that
+basis is the owner's call; until a bless merges, every night re-blesses all of this again.
+
 ## 6. Decisions (owner, 2026-10-07)
 
 | Question | Decision |
