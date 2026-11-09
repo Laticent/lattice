@@ -220,7 +220,8 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
         }
       }
     }
-    assert.equal(skipped, 2, 'the boundary-divergence set should stay at the two `split: headings` decks');
+    // 3 since 2026-11-09: test/integration/invariants/mark-agreement/fixtures/split-headings.md joined the corpus.
+    assert.equal(skipped, 3, 'the boundary-divergence set should stay at the three `split: headings` decks');
     assert.equal(paneSplit, 1, 'and the pane-split set at examples/image-pane-story.md');
     assert.ok(compared > 200, `expected 200+ comparable decks, compared ${compared}`);
     // Print the live figures so the PR/ADR/CHANGELOG numbers can be re-read off a
