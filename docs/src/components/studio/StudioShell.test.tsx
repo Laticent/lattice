@@ -614,20 +614,20 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: 'Workspace settings' }));
 		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Workspace/ }));
-		// Default tab = AI: the Model section leads with a Generation switch (Cloud /
-		// On-device) that picks the active tier. With no model in the test env, nothing is
-		// active yet, and the Cloud pane offers a one-click Connect affordance.
-		expect(sheet.getByText('Model')).toBeInTheDocument();
-		expect(sheet.getByRole('tab', { name: 'On-device' })).toBeInTheDocument();
-		expect(sheet.getByText(/No tier active yet/)).toBeInTheDocument();
-		expect(sheet.getByRole('button', { name: /Connect OpenRouter/ })).toBeInTheDocument();
+		// Default tab = AI: Chat model, Voice model, Providers & keys (model spine). With no key in
+		// the test env, the chat selection (OpenRouter, the default) reads "needs a key", actionable
+		// in place, and Providers & keys offers the one-click sign-in.
+		expect(sheet.getByText('Chat model')).toBeInTheDocument();
+		expect(sheet.getByText('Voice model')).toBeInTheDocument();
+		expect(within(await sheet.findByTestId('chat-model-card')).getByText('Connect a provider or choose on-device')).toBeInTheDocument();
+		expect(sheet.getByRole('button', { name: /Sign in with OpenRouter/ })).toBeInTheDocument();
 		// The Spend section (same tab) shows real (zero) session spend, not a fabricated
 		// figure. With no model connected there's no authoritative account line — only the
 		// honest live session tally ($0.00) plus a prompt to connect for the balance. (The
 		// old broken local "all-time $0.00" card is gone — that was the bug G6 fixed.)
 		expect(await sheet.findByText(/No model connected/)).toBeInTheDocument();
 		expect(sheet.getByText('This session')).toBeInTheDocument();
-		expect(sheet.getByText(/Connect OpenRouter .* to see your real balance/)).toBeInTheDocument();
+		expect(sheet.getByText(/Add a key in Providers & keys below to see your real balance/)).toBeInTheDocument();
 		// The Instructions section (same tab) — the textarea persists to localStorage.
 		const ta = await sheet.findByRole('textbox', { name: 'Standing instructions' });
 		await user.clear(ta);

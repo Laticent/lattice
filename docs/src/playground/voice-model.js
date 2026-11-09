@@ -24,13 +24,16 @@
 // module under plain `node --test` (no Vite alias, no TS resolution), so this file
 // must not use the `@/…` alias or import a TypeScript module.
 
+import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
+import { healTarget } from '../lib/model-family.js';
+import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
-import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
-import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
+import { classifyProviderError } from '../lib/provider-errors.js';
+import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
@@ -409,7 +412,7 @@ function pcmBlobFromResponse(pcmBytes, contentType) {
 
 // OpenRouter TTS — a fetch on the architect's existing OAuth key. Deck text leaves
 // the device (gated by the same consent the architect connect flow already takes).
-function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
+function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   return {
     name: 'openrouter-tts',
@@ -424,6 +427,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       const key = getKey();
       if (!key) throw new Error('OpenRouter not connected');
       const model = modelOverride || getModel();
+      if (gone?.has('openrouter', model)) throw modelGoneError('openrouter', model);
       const wantsPcm = isPcmOnlyModel(model);
       // OpenAI-compatible speech route: POST the text, get a raw audio byte stream
       // back (mp3 for almost every model; PCM for the rare exception above, wrapped
@@ -455,6 +459,11 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         // Surface the API's reason (bad model slug, unknown voice, no credit) instead
         // of a silent fall-through — the only way to diagnose without the console.
         let detail = ''; try { detail = (await res.text()).slice(0, 200); } catch {}
+        if (isModelGoneError(res.status, detail)) {
+          gone?.add('openrouter', model, detail);
+          throw modelGoneError('openrouter', model, detail);
+        }
+        if (classifyProviderError(res.status, detail) === 'billing') gone?.billing('openrouter');
         throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
       }
       if (wantsPcm) {
@@ -472,6 +481,145 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
       return blob; // mp3; the consumer's decodeAudioData (Suono) handles it
     },
   };
+}
+
+// ── Gemini direct speech (the author's own Gemini key) ───────────────────────
+//
+// Gemini's native text-to-speech is not the OpenAI `/audio/speech` shape: it is
+// `models/<id>:generateContent` with `responseModalities: ['AUDIO']` and a
+// `speechConfig.voiceConfig`, answered with base64 audio in
+// `candidates[0].content.parts[].inlineData`. The 3.8 TTS models return WAV with a RIFF header
+// by default (https://ai.google.dev/gemini-api/docs/speech-generation); an older model's
+// headerless 16-bit PCM is wrapped into WAV here so the consumer (Suono) can decode it.
+// A chosen Gemini voice never bills OpenRouter: this rung only ever calls Google with the
+// Gemini key (engineering/decisions/2026-11-07-studio-model-spine.md).
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
+/** The curated default Gemini voice model (GA): Flash-Lite TTS. Used until the live list answers, which then decides. */
+export const GEMINI_TTS_DEFAULT_MODEL = 'gemini-3.8-flash-lite-tts';
+
+function base64ToBytes(b64) {
+  const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+const isRiff = (b) => b.length > 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46;
+
+/** The request body for one Gemini speech call. `voice` '' = the model's own default voice. */
+export function geminiSpeechBody(text, voice) {
+  return {
+    contents: [{ parts: [{ text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      ...(voice ? { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } : {}),
+    },
+  };
+}
+
+/**
+ * Whether a failed speech call means the MODEL is gone (retired, renamed, not served to this key)
+ * rather than a passing fault. Providers retire TTS models with little notice, so the Studio
+ * must say so and stop, never retry every sentence or quietly use another model
+ * (engineering/decisions/2026-11-07-studio-model-spine.md §6). A bad key, a billing failure or a
+ * region refusal is not a gone model (lib/provider-errors.js).
+ */
+export function isModelGoneError(status, detail = '') {
+  return classifyProviderError(status, detail) === 'model-gone';
+}
+
+/** An error that names a gone model, so callers can tell it from a passing fault. */
+function modelGoneError(provider, model, detail) {
+  const e = new Error(`${provider} no longer serves ${model}` + (detail ? ': ' + detail.slice(0, 160) : ''));
+  e.modelGone = { provider, model };
+  return e;
+}
+
+function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone }) {
+  return {
+    name: 'gemini-tts',
+    ready() { return !!getKey(); },
+    async synth({ text, voice, signal, model: modelOverride }) {
+      const key = getKey();
+      if (!key) throw new Error('Gemini not connected');
+      const model = modelOverride || getModel();
+      // A model already found gone is not asked again: one notice, not a 404 per sentence.
+      if (gone?.has('gemini', model)) throw modelGoneError('gemini', model);
+      const res = await (fetchImpl || fetch)(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(geminiSpeechBody(text, voice ?? getVoice())),
+        signal,
+      });
+      // Gemini answers a bad key with 400 API_KEY_INVALID; read it as the 401 it means.
+      let detail = '';
+      if (!res.ok) { try { detail = (await res.text()).slice(0, 300); } catch {} }
+      const status = res.status === 400 && /API_KEY_INVALID/.test(detail) ? 401 : res.status;
+      noteStatus?.(status, key);
+      if (!res.ok && isModelGoneError(status, detail)) {
+        gone?.add('gemini', model, detail);
+        throw modelGoneError('gemini', model, detail);
+      }
+      // Out of quota or billing: the key and the model are fine. Say so once; this read goes silent.
+      if (!res.ok && classifyProviderError(status, detail) === 'billing') gone?.billing('gemini');
+      if (!res.ok) throw new Error('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''));
+      const json = await res.json();
+      const part = (json?.candidates?.[0]?.content?.parts || []).find((p) => p?.inlineData?.data);
+      if (!part) throw new Error('Gemini returned no audio');
+      const bytes = base64ToBytes(part.inlineData.data);
+      if (!bytes.length) throw new Error('Gemini returned empty audio');
+      const mime = String(part.inlineData.mimeType || '');
+      if (isRiff(bytes) || /wav/i.test(mime)) return new Blob([bytes], { type: 'audio/wav' });
+      // Headerless L16 (an older model, or a non-default format): 24 kHz mono unless the type says.
+      return pcmBlobFromResponse(bytes, mime || 'audio/L16;rate=24000');
+    },
+  };
+}
+
+/**
+ * The Gemini voice catalog on the author's key: the TTS models from the live `/models` list
+ * (curated as a preference, never as pinned ids — provider-registry.js) and the prebuilt voices
+ * from the live `/voices` list. Never hand-typed. `{ models, voices, reachable }`.
+ */
+/**
+ * Gemini's NAMED prebuilt voices (Achernar, Kore, Puck, …), read live from `/v1beta/voices`.
+ * Measured 2026-11-08 on a real key: the list holds 2,114 voices in 39 languages over three pages
+ * (`next_page_token`), sorted by id. 30 are the named, multilingual voices; the rest are
+ * locale-specific personas with ids like `en-us-advisor-1`. A read-aloud picker of 2,000 raw ids is
+ * unusable, so the picker offers the named voices; the locale personas wait for a language filter
+ * (followups.d/3079-p3-gemini-locale-voices.md). Every page is read, because the named ids sort
+ * among the locale ones. Never hand-typed: a voice Google adds or drops shows up here.
+ */
+async function listGeminiNamedVoices(f, headers) {
+  const out = [];
+  let token = '';
+  for (let page = 0; page < 10; page++) {
+    const r = await f(`${GEMINI_API}/voices?type=prebuilt&page_size=1000${token ? `&page_token=${encodeURIComponent(token)}` : ''}`, { headers });
+    if (!r.ok) break;
+    const d = await r.json();
+    for (const v of d.voices || []) {
+      const id = String(v.id || v.name || '').replace(/^voices\//, '');
+      if (id && !/^[a-z]{2,3}-/i.test(id)) out.push(id);
+    }
+    token = d.next_page_token || d.nextPageToken || '';
+    if (!token) break;
+  }
+  return out;
+}
+
+export async function listGeminiVoiceCatalog(key, fetchImpl) {
+  const f = fetchImpl || fetch;
+  const headers = { 'x-goog-api-key': key };
+  try {
+    const [mr, voices] = await Promise.all([f(`${GEMINI_API}/models?pageSize=1000`, { headers }), listGeminiNamedVoices(f, headers)]);
+    if (!mr.ok) return { models: [], voices: [], reachable: false };
+    const md = await mr.json();
+    const models = (md.models || [])
+      .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), name: m.displayName || '' }))
+      .filter((m) => /-tts(\b|$|-)/.test(m.id));
+    return { models, voices, reachable: true };
+  } catch {
+    return { models: [], voices: [], reachable: false };
+  }
 }
 
 // ── One job at a time, playback ahead of prefetch ─────────────────────────────
@@ -728,7 +876,11 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // the shipped 20 s that took the file from 0.2 s to 86 s — a self-inflicted 86 s on every push
 // (HARD RULE #18, found by the independent checker). Production passes nothing and gets the
 // constants above.
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs } = {}) {
+// `selection` (the Studio): the voice is the author's STORED selection (lib/model-selection.js),
+// resolved, never laddered — `{ read(), select(pick), keyState(provider), openKey(provider) }`.
+// Without it (the /cadenza and /suono reference pages) the prefs below and the old ladder apply.
+// engineering/decisions/2026-11-07-studio-model-spine.md
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs, selection, onModelGone, onBilling, onSynthesized } = {}) {
   const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
   const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
@@ -739,8 +891,15 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // The cloud voice. When the cheapest-voice setting has moved the model off the default,
   // the stored voice may belong to another model (the default `af_heart` is a Kokoro id, and
   // any other model rejects it), so it falls back to a voice the picked model publishes.
+  // With a selection, the OpenRouter pick is the selection's (when OpenRouter is the selected
+  // voice provider) or the author's last OpenRouter pick; otherwise the legacy prefs.
+  const orPick = () => {
+    if (!selection) return { model: readLS(K.OR_TTS_MODEL) || '', voice: readLS(K.OR_VOICE) || '' };
+    const s = selection.read();
+    return s.provider === 'openrouter' ? { model: s.model, voice: s.voice } : (s.last.openrouter ?? { model: '', voice: '' });
+  };
   const orVoice = () => {
-    const stored = readLS(K.OR_VOICE);
+    const stored = orPick().voice;
     const m = orModel();
     if (!explicitOrModel() && m === cheapestModelId && m !== DEFAULT_OR_TTS_MODEL && cheapestVoices.length) {
       return stored && cheapestVoices.includes(stored) ? stored : cheapestVoices[0];
@@ -750,7 +909,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // A model the author PICKED is stored; the default never is. That difference is the whole
   // precedence rule: a stored pick always wins, over the cheapest-voice setting and over the
   // desktop on-device default alike.
-  const explicitOrModel = () => readLS(K.OR_TTS_MODEL) || '';
+  const explicitOrModel = () => orPick().model;
   // The cheapest-voice default, resolved from the live catalog the first time it is asked
   // for with the setting on. Until the catalog answers (or when it never does), orModel()
   // stays on DEFAULT_OR_TTS_MODEL — which is also the cheapest voice at the time of writing,
@@ -779,7 +938,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   if (cheapestVoiceEnabled()) cheapestModel();
   onNarrationPrefsChange(() => { if (cheapestVoiceEnabled()) cheapestModel(); });
   const orModel = () => explicitOrModel() || (cheapestVoiceEnabled() && cheapestModel()) || DEFAULT_OR_TTS_MODEL;
-  const kokoroVoice = () => readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
+  const kokoroVoice = () => {
+    if (!selection) return readLS(K.KOKORO_VOICE) || DEFAULT_KOKORO_VOICE;
+    const s = selection.read();
+    return (s.provider === 'kokoro' ? s.voice : s.last.kokoro?.voice) || DEFAULT_KOKORO_VOICE;
+  };
   // A speed multiplier both rungs forward natively (OpenRouter's API param; Kokoro's
   // own generate() option) — not a client-side playbackRate hack. 1 = default pace,
   // omitted from the wire request (see openRouterRung.synth / kokoroRung.synth).
@@ -792,7 +955,73 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // engineering/decisions/2026-06-14-read-aloud-kokoro.md.
   const allowSpeech = () => allowBrowserVoice === true || readLS(K.DEV_SPEECH) === '1' || settings().voiceDevSpeech === true;
 
-  const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl });
+  // Voice models a provider told us are gone, for this page. The selection that names one reads
+  // `unavailable` with reason `model-gone`, the author is told once (`onModelGone`), and nothing
+  // speaks in its place. Another model is unaffected; a reload asks the provider again.
+  const goneModels = new Map();
+  const billingTold = new Set();
+  const gone = {
+    has: (provider, model) => goneModels.has(`${provider}:${model}`),
+    add(provider, model, detail) {
+      const k = `${provider}:${model}`;
+      if (goneModels.has(k)) return;
+      goneModels.set(k, { provider, model, detail: String(detail || '') });
+      emitChange();
+      // VERSION HEALING (2026-11-08-studio-ai-routes-ux.md rule 1): a retired Gemini voice model
+      // moves to the newest NEWER version of its own family on the same key, which the selection
+      // stores and announces. Checked against the live list: a model still listed is not retired.
+      // With nothing newer, the author is told once and read-aloud stays silent.
+      const told = () => { try { onModelGone?.({ provider, model }); } catch {} };
+      if (provider !== 'gemini' || !selection?.heal) return told();
+      geminiListed = null; // ask Google again: the cached list predates the retirement
+      Promise.resolve(listGemini())
+        .then((c) => {
+          const live = c?.reachable ? c.models : null;
+          if (!live?.length || live.some((m) => m.id === model)) return told();
+          const to = healTarget(model, live);
+          if (!to) return told();
+          goneModels.delete(k);
+          selection.heal({ provider, from: model, to });
+          emitChange();
+        })
+        .catch(told);
+    },
+    // A billing or quota failure is told once per provider per page (a read retries each sentence).
+    billing(provider) {
+      if (billingTold.has(provider)) return;
+      billingTold.add(provider);
+      try { onBilling?.({ provider }); } catch {}
+    },
+  };
+  const openrouter = openRouterRung({ getKey, getModel: orModel, getVoice: orVoice, fetchImpl, gone });
+  // Direct-key voice rungs by selection provider. Gemini speaks on the author's own Gemini key.
+  const geminiPick = () => {
+    if (!selection) return { model: '', voice: '' };
+    const s = selection.read();
+    return s.provider === 'gemini' ? { model: s.model, voice: s.voice } : (s.last.gemini ?? { model: '', voice: '' });
+  };
+  // The curated default, refined from the LIVE model list once it has been read (curation is a
+  // preference over the live list; the constant only stands in until then).
+  let geminiDefault = GEMINI_TTS_DEFAULT_MODEL;
+  let geminiListed = null;
+  const listGemini = () => {
+    if (geminiListed || !selection?.readKey?.('gemini')) return geminiListed ?? Promise.resolve(null);
+    geminiListed = listGeminiVoiceCatalog(selection.readKey('gemini'), fetchImpl).then((c) => {
+      if (!c.reachable) { geminiListed = null; return c; }
+      geminiDefault = curatedDefault(c.models, CURATED.voice.gemini) ?? c.models[0]?.id ?? GEMINI_TTS_DEFAULT_MODEL;
+      return c;
+    });
+    return geminiListed;
+  };
+  const geminiModel = () => geminiPick().model || geminiDefault;
+  const geminiVoice = () => geminiPick().voice;
+  const cloudRungs = selection?.readKey
+    ? { gemini: geminiTtsRung({ getKey: () => selection.readKey('gemini'), getModel: geminiModel, getVoice: geminiVoice, fetchImpl, gone, noteStatus: selection.noteStatus ? (st, k) => selection.noteStatus('gemini', st, k) : undefined }) }
+    : {};
+  // The voice a rung speaks in, by rung name — one rule for every cache and latency key.
+  const voiceForRung = (name) => (name === 'openrouter-tts' ? orVoice() : name === 'kokoro' ? kokoroVoice() : name === 'gemini-tts' ? geminiVoice() : '');
+  // A tier alias ('openrouter' | 'gemini' | 'kokoro', what previews and the export name) → its rung.
+  const rungForAlias = (alias) => (alias === 'openrouter' ? openrouter : alias === 'kokoro' ? kokoro : cloudRungs[alias] ?? null);
   const kokoro = kokoroRung({ getVoice: kokoroVoice });
   let injected = null; // test hook
 
@@ -882,9 +1111,18 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // The MODEL id for a given rung name — only OpenRouter's rung varies by model
   // (Kokoro's on-device model is fixed); anything else (mock/injected/
   // speechSynthesis) has no model concept, so it's simply excluded from the key.
+  // A CLOUD clip was just made (not served from a cache): tell the caller, which books its cost
+  // as voice spend on its route (2026-11-08-studio-ai-routes-ux.md, Spend). On-device is free.
+  function tellSynthesized(rungName, model, text) {
+    const route = rungName === 'openrouter-tts' ? 'openrouter' : rungName === 'gemini-tts' ? 'gemini' : '';
+    if (!route || !onSynthesized) return;
+    try { onSynthesized({ route, model, chars: String(text || '').length }); } catch {}
+  }
+
   function modelIdFor(rungName) {
     if (rungName === 'openrouter-tts') return orModel();
     if (rungName === 'kokoro') return KOKORO_MODEL;
+    if (rungName === 'gemini-tts') return geminiModel();
     return '';
   }
 
@@ -900,7 +1138,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    * has to have a single definition, or this recurs.
    */
   function latencyKeyFor(rungName, voice) {
-    const effVoice = voice || (rungName === 'openrouter-tts' ? orVoice() : rungName === 'kokoro' ? kokoroVoice() : '');
+    const effVoice = voice || voiceForRung(rungName);
     return `${rungName}|${modelIdFor(rungName)}|${effVoice || ''}`;
   }
 
@@ -923,7 +1161,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    */
   function clipKey(text) {
     const rung = pickRung();
-    const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
+    const effVoice = voiceForRung(rung.name);
     return cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, speedPref(), text);
   }
 
@@ -957,6 +1195,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   //     browser that cannot load the model does not retry on every read, and a read never
   //     overrides the author's Cancel. An explicit download from Settings still works.
   let kokoroLoading = null;
+  let kokoroPct = 0; // the shared load's progress, 0–100
   let kokoroCtl = null;
   const kokoroProgress = new Set();
   let backgroundLoadOff = false;
@@ -965,11 +1204,16 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     if (onProgress) kokoroProgress.add(onProgress);
     if (!kokoroLoading) {
       kokoroCtl = new AbortController();
-      const fanOut = (p) => { for (const fn of kokoroProgress) { try { fn(p); } catch {} } };
+      const fanOut = (p) => {
+        // Kept for the surfaces that show the selected voice warming (Present's voice pill).
+        const pct = Math.round((p?.progress || 0) * 100);
+        if (pct !== kokoroPct) { kokoroPct = pct; emitChange(); }
+        for (const fn of kokoroProgress) { try { fn(p); } catch {} }
+      };
       kokoroLoading = kokoro.load(fanOut, kokoroCtl.signal, background ? { mainThread: false } : undefined)
         .then(() => { kokoroCachedFlag = true; emitChange(); return true; })
         .catch((e) => { backgroundLoadOff = true; throw e; })
-        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroProgress.clear(); });
+        .finally(() => { kokoroLoading = null; kokoroCtl = null; kokoroPct = 0; kokoroProgress.clear(); emitChange(); });
     }
     const ctl = kokoroCtl;
     if (signal) {
@@ -986,9 +1230,31 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // model is choosing the cloud voice, and an explicit pick always wins.
   const preferOnDevice = () => rungPref() === 'auto' && kokoroSupported() && !explicitOrModel();
 
+  // Resolve the SELECTION (Studio): the selected rung and its readiness, never another rung.
+  //   ready | warming (key opening, model loading) | needs-key | unavailable (not on this device / not loaded)
+  /** @returns {{ sel: any, rung: any, state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'unset', reason?: 'model-gone' }} */
+  function resolveVoice() {
+    const s = selection.read();
+    // Not set: nothing chosen yet; nothing speaks and nothing is guessed (captions).
+    if (!s.provider) return { sel: s, rung: silentRung, state: 'unset' };
+    if (s.provider === 'kokoro') {
+      if (!kokoroSupported()) return { sel: s, rung: kokoro, state: 'unavailable' };
+      return { sel: s, rung: kokoro, state: kokoro.ready() ? 'ready' : kokoroLoading ? 'warming' : 'unavailable' };
+    }
+    const rung = s.provider === 'openrouter' ? openrouter : cloudRungs[s.provider];
+    if (!rung) return { sel: s, rung: silentRung, state: 'unavailable' };
+    if (gone.has(s.provider, modelIdFor(rung.name))) return { sel: s, rung, state: 'unavailable', reason: 'model-gone' };
+    if (rung.ready()) return { sel: s, rung, state: 'ready' };
+    return { sel: s, rung, state: selection.keyState(s.provider) === 'opening' ? 'warming' : 'needs-key' };
+  }
+
   function pickRung() {
-    if (rungPref() === 'off') return silentRung;
+    if (!selection && rungPref() === 'off') return silentRung;
     if (injected) return injected;
+    if (selection) {
+      const r = resolveVoice();
+      return r.state === 'ready' ? r.rung : silentRung;
+    }
     if (rungPref() === 'openrouter' && openrouter.ready()) return openrouter;
     if (rungPref() === 'kokoro' && kokoroSupported() && kokoro.ready()) return kokoro;
     // auto ladder: (desktop default) local → connected cloud → summoned local (desktop
@@ -1022,6 +1288,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     if (name === 'silent') return silentRung;
     if (name === 'speechSynthesis') return speechReady() ? { name: 'speechSynthesis' } : null;
     if (name === 'openrouter-tts') return openrouter.ready() ? openrouter : null;
+    for (const r of Object.values(cloudRungs)) if (r.name === name) return r.ready() ? r : null;
     if (name === 'kokoro') return kokoroSupported() && kokoro.ready() ? kokoro : null;
     return null;
   }
@@ -1113,6 +1380,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       .then((blob) => {
         if (!blob) return null;
         cacheSet(key, blob);
+        tellSynthesized(rung.name, modelIdFor(rung.name), text);
         // Write through to the device, unawaited — a caller may be waiting to PLAY this.
         if (narrationCacheEnabled()) {
           Promise.resolve(putClip(key, blob)).catch(() => {
@@ -1212,11 +1480,13 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   async function synthOne({ text, voice, speed, rung: pinnedRung, signal } = {}) {
     // A caller that pinned a rung at the start of a read gets that rung for the whole read —
     // see rungByName for why re-deciding per sentence changes the LANGUAGE mid-deck.
-    const rung = (pinnedRung ? rungByName(pinnedRung) : null) ?? pickRung();
+    // Studio (selection): a pinned rung that stopped being ready goes silent for the rest of the
+    // read rather than switching to another voice; the next read resolves the selection again.
+    const rung = (pinnedRung ? rungByName(pinnedRung) : null) ?? (selection && pinnedRung ? silentRung : pickRung());
     const effSpeed = speed ?? speedPref();
     // Mirror each rung's own `voice || getVoice()` fallback EXACTLY (|| not ??) — see speak()'s
     // effVoiceFor note for why a `??` mirror would freeze a stale-voice cache key.
-    const effVoice = voice || (rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '');
+    const effVoice = voice || voiceForRung(rung.name);
     const key = cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, effSpeed, text);
     if (!text || rung.name === 'silent' || rung.name === 'speechSynthesis') {
       return { rung: rung.name, bytes: null, key };
@@ -1410,14 +1680,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // which runs one job at a time and lets playback jump the prefetch backlog (see
     // `enqueue`/`pump` there). Warming is safe because it can no longer delay playback by
     // more than the single sentence already in flight.
-    if (rung.name !== 'openrouter-tts' && rung.name !== 'kokoro') return;
+    if (rung.name !== 'openrouter-tts' && rung.name !== 'kokoro' && rung.name !== 'gemini-tts') return;
     if (!Array.isArray(sentences) || !sentences.length) return;
     const effSpeed = speedPref();
     // Mirrors speak()'s own effVoiceFor exactly (including the '' fallback for
     // anything that isn't openrouter-tts/kokoro) — the cache key this computes
     // must match what speak() looks up later bit-for-bit, or every warmed
     // entry is a silent cache miss.
-    const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
+    const effVoice = voiceForRung(rung.name);
     const todo = sentences.map((s) => String(s || '').trim()).filter(Boolean);
     for (const t of todo) warmQueue.push({ rung, effVoice, effSpeed, text: t, signal });
     pumpWarmQueue();
@@ -1455,11 +1725,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    * matches.
    */
   function resolveIdentity({ rung, voice: v, speed, model } = {}) {
-    const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
+    const r = rungForAlias(rung);
     if (!r) return null;
     const effSpeed = speed ?? speedPref();
-    const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
-    const effModel = (rung === 'openrouter' && model) || modelIdFor(r.name);
+    const effVoice = v || voiceForRung(r.name);
+    const effModel = (rung !== 'kokoro' && model) || modelIdFor(r.name);
     return { r, effSpeed, effVoice, effModel };
   }
 
@@ -1496,7 +1766,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const id = resolveIdentity({ rung, voice: v, speed, model });
     if (!id) return { ok: false, bytes: null, key: '', error: 'unknown voice' };
     const { r, effSpeed, effVoice, effModel } = id;
-    if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
+    if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'kokoro' ? 'voice not ready' : 'cloud voice not connected' };
     // The KEY the bytes will be banked under. `effVoice` — not the caller's raw `v` — and the
     // request below sends the SAME resolved value, which is the whole point: a clip must never
     // be stored under a key naming a voice it was not spoken in.
@@ -1562,8 +1832,8 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // does — `relay` fires `ctl.abort()` and the request dies with it. What is dropped here is
       // only OUR patience, never the caller's cancellation.
       const inflight = r
-        .synth({ text, voice: effVoice, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig })
-        .then((b) => { if (b) cacheSet(key, b); return b; })
+        .synth({ text, voice: effVoice, speed: effSpeed, model: rung !== 'kokoro' ? effModel : undefined, signal: sig })
+        .then((b) => { if (b) { cacheSet(key, b); tellSynthesized(r.name, effModel, text); } return b; })
         .finally(done);
       // Swallow a late rejection so an abandoned request cannot surface as an unhandled
       // rejection after this function has already returned its answer.
@@ -1636,7 +1906,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     availability() {
       return {
         rung: pickRung().name,
+        readiness: selection ? (() => { const r = resolveVoice(); return { progress: r.state === 'warming' && r.sel.provider === 'kokoro' ? kokoroPct / 100 : null, state: r.state, reason: r.reason ?? null, source: r.sel.source, provider: r.sel.provider, model: r.sel.provider === 'kokoro' ? 'kokoro' : modelIdFor(r.rung.name), voice: voiceForRung(r.rung.name) }; })() : null,
         openRouterReady: openrouter.ready(),
+        geminiReady: !!cloudRungs.gemini?.ready(),
         kokoroReady: kokoro.ready(),
         kokoroCached: kokoroCachedFlag, // on disk (may not be loaded into memory yet)
         kokoroSupported: kokoroSupported(), // on-device is desktop-only
@@ -1654,8 +1926,24 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // captions-only floor with no key); the next read after it lands uses the local voice.
     // Never throws; resolves true when the local voice is (now) ready.
     summonDefaultVoice() {
+      if (selection) return this.prepareSelectedVoice();
       if (injected || backgroundLoadOff || !preferOnDevice() || kokoro.ready()) return Promise.resolve(kokoro.ready());
       return loadKokoroOnce(undefined, undefined, { background: true }).catch(() => false);
+    },
+    // Studio: make the SELECTED voice ready before a read pins it — open its key, or load the
+    // selected on-device model (off the main thread). A read awaits this, so the voice it speaks
+    // is the selection, never whatever happened to be ready first. Resolves true when ready.
+    async prepareSelectedVoice() {
+      if (injected || !selection) return true;
+      const s = selection.read();
+      if (s.provider === 'kokoro') {
+        if (!kokoroSupported()) return false;
+        if (kokoro.ready()) return true;
+        return loadKokoroOnce(undefined, undefined, { background: true }).then(() => true, () => false);
+      }
+      if (selection.keyState(s.provider) === 'opening') await Promise.resolve(selection.openKey?.(s.provider)).catch(() => {});
+      if (s.provider === 'gemini' && !s.model) await listGemini().catch(() => null);
+      return resolveVoice().state === 'ready';
     },
     preferOnDevice,
     explicitOrModel,
@@ -1666,10 +1954,23 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // the TTS settings panel, the Present voice indicator, a second open Workspace. Only
     // setRungPref did before, so changing the MODEL/voice/speed wrote to storage but
     // broadcast nothing, and other surfaces kept showing the stale pick until remount.
-    rungPref, setRungPref(name) { writeLS(K.RUNG, name || null); emitChange(); },
-    orVoice, setOrVoice(v) { writeLS(K.OR_VOICE, v || null); emitChange(); },
-    orModel, setOrModel(m) { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); },
-    kokoroVoice, setKokoroVoice(v) { writeLS(K.KOKORO_VOICE, v || null); emitChange(); },
+    // With a selection every setter IS a selection (it makes that voice active at once) and the
+    // store announces it; without one they write the legacy prefs.
+    rungPref,
+    setRungPref(name) {
+      if (selection) { if (name === 'openrouter' || name === 'kokoro') selection.select({ provider: name }); return; }
+      writeLS(K.RUNG, name || null); emitChange();
+    },
+    orVoice, setOrVoice(v) { if (selection) selection.select({ provider: 'openrouter', voice: v || '' }); else { writeLS(K.OR_VOICE, v || null); emitChange(); } },
+    // The Gemini voice model and voice as they will speak (the curated default fills a blank pick).
+    geminiModel, geminiVoice,
+    orModel, setOrModel(m) { if (selection) selection.select({ provider: 'openrouter', model: m || '' }); else { writeLS(K.OR_TTS_MODEL, m || null); emitChange(); } },
+    kokoroVoice, setKokoroVoice(v) { if (selection) selection.select({ provider: 'kokoro', voice: v || '' }); else { writeLS(K.KOKORO_VOICE, v || null); emitChange(); } },
+    /** The voice / model a rung speaks in, by rung name (cache keys, labels). */
+    voiceForRung,
+    modelForRung: modelIdFor,
+    /** Studio: select a voice outright (provider + optional model/voice). */
+    selectVoice(pick) { selection?.select(pick); },
     speedPref, setSpeed(n) { const v = Number(n); writeLS(K.SPEED, Number.isFinite(v) && v > 0 && v !== 1 ? String(v) : null); emitChange(); },
     webgpu: detectWebGPU(),
     // Test hooks (exercise the ladder + sequencing without real audio/models).

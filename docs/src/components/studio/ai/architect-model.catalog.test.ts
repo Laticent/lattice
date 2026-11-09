@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { selectChat } from '../../../lib/model-selection.js';
 import { createArchitectModel } from './architect-model.js';
 
 // The price catalog: one fetch however many callers ask, and fetched up front for a connected user, because the budget gate
@@ -34,7 +35,7 @@ describe('the OpenRouter model catalog', () => {
 
 	it('is fetched as soon as a connected model exists, so the price is known before the first spend', async () => {
 		localStorage.setItem('lattice-db-or-key', 'sk-test-not-real');
-		localStorage.setItem('lattice-db-or-model', 'anthropic/claude-sonnet-5.5');
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
 		const calls = stubFetch();
 		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: () => { promptPerM: number } | null };
 		expect(m.openRouterModelPrice()).toBeNull(); // not yet: the fetch is in flight
@@ -74,7 +75,7 @@ describe('the OpenRouter model catalog', () => {
 				return new Response(JSON.stringify(CATALOG), { status: 200 });
 			}),
 		);
-		localStorage.setItem('lattice-db-or-model', 'anthropic/claude-sonnet-5.5');
+		selectChat({ provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5' });
 		localStorage.setItem('lattice-db-or-verifier', 'v');
 		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { resumeOpenRouterAuth: (c: string) => Promise<boolean>; restoreOpenRouter: (k: string) => void; openRouterModelPrice: () => unknown };
 		expect(calls.filter((u) => u.includes('/models'))).toHaveLength(0); // no key at creation: nothing fetched
@@ -115,7 +116,7 @@ describe('the OpenRouter model catalog', () => {
 			vi.fn((url: unknown) => (String(url).includes('/models') ? new Promise<Response>((resolve) => gate.push(resolve)) : Promise.resolve(new Response('{}', { status: 200 })))),
 		);
 		localStorage.setItem('lattice-db-or-key', 'sk-test-not-real');
-		localStorage.setItem('lattice-db-or-model', 'fresh/model');
+		selectChat({ provider: 'openrouter', model: 'fresh/model' });
 		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: () => { promptPerM: number } | null; listOpenRouterModels: () => Promise<unknown[]>; __invalidateCatalog: () => void };
 		expect(gate).toHaveLength(1);
 		m.__invalidateCatalog();

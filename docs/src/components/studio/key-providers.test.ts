@@ -17,3 +17,12 @@ describe('key-providers — the Gemini key shapes', () => {
 		expect(gemini.test(`AIza ${'a'.repeat(30)}`)).toBe(false); // whitespace inside
 	});
 });
+
+describe('key-providers — the other providers', () => {
+	it('still tells them apart', () => {
+		expect(guessProvider(`sk-or-v1-${'a'.repeat(20)}`)).toBe('openrouter');
+		expect(guessProvider(`sk-ant-${'a'.repeat(20)}`)).toBe('anthropic');
+		expect(guessProvider(`sk-proj-${'a'.repeat(20)}`)).toBe('openai');
+		expect(guessProvider('nothing-known')).toBeNull();
+	});
+});

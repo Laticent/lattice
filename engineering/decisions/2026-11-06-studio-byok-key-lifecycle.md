@@ -341,11 +341,23 @@ tier, not a third backend, so everything below the switch (spend, standing instr
 voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
 `WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.
 
+> **Superseded in part 2026-11-07** by `2026-11-07-studio-model-spine.md`: saving a key no longer
+> calls `setStudioTier('auto')` — it selects that provider's chat model (owner decision 3) — and
+> removing the active direct key no longer returns the tier to OpenRouter: the selection stays and
+> reads "needs a key", because moving the author to another provider is the substitution the spine
+> removes. The provider in use is part of the chat selection record, not `lattice-db-provider`.
+
 **Shipped (step 2): direct OpenAI, Anthropic and Gemini keys.** The API key tab has a provider
 picker (OpenRouter, OpenAI, Anthropic, Gemini; OpenRouter first and the default) and a list of
 the keys this browser holds, each with Use, Replace and Remove. One provider runs the cloud tier
 at a time; saving a key makes its provider the one in use, and removing the active direct key
 returns the tier to OpenRouter.
+
+> **Since 2026-11-08 (model spine, PR #3079):** the picker and the key list are one list, one row
+> per provider (OpenRouter, Gemini, Anthropic, OpenAI, On-device) under Workspace › AI ›
+> Providers & keys; Add opens the key field on that row. Removing a key no longer returns the tier
+> to OpenRouter: the selection stays and reads "needs a key"
+> (`2026-11-07-studio-model-spine.md` §7).
 
 - **Keys.** `lib/openrouter-key.js` holds one sealed slot per provider (`lattice-db-or-key`,
   `lattice-db-openai-key`, `lattice-db-gemini-key`, `lattice-db-anthropic-key`), each with its
@@ -435,9 +447,12 @@ that refuses one of our fields would pass the suite. A dispatch-only live smoke 
 (HARD RULE #24's sanctioned-workflow pattern) would catch that; it is a new CI workflow, so it is
 the owner's call.
 
-**Not in step 2.** The cloud voice stays on OpenRouter: OpenAI is the only direct provider with
-speech, and it needs its own transport in `voice-model.js`
-(`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
+**Not in step 2.** The cloud voice stays on OpenRouter. *Corrected 2026-11-07:* this note said
+OpenAI was the only direct provider with speech. That was wrong: the Gemini API has native
+text-to-speech (`gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`), and the model spine adds a
+direct Gemini voice (`2026-11-07-studio-model-spine.md`). OpenAI's speech models shut down on
+2027-01-06 and their named replacement does not serve `/v1/audio/speech`, so a direct OpenAI
+voice is a follow-up on a different transport (`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
 file-parser plugin for a reference PDF, the authoritative cost of an aborted turn, and the
 self-heal of a retired model id.
 

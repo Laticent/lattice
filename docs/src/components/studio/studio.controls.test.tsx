@@ -664,7 +664,7 @@ describe('Studio — Architect + editor controls respond', () => {
 		// The user turn is in the thread…
 		expect(await screen.findByText('Tighten slide 1')).toBeInTheDocument();
 		// …and with no model connected the assistant degrades honestly (no fake edit).
-		expect(await screen.findByText(/Connect a model in Workspace/i, undefined, { timeout: 6000 })).toBeInTheDocument();
+		expect(await screen.findByText(/Choose a chat model in Workspace/i, undefined, { timeout: 6000 })).toBeInTheDocument();
 	});
 
 	it('the deterministic Coach chips work with no model connected', async () => {

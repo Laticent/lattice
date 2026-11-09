@@ -45,6 +45,7 @@ import { partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
+import { fillFromConnections, SELECTION_FILLED_EVENT } from '@/lib/model-selection.js';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
@@ -686,6 +687,57 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		window.addEventListener(COMMENTS_EVENT, onChange);
 		return () => window.removeEventListener(COMMENTS_EVENT, onChange);
 	}, [deck.id]);
+	// The selected voice cannot speak (a retired model, no credit or quota): say so once, wherever the
+	// author is. The event is read-aloud.ts's VOICE_NOTICE_EVENT, named here as a string so this shell does not import
+	// that module (a static import moves chunk boundaries on two routes; docs/route-budget.json).
+	React.useEffect(() => {
+		const onGone = (e: Event) => {
+			const d = (e as CustomEvent<{ message: string; description?: string }>).detail;
+			if (d?.message) notify(d.message, { description: d.description, duration: 8_000 });
+		};
+		window.addEventListener('lattice:voice-notice', onGone);
+		return () => window.removeEventListener('lattice:voice-notice', onGone);
+	}, []);
+	// A retired model (rule 1): healed to a newer version of its own family, or stopped. Either way
+	// the author is told what changed, or what to do; nothing moves to another family unannounced.
+	React.useEffect(() => {
+		const WHAT: Record<string, string> = { chat: 'Chat', image: 'The image reader', voice: 'Voice' };
+		const onRetired = async (e: Event) => {
+			const d = (e as CustomEvent<{ provider: string; route: string; model: string; to: string | null; kinds: string[]; answeredBy?: string }>).detail;
+			if (!d) return;
+			// The name formatter loads with the notice, off the boot path (route budget).
+			const { modelDisplayName } = await import('@/lib/model-name');
+			const name = (id: string) => modelDisplayName({ id, provider: d.provider });
+			const who = d.kinds.map((k) => WHAT[k] ?? k);
+			const subject = who.length ? who.join(' and ').replace(/^(.)/, (c) => c.toUpperCase()) : 'The Studio';
+			if (d.to) {
+				notify(`${name(d.model)} was retired. ${subject} now ${who.length > 1 ? 'use' : 'uses'} ${name(d.to)} · ${d.route}.`, { description: 'Same model family, newer version. Change it in Workspace › AI.', duration: 8_000 });
+			} else if (d.answeredBy) {
+				notify(`${d.route} answered with ${name(d.answeredBy)} instead of ${name(d.model)}.`, { description: 'That model looks retired. Choose another in Workspace › AI before the next request.', duration: 15_000 });
+			} else {
+				notify(`${name(d.model)} was retired, and ${d.route} has no newer version of it.`, { description: 'Choose another model in Workspace › AI.', duration: 15_000 });
+			}
+		};
+		// lib/model-retired.js MODEL_RETIRED_EVENT, named as a string so this shell does not pull that module onto the boot path.
+		window.addEventListener('lattice:model-retired', onRetired);
+		return () => window.removeEventListener('lattice:model-retired', onRetired);
+	}, []);
+	// The fill (2026-11-08-studio-ai-routes-ux.md rule 1): a selection that is Not set is filled from
+	// a connection, and the author is told what was filled. Run once at startup, so an author who
+	// connected before this rule existed, or in another tab, is filled the same way.
+	React.useEffect(() => {
+		const label: Record<string, string> = { openrouter: 'OpenRouter', gemini: 'your Gemini key', anthropic: 'your Anthropic key', openai: 'your OpenAI key', kokoro: 'Kokoro on this device (free)' };
+		const onFilled = (e: Event) => {
+			const filled = (e as CustomEvent<{ kind: 'chat' | 'voice'; provider: string }[]>).detail ?? [];
+			if (!filled.length) return;
+			const parts = filled.map((f) => (f.kind === 'chat' ? `chat (and Image reader) now run on ${label[f.provider] ?? f.provider}` : `voice now uses ${label[f.provider] ?? f.provider}`));
+			const kokoro = filled.some((f) => f.provider === 'kokoro');
+			notify(`Nothing was set, so ${parts.join(', and ')}.`, { description: kokoro ? 'Kokoro downloads about 80 MB on your first read. Change any of these in Workspace › AI.' : 'Change any of these in Workspace › AI.', duration: 8_000 });
+		};
+		window.addEventListener(SELECTION_FILLED_EVENT, onFilled);
+		fillFromConnections();
+		return () => window.removeEventListener(SELECTION_FILLED_EVENT, onFilled);
+	}, []);
 	const practiceRef = React.useRef(practice);
 	practiceRef.current = practice;
 	// WHERE THE AUTHOR IS — the slide, its page, the caret — lives in ONE focus hub

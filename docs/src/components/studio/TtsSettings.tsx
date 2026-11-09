@@ -1,12 +1,16 @@
 import { Download, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Announce } from '@/lib/announce';
+import { readVoiceSelection, selectVoice } from '@/lib/model-selection.js';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
+import { GeminiVoicePanel } from './GeminiVoicePanel';
 import {
 	listTtsModels,
 	loadTtsKokoro,
+	normalizeVoiceSelection,
 	type OrVoiceModel,
 	previewTtsVoice,
 	setTtsKokoroVoice,
@@ -14,9 +18,6 @@ import {
 	setTtsOrVoice,
 	setTtsSpeed,
 	stopTtsPreview,
-	ttsKokoroVoice,
-	ttsOrModel,
-	ttsOrVoice,
 	ttsSpeed,
 	type VoiceAvailability,
 	voiceAvailability,
@@ -25,8 +26,11 @@ import { TtsModelPicker } from './TtsModelPicker';
 import { KOKORO_MODEL_ID, NO_SPEED_HINT, resolveVoice, speedSupported, voiceResetOnModelChange, voicesForModel } from './tts-voice-catalog';
 import { VoicePicker } from './VoicePicker';
 
-// Read-aloud TTS settings — the Cloud/On-device counterpart of ModelPicker (text
-// generation): each engine gets its own MODEL-SPECIFIC voice + speed, on the SAME
+// Read-aloud TTS settings. Which engine speaks is the author's VOICE SELECTION
+// (lib/model-selection.js), independent of the chat model: the Cloud / On-device switch here
+// SELECTS (active at once), it is never a view of the chat tier
+// (engineering/decisions/2026-11-07-studio-model-spine.md). Each engine has its own
+// MODEL-SPECIFIC voice + speed, on the SAME
 // shared voice-model instance useReadAloud plays through, so a pick here is live
 // on the next play with no separate download. The voice ROSTER is fetched live
 // from OpenRouter (tts-voice-catalog.ts/read-aloud.ts's listTtsModels) — never a
@@ -92,56 +96,64 @@ function PreviewButton({ onClick, busy, disabled, disabledHint, error }: { onCli
 	);
 }
 
-export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
-	const [avail, setAvail] = React.useState<VoiceAvailability | null>(null);
+/** The voice prefs as the stored selection holds them — read synchronously, so the first frame is final. */
+type Engine = 'cloud' | 'gemini' | 'ondevice';
+const ENGINE_PROVIDER: Record<Engine, string> = { cloud: 'openrouter', gemini: 'gemini', ondevice: 'kokoro' };
+function storedVoicePrefs() {
+	const s = readVoiceSelection();
+	const or = s.provider === 'openrouter' ? { model: s.model, voice: s.voice } : (s.last.openrouter ?? { model: '', voice: '' });
+	const kokoro = s.provider === 'kokoro' ? s.voice : (s.last.kokoro?.voice ?? '');
+	const gem = s.provider === 'gemini' ? { model: s.model, voice: s.voice } : (s.last.gemini ?? { model: '', voice: '' });
+	const tier: Engine = s.provider === 'kokoro' ? 'ondevice' : s.provider === 'gemini' ? 'gemini' : 'cloud';
+	return { tier, orModel: or.model, orVoice: or.voice, kokoroVoice: kokoro || KOKORO_DEFAULT_VOICE, gemini: gem };
+}
+const KOKORO_DEFAULT_VOICE = 'af_heart';
+/** Until the voice module answers: nothing ready, nothing supported claimed — controls render in place, disabled. */
+const PENDING_AVAIL: VoiceAvailability = { rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false };
+
+export function TtsSettings() {
+	const initial = React.useMemo(storedVoicePrefs, []);
+	const [avail, setAvail] = React.useState<VoiceAvailability>(PENDING_AVAIL);
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
-	const [orModel, setOrModelState] = React.useState('');
-	const [orVoice, setOrVoiceState] = React.useState('');
-	const [kokoroVoice, setKokoroVoiceState] = React.useState('');
+	const [tier, setTier] = React.useState<Engine>(initial.tier);
+	const [gemini, setGemini] = React.useState(initial.gemini);
+	const [orModel, setOrModelState] = React.useState(initial.orModel);
+	const [orVoice, setOrVoiceState] = React.useState(initial.orVoice);
+	const [kokoroVoice, setKokoroVoiceState] = React.useState(initial.kokoroVoice);
 	const [speed, setSpeedState] = React.useState(1);
 	const [kokoroLoad, setKokoroLoad] = React.useState<KokoroLoad>({ phase: 'idle', pct: 0 });
 	const [preview, setPreview] = React.useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 	const [modelPreview, setModelPreview] = React.useState<string | null>(null);
 	const [voicePreview, setVoicePreview] = React.useState<string | null>(null);
-	// Distinguishes "the stored voice hasn't loaded yet" (orVoice === '' only
-	// because the mount fetch below hasn't resolved) from "loaded and genuinely
-	// unset" — the reconciliation effect further down must never run before this
-	// is true, or it would overwrite a real stored pick with the roster's default
-	// while the real value is still in flight (a data-loss race).
-	const [prefsLoaded, setPrefsLoaded] = React.useState(false);
 	const abortRef = React.useRef<AbortController | null>(null);
 
+	// Follow the stored selection and the engine's readiness: on mount, and whenever either
+	// changes anywhere (this sheet, the export panel, another tab via the storage listener).
+	// Sequence-guarded so an older answer never paints over a newer one.
+	const seq = React.useRef(0);
 	React.useEffect(() => {
 		let live = true;
-		Promise.all([voiceAvailability(), ttsOrModel(), ttsOrVoice(), ttsKokoroVoice(), ttsSpeed()]).then(([a, m, ov, kv, sp]) => {
-			if (!live) return;
-			setAvail(a);
-			setOrModelState(m);
-			setOrVoiceState(ov);
-			setKokoroVoiceState(kv);
-			setSpeedState(sp);
-			setPrefsLoaded(true);
-		});
+		const sync = () => {
+			const p = storedVoicePrefs();
+			setTier(p.tier);
+			setGemini(p.gemini);
+			setOrModelState(p.orModel);
+			setOrVoiceState(p.orVoice);
+			setKokoroVoiceState(p.kokoroVoice);
+			const mine = ++seq.current;
+			Promise.all([voiceAvailability(), ttsSpeed()]).then(([a, sp]) => {
+				if (!live || mine !== seq.current) return;
+				setAvail(a);
+				setSpeedState(sp);
+			});
+		};
+		sync();
+		window.addEventListener('db-model-changed', sync);
+		window.addEventListener('db-voice-changed', sync);
 		return () => {
 			live = false;
-		};
-	}, []);
-
-	// Re-fetch availability whenever it changes ELSEWHERE in the same open Workspace
-	// sheet — e.g. clicking Disconnect in the Model section above, or a tier/voice
-	// summon completing. Without this, `avail` is a one-time snapshot from mount
-	// and the TTS controls can sit enabled against a connection that's since died
-	// (a live contradiction with the Model/Spend sections, which DO re-render).
-	// Mirrors useArchitectStatus's own `db-model-changed` listener in architect.ts.
-	React.useEffect(() => {
-		const onChange = () => {
-			voiceAvailability().then(setAvail);
-		};
-		window.addEventListener('db-model-changed', onChange);
-		window.addEventListener('db-voice-changed', onChange);
-		return () => {
-			window.removeEventListener('db-model-changed', onChange);
-			window.removeEventListener('db-voice-changed', onChange);
+			window.removeEventListener('db-model-changed', sync);
+			window.removeEventListener('db-voice-changed', sync);
 		};
 	}, []);
 
@@ -163,7 +175,11 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 		if (models) return;
 		let live = true;
 		listTtsModels().then((l) => {
-			if (live) setModels(l);
+			if (!live) return;
+			setModels(l);
+			// Correct a stored voice id the live roster no longer lists, in storage, so this panel,
+			// the next read and synthesis all use the same valid id (a normalization, not a pick).
+			void normalizeVoiceSelection(l);
 		});
 		return () => {
 			live = false;
@@ -183,37 +199,16 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 		[models],
 	);
 
-	// Reconcile a stored voice pick against the LIVE roster once both the stored
-	// prefs AND the roster have actually loaded (prefsLoaded — see its own
-	// comment above; a roster arriving before the stored value would otherwise
-	// silently overwrite a real pick with the roster's default). Catches a voice
-	// id stranded by a catalog migration (this same redesign renamed Grok's
-	// voices, e.g. "Eve" -> "eve") or one OpenRouter has since dropped — without
-	// this, the picker shows an unset-looking dropdown and "Play sample" sends
-	// the stale id straight to the live API, which errors.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: orVoice intentionally excluded — this effect reacts to the ROSTER becoming available/changing, not to every voice pick (pickOrVoice already persists those); including it would re-fire on its own write.
-	React.useEffect(() => {
-		if (!prefsLoaded || !orModelVoices.length) return;
-		const resolved = resolveVoice(orModelVoices, orVoice);
-		if (resolved !== orVoice) {
-			setOrVoiceState(resolved);
-			setTtsOrVoice(resolved);
-		}
-	}, [prefsLoaded, orModelVoices]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: kokoroVoice intentionally excluded, same reasoning as the cloud reconciliation effect above.
-	React.useEffect(() => {
-		if (!prefsLoaded || !kokoroVoices.length) return;
-		const resolved = resolveVoice(kokoroVoices, kokoroVoice);
-		if (resolved !== kokoroVoice) {
-			setKokoroVoiceState(resolved);
-			setTtsKokoroVoice(resolved);
-		}
-	}, [prefsLoaded, kokoroVoices]);
+	// A stored voice id the live roster no longer lists is corrected in storage by
+	// normalizeVoiceSelection (above); until that lands, show the corrected id so the picker is
+	// never blank.
+	const shownOrVoice = orModelVoices.length ? resolveVoice(orModelVoices, orVoice) : orVoice;
+	const shownKokoroVoice = kokoroVoices.length ? resolveVoice(kokoroVoices, kokoroVoice) : kokoroVoice;
 
 	const playPreview = React.useCallback(
 		async (rung: 'openrouter' | 'kokoro', voiceOverride?: string) => {
 			setPreview({ busy: true, error: null });
-			const voice = voiceOverride ?? (rung === 'openrouter' ? orVoice : kokoroVoice);
+			const voice = voiceOverride ?? (rung === 'openrouter' ? shownOrVoice : shownKokoroVoice);
 			// `model` lets previewTtsVoice check for a cached, pre-generated sample first
 			// (local, free, instant) before falling back to a live API call — see
 			// read-aloud.ts's cachedSampleUrl.
@@ -221,7 +216,7 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 			const res = await previewTtsVoice({ rung, voice, model, speed });
 			setPreview({ busy: false, error: res.ok ? null : res.error || 'Could not play a sample.' });
 		},
-		[orModel, orVoice, kokoroVoice, speed],
+		[orModel, shownOrVoice, shownKokoroVoice, speed],
 	);
 
 	// Picking a MODEL resets the voice to that model's default when the current
@@ -231,12 +226,12 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 		setOrModelState(m.id);
 		await setTtsOrModel(m.id);
 		const roster = voicesForModel(m.id, m.voices);
-		const next = voiceResetOnModelChange(roster, orVoice);
+		const next = voiceResetOnModelChange(roster, orVoice) || resolveVoice(roster, '');
 		if (next) {
 			setOrVoiceState(next);
 			await setTtsOrVoice(next);
 		}
-		notify('TTS model updated.');
+		notify('Voice model updated — it reads aloud from now on.');
 	};
 	// The model-row Play button (in TtsModelPicker) previews that model's CURRENT
 	// (or, if switching, its default) voice without requiring a separate model-pick
@@ -300,11 +295,57 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 		setKokoroLoad({ phase: 'idle', pct: 0 });
 	};
 
-	if (!avail) return null;
+	// Choosing the engine IS selecting it: the voice reads from it at once (no "selected but not
+	// active" state). The author's last pick on that engine comes back with it.
+	const chooseTier = (next: string) => {
+		if (next !== 'cloud' && next !== 'gemini' && next !== 'ondevice') return;
+		setTier(next);
+		selectVoice({ provider: ENGINE_PROVIDER[next] });
+	};
+	const r = avail.readiness;
+	const badge = !r ? null : r.state === 'ready' ? 'ready' : r.state === 'warming' ? 'loading' : r.state === 'needs-key' ? 'needs a key' : r.state === 'unset' ? 'not set' : 'not loaded';
+	const header = (
+		<div className="mb-3 flex items-center gap-2">
+			<ToggleGroup
+				type="single"
+				value={tier}
+				onValueChange={chooseTier}
+				aria-label="Voice engine"
+				className="overflow-hidden rounded-md border border-border"
+			>
+				<ToggleGroupItem value="cloud" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+					OpenRouter
+				</ToggleGroupItem>
+				{/* Gemini speaks only on a Gemini key: offered once one is saved (or while it is selected). */}
+				{avail.geminiReady || tier === 'gemini' ? (
+					<ToggleGroupItem value="gemini" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+						Gemini
+					</ToggleGroupItem>
+				) : null}
+				<ToggleGroupItem value="ondevice" className="px-3 py-1 text-[12px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+					On-device
+				</ToggleGroupItem>
+			</ToggleGroup>
+			{/* Readiness changes in place, as a badge: it never reflows the panel. */}
+			<span data-testid="voice-readiness" className="min-w-[88px] font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">
+				{badge ?? '\u00a0'}
+			</span>
+		</div>
+	);
+
+	if (tier === 'gemini') {
+		return (
+			<div>
+				{header}
+				<GeminiVoicePanel model={gemini.model} voice={gemini.voice} ready={!!avail.geminiReady} />
+			</div>
+		);
+	}
 
 	if (tier === 'cloud') {
 		return (
 			<div>
+				{header}
 				<div className="mb-2 text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Voice model</div>
 				<TtsModelPicker
 					models={models}
@@ -326,7 +367,7 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 						ariaLabel="Cloud TTS voice"
 						modelId={effectiveOrModel}
 						voices={orModelVoices}
-						value={orVoice}
+						value={shownOrVoice}
 						onPick={pickOrVoice}
 						onPreview={(v) => previewVoiceRow('openrouter', v)}
 						previewingId={voicePreview}
@@ -354,6 +395,7 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 	const cached = avail.kokoroCached;
 	return (
 		<div>
+			{header}
 			{!avail.kokoroSupported ? (
 				<p className="text-[11px] text-muted-foreground">On-device voice needs a desktop browser — this device uses the cloud voice for read-aloud instead.</p>
 			) : (
@@ -398,7 +440,7 @@ export function TtsSettings({ tier }: { tier: 'cloud' | 'ondevice' }) {
 					ariaLabel="On-device TTS voice"
 					modelId={KOKORO_MODEL_ID}
 					voices={kokoroVoices}
-					value={kokoroVoice}
+					value={shownKokoroVoice}
 					onPick={pickKokoroVoice}
 					onPreview={(v) => previewVoiceRow('kokoro', v)}
 					previewingId={voicePreview}

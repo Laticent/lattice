@@ -387,7 +387,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// as an empty reply. Say what happened instead.
 			const msg = String((e as { message?: string })?.message ?? e ?? '');
 			if (isToolRefusal(msg)) return null;
-			return { status: 'blocked', reply: describeModelError(msg) };
+			return { status: 'blocked', reply: describeModelError(msg, model.activeProvider?.()) };
 		}
 		else {
 			// A failure after a finished round. A status from OpenRouter (a 429 between rounds
@@ -559,7 +559,9 @@ export function isToolRefusal(message: string): boolean {
 	// a bare "tool" sent it down the one-shot path, which overflowed too and said nothing.
 	if (!/^(?:OpenRouter|OpenAI|Anthropic|Gemini) error (400|404)\b/.test(message)) return false;
 	if (/context length|maximum context|too many tokens/i.test(message)) return false;
-	return /support tool|tool use|tool_choice|tool calling|requested parameters/i.test(message);
+	// OpenAI's reasoning models refuse function tools on /chat/completions outright: "Function tools
+	// with reasoning_effort are not supported for gpt-6.1-terra" (live check, 2026-11-08).
+	return /support tool|tool use|tool_choice|tool calling|requested parameters|function tools?\b[^.]*not supported/i.test(message);
 }
 
 // `describeModelError` moved to `./model-error` so the theme and component faculties in

@@ -34,9 +34,8 @@ const SLOT_NAMES = {
 };
 /** The providers a key can be stored for. OpenRouter is the default. */
 export const KEY_PROVIDERS = Object.freeze(Object.keys(SLOT_NAMES));
-// Which provider the cloud tier runs on. Not a secret, but kept here so every storage name the
-// key flow owns is in one file.
-const ACTIVE = 'lattice-db-provider';
+// Which provider the cloud tier runs on used to live here too (`lattice-db-provider`). It is now
+// part of the chat selection record (lib/model-selection.js), which migrates it once.
 const ENVELOPE = 'v1:';
 const DB = 'lattice-secrets';
 const STORE = 'keys';
@@ -180,6 +179,11 @@ function announce() {
 	}
 }
 
+/** How soon a key whose open failed transiently is tried again by a read. */
+const TRANSIENT_RETRY_MS = 1000;
+/** The longest wait between the slot's OWN retries of a transient failure (it doubles from 1 s). */
+const TRANSIENT_RETRY_MAX_MS = 30_000;
+
 function makeSlot(KEY, REJECTED) {
 	let cached;
 	let cachedRaw;
@@ -188,6 +192,12 @@ function makeSlot(KEY, REJECTED) {
 	let generation = 0; // bumped by every write, so a load that started earlier cannot overwrite it
 	let migrating = null;
 	let persisting = Promise.resolve();
+	let lastTransient = 0; // when an open last failed transiently (the store unreachable)
+	let writtenAt = 0; // when this page last wrote a key: a key minted seconds ago may not be live everywhere yet
+	// The slot retries a transient failure by itself, backing off, so the key opens (and
+	// announces) once the store recovers even if nothing reads it meanwhile. One timer at most.
+	let retryTimer = null;
+	let retryDelay = TRANSIENT_RETRY_MS;
 
 	/** Re-seal a plaintext key left from before encryption, in place, when this browser can. Single-flight. */
 	function migrate(raw) {
@@ -232,12 +242,27 @@ function makeSlot(KEY, REJECTED) {
 				}
 			}
 			// A write that started after this load wins: never put an older key back.
+			const before = cached;
 			if (pending === 0 && generation === startedAt) {
-				cached = key || null;
+				// A transient failure leaves the key "not known yet": it is stored, just not open.
+				cached = transient ? undefined : key || null;
 				cachedRaw = transient ? undefined : read(KEY);
 			}
 			loading = null;
-			announce();
+			if (transient) {
+				lastTransient = Date.now();
+				if (!retryTimer && typeof setTimeout === 'function') {
+					retryTimer = setTimeout(() => {
+						retryTimer = null;
+						load();
+					}, retryDelay);
+					retryDelay = Math.min(retryDelay * 2, TRANSIENT_RETRY_MAX_MS);
+				}
+			} else retryDelay = TRANSIENT_RETRY_MS;
+			// Announce a CHANGE only. A transient failure that leaves the key as unknown as before
+			// announced every time, and every listener re-read the key, which retried the open, which
+			// failed and announced again: a loop that starved the page while the store was unreachable.
+			if (!(transient && before === undefined && cached === undefined)) announce();
 			return cached ?? null;
 		})();
 		return loading;
@@ -258,7 +283,8 @@ function makeSlot(KEY, REJECTED) {
 			return raw;
 		}
 		cached = undefined;
-		load();
+		// After a transient failure, retry at most once a second rather than on every read.
+		if (Date.now() - lastTransient >= TRANSIENT_RETRY_MS) load();
 		return null;
 	}
 
@@ -267,6 +293,7 @@ function makeSlot(KEY, REJECTED) {
 		cached = next;
 		generation++;
 		pending++;
+		writtenAt = next ? Date.now() : 0;
 		write(REJECTED, null);
 		persisting = persisting.then(async () => {
 			try {
@@ -314,9 +341,21 @@ function makeSlot(KEY, REJECTED) {
 		pending = 0;
 		generation = 0;
 		persisting = Promise.resolve();
+		lastTransient = 0;
+		writtenAt = 0;
+		if (retryTimer) clearTimeout(retryTimer);
+		retryTimer = null;
+		retryDelay = TRANSIENT_RETRY_MS;
 	}
 
-	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, settled: () => persisting };
+	/** 'ready' | 'opening' (a sealed key is stored but not open yet) | 'rejected' | 'none'. */
+	function state() {
+		const key = readKey();
+		if (key) return read(REJECTED) === '1' ? 'rejected' : 'ready';
+		return read(KEY) ? 'opening' : 'none';
+	}
+
+	return { KEY, load, readKey, writeKey, hint, rejected, noteStatus, reset, state, settled: () => persisting, writtenAt: () => writtenAt };
 }
 
 const SLOTS = Object.fromEntries(Object.entries(SLOT_NAMES).map(([p, [k, r]]) => [p, makeSlot(k, r)]));
@@ -358,8 +397,64 @@ export function readOpenRouterKey() {
  * Store a key (or remove it with null). Memory changes now; the sealed copy is written next,
  * in order. A new key, or none, always clears the rejected mark. Returns the write's promise.
  */
-export function writeOpenRouterKey(key) {
+/** How long ago this page wrote the OpenRouter key (ms), or Infinity when it did not. */
+export function openRouterKeyAgeMs() {
+	const t = OR.writtenAt();
+	return t ? Date.now() - t : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * How long OpenRouter may take to start accepting a key a sign-in just minted. Until then a 401
+ * means "not active yet", not "rejected": a real sign-in on an iPhone was refused "User not
+ * found." for over a minute and accepted 94 s after the key was made (owner report, 2026-11-09).
+ */
+export const OPENROUTER_ACTIVATION_MS = 180_000;
+// When a sign-in minted a key, and that key's last four characters ("<ms>:<tail>"). The tail is the
+// one piece of the key kept in clear: the same four characters Connections shows on screen, 16 bits,
+// not usable as a secret. Kept across a reload, so a page opened mid-activation still knows, and on
+// Disconnect, so Undo brings the same key back still in its window; a different key never matches
+// it. A pasted key has none: its 401 is a rejection at once.
+const OR_MINTED = 'lattice-db-or-minted';
+const tail = (key) => String(key).slice(-4);
+let activatingKey = null; // the key OpenRouter answered 401 for inside its window, until a 2xx or a new key
+
+/**
+ * Store the OpenRouter key (or remove it with null). `minted: true` marks a key a sign-in was just
+ * given, which OpenRouter may refuse for a minute or two while it activates it.
+ */
+export function writeOpenRouterKey(key, { minted = false } = {}) {
+	if (!key) write(OR_VIA, null);
+	if (key && minted) write(OR_MINTED, `${Date.now()}:${tail(key)}`);
+	if (activatingKey) {
+		activatingKey = null;
+		announce();
+	}
 	return OR.writeKey(key);
+}
+
+/** How long ago a sign-in minted `key` (the stored OpenRouter key by default), in ms; Infinity for a pasted key or none. */
+export function openRouterKeyMintedAgeMs(key = OR.readKey()) {
+	const [at, t] = String(read(OR_MINTED) ?? '').split(':');
+	return key && Number(at) > 0 && t === tail(key) ? Date.now() - Number(at) : Number.POSITIVE_INFINITY;
+}
+
+/** True while OpenRouter is still activating the key a sign-in just minted: it answered 401 inside the window. */
+export function openRouterKeyActivating() {
+	const key = OR.readKey();
+	return !!key && activatingKey === key && openRouterKeyMintedAgeMs(key) < OPENROUTER_ACTIVATION_MS;
+}
+
+// How OpenRouter was connected: 'oauth' (signed in) or 'key' (pasted), for the card's line
+// ("Signed in" vs "Key …ab12"). A key stored before this was recorded has no answer and reads as a
+// key. One OpenRouter connection either way (2026-11-08-studio-ai-routes-ux.md §2).
+const OR_VIA = 'lattice-db-or-via';
+/** Record how OpenRouter was connected. */
+export function writeOpenRouterVia(via) {
+	write(OR_VIA, via === 'oauth' || via === 'key' ? via : null);
+}
+/** How OpenRouter was connected: 'oauth', 'key', or null (no key, or an older key). */
+export function readOpenRouterVia() {
+	return OR.readKey() || read(OR.KEY) ? read(OR_VIA) : null;
 }
 
 /** A safe label for the stored key — its last four characters — or null. Never the key. */
@@ -380,18 +475,33 @@ export function openRouterKeyRejected() {
  * Returns true when the mark changed, so the caller can announce it once.
  */
 export function noteOpenRouterStatus(status, key) {
-	return OR.noteStatus(status, key);
+	if (!key || key !== OR.readKey()) return false;
+	// A 401 for a key a sign-in minted moments ago means OpenRouter has not activated it yet.
+	if (status === 401 && openRouterKeyMintedAgeMs(key) < OPENROUTER_ACTIVATION_MS) {
+		if (activatingKey === key) return false;
+		activatingKey = key;
+		announce();
+		return true;
+	}
+	if (status !== 401 && !(status >= 200 && status < 300)) return OR.noteStatus(status, key);
+	const was = activatingKey !== null;
+	activatingKey = null; // a 2xx means active; a 401 past the window is a rejection
+	const changed = OR.noteStatus(status, key);
+	if (was && !changed) announce();
+	return changed || was;
 }
 
 /**
- * Whether a `storage` event (another tab) changed the OpenRouter key, a direct provider's key
- * or the active provider. A cleared store (`key === null`) counts. The memory copy is dropped
+ * Whether a `storage` event (another tab) changed the OpenRouter key or a direct provider's key. A cleared store (`key === null`) counts. The memory copy is dropped
  * so the next read loads what the other tab wrote.
  */
 export function isOpenRouterKeyEvent(event) {
 	const k = event?.key;
-	const hit = k === null || k === ACTIVE || Object.values(SLOTS).some((s) => s.KEY === k);
+	const hit = k === null || Object.values(SLOTS).some((s) => s.KEY === k);
 	if (hit) wrapKey = null; // the other tab may have made the sealing key; read it afresh
+	// Only a change to the OpenRouter key (or a cleared store) can make the stored key differ from
+	// the one this tab saw activating; another provider's key leaves it alone.
+	if (k === null || k === OR.KEY) activatingKey = null;
 	return hit;
 }
 
@@ -422,19 +532,19 @@ export function noteProviderStatus(provider, status, key) {
 	return slot(provider).noteStatus(status, key);
 }
 
-/** The provider the cloud tier runs on: 'openrouter' (the default) or a direct provider. */
-export function readActiveProvider() {
-	const p = read(ACTIVE);
-	return p && Object.hasOwn(SLOT_NAMES, p) ? p : 'openrouter';
-}
-/** Choose the provider the cloud tier runs on. Announces `db-model-changed`. */
-export function writeActiveProvider(provider) {
-	write(ACTIVE, provider && provider !== 'openrouter' && Object.hasOwn(SLOT_NAMES, provider) ? provider : null);
-	announce();
+/**
+ * Where `provider`'s key stands: 'ready', 'opening' (a sealed key is stored and still being
+ * opened), 'rejected' (the provider answered 401) or 'none'. The model selection reads this to
+ * say warming / needs-key instead of substituting another provider
+ * (engineering/decisions/2026-11-07-studio-model-spine.md).
+ */
+export function providerKeyState(provider) {
+	return slot(provider).state();
 }
 
 /** Test seam: forget every memory copy, as a fresh page load would. */
 export function __resetOpenRouterKeyForTests() {
 	for (const s of Object.values(SLOTS)) s.reset();
 	wrapKey = null;
+	activatingKey = null;
 }

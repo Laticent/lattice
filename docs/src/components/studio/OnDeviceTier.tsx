@@ -5,12 +5,12 @@ import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, loadUniversalModel, setStudioTier, summonWebLLM, type TierProgress } from './architect';
 
-// The on-device generation ladder — restored to the Workspace UI and made HONEST
-// under Studio Policy B (connection ≠ active): a rung you pick actually becomes the
-// active tier, even while OpenRouter stays connected (the engine honors the explicit
-// pick — see architect-model.js `explicitTierWins`). So the "active" badge reflects
-// the TRUE active tier (`status.generation`), never merely "loaded". Three tiers,
-// each free + private (the deck never leaves the device):
+// The on-device chat models, as choices of the ONE chat selection (model spine,
+// engineering/decisions/2026-11-07-studio-model-spine.md): Use selects it, and it answers at
+// once when ready. A selected model that is not loaded says so in place and offers Load (from
+// this browser's cache) or Get (the download); it never falls back to another model. A cached
+// selected model warms by itself at boot, with its progress here. Three tiers, each free +
+// private (the deck never leaves the device):
 //   • built-in   — the browser's Prompt API (Chrome/Edge), instant, no download
 //   • WebLLM     — a stronger model on a desktop GPU (~1GB, WebGPU)
 //   • universal  — Transformers.js on WASM (~350MB), runs everywhere
@@ -36,9 +36,11 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 
 	const isReady = (tier: Tier) =>
 		tier === 'prompt-api' ? status.promptApi === 'available' : tier === 'webllm' ? status.webllmReady : status.universalReady;
-	const isActive = (tier: Tier) => status.generation === tier;
+	const isSelected = (tier: Tier) => status.readiness?.provider === tier;
+	const isActive = (tier: Tier) => isSelected(tier) && isReady(tier);
+	const warmPct = (tier: Tier) => (isSelected(tier) && status.readiness?.state === 'warming' && status.readiness.progress != null ? Math.round(status.readiness.progress * 100) : null);
 	const disabledReason = (tier: Tier): string | null => {
-		if (tier === 'prompt-api' && status.promptApi !== 'available' && status.generation !== 'prompt-api')
+		if (tier === 'prompt-api' && status.promptApi !== 'available' && status.promptApi !== 'unknown')
 			return 'Not available in this browser — try Chrome or Edge, or the universal tier below.';
 		if (tier === 'webllm' && !status.webgpu) return 'Needs WebGPU (a desktop browser with a GPU).';
 		return null;
@@ -75,6 +77,8 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 				const s = state[tier];
 				const ready = isReady(tier);
 				const active = isActive(tier);
+				const selected = isSelected(tier);
+				const warming = warmPct(tier);
 				const reason = disabledReason(tier);
 				const loaderFor = tier === 'webllm' ? summonWebLLM : tier === 'universal' ? loadUniversalModel : null;
 				return (
@@ -86,12 +90,26 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 							<span className="min-w-0 flex-1">
 								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">{title}</span>
 								<span className="block text-[11px] text-muted-foreground">
-									{reason ? reason : active ? 'Running on this device' : ready ? 'Loaded — ready to use' : download ? `${detail} A one-time ${download} download.` : detail}
+									{reason
+										? reason
+										: active
+											? 'Running on this device'
+											: warming != null
+												? 'Selected — loading from this browser'
+												: selected
+													? 'Selected — not loaded in this browser yet'
+													: ready
+														? 'Loaded — ready to use'
+														: download
+															? `${detail} A one-time ${download} download.`
+															: detail}
 								</span>
 							</span>
 							{/* Action — reflects the TRUE state: active → badge; loaded → Use; else → Use / download. */}
 							{active ? (
 								<span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">active</span>
+							) : warming != null ? (
+								<span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">{warming}%</span>
 							) : s.phase === 'loading' ? (
 								<button type="button" onClick={() => cancel(tier)} className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-muted-foreground">
 									<span className="flex items-center gap-1"><Loader2 className="size-3 animate-spin" />Cancel</span>
@@ -101,13 +119,18 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 									<button type="button" onClick={() => loaderFor && startLoad(tier, title, loaderFor)} className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-primary-foreground">Download {download}</button>
 									<button type="button" onClick={() => set(tier, { phase: 'idle', pct: 0 })} className="rounded-md border border-border px-2 py-1 text-[12px] font-semibold text-muted-foreground">Cancel</button>
 								</span>
-							) : ready || !download ? (
-								<button type="button" disabled={!!reason} onClick={() => activate(tier, title)} className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] disabled:opacity-50">Use</button>
+							) : ready || !download || (selected && status.readiness?.cached) ? (
+								<button type="button" disabled={!!reason} onClick={() => activate(tier, title)} className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] disabled:opacity-50">{selected && !ready ? 'Load' : 'Use'}</button>
 							) : (
 								<button type="button" disabled={!!reason} onClick={() => set(tier, { phase: 'confirm', pct: 0 })} className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] disabled:opacity-50">{`Get ${download}`}</button>
 							)}
 						</div>
 						{s.phase === 'confirm' && <p className="mt-1.5 text-[11px] text-muted-foreground">Downloads {download} once, then runs entirely on your device.</p>}
+						{warming != null && s.phase !== 'loading' && (
+							<div className="mt-2 h-[5px] overflow-hidden rounded-full bg-border">
+								<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, warming)}%` }} />
+							</div>
+						)}
 						{s.phase === 'loading' && (
 							<div className="mt-2 h-[5px] overflow-hidden rounded-full bg-border">
 								<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, s.pct)}%` }} />

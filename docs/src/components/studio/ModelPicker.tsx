@@ -9,9 +9,11 @@ import {
 	rowTitle,
 	shortName,
 } from '@/components/studio/ai/or-catalog.js';
+import { modelDisplayName } from '@/lib/model-name';
 import { notify } from '@/lib/notify';
+import { CURATED, curate } from '@/lib/provider-registry.js';
 import { cn } from '@/lib/utils';
-import { type ArchitectStatus, listStudioModels, type ORModel, setStudioModel } from './architect';
+import { type ArchitectStatus, type CloudProvider, listStudioModels, type ORModel, setStudioModel } from './architect';
 import { KEY_PROVIDER_INFO } from './key-providers';
 
 // A React port of the Drawing Board's model accordion (drawing-board-settings.js), reusing the
@@ -32,12 +34,17 @@ export function useModelCatalog(
 		visionOnly?: boolean;
 		/** What the confirmation calls the thing picked. */
 		label?: string;
+		/** The route to list, when it is not the chat's (the image reader's own route). */
+		provider?: CloudProvider;
+		/** Load that route's list. Required with `provider`. */
+		load?: () => Promise<ORModel[]>;
 	} = {},
 ) {
 	const [models, setModels] = React.useState<ORModel[] | null>(null);
-	// The Featured / Value / Free lenses match OpenRouter ids (`anthropic/claude-sonnet…`), so a
-	// direct provider's bare ids would show an empty list: it opens on All, with no lens row.
-	const [view, setView] = React.useState<string>((status.provider ?? 'openrouter') === 'openrouter' ? 'featured' : 'all');
+	// Both open on the curated lens: OpenRouter's Featured, a direct provider's Recommended (the
+	// registry's families). The whole live list is one tap (All) or one search away, so the author
+	// sees a short, clear list first and is never swamped (owner, 2026-11-08).
+	const [view, setView] = React.useState<string>('featured');
 	const [query, setQuery] = React.useState('');
 	const wanted = opts.currentId !== undefined ? opts.currentId : status.modelId;
 	// Each picker's radios are their own group: two lists sharing a name make the browser treat them as one, so an arrow key in one
@@ -47,22 +54,25 @@ export function useModelCatalog(
 
 	// A different provider has a different list: drop the loaded one so the effect below fetches
 	// the new provider's (lifecycle note §7 step 2).
-	const provider = status.provider ?? 'openrouter';
+	const provider = opts.provider ?? status.provider ?? 'openrouter';
+	const ready = opts.load ? true : status.openRouterReady;
+	const loadRef = React.useRef(opts.load);
+	loadRef.current = opts.load;
 	const shownFor = React.useRef(provider);
 	React.useEffect(() => {
 		if (shownFor.current === provider) return;
 		shownFor.current = provider;
 		setModels(null);
-		setView(provider === 'openrouter' ? 'featured' : 'all');
+		setView('featured');
 	}, [provider]);
 
 	// Load the catalog once, only when OpenRouter is connected (no fetch on the
 	// floor/on-device tiers — keeps tests and offline use network-free).
 	React.useEffect(() => {
 		let live = true;
-		if (status.openRouterReady && !models && opts.enabled !== false) {
+		if (ready && !models && opts.enabled !== false) {
 			const forProvider = provider;
-			listStudioModels().then((l) => {
+			(loadRef.current ?? listStudioModels)().then((l) => {
 				// A list that answers after the provider changed belongs to the old provider.
 				if (live && shownFor.current === forProvider) setModels(l);
 			});
@@ -70,7 +80,7 @@ export function useModelCatalog(
 		return () => {
 			live = false;
 		};
-	}, [status.openRouterReady, models, opts.enabled, provider]);
+	}, [ready, models, opts.enabled, provider]);
 
 	// Reflect an external model change (e.g. another surface) in the summary.
 	React.useEffect(() => {
@@ -78,7 +88,27 @@ export function useModelCatalog(
 	}, [wanted]);
 
 	const current = React.useMemo(() => (models && selectedId ? models.find((m) => m.id === selectedId) : null) ?? null, [models, selectedId]);
-	const groups = React.useMemo(() => groupByVendor(filterModels((models ?? []).filter((m) => !opts.visionOnly || m.vision), view, query)), [models, view, query, opts.visionOnly]);
+	const groups = React.useMemo(() => {
+		// A model whose catalog does not say whether it reads images is listed: it is tried, never refused on a guess.
+		const usable = (models ?? []).filter((m) => !opts.visionOnly || m.vision !== false);
+		if (provider === 'openrouter') return groupByVendor(filterModels(usable, view, query));
+		// A direct provider's ids are bare (`gemini-3.8-flash`, no `vendor/`), so grouping by vendor made
+		// every model its own heading. Recommended = the newest model of each registry family; All adds
+		// every other live model. A search always looks through all of them. The selected model stays
+		// in view even when it is not a recommended one.
+		const ordered = curate(filterModels(usable, 'all', query), CURATED.chat[provider as keyof typeof CURATED.chat], { perFamily: 1 });
+		const recommended = ordered.filter((m) => m.curated);
+		const rest = ordered.filter((m) => !m.curated);
+		const label = KEY_PROVIDER_INFO[provider].label;
+		if (view === 'featured' && !query.trim() && recommended.length) {
+			const chosen = rest.filter((m) => m.id === selectedId);
+			return [{ vendor: 'Recommended', models: recommended }, ...(chosen.length ? [{ vendor: 'Selected', models: chosen }] : [])];
+		}
+		return [
+			{ vendor: 'Recommended', models: recommended },
+			{ vendor: `All ${label} models`, models: rest },
+		].filter((g) => g.models.length);
+	}, [models, view, query, opts.visionOnly, provider, selectedId]);
 
 	const pick = async (m: ORModel) => {
 		setSelectedId(m.id);
@@ -88,6 +118,12 @@ export function useModelCatalog(
 	};
 	return { models, view, setView, query, setQuery, selectedId, current, groups, pick, groupName, provider };
 }
+
+/** A direct provider's two lenses: the registry's recommended families, or everything its key lists. */
+const DIRECT_VIEWS: [string, string][] = [
+	['featured', 'Recommended'],
+	['all', 'All'],
+];
 
 /** Search, the Featured/Value/Free/All lens, and the vendor-grouped priced list. */
 export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: ReturnType<typeof useModelCatalog>; searchRef?: React.Ref<HTMLInputElement>; maxHeight?: number }) {
@@ -105,9 +141,8 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 				aria-label={`Search ${providerLabel} models`}
 				className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none focus:border-[var(--accent)]"
 			/>
-			{direct ? null : (
 			<div className="mt-2 flex gap-1 rounded-lg border border-border p-0.5" role="tablist" aria-label="Model lens">
-				{OR_VIEWS.map(([key, label]) => (
+				{(direct ? DIRECT_VIEWS : OR_VIEWS).map(([key, label]) => (
 					<button
 						type="button"
 						key={key}
@@ -120,7 +155,6 @@ export function ModelList({ catalog, searchRef, maxHeight = 280 }: { catalog: Re
 					</button>
 				))}
 			</div>
-			)}
 
 			<div className="mt-2 overflow-y-auto" style={{ maxHeight }}>
 				{models === null ? (
@@ -162,7 +196,7 @@ export function ModelPicker({ status }: { status: ArchitectStatus }) {
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const catalog = useModelCatalog(status, { onPicked: () => setOpen(false) });
 	const { current, selectedId } = catalog;
-	const summaryName = current ? shortName(current) : (selectedId ?? 'Choose a model');
+	const summaryName = modelDisplayName({ id: current?.id ?? selectedId, name: current?.name });
 	const summaryMeta = current ? metaLabel(current) : '';
 	const provider = status.provider ?? 'openrouter';
 	const label = KEY_PROVIDER_INFO[provider].label;

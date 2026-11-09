@@ -1,9 +1,11 @@
 ---
-status: in-progress
+status: superseded
 summary: A red-team of the G6 Studio Workspace found the on-device generation ladder was dead while OpenRouter was connected — pickBackend returned the cloud before any on-device pick, so "Use/Summon/Load" changed nothing (and downloaded gigabytes for nothing) while a toast claimed "on-device, private, free." The fix decouples *connected* from *active* (Policy B): a deliberate on-device pick outranks the connected cloud, opt-in per model instance via `explicitTierWins` so the Drawing Board's cloud-always-wins behavior is untouched. The Workspace AI-model tab becomes a single Generation switch (Cloud / On-device); the vestigial Cloud tab is removed.
 ---
 
 # Studio AI-tier precedence — connection ≠ active (Policy B)
+
+> **Superseded 2026-11-07** by `2026-11-07-studio-model-spine.md`. The ladder and its `explicitTierWins` flag are gone: the chat model is one stored selection, resolved without falling back to another tier. "Connection is not active" survives in a stronger form — only the selection is active.
 
 ## The problem (red-team, 2026-06-28 → 06-29)
 

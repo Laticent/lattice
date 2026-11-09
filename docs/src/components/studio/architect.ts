@@ -13,6 +13,8 @@ import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/st
 import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { AUTHORING_RULES, buildLatticePrimer, layoutBlock } from '@/lib/architect-knowledge.js';
 import { getFrontMatter, innerFrontMatter, writeFrontMatterLine } from '../../lib/front-matter';
+import { readChatSelection } from '../../lib/model-selection.js';
+import { providerKeyState } from '../../lib/openrouter-key.js';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -207,7 +209,7 @@ export type ORModel = {
 	aliasSlug?: string | null;
 };
 
-/** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
+/** This key's readout from /api/v1/key — usage + (optional) per-key spend limit. */
 export type ORAccount = {
 	usage?: number | null;
 	limit?: number | null;
@@ -242,7 +244,21 @@ export type ModelAvailability = {
 	openRouterKeyInvalid?: boolean;
 	/** Which provider the cloud tier runs on: 'openrouter', or a direct 'openai' | 'gemini' | 'anthropic' key. */
 	provider?: CloudProvider;
+	/** Where the chat SELECTION stands (lib/model-selection.js): who would answer, and whether it can now. */
+	readiness?: ChatReadiness;
 	modelOn: boolean;
+};
+
+/** The chat selection's readiness. It never names a substitute: a selection that cannot answer says why. */
+export type ChatReadiness = {
+	state: 'ready' | 'warming' | 'needs-key' | 'unavailable' | 'off' | 'unset' | 'retired';
+	source: 'cloud' | 'device';
+	provider: string;
+	model: string;
+	/** On-device only: load progress 0–1 while warming, else null. */
+	progress?: number | null;
+	/** On-device only: the weights are already in this browser's Cache Storage. */
+	cached?: boolean;
 };
 
 /** The providers the cloud tier can run on (lifecycle note §7). OpenRouter is the default. */
@@ -252,7 +268,7 @@ export type CloudProvider = 'openrouter' | 'openai' | 'gemini' | 'anthropic';
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 export type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; onFinishReason?: (r: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string; tools?: readonly unknown[]; toolChoice?: 'auto' | 'none'; onToolCalls?: (calls: ToolCall[]) => void; onToolStart?: (name: string) => void; onReasoning?: (t: string) => void; cacheTail?: boolean; model?: string; route?: string; reasoningEffort?: 'low' | 'medium' | 'high'; surfaceErrors?: boolean }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -271,11 +287,17 @@ export type ArchitectModel = {
 	// Direct provider keys (§7 step 2). Optional: a test double without them is OpenRouter-only.
 	activeProvider?: () => CloudProvider;
 	checkProviderKey?: (provider: CloudProvider, key: string) => Promise<number>;
-	saveProviderKey?: (provider: CloudProvider, key: string) => void;
+	/** Store a key; returns what it filled (a selection that was not set). */
+	saveProviderKey?: (provider: CloudProvider, key: string) => { kind: string; provider: string }[] | undefined;
 	removeProviderKey?: (provider: CloudProvider) => void;
 	disconnectAllProviders?: () => void;
 	providersWithKeys?: () => CloudProvider[];
 	switchProvider?: (provider: CloudProvider) => void;
+	/** The image reader as it stands (2026-11-08-studio-ai-routes-ux.md §2): its own route and model, or the chat model's. */
+	imageReader?: () => { mode: 'same' | 'own'; provider: string; model: string; state: string };
+	/** One route's model list and price: the image reader's route can differ from chat's. */
+	listModelsOn?: (provider: string) => Promise<ORModel[]>;
+	modelPriceOn?: (provider: string, id: string) => ORPrice | null;
 	openRouterAccount: () => Promise<ORAccount | null> | ORAccount | null;
 	openRouterCredits: () => Promise<ORCredits | null> | ORCredits | null;
 	openRouterKeySettingsUrl: () => string;
@@ -284,8 +306,10 @@ export type ArchitectModel = {
 	// The catalog + selection the Workspace model picker drives.
 	listOpenRouterModels: () => Promise<ORModel[]>;
 	openRouterModel: () => string;
-	setOpenRouterModel: (id: string) => void;
-	// The on-device ladder the Workspace restores to its UI.
+	setOpenRouterModel: (id: string, provider?: CloudProvider) => void;
+	/** Fix the backend + model for one chat turn; the returned model answers and reads on them. */
+	pin?: () => Promise<ArchitectModel>;
+	/** Select a tier: 'auto' (the cloud provider), 'prompt-api' | 'webllm' | 'universal', or 'floor'. */
 	setTier: (name: string) => void;
 	summon: (onProgress?: (p: TierProgress) => void, signal?: AbortSignal) => Promise<boolean>;
 	loadUniversal: (onProgress?: (p: TierProgress) => void, signal?: AbortSignal) => Promise<boolean>;
@@ -311,8 +335,7 @@ let modelPromise: Promise<ArchitectModel | null> | null = null;
 export function architectModel(): Promise<ArchitectModel | null> {
 	if (!modelPromise) {
 		modelPromise = import('@/components/studio/ai/architect-model.js')
-			// explicitTierWins: a deliberate on-device pick outranks the connected cloud
-			// (Studio Policy B — connection ≠ active; one tap resumes the cloud).
+			// Who answers is the stored chat selection (lib/model-selection.js), never a ladder.
 			// defaultModel: DELIBERATELY NOT PASSED. The Studio used to override it to the
 			// cheap Haiku alias on the reasoning that "the user upgrades deliberately" — but
 			// the Workspace picker sitting right next to it has always told the author
@@ -339,7 +362,7 @@ export function architectModel(): Promise<ArchitectModel | null> {
 				// The direct-provider keys are sealed the same way (§7 step 2, §9). Read through `in`:
 				// a test that mocks this module without the export must still get a model.
 				if ('loadProviderKey' in m) await Promise.all(['openai', 'gemini', 'anthropic'].map((p) => m.loadProviderKey(p)));
-				return m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
+				return m.createArchitectModel({ getSettings: () => ({}), defaultMaxTokens: CHAT_OUTPUT_EST }) as ArchitectModel;
 			})
 			.catch(() => null);
 	}
@@ -575,7 +598,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message : Stri
 // The sentence for a failed request, loaded only when a request fails: the per-cause sentences are
 // most of model-error.ts's weight, and a first load that never fails should not pay for them
 // (docs/route-budget.json). The chat agent imports it statically, inside its own lazy chunk.
-const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e));
+const failedNote = async (e: unknown): Promise<string> => (await import('./model-error')).describeModelError(errorText(e), readChatSelection().provider);
 
 export type ThemeGenOutcome =
 	/** The model request itself failed; `note` names the cause (a 401, 402, 429, no network). */
@@ -1357,7 +1380,7 @@ export type ProposedEdit = {
 };
 export type ChatResult =
 	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null; activity?: string[]; usage?: import('./studio-store').ChatUsage; trace?: import('./studio-store').ChatTrace; /** An act the turn queued for the author to confirm (chat-actions.ts). */ action?: import('./chat-actions').ChatAction; /** Which path answered: the tool agent, or the one-shot fallback (on-device, or a model that refuses tools). */ via?: 'agent' | 'oneshot'; /** The agent turn ran to its own end and left no checker errors. Only such a turn may auto-apply. */ clean?: boolean }
-	| { status: 'offline' }
+	| { status: 'offline'; /** Why the selection could not answer (warming, needs a key, unavailable). */ readiness?: ChatReadiness }
 	| { status: 'blocked'; reply: string };
 
 /** The author's place in the deck when they send a message (see ChatGrounding.focus). */
@@ -1507,10 +1530,14 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	// This turn's charges book under the deck it was sent from, even if the author switches decks before it ends.
 	const turnDeck = getSpendDeck();
 	await loadArchitectAuthoring();
-	const model = await architectModel();
-	if (!model) return { status: 'offline' };
-	const generation = model.availability().generation;
-	if (generation === 'floor') return { status: 'offline' };
+	const base = await architectModel();
+	if (!base) return { status: 'offline' };
+	// PIN the backend and model for the whole turn: every agent round answers on them, and the
+	// reply, its cost and the chip are credited to them, even if the author switches mid-turn.
+	const model = base.pin ? await base.pin() : base;
+	const availability = model.availability();
+	const generation = availability.generation;
+	if (generation === 'floor') return { status: 'offline', readiness: availability.readiness };
 	// The cloud tier is an AGENT (chat-agent.ts, loaded on demand): tools to read the docs, edit a draft,
 	// and check it. The on-device tiers cannot drive a tool loop reliably and keep the
 	// one-shot path that follows. See 2026-10-05-studio-chat-agent.md.
@@ -1859,25 +1886,28 @@ export function estimateUsd(promptText: string, price: ORPrice | null, maxOut = 
 // The cloud budget gate, shared by every architect action: blocks when already over
 // the cap/balance, AND — in hard-stop mode — refuses a call whose ESTIMATE would
 // breach the self-cap, so a single large request can't overshoot. Returns a note, or null.
-export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0, priceModelId?: string): Promise<string | null> {
+export async function cloudBudgetBlock(model: ArchitectModel, promptText: string, extraTokens = 0, maxOut = CHAT_OUTPUT_EST, extraUsd = 0, priceModelId?: string, route?: string): Promise<string | null> {
 	const s = architectSpend();
 	if (s.status.blocked) return 'Budget cap reached — raise it in Workspace → Spend, or switch tier.';
 	if (s.mode === 'stop' && s.cap > 0) {
 		// The hard stop prices THIS call's ceiling — its job is to refuse a call that could
 		// overshoot, so it assumes the reply runs to the end. `maxOut` defaults to the shared
 		// ceiling; only the chat, which lifts its own, passes the larger figure.
-		let price = model.openRouterModelPrice?.(priceModelId) ?? null;
+		// A call on its own route (the image reader) is priced on that route's catalog, not chat's.
+		const priceOf = () => (route && model.modelPriceOn && priceModelId ? model.modelPriceOn(route, priceModelId) : (model.openRouterModelPrice?.(priceModelId) ?? null));
+		let price = priceOf();
 		if (!price) {
 			// The price comes from the model catalog, which loads on demand; with none the cap has nothing to hold the call to. Wait for it, at most 4 s.
 			let timer: ReturnType<typeof setTimeout> | undefined;
-			await Promise.race([Promise.resolve(model.listOpenRouterModels?.()).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
+			const load = route && model.listModelsOn ? model.listModelsOn(route) : model.listOpenRouterModels?.();
+			await Promise.race([Promise.resolve(load).catch(() => undefined), new Promise((r) => (timer = setTimeout(r, 4000)))]);
 			clearTimeout(timer);
-			price = model.openRouterModelPrice?.(priceModelId) ?? null;
+			price = priceOf();
 		}
 		// FAIL CLOSED on a direct provider key (lifecycle note §7). OpenRouter reports each call's real
 		// cost and can cap the key on its server; a direct key has neither, so our estimate is the
 		// only limit, and a model we cannot price would be recorded as $0 and never trip the cap.
-		if (!price && (model.activeProvider?.() ?? 'openrouter') !== 'openrouter') {
+		if (!price && (route ?? model.activeProvider?.() ?? 'openrouter') !== 'openrouter') {
 			return 'This model has no price we can look up, so your hard-stop cap cannot hold it. Pick a priced model in Workspace → AI, or set the cap to Warn.';
 		}
 		const est = estimateUsd(promptText, price, maxOut, extraTokens, extraUsd);
@@ -1907,7 +1937,7 @@ export type ArchitectStatus = {
 	generation: string;
 	modelName: string | null;
 	modelId: string | null;
-	// This key (/auth/key): usage + optional per-key limit + monthly breakdown.
+	// This key (/api/v1/key): usage + optional per-key limit + monthly breakdown.
 	remaining: number | null;
 	usage: number | null;
 	limit: number | null;
@@ -1929,7 +1959,26 @@ export type ArchitectStatus = {
 	openRouterKeyInvalid: boolean;
 	/** The provider the cloud tier runs on (OpenRouter unless a direct key is active). */
 	provider?: CloudProvider;
+	/** The chat selection and whether it can answer now. */
+	readiness?: ChatReadiness;
 };
+
+/** The stored chat selection as a readiness, before the model module has said whether it can answer. */
+function seedReadiness(): ChatReadiness {
+	const s = readChatSelection();
+	if (!s.provider) return { state: 'unset', source: 'cloud', provider: '', model: '' };
+	// What storage can already tell, synchronously: a cloud provider with no stored key needs one;
+	// a stored key is open or still opening. An on-device model's readiness needs the model module.
+	const k = s.source === 'cloud' ? providerKeyState(s.provider) : null;
+	const state: ChatReadiness['state'] = k === 'none' ? 'needs-key' : k === 'ready' || k === 'rejected' ? 'ready' : 'warming';
+	return { state, source: s.source, provider: s.provider, model: s.model };
+}
+/** The status a surface paints on its first frame: the stored selection, readiness pending. */
+function seedStatus(): ArchitectStatus {
+	if (typeof window === 'undefined') return FLOOR_STATUS;
+	const r = seedReadiness();
+	return { ...FLOOR_STATUS, readiness: r, modelId: r.model || null, provider: (r.source === 'cloud' && r.provider ? r.provider : 'openrouter') as CloudProvider };
+}
 
 const FLOOR_STATUS: ArchitectStatus = {
 	ready: false, generation: 'floor', modelName: null, modelId: null, remaining: null, usage: null, limit: null,
@@ -1938,10 +1987,9 @@ const FLOOR_STATUS: ArchitectStatus = {
 };
 
 // The universal Transformers.js backend reports its active name as 'transformers'
-// (architect-model.js), but the Studio's tier vocabulary — tierPref, setStudioTier,
-// the UI's ON_DEVICE_TIERS / "active" checks — is 'universal'. Normalize at this
-// boundary so the active-tier badge + helper reflect the truth. The kernel name is
-// left as-is because the Drawing Board keys off `generation === 'transformers'`.
+// (architect-model.js), but the Studio's tier vocabulary — the chat selection's provider,
+// setStudioTier, the UI's ON_DEVICE_TIERS / "active" checks — is 'universal'. Normalize at
+// this boundary so the active-tier badge + helper reflect the truth.
 export function normalizeGeneration(generation: string): string {
 	return generation === 'transformers' ? 'universal' : generation;
 }
@@ -1952,15 +2000,22 @@ export function normalizeGeneration(generation: string): string {
  * (the Workspace bumps it on open so the authoritative account spend is fresh).
  */
 export function useArchitectStatus(pulse = 0): ArchitectStatus {
-	const [state, setState] = React.useState<ArchitectStatus>(FLOOR_STATUS);
+	// The first frame paints the STORED selection (read synchronously), so nothing reflows when the
+	// model module arrives: only its readiness changes, in place.
+	const [state, setState] = React.useState<ArchitectStatus>(seedStatus);
+	// Overlapping refreshes (several `db-model-changed` in a burst) may settle out of order; only
+	// the newest one may paint.
+	const seq = React.useRef(0);
 	// `pulse` is an intentional dependency: the caller bumps it to force a re-fetch
 	// of the live status (incl. the authoritative account spend) on demand.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pulse is the explicit refetch trigger
 	React.useEffect(() => {
 		let canceled = false;
 		const refresh = async () => {
+			const mine = ++seq.current;
+			const stale = () => canceled || mine !== seq.current;
 			const m = await architectModel();
-			if (!m || canceled) return;
+			if (!m || stale()) return;
 			try {
 				await m.refreshAvailability?.();
 			} catch {
@@ -1970,13 +2025,16 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 			// not wait on the account network call below, or the whole panel sits on the
 			// floor placeholder until the fetch resolves.
 			const a = m.availability();
-			if (canceled) return;
+			if (stale()) return;
 			const generation = normalizeGeneration(a.generation);
+			const readiness = a.readiness ?? seedReadiness();
+			const cloudSelected = readiness.source === 'cloud';
 			setState({
 				ready: generation !== 'floor',
 				generation,
-				modelName: m.openRouterModelName?.() ?? null,
-				modelId: m.openRouterModel?.() ?? null,
+				readiness,
+				modelName: cloudSelected ? (m.openRouterModelName?.() ?? null) : readiness.model || null,
+				modelId: cloudSelected ? (m.openRouterModel?.() ?? null) : readiness.model || null,
 				remaining: null,
 				usage: null,
 				limit: null,
@@ -1993,15 +2051,28 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				openRouterKeyInvalid: !!a.openRouterKeyInvalid,
 				provider: a.provider ?? 'openrouter',
 			});
+			// A direct provider with no explicit pick runs its curated default, which is only known
+			// once its model list loads (free, cached). Load it so the card and the chip name the
+			// model that will answer ("Gemini 3.8 Flash"), not just the provider.
+			if (cloudSelected && readiness.provider !== 'openrouter' && readiness.state === 'ready' && !m.openRouterModel?.() && m.listOpenRouterModels) {
+				try {
+					await m.listOpenRouterModels();
+				} catch {
+					/* the provider's name stands in */
+				}
+				if (stale()) return;
+				const id = m.openRouterModel?.() ?? null;
+				if (id) setState((s) => ({ ...s, modelId: id, modelName: m.openRouterModelName?.() ?? null }));
+			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
-			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.
+			// per-key figures (/api/v1/key) and the account WALLET (/credits) in parallel.
 			try {
 				const [acct, wallet] = await Promise.all([
 					Promise.resolve(m.openRouterAccount()).catch(() => null),
 					Promise.resolve(m.openRouterCredits()).catch(() => null),
 				]);
 				rememberSpendContext(wallet ?? null, acct ?? null); // feed the sync gauge
-				if (!canceled && (acct || wallet)) {
+				if (!stale() && (acct || wallet)) {
 					setState((s) => ({
 						...s,
 						remaining: acct?.remaining ?? null,
@@ -2036,6 +2107,17 @@ export async function listStudioModels(): Promise<ORModel[]> {
 	if (!m) return [];
 	try {
 		return await m.listOpenRouterModels();
+	} catch {
+		return [];
+	}
+}
+
+/** One route's model list (the image reader can sit on another route than chat), or [] when unavailable. */
+export async function listRouteModels(provider: string): Promise<ORModel[]> {
+	const m = await architectModel();
+	if (!m) return [];
+	try {
+		return await (m.listModelsOn ? m.listModelsOn(provider) : m.listOpenRouterModels());
 	} catch {
 		return [];
 	}
