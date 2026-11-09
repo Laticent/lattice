@@ -335,6 +335,12 @@ OPTIONS
                           Studio's "Re-openable in Lattice" switch. Comments never
                           ride along. Hidden slides DO, and so do speaker notes
                           unless you add --strip-notes. PDF and PPTX only.
+      --font-embedding <words>
+                          How much of each typeface the file embeds: exact |
+                          used (default for text) | full | system; add -emoji for
+                          the emoji font (default exact-emoji), e.g.
+                          "used exact-emoji". Wins over the deck's
+                          font-embedding: line, class by class.
       --overflow-marker <author|reader|off>
                           Who a clipped slide's marker speaks to in the exported
                           artifact. A slide with more content than fits is CLIPPED
@@ -1419,7 +1425,7 @@ const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
 // without math nothing supplies KaTeX's faces — and nothing asks for one, since no
 // element carries a KaTeX family without KaTeX markup.
 // Lattice Icons too: the page carries its faces as data whenever a slide draws a glyph (`iconFaceCss` below), and under
-// `fonts: emoji: system` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
+// `font-embedding: system-emoji` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
 const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
@@ -2009,9 +2015,9 @@ function sizeNote(file) {
 }
 const IMAGE_SETTING = require('./lib/core/image-policy.js').mergeImagesSettings(frontMatterValue(fm, 'images'), flags.images);
 // The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
-// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `fonts:` line,
+// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `font-embedding:` line,
 // class by class (`used exact-emoji`). Both hosts read the same key.
-const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'fonts'), flags.fonts);
+const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'font-embedding'), flags['font-embedding']);
 const FONT_POLICY = require('./lib/core/font-policy.js').resolveFontPolicy(FONT_SETTING);
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
@@ -2866,9 +2872,9 @@ const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 // (`h1::before{content:"🎉"}`, or the escape `"\1F389"`, which `slicesFor` also reads): the front matter's `style:` and a
 // stylesheet the command line names. The shipped sheet stays out: its own escapes would pull slices into every deck.
 const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}\n${exportGlobalCss(fm, '')}${layoutIsShipped ? '' : `\n${layoutCSSLinked}`}`;
-// `fonts: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
+// `font-embedding: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
 // image set draws its pictures with this computer's emoji font (the Studio's camera does the same, lib/core/slide-camera.mjs).
-// `fonts: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
+// `font-embedding: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
 // draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
 const FILE_IS_HTML = OUT_FORMAT === 'html';
 const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
@@ -2887,7 +2893,7 @@ const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({
 const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
 const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;
-// `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
+// `font-embedding: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
 const docFonts = !extraFontCss
   ? textFonts
@@ -5824,8 +5830,8 @@ async function applyFontPolicyToHtml(file) {
       throw e;
     }
   }
-  // The `fonts:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
-  // `--fluid`. The emoji slices are cut to the deck's own emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text
+  // The `font-embedding:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
+  // `--fluid`. The emoji slices are cut to the deck's own emoji, `font-embedding: system` drops the engine's faces, `font-embedding: exact` cuts the text
   // faces. The player cuts inside its own assembly, where its policy hashes are written, so it is left alone here.
   if (OUT_FORMAT === 'html' && !PLAYER) await applyFontPolicyToHtml(outFile);
   // Only here, on a fully successful render: the raster has been captured from the sidecar

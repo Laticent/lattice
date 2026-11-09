@@ -183,9 +183,9 @@ function drawsIcons(text) {
 
 /**
  * The CLI's font block, plus (when `text` is given) the Noto Color Emoji slices that text needs, under the
- * `fonts:` policy (lib/core/font-policy.js): `system` leaves that class out, `full` ships every emoji slice.
+ * `font-embedding:` policy (lib/core/font-policy.js): `system` leaves that class out, `full` ships every emoji slice.
  * @param {string} [text]  everything the export will show
- * @param {string|{text?: string, emoji?: string}} [fonts]  the deck's `fonts:` words
+ * @param {string|{text?: string, emoji?: string}} [fonts]  the deck's `font-embedding:` words
  */
 export async function buildFontEmbedCss(text = '', fonts) {
 	const policy = fontPolicyCore.resolveFontPolicy(fonts);

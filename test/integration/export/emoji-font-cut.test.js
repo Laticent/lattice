@@ -48,7 +48,7 @@ test('a PDF draws different emoji pixels under system-emoji than under exact-emo
   fs.writeFileSync(deck, DECK);
   const pdf = (tier) => {
     const out = path.join(tmp, `pdf-${tier}.pdf`);
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--fonts', `${tier}-emoji`], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--font-embedding', `${tier}-emoji`], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
     assert.equal(r.status, 0, r.stderr);
     return fs.readFileSync(out);
   };
@@ -65,7 +65,7 @@ test('an editable .pptx embeds no emoji font under any emoji tier, and the text 
   fs.writeFileSync(deck, DECK);
   const fonts = async (fontsArg) => {
     const out = path.join(tmp, `office-${fontsArg.replace(/\W+/g, '-')}.pptx`);
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--editable', '--fonts', fontsArg], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--editable', '--font-embedding', fontsArg], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
     assert.equal(r.status, 0, r.stderr);
     const zip = await JSZip.loadAsync(fs.readFileSync(out));
     const names = Object.keys(zip.files).filter((n) => /^ppt\/fonts\//.test(n));

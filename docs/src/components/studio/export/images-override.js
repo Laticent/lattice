@@ -22,8 +22,8 @@ export function applyImagesOverride(fromDeck) {
 	return imagePolicyCore.mergeImagesSettings(fromDeck, `${override.mode} ${override.quality}`);
 }
 
-// The export panel's choice for fonts (lib/core/font-policy.js): '' defers to the deck's `fonts:` line; otherwise the words
-// ride on top of it class by class, as `--fonts` does on the command line.
+// The export panel's choice for fonts (lib/core/font-policy.js): '' defers to the deck's `font-embedding:` line; otherwise the words
+// ride on top of it class by class, as `--font-embedding` does on the command line.
 let fontsOverride = '';
 
 export function setFontsOverride(next) {
@@ -39,7 +39,7 @@ export function deckPolicyOf(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
 	return {
 		images: imagePolicyCore.resolveImagePolicy(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images'))).mode,
-		fonts: fontPolicyCore.resolveFontPolicy(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts'))),
+		fonts: fontPolicyCore.resolveFontPolicy(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'font-embedding'))),
 	};
 }
 

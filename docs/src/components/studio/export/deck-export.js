@@ -1078,7 +1078,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// First, so the font sheet below counts only the glyphs a slide still draws (glyphTextOf skips an icon-svg slide).
-	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
+	// `font-embedding: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
 	// Icons too: no machine has our icon font, so under `system` the page shows each icon's <svg> instead (lib/plugins/icons/icons.styles.css;
 	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
 	// The Studio scopes the engine's CSS to each slide (`:root` becomes `article.lattice > :where(section)`), so the switch
@@ -2123,10 +2123,10 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
-/** The deck's `fonts:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
+/** The deck's `font-embedding:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
 export function deckFontSetting(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts')));
+	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'font-embedding')));
 }
 
 /** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
@@ -2640,7 +2640,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const { calcoFontHost } = await import('./calco-font-host.js');
 			// A face left out is reported with the export, not dropped: the reader's office suite will use its own font for that text.
 			const skippedFonts = new Map();
-			// The `fonts:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
+			// The `font-embedding:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
 			// characters the deck draws in it, `used` and `full` keep the whole face, `system` embeds nothing. Emoji are not embedded: see there.
 			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text), (face, why) => {
 				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.

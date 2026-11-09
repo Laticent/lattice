@@ -2569,6 +2569,7 @@
     "/^finish-override:[ \\t]*$/": "safe",
     "/^flow\\s*:\\s*(in|out|both)$/i": "safe",
     "/^followups\\.d\\//": "safe",
+    "/^fonts([ \\t]*:.*)$/m": "safe",
     "/^form:[ \\t]*(.*)$/m": "safe",
     "/^functionplot error: /": "safe",
     "/^galleryAuthored\\b[^\\n]*$/": "safe",

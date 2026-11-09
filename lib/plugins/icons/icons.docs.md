@@ -109,7 +109,7 @@ the same rules. What `font` adds is in the exports:
 - **Size:** a file carries each icon once, about 0.3 KB, however often it is used, in every theme and
   color mode.
 
-How much of the font a file carries follows the export's **Emoji font** setting (`fonts:`): `exact`
+How much of the font a file carries follows the export's **Emoji font** setting (`font-embedding:`): `exact`
 (the default) carries the deck's icons, `used` and `full` the whole set. Under `system` no file carries
 it, and since no computer has our icons, every export draws them as `svg` instead.
 
