@@ -281,3 +281,67 @@ type-voices note lists under § What we tried.
 
 Not yet verified, because nothing ships yet: the editable PPTX and ODP exports and the PDF's font embedding for the new
 faces. Those are verified on the implementation, not on mockups that load fonts through a `style:` block.
+
+## 8 — Every combination, scored (owner request, 2026-11-09)
+
+The owner asked for every combination of the open choices to be scored on hierarchy, tension, isolation and contrast:
+the chrome voice (D1: A mono, B serif italic, C body sans) × the eyebrow (D2: A heading serif italic, B sans capitals
+with a bar, C mono) × six pairings (classic, ledger, poster, festival, minimal, technical). That is 54 combinations, each
+measured by `tools/type-voice-audit.mjs` on indaco in light and dark (108 runs), plus today's shipped look as a
+baseline. Every combination carries the chart voice and D4 A (§3.5). The full table is
+`2026-11-09-type-hierarchy-study/combination-scores.md`.
+
+### How each axis is scored (0–10)
+
+*Prominence* is the lowercase height a reader sees, nudged by weight: px × the face's x-height × (weight ÷ 400)^0.25.
+
+| Axis | Score |
+|---|---|
+| **Hierarchy** | Ten pairs that must rank in order: h2 over body, h2 over eyebrow, body over header, eyebrow over header, body over the chart key, data label over category, category over tick, title over subtitle, title over its eyebrow, hero figure over its caption. Each pair scores 1 when its prominence ratio is at least 1.1, 0.5 between 1.0 and 1.1, 0 when it inverts |
+| **Tension** | The mean of four parts, each capped at 1: heading ÷ body against a target of 1.8, body ÷ chrome against 1.35, eyebrow ÷ chrome against 1.15, and the face classes (serif against sans scores 1, two families in one class 0.7, one family 0.4 or 0.7 with a 300 weight step) |
+| **Isolation** | 10 − 1.5 per content-against-chrome pair with no axis apart − 0.25 per pair with one, minus 1 when the eyebrow sits more than a quarter of the header gap from its heading; the mean of light and dark |
+| **Contrast** | The share of roles meeting WCAG on their worst slide (4.5:1, or 3:1 at 24 px and over or bold at 18.66 px), minus 1 when any role falls under 3:1; the mean of light and dark |
+
+### What the scores say
+
+| | Hierarchy | Tension | Isolation | Contrast | Mean |
+|---|---|---|---|---|---|
+| **today** (shipped) | 8.5 | 9.5 | **1.8** | 9.2 | 7.2 |
+| `classic-AA` (the recommended default) | 9.5 | 9.7 | 8.4 | 9.2 | **9.2** |
+| `poster-AA`, `poster-BB` (highest) | 9.5 | 10.0 | 8.4–8.5 | 9.2 | 9.3 |
+| `ledger-AA` | 9.0 | 9.6 | 7.4 | 9.2 | 9.0 |
+| any `-C?` (body-sans chrome) | 9.0–9.5 | 9.1–10.0 | **0.0** | 9.2 | 7.0–7.4 |
+
+Each option averaged over every combination it appears in:
+
+| Option | Hierarchy | Tension | Isolation | Mean |
+|---|---|---|---|---|
+| D1 A mono · B serif italic · C body sans | 9.0 · 9.2 · 9.3 | 9.4 · 9.5 · 9.6 | 7.5 · 7.6 · **0.0** | 8.8 · 8.9 · 7.0 |
+| D2 A serif · B sans bar · C mono | 9.3 · 9.1 · 9.1 | 9.6 · 9.5 · 9.5 | 5.0 · 5.5 · 4.7 | 8.3 · 8.3 · 8.1 |
+| D1 × D2, best pairs | AA 9.3 | AA 9.6 | AB 8.4 · AA 8.2 | **AA 9.1** · BB 8.9 · AB 8.9 |
+
+1. **Isolation decides; the other three barely move.** Hierarchy and tension are set mostly by the `--fs-*` ladder, and
+   contrast by the theme, so they spread by about one point across all 54. Isolation spreads by ten.
+2. **The body-sans chrome voice (D1 C) scores 0 on isolation in every pairing**, which confirms §5.
+3. **The recommended default (`classic-AA`) moves today's 7.2 to 9.2** and ties the best pairings. The D1 A + D2 A pair
+   is the best D1 × D2 pair on average over all six pairings (9.1).
+4. **`poster` scores highest**, because a condensed heading set 1.2× larger opens the heading-to-body step (2.28) without
+   costing width. **`ledger` scores lowest of the serif pairings**: Newsreader's small x-height (0.45) leaves the
+   heading only 1.58× the body, under the 1.8 target, and its larger italic eyebrow sits far enough from its heading to
+   lose the proximity point.
+5. **Outfit is the weak body against mono chrome.** Inter's taller x-height lifts the body-to-chrome step from 1.18 to
+   1.35, so `classic` loses tension that every Inter pairing keeps.
+6. **Two misses are the same in every combination** and are not choices: the pie key (19.9 px) sits within 10% of the
+   body, and indaco's header and footer read 3.5:1 on its dark title and divider panels in both modes (every other
+   palette theme passes). Both are logged, not scored as differences.
+
+### What the scores cannot see
+
+- **Legibility of small italic.** The serif-italic chrome (D1 B) scores well, but at about 16 px on a projector its
+  counters close (§5). The scores measure size, not letterforms.
+- **Faux italic.** With the serif eyebrow, `poster`, `minimal` and `technical` get a slanted roman, because their heading
+  face ships no italic. The scores treat it as an italic.
+- **Taste.** Which look suits a board or a festival is the owner's call; the scores only say which choices keep the
+  layers apart.
+- **One theme.** All 108 runs are on indaco; §3.4 shows the ink axis varies by theme, so a theme with a closer accent
+  can lower D2 B's isolation.

@@ -286,6 +286,14 @@ async function main() {
   // The table shows each role once: from the plain content slide (2) when it appears there, else its first slide.
   const roles = new Map();
   for (const n of [2, ...[...perSlide.keys()].filter((k) => k !== 2)]) for (const [r, vs] of perSlide.get(n) || []) if (!roles.has(r)) roles.set(r, vs[0]);
+  // A role's ink is read from one slide for the table, but contrast is judged on its worst slide: the footer on a dark
+  // title panel can fail where the footer on a white content slide passes.
+  for (const v of roles.values()) {
+    let worstC = v.contrast, worstS = v.slide;
+    for (const [n, m] of perSlide) for (const w of m.get(v.role) || []) if (w.contrast < worstC) { worstC = w.contrast; worstS = n; }
+    v.minContrast = worstC;
+    v.minContrastSlide = worstS;
+  }
   const list = [...roles.values()].sort((a, b) => b.px - a.px);
   const axesOf = (a, b) => {
     const axes = [];
@@ -319,9 +327,9 @@ async function main() {
   if (unloaded.length) console.error(`warning: no loaded face for ${unloaded.join(', ')}; those rows measure a fallback font`);
   if (asJson) { console.log(JSON.stringify({ theme, mode, style: styleFile, roles: list, collisions: pairs, space }, null, 2)); return; }
   console.log(`type-voice-audit · ${theme} · ${mode}${styleFile ? ` · ${path.basename(styleFile)}` : ''}\n`);
-  console.log('| Role | Face | px @1280 | Weight | Case · tracking | Contrast |');
+  console.log('| Role | Face | px @1280 | Weight | Case · tracking | Contrast (worst slide) |');
   console.log('|---|---|---|---|---|---|');
-  for (const v of list) console.log(`| ${v.role} | ${v.face}${v.italic ? ' italic' : ''} | ${v.px} | ${v.weight} | ${v.caps ? 'capitals' : 'as written'} · ${v.tracking}em | ${v.contrast}:1 |`);
+  for (const v of list) console.log(`| ${v.role} | ${v.face}${v.italic ? ' italic' : ''} | ${v.px} | ${v.weight} | ${v.caps ? 'capitals' : 'as written'} · ${v.tracking}em | ${v.contrast}:1${v.minContrast < v.contrast ? ` (${v.minContrast}:1 on slide ${v.minContrastSlide})` : ''} |`);
   console.log('\nCollisions (0–1 axes apart). ✗ = content against chrome, the pair the study forbids:');
   for (const p of pairs.sort((x, y) => x.axes.length - y.axes.length || +y.crossesChrome - +x.crossesChrome)) {
     console.log(`  ${p.crossesChrome ? '✗' : ' '} ${p.axes.length} · ${p.a} ~ ${p.b}${p.axes.length ? ` (only ${p.axes[0]})` : ''} · slide ${p.slide}`);
