@@ -18,6 +18,7 @@ export {
   findTopLevelTag,
   hasTopLevelTag,
   maskInert,
+  maskPluginSubtrees,
   readTopLevelH2Text,
   scanTags,
   stripScannedTags,

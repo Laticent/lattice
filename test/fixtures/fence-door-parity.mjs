@@ -19,13 +19,18 @@ export const PLUGIN = { name: 'gantt-plugin', fence: 'gantt', code: RENDERER };
 
 const fence = (body) => `\`\`\`gantt\n${body}\n\`\`\`\n`;
 
-/** Slide 1 draws; slide 2 is another language; slide 3 is rebuilt by the shipped `qr-general` pass (a `closing qr` slide reads its bullet into a code; `video` left this slot when its address began to come only from the author's `@video{…}` span); slide 4 holds a raw nested section. */
+/**
+ * Slide 1 draws; slide 2 is another language; slide 3 is a `closing qr` slide, which the shipped `qr-general` pass rebuilds
+ * from its bullet into a code, and the plugin draws there too, writing an attacker's address as text; slide 4 holds a raw
+ * nested section, and draws. No pass reads a plugin's output as an address (spec/LPM.md §10), so the door no longer
+ * shadows a slide: the code stays the author's link, and the attacker's address stays text inside the plugin's root.
+ */
 export const DECK = [
   '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n',
   `## Plan\n\n${fence('Design 1 < 2\nBuild 3')}`,
   '## Code\n\n```js\nconst x = 1;\n```\n',
-  `<!-- _class: closing qr -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('qr slide, not drawn')}`,
-  `## Nested\n\n<section class="x"><p>raw</p></section>\n\n${fence('nested, not drawn')}`,
+  `<!-- _class: closing qr -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('https://attacker.test/q')}`,
+  `## Nested\n\n<section class="x"><p>raw</p></section>\n\n${fence('nested, drawn')}`,
 ].join('\n---\n\n').replace('\n---\n\n## Plan', '\n## Plan');
 
 /** The same deck without the `plugins:` line: the plugin is installed but the deck did not list it. */
@@ -33,6 +38,7 @@ export const DECK_UNLISTED = DECK.replace('plugins: [gantt-plugin]\n', '');
 
 const bodyOf = (html, text) => html.includes(text);
 const root = (html) => /<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/.exec(html)?.[0] ?? '';
+const roots = (html) => [...html.matchAll(/<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/g)].map((m) => m[0]);
 
 /** [label, predicate over the finished deck HTML] for a render where the plugin is listed AND approved. */
 export const CHECKS = [
@@ -43,5 +49,6 @@ export const CHECKS = [
   ['a script, a remote image and a link go', (h) => !/<script|evil\.example|alert\(/i.test(h)],
   ['a media element with no source left to show is dropped (an empty <img> fails the Studio’s PDF writer)', (h) => root(h) !== '' && !/<img|<video|<audio|<image/i.test(root(h))],
   ['a fence of another language is still code', (h) => /language-js/.test(h)],
-  ['exactly one fence is drawn: a slide a shipped pass rebuilds, and one with a raw <section>, stay code', (h) => (h.match(/data-lattice-plugin="gantt-plugin"/g) || []).length === 1 && /language-gantt/.test(h) && h.includes('qr slide, not drawn') && h.includes('nested, not drawn')],
+  ['every fence is drawn, on the slide a shipped pass rebuilds and the one with a raw <section> too', (h) => (h.match(/data-lattice-plugin="gantt-plugin"/g) || []).length === 3 && !/language-gantt/.test(h) && h.includes('<li>nested, drawn</li>')],
+  ['the qr slide has one code, the author’s, and the attacker’s address is only text in the plugin’s root', (h) => (h.match(/class="qr-figure"/g) || []).length === 1 && (h.match(/attacker\.test/g) || []).length === 1 && roots(h).some((r) => r.includes('<li>https://attacker.test/q</li>'))],
 ];

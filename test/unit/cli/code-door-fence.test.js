@@ -11,7 +11,6 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { fenceBlocks, claimedFences, fenceInput, fenceKey, fenceMarkup, inlineSpans, inlineInput, inlineMarkup, inlinePlaceholder, MAX_INLINE_CHARS, fenceId, fenceNamespace, pluginNameConflicts, replaceFences, withFenceNote, captureFences, substituteFences, decodeFenceBody, MAX_FENCE_CHARS, MAX_FENCES_PER_PASS } = require('../../../lib/packages/code-door-fence.mjs');
-const { rebuiltAlternatives, rebuiltBy, GENERIC } = require('../../../lib/transformers/rebuilt-classes.js');
 const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsentText, FENCE_NAME_RE } = require('../../../lib/core/code-shape.mjs');
 const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/cli/code-door.js');
 const { codeDigest, pluginDigest, isTrusted, grantTrust } = require('../../../lib/packages/trust.js');
@@ -254,84 +253,47 @@ describe('through the real engine: capture, then substitute', () => {
     assert.equal(cap.claims.length, 2, 'with it, both blocks are the plugin’s');
   });
 
-  test('a fence on a slide a shipped pass rebuilds from its text is NOT claimed: it stays code, and the door says why', () => {
-    // `contact`, `wifi`, `qr` and the rest turn a bullet into a QR or a link, in the engine's pass AND in the runtime's DOM pass
-    // over the finished page; the door's last slot cannot stop the second, so the door does not draw there. (`video` left this
-    // list when its pass stopped reading slide text: the address comes only from the author's `@video{…}` span.)
-    for (const [classes, pass] of [['contact', 'contact'], ['wifi', 'wifi'], ['closing qr', 'qr-general'], ['team-profile', 'team-profile']]) {
-      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n\`\`\`gantt\nx\n\`\`\`\n`;
-      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
-      const html = render(src, cap);
-      assert.equal(cap.claims.length, 0, `${classes}: no claim`);
-      assert.deepEqual(cap.shadowed.map((x) => [x.slide, x.pass]), [[0, pass]], `${classes}: named the pass`);
-      assert.match(html, /language-gantt/, `${classes}: the block is still code`);
+  test('a fence on a slide a shipped pass rebuilds from its text IS claimed: no pass reads a plugin\'s output as an address', () => {
+    // The door used to shadow these slides (lib/transformers/rebuilt-classes.js, retired): `qr` turns a bullet into a code,
+    // `team-profile` and the charts rebuild from their bullets. Each reader now masks `[data-lattice-plugin]` subtrees
+    // (`maskPluginSubtrees`), held by `checkSlideTextAddressReaders`, so the door draws everywhere (spec/LPM.md §10).
+    for (const classes of ['closing qr', 'divider qr', 'team-profile', 'kanban', 'cycle', 'logo-wall', 'scene', 'premise', 'video']) {
+      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- https://example.com/author\n- Second\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const cap = captureFences(fences, slides);
+      render(src, cap);
+      assert.equal(cap.claims.length, 1, `${classes}: the fence is the plugin's`);
+      assert.equal('shadowed' in cap, false, `${classes}: there is no shadow to report`);
     }
   });
 
-  test('a video slide is NOT shadowed: its address comes only from the author\'s record, so a fence draws there and nothing leaks', () => {
-    const src = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Slide\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`\n\n```gantt\nx\n```\n';
-    const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
-    render(src, cap);
-    assert.equal(rebuiltBy(['video']), null);
-    assert.equal(cap.claims.length, 1, 'the fence is the plugin\'s');
-    assert.equal(cap.shadowed.length, 0);
+  test('contact and wifi keep only their card: a fence there is gone before the door looks, as any code block is', () => {
+    // Not a shadow: `renderCard` replaces the slide with the card built from its field bullets, and a plain ```js block
+    // is dropped the same way. The door finds nothing to claim and says nothing.
+    for (const classes of ['contact', 'wifi']) {
+      const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- Ada \`name\`\n- Net \`ssid\`\n\n\`\`\`gantt\nx\n\`\`\`\n`;
+      const cap = captureFences(fences, slides);
+      const html = render(src, cap);
+      assert.equal(cap.claims.length, 0, classes);
+      assert.doesNotMatch(html, /language-gantt/, `${classes}: the card replaced the block`);
+    }
   });
 
-  test('ANY raw <section> nested in a slide denies it: every way of writing class=video, and ones that are not video, fail closed', () => {
-    const tags = ['<section class="video">', "<section class='video'>", '<SECTION CLASS=video>', '<section class=video>', '<section class=video id=x>', '<section title="a>b" class="video">', '<section data-class="x" class="video">', '<section class="&#118;ideo">', '<section\nclass = "video"\n>', '<section>'];
-    for (const tag of tags) {
+  test('a raw <section> nested in a slide no longer denies it: the readers mask plugin output wherever it sits', () => {
+    for (const tag of ['<section class="video">', '<section class=contact>', '<section>']) {
       const src = `---\ntheme: indaco\n---\n\n## A\n\n${tag}\n\n\`\`\`gantt\nSECRET\n\`\`\`\n\n</section>\n`;
-      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
-      const html = render(src, cap);
-      assert.equal(cap.claims.length, 0, `${JSON.stringify(tag)}: no claim`);
-      assert.equal(cap.shadowed.length, 1, `${JSON.stringify(tag)}: and the door says why`);
-      assert.match(html, /language-gantt/, `${JSON.stringify(tag)}: the block is still code`);
+      const cap = captureFences(fences, slides);
+      render(src, cap);
+      assert.equal(cap.claims.length, 1, `${JSON.stringify(tag)}: claimed`);
     }
   });
 
-  test('selector parsing: commas inside (…) and […] and attribute dots do not split or add classes', () => {
-    // The registry holds none of these shapes today; the parser must still read them right the day one is registered.
-    const { parseAlternatives } = require('../../../lib/transformers/rebuilt-classes');
-    assert.deepEqual(parseAlternatives('section.video:not(.a, .b)'), [['video']]);
-    assert.deepEqual(parseAlternatives('section.video[data-x="a.b"]'), [['video']]);
-    assert.deepEqual(parseAlternatives('[data-x="a,b"], section.wifi'), [['wifi']]);
-  });
-
-  test('an ordinary slide, a layout class and a modifier that no pass rebuilds still get their fences drawn', () => {
+  test('an ordinary slide, a layout class and a modifier get their fences drawn', () => {
     for (const classes of ['content', 'closing', 'split-panel', 'dark', 'content dark']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n\`\`\`gantt\nx\n\`\`\`\n`;
-      const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+      const cap = captureFences(fences, slides);
       render(src, cap);
       assert.equal(cap.claims.length, 1, `${classes}: claimed`);
-      assert.equal(cap.shadowed.length, 0, classes);
     }
-  });
-
-  test('the rebuilt-slide list is read off the registry: a pass added tomorrow denies its slides today', () => {
-    const alt = rebuiltAlternatives();
-    for (const c of ['contact', 'wifi', 'team-profile', 'bar', 'logo-wall', 'scene']) assert.ok(alt.some((a) => a.classes.includes(c)), `${c} is denied`);
-    assert.ok(alt.some((a) => a.pass === 'qr-general' && a.classes.join('.') === 'closing.qr'), 'a compound selector denies only the compound');
-    assert.equal(rebuiltBy(['closing']), null);
-    assert.equal(rebuiltBy(['closing', 'qr']), 'qr-general');
-    for (const g of GENERIC) assert.equal(rebuiltBy(g.split(' ')), null, `generic ${g} denies nothing`);
-    // Every registry transformer that names a class is in the list, unless it is one of the generic ones.
-    const { TRANSFORMERS } = require('../../../lib/transformers/registry.js');
-    for (const t of TRANSFORMERS) {
-      const named = String(t.selector || '').split(',').some((s) => /\.[A-Za-z]/.test(s.trim().split(/\s/)[0].replace(/:not\([^)]*\)/g, '')));
-      if (!named) continue;
-      if (t.readsText === false) {
-        assert.ok(!alt.some((a) => a.pass === t.name), `${t.name} says it reads no text, so it denies nothing`);
-        continue;
-      }
-      assert.ok(alt.some((a) => a.pass === t.name) || ['masthead-lift', 'image-adaptive', 'image-scrim', 'split-panels'].includes(t.name), `${t.name} names a slide class and is neither denied nor generic`);
-    }
-  });
-
-  test('a slide the inline-run pass serves is not denied: it wraps a label, it reads no address', () => {
-    // #2831 registered inline-run on 11 components, and the list derived from the registry then denied a plugin's
-    // span on every one of them (docs/e2e/plugin-inline-ui.spec.ts, the cards-grid slide).
-    for (const c of ['cards-grid', 'agenda', 'cards-stack']) assert.equal(rebuiltBy([c]), null, `${c} is not rebuilt from its text`);
-    assert.ok(!rebuiltAlternatives().some((a) => a.pass === 'inline-run'));
   });
 
   test('two panes of one slide, each with a fence, get two ids; the same text twice gets two', () => {

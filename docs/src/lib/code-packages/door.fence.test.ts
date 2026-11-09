@@ -9,6 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
 import { approvePlugin, codePackagesStamp, offeredIn, onCodePackagesStatus, pluginDigest, renderWithCodePackages, revokePlugin, setPlugins, unapprovedIn } from './door';
 
+/** The shared deck's plugin blocks, every one of them drawn: no slide is shadowed (spec/LPM.md §10). */
+const DRAWN = 3;
+
 const require = createRequire(import.meta.url);
 const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string };
 const engine = require('../../../../lib/engine') as { createEngine: () => { render: (s: string, t: string, o?: Record<string, unknown>) => { html: string } } };
@@ -104,8 +107,9 @@ describe('activation: the deck’s plugins: line', () => {
 		// The placeholder names the plugin and carries none of the author's text.
 		expect(html).toMatch(/<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"><\/span><span class="lattice-plugin-words"><strong>gantt-plugin<\/strong>/);
 		expect(html).not.toMatch(/Design 1|Build 3/);
-		// The shipped passes' slides keep the code block the author wrote: a placeholder there would sit in a slide the door does not draw on.
-		expect(html).toContain('qr slide, not drawn');
+		// Every block gets the placeholder, the one on a slide a shipped pass rebuilds included, and none carries its text.
+		expect((html.match(/data-lattice-plugin-off="gantt-plugin"/g) || []).length).toBe(DRAWN);
+		expect(html).not.toContain('attacker.test');
 	});
 
 	it('the offered plugin is reported to the strip, from the source and from the render', async () => {
@@ -415,15 +419,15 @@ describe('the rules the CLI door learned', () => {
 		expect(html).not.toMatch(/<video|<audio|<image|evil\.example/);
 		expect(html).toContain('<rect width="4" height="4">');
 		expect(html).toMatch(/<img alt="data" src="data:image\/png;base64,iVBORw0KGgo=">/);
-		expect((html.match(/<img/g) || []).length).toBe(1);
+		expect((html.match(/<img/g) || []).length).toBe(DRAWN);
 	});
 
 	it('a result is remembered by the code’s digest and the fence’s text: a second render runs nothing', async () => {
 		await approve();
 		await draw(DECK);
-		expect(opened.map((o) => o.ran)).toEqual([1]);
+		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 		await draw(DECK);
-		expect(opened.map((o) => o.ran)).toEqual([1]);
+		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 	});
 });
 
@@ -488,7 +492,7 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 			expect(html).toContain('the plugin was disabled for this render, because its note holds markup');
 			expect(failed.some((f) => /disabled for this render/.test(f.why))).toBe(true);
 		}
-		expect(opened.map((o) => o.ran)).toEqual([1]);
+		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 	});
 
 	it('a malformed envelope fails the block, and nothing of it lands', async () => {
@@ -517,7 +521,7 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 			expect(html, `pass ${pass}`).toContain('title="${status}"');
 			expect(html).toContain('late: a &lt; b &amp; c ${nope}');
 		}
-		expect(opened.map((o) => o.ran)).toEqual([1]);
+		expect(opened.map((o) => o.ran)).toEqual([DRAWN]);
 	});
 
 	it('host slots: a disabled plugin and a failed block keep what they had; no value reaches a note', async () => {

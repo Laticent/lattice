@@ -11,7 +11,7 @@ import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, s
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
 import { doorFinish, doorFinishFence, doorFinishInline } from '../../../../lib/core/door-attr.mjs';
 import { createSlideSanitizer } from '../../../../lib/core/sanitize-slide-html.mjs';
-import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
+import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
 import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
@@ -43,7 +43,6 @@ const ENGINE_CLAIMS: readonly string[] = engineClaimsOf(SHIPPED);
 // The slides a shipped pass rebuilds from their text (a plugin's output there would be read as an
 // address), and the fence names a shipped plugin owns: generated from the registry and the manifests,
 // and pinned to the CLI door's live reads by test/unit/cli/fence-door-data.test.js.
-const REBUILT = rebuiltFromAlternatives(FENCE_DOOR.rebuilt);
 const SHIPPED_FENCES: readonly string[] = FENCE_DOOR.shippedFences;
 const SHIPPED_KINDS: readonly string[] = FENCE_DOOR.shippedKinds;
 const HIGHLIGHT_LANGUAGES = new Set<string>(FENCE_DOOR.highlightLanguages);
@@ -188,7 +187,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	// An escape (`\@kind{…}`) is finished only for the kinds of plugins the deck lists, as the CLI (which runs only
 	// those) does: an unlisted plugin's escape is code the engine left, on every surface alike (the checker, the red team).
 	const escapeKinds = [...kinds].filter(([, pkg]) => declared.has(pkg)).map(([k]) => k);
-	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds });
+	const capFences = captureFences(fences, { names, engineClaims: ENGINE_CLAIMS, kinds, escapeKinds });
 	// Every installed plugin's name goes to the engine, refused or not, so a deck that lists one is not told no plugin has that name.
 	const externalPlugins = [...installed.keys()];
 	const first = PG.render(source, theme, { ...engineOpts, codePackages: cap.hook, ...(externalPlugins.length ? { externalPlugins } : {}), ...(drawsAny ? { codeFences: capFences } : {}) }) as R;
@@ -447,6 +446,6 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		...engineOpts,
 		codePackages: substituteHook(names, sections, digestOf, { baseUrl, engineClaims: ENGINE_CLAIMS }),
 		...(externalPlugins.length ? { externalPlugins } : {}),
-		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, rebuilt: REBUILT, kinds, escapeKinds, attrs }) } : {}),
+		...(drawsAny ? { codeFences: substituteFences(fences, sections, pluginDigestOf, { names, engineClaims: ENGINE_CLAIMS, kinds, escapeKinds, attrs }) } : {}),
 	}) as R;
 }
