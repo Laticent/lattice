@@ -600,7 +600,7 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics` and `returns` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload`, `meta`, `extensionPoints`, or the in-tree-only `services`, `lint`, `providers`, `registers`, `data`, `codeRenderer`, `draw` and `hostApi` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics` and `returns` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence, its kinds with their slots and its declared return fields, in a versioned text both doors accept every listed version of, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload`, `meta`, `extensionPoints`, or the in-tree-only `services`, `lint`, `providers`, `registers`, `data`, `codeRenderer`, `draw` and `hostApi` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 An embedded or essential plugin's name is reserved.
@@ -652,6 +652,12 @@ highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
 
+- **0.12-draft, a versioned consent text (2026-11-09).** §10's consent digest is over a text with a
+  version (`lib/core/code-shape.mjs` `CONSENT_VERSION`, `CONSENT_ACCEPTED`). Version 1 is the text
+  as it shipped, byte for byte; both doors accept an approval held under any accepted version, kept
+  pins included, so a later format change does not void approvals users hold. An approval covers
+  what its own version pinned: a later version that pins more protects an older approval only once
+  the older version leaves `CONSENT_ACCEPTED`.
 - **0.12-draft, what `fields` holds (2026-11-09).** §3.3.1 documents the value a zip inline kind
   is handed per field type under `api: 1`, pins it with a test across both doors' readers (both
   take `compileSlot` from Segno since #3038), records that a `{> …}` record is a description no

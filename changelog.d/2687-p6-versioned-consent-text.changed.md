@@ -1,0 +1,1 @@
+- The plugin consent text is versioned. Today's text is version 1, unchanged byte for byte, so every approval you already hold still counts; the CLI and the Studio accept a plugin approved under any version they still accept. An approval covers what its own version pinned, so a later version that pins more takes full effect once the older version is retired.
