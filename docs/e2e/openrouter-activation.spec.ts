@@ -46,6 +46,8 @@ async function openAiTab(page: Page) {
 
 test('@smoke @crosswidth @webkit-phone @gecko a fresh sign-in refused at first reads activating, then Ready, never Key rejected', async ({ page }) => {
 	const state = { accept: false };
+	// A controllable clock: the 15 s re-check is advanced, not waited for (HARD RULE #32).
+	await page.clock.install();
 	await page.addInitScript(() => {
 		try {
 			if (!sessionStorage.getItem('e2e-seeded')) {
@@ -69,9 +71,10 @@ test('@smoke @crosswidth @webkit-phone @gecko a fresh sign-in refused at first r
 	await expect(page.getByText('Key rejected')).toHaveCount(0);
 	await expect(row).not.toContainText('rejected');
 
-	// OpenRouter starts accepting the key: the next 15 s re-check clears the note by itself.
+	// OpenRouter starts accepting the key: the next re-check, 15 s on, clears the note by itself.
 	state.accept = true;
-	await expect(row).not.toContainText('activating', { timeout: 30_000 });
+	await page.clock.runFor(16_000);
+	await expect(row).not.toContainText('activating');
 	await expect(row).toContainText(/activated it \d+ s after it was made/);
 	await expect(page.getByTestId('chat-model-card-state')).toHaveText('Ready');
 	await expect(page.getByText('Key rejected')).toHaveCount(0);
