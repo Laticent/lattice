@@ -348,3 +348,74 @@ Each option averaged over every combination it appears in:
   layers apart.
 - **One theme.** All 108 runs are on indaco; §3.4 shows the ink axis varies by theme, so a theme with a closer accent
   can lower D2 B's isolation.
+
+## 9 — The themes, scored (owner request, 2026-11-09)
+
+Themes set the inks, so they move hierarchy, tension, isolation and contrast as much as a type choice does. Each of the
+14 palette themes was measured with `tools/type-voice-audit.mjs` under the recommended look (`classic-AA`, §8), in
+light and dark, and scored on four ink-based axes (0–10, the mean of both modes):
+
+| Axis | Score |
+|---|---|
+| **Hierarchy** | The ink ladder steps down, heading > body > secondary > muted (the eyebrow under the recommended look reads `--text-secondary`, the header reads `--text-muted`). Each of the three steps scores 1 at a contrast ratio of 1.25× or more, 0.5 from 1.1×, 0.25 from 1.0×, 0 when it inverts |
+| **Tension** | The ladder's spread: heading over muted against a target of 3×, heading over body against 1.8× |
+| **Isolation** | 70% the content-against-chrome collisions under the recommended look (§8's formula), 30% whether the accent stands apart from the muted gray (OKLab distance against 0.15, §3.4) |
+| **Contrast** | The share of roles meeting WCAG on their worst slide, minus 1 when any falls under 3:1 |
+
+| Rank | Theme | Hierarchy | Tension | Isolation | Contrast | Mean | Ink ladder, light (heading / body / secondary / muted, :1) | Ink ladder, dark |
+|---|---|---|---|---|---|---|---|---|
+| 1 | onyx | 9.2 | 10.0 | 8.8 | 10.0 | **9.5** | 21.0 / 11.4 / 7.0 / 5.1 | 21.0 / 11.4 / 7.0 / 6.2 |
+| 2 | carta | 10.0 | 8.6 | 9.3 | 10.0 | **9.5** | 15.8 / 11.9 / 7.8 / 5.2 | 16.1 / 12.8 / 7.3 / 5.3 |
+| 3 | crepuscolo | 10.0 | 9.3 | 8.1 | 10.0 | **9.3** | 17.7 / 13.6 / 6.8 / 5.2 | 18.3 / 10.4 / 7.0 / 5.5 |
+| 4 | indaco | 10.0 | 9.2 | 8.2 | 10.0 | **9.3** | 18.1 / 11.5 / 6.9 / 5.1 | 17.2 / 12.0 / 7.0 / 5.3 |
+| 5 | burgundy | 9.2 | 9.7 | 8.3 | 10.0 | **9.3** | 15.9 / 9.2 / 6.5 / 5.1 | 15.4 / 8.8 / 6.1 / 5.4 |
+| 6 | ardesia | 9.2 | 9.3 | 8.6 | 10.0 | **9.3** | 19.0 / 13.7 / 7.0 / 5.3 | 19.2 / 11.4 / 6.9 / 6.2 |
+| 7 | carbone | 9.2 | 8.6 | 9.1 | 10.0 | **9.2** | 17.1 / 12.3 / 6.9 / 5.7 | 15.9 / 12.6 / 7.0 / 5.4 |
+| 8 | cuoio, lifted (shipped in this PR) | 10.0 | 9.4 | 7.3 | 10.0 | **9.2** | 16.2 / 8.5 / 6.5 / 5.1 | 17.6 / 11.0 / 8.5 / 6.7 |
+| 9 | atelier | 8.3 | 9.4 | 8.4 | 10.0 | **9.0** | 14.9 / 8.9 / 6.1 / 5.3 | 16.5 / 9.8 / 6.9 / 5.8 |
+| 10 | mustard | 7.9 | 9.4 | 7.1 | 10.0 | **8.6** | 14.6 / 9.0 / 6.2 / 5.2 | 15.7 / 8.8 / 6.1 / 5.7 |
+| 11 | brina | 7.5 | 9.6 | 7.0 | 10.0 | **8.5** | 14.5 / 7.3 / 5.3 / 5.0 | 15.7 / 8.7 / 6.2 / 6.0 |
+| 12 | laguna | 7.5 | 9.1 | 7.2 | 10.0 | **8.4** | 12.8 / 7.1 / 5.4 / 5.1 | 14.9 / 8.8 / 6.1 / 5.8 |
+| 13 | cuoio, before this PR | 6.7 | 9.4 | 7.3 | 10.0 | **8.4** | 16.2 / 5.9 / 5.1 / 5.1 | 17.6 / 11.0 / 7.0 / 6.7 |
+| 14 | concrete | 7.5 | 7.5 | 8.3 | 10.0 | **8.3** | 9.6 / 7.2 / 5.5 / 4.7 | 14.7 / 9.5 / 6.9 / 7.0 |
+| 15 | magnolia | 6.3 | 8.9 | 7.6 | 10.0 | **8.2** | 17.9 / 14.4 / 5.9 / 5.5 | 19.8 / 10.9 / 7.0 / 7.6 |
+
+The ladder columns are contrast on the canvas, in the order heading / body / secondary / muted.
+
+- **Themes spread by 3.7 points on hierarchy and 1.3 overall.** Contrast is 10 everywhere (measured after §8's indaco
+  fix), so it no longer tells the themes apart; the ranking is hierarchy, tension and isolation.
+- **Two themes invert their dark ladder:** magnolia's muted ink (7.6:1) is brighter than its secondary (7.0:1), and
+  concrete's (7.0) matches it (6.9). Chrome then reads louder than the eyebrow it should sit under.
+- **Flat light ladders** cost cuoio, brina and laguna: body and secondary within 1.2× of each other or of muted.
+  Concrete has the weakest headings (9.6:1), so the least tension.
+- **Cuoio is lifted in this PR.** Body and secondary moved in OKLCH lightness only, hue and chroma held: light body
+  `#6B5D4F` → `#544639` (5.95 → 8.50:1), light secondary `#75685C` → `#64574C` (5.05 → 6.53:1), dark secondary
+  `#AB9C85` → `#BCAC95` (7.0 → 8.47:1). Muted, the chrome's ink, did not move. Every new ink clears AA on `--bg-alt`
+  too (7.80, 6.00, 7.80). Hierarchy 6.7 → 10.0, mean 8.4 → 9.2; the shipped theme measures the same as the mockup.
+  Demo deck: `examples/cuoio-ink-ladder.md`.
+- **Limits.** One probe deck, the recommended look only; the scores measure ink, not hue, and say nothing about taste.
+
+## 10 — The venue, and why the axis numbers stay their size
+
+§8's isolation could reach 9.4 with two moves: the quote credit in tracked capitals, and the chart's axis numbers one
+step smaller (13.1 → 12.3 px). The second was tested at every venue (`venue:` laptop, huddle, conference, hall) with the
+repo's own legibility model (`engineering/typography.md` §7: the x-height's angle at the back row, about 5′ to make
+letters out, 8′ for labels, 12′ comfortable; back rows at 3, 4.5, 6 and 8 screen-heights):
+
+| Back-row x-height | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| Body | 16.3′ | 12.5′ | 10.6′ | 9.2′ |
+| Header, footer | 13.1′ | 10.0′ | 7.2′ | 6.3′ |
+| Chart category (bar) | 10.7′ | 6.8′ | **4.9′** | **2.5′** |
+| Axis numbers, as shipped | 10.0′ | 6.4′ | **3.7′** | **2.3′** |
+| Axis numbers, one step smaller | 9.4′ | 6.0′ | **3.4′** | **2.2′** |
+
+**Chart text shrinks as the venue grows, in today's shipped engine.** The venue lifts every role token, the chart's box
+gets smaller, and its SVG, drawn in viewBox units, scales down with it: a bar chart's category labels render at
+14.1 px at laptop and 8.7 px at hall (verified with no style block). At conference and hall the chart's labels sit under
+the 5′ floor whatever this study chooses. That is a pre-existing defect in the chart family, logged as
+`followups.d/3098-p1-chart-text-shrinks-with-venue.md`.
+
+**The owner dropped the smaller axis numbers** (2026-11-09): they cost about 0.3′ at every venue and would deepen the
+shrink above. The quote credit in capitals stays in the recommendation (isolation 8.4 → 8.6). The isolation the axis
+numbers would have bought comes back when chart text follows the venue: the fix the follow-up asks for.
