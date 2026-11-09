@@ -358,7 +358,7 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh }: { status: ReturnT
 					<div className="flex items-baseline justify-between gap-3">
 						<span className="text-muted-foreground">This session</span>
 						<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>
-							${spend.session.toFixed(2)}
+							{usd(spend.session)}
 							{spend.cap > 0 ? ` of $${spend.cap.toFixed(2)}` : ''}
 						</span>
 					</div>
