@@ -13,7 +13,9 @@
 const BILLING = /insufficient[_ ](?:credits?|quota|funds|balance)|credit balance is too low|exceeded your current quota|out of credits|add (?:more )?credits|payment required|billing|prepayment|spend(?:ing)? limit/i;
 // A request this account or region may never make: not the model's fault, not the key's.
 const REFUSED_HERE = /location is not supported|region is not supported|not available in your (?:country|region)|FAILED_PRECONDITION/i;
-const GONE = /not found|not supported|is not available|no longer (?:available|supported)|deprecated|unsupported model|invalid model|no endpoints found/i;
+// OpenRouter answers a removed id 404 "no longer available" and an unknown one 400 "not a valid model
+// ID" (live, 2026-11-09); the healer still checks the live list before calling either retired.
+const GONE = /not found|not supported|is not available|no longer (?:available|supported)|deprecated|unsupported model|invalid model|not a valid model|no endpoints found/i;
 
 /**
  * @param {number} status the HTTP status (0 = the request never got an answer)

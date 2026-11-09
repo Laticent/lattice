@@ -12,6 +12,11 @@ describe('classifyProviderError', () => {
 		expect(classifyProviderError(400, '{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}')).toBe('billing'); // Anthropic
 	});
 
+	it('reads OpenRouter’s live answers for a removed and an unknown model id as gone (2026-11-09)', () => {
+		expect(classifyProviderError(404, 'anthropic/claude-3.5-haiku is no longer available on OpenRouter: no provider serves this model anymore.')).toBe('model-gone');
+		expect(classifyProviderError(404, 'Claude 3 Haiku was deprecated on Sep 10, 2026. We recommend migrating to Claude Haiku 4.5')).toBe('model-gone');
+		expect(classifyProviderError(400, 'anthropic/claude-sonnet-3.5 is not a valid model ID')).toBe('model-gone');
+	});
 	it('tells a bad key, a rate limit, a region refusal and a retired model apart', () => {
 		expect(classifyProviderError(401, 'Unauthorized')).toBe('key');
 		expect(classifyProviderError(400, '{"error":{"message":"API key not valid.","details":[{"reason":"API_KEY_INVALID"}]}}')).toBe('key');
