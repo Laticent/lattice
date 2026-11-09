@@ -106,6 +106,10 @@ section.agenda:not(.circles):not(.checks) ol > li::before {
    style: it GROWS to fill the row and right-aligns its text, so it sits flush right in the label face. The render
    pass (progress.transform.js, both arms) wraps the title in `.agenda-title` and marks the right column
    `.agenda-page`, so inline code INSIDE a title stays an ordinary inline pill beside its words. */
+/* WITHOUT THE RENDER PASS (an Export-to-Marp bundle in a preview that runs no script, or a loose list whose line
+   is a <p>) there is no `.agenda-title`/`.agenda-page` row, so the original CSS-only rule still holds: every code
+   in that line takes the right-column face. A row the pass built uses only its `code.agenda-page`. */
+section.agenda ol > li:not(:has(> .agenda-title)) code,
 section.agenda ol > li code.agenda-page {
   /* page ref right-anchors by GROWING to fill the row and right-aligning its text, rather
      than an auto inline-start margin (which sat outside the flex box). The text's right edge
@@ -144,11 +148,17 @@ section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::befor
   -webkit-mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
   mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
 }
+section.agenda.progress-1 ol > li:nth-child(1):not(:has(> .agenda-title)) code,
 section.agenda.progress-1 ol > li:nth-child(1) code.agenda-page,
+section.agenda.progress-2 ol > li:nth-child(2):not(:has(> .agenda-title)) code,
 section.agenda.progress-2 ol > li:nth-child(2) code.agenda-page,
+section.agenda.progress-3 ol > li:nth-child(3):not(:has(> .agenda-title)) code,
 section.agenda.progress-3 ol > li:nth-child(3) code.agenda-page,
+section.agenda.progress-4 ol > li:nth-child(4):not(:has(> .agenda-title)) code,
 section.agenda.progress-4 ol > li:nth-child(4) code.agenda-page,
+section.agenda.progress-5 ol > li:nth-child(5):not(:has(> .agenda-title)) code,
 section.agenda.progress-5 ol > li:nth-child(5) code.agenda-page,
+section.agenda.progress-6 ol > li:nth-child(6):not(:has(> .agenda-title)) code,
 section.agenda.progress-6 ol > li:nth-child(6) code.agenda-page { color: var(--accent); }
 section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1)::after,
 section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2)::after,

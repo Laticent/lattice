@@ -194,7 +194,7 @@ test('the engine prints each filled item\'s page: the slide its divider is, coun
   const { html } = createEngine().render(src, 'indaco');
   const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
   // Title 1, agenda 2, divider 3, the hidden slide not counted, list 4, divider 5.
-  assert.deepEqual([...agenda.matchAll(/<code class="agenda-page">([^<]*)<\/code>/g)].map((m) => m[1]), ['p.3', 'p.5']);
+  assert.deepEqual([...agenda.matchAll(/<code class="agenda-page"[^>]*>([^<]*)<\/code>/g)].map((m) => m[1]), ['p.3', 'p.5']);
 });
 
 test('no page numbers where the deck has none (`paginate: false`), and none on an authored agenda', () => {
@@ -225,7 +225,7 @@ test('the live-DOM arm (the Export-to-Marp runtime) prints the same numbers, onc
   assert.deepEqual(want, [['p.3', 'p.5']]);
   for (const attr of ['data-lattice-pagination', 'data-marpit-pagination']) {
     // The engine's numbers taken back out, so the DOM arm has to find them itself.
-    const bare = html.replace(/<code class="agenda-page">[^<]*<\/code>/g, '').replace(/data-lattice-pagination=/g, `${attr}=`);
+    const bare = html.replace(/<code class="agenda-page"[^>]*>[^<]*<\/code>/g, '').replace(/data-lattice-pagination=/g, `${attr}=`);
     const d = new JSDOM(`<body>${bare}</body>`).window.document;
     for (const s of d.querySelectorAll('section')) s.setAttribute('data-lattice-slide', '');
     progress.applyToDom(d);
@@ -262,7 +262,7 @@ test('page numbers attach by NAME: a list reordered or renamed after the fill ge
   }
   // The same names in the same order, written by hand with the marker, still get their pages.
   const inOrder = deck(slide('agenda agenda-pages', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
-  assert.match(createEngine().render(inOrder, 'indaco').html, /class="agenda-page">p\.2</);
+  assert.match(createEngine().render(inOrder, 'indaco').html, /class="agenda-page" data-agenda-page="">p\.2</);
 });
 
 test('a section heading that ends in inline code keeps its page, and so does every other line (the checker, 2026-11-09)', () => {
@@ -272,7 +272,7 @@ test('a section heading that ends in inline code keeps its page, and so does eve
   const { html } = createEngine().render(deck('# Title', slide('agenda', '## A.'), ...divs), 'indaco');
   const d = new JSDOM(`<body>${html}</body>`).window.document;
   assert.deepEqual(pagesOf(d), [['p.3', 'p.5']]);
-  const bare = html.replace(/<code class="agenda-page">[^<]*<\/code>/g, '');
+  const bare = html.replace(/<code class="agenda-page"[^>]*>[^<]*<\/code>/g, '');
   const live = new JSDOM(`<body>${bare}</body>`).window.document;
   for (const s of live.querySelectorAll('section')) s.setAttribute('data-lattice-slide', '');
   progress.applyToDom(live);
@@ -302,4 +302,23 @@ test('the agenda row: the title is one element with its own code inline, and the
   progress.applyToDom(d);
   const rows = [...d.querySelectorAll('li')].map((li) => [li.querySelector('.agenda-title')?.innerHTML, li.querySelector('code.agenda-page')?.textContent ?? null]);
   assert.deepEqual(rows, [['Front matter declares <code>finish: atrium</code>', 'once'], ['Plan', 'p.4'], ['Plain words', null]], 'the DOM arm builds the same rows, once');
+});
+
+test('an author\'s right-column tag never stops a later DOM pass filling the page numbers (the checker, 2026-11-09)', () => {
+  // The runtime re-runs applyToDom on every pass. The row pass marks the author's `once` as the right column; the
+  // page pass's own guard must key on a number IT wrote, or a pass that arrives before the slides are numbered
+  // would leave "Plan" without its page for good.
+  const sec = (cls, extra, body) => `<section class="${cls}" data-lattice-slide ${extra}>${body}</section>`;
+  const html = [
+    sec('agenda agenda-pages', '', '<ol><li>Intro <code>once</code></li><li>Plan</li></ol>'),
+    sec('divider', '', '<h2>Intro</h2>'),
+    sec('list', '', ''),
+    sec('divider', '', '<h2>Plan</h2>'),
+  ].join('');
+  const d = new JSDOM(`<body>${html}</body>`).window.document;
+  progress.applyToDom(d); // no page numbers stamped yet: fails closed
+  for (const [k, s] of [...d.querySelectorAll('section')].entries()) s.setAttribute('data-lattice-pagination', String(k + 1));
+  progress.applyToDom(d);
+  const rows = [...d.querySelectorAll('section.agenda li')].map((li) => li.querySelector('code.agenda-page')?.textContent ?? null);
+  assert.deepEqual(rows, ['once', 'p.4'], 'Intro keeps its tag; Plan gets its page');
 });

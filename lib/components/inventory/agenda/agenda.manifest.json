@@ -176,7 +176,7 @@
     },
     {
       "mistake": "Ending a hand-written line with inline code that belongs to the title.",
-      "fix": "A line's LAST inline code is its right column (a page reference, or a tag such as `` `once` ``); any other code stays inline in the title. So a hand-written `` Ship only after `npm test` `` puts `npm test` in the right column: end the line with a word, or add a page reference after the code. A filled agenda handles this itself, since its page number comes after the heading's code."
+      "fix": "A line's LAST inline code is its right column (a page reference, or a tag such as `` `once` ``); any other code stays inline in the title. So a hand-written `` Ship only after `npm test` `` puts `npm test` in the right column: end the line with a word, or add a page reference after the code. A filled agenda that prints page numbers handles this itself, since its page number comes after the heading's code; with page numbers off, a heading that ends in code puts that code in the right column too."
     },
     {
       "mistake": "Assuming `progress-N` alone changes which marker style (circles/checks) is used.",
