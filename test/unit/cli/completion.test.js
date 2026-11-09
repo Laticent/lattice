@@ -29,7 +29,7 @@ const O = require('../../../lib/cli/options.js');
 
 const FLAG = /'(--?[A-Za-z][\w-]*)'/g;
 /** Flags parseArgs may still name itself: the retired ones it refuses with a pointer. */
-const PARSEARGS_OWN = new Set(['--strip-captions']);
+const PARSEARGS_OWN = new Set(['--strip-captions', '--fonts']);
 
 function between(src, start, end) {
   const from = src.indexOf(start);

@@ -590,6 +590,12 @@ function parseArgs(argv) {
       console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `say:` now).');
       process.exit(1);
     }
+    // Renamed 2026-11-09 before any release shipped it: `--fonts` read as choosing fonts, and it only decides what an
+    // export embeds. Named here for the same reason as --strip-captions above.
+    if (a === '--fonts' || a.startsWith('--fonts=')) {
+      console.error('error: --fonts was renamed — use --font-embedding (same words: exact, used, full or system).');
+      process.exit(1);
+    }
     // --flag=value form
     const eq = a.match(/^(--?[A-Za-z][\w-]*)=(.*)$/);
     if (eq && VALUE_BY_FLAG[eq[1]]) { flags[VALUE_BY_FLAG[eq[1]].key] = eq[2]; continue; }

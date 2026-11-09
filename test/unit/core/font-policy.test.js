@@ -48,6 +48,12 @@ test('lint: a leftover `fonts:` line is flagged as renamed, and the fix renames 
   assert.equal(applyAllFixes(deck('fonts: used exact-emoji'), vocab), deck('font-embedding: used exact-emoji'));
   // With both keys present the new one already decides, so the fix deletes the old line.
   assert.equal(applyAllFixes(deck('fonts: exact\nfont-embedding: full'), vocab), deck('font-embedding: full'));
+  // An EMPTY new key decides nothing: the fix must not delete the old words, nor rename into a duplicate key.
+  const emptyDeck = deck('fonts: used\nfont-embedding:');
+  const [e] = found('fonts: used\nfont-embedding:');
+  assert.equal(e.autofixable, false);
+  assert.match(e.fix, /Move the words onto the empty `font-embedding:` line/);
+  assert.equal(applyAllFixes(emptyDeck, vocab), emptyDeck, 'the deck is left as the author wrote it');
   assert.equal(found('font-embedding: used').length, 0);
   // Exports no longer read the old key.
   const { frontMatterValue } = require('../../../lib/core/front-matter-key');
