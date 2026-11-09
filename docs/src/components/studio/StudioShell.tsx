@@ -136,6 +136,7 @@ import { marksValue, parseMarksValue } from './marks-value';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
+import { takeNewcomerBake } from './newcomer-bake';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
@@ -5290,6 +5291,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the wrong-ink shape the stamp exists to stop. Folding the lens in makes a lens switch a
 	// reflow outright. See lib/core/swap-kind.mjs.
 	const previewDeckId = `${deck.id}:${composeLens}:${sourceEpoch}`;
+	// The first visit's build-time first write (newcomer-bake.ts), taken once and handed to the editing preview.
+	const [newcomerBake] = React.useState(takeNewcomerBake);
 	// DECK-scoped, not slide-scoped, and that is a frame-signature decision rather than
 	// a question about this slide. `mermaid` is folded into the srcdoc signature
 	// (single-slide-render.ts), so keying it on the SHOWN slide meant a text slide and a
@@ -7214,7 +7217,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onRender={onLivePreviewRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader bake={newcomerBake} chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>

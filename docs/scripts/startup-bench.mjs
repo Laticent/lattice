@@ -118,7 +118,10 @@ async function run(browser) {
 		afterBusy = td(await cdp.send('Performance.getMetrics')) - td(m0);
 		longTasks = await page.evaluate(() => window.__lt);
 	}
-	const out = { firstSlide: first, visible, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks };
+	// The Studio newcomer bake's outcome on the preview host (single-slide-render.ts `adoptBake`): `adopted`,
+	// `refused:<why>`, or null when the visit fetched none. A run that compares builds should say which it measured.
+	const bake = await page.evaluate((sel) => document.querySelector(sel)?.parentElement?.getAttribute('data-lattice-bake') ?? null, FRAME).catch(() => null);
+	const out = { firstSlide: first, visible, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks, bake };
 	await ctx.close();
 	return out;
 }
@@ -145,6 +148,7 @@ const summary = {
 	longTasksMedianCount: ok.some((r) => r.longTasks) ? median(ok.map((r) => (r.longTasks ?? []).length)) : null,
 	longTaskMaxMs: ok.some((r) => r.longTasks) ? Math.max(0, ...ok.flatMap((r) => r.longTasks ?? [])) : null,
 	busyMedianS: ok.length ? Number(median(ok.map((r) => r.busyAtSlide ?? 0)).toFixed(2)) : null,
+	bakes: [...new Set(runs.map((r) => r.bake))],
 	all: runs,
 };
 if (process.env.JSON) console.log(JSON.stringify(summary));
@@ -155,5 +159,6 @@ else {
 	if (summary.afterBusyMedianS != null) console.log(`3 s after    ${summary.afterBusyMedianS} s busy, ${summary.longTasksMedianCount} long tasks (median), longest ${summary.longTaskMaxMs} ms`);
 	console.log(`requests     median ${summary.requestsMedian} (by the slide)`);
 	console.log(`main thread  median ${summary.busyMedianS} s busy by the slide (TaskDuration, throttled clock)`);
+	if (summary.bakes.some((b) => b != null)) console.log(`newcomer bake ${runs.map((r) => r.bake ?? 'none').join(', ')}`);
 	if (summary.gaveUp) console.log(`gave up on ${summary.gaveUp} run(s)`);
 }

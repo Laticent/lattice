@@ -7,6 +7,9 @@ import { ENGINE_FILE } from '../src/lib/engine-file.mjs';
 
 export const ENGINE_GLOB = `**/${ENGINE_FILE}`;
 
+/** The Studio newcomer bake's files, beside the runtime (`…/v/<hash>/studio-newcomer/<mode>.json`). */
+export const NEWCOMER_BAKE_GLOB = '**/studio-newcomer/**';
+
 /**
  * Hold every engine request this page makes until the test releases it: a signal, not a duration.
  *
@@ -18,6 +21,11 @@ export const ENGINE_GLOB = `**/${ENGINE_FILE}`;
  * needs the engine never to arrive simply never releases it.
  */
 export async function holdEngine(page: import('@playwright/test').Page) {
+	// Keep the Studio NEWCOMER BAKE out too (scripts/bake-studio-newcomer.mjs). A first visit fetches it from the head, and
+	// the preview paints it WITHOUT the engine, which reveals the slide and takes the instant shell down: the window these
+	// specs hold the engine to study would close about a second in (studio-instant-shell.spec.ts "stage 1" failed 9 of 12).
+	// The window WITH the bake is pinned in studio-newcomer-bake.spec.ts.
+	await page.route(NEWCOMER_BAKE_GLOB, (route) => route.abort());
 	let open = false;
 	let release: () => void = () => {};
 	let gate = new Promise<void>((r) => {

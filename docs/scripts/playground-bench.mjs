@@ -24,6 +24,11 @@
 //                                   first visible slide. Measures the home page's pre-warm.
 //   handoff <base> <mode> <width>   The preview pane the moment the baked slide shows, and again
 //                                   once the app is live; prints how many pixels differ.
+//   studio-handoff <base> <mode> <width>
+//                                   The same check for the Studio's newcomer bake (bake-studio-newcomer.mjs):
+//                                   the live preview the moment the adopted bake is revealed, before the engine
+//                                   has loaded (the engine request is held until that picture is taken), and again
+//                                   once the first render has patched it.
 //
 // Needs CHROME_PATH (the SessionStart hook exports it). The h2 server makes a throwaway
 // self-signed certificate with `openssl`, and the browser is told to accept it.
@@ -231,7 +236,74 @@ async function handoff(base, colorScheme = 'light', width = '1440') {
 	await browser.close();
 }
 
-const modes = { serve, deck, 'first-paint': firstPaint, journey, handoff };
+async function studioHandoff(base, colorScheme = 'light', width = '1440') {
+	const { PNG } = require(path.join(ROOT, 'node_modules/pngjs'));
+	// Playwright, not this file's Puppeteer: holding the engine needs request interception, and Puppeteer's turns the
+	// HTTP cache off for the page and its frames, under which a held load came back with a frame that painted nothing.
+	const { chromium } = await import('@playwright/test');
+	const W = +width;
+	const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH, args: ['--ignore-certificate-errors'] });
+	const ctx = await browser.newContext({ viewport: { width: W, height: W < 600 ? 844 : W < 1000 ? 1180 : 900 }, isMobile: W < 600, hasTouch: W < 600, colorScheme, reducedMotion: 'reduce', serviceWorkers: 'block', ignoreHTTPSErrors: true });
+	const page = await ctx.newPage();
+	await page.addInitScript(() => {
+		if (window.top === window) {
+			window.__swaps = [];
+			return;
+		}
+		// Inside the preview frame: log each swap stamp a patch writes. The frame's runtime consumes the
+		// attribute itself, so a wait on it is a race; the log is not.
+		const set = Element.prototype.setAttribute;
+		Element.prototype.setAttribute = function (name, value) {
+			if (name === 'data-lattice-swap' && this.classList.contains('lattice')) window.top.__swaps?.push(String(value));
+			return set.call(this, name, value);
+		};
+	});
+	// HOLD THE ENGINE until the baked slide has been captured, so the first picture is always the bake and never
+	// the live render (on an unthrottled link the engine can land before the bake is revealed).
+	let release;
+	const held = new Promise((r) => (release = r));
+	await page.route('**/esm/engine.js', async (route) => {
+		await held;
+		await route.continue();
+	});
+	const host = page.locator('[aria-label="Live deck preview"]');
+	const frame = host.locator('iframe.live');
+	await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
+	await page.waitForFunction(() => document.querySelector('[aria-label="Live deck preview"] iframe.live')?.style.opacity === '1', null, { timeout: 60000, polling: 10 });
+	const state = await page.evaluate(() => ({ engine: !!window.LatticePlayground, bake: document.querySelector('[aria-label="Live deck preview"]')?.getAttribute('data-lattice-bake') ?? null }));
+	// Shown before the engine: the window the bake exists for. False means the run measured the live render twice.
+	const early = !state.engine && state.bake === 'adopted';
+	// Past the reveal's fade (180 ms) and the loader's cross-fade. The engine is held, so this is still the bake.
+	await sleep(1000);
+	const boxA = await host.boundingBox();
+	const a = PNG.sync.read(await host.screenshot());
+	release();
+	// Live: the first render has landed as a patch.
+	await page.waitForFunction(() => window.__swaps.length > 0, null, { timeout: 60000, polling: 50 });
+	await sleep(3000);
+	await page.waitForFunction(() => document.querySelector('[aria-label="Live deck preview"] iframe.live')?.style.opacity === '1', null, { timeout: 60000, polling: 50 });
+	// Each picture at the preview's OWN box: the bake is about what the slide shows, and the preview box settling in
+	// the shell is a separate seam (handoff-bench.mjs). A box that moved is reported, not folded into the diff.
+	const boxB = await host.boundingBox();
+	const moved = JSON.stringify(boxA) !== JSON.stringify(boxB);
+	const b = PNG.sync.read(await host.screenshot());
+	const swaps = await page.evaluate(() => window.__swaps);
+	const writes = await frame.count();
+	let diff = 0;
+	if (a.width !== b.width || a.height !== b.height) diff = -1;
+	else
+		for (let i = 0; i < a.data.length; i += 4) {
+			if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 24) diff++;
+		}
+	if (process.env.SHOTS) {
+		fs.writeFileSync(path.join(process.env.SHOTS, `studio-handoff-${colorScheme}-${W}-baked.png`), PNG.sync.write(a));
+		fs.writeFileSync(path.join(process.env.SHOTS, `studio-handoff-${colorScheme}-${W}-live.png`), PNG.sync.write(b));
+	}
+	console.log(JSON.stringify({ mode: 'studio-handoff', base, colorScheme, width: W, bakeShownBeforeLive: early, ...state, swaps, frames: writes, boxMoved: moved ? [boxA, boxB] : false, diffPx: diff, ofPx: a.width * a.height }));
+	await browser.close();
+}
+
+const modes = { serve, deck, 'first-paint': firstPaint, journey, handoff, 'studio-handoff': studioHandoff };
 if (!modes[mode]) {
 	console.error('usage: playground-bench.mjs serve|deck|first-paint|journey|handoff …  (see the header)');
 	process.exit(2);
