@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { BrowserContext, FrameLocator, Page } from '@playwright/test';
 import { ganttZip } from './plugin-fence-fixture';
-import { expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, shareExport, test } from './studio-fixture';
 
 // ── A zip plugin writes addresses onto `qr` and chart slides, in the REAL Studio ─────────────────────────────────
 //
@@ -158,6 +158,40 @@ test(`a zip plugin cannot turn qr or chart slide text into an address in the Stu
 	expect(anywhere, 'an attribute outside a plugin root names the attacker').toEqual([]);
 	expect(attacker, `requests to ${ATTACKER}:\n${attacker.join('\n')}`).toEqual([]);
 	test.info().annotations.push({ type: 'network', description: `${browserName}: 0 requests to ${ATTACKER}` });
+
+	// The Studio's OWN exports of the same deck (Share): PDF, images and the webpage go through the same door and the same
+	// runtime as the preview, and must not reach the attacker either. The webpage is text, so it gets the preview's oracle:
+	// one QR (the author's, slide 2), and the attacker's address only inside plugin roots.
+	for (const format of ['pdf', 'images', 'webpage'] as const) {
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		await expect(page.getByRole('dialog')).toBeVisible();
+		const download = page.waitForEvent('download', { timeout: 120_000 });
+		await shareExport(page, format);
+		const file = (await (await download).path()) as string;
+		expect(fs.statSync(file).size, `${format}: the export downloaded`).toBeGreaterThan(1000);
+		if (format === 'webpage') {
+			const html = fs.readFileSync(file, 'utf8');
+			// The webpage carries the deck twice: the slides, and the reading document (`#lp-doc`), which repeats slide 2's QR.
+			// So every QR in the file must be the SAME figure, and slide 2 must hold it: the author's, never a second payload.
+			const figures = [...html.matchAll(/<figure class="qr-figure">[\s\S]*?<\/figure>/g)].map((m) => m[0]);
+			expect(figures.length, 'webpage: the author\'s QR is there').toBeGreaterThan(0);
+			expect(new Set(figures).size, 'webpage: every QR in the file is the author\'s one figure').toBe(1);
+			const slide2 = /<section\b[^>]*data-lattice-slide="2"[^>]*>[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
+			expect(slide2.includes(figures[0]), 'webpage: that figure is slide 2\'s, the author\'s link').toBe(true);
+			// The rule is about ADDRESSES: no attribute outside a plugin root (an href, a src, a style's url(), a data-*) may carry
+			// the attacker's. The reading document (`#lp-article`) repeats the plugin's bullets as plain TEXT, without the
+			// plugin's root (followups.d/3110-p3-reading-view-drops-plugin-marker.md): text is allowed, an address is not.
+			const outside = html.replace(/<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/g, '');
+			const inAttrs = [...outside.matchAll(/<[a-z][^>]*>/gi)].map((m) => m[0]).filter((tag) => tag.includes(ATTACKER));
+			expect(inAttrs, 'webpage: no attribute outside a plugin root carries the attacker\'s address').toEqual([]);
+			const article = /<article id="lp-article">[\s\S]*?<\/article>/.exec(outside)?.[0] ?? '';
+			expect(outside.replace(article, '').includes(`${ATTACKER}/leak`), 'webpage: outside the reading document, the address is only in plugin roots').toBe(false);
+		}
+		if (EVIDENCE) fs.copyFileSync(file, path.join(EVIDENCE, `plugin-address-share-${browserName}.${format === 'images' ? 'zip' : format === 'webpage' ? 'html' : 'pdf'}`));
+		await page.keyboard.press('Escape');
+	}
+	expect(attacker, `requests to ${ATTACKER} after the Share exports:\n${attacker.join('\n')}`).toEqual([]);
+	test.info().annotations.push({ type: 'network', description: `${browserName}: 0 requests to ${ATTACKER} across PDF, images and webpage exports` });
 
 	await logSeesControl(page, attacker);
 });
