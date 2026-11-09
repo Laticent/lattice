@@ -263,3 +263,17 @@ test('page numbers attach by NAME: a list reordered or renamed after the fill ge
   const inOrder = deck(slide('agenda agenda-pages', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
   assert.match(createEngine().render(inOrder, 'indaco').html, /class="agenda-page">p\.2</);
 });
+
+test('a section heading that ends in inline code keeps its page, and so does every other line (the checker, 2026-11-09)', () => {
+  // The trailing `<code>` is part of the heading here, not a page reference, so it must neither fail the name
+  // check for the whole list nor stop that line's own number.
+  const divs = [slide('divider', '## Run `npm test`'), slide('list', '## Body.\n\n- One'), slide('divider', '## Ship it')];
+  const { html } = createEngine().render(deck('# Title', slide('agenda', '## A.'), ...divs), 'indaco');
+  const d = new JSDOM(`<body>${html}</body>`).window.document;
+  assert.deepEqual(pagesOf(d), [['p.3', 'p.5']]);
+  const bare = html.replace(/<code class="agenda-page">[^<]*<\/code>/g, '');
+  const live = new JSDOM(`<body>${bare}</body>`).window.document;
+  for (const s of live.querySelectorAll('section')) s.setAttribute('data-lattice-slide', '');
+  progress.applyToDom(live);
+  assert.deepEqual(pagesOf(live), [['p.3', 'p.5']], 'the DOM arm agrees');
+});

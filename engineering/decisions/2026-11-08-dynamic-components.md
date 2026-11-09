@@ -4,10 +4,10 @@ summary: >
   The owner's definition: a DYNAMIC component is anything the engine fills in from other facts in the deck. Two kinds:
   dynamic CONTENT (agenda, glossary, topic; the author places the slide and anything the author writes wins) and dynamic
   MARKS (page numbers, the section rail, the divider's count and numeral, the topic eyebrow, the proof color, the
-  agenda's page references; stamped, switched on or off, never authored; they must agree). Measured on 539 committed
-  decks: every page and section mark agrees today. Decided: a committed agreement test comes first, a shared counter
-  only if that test ever needs one; the glossary moves to the fill model and must be the deck's last slide or slides; a
-  citation syntax is designed next.
+  agenda's page references; stamped, switched on or off, never authored; they must agree). Measured on 561 committed
+  decks: every mark agrees on all of them, but a divider with focus steps makes four marks count one section as
+  several. Decided: a committed agreement test comes first, a shared counter only if that test ever needs one; the
+  glossary moves to the fill model and must be the deck's last slide or slides; a citation syntax is designed next.
 ---
 
 # Dynamic components: what the deck fills in for you
@@ -36,7 +36,7 @@ defined.
 | Who places it | The author places the slide; the engine never inserts one (the glossary is the one exception today, see below) | The engine stamps it where it applies |
 | Can the author write it instead? | **Yes, and the author wins.** A written agenda list, an authored `_track` on a topic slide | No. The author switches it on or off (`paginate: false`, `progress-rail: off`, `no-progress`). Three authored overrides exist and stay: a proof's `cat-N`, a slide's own `progress-N`, and a topic slide's own eyebrow |
 | Settings | One front-matter register, applied to that slide only (the `agenda:` shape) | The mark's own register or switch |
-| When the deck lacks the facts | Render nothing and let lint say why (an agenda with one divider: `agenda-empty`) | Show nothing rather than a wrong value (the agenda's page references refuse when the count is in doubt, or when the list does not name the dividers in order) |
+| When the deck lacks the facts | Render nothing and let lint say why (an agenda with one divider: `agenda-empty`) | Show nothing rather than a wrong value (the agenda's page references refuse when the count is in doubt, or when the list does not name the dividers in order). Four marks break this today on a divider with focus steps (§The measurement) |
 | The rule that matters most | The author's words are never overwritten | **Every mark agrees with every other mark** |
 
 ## The inventory, checked against the code
@@ -77,37 +77,80 @@ first two; the others follow when the test is extended.
 
 ## The measurement: do the marks agree today?
 
-A scratch script rendered every committed deck through the engine (539 decks: `examples/`, the exemplars,
-`test/fixtures/`, the baseline decks, the component galleries and the design galleries; 0 render errors). For each deck
-it built the ground truth from the source (the shown slides in order, the shown dividers, each slide's page and section)
-and checked every mark against it: the page stamp, the divider's `k / N`, the `divider numbered` numeral, the rail's lit
-dot, the topic eyebrow's number, the agenda's list and page references, and the proof color. Seven fixtures were added
-for the hard cases: a divider with focus steps, a hidden divider, a hidden proof slide, `split: headings`, a reordered
-agenda list, `paginate: false` and a twelve-section deck.
+A scratch script rendered decks through the engine and compared every mark with a ground truth. It was written twice:
+the first version (2026-11-08) was reviewed by an independent checker on 2026-11-09, which found that it never read the
+numeral or the proof color from the render, passed whenever a mark was missing, took its ground truth from the render it
+was judging, and missed the focus-step case through a malformed fixture. This section reports the second version only.
+The script itself is posted on PR #3096, since a scratch file does not outlive the session.
 
-**Result: every page number, section count, numeral, rail and agenda page reference agreed, on all 539 decks and on
-every fixture.** The red team's predicted disagreement on a divider with focus steps did not reproduce: the divider
-renders once as `1 / 2` and `2 / 2`, and the agenda shows p.2 and p.4, as it should.
+**What it rendered.** Every committed deck under `examples/`, `exemplars/`, `test/fixtures/`, the baseline decks,
+`lib/**/*.gallery.md` (component galleries and chart kinds) and the design galleries: 561 decks, 0 render errors. Plus 13
+fixtures for the hard cases: a divider with real focus steps (`_focusSteps: item 1 | item 2`), a hidden divider, a hidden
+divider inside a run of slides, a hidden proof slide, `split: headings`, a reordered agenda list, `paginate: false`, a
+twelve-section deck, an authored `progress-N`, an agenda inside a section, `glossary: auto` with an agenda, and an
+`#`-headed divider.
 
-Two real differences, neither in the page or section counts:
+**Ground truth.** The section count comes from the SOURCE, through a reader in the script that shares no code with the
+marks: it splits on `---` outside code fences and reads each slide's `_class:` and `hide` comment. Each rendered slide's
+page and section is then walked from the shown slides, with an expanded copy of a divider staying in the section it
+belongs to.
 
-1. **A hidden proof slide still takes a color.** The proof color counts every proof slide, hidden ones included, the
-   way it already counts one that pins its own `cat-N` (the comment at `sequenceProofPanels` says why: an override must
-   not shift the hue of every slide after it). Pagination counts shown slides only. These are different rules on
-   purpose, and the purpose holds: a color is the slide's identity, so hiding one slide for a lens must not recolor the
-   slides a reader already saw in the full deck. A page number is a position, so it must follow what is shown.
-   **Recommendation: keep it, and write the rule down as the test's one sanctioned exception.**
-2. **The topic eyebrow keeps a heading's closing period; the agenda drops it.** In `examples/topic.md` the eyebrow reads
-   `02 · Where the money actually goes.` while the agenda lists `Where the money actually goes`. Four places. Small,
-   visible, and outside this note: logged as a follow-up.
+**What it checked, and how often each check ran** (read from the render in every case):
 
-Three expected results confirmed: a reordered agenda list gets no page references (the by-name fix in this PR);
-`split: headings` leaves an agenda empty (documented); `paginate: false` drops the references (by design).
+| Mark | Checks run | Can it fail? (a mark corrupted in the render, extra findings) |
+|---|---|---|
+| page number | 4133 | shifted: +4133 |
+| divider `k / N` | 100 | `k` changed: +92 |
+| `divider numbered` numeral | 21 | changed: +19; deleted: +19 |
+| section rail lit dot | 419 | dot moved: +129 |
+| topic eyebrow number | 12 | changed: +9 |
+| agenda list and page references | 13 | a reference changed: +11; all deleted: +11 |
+| proof color (`cat-N`) | 60 | changed: +60 |
 
-## What this changes: a test, not a counter
+Deleting every page stamp, divider marker or rail is NOT caught: the script cannot tell a mark that is missing from one
+switched off. The agreement test must close that gap.
 
-The earlier draft proposed one shared deck counter, the only source every mark reads. The measurement takes the urgency
-out of it: the marks agree today, and a counter would rewrite six working counts to prevent a drift nobody has seen.
+**Result on the 561 committed decks: no disagreement.** Every page number, divider count, numeral, lit dot, eyebrow
+number, agenda reference and proof color matched.
+
+**One real disagreement, in a fixture: a divider with focus steps counts as several sections.** `_focusSteps: item 1 |
+item 2` expands one slide into two copies, and the copies carry nothing that says they are one slide. So the divider
+marker reads `1 / 3`, `2 / 3`, `3 / 3`, the numerals read 01, 02, 03, the rail draws three dots and the next topic's
+eyebrow reads `03`, in a deck with two sections. The agenda fill reads the source, lists two sections, and (since this
+PR) drops its page numbers because the counts do not match. No committed deck puts focus steps on a divider, which is
+why the corpus is clean. The fix is the same in all four marks: count an expanded copy once, which needs the expander
+to stamp the copies the way a heading split stamps `data-split-run`. **This is the first case the agreement test was
+meant to find, and it bears on D3** (below).
+
+Smaller findings:
+
+1. **A hidden proof slide keeps its color slot**, now read from the render (`cat-1`, hidden `cat-2`, `cat-3`). The proof
+   color counts every proof slide, hidden ones included, the way it already counts one that pins its own `cat-N` (the
+   comment at `sequenceProofPanels`: an override must not shift the hue of every slide after it). Pagination counts shown
+   slides only. Different rules on purpose: a color is the slide's identity, so hiding a slide for a lens must not
+   recolor the slides a reader already saw; a page number is a position, so it follows what is shown.
+   **Recommendation: keep it, and make it the agreement test's one sanctioned exception.**
+2. **A divider headed with `#` gives the topic eyebrow a number and no name** (`01` instead of `01 · Alpha`), because
+   `topic-track.js` reads only an `##` heading. The agenda lists the section by name. Logged as a follow-up.
+3. **The topic eyebrow keeps a heading's closing period; the agenda drops it.** `examples/topic.md` renders
+   `01 · Where the money actually goes.`; the agenda fill (`agenda-autofill.js` `itemText`) would list the same divider
+   without the period. Logged as a follow-up.
+
+Expected results, confirmed: a reordered agenda list gets no page references (the by-name rule in this PR);
+`split: headings` makes divider slides the source reader cannot see (the engine's split, not a mark disagreement);
+`paginate: false` drops the references.
+
+**Not measured.** Only the HTML-string render path ran; the live-DOM arms, which the note calls the second copy of each
+count, ran on the small fixtures only. No deck exercised a split run (`4.2` pages, the split's k-of-N rail), so
+`auto-split.js` `repaginate` is unmeasured. `data-lattice-pagination-total` and the agenda's automatic `progress-k` were
+checked by hand on one fixture each.
+
+## What this changes: a test first, and the counter question is now concrete
+
+The earlier draft proposed one shared deck counter, the only source every mark reads. The committed decks agree, so the
+counter is not urgent for them, and it would rewrite six working counts. But the focus-step divider is a real
+disagreement, and it sits in four counts at once: the fix is either the same patch four times (twice per render path)
+or one count they all read. That is the trade the owner is asked to make (D3).
 It would also not be one piece of code. It needs a source count (the agenda fill and the glossary run before render)
 and a render count (the marks), and because dividers carry no page stamp, it must recount slides rather than read the
 stamp.
@@ -115,16 +158,17 @@ stamp.
 What actually protects a boardroom deck is a test that fails the day two marks disagree. So:
 
 **A committed agreement test comes first.** It renders the committed decks and the hard-case fixtures, builds the
-ground truth from the source, and checks every mark against it, with the proof color's hidden-slide rule as its one
-sanctioned exception. It lives in the integration tier (it renders decks), so it adds a test, not a CI job. Its job is
+ground truth from the source, and checks every mark against it, on both render paths, with the proof color's hidden-slide rule
+as its one sanctioned exception. It also knows when each mark must be present, so a deleted mark fails it. It lives in the integration tier (it renders decks), so it adds a test, not a CI job. Its job is
 to make "they agree" a checked fact instead of a lucky one.
 
 **A shared counter is built only if that test ever needs one**: when a new mark joins, or when two marks are found to
 disagree and the fix is cheaper as one count than as a patch to one of them.
 
-The earlier draft also proposed replacing the one-slide preview's four `DECK_DERIVED_FACTS` entries with one rule ("this
-deck has a dynamic component"). Dropped: that rule would mark nearly every deck, since almost every deck has page
-numbers, and the four entries are each narrower and correct.
+The earlier draft also proposed replacing the one-slide preview's `DECK_DERIVED_FACTS` entries (six today, in
+`docs/src/playground/single-slide-render.ts`) with one rule ("this deck has a dynamic component"). Dropped: that rule
+would mark nearly every deck, since almost every deck has page numbers, and the six entries are each narrower and
+correct.
 
 ## The glossary on the content rules
 
@@ -157,24 +201,27 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 |---|---|---|
 | D1 | The definition | **Anything the engine fills in from other facts in the deck**, with the two kinds and their rules above (2026-11-08) |
 | D2 | The glossary | **Fill model, as the deck's last slide or slides, with a one-time lint fix** that writes the slide into the source; the old key honored meanwhile (2026-11-08, last-slide rule 2026-11-09) |
-| D3 | Agreement | **A committed agreement test first; a shared counter only if needed.** The preview's one rule dropped (2026-11-09: "we need to prove it rather than assume") |
+| D3 | Agreement | **A committed agreement test first; a shared counter only if needed.** The preview's one rule dropped (2026-11-09: "we need to prove it rather than assume"). **Open:** the focus-step divider is the first measured disagreement; fix it in four counts, or build the counter for it |
 | D4 | The manifest `dynamic` field | **Not asked.** A proposal until a consumer needs it |
 | D5 | A sources slide | **Design the citation syntax next**; a sources slide is its first consumer (2026-11-08) |
 
 ## The work this sets up, in order
 
 1. **The agreement test** (one PR): the scratch measurement turned into an integration test over the committed decks and
-   the seven fixtures, with the proof color's hidden-slide rule as its sanctioned exception, and the count sites the red
-   team added (the split rail, the `data-lattice-slide` stamps). `followups.d/3096-p1-mark-agreement-test.md`.
-2. **The glossary on the fill model** (one PR): the empty-slide fill, the last-slide lint, the two-part autofix, the six
+   the thirteen fixtures, on both render paths, with the proof color's hidden-slide rule as its sanctioned exception, a
+   presence rule for every mark, and the count sites the red team added (the split rail, the `data-lattice-slide`
+   stamps). `followups.d/3096-p1-mark-agreement-test.md`.
+2. **The focus-step divider counted once**, by whichever route D3 picks. `followups.d/3096-p5-focus-step-divider-counts.md`.
+3. **The glossary on the fill model** (one PR): the empty-slide fill, the last-slide lint, the two-part autofix, the six
    trims and counts retired, and narration, Present, the closing check and the term export moved off the key, each
    verified on its surface. `followups.d/3096-p2-glossary-fill-model.md`.
-3. **The citation syntax** (a design note first): how an author cites a source on a slide, and what a sources slide
+4. **The citation syntax** (a design note first): how an author cites a source on a slide, and what a sources slide
    gathers. `followups.d/3096-p3-citation-syntax-note.md`.
-4. **The eyebrow's closing period**, matched to the agenda. `followups.d/3096-p4-topic-eyebrow-period.md`.
+5. **The eyebrow's closing period**, matched to the agenda. `followups.d/3096-p4-topic-eyebrow-period.md`.
+6. **The eyebrow's name for an `#`-headed divider.** `followups.d/3096-p6-topic-eyebrow-h1-divider.md`.
 
 ## Not decided here
 
-- Whether a shared counter is ever built. The agreement test decides that, by failing or not.
+- Whether a shared counter is ever built. The owner decides with the focus-step case in hand (D3).
 - Whether narration reads a counter. It reads the rendered slides today and agrees.
-- Any visible change to a mark beyond the eyebrow's period.
+- Any visible change to a mark beyond the focus-step count and the eyebrow's period and name.
