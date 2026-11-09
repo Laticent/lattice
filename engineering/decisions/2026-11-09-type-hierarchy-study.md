@@ -65,6 +65,9 @@ check that each family it uses has a loaded face.
 
 ### 3.1 The ladder, measured (cuoio, light, 1280 px wide)
 
+Measured on `main` before this PR's cuoio lift. §9 records the lift: body 5.9 → 8.5:1, eyebrow and secondary 5.1 → 6.5:1.
+The sizes, faces, weights and case below are unchanged by it.
+
 | Role | Face | px | Weight | Case · tracking | Contrast |
 |---|---|---|---|---|---|
 | hero figure | Playfair Display | 114.7 | 700 | as written | 6.0:1 |

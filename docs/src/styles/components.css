@@ -127,10 +127,11 @@
 	gap: 2px;
 	padding: 3px;
 	border-radius: var(--radius-sm);
-	/* The theme's own alternate surface, not a wash of --text-body: every palette contracts --text-muted
-	 * (the idle tab's ink) to clear AA on --bg-alt (#1715), and a body-ink wash moved with each theme's
-	 * body ink. Cuoio's darker body (#3098) took the wash to #ede9e3 and the idle label to 4.47:1. */
-	background: var(--bg-alt);
+	/* An 8% body-ink wash over the bar's own --bg-alt, so the track still reads as a track inside the bar
+	 * (at least 1.12:1 from it on every docs palette). The idle label is --text-body, not --text-muted:
+	 * muted is contracted to clear AA on --bg-alt only (#1715), and any darker track sinks it (cuoio's
+	 * lift, #3098, took it to 4.47:1). Body ink on this track measures 5.36:1 or more on every palette. */
+	background: color-mix(in srgb, var(--text-body) 8%, var(--bg-alt));
 	border: 1px solid var(--border);
 }
 .specimen-face-btn {
@@ -139,7 +140,7 @@
 	border: 0;
 	border-radius: calc(var(--radius-sm) - 2px);
 	background: transparent;
-	color: var(--text-muted);
+	color: var(--text-body);
 	font-family: var(--font-body);
 	font-size: 0.8125rem;
 	font-weight: 500;
