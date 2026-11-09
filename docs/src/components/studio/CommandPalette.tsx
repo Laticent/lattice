@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
 import type { LessonMeta } from './lessons/catalog';
 import { doneLessons } from './lessons/progress';
-import type { StudioCommand } from './studio-commands';
+import { COMMAND_DESCRIPTIONS, type StudioCommand } from './studio-commands';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
@@ -221,7 +221,7 @@ export function CommandPalette({
 				<CommandEmpty>No matches.</CommandEmpty>
 				<CommandGroup heading="Actions">
 					{commands.filter((c) => c.group === 'actions').map((c) => (
-						<CommandItem key={c.id} value={c.label} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+						<CommandItem key={c.id} value={c.label} keywords={c.keywords} description={COMMAND_DESCRIPTIONS[c.id]} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
 					))}
 				</CommandGroup>
 				{lessons && lessons.length > 0 && onLesson && <LearnGroup lessons={lessons} onLesson={(id) => run(() => onLesson(id))()} />}
@@ -229,26 +229,26 @@ export function CommandPalette({
 					<>
 						<CommandSeparator />
 						<CommandGroup heading="Layout">
-							{onCollapseEditor && <CommandItem value="Collapse editor pane" onSelect={run(onCollapseEditor)}><PanelLeftClose />Collapse editor pane</CommandItem>}
-							{onCollapsePreview && <CommandItem value="Collapse preview pane" onSelect={run(onCollapsePreview)}><PanelRightClose />Collapse preview pane</CommandItem>}
-							{onExpandPane && <CommandItem value="Expand collapsed pane" onSelect={run(onExpandPane)}><PanelLeftOpen />Expand collapsed pane</CommandItem>}
-							{onResetSplit && <CommandItem value="Reset split" onSelect={run(onResetSplit)}><Columns2 />Reset split</CommandItem>}
+							{onCollapseEditor && <CommandItem value="Collapse editor pane" description="Folds the editor away so the preview takes the full width." onSelect={run(onCollapseEditor)}><PanelLeftClose />Collapse editor pane</CommandItem>}
+							{onCollapsePreview && <CommandItem value="Collapse preview pane" description="Folds the preview away so the editor takes the full width." onSelect={run(onCollapsePreview)}><PanelRightClose />Collapse preview pane</CommandItem>}
+							{onExpandPane && <CommandItem value="Expand collapsed pane" description="Brings the folded pane back beside the other." onSelect={run(onExpandPane)}><PanelLeftOpen />Expand collapsed pane</CommandItem>}
+							{onResetSplit && <CommandItem value="Reset split" description="Puts the editor and preview back to their default widths." onSelect={run(onResetSplit)}><Columns2 />Reset split</CommandItem>}
 						</CommandGroup>
 					</>
 				)}
 				<CommandSeparator />
 				<CommandGroup heading="Switch deck">
 					{decks.map((d) => (
-						<CommandItem key={d.id} value={d.title} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
+						<CommandItem key={d.id} value={d.title} description="Switches the Studio to this deck." onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
 					))}
 					{commands.filter((c) => c.group === 'deck').map((c) => (
-						<CommandItem key={c.id} value={c.label} keywords={c.keywords} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
+						<CommandItem key={c.id} value={c.label} keywords={c.keywords} description={COMMAND_DESCRIPTIONS[c.id]} onSelect={run(c.run)}><c.icon />{c.label}</CommandItem>
 					))}
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Theme">
 					{palettes.map((p) => (
-						<CommandItem key={p} value={p} onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
+						<CommandItem key={p} value={p} description="Restyles this deck with this palette." onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
 					))}
 				</CommandGroup>
 			</CommandList>
@@ -502,6 +502,8 @@ export function CommandPalette({
 				    inside 46px — visible only while focused, i.e. only with the keyboard up.
 				    Reported from a real Android phone. */}
 				<Command
+					// cmdk names its input by this label (`aria-labelledby`); without one the field had no name.
+					label="Search or run a command"
 					className={cn(
 						'flex min-h-0 flex-1 flex-col',
 						// Spelled out, NOT built from PANEL_SEARCH_BOX by interpolation. Tailwind's
@@ -577,7 +579,7 @@ function LearnGroup({ lessons, onLesson }: { lessons: readonly LessonMeta[]; onL
 			<CommandSeparator />
 			<CommandGroup heading="Learn">
 				{lessons.map((l) => (
-					<CommandItem key={l.id} data-lesson={l.id} data-done={done.has(l.id) || undefined} disabled={waiting} keywords={l.keywords} onSelect={() => onLesson(l.id)}>
+					<CommandItem key={l.id} data-lesson={l.id} data-done={done.has(l.id) || undefined} disabled={waiting} keywords={l.keywords} description={done.has(l.id) ? 'A short guided lesson. You have done this one.' : 'A short guided lesson that walks you through it.'} onSelect={() => onLesson(l.id)}>
 						<GraduationCap />
 						{l.question}
 						{done.has(l.id) && <CommandShortcut>Done</CommandShortcut>}

@@ -81,6 +81,54 @@ test.describe('descriptions a screen reader hears', () => {
 		expect(bad, bad.join('\n')).toEqual([]);
 	});
 
+	test('@crosswidth every command palette row says what it does, and the search field has a name', async ({ page }) => {
+		await gotoStudio(page);
+		// The phone opens the palette as a sheet from the Menu; wider screens type into the inline field.
+		const menu = page.getByRole('button', { name: 'Menu', exact: true }).filter({ visible: true }).first();
+		if (await menu.count()) {
+			await menu.click();
+			await page.getByRole('button', { name: 'Search / commands', exact: true }).click();
+		} else {
+			await page.getByRole('button', { name: 'Search or run a command', exact: true }).filter({ visible: true }).first().click();
+		}
+		await expect(page.getByRole('option').first()).toBeVisible();
+		const cdp = await page.context().newCDPSession(page);
+		const nodes = await axNodes(cdp);
+		const options = nodes.filter((n) => n.role === 'option');
+		expect(options.length, 'the palette lists its rows').toBeGreaterThan(5);
+		// A row with no description gets VoiceOver's generic option hint in that pause (owner, iPhone, #3108).
+		const bare = options.filter((n) => !n.desc).map((n) => n.name);
+		expect(bare, `rows with no description: ${bare.join(', ')}`).toEqual([]);
+		const bad = options.map((n) => (problem(n) ? `"${n.name}": "${n.desc}" ${problem(n)}` : null)).filter(Boolean);
+		expect(bad, bad.join('\n')).toEqual([]);
+		const field = nodes.find((n) => n.role === 'combobox');
+		expect(field?.name, 'the search field has a name').toBeTruthy();
+	});
+
+	test('@crosswidth every row of the site command menu says what it does', async ({ page }) => {
+		await page.goto('/components/', { waitUntil: 'domcontentloaded' });
+		const dialog = page.getByRole('dialog', { name: 'Command palette' });
+		// Wait for the menu's island to mount, then press its header button: Astro removes `ssr` from an island when it
+		// mounts (axe-site.spec.ts), and before that the button has no handler. The menu lives in NavActions,
+		// a `client:idle` island, so the eager-islands signal does not cover it.
+		await page.waitForFunction(() => {
+			const island = document.querySelector('astro-island[component-url*="NavActions"]');
+			return !!island && !island.hasAttribute('ssr');
+		});
+		await page.getByRole('button', { name: 'Search (⌘K)', exact: true }).filter({ visible: true }).first().click();
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByRole('option').first()).toBeVisible();
+		const cdp = await page.context().newCDPSession(page);
+		const nodes = await axNodes(cdp);
+		const options = nodes.filter((n) => n.role === 'option');
+		expect(options.length, 'the menu lists its rows').toBeGreaterThan(3);
+		const bare = options.filter((n) => !n.desc).map((n) => n.name);
+		expect(bare, `rows with no description: ${bare.join(', ')}`).toEqual([]);
+		const bad = options.map((n) => (problem(n) ? `"${n.name}": "${n.desc}" ${problem(n)}` : null)).filter(Boolean);
+		expect(bad, bad.join('\n')).toEqual([]);
+		expect(nodes.find((n) => n.role === 'combobox')?.name, 'the search field has a name').toBeTruthy();
+	});
+
 	test('@crosswidth a bar icon is described by its hint with no tooltip open', async ({ page }) => {
 		await gotoStudio(page);
 		// The icon bar's Coach button: its hint used to reach a screen reader only while its tooltip was
