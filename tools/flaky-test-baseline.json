@@ -26,7 +26,6 @@
       "fixed-sleep": 1
     },
     "docs/e2e/library-images-durability.spec.ts": {
-      "unseeded-random": 3,
       "fixed-sleep": 2
     },
     "docs/e2e/library-images-export.spec.ts": {
@@ -47,17 +46,8 @@
     "docs/e2e/mermaid-unavailable-export.spec.ts": {
       "fixed-sleep": 1
     },
-    "docs/e2e/playground-editor-deferred.spec.ts": {
-      "unseeded-random": 2
-    },
-    "docs/e2e/playground-lint-hidden.spec.ts": {
-      "unseeded-random": 2
-    },
     "docs/e2e/playground-paint.spec.ts": {
       "fixed-sleep": 1
-    },
-    "docs/e2e/pptx-export-photo-size.spec.ts": {
-      "unseeded-random": 1
     },
     "docs/e2e/present-beat.spec.ts": {
       "clock-assert": 1
@@ -75,15 +65,10 @@
       "fixed-sleep": 2
     },
     "docs/e2e/preview-font-swap.spec.ts": {
-      "unseeded-random": 1,
       "fixed-sleep": 1
     },
     "docs/e2e/preview-photo-copies.spec.ts": {
       "fixed-sleep": 1
-    },
-    "docs/e2e/print-waits-for-measuring.spec.ts": {
-      "fixed-sleep": 1,
-      "clock-assert": 1
     },
     "docs/e2e/read-aloud.spec.ts": {
       "fixed-sleep": 5
@@ -93,15 +78,6 @@
     },
     "docs/e2e/status-pill.spec.ts": {
       "clock-assert": 1
-    },
-    "docs/e2e/studio-instant-shell.spec.ts": {
-      "fixed-sleep": 11
-    },
-    "docs/e2e/studio-reserved-slots.spec.ts": {
-      "fixed-sleep": 1
-    },
-    "docs/e2e/studio-shell-parity.spec.ts": {
-      "fixed-sleep": 1
     },
     "docs/e2e/vetrina-cursor-caption.spec.ts": {
       "clock-assert": 1

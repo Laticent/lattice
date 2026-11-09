@@ -41,7 +41,7 @@ theme: indaco
 test('the vector print holds for a measuring collage and logo wall: none is hidden when print() is called', async ({ page }) => {
 	const delay = Number(process.env.DELAY ?? 3000);
 	await page.route(/samples\/(logo|photo)-.*\.(svg|jpg)/, async (route) => {
-		await new Promise((r) => setTimeout(r, delay));
+		await new Promise((r) => setTimeout(r, delay)); // flaky-ok: the stub's injected latency, not a wait-then-check — the pictures cannot arrive sooner
 		await route.continue();
 	});
 	// In every child frame, print() records the lists' state instead of opening the dialog.
@@ -78,5 +78,5 @@ test('the vector print holds for a measuring collage and logo wall: none is hidd
 		expect(r.visibility, `${r.kind} must be visible`).toBe('visible');
 	}
 	// It waited for the delayed pictures rather than printing on the pre-gate timer.
-	expect(Date.now() - t0).toBeGreaterThan(delay);
+	expect(Date.now() - t0).toBeGreaterThan(delay); // flaky-ok: a floor set by the stub's own latency; a slow machine only widens it, so correct code cannot fail it
 });

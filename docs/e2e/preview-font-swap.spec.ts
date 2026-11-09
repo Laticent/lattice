@@ -89,7 +89,7 @@ function sampler(durationMs: number) {
 	if (location.href.indexOf('srcdoc') === -1) return;
 	const push = (window as unknown as { __geom?: (e: unknown) => void }).__geom;
 	if (typeof push !== 'function') return;
-	const docId = Math.random().toString(36).slice(2, 8);
+	const docId = Math.random().toString(36).slice(2, 8); // flaky-ok: a document's name, not a draw — only its uniqueness is read, never its value
 	const t0 = performance.now();
 	// ANNOUNCE THE DOCUMENT AS SOON AS IT HAS PAINTED CONTENT, independently of whether
 	// it was ever revealed. Without this the spec is blind to its own worst failure: a

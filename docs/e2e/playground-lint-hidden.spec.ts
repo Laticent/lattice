@@ -78,9 +78,12 @@ test('@crosswidth showing a hidden editor lints it with no edit', async ({ page 
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	// A hidden editor is built only once a reader shows up (EditorHost), so give it one.
 	// The listener arrives with hydration, so keep the pointer moving until the editor is built.
+	let wiggle = 0;
 	await expect
 		.poll(async () => {
-			await page.mouse.move(40 + Math.random() * 100, 40 + Math.random() * 100);
+			// A new point each poll, from a fixed walk: the move must land somewhere new, not somewhere random (F5).
+			wiggle = (wiggle + 1) % 10;
+			await page.mouse.move(40 + wiggle * 10, 140 - wiggle * 10);
 			return page.locator('.cm-content').count();
 		}, { timeout: 40_000 })
 		.toBeGreaterThan(0);

@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { PREVIEW_CHROME, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_PANEL_IDS } from '../src/components/studio/preview-rect';
-import { ENGINE_GLOB } from './engine-glob';
+import { holdEngine } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // The Studio's pre-paint INSTANT SHELL vs the app it hands off to (#1438).
@@ -48,10 +48,9 @@ type Rect = number[];
 const TOLERANCE = 2;
 
 // The engine bundle is what the shell waits on: it is dismissed when the live preview first
-// paints. Holding the bundle briefly keeps the shell up long enough to measure it WITHOUT
-// changing a single thing about its layout — the alternative (racing a fast machine to read
-// the rects before dismissal) is a flake, not a test.
-const ENGINE_HOLD_MS = 2500;
+// paints. Holding the bundle keeps the shell up WITHOUT changing a single thing about its
+// layout, and `holdEngine` (engine-glob.ts) holds it until the test has measured and calls
+// `release()` — a signal. A fixed 2.5 s hold raced the measurement on a loaded runner (F2).
 
 // The deck pill is the one control whose exact width is UNKNOWABLE to the shell: it is
 // content-sized, and part of that content is a per-deck string the shell must not draw
@@ -264,10 +263,7 @@ for (const c of CASES) {
 			[c.stop, c.split ? splitLayout(c.split) : '', c.collapsed ?? ''] as const,
 		);
 		await page.setViewportSize({ width: c.w, height: c.h });
-		await page.route(ENGINE_GLOB, async (route) => {
-			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-			await route.continue();
-		});
+		const engine = await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('#studio-ssr-shell .ssr-paneftr').waitFor({ state: 'attached' });
 		if (c.rotateTo) {
@@ -292,11 +288,11 @@ for (const c of CASES) {
 		// A dismissed shell reads as all-zero rects and would pass every comparison below
 		// vacuously — assert we caught it up, so the engine hold can't rot silently.
 		expect(shell.topbar?.[3], 'the shell was already dismissed — the engine hold is not working').toBe(54);
+		engine.release();
 
-		// Now let the app through and measure its own bands. Do NOT `unrouteAll` here: the engine
-		// request is still parked inside the handler above, and tearing the handler down discards
-		// it — the engine then never loads, the preview never paints, and this waits out its
-		// timeout. The handler releases the request on its own; just wait for it.
+		// Now let the app through (the `release()` above) and measure its own bands. Do NOT
+		// `unrouteAll` here: the engine request is parked inside the handler, and tearing the
+		// handler down discards it — the engine then never loads and this waits out its timeout.
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
 		await page.evaluate(() => document.fonts.ready);
@@ -398,10 +394,7 @@ test('a rect measured with a docked panel open is not replayed', async ({ page }
 	).toBeNull();
 
 	// And the next load must land on the boot geometry, not the docked one.
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-		await route.continue();
-	});
+	const engine = await holdEngine(page);
 	await page.reload({ waitUntil: 'commit' });
 	await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
 	await page.evaluate(() => document.fonts.ready);
@@ -409,6 +402,7 @@ test('a rect measured with a docked panel open is not replayed', async ({ page }
 		const b = (document.querySelector('#ssr-slidebox') as Element).getBoundingClientRect();
 		return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
 	});
+	engine.release();
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 	await page.evaluate(() => document.fonts.ready);
 	near(shellBox, await card(), 'slide box after a docked-panel session');
@@ -430,16 +424,14 @@ test('a saved share below the collapse midpoint reserves the rail, not the minim
 		}
 	}, splitLayout(20));
 	await page.setViewportSize({ width: 820, height: 1180 });
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-		await route.continue();
-	});
+	const engine = await holdEngine(page);
 	await page.goto('/studio/', { waitUntil: 'commit' });
 	await page.locator('#studio-ssr-shell .ssr-panehdr').waitFor({ state: 'attached' });
 	await page.evaluate(() => document.fonts.ready);
 	const shellPaneW = await page.evaluate(() =>
 		Math.round((document.querySelector('#studio-ssr-shell .ssr-panehdr') as Element).getBoundingClientRect().width),
 	);
+	engine.release();
 
 	// 20% of (820 - 1) is 163.8px, under the (46+300)/2 = 173 midpoint, so the app collapses.
 	await page.locator('[data-pane-role="preview"]').waitFor({ state: 'attached', timeout: 45_000 });
@@ -467,10 +459,7 @@ test.describe('rotation into cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
 	test('rotating a phone into landscape leaves no chrome behind', async ({ page }) => {
-		await page.route(ENGINE_GLOB, async (route) => {
-			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-			await route.continue();
-		});
+		const engine = await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('#studio-ssr-shell .ssr-paneftr').waitFor({ state: 'attached' });
 		await page.evaluate(() => document.fonts.ready);
@@ -495,6 +484,7 @@ test.describe('rotation into cinema', () => {
 			expect(box, `the .ssr-* element for ${name} is gone — the selector has drifted`).not.toBeNull();
 			expect(box?.[3], `the shell left the ${name} painted over the cinema morph`).toBe(0);
 		}
+		engine.release();
 
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
@@ -514,11 +504,9 @@ test('a boot-shaped rect IS replayed, and lands where the app re-measures', asyn
 	// Registered BEFORE the first load: a reload can serve the engine from the memory cache,
 	// firing no request for a later-registered route to intercept — the shell would then be
 	// dismissed before it could be measured, and every comparison below would pass on zeros.
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-		await route.continue();
-	});
+	const engine = await holdEngine(page);
 	await page.goto('/studio/', { waitUntil: 'commit' });
+	engine.release(); // the first load only has to store its rect
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 	await page.evaluate(() => document.fonts.ready);
 	// A plain Write session with nothing docked, nothing collapsed, no transient stop — the
@@ -527,6 +515,7 @@ test('a boot-shaped rect IS replayed, and lands where the app re-measures', asyn
 	const stored = await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2'));
 	expect(stored, 'the app dropped a rect from a layout it can boot into').not.toBeNull();
 
+	engine.hold();
 	await page.reload({ waitUntil: 'commit' });
 	await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
 	await page.evaluate(() => document.fonts.ready);
@@ -538,6 +527,7 @@ test('a boot-shaped rect IS replayed, and lands where the app re-measures', asyn
 	).not.toBeNull();
 	const shell = await page.evaluate(READ_SHELL);
 	expect(shell.box?.[2], 'the shell was dismissed before it could be measured').toBeGreaterThan(1);
+	engine.release();
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 	await page.evaluate(() => document.fonts.ready);
 	const app = await page.evaluate(READ_APP, shell.titleText);
@@ -563,13 +553,9 @@ test.describe('a rect from another orientation', () => {
 	test('is not replayed in portrait', async ({ page, context }) => {
 		// Held from the FIRST load: a reload can serve the engine from cache, so a route
 		// registered later never fires and the shell is gone before it can be measured.
-		const holdEngine = (p: Page) =>
-			p.route(ENGINE_GLOB, async (route) => {
-				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-				await route.continue();
-			});
-		await holdEngine(page);
+		const engine = await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
+		engine.release(); // the landscape load only has to store its rect
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await page.evaluate(() => document.fonts.ready);
 		await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
@@ -579,7 +565,7 @@ test.describe('a rect from another orientation', () => {
 
 		const portrait = await context.newPage();
 		await portrait.setViewportSize({ width: 390, height: 844 });
-		await holdEngine(portrait);
+		const held = await holdEngine(portrait);
 		await portrait.goto('/studio/', { waitUntil: 'commit' });
 		await portrait.locator('#ssr-slidebox').waitFor({ state: 'attached' });
 		expect(
@@ -589,6 +575,7 @@ test.describe('a rect from another orientation', () => {
 		await portrait.evaluate(() => document.fonts.ready);
 		const shell = await portrait.evaluate(READ_SHELL);
 		expect(shell.box?.[2], 'the shell was dismissed before it could be measured').toBeGreaterThan(1);
+		held.release();
 		await portrait.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await portrait.evaluate(() => document.fonts.ready);
 		const app = await portrait.evaluate(READ_APP, shell.titleText);
@@ -605,10 +592,7 @@ test.describe('cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
 
 	test('the instant shell frames the app — landscape phone, the cinema morph', async ({ page }) => {
-		await page.route(ENGINE_GLOB, async (route) => {
-			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-			await route.continue();
-		});
+		const engine = await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
 		await page.evaluate(() => document.fonts.ready);
@@ -620,6 +604,7 @@ test.describe('cinema', () => {
 		// so a shell that paints either is drawing chrome the app is about to delete.
 		expect(shell.topbar, 'the .ssr-topbar element is gone — the selector has drifted').not.toBeNull();
 		expect(shell.topbar?.[3], 'the shell painted a topbar over the cinema morph').toBe(0);
+		engine.release();
 
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
@@ -708,15 +693,13 @@ test.describe('@minfont a raised browser minimum font size', () => {
 				}
 			});
 			await page.setViewportSize({ width: c.w, height: c.h });
-			await page.route(ENGINE_GLOB, async (route) => {
-				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-				await route.continue();
-			});
+			const engine = await holdEngine(page);
 			await page.goto('/studio/', { waitUntil: 'commit' });
 			await page.locator('#studio-ssr-shell .ssr-paneftr').waitFor({ state: 'attached' });
 			await page.evaluate(() => document.fonts.ready);
 			const shell = await page.evaluate(READ_SHELL);
 			expect(shell.topbar?.[3], 'the shell was already dismissed — the engine hold is not working').toBe(54);
+			engine.release();
 
 			await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 			await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
@@ -843,11 +826,8 @@ test('the app never lays out the default share when a dragged split is stored @s
 test('@smoke stage 1 stops the shell painting once the app has committed, without taking its boxes away', async ({ page }) => {
 	// Hold the engine so the preview never renders: that pins the window this is about — the
 	// app's chrome is up, the live preview is not, and the old code covered both until the
-	// second one arrived.
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, 2500));
-		await route.continue();
-	});
+	// second one arrived. Never released: the window lasts the whole test.
+	await holdEngine(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.goto('/studio/', { waitUntil: 'commit' });
 	const shell = page.locator('#studio-ssr-shell');
@@ -901,12 +881,9 @@ test('changing the layout during the hand-off does not strand the shell over the
 	// dismisses the shell on the preview's first render, so a hold shorter than the wait below
 	// lets the ordinary path clear the shell and the guard is never exercised. Measured — with
 	// the guard's `dismissSsrShell()` removed and a 9s hold against a 10s wait, this test still
-	// passed, in 13.0s against the guard's 4.8s. It was reading the engine, not the guard.
-	const HOLD = 60_000;
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, HOLD));
-		await route.continue();
-	});
+	// passed, in 13.0s against the guard's 4.8s. It was reading the engine, not the guard. So the
+	// hold is never released: no wait can outlast it.
+	await holdEngine(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.goto('/studio/', { waitUntil: 'commit' });
 	const shell = page.locator('#studio-ssr-shell');
@@ -936,11 +913,7 @@ test('changing the layout during the hand-off does not strand the shell over the
 // the 8s backstop. A collapsed pane is not the absence of a reading — it is the most complete
 // disagreement there is.
 test('collapsing the preview during the hand-off does not strand the shell over the editor', async ({ page }) => {
-	const HOLD = 60_000;
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, HOLD));
-		await route.continue();
-	});
+	await holdEngine(page); // never released, as above
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.goto('/studio/', { waitUntil: 'commit' });
 	const shell = page.locator('#studio-ssr-shell');

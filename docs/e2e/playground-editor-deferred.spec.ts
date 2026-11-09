@@ -50,9 +50,12 @@ test('@crosswidth the first sign of a reader builds the hidden editor ahead of t
 	await page.waitForTimeout(1_500);
 	await expect(page.locator('.cm-editor')).toHaveCount(0);
 	// The listener arrives with hydration, which the live preview has already passed; moving until it lands is belt and braces.
+	let wiggle = 0;
 	await expect
 		.poll(async () => {
-			await page.mouse.move(40 + Math.random() * 100, 40 + Math.random() * 100);
+			// A new point each poll, from a fixed walk: the move must land somewhere new, not somewhere random (F5).
+			wiggle = (wiggle + 1) % 10;
+			await page.mouse.move(40 + wiggle * 10, 140 - wiggle * 10);
 			return page.locator('.cm-editor').count();
 		}, { timeout: 15_000 })
 		.toBe(1);
