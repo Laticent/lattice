@@ -240,6 +240,20 @@ test('keySvg: portrait lays a key that fits into aligned columns, entries runnin
   assert.equal((port.body.match(/<tspan/g) || []).length, rows.length);
 });
 
+// An EXPORT pane keeps the single column it has always drawn (its drawing is signed off);
+// the fluid viewer's redraw marks its pane `fluid` and gets the grid. #3088's grader caught a
+// landscape deck's half-slide pie (examples/panes.md) changing in the export.
+test('keyAspects: an export pane keeps the single column; a fluid pane and a full slide get the grid', () => {
+  const { keyAspects } = require('../../../lib/plugins/chart-family/shared/callout-layer');
+  const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
+  const colsFor = (ctx) => new Set(swatchXs(keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true,
+    orientation: 'portrait', aspects: keyAspects(ctx) }).body)).size;
+  assert.equal(keyAspects({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), false);
+  assert.equal(colsFor({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), 1, 'export pane: one column');
+  assert.ok(colsFor({ paneView: { w: 223, h: 300, fluid: true }, orientation: 'landscape' }) >= 2, 'fluid pane: the grid');
+  assert.ok(colsFor({ orientation: 'portrait', aspect: 4 / 5 }) >= 2, 'a full portrait slide: the grid');
+});
+
 test('keySvg: portrait keeps the single column when a label is too long for two', () => {
   const rows = [{ swatchFill: 'red', label: 'A label far too long to sit two abreast under this chart', value: '1%' },
     { swatchFill: 'blue', label: 'Short', value: '2%' }];

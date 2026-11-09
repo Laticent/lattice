@@ -844,10 +844,15 @@ roadmap's phases to stack as bands.
 - Risk-matrix puts its key under the grid on a portrait slide too (it did on a phone already),
   with its own column count chosen the same way (`keyColumns`), and the IMPACT axis title now
   moves with the grid.
+- An EXPORT pane (a half-slide chart beside text) keeps the single-column key it always drew:
+  `callout-choose.js` `keyAspects` returns `false` for a pane the fluid viewer did not mark
+  `fluid`, and `keySvg` then skips the grid, the way risk-matrix keeps its export panes. The
+  card grader found the first cut redrawing `examples/panes.md`'s 16:9 pie pane (two key
+  columns, labels ~2.5% smaller) with nobody's sign-off. The fluid redraw's panes keep the grid.
 - What changes in exports: portrait slides with a keyed chart, a key below a chart that a
-  callout placement chose (two square decks in the corpus, `panes.md` at landscape), and nothing
-  else. 416 decks rendered at their own size, then forced to square: 2 and 7 differ, all in a key
-  under a chart. Landscape is byte-identical otherwise.
+  callout placement chose (two square decks in the corpus), and nothing else. 422 decks hashed
+  at their own size against the branch's base: 2 differ, both `size: story`. Landscape,
+  `panes.md` included, is byte-identical.
 
 ### § 30 — roadmap phase bands
 
@@ -855,8 +860,13 @@ roadmap's phases to stack as bands.
   per workstream with the names in one column (a CSS subgrid of the band's two tracks), so the
   items line up as the table's cells do.
 - A roadmap stays ONE page while its bands fit, and the decision is still made from the markup,
-  as 2026-09-01 requires: phases plus workstream rows against a budget for the box's shape
-  (`carousel.js` `BAND_LINES_PER_HEIGHT`, `BAND_FIXED`). The page is 1080px wide, so its height is
+  as 2026-09-01 requires: phases plus the LINES its commitments wrap to, against a budget for
+  the box's shape (`carousel.js` `BAND_LINES_PER_HEIGHT`, `BAND_FIXED`, `BAND_CHARS_PER_LINE`).
+  A commitment's column is ~631px of 47px type, about 24 characters a line (measured: 39-47
+  characters take two lines, 51-53 take three), and each wrapped line counts as a whole band
+  line, so the count errs toward splitting. The first cut counted rows alone, and a roadmap of
+  50-character commitments held one story page and clipped where `main` split it; it now splits
+  (4 pages at story and mobile, as on `main`). The page is 1080px wide, so its height is
   1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take
   ~650px. The budget is 8 lines at 4:5, 14 at 9:16 and 19 at 9:19.5. The demo deck's roadmap (3
   phases of 3, 12 lines) is one page at story and mobile and still splits at portrait;
