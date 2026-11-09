@@ -23,3 +23,11 @@ verify    — tier 1: maker-checker (it changes a nightly job's shape, so bring 
 2026-11-08 — built: `perf-collect.mjs --base-docs` serves both builds and alternates per URL, flipping the order each
 round; `perf-nightly.yml` builds base in its own step first. Both arms now use head's configs. What is left is the
 evidence clause: a week of nightly runs. Read them with 3034-p5's week, then delete both files.
+
+2026-11-09, 13:14 UTC — no night read yet. The 11-09 scheduled run had not started (the 05:37 UTC cron has fired
+between 11:53 and 13:27 UTC this week). #2085 is already closed (the owner, 2026-11-08 20:22 UTC), so the alarm can no
+longer append to it: `perf-nightly.yml` finds the rolling issue among OPEN issues by its title marker, and a noise
+filing would now show up as a NEW `[perf-nightly] docs perf regression detected` issue. So the week's test is "no new
+such issue for a drop inside the noise band" across the 11-09 to 11-15 scheduled runs; list them with
+`gh api 'repos/laticent/lattice/actions/workflows/perf-nightly.yml/runs?per_page=10'` and read each run's perf-report
+artifact. Nothing is left to close; delete this file (and its pair) after the 11-15 run if none of the seven filed one.

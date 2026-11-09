@@ -110,6 +110,7 @@ on the nightly's runner. That is more than this lever is likely to return.
 1. **React hydration, ~930 ms of scripting.** The shell renders one 8,700-line component. The profile shows the cost
    spread across React's reconciler, not in one component, so the next step is a React profiling build to find which
    subtrees mount before the slide and are not on screen on a phone (the strip, the dock, the craft panels).
+   Done 2026-11-09: `2026-11-09-studio-react-mount-profile.md` has the ranked list.
 2. **The preview runtime's evaluation, ~305 ms in one task.** `2026-10-23-studio-boot-order.md` §4 item 1 has the
    design: a docs-only runtime with the chart builders loaded on first use, leaving `lattice-runtime-min.js` (the one
    embedded in exports) byte-identical. Its default there was "not built", and it still needs that design note.
