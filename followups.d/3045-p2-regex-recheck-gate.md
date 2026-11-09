@@ -69,7 +69,7 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             each held to its old pattern by a seeded differential fuzz (seed 3045) with a mutation arm:
             fontFaceRules/replaceVarRefs (slide-camera.mjs), firstClause/dropTrailingPunct/closePunctGaps
             (relationship.js), stripMdLinks/stripMermaidDirectives (chart-narration.js), replaceFencedBlocks/
-            replaceAutolinks/skeletonTags (layout/gate.js), attrRunReader (new lib/core/attr-run.js, the footer-cell
+            replaceAutolinks/skeletonTags (layout/gate.js), attrRunReader (new lib/forms/cell/masthead/attr-run.js, the footer-cell
             walk in masthead.transform.js). Backlog 697 -> 675. LEFT: chart-row-record's 3 guards. They run all of
             lint and render: about 120 patterns recheck does not call safe, about 25 of which read the hostile input
             (lint-core's caption/say/fence/list scans, markdown-it's own, the engine's tag walkers). They retire with
