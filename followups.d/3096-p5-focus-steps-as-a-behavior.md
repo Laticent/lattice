@@ -4,8 +4,8 @@ priority: P5
 recorded: 2026-11-09
 area: engine
 severity: medium
-swimlane: engineering/decisions/2026-11-08-dynamic-components.md §Dynamic behaviors: the other kind
-deferred: large — a redesign of an existing feature that changes exported PDF pages; design note first, then its own PR
+swimlane: engineering/decisions/2026-11-09-steps-as-a-behavior.md
+deferred: large — two PRs (contract + cursor, then the page-per-step export) after the owner picks S1-S4 in the design note
 source: https://github.com/Laticent/lattice/pull/3096#issuecomment-6730760918
 ---
 
@@ -20,8 +20,7 @@ why now   — the parser copies a `_focusSteps` slide once per step (lib/integra
             player sets) but only that half shipped: nothing sets `data-build-at`, so no surface walks its steps yet.
             Issue #380 tracks the walker and the page-per-step PDF; both features need the same two pieces. Issue
             #1765 asks for one Studio control for `_focus`, `_focusStyle`, `_focusSteps` and `_build`.
-where     — a design note in engineering/decisions/ first (amending 2026-06-16-focus-highlighting.md §4, and built
-            with issue #380's step walker so `_build` and `_focusSteps` share it), then
+where     — engineering/decisions/2026-11-09-steps-as-a-behavior.md (written in #3096; owner picks S1-S4), then
             plugins.js (stop copying), lib/transformers/focus.js and lib/base/base.focus.css (steps as state on one
             slide), Present's step walker, the PDF/PPTX export (one frame; page-per-step as an opt-in), and the
             guards the copies made necessary.

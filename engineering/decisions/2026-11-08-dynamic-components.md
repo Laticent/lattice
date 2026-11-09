@@ -210,7 +210,7 @@ render cache, the slice check and the Export-to-Marp note, and now four section 
 `.lat-focus`, one frame in still formats, and page-per-step only as an export option. Both need the same step walker
 in Present and the same page-per-step export, so the two are built together with #380, not twice. One committed deck uses it
 (`examples/focus.md`, once). The PDF change is an export-bytes change, so its before and after renders go to the owner
-for sign-off. Its design note comes first (`followups.d/3096-p5-focus-steps-as-a-behavior.md`).
+for sign-off. Its design: `2026-11-09-steps-as-a-behavior.md`.
 
 ## The glossary on the content rules
 
