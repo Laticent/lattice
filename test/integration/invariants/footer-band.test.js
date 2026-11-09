@@ -431,7 +431,7 @@ describe('footer band — each mark pays for itself, and the band clears a botto
       .filter((s) => !s.parentElement.closest('section'))
       .map((s, i) => {
         const cell = s.querySelector(':scope > .cell-footer');
-        const footer = cell && cell.querySelector(':scope > footer');
+        const footer = cell?.querySelector(':scope > footer');
         const logo = s.querySelector(':scope > img.deck-logo');
         const cs = cell && getComputedStyle(cell);
         return {
