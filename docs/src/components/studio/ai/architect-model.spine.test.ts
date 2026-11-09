@@ -371,7 +371,7 @@ describe('model spine — AI off stops a call on its own route', () => {
 	});
 });
 
-// A key OpenRouter minted seconds ago can answer 401 on /auth/key before it is live everywhere
+// A key OpenRouter minted seconds ago can answer 401 on /api/v1/key before it is live everywhere
 // (owner report, 2026-11-08: "Key rejected" right after signing in). It is asked again before the
 // Studio calls it rejected; a key that keeps answering 401 is still marked.
 describe('model spine — a fresh key is re-asked before it is called rejected', () => {
@@ -384,7 +384,7 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 			const status = statuses[Math.min(n++, statuses.length - 1)];
 			return new Response(JSON.stringify(status === 401 ? { error: { message: 'User not found.', code: 401 } } : { data: { usage: 0, limit: null } }), { status });
 		});
-		vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/auth/key') ? auth() : Response.json({ data: [] }))));
+		vi.stubGlobal('fetch', vi.fn(async (url: string) => (/\/api\/v1\/key$/.test(String(url)) ? auth() : Response.json({ data: [] }))));
 		const m = make() as unknown as Acct;
 		m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
 		await openRouterKeySettled();

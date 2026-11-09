@@ -8,3 +8,4 @@
 - Studio: read-aloud and narration on a cloud voice now count toward Spend, as an estimate from the voice's per-character price ("Voice · OpenRouter ≈ $0.09"), and toward a spend cap.
 - Studio: right after signing in to OpenRouter, the new key no longer reads "Key rejected" because OpenRouter had not finished setting it up: a 401 on a just-made key is checked again before it counts. When a key really is refused, the chat, image reader and voice cards all say so, not only the chat card.
 - Studio: when OpenRouter refuses a key, its Connections row says what OpenRouter answered and how long after the key was made ("OpenRouter said 401: User not found, 4 s after the key was made, asked 3×").
+- Studio: an OpenRouter key's usage and limit are read from OpenRouter's documented `/api/v1/key` endpoint, not the older undocumented `/api/v1/auth/key`.

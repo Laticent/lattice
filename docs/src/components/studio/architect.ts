@@ -209,7 +209,7 @@ export type ORModel = {
 	aliasSlug?: string | null;
 };
 
-/** This key's readout from /auth/key — usage + (optional) per-key spend limit. */
+/** This key's readout from /api/v1/key — usage + (optional) per-key spend limit. */
 export type ORAccount = {
 	usage?: number | null;
 	limit?: number | null;
@@ -1937,7 +1937,7 @@ export type ArchitectStatus = {
 	generation: string;
 	modelName: string | null;
 	modelId: string | null;
-	// This key (/auth/key): usage + optional per-key limit + monthly breakdown.
+	// This key (/api/v1/key): usage + optional per-key limit + monthly breakdown.
 	remaining: number | null;
 	usage: number | null;
 	limit: number | null;
@@ -2065,7 +2065,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				if (id) setState((s) => ({ ...s, modelId: id, modelName: m.openRouterModelName?.() ?? null }));
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
-			// per-key figures (/auth/key) and the account WALLET (/credits) in parallel.
+			// per-key figures (/api/v1/key) and the account WALLET (/credits) in parallel.
 			try {
 				const [acct, wallet] = await Promise.all([
 					Promise.resolve(m.openRouterAccount()).catch(() => null),

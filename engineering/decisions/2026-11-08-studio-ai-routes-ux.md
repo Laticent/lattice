@@ -342,7 +342,7 @@ What shipped, by the plan above:
 
 Voice spend is booked too: the voice model reports each cloud clip it makes (`onSynthesized`), and read-aloud
 books it at the model's per-character price from OpenRouter's public catalog (`bookVoiceSpend`), marked as an
-estimate. A fresh key's 401 on `/auth/key` is asked again twice before the key is called rejected, and every card
+estimate. A fresh key's 401 on `/auth/key` is asked again twice before the key is called rejected; and key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
 on a route whose key was refused says so (owner report, 2026-11-08).
 
 Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`

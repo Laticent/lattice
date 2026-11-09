@@ -12,7 +12,7 @@ type Page = Parameters<typeof gotoStudio>[0];
 async function mockAuthKey(page: Page, good: string) {
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const req = route.request();
-		if (req.url().includes('/auth/key')) {
+		if (/\/api\/v1\/(auth\/)?key(\?|$)/.test(req.url())) {
 			const ok = req.headers().authorization === `Bearer ${good}`;
 			await route.fulfill({ status: ok ? 200 : 401, contentType: 'application/json', body: ok ? '{"data":{"usage":0,"limit":null}}' : '{"error":{"message":"User not found.","code":401}}' });
 			return;
@@ -95,7 +95,7 @@ test('@crosswidth @webkit-phone a key saved while on-device is selected is clean
 	});
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const req = route.request();
-		if (req.url().includes('/auth/key')) {
+		if (/\/api\/v1\/(auth\/)?key(\?|$)/.test(req.url())) {
 			seen.push(String(req.headers().authorization));
 			const ok = [`Bearer ${CLEAN}`, 'Bearer sk-or-v1-e2e-old-working-key'].includes(String(req.headers().authorization));
 			await route.fulfill({ status: ok ? 200 : 401, contentType: 'application/json', body: ok ? '{"data":{"usage":0,"limit":null}}' : '{}' });

@@ -996,7 +996,7 @@ describe('generateFinish — a real JSON reply survives the adapter', () => {
 	});
 });
 
-// Workspace → AI → API key: a PASTED OpenRouter key is checked with /auth/key before it is stored,
+// Workspace → AI → API key: a PASTED OpenRouter key is checked with /api/v1/key before it is stored,
 // so a typo or a revoked key is refused at the door instead of on the first paid request.
 describe('saveOpenRouterKey — a pasted key is checked before it is stored', () => {
 	const KEY = 'lattice-db-or-key';
@@ -1031,7 +1031,7 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(out.ok).toBe(false);
 		if (!out.ok) expect(out.note).toMatch(/Could not reach OpenRouter/);
 	});
-	it('a 200 stores the cleaned key, asked of /auth/key with that key, and clears a stale rejected mark', async () => {
+	it('a 200 stores the cleaned key, asked of /api/v1/key with that key, and clears a stale rejected mark', async () => {
 		localStorage.setItem(KEY, 'sk-or-v1-old');
 		localStorage.setItem(REJECTED, '1');
 		const fetchSpy = answering(200);
@@ -1042,8 +1042,8 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(readOpenRouterKey()).toBe('sk-or-v1-good');
 		expect(localStorage.getItem(KEY)).not.toBe('sk-or-v1-good'); // never in clear
 		expect(localStorage.getItem(REJECTED)).toBeNull();
-		const check = fetchSpy.mock.calls.find(([url]) => String(url).includes('/auth/key'));
-		expect(check, 'the key was checked with /auth/key').toBeTruthy();
+		const check = fetchSpy.mock.calls.find(([url]) => /\/api\/v1\/key$/.test(String(url)));
+		expect(check, 'the key was checked with /api/v1/key').toBeTruthy();
 		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe('Bearer sk-or-v1-good');
 	});
 });

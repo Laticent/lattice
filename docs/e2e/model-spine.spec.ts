@@ -75,7 +75,7 @@ async function mockOpenRouter(page: Page, chat: (body: { model: string }, n: num
 			await route.fulfill({ status: 500, body: 'mock: no audio' });
 			return;
 		}
-		if (url.includes('/auth/key')) return route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' });
+		if (/\/api\/v1\/(auth\/)?key(\?|$)/.test(url)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' });
 		const body = url.includes('/models') ? { data: MODELS } : { data: [] };
 		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 	});

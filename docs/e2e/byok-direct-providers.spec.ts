@@ -221,7 +221,7 @@ for (const p of PROVIDERS) {
 test('connecting a second key never moves the chat model; choosing one is done in Models in use; removing another key leaves it alone', async ({ page }) => {
 	const p = PROVIDERS[0];
 	await mockAll(page, p);
-	await page.route('https://openrouter.ai/api/v1/auth/key', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' }));
+	await page.route('https://openrouter.ai/api/v1/key', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{"usage":0,"limit":null}}' }));
 	await gotoStudio(page);
 	await openWorkspaceAi(page);
 	const card = page.getByTestId('chat-model-card');

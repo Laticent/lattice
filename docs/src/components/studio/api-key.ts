@@ -11,7 +11,7 @@ export { guessProvider, KEY_PROVIDER_INFO };
 
 /**
  * Save a key the author PASTED for `provider`. The key is checked with the provider first
- * (OpenRouter's /auth/key; the direct providers' free /models listing), so a typo or a revoked
+ * (OpenRouter's /api/v1/key; the direct providers' free /models listing), so a typo or a revoked
  * key is refused here instead of failing on the first paid request. On success it is stored
  * sealed through lib/openrouter-key.js. Connecting never changes a set selection; it fills only a
  * Not-set one, and the Studio shell names what it filled (2026-11-08-studio-ai-routes-ux.md).
