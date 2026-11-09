@@ -24,3 +24,11 @@ left is the done-when above: read a week of perf-nightly runs, then delete this 
 head `644f177b`) filed nothing, and the PR-branch dispatch (run 42490597756) filed nothing either. No scheduled night has
 run on the new rule yet, so the week starts with the 2026-11-09 night and ends with the 2026-11-15 one. Close #2085 and
 delete this file after that run if none of the seven filed a drop inside the noise band.
+
+2026-11-09, 13:14 UTC — no night read yet. The 11-09 scheduled run had not started (the 05:37 UTC cron has fired
+between 11:53 and 13:27 UTC this week). #2085 is already closed (the owner, 2026-11-08 20:22 UTC), so the alarm can no
+longer append to it: `perf-nightly.yml` finds the rolling issue among OPEN issues by its title marker, and a noise
+filing would now show up as a NEW `[perf-nightly] docs perf regression detected` issue. So the week's test is "no new
+such issue for a drop inside the noise band" across the 11-09 to 11-15 scheduled runs; list them with
+`gh api 'repos/laticent/lattice/actions/workflows/perf-nightly.yml/runs?per_page=10'` and read each run's perf-report
+artifact. Nothing is left to close; delete this file (and its pair) after the 11-15 run if none of the seven filed one.
