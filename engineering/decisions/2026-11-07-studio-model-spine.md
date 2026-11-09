@@ -282,3 +282,53 @@ once a second by a read.
   raw voice ids; the card and chip named only the provider for a curated default; and the direct
   model list made every bare id its own heading.
 - **Not verified:** live OpenRouter chat or speech on our key (HARD RULE #24), and real Safari on iOS.
+
+## 10. After the spine (2026-11-09)
+
+### 10.1 A stored key is never removed on a read that answered nothing
+
+WebKit once read "needs a key" for a stored OpenRouter key after a source switch (2 failures in about
+270 runs on PR #3079, none in the 220 that carried a probe). The selection reads `needs-key` only when
+`lattice-db-or-key` is gone, and the key store removed it on exactly one read result it could not
+tell apart from a real loss: `unseal` asked IndexedDB for the sealing key, got nothing, and called the
+envelope unopenable (`{ gone: true }`), so `load()` deleted it. WebKit answering a `get` of a stored
+`CryptoKey` with nothing was the one mechanism the PR #3079 checker left standing.
+
+`lookupOrCreate` (`lib/openrouter-key.js`) now proves "none" before anyone acts on it: when `get`
+answers nothing, it `count`s the entry, which reads it without deserializing it. An entry that is there
+is a failed read, so it throws, and `load()` treats that as transient (the envelope stays, the slot
+retries with backoff). Only a store that has no entry is "gone". Every path that removes a stored key,
+or refuses to, logs one `[lattice-key] …` line saying why (never the key), and
+`model-spine.spec.ts` "the chip reaches every source" attaches those lines to a failing run and fails
+on any "removed" line, so a rare WebKit failure in the nightly carries its trace. The unit test fakes
+the WebKit read and fails without the guard.
+
+The guard is for reads only (`create: false`). On the write path, `add` failing on an entry another tab
+stored meanwhile already re-reads the winner; an independent checker showed that guarding there too
+dropped a freshly written key in that race, and a test now pins it. Two limits remain: if WebKit's read
+stayed broken for good, a NEW key written then would still be lost (as before this change), and the
+read path would retry with backoff while logging one probe line per attempt.
+
+The same file carried a CodeQL `js/clear-text-storage-of-sensitive-data` alert from PR #3079
+(`write()`, line 54): the sealing function was named `seal`, which the query does not read as
+encryption, and the mint record held the key's last four characters in clear. The function is now
+`encryptKey` (the envelope was always AES-GCM ciphertext), and the mint record holds a one-way hash
+(`hashKey`, FNV-1a) instead of any character of the key. Neither the WebKit
+`get`-answers-nothing hypothesis nor `count`'s behavior on WebKit is proven: the guard closes the
+mechanism without a captured failure.
+
+Evidence: "the chip reaches every source" (now also tagged `@webkit-phone`) ran 300 times on
+webkit-phone with the guard and the probe, 3 workers, 2026-11-09: 300 passed, 0 failed, no `[lattice-key]`
+"removed" line (23.5 min). That is a pass, not a reproduction: no failure was captured in this
+session, so the fix rests on the mechanism, and the nightly WebKit run keeps the trace armed.
+
+Fault injection in the real engine (`docs/e2e/key-store-fault.spec.ts`, raise round 2 on PR #3105):
+the Studio seals a key, then the page reloads with IDBObjectStore's `get` answering nothing for the
+sealing key while the entry stays (the WebKit fault), and again with `get` and `count` both empty (a
+real loss). With the guard: the stored envelope is kept, the probe names the failed read, and the key
+opens on the next clean load; a real loss still removes the envelope. Desktop Chromium, webkit-phone,
+webkit-tablet and Gecko: 8 passed. With the guard switched off (same build otherwise), the keep test
+FAILS on webkit-phone: the store removes the key, which is the reported bug's mechanism. So the fix is
+proved against the fault in real WebKit; what stays unproved is only that this fault is the one
+#3079 hit, since that failure was never captured.
+

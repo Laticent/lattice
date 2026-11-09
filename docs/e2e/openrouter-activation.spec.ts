@@ -62,7 +62,9 @@ test('@smoke @crosswidth @webkit-phone @gecko a fresh sign-in refused at first r
 	await gotoStudio(page);
 	// The redirect back from OpenRouter carries the code; the exchange mints MINTED.
 	await page.goto('/studio/?code=good-code', { waitUntil: 'domcontentloaded' });
-	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-db-or-minted'))).toMatch(/^\d+:5a5a$/);
+	// The mint record names its key by a one-way hash (8 hex digits), never by the key's own characters.
+	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-db-or-minted'))).toMatch(/^\d+:[0-9a-f]{8}$/);
+	expect(await page.evaluate(() => localStorage.getItem('lattice-db-or-minted'))).not.toMatch(/5a5a/);
 	await openAiTab(page);
 
 	const row = page.getByTestId('provider-row-openrouter-line');

@@ -178,7 +178,23 @@ test('@crosswidth @webkit-tablet @gecko the chip names the model that answered, 
 	await expect(ws.chat.getByTestId('chat-model-card-name')).toHaveText('Big Model');
 });
 
-test('@crosswidth @webkit-tablet @gecko the chip reaches every source: a saved provider and the on-device models', async ({ page }) => {
+test('@crosswidth @webkit-phone @webkit-tablet @gecko the chip reaches every source: a saved provider and the on-device models', async ({ page }) => {
+	// The key store logs every path that removes a key or refuses to (`[lattice-key] …`). WebKit once
+	// read "needs a key" here after the source switch (followups 3079-p2): a failure carries the trace.
+	const keyLog: string[] = [];
+	page.on('console', (m) => {
+		if (m.text().startsWith('[lattice-key]')) keyLog.push(m.text());
+	});
+	try {
+		await chipReachesEverySource(page);
+	} finally {
+		if (keyLog.length) await test.info().attach('key-store-log', { body: keyLog.join('\n'), contentType: 'text/plain' });
+	}
+	// A stored key is never removed on this path, whatever the UI showed.
+	expect(keyLog.filter((l) => l.includes('removed'))).toEqual([]);
+});
+
+async function chipReachesEverySource(page: Page) {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
 	await mockOpenRouter(page);
 	await gotoStudio(page);
@@ -194,7 +210,7 @@ test('@crosswidth @webkit-tablet @gecko the chip reaches every source: a saved p
 	await page.getByRole('radiogroup', { name: 'Chat source' }).getByRole('radio', { name: 'OpenRouter' }).click();
 	await expect(chip).toHaveText('Test Model');
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ source: 'cloud', provider: 'openrouter', model: 'test/model' });
-});
+}
 
 test('@webkit-tablet @gecko another tab follows a selection change without a reload', async ({ page, context }) => {
 	await seed(page, { 'lattice-db-or-key': OR_KEY, 'lattice-studio-chat-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'test/model' }) });
