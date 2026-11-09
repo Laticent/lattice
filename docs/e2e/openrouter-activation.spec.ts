@@ -1,3 +1,4 @@
+import { storedOpenRouterRaw } from './openrouter-key-helper';
 import { expect, gotoStudio, test } from './studio-fixture';
 
 // A KEY A SIGN-IN JUST MADE READS "ACTIVATING", NOT "KEY REJECTED".
@@ -43,7 +44,7 @@ async function openAiTab(page: Page) {
 	await page.getByRole('tab', { name: 'AI' }).click();
 }
 
-test('@smoke @webkit-phone a fresh sign-in refused at first reads activating, then Ready, never Key rejected', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @gecko a fresh sign-in refused at first reads activating, then Ready, never Key rejected', async ({ page }) => {
 	const state = { accept: false };
 	await page.addInitScript(() => {
 		try {
@@ -76,7 +77,7 @@ test('@smoke @webkit-phone a fresh sign-in refused at first reads activating, th
 	await expect(page.getByText('Key rejected')).toHaveCount(0);
 });
 
-test('@smoke @webkit-phone a pasted key that OpenRouter refuses reads rejected at once', async ({ page }) => {
+test('@smoke @crosswidth @webkit-phone @gecko a pasted key that OpenRouter refuses reads rejected at once', async ({ page }) => {
 	let reads = 0;
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const url = route.request().url();
@@ -96,6 +97,8 @@ test('@smoke @webkit-phone a pasted key that OpenRouter refuses reads rejected a
 	await page.getByLabel('OpenRouter API key').fill(PASTED);
 	await page.getByRole('button', { name: 'Check & save' }).click();
 	await expect(page.getByTestId('provider-row-openrouter')).toContainText('Key …6b6b');
+	// The sealed copy is written after the memory one: reload only once it is stored.
+	await expect.poll(() => storedOpenRouterRaw(page)).toMatch(/^v1:/);
 	await page.reload();
 	await openAiTab(page);
 	await expect(page.getByTestId('provider-row-openrouter-line')).toContainText('rejected by OpenRouter', { timeout: 30_000 });
