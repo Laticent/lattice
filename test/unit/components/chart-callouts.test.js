@@ -158,6 +158,13 @@ for (const c of CHARTS) {
         const bare = height(render(c, '', shape).html);
         const noted = height(render(c, two(c), shape).html);
         if (c.cls.startsWith('pie')) continue;
+        // A portrait tower keeps the BOX's shape (cartesian.js fitViewToBox): its bands give up the notes'
+        // height, so the drawing does not grow taller and shrink every label to fit. Its notes still sit
+        // under the figure, which the placement tests pin; here, the drawing is no taller than the bare one.
+        if (c.cls === 'tower' && shape.aspect) {
+          assert.ok(noted <= bare, `${c.cls} at ${shape.aspect}: ${noted} keeps the box's shape (bare ${bare})`);
+          continue;
+        }
         assert.ok(noted > bare, `${c.cls} at ${shape.aspect ?? '16:9'}: ${noted} is taller than ${bare}`);
       }
     });

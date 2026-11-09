@@ -863,6 +863,47 @@ roadmap's phases to stack as bands.
   `examples/portrait-roadmap.md`'s two (16 and 15 lines) are one page each at mobile.
 - Past the budget, the split is the one it was: a cover, then one phase per page.
 
+### § 31 — one layout spine: the canvas is the box's shape, the key is chosen in the box
+
+The owner's next look (2026-11-09) asked for one shared spine for chart layout, no smaller type, and
+charts that fill the space they have. Measured on `examples/fluid-chart-redraw.md` at 1080px wide
+(the share of the chart box each drawing fills, and its smallest text):
+
+| chart | 9:16 height, main → spine | 9:19.5 height, main → spine | smallest text |
+|---|---|---|---|
+| line | 61% → 87% | 48% → 88% | 21px, unchanged |
+| stacked-bar | 52% → 73% | 41% → 75% | 17px, unchanged |
+| waterfall, heatmap | 63% → 89% | 49% → 90% | 21px, unchanged |
+| quadrant | 61% → 97% | 46% → 96% | 24 → 28px |
+| tower | 79% (width 100%) → 88% | 61% → 90% | 16 → 20px |
+
+At 4:5 every canvas keeps its size; at square and landscape nothing changes (416 decks, byte for
+byte, bar the two that carry portrait slides of their own).
+
+The spine is four pieces, each in one place:
+
+- **The box's shape** — `chart-box.js` `chartBoxAspect`, the measured chart box at each slide shape
+  (a 9:19.5 point added, measured at 0.51). The callout placement and the canvas read the same
+  table.
+- **The canvas** — `cartesian.js` `viewFor(orientation, paneView, aspect)`. A pane, and the fluid
+  viewer's redraw (`chart-redraw.js` `canvasFor`), already drew to their box; a portrait slide now
+  does too: 320 wide, so the type is the size every portrait chart prints, and as tall as the box
+  allows (`tallCanvasH`). It aims at 88% of the estimate (`BOX_FILL`), never over it: the estimate
+  assumes a one-line title, and a canvas drawn to the full estimate on a slide with a subtitle came
+  out taller than its box and shrank the quadrant's text from 23px to 21px. Quadrant's own fixed
+  plane grows the same way (`tallGeom`).
+- **Furniture under the plot** — `cartesian.js` `fitViewToBox`. A chart that stacks a key or its
+  notes under the plot lays out once in a trial (no ids, no label-drop report); if the whole
+  drawing came out taller than the box's shape, the plot gives up exactly the excess. Tower uses it:
+  without it, its taller plot plus its key took its text from 20px to 17px at 9:16.
+- **The key's layout** — `svg-legend.js` `pickKeyLayout`, the one rule (§ 29) both the color key
+  and the risk register's key now call.
+
+What is not yet on the spine: pie, map, radar, word-cloud and hub-spoke draw fixed diagrams whose
+unit `meet` fits into the box; their keys are on the spine, their diagrams are not. Label SIZES are
+still per kind (each kind's stylesheet sets its labels in its canvas's units); the spine holds them
+steady by holding the canvas width, not by owning them.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):
