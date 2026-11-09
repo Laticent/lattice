@@ -792,7 +792,8 @@ export function PanelHeader({
 			    long model name (followup 2821-p1). A title wider than the row still truncates. */}
 			<div className={cn('min-w-0 flex-1', fluidActions && 'basis-auto')}>
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
-				{inSheet ? <SheetDescription className="sr-only">{srDescription ?? title}</SheetDescription> : null}
+				{/* No fallback to the title: a description that repeats the name tells a screen reader nothing. */}
+				{inSheet && srDescription ? <SheetDescription className="sr-only">{srDescription}</SheetDescription> : null}
 			</div>
 			{/* 44×44 on a phone, and this is a consequence of moving the close out of the
 			    trailing slot rather than a free-standing polish item. These actions are

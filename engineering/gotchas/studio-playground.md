@@ -1816,3 +1816,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any new sheet opened from a plain button; any change to `SheetContent`'s focus handlers.
 - **Removable when** — Radix returns focus to the previously focused element for trigger-less modal dialogs.
 - **Commits** — the docs-perf PR of 2026-11-09 (`engineering/decisions/2026-11-09-studio-react-mount-profile.md` §5).
+
+## A screen reader's description changes with how the button was reached
+
+- **Symptom** — VoiceOver reads a control's name, then a description that differs by route: a keyboard Tab hears the tooltip hint, a swipe on an iPhone hears nothing, and some buttons say their own name twice ("Share… Share"). Found by the owner on a real iPhone (PR #3108).
+- **Cause** — Radix points a tooltip trigger's `aria-describedby` at the tooltip only while it is OPEN, and `Tip` opens only on keyboard focus. A child's own `aria-describedby`, even `undefined`, overrides the trigger's through Radix's Slot, which is how every `BarIcon` lost its hint. A native `title=` becomes the description whenever it is not the name, so `title={finding.rule}` made every Coach row read a rule id.
+- **Mitigation** — `Tip` (`docs/src/components/ui/tooltip.tsx`) describes its trigger from mount by `describedPart(hint, name)`: nothing when the hint repeats the name, the rest when it opens with the name and a separator. The copy lives in one hidden `#lx-tip-descriptions` container at the end of `<body>`, written by the trigger's ref, never as a sibling of the trigger: a hidden sibling still counts for `:last-child`, which `space-y-*` uses. The copy carries the hint in its `aria-label` and has no text, because a text copy was found by `getByText` and broke two unit tests with a duplicate match. A caller that needs another describer passes `alsoDescribedBy` to the `Tip`, not `aria-describedby` to the child. Use `Tip`, not `title=`, for a hint on a control. `e2e/studio-descriptions.spec.ts` reads Chromium's computed accessibility tree and fails on a description that repeats or opens with the name, a raw kebab-case id, or an unnamed dialog.
+- **Triggered by** — a new `title=` on a control, a hint that restates its button's label, or an `aria-describedby` on a `Tip`'s child.
+- **Removable when** — Radix describes a closed tooltip trigger.
+- **Commits** — the docs-perf PR of 2026-11-09 (#3108).

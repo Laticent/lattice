@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
-import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
@@ -6988,14 +6988,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				)}
 				{hasSelection && (
 					<DropdownMenu>
-						<Tooltip>
-							<TooltipTrigger asChild>
+						<Tip label="Refine selection">
 								<DropdownMenuTrigger asChild>
 									<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
 								</DropdownMenuTrigger>
-							</TooltipTrigger>
-							<TooltipContent>Refine selection</TooltipContent>
-						</Tooltip>
+						</Tip>
 						<DropdownMenuContent align="end" className="w-60">
 							{ai.ready ? (
 								<>
@@ -7330,16 +7327,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
 				    it at the strip's end. */}
 				{previewChromeless && (
-					<button
+					<Tip label="Slide map — every slide as a thumbnail, in place of the slide pills"><button
 						type="button"
 						aria-label="Slide map"
 						aria-pressed={mapOn}
-						title="Slide map — every slide as a thumbnail, in place of the slide pills"
 						onClick={toggleMap}
 						className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
 					>
 						<GalleryVerticalEnd className="size-4" aria-hidden />
-					</button>
+					</button></Tip>
 				)}
 			</div>
 			{!previewChromeless && (
@@ -8088,8 +8084,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    controls (Present/Share/Coach/Chat/Settings/pane toggle) moved. */}
 				{!compact && toursOn && (
 					<DropdownMenu>
-						<Tooltip>
-							<TooltipTrigger asChild>
+						<Tip label="Show me — a guided tour that drives itself">
 								<DropdownMenuTrigger asChild>
 									{/* NOT accent-colored any more. Measured, this glyph was the loudest thing in
 								    the row relative to its importance: the only saturated icon in the run (a
@@ -8101,9 +8096,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								    competing with the CTA two slots away. */}
 								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('hidden text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] xl:inline-flex', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
 								</DropdownMenuTrigger>
-							</TooltipTrigger>
-							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
-						</Tooltip>
+						</Tip>
 						<DropdownMenuContent align="end" className="w-64">
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (

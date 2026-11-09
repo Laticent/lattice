@@ -79,13 +79,26 @@ function TooltipContent({
 // that wants a themed hint in place of a native `title=`. Keeps the migration a
 // one-line wrap (`<Tip label="Collapse">{button}</Tip>`) instead of a four-node
 // Tooltip tree at every call site. Keep the child's own `aria-label` for the
-// accessible NAME — the tooltip is the DESCRIPTION (Radix wires aria-describedby).
+// accessible NAME — the tooltip is the DESCRIPTION.
+//
+// THE DESCRIPTION IS STABLE, AND ONLY WHAT THE NAME DOES NOT ALREADY SAY. Radix points
+// the trigger's `aria-describedby` at the tooltip only while the tooltip is OPEN, and ours
+// opens only on keyboard focus (below). So a screen reader heard the hint on a Mac keyboard
+// and not after a VoiceOver swipe on an iPhone, which reached the same button by another
+// route: the description depended on how you got there. `Tip` now points the trigger at a
+// hidden copy of the hint for as long as it is mounted. And a hint that only repeats the
+// name ("Share" on a button named "Share") is no description at all, so it is dropped, and
+// one that opens with the name ("Version history — save & restore snapshots") is described
+// by the rest. Found on a real iPhone by the owner, PR #3108; e2e/studio-descriptions.spec.ts.
 function Tip({
   label,
   ...props
 }: {
   label: React.ReactNode
   children: React.ReactNode
+  /** Another element that also describes the trigger (a badge's count): kept beside the hint.
+   *  Pass it here, not as the child's own `aria-describedby`, which would override the hint's. */
+  alsoDescribedBy?: string
   side?: React.ComponentProps<typeof TooltipContent>["side"]
   align?: React.ComponentProps<typeof TooltipContent>["align"]
   sideOffset?: number
@@ -99,6 +112,48 @@ function Tip({
   return <KeyboardFocusTip label={label} {...props} />
 }
 
+/** The trigger's accessible name as the caller wrote it: the first `aria-label` down a chain of
+ *  single `asChild` wrappers (`<DropdownMenuTrigger asChild><button aria-label>`), else the plain
+ *  text an element holds (`<button>Save</button>`). Read from props, so it costs a few property
+ *  reads per render and no extra render. */
+function accessibleNameOf(node: React.ReactNode): string | undefined {
+  let el: React.ReactNode = node
+  for (let depth = 0; depth < 4 && React.isValidElement(el); depth++) {
+    const props = el.props as { "aria-label"?: unknown; children?: React.ReactNode }
+    if (typeof props["aria-label"] === "string") return props["aria-label"]
+    if (typeof props.children === "string" || typeof props.children === "number") return String(props.children)
+    el = props.children
+  }
+  return undefined
+}
+
+/** The hidden container every Tip's description copy lives in (see KeyboardFocusTip). */
+function hintHost(): HTMLElement {
+  let host = document.getElementById("lx-tip-descriptions")
+  if (!host) {
+    host = document.createElement("div")
+    host.id = "lx-tip-descriptions"
+    host.hidden = true
+    document.body.append(host)
+  }
+  return host
+}
+
+const squash = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase()
+
+/** What a hint adds to the name: `null` when it only repeats it, the rest when it opens with it and
+ *  a separator ("Name — rest", "Name: rest", "Name (K)" keeps its shortcut), else the whole hint. */
+export function describedPart(hint: React.ReactNode, name: string | undefined): React.ReactNode | null {
+  if (typeof hint !== "string" || !name) return hint
+  const h = hint.trim()
+  if (squash(h) === squash(name)) return null
+  // Only at a word boundary: "Slides overview" on a button named "Slide" says something new.
+  const lead = h.toLowerCase().startsWith(name.trim().toLowerCase()) ? h.slice(name.trim().length) : null
+  // A hyphen counts only with a space before it: "Re-run" on a button named "Re" is one word.
+  if (lead == null || !/^(?:\s|—|–|:|·|\()/.test(lead)) return h
+  return lead.replace(/^\s*(?:—|–|:|·|-(?=\s))?\s*/, "") || null
+}
+
 function KeyboardFocusTip({
   label,
   children,
@@ -108,7 +163,33 @@ function KeyboardFocusTip({
   delayDuration,
   className,
   forceOpen,
+  alsoDescribedBy,
 }: React.ComponentProps<typeof Tip>) {
+  const hintId = React.useId()
+  const description = describedPart(label, accessibleNameOf(children))
+  // The copy a screen reader reads lives in ONE hidden container at the end of <body>, written by the
+  // trigger's ref when it mounts and removed when it unmounts. Not a sibling of the trigger: a hidden
+  // element beside it still counts for `:last-child`, so a Tip at the end of a `space-y-*` list would
+  // give its button the gap meant for the next item. Not a portal: those cannot render on the server,
+  // and switching one on after hydration re-renders every Tip. A hint that is not plain text keeps
+  // Radix's own wiring (described while the tooltip is open).
+  const describes = typeof description === "string"
+  const hintRef = React.useCallback(
+    (el: HTMLElement | null) => {
+      if (!el || !describes) return
+      // The hint rides `aria-label`, not text: a description resolves a referenced element through its
+      // `aria-label` (accname, step 2C), and a copy with no text is never found by a text search, so
+      // `getByText` in a test (or a page find) does not match a tooltip hint the reader never sees.
+      // `role="note"`: ARIA allows `aria-label` on a note but not on a plain span.
+      const span = document.createElement("span")
+      span.id = hintId
+      span.setAttribute("role", "note")
+      span.setAttribute("aria-label", description)
+      hintHost().append(span)
+      return () => span.remove()
+    },
+    [describes, description, hintId]
+  )
   // ON FOCUS, ONLY A KEYBOARD FOCUS. Radix opens a tooltip on any focus that no pointer press just
   // preceded, and that includes focus a surface hands BACK on close: a kept-mounted sheet
   // (ui/persistent-surface.tsx) returns focus to its launcher, and after a tap on a phone the
@@ -139,7 +220,14 @@ function KeyboardFocusTip({
   }, [])
   return (
     <Tooltip delayDuration={delayDuration} open={open || !!forceOpen} onOpenChange={onOpenChange}>
-      <TooltipTrigger asChild onFocusCapture={onFocusCapture}>
+      <TooltipTrigger
+        asChild
+        ref={hintRef}
+        onFocusCapture={onFocusCapture}
+        {...(describes || alsoDescribedBy || description === null
+          ? { "aria-describedby": [describes ? hintId : null, alsoDescribedBy].filter(Boolean).join(" ") || undefined }
+          : {})}
+      >
         {children}
       </TooltipTrigger>
       <TooltipContent side={side} align={align} sideOffset={sideOffset} className={className}>
