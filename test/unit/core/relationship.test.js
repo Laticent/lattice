@@ -756,7 +756,7 @@ describe('core: relationship — textOf reads typeset math as rendered symbols',
 
   test('the clause separator goes with the equation it separated', () => {
     // `- $<math>$ — <description>` is the legend authoring form. Removing the span alone leaves
-    // the dash leading and `CLAUSE_BREAK` cannot fire on a dash with nothing before it, so the
+    // the dash leading and `firstClause` cannot fire on a dash with nothing before it, so the
     // chip shipped reading `— its right adjoint →`.
     assert.equal(labelOf(`<li>${typeset('L \\dashv R')} — its right adjoint</li>`), 'its right adjoint');
     assert.equal(labelOf(`<li>${typeset('a = b')}, so it holds — the reason</li>`), 'so it holds');

@@ -17,6 +17,7 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { commentCloser, replaceClosedComments, closedComments } = require(path.join(ROOT, 'lib/core/closed-comments'));
 const { scanWork } = require(path.join(ROOT, 'test/helpers/work-count'));
+const { assertLinearRegexes } = require(path.join(ROOT, 'test/helpers/regex-trace'));
 
 // A small alphabet dense in the characters that decide a comment, so short strings hit
 // the edges: `<!-->`, `<!--->`, `--!>`, overlapping dashes, openers with no closer.
@@ -92,14 +93,52 @@ describe('unclosed comments stay linear through the whole render (HARD RULE #22)
 describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #22)', () => {
   const { findSkeletonHtml } = require(path.join(ROOT, 'lib/layout/gate.js'));
 
-  test('findSkeletonHtml reads 4.2 MB of `a <!--` lines without hanging', () => {
+  test('findSkeletonHtml reads a skeleton of unclosed comments, fences and autolinks with linear regexes only', () => {
     // A skeleton is model output. The old `/<!--[\s\S]*?-->/g` tried every opener to the end of the text inside one
-    // match, so its cost grows with the square: 1.7 s at 280 KB. No count sees work inside one regex match, so this is a
-    // hang guard (F4 in engineering/decisions/2026-11-06-flaky-tests.md), sized so the old regex overruns it 14 times.
-    const t = performance.now();
-    assert.deepEqual(findSkeletonHtml('a <!--\n'.repeat(600000)), []);
-    const ms = performance.now() - t;
-    assert.ok(ms < 40000, `${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 37 ms, the old shape ~580 s at this size
+    // match (1.7 s at 280 KB), and so did the fence, autolink and tag patterns beside it. No count sees work inside one
+    // regex match, so this asks the census instead of a clock (HARD RULE #32): every regex the scan runs must be one
+    // recheck calls linear (test/helpers/regex-trace.js).
+    const hostile = ['a <!--\n', '```\n', '~~~ x\n', '<a://<b://', '<x@', '<tag'].join('').repeat(200);
+    const { result } = assertLinearRegexes(() => findSkeletonHtml(hostile));
+    assert.ok(result.length > 0, 'the glued `<tag` lines are still reported');
+    assert.deepEqual(assertLinearRegexes(() => findSkeletonHtml('a <!--\n'.repeat(2000))).result, []);
+  });
+});
+
+describe('the skeleton readers answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
+  const { replaceFencedBlocks, replaceAutolinks, skeletonTags } = require(path.join(ROOT, 'lib/layout/gate.js'));
+  const { mulberry32 } = require(path.join(ROOT, 'test/helpers/regex-differential'));
+  // The old patterns (tests are outside the census, which reads lib/** only).
+  const OLD_FENCE = /^[ \t]*(```|~~~)[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+  const OLD_AUTOLINK = /<[a-z][a-z0-9+.-]*:\/\/[^>\s]*>|<[^\s@<>]+@[^\s@<>]+>/gi;
+  const OLD_TAG = /<\/?[a-zA-Z][\w-]*(?=[\s/>]|$)/g;
+  const FENCE_PIECES = ['```', '```', '~~~', '````', '`', '~', ' ', '\t', '\n', '\n', '\r', '\u2028', 'a', 'js'];
+  const LINK_PIECES = ['<', '<', '>', '>', 'http', 'A', 'z9', '+', '.', '-', '://', ':', '/', '@', ' ', '\n', '\t'];
+  const TAG_PIECES = ['<', '</', '<', 'a', 'B', '1', '-', '_', ' ', '/', '>', '\n', '!', '.'];
+  const draw = (rand, pieces) => {
+    let s = '';
+    const len = Math.floor(rand() * 15);
+    for (let j = 0; j < len; j++) s += pieces[Math.floor(rand() * pieces.length)];
+    return s;
+  };
+  const tag = (m) => `[${m}]`;
+
+  test('fences, autolinks and tags: 20,000 draws each, no input where old and new disagree', () => {
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 20000; i++) {
+      const f = draw(rand, FENCE_PIECES);
+      assert.equal(replaceFencedBlocks(f, tag), f.replace(OLD_FENCE, tag), `fence ${JSON.stringify(f)}`);
+      const l = draw(rand, LINK_PIECES);
+      assert.equal(replaceAutolinks(l, tag), l.replace(OLD_AUTOLINK, tag), `autolink ${JSON.stringify(l)}`);
+      const t = draw(rand, TAG_PIECES);
+      assert.deepEqual([...skeletonTags(t)].map((m) => [m.index, m[0]]), [...t.matchAll(OLD_TAG)].map((m) => [m.index, m[0]]), `tag ${JSON.stringify(t)}`);
+    }
+  });
+
+  test('mutation arm: the guard above fails a scan that still runs any of the old patterns', () => {
+    assert.throws(() => assertLinearRegexes(() => 'x'.replace(OLD_FENCE, '')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'x'.replace(OLD_AUTOLINK, '')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'x'.match(OLD_TAG)), /polynomial|unknown|does not hold/);
   });
 });
 

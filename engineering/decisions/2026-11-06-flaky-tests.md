@@ -160,7 +160,8 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   `<p\b[^>]*>\s*<code[^>]*>([\s\S]*?)<\/code>` over many unclosed openers. Both are drained: `lib/core/fence-opener.js`
   reads the fence line in one pass (8 copies swapped), and `paragraphCodeSpans` in lift-bracket-span.js scans the
   paragraphs linearly; each is held to its old pattern by a seeded differential fuzz with a mutation arm. Ten of the
-  twenty hang guards are retired; `followups.d/3045-p2-regex-recheck-gate.md` lists the ten left and what their paths
+  twenty hang guards were retired in part 3 and seven more in part 4 (2026-11-09); the three left are
+  chart-row-record's, which run all of lint and wait on the lint-core drain; `followups.d/3045-p2-regex-recheck-gate.md` lists the ten left and what their paths
   run. recheck cannot model a look-around, so a pattern made linear by one (a look-behind, or the atomic-group idiom
   `(?=(\s*))\1`) carries its proof in writing: `// regex-ok:` on its line and the same reason in the test's `allow`.
 - **Cost**: about 1.2 s per `build:check` on an idle machine (1.23 s cold, 1.16 to 1.28 s warm; 1.9 to 2.7 s with

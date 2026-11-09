@@ -11,7 +11,11 @@ const {
   narrateRadar,
   narrateStateChart,
   narrateStateChartInference,
+  __stripMdLinksForTest,
+  __stripMermaidDirectivesForTest,
 } = require('../../../lib/core/chart-narration.js');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
+const { mulberry32 } = require('../../helpers/regex-differential');
 
 // The shared chart narrators (lib/core, ported from the browser-only
 // docs/src/components/studio/chart-narration.ts, #902 Gap 1 Phase 2). This is the
@@ -919,13 +923,35 @@ test('narrateDiagram: inline-text solid/thick edges bail (ReDoS-safe scope) — 
 
 test('narrateDiagram: a pathological connector line does not hang (no super-linear backtracking)', () => {
   // The `x` after the run matters: a line is trimmed before any connector regex reads it, so trailing spaces alone
-  // never reach one. A hang guard, not a speed test (HARD RULE #32, F4). The old inline-text form
-  // /^--\s*(.+?)\s*-->/ split this run among three quantifiers: 2.8 s at 2,000 spaces, 21 s at 4,000, hours here.
-  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(40000)}x\n\`\`\``;
-  const t = process.hrtime.bigint();
-  assert.equal(narrateDiagram(md), null);
-  const ms = Number(process.hrtime.bigint() - t) / 1e6;
-  assert.ok(ms < 10_000, `took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 3-6 ms, the old shape ~6 h at this size
+  // never reach one. The old inline-text form /^--\s*(.+?)\s*-->/ split this run among three quantifiers: 2.8 s at
+  // 2,000 spaces, 21 s at 4,000. No clock (HARD RULE #32): every regex the narration runs on it must be one recheck calls
+  // linear (test/helpers/regex-trace.js). The three markdown-it patterns are a dependency's, so the census does not hold
+  // them; each is named with recheck's verdict (`npm run regex:census -- --check`).
+  const md = `<!-- _class: diagram -->\n\n## T\n\n\`\`\`mermaid\nflowchart LR\n  A[X] --${' '.repeat(4000)}x\n\`\`\``;
+  const allow = {
+    '/\\r\\n?|\\n/g': 'markdown-it normalize: recheck 4.6.2 safe',
+    '/^<(script|pre|style|textarea)(?=(\\s|>|$))/i': 'markdown-it html_block: recheck 4.6.2 safe',
+    '/-->/': 'markdown-it html_block: recheck 4.6.2 safe',
+  };
+  assert.equal(assertLinearRegexes(() => narrateDiagram(md), { allow }).result, null);
+});
+
+test('the narration\'s link and directive readers answer as the regexes they replaced (seeded fuzz, seed 3045)', () => {
+  // The old patterns, both recheck `polynomial` (tests are outside the census, which reads lib/** only).
+  const OLD_LINK = /!?\[([^\]]*)\]\([^)]*\)/g;
+  const OLD_DIRECTIVE = /%%\{[\s\S]*?\}%%/g;
+  const PIECES = ['[', '[', ']', ']', '(', ')', ')', '!', '![', '](', 'a', 'b c', '%%{', '}%%', '%', '{', '}', '\n', '$1', '$&'];
+  const rand = mulberry32(3045);
+  for (let i = 0; i < 30000; i++) {
+    let s = '';
+    const len = Math.floor(rand() * 13);
+    for (let j = 0; j < len; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+    assert.equal(__stripMdLinksForTest(s), s.replace(OLD_LINK, '$1'), `links ${JSON.stringify(s)}`);
+    assert.equal(__stripMermaidDirectivesForTest(s), s.replace(OLD_DIRECTIVE, ''), `directives ${JSON.stringify(s)}`);
+  }
+  // Mutation arm: the guard above fails a narration that still runs either old pattern.
+  assert.throws(() => assertLinearRegexes(() => 'x'.replace(OLD_LINK, '$1')), /polynomial|unknown|does not hold/);
+  assert.throws(() => assertLinearRegexes(() => 'x'.replace(OLD_DIRECTIVE, '')), /polynomial|unknown|does not hold/);
 });
 
 // ── label GRAMMAR: verb vs. noun vs. condition (the trio's central inversion) ──────────────

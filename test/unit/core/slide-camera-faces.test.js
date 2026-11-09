@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { describe } = test;
+const { mulberry32 } = require('../../helpers/regex-differential');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 test('a unicode-range face is fetched only for a slide that shows a character in its range', async () => {
   const { unusedRangeFaceUrls } = await import('../../../lib/core/slide-camera.mjs');
@@ -99,23 +102,57 @@ test('the sheet scanners stay linear on a stylesheet that carries megabytes of b
   const camera = await import('../../../lib/core/slide-camera.mjs');
   const face = (family, weight) => `@font-face{font-family:'${family}';font-weight:${weight};src:url(data:font/woff2;base64,${'A'.repeat(1_500_000)}) format('woff2')}`;
   const css = [face('Outfit', 400), face('Playfair Display', 700), '.a::before{font-family:Icons}li::marker{font-family:var(--f)}', '@media (min-width:1px){.b::first-line{font-family:Hand}}', 'section{font-family:Outfit}'].join('\n');
-  const timed = (fn) => {
-    const t = Date.now();
-    const out = fn();
-    return [out, Date.now() - t];
-  };
-  const [pseudo, tPseudo] = timed(() => camera.pseudoElementFamilies(css, () => 'Q'));
+  // No clock (HARD RULE #32): every regex these scans run must be one recheck calls linear (test/helpers/regex-trace.js).
+  // The defect was a backtracking regex, which no count can see and a stopwatch sees only on a slow enough machine.
+  // The `@font-face` and `var()` patterns that used to run here are polynomial; fontFaceRules and replaceVarRefs replaced them.
+  const { result: pseudo } = assertLinearRegexes(() => camera.pseudoElementFamilies(css, () => 'Q'));
   assert.deepEqual(pseudo.families.map((f) => f.trim()), ['Icons', 'Q', 'Hand']);
-  // Hang guards sized by F4 (HARD RULE #32): the defect was a backtracking regex, which no count can see. Each scan
-  // takes 1 to 6 ms here today; the regex #2904 replaced took 44 s on a tenth of this sheet.
-  assert.ok(tPseudo < 5000, `pseudoElementFamilies took ${tPseudo} ms on a 3 MB sheet`); // flaky-ok: hang guard — 1.2 ms today; the old regex 44 s on 300 KB
-  const [, tPrune] = timed(() => camera.onlyUsedFontFaces(css, new Set(['outfit'])));
-  const [, tDup] = timed(() => camera.withoutDuplicateFaces(css, face('Outfit', 400)));
-  const [, tOmit] = timed(() => camera.withoutFontFaces(css, ['Playfair Display']));
-  const [, tRange] = timed(() => camera.unusedRangeFaceUrls(css, 'plain text'));
-  for (const [name, ms] of Object.entries({ onlyUsedFontFaces: tPrune, withoutDuplicateFaces: tDup, withoutFontFaces: tOmit, unusedRangeFaceUrls: tRange })) {
-    assert.ok(ms < 5000, `${name} took ${ms} ms on a 3 MB sheet`); // flaky-ok: hang guard — 2 to 6 ms today, as above
-  }
+  assert.equal(assertLinearRegexes(() => camera.onlyUsedFontFaces(css, new Set(['outfit']))).result.length, css.length - face('Playfair Display', 700).length);
+  assert.equal(assertLinearRegexes(() => camera.withoutDuplicateFaces(css, face('Outfit', 400))).result.includes("font-family:'Outfit'"), false);
+  assert.equal(assertLinearRegexes(() => camera.withoutFontFaces(css, ['Playfair Display'])).result.includes('Playfair'), false);
+  assertLinearRegexes(() => camera.unusedRangeFaceUrls(css, 'plain text'));
+});
+
+describe('the linear scanners answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
+  // The old patterns (tests are outside the census, which reads lib/** only). Both are recheck `polynomial`.
+  const OLD_FACE = /@font-face\s*\{[^}]*\}/g;
+  const OLD_VAR = /var\(\s*(--[\w-]+)\s*(?:,[^)]*)?\)/g;
+  const draw = (rand, pieces, max) => {
+    let s = '';
+    const len = Math.floor(rand() * (max + 1));
+    for (let i = 0; i < len; i++) s += pieces[Math.floor(rand() * pieces.length)];
+    return s;
+  };
+  const FACE_PIECES = ['@font-face', '@font-face', '@font-fac', '{', '{', '}', '}', ' ', '\n', '\t', '\u00a0', 'a', ';', ':', 'x{', '@'];
+  const VAR_PIECES = ['var(', 'var(', 'var', '(', ')', ')', ',', '--', '-', 'a', 'Z_9', ' ', '\t', '\n', '\u2028', '!', 'x'];
+
+  test('fontFaceRules finds exactly the rules /@font-face\\s*\\{[^}]*\\}/g finds, over 20,000 draws', async () => {
+    const { fontFaceRules } = await import('../../../lib/core/slide-camera.mjs');
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 20000; i++) {
+      const s = draw(rand, FACE_PIECES, 14);
+      const want = [...s.matchAll(OLD_FACE)].map((m) => [m.index, m[0]]);
+      assert.deepEqual(fontFaceRules(s).map((r) => [r.start, r.text]), want, JSON.stringify(s));
+    }
+  });
+
+  test('replaceVarRefs rewrites exactly what the old var() replace rewrote, over 20,000 draws', async () => {
+    const { replaceVarRefs } = await import('../../../lib/core/slide-camera.mjs');
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 20000; i++) {
+      const s = draw(rand, VAR_PIECES, 14);
+      const seen = [];
+      const want = s.replace(OLD_VAR, (_, name) => `<${name}>`);
+      assert.equal(replaceVarRefs(s, (name) => (seen.push(name), `<${name}>`)), want, JSON.stringify(s));
+      assert.deepEqual(seen, [...s.matchAll(OLD_VAR)].map((m) => m[1]), JSON.stringify(s));
+    }
+  });
+
+  test('mutation arm: the trace fails a scan that still runs the old patterns', () => {
+    // What the guard above would say about the code before the rewrite: both old patterns are in the census as polynomial.
+    assert.throws(() => assertLinearRegexes(() => 'x@font-face{'.replace(OLD_FACE, '')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'var(--a,'.replace(OLD_VAR, '')), /polynomial|unknown|does not hold/);
+  });
 });
 
 test('the root rewrite re-points html, body and :root selectors and leaves CSS strings and comments as written', async () => {
