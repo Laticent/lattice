@@ -56,25 +56,28 @@ const ACTIVATION_POLL_MS = 15_000;
 const keyShape = (key) => `${String(key).startsWith('sk-or-v1-') ? 'sk-or-v1-…' : `${String(key).slice(0, 3)}…`} ${String(key).length} chars`;
 /** The last four characters of the key the last sign-in on this page was given ('' before one). */
 let issuedHint = '';
-let watching = null; // the key the activation watch is asking about (one watch at a time)
-let watchUntil = 0; // a watch whose timers were lost (a frozen tab) is not trusted past this
-function watchActivation(key) {
-  if (watching === key && Date.now() < watchUntil) return;
-  watching = key;
-  watchUntil = Date.now() + OPENROUTER_ACTIVATION_MS + 2 * ACTIVATION_POLL_MS;
+/**
+ * Ask OpenRouter about `key` every ACTIVATION_POLL_MS while it is activating, then once just after the
+ * window closes, so a key still refused is marked rejected. Never sooner than a second apart, and it
+ * stops when the key is accepted, replaced, or past its window. `watch` is the owner's one-watch slot
+ * ({ key }), per model, so two chains never poll one key and a test's model starts clean.
+ */
+function watchActivation(watch, key) {
+  if (watch.key === key) return;
+  watch.key = key;
+  const stop = () => { if (watch.key === key) watch.key = null; };
   const ask = () => {
-    if (key !== readOpenRouterKey() || !openRouterKeyActivating()) { watching = null; return; } // replaced, or accepted
-    const left = OPENROUTER_ACTIVATION_MS - openRouterKeyMintedAgeMs();
+    const left = OPENROUTER_ACTIVATION_MS - openRouterKeyMintedAgeMs(key);
+    if (key !== readOpenRouterKey() || !openRouterKeyActivating()) return stop(); // replaced, accepted, or window over
     setTimeout(async () => {
-      if (key !== readOpenRouterKey() || !openRouterKeyActivating()) { watching = null; return; }
+      if (watch.key !== key || key !== readOpenRouterKey() || !openRouterKeyActivating() && openRouterKeyMintedAgeMs(key) < OPENROUTER_ACTIVATION_MS) return stop();
       try {
         const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
-        if (res.ok) noteKeyAccepted('openrouter', openRouterKeyAgeMs());
+        if (res.ok) { const age = openRouterKeyMintedAgeMs(key); noteKeyAccepted('openrouter', Number.isFinite(age) ? age : openRouterKeyAgeMs()); }
         noteOpenRouterStatus(res.status, key);
-      } catch { /* offline: ask again on the next beat */ }
-      if (openRouterKeyActivating() && key === readOpenRouterKey()) ask();
-      else watching = null;
-    }, Math.max(0, Math.min(ACTIVATION_POLL_MS, left + 1000)));
+      } catch { /* offline: ask again on the next beat, while the window lasts */ }
+      if (watch.key === key) ask();
+    }, Math.max(1000, Math.min(ACTIVATION_POLL_MS, left + 1000)));
   };
   ask();
 }
@@ -306,9 +309,10 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   // longer stored is ignored (lib/openrouter-key.js). The key itself stays, so the author sees
   // "rejected · Reconnect" rather than a silent fall to "not connected".
   // Every OpenRouter answer feeds the key's mark; a 401 for a key still activating starts the watch.
+  const watch = { key: null }; // the key the activation watch is asking about
   const noteStatus = (status, key) => {
     noteOpenRouterStatus(status, key);
-    if (status === 401 && openRouterKeyActivating()) watchActivation(key);
+    if (status === 401 && openRouterKeyActivating()) watchActivation(watch, key);
   };
   return {
     name: 'openrouter',
@@ -578,7 +582,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           noteKeyRefusal('openrouter', { status: 401, message: /"message"\s*:\s*"([^"]*)/.exec(detail)?.[1] ?? detail, ageMs: Number.isFinite(age) ? age : null });
         }
         noteStatus(res.status, key);
-        if (res.status === 401 && openRouterKeyActivating()) {
+        if (res.status === 401 && key === readOpenRouterKey() && openRouterKeyActivating()) {
           throw new Error('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.');
         }
         throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));

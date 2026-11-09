@@ -348,7 +348,10 @@ estimate. A key a sign-in just minted is not live at OpenRouter at once: on the 
 reload), a 401 marks the key "activating", not rejected: Connections and the cards say OpenRouter is
 activating the key, a chat says to send again shortly, and the Studio asks again every 15 s, clearing
 the note the moment the key is accepted. A key still refused after the window is marked rejected; a
-pasted key's 401 is a rejection at once. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
+pasted key's 401 is a rejection at once. The note ends with the window even if nothing asks again, belongs to one
+key (another tab's key, or a new one, does not inherit it), and survives Disconnect then Undo; the
+re-check never runs faster than once a second and stops when the window closes, so a dropped
+connection or a 5xx cannot turn it into a loop. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
 on a route whose key was refused says so (owner report, 2026-11-08).
 
 Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`

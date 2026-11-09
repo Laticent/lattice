@@ -409,10 +409,13 @@ export function openRouterKeyAgeMs() {
  * found." for over a minute and accepted 94 s after the key was made (owner report, 2026-11-09).
  */
 export const OPENROUTER_ACTIVATION_MS = 180_000;
-// When the stored key was minted by a sign-in (ms epoch). Not secret, and kept across a reload so
-// a page opened mid-activation still knows. A pasted key has none: its 401 is a rejection at once.
+// When a sign-in minted a key, and that key's last four characters ("<ms>:<tail>"). Not secret (the
+// tail is what Connections shows), and kept across a reload so a page opened mid-activation still
+// knows. Kept on Disconnect too, so Undo brings the same key back still in its window; a different
+// key never matches it. A pasted key has none: its 401 is a rejection at once.
 const OR_MINTED = 'lattice-db-or-minted';
-let orActivating = false; // a 401 arrived inside the activation window, and no 2xx since
+const tail = (key) => String(key).slice(-4);
+let activatingKey = null; // the key OpenRouter answered 401 for inside its window, until a 2xx or a new key
 
 /**
  * Store the OpenRouter key (or remove it with null). `minted: true` marks a key a sign-in was just
@@ -420,23 +423,24 @@ let orActivating = false; // a 401 arrived inside the activation window, and no 
  */
 export function writeOpenRouterKey(key, { minted = false } = {}) {
 	if (!key) write(OR_VIA, null);
-	write(OR_MINTED, key && minted ? String(Date.now()) : null);
-	if (orActivating) {
-		orActivating = false;
+	if (key && minted) write(OR_MINTED, `${Date.now()}:${tail(key)}`);
+	if (activatingKey) {
+		activatingKey = null;
 		announce();
 	}
 	return OR.writeKey(key);
 }
 
-/** How long ago a sign-in minted the stored OpenRouter key (ms), or Infinity for a pasted key or none. */
-export function openRouterKeyMintedAgeMs() {
-	const t = Number(read(OR_MINTED));
-	return t > 0 && (OR.readKey() || read(OR.KEY)) ? Date.now() - t : Number.POSITIVE_INFINITY;
+/** How long ago a sign-in minted `key` (the stored OpenRouter key by default), in ms; Infinity for a pasted key or none. */
+export function openRouterKeyMintedAgeMs(key = OR.readKey()) {
+	const [at, t] = String(read(OR_MINTED) ?? '').split(':');
+	return key && Number(at) > 0 && t === tail(key) ? Date.now() - Number(at) : Number.POSITIVE_INFINITY;
 }
 
-/** True while OpenRouter is still activating a key a sign-in just minted (it answered 401 inside the window). */
+/** True while OpenRouter is still activating the key a sign-in just minted: it answered 401 inside the window. */
 export function openRouterKeyActivating() {
-	return orActivating && !!OR.readKey();
+	const key = OR.readKey();
+	return !!key && activatingKey === key && openRouterKeyMintedAgeMs(key) < OPENROUTER_ACTIVATION_MS;
 }
 
 // How OpenRouter was connected: 'oauth' (signed in) or 'key' (pasted), for the card's line
@@ -472,15 +476,15 @@ export function openRouterKeyRejected() {
 export function noteOpenRouterStatus(status, key) {
 	if (!key || key !== OR.readKey()) return false;
 	// A 401 for a key a sign-in minted moments ago means OpenRouter has not activated it yet.
-	if (status === 401 && openRouterKeyMintedAgeMs() < OPENROUTER_ACTIVATION_MS) {
-		if (orActivating) return false;
-		orActivating = true;
+	if (status === 401 && openRouterKeyMintedAgeMs(key) < OPENROUTER_ACTIVATION_MS) {
+		if (activatingKey === key) return false;
+		activatingKey = key;
 		announce();
 		return true;
 	}
-	const was = orActivating;
 	if (status !== 401 && !(status >= 200 && status < 300)) return OR.noteStatus(status, key);
-	orActivating = false; // a 2xx means active; a 401 past the window is a rejection
+	const was = activatingKey !== null;
+	activatingKey = null; // a 2xx means active; a 401 past the window is a rejection
 	const changed = OR.noteStatus(status, key);
 	if (was && !changed) announce();
 	return changed || was;
@@ -494,6 +498,7 @@ export function isOpenRouterKeyEvent(event) {
 	const k = event?.key;
 	const hit = k === null || Object.values(SLOTS).some((s) => s.KEY === k);
 	if (hit) wrapKey = null; // the other tab may have made the sealing key; read it afresh
+	if (hit) activatingKey = null; // the other tab's key is not the one this tab saw activating
 	return hit;
 }
 
@@ -538,5 +543,5 @@ export function providerKeyState(provider) {
 export function __resetOpenRouterKeyForTests() {
 	for (const s of Object.values(SLOTS)) s.reset();
 	wrapKey = null;
-	orActivating = false;
+	activatingKey = null;
 }

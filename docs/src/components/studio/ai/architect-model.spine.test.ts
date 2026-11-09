@@ -434,4 +434,57 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 		const { describeModelError } = await import('../model-error');
 		expect(describeModelError('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.')).toMatch(/^OpenRouter is still activating/);
 	});
+	it('past the window, an error or a dropped connection ends the watch instead of looping', async () => {
+		for (const last of [503, 0]) {
+			const { m, keys, auth } = await setup([401]);
+			const minted = Date.now();
+			auth.mockImplementation(async () => {
+				if (Date.now() - minted > keys.OPENROUTER_ACTIVATION_MS) {
+					if (last === 0) throw new TypeError('Failed to fetch');
+					return new Response('{}', { status: last });
+				}
+				return new Response(JSON.stringify({ error: { message: 'User not found.', code: 401 } }), { status: 401 });
+			});
+			await m.openRouterAccount();
+			await vi.advanceTimersByTimeAsync(keys.OPENROUTER_ACTIVATION_MS + 5_000);
+			const at = auth.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(keys.openRouterKeyActivating()).toBe(false); // read on the advanced clock
+			vi.useRealTimers();
+			// One ask, then one every 15 s through the window, then one just after it: never a hot loop.
+			expect(at).toBeGreaterThanOrEqual(12);
+			expect(at).toBeLessThanOrEqual(15);
+			expect(auth.mock.calls.length).toBe(at);
+			localStorage.clear();
+			keys.__resetOpenRouterKeyForTests();
+		}
+	});
+	it('"activating" ends with the window even when nothing asks again (a read-aloud 401)', async () => {
+		const { keys } = await setup([401]);
+		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		expect(keys.openRouterKeyActivating()).toBe(true);
+		await vi.advanceTimersByTimeAsync(keys.OPENROUTER_ACTIVATION_MS + 1_000);
+		expect(keys.openRouterKeyActivating()).toBe(false); // read on the advanced clock
+		vi.useRealTimers();
+	});
+	it('another tab changing the key ends this tab\'s "activating"', async () => {
+		const { keys } = await setup([401]);
+		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		vi.useRealTimers();
+		expect(keys.openRouterKeyActivating()).toBe(true);
+		keys.isOpenRouterKeyEvent({ key: 'lattice-db-or-key' } as StorageEvent);
+		expect(keys.openRouterKeyActivating()).toBe(false);
+	});
+	it('Disconnect then Undo keeps a just-minted key in its window', async () => {
+		const { keys } = await setup([401]);
+		vi.useRealTimers();
+		keys.writeOpenRouterKey(null);
+		keys.writeOpenRouterKey('sk-or-v1-fresh-oauth-key-0a0a');
+		expect(keys.openRouterKeyMintedAgeMs()).toBeLessThan(keys.OPENROUTER_ACTIVATION_MS);
+		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
+		expect(keys.openRouterKeyRejected()).toBe(false);
+		// A different key never inherits the window.
+		keys.writeOpenRouterKey('sk-or-v1-a-pasted-key-9999');
+		expect(keys.openRouterKeyMintedAgeMs()).toBe(Number.POSITIVE_INFINITY);
+	});
 });
