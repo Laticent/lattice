@@ -179,7 +179,12 @@ main-thread busy by the slide 2.91 s → 2.90 s, first slide 4,305 → 4,350 ms.
 **Focus on close, fixed on the way.** The first-open spec found that Escape on the phone drawer left focus on `<body>`,
 on `main` too: a modal Radix sheet returns focus only to a `SheetTrigger`, and these sheets open from plain buttons.
 `SheetContent` now returns focus to the opener when nothing else has taken it (`engineering/gotchas/studio-playground.md`,
-"Closing a sheet leaves focus on the page body").
+"Closing a sheet leaves focus on the page body"). `docs/scripts/ios-safari/sheet-focus-probe.js` checks it in real
+Mobile Safari: focus a plain opener, press it, Escape, and focus must be back on the opener, for a first open (mount)
+and a second (latched). Its WebKit self-test passes at iPad, iPad-Safari and iPhone widths on this change and fails at
+all three on `main` ("focus on body"). The `ios-safari-studio` suite ran it in the iOS Simulator (platform-suites run
+42697185485): PASS on an iPad Pro 13-inch (Version history) and an iPhone 17 Pro (Menu), Safari 26.5. It measures DOM
+focus, which a keyboard and a screen reader's programmatic focus follow; VoiceOver itself is UNVERIFIED.
 
 **Lighthouse**: see §7.
 
