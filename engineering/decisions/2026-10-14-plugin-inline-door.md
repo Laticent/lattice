@@ -253,6 +253,9 @@ untrusted plugins. The red team's brief includes the phrasing-content sanitizer 
 - **Decided (owner, 2026-10-14): the zip half of `inline` is PROVISIONAL, outside LPM 1.0's freeze.** It freezes once
   #2686's reader settles how a record reads (it decides `fields`) and the shadowing on rebuilt layouts is decided
   (`followups.d/2687-p4-…`, `2687-p5-…`). The built-in `@kind{…}` form is not provisional.
+  **2687-p4 resolved 2026-11-09:** the shadow is gone, not kept. Every built-in reader masks plugin output
+  (`spec/LPM.md` §10, `checkSlideTextAddressReaders`), so a zip plugin's spans and fences draw on the layouts a shipped
+  pass rebuilds. `contact` and `wifi` keep only their card, which drops any code block, a plugin's included.
 - **Decided (owner, 2026-10-14): no declarative "template" tier.** The inversion lens proposed kinds drawn from a
   manifest template with no code. Rejected: a plugin is live code that acts on change (an avatar redraws when its
   traits change), and a template is a fill-in that cannot. The trust model stays as built: once the author approves

