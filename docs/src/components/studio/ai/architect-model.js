@@ -543,12 +543,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // reroutes a retired id silently is caught.
       const res = await send(body.model);
       if (!res.ok) {
-        noteStatus(res.status, key);
         const detail = await res.text().catch(() => '');
-        if (res.status === 401) {
+        // Recorded before the mark goes up, so the one change event the mark sends carries it.
+        if (res.status === 401 && key === readOpenRouterKey()) {
           const age = openRouterKeyAgeMs();
           noteKeyRefusal('openrouter', { status: 401, message: /"message"\s*:\s*"([^"]*)/.exec(detail)?.[1] ?? detail, ageMs: Number.isFinite(age) ? age : null });
         }
+        noteStatus(res.status, key);
         throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };

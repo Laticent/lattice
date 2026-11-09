@@ -802,7 +802,10 @@ describe('WorkspaceSheet — a rejected key shows on every card on its route', (
 		}
 		// The OpenRouter row says what OpenRouter answered, so a report names the cause.
 		const { noteKeyRefusal } = await import('@/lib/model-retired.js');
-		act(() => noteKeyRefusal('openrouter', { status: 401, message: 'User not found.', ageMs: 4000, asks: 3 }));
+		act(() => {
+			noteKeyRefusal('openrouter', { status: 401, message: 'User not found.', ageMs: 4000, asks: 3 });
+			window.dispatchEvent(new Event('db-model-changed')); // the rejected mark's event, which follows the record in the app
+		});
 		await waitFor(() => expect(sheet.getByTestId('provider-row-openrouter-line')).toHaveTextContent('OpenRouter said 401: User not found., 4 s after the key was made, asked 3×'));
 	});
 });

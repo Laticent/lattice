@@ -121,8 +121,9 @@ const refusals = new Map();
  * @param {{ status: number, message?: string, ageMs?: number | null, asks?: number }} r
  */
 export function noteKeyRefusal(provider, { status, message = '', ageMs = null, asks = 1 }) {
+	// No event of its own: the caller records this BEFORE it marks the key rejected, and that mark's
+	// one change event is what the Workspace re-reads on.
 	refusals.set(provider, { status, message: String(message).replace(/\s+/g, ' ').trim().slice(0, 140), ageMs, asks, at: Date.now() });
-	emit('db-model-changed');
 }
 
 /** The last refusal a provider gave this page, or null. */
